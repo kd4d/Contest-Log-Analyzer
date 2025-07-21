@@ -1,0 +1,89 @@
+# Contest Log Analyzer/contest_tools/log_manager.py
+#
+# Purpose: Defines the LogManager class, which handles loading and storing
+#          multiple ContestLog instances for comparative analysis.
+#
+# Author: Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
+# Date: 2025-07-21
+# Version: 0.10.0-Beta
+#
+# Copyright (c) 2025 Mark Bailey, KD4D
+#
+# License: Mozilla Public License, v. 2.0
+#          (https://www.mozilla.org/MPL/2.0/)
+#
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+# --- Revision History ---
+# All notable changes to this project will be documented in this file.
+# The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
+# and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.10.0-Beta] - 2025-07-21
+# - Initial release of the LogManager class.
+
+### Changed
+# - (None)
+
+### Fixed
+# - (None)
+
+### Removed
+# - (None)
+
+from typing import Dict, List, Optional
+from .contest_log import ContestLog
+import os
+
+class LogManager:
+    """
+    Manages a collection of ContestLog instances for analysis.
+    """
+    def __init__(self):
+        self._logs: Dict[str, ContestLog] = {}
+
+    def load_log(self, cabrillo_filepath: str) -> Optional[ContestLog]:
+        """
+        Loads a Cabrillo file, creates a ContestLog instance, and stores it.
+
+        Args:
+            cabrillo_filepath (str): The path to the Cabrillo log file.
+
+        Returns:
+            Optional[ContestLog]: The loaded ContestLog instance, or None if loading fails.
+        """
+        try:
+            print(f"Loading log: {cabrillo_filepath}...")
+            # Auto-detect contest name from the file
+            contest_name = self._get_contest_name_from_file(cabrillo_filepath)
+            
+            log = ContestLog(contest_name=contest_name, cabrillo_filepath=cabrillo_filepath)
+            log.apply_annotations()
+            
+            callsign = log.get_metadata().get('MyCall', os.path.basename(cabrillo_filepath))
+            self._logs[callsign] = log
+            print(f"Successfully loaded and processed log for {callsign}.")
+            return log
+        except (ValueError, FileNotFoundError, KeyError, IOError) as e:
+            print(f"Error loading log {cabrillo_filepath}: {e}")
+            return None
+
+    def get_log(self, callsign: str) -> Optional[ContestLog]:
+        """Retrieves a loaded log by its callsign."""
+        return self._logs.get(callsign)
+
+    def get_all_logs(self) -> List[ContestLog]:
+        """Returns a list of all loaded ContestLog instances."""
+        return list(self._logs.values())
+
+    @staticmethod
+    def _get_contest_name_from_file(filepath: str) -> str:
+        """Quickly scans a Cabrillo file to find the CONTEST header."""
+        with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+            for line in f:
+                if line.upper().strip().startswith('CONTEST:'):
+                    return line[len('CONTEST:'):].strip()
+        raise ValueError(f"Could not find a 'CONTEST:' header in {filepath}")

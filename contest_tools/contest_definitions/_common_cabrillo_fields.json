@@ -1,0 +1,31 @@
+{
+  "_filename": "contest_tools/contest_definitions/_common_cabrillo_fields.json",
+  "cabrillo_version": "3.0",
+  "header_field_map": {
+    "CALLSIGN": "MyCall",
+    "CONTEST": "ContestName",
+    "CATEGORY-OVERLAY": "CategoryOverlay",
+    "CATEGORY-OPERATOR": "CategoryOperator",
+    "CATEGORY-TRANSMITTER": "CategoryTransmitter",
+    "LOCATION": "MySection",
+    "CLUB": "Club",
+    "ARRL-SECTION": "ARRLSection",
+    "CLAIMED-SCORE": "ClaimedScore",
+    "SOAPBOX": "Soapbox",
+    "NAME": "OperatorName",
+    "ADDRESS": "Address",
+    "ADDRESS-CITY": "AddressCity",
+    "ADDRESS-STATE-PROVINCE": "AddressStateProvince",
+    "ADDRESS-POSTALCODE": "AddressPostalCode",
+    "ADDRESS-COUNTRY": "AddressCountry"
+  },
+  "qso_common_fields_regex": "QSO:\\s+(\\d{4,5})\\s+(..)\\s+(\\d{4}-\\d{2}-\\d{2})\\s+(\\d{4})\\s+([A-Z0-9/]+)\\s+(.*)",
+  "qso_common_field_names": ["FrequencyRaw", "Mode", "DateRaw", "TimeRaw", "MyCallRaw", "ExchangeRest"],
+  "default_qso_columns": [
+    "ContestName", "CategoryOverlay", "CategoryOperator", "CategoryTransmitter", "MyCall",
+    "Frequency", "Mode", "Datetime", "SentRST", "SentNR", "Call", "RST", "NR", "Transmitter",
+    "Band", "Date", "Hour", "Dupe",
+    "DXCCName", "DXCCPfx", "CQZone", "ITUZone", "Continent", "WAEName", "WAEPfx", "Lat", "Lon", "Tzone",
+    "Run"
+  ]
+}

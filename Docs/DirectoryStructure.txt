@@ -1,0 +1,35 @@
+Contest Log Analyzer/
+│
+├── Docs/
+│   └── (Your documentation files will go here)
+│
+├── data/
+│   └── cty.dat
+│
+├── main_cli.py
+│
+├── reports_output/
+│   └── (Generated plots and text files will be saved here)
+│
+└── contest_tools/
+    │
+    ├── __init__.py
+    ├── cabrillo_parser.py
+    ├── contest_log.py
+    ├── log_manager.py
+    │
+    ├── contest_definitions/
+    │   ├── __init__.py
+    │   ├── _common_cabrillo_fields.json
+    │   └── cq_wpx_cw.json
+    │
+    ├── core_annotations/
+    │   ├── __init__.py
+    │   ├── get_cty.py
+    │   └── run_s_p.py
+    │
+    └── reports/
+        ├── __init__.py
+        ├── report_interface.py
+        ├── plot_qso_rate.py
+        └── text_summary.py

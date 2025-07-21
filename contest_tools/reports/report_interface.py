@@ -1,0 +1,80 @@
+# Contest Log Analyzer/contest_tools/reports/report_interface.py
+#
+# Purpose: Defines the abstract base class for all report generators.
+#
+# Author: Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
+# Date: 2025-07-21
+# Version: 0.10.0-Beta
+#
+# Copyright (c) 2025 Mark Bailey, KD4D
+#
+# License: Mozilla Public License, v. 2.0
+#          (https://www.mozilla.org/MPL/2.0/)
+#
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+# --- Revision History ---
+# All notable changes to this project will be documented in this file.
+# The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
+# and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.10.0-Beta] - 2025-07-21
+# - Initial release of the report interface.
+
+### Changed
+# - (None)
+
+### Fixed
+# - (None)
+
+### Removed
+# - (None)
+
+from abc import ABC, abstractmethod
+from typing import List
+from ..contest_log import ContestLog
+
+class ContestReport(ABC):
+    """
+    Abstract base class for all report generators.
+    Ensures that every report has a consistent structure.
+    """
+    def __init__(self, logs: List[ContestLog]):
+        if not logs:
+            raise ValueError("Cannot initialize a report with an empty list of logs.")
+        self.logs = logs
+
+    @property
+    @abstractmethod
+    def report_id(self) -> str:
+        """A unique, machine-readable identifier for the report (e.g., 'summary_text')."""
+        pass
+
+    @property
+    @abstractmethod
+    def report_name(self) -> str:
+        """A human-readable name for the report (e.g., 'Contest Summary')."""
+        pass
+
+    @property
+    @abstractmethod
+    def report_type(self) -> str:
+        """The type of report, either 'text' or 'plot'."""
+        pass
+
+    @abstractmethod
+    def generate(self, output_path: str) -> str:
+        """
+        Generates the report content.
+
+        Args:
+            output_path (str): The directory where any output files (like plots) should be saved.
+
+        Returns:
+            str: For 'text' reports, this is the report content.
+                 For 'plot' reports, this is the filename of the generated plot.
+        """
+        pass
