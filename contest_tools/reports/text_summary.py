@@ -5,7 +5,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-07-21
-# Version: 0.10.0-Beta
+# Version: 0.11.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,17 +21,11 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.10.0-Beta] - 2025-07-21
-# - Initial release of the text summary report.
-
+## [0.11.0-Beta] - 2025-07-21
 ### Changed
-# - (None)
-
-### Fixed
-# - (None)
-
-### Removed
-# - (None)
+# - Removed the top-level note about duplicate inclusion.
+# - Changed the 'Total QSOs' label to be more explicit about dupe inclusion
+#   (e.g., 'Total QSOs (without dupes)').
 
 from typing import List
 from ..contest_log import ContestLog
@@ -53,19 +47,27 @@ class Report(ContestReport):
     def report_type(self) -> str:
         return "text"
 
-    def generate(self, output_path: str) -> str:
+    def generate(self, output_path: str, include_dupes: bool = False) -> str:
         report_lines = [f"--- {self.report_name} ---", ""]
 
         for log in self.logs:
             callsign = log.get_metadata().get('MyCall', 'Unknown')
-            df = log.get_processed_data()
+            df_full = log.get_processed_data()
+            
+            # Filter out dupes unless specified otherwise
+            if not include_dupes and 'Dupe' in df_full.columns:
+                df = df_full[df_full['Dupe'] == False].copy()
+                qso_label = "Total QSOs (without dupes)"
+            else:
+                df = df_full.copy()
+                qso_label = "Total QSOs (with dupes)"
             
             total_qsos = len(df)
-            dupes = df['Dupe'].sum()
+            total_dupes = df_full['Dupe'].sum() # Always show total dupes from original log
             
             report_lines.append(f"Log: {callsign}")
-            report_lines.append(f"  - Total QSOs: {total_qsos}")
-            report_lines.append(f"  - Dupes: {dupes}")
+            report_lines.append(f"  - {qso_label}: {total_qsos}")
+            report_lines.append(f"  - Total Dupes (in original log): {total_dupes}")
             
             if 'Run' in df.columns:
                 run_qsos = (df['Run'] == 'Run').sum()

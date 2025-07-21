@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-07-21
-# Version: 0.10.0-Beta
+# Version: 0.11.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -23,19 +23,17 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
+## [0.11.0-Beta] - 2025-07-21
+### Changed
+# - Modified to handle reports that save their own files. The main script
+#   now prints the summary message returned by the report's generate() method.
+# - Report output is now saved to a structured directory:
+#   reports_output/YYYY/ContestName/
+# - The year is determined from the first QSO of the first log processed.
+
 ## [0.10.0-Beta] - 2025-07-21
 # - Integrated new LogManager and reports packages.
 # - Added '--report <id|all>' command-line argument to generate reports.
-# - Text reports are now saved to the 'reports_output' directory.
-
-### Changed
-# - (None)
-
-### Fixed
-# - (None)
-
-### Removed
-# - (None)
 
 import sys
 import os
@@ -49,12 +47,14 @@ def main():
     print("--- Contest Log Analyzer ---")
 
     # --- Argument Parsing ---
+    include_dupes = '--include-dupes' in sys.argv
+    if include_dupes:
+        sys.argv.remove('--include-dupes')
+
     if len(sys.argv) < 3 or sys.argv[1] != '--report':
-        print("\nUsage: python main_cli.py --report <ReportID|all> <LogFilePath1> [<LogFilePath2>...]")
-        print("\nExample: python main_cli.py --report summary k3lr.log w1aw.log")
-        print("Example: python main_cli.py --report all k3lr.log w1aw.log")
+        print("\nUsage: python main_cli.py --report <ReportID|all> <LogFilePath1> [<LogFilePath2>...] [--include-dupes]")
+        print("\nExample: python main_cli.py --report summary k3lr.log --include-dupes")
         
-        # List available reports
         if AVAILABLE_REPORTS:
             print("\nAvailable reports:")
             for report_id, report_class in AVAILABLE_REPORTS.items():
@@ -87,39 +87,33 @@ def main():
             print("\nError: No logs were successfully loaded. Aborting report generation.")
             sys.exit(1)
 
-        # Determine which reports to run
         reports_to_run = []
         if report_id.lower() == 'all':
             reports_to_run = AVAILABLE_REPORTS.values()
         else:
             reports_to_run = [AVAILABLE_REPORTS[report_id]]
         
-        # Define an output directory for plots and text files
-        output_dir = "reports_output"
+        # --- Define Output Directory Structure ---
+        first_log = logs[0]
+        contest_name = first_log.get_metadata().get('ContestName', 'UnknownContest').replace(' ', '_')
+        
+        first_qso_date = first_log.get_processed_data()['Date'].iloc[0]
+        year = first_qso_date.split('-')[0] if first_qso_date else "UnknownYear"
+
+        output_dir = os.path.join("reports_output", year, contest_name)
         
         # Generate the selected reports
         for ReportClass in reports_to_run:
             report_instance = ReportClass(logs)
             print(f"\nGenerating report: '{report_instance.report_name}'...")
-            result = report_instance.generate(output_path=output_dir)
+            result = report_instance.generate(output_path=output_dir, include_dupes=include_dupes)
 
             # --- Output ---
             if report_instance.report_type == 'text':
-                print("\n--- Report Output ---")
+                # The report now saves its own file(s) and returns a summary message.
                 print(result)
-                
-                # Ensure the output directory exists
-                os.makedirs(output_dir, exist_ok=True)
-                
-                # Save text reports to a file
-                text_filename = f"{report_instance.report_id}_report.txt"
-                text_filepath = os.path.join(output_dir, text_filename)
-                with open(text_filepath, 'w', encoding='utf-8') as f:
-                    f.write(result)
-                print(f"Text report saved to: {text_filepath}")
-
             elif report_instance.report_type == 'plot':
-                print(f"\nPlot generated: '{result}' in '{output_dir}/' directory.")
+                print(f"\nPlot(s) generated. See '{output_dir}/' directory.")
 
         print("\n--- Done ---")
 

@@ -5,7 +5,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-07-21
-# Version: 0.10.0-Beta
+# Version: 0.11.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,17 +21,13 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
+## [0.11.0-Beta] - 2025-07-21
+### Changed
+# - Added 'include_dupes' optional boolean argument to the generate() method
+#   signature to allow reports to optionally include duplicate QSOs.
+
 ## [0.10.0-Beta] - 2025-07-21
 # - Initial release of the report interface.
-
-### Changed
-# - (None)
-
-### Fixed
-# - (None)
-
-### Removed
-# - (None)
 
 from abc import ABC, abstractmethod
 from typing import List
@@ -66,12 +62,14 @@ class ContestReport(ABC):
         pass
 
     @abstractmethod
-    def generate(self, output_path: str) -> str:
+    def generate(self, output_path: str, include_dupes: bool = False) -> str:
         """
         Generates the report content.
 
         Args:
             output_path (str): The directory where any output files (like plots) should be saved.
+            include_dupes (bool): If True, duplicate QSOs will be included in calculations.
+                                  Defaults to False.
 
         Returns:
             str: For 'text' reports, this is the report content.
