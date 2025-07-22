@@ -1,7 +1,6 @@
 # Contest Log Analyzer/contest_tools/contest_specific_annotations/__init__.py
 #
 # Purpose: Makes the 'contest_specific_annotations' directory a Python package.
-#          Future versions may include a discovery mechanism for scoring modules.
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -23,16 +22,9 @@
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
 ## [0.12.0-Beta] - 2025-07-21
-# - Initial release of the contest_specific_annotations package.
-
-### Changed
-# - (None)
-
 ### Fixed
-# - (None)
-
-### Removed
-# - (None)
+# - Removed internal imports to resolve a circular dependency issue. The
+#   ContestLog class will now dynamically load scoring modules.
 
 # This file can be left empty. Its presence is what defines
 # this directory as a Python package.

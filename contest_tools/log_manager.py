@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-07-21
-# Version: 0.10.0-Beta
+# Version: 0.12.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,17 +22,10 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.10.0-Beta] - 2025-07-21
-# - Initial release of the LogManager class.
-
+## [0.12.0-Beta] - 2025-07-21
 ### Changed
-# - (None)
-
-### Fixed
-# - (None)
-
-### Removed
-# - (None)
+# - The load_log method now automatically exports a '_processed.csv' file for
+#   each log after all annotations are applied.
 
 from typing import Dict, List, Optional
 from .contest_log import ContestLog
@@ -47,7 +40,8 @@ class LogManager:
 
     def load_log(self, cabrillo_filepath: str) -> Optional[ContestLog]:
         """
-        Loads a Cabrillo file, creates a ContestLog instance, and stores it.
+        Loads a Cabrillo file, creates a ContestLog instance, applies all
+        annotations, exports a processed CSV, and stores the instance.
 
         Args:
             cabrillo_filepath (str): The path to the Cabrillo log file.
@@ -62,6 +56,11 @@ class LogManager:
             
             log = ContestLog(contest_name=contest_name, cabrillo_filepath=cabrillo_filepath)
             log.apply_annotations()
+            
+            # Export the processed DataFrame to a CSV file
+            base_name = os.path.splitext(cabrillo_filepath)[0]
+            output_csv_path = f"{base_name}_processed.csv"
+            log.export_to_csv(output_csv_path)
             
             callsign = log.get_metadata().get('MyCall', os.path.basename(cabrillo_filepath))
             self._logs[callsign] = log
