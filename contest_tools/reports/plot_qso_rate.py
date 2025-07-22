@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-21
-# Version: 0.11.4-Beta
+# Date: 2025-07-22
+# Version: 0.12.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,14 +22,9 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.11.4-Beta] - 2025-07-21
-### Fixed
-# - Removed manual layout adjustment to eliminate extra blank lines in plot titles.
-
-## [0.11.3-Beta] - 2025-07-21
-### Fixed
-# - Updated pandas resample method from deprecated 'H' to 'h' to resolve
-#   FutureWarning.
+## [0.12.0-Beta] - 2025-07-22
+### Changed
+# - Refactored the generate() method to use **kwargs for flexible argument passing.
 
 from typing import List
 import pandas as pd
@@ -115,7 +110,6 @@ class Report(ContestReport):
         ax.legend()
         ax.grid(True)
         
-        # FIX: Use automatic tight_layout to prevent overlap without extra space
         fig.tight_layout()
         
         os.makedirs(output_path, exist_ok=True)
@@ -128,10 +122,17 @@ class Report(ContestReport):
 
         print(f"Plot saved to: {filepath}")
 
-    def generate(self, output_path: str, include_dupes: bool = False) -> str:
+    def generate(self, output_path: str, **kwargs) -> str:
         """
         Orchestrates the generation of all rate plots.
+
+        Args:
+            output_path (str): The directory where any output files should be saved.
+            **kwargs:
+                - include_dupes (bool): If True, dupes are included. Defaults to False.
         """
+        include_dupes = kwargs.get('include_dupes', False)
+
         bands_to_plot = ['All', '160M', '80M', '40M', '20M', '15M', '10M']
         
         for band in bands_to_plot:
@@ -145,6 +146,5 @@ class Report(ContestReport):
         summary_message = f"Generated {num_bands + 1} plots (All Bands + {num_bands} individual bands)."
         
         primary_filename = "qso_rate_all_plot.png"
-        print(summary_message)
         
-        return primary_filename
+        return summary_message

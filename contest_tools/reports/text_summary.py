@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-21
-# Version: 0.11.0-Beta
+# Date: 2025-07-22
+# Version: 0.12.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,13 +21,13 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.11.0-Beta] - 2025-07-21
+## [0.12.0-Beta] - 2025-07-22
 ### Changed
-# - Removed the top-level note about duplicate inclusion.
-# - Changed the 'Total QSOs' label to be more explicit about dupe inclusion
-#   (e.g., 'Total QSOs (without dupes)').
+# - The generate() method now saves its own output file and returns a
+#   confirmation message, standardizing behavior with other reports.
 
 from typing import List
+import os
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
 
@@ -47,14 +47,28 @@ class Report(ContestReport):
     def report_type(self) -> str:
         return "text"
 
-    def generate(self, output_path: str, include_dupes: bool = False) -> str:
-        report_lines = [f"--- {self.report_name} ---", ""]
+    def generate(self, output_path: str, **kwargs) -> str:
+        """
+        Generates the report content, saves it to a file, and returns a summary.
+
+        Args:
+            output_path (str): The directory where any output files should be saved.
+            **kwargs:
+                - include_dupes (bool): If True, dupes are included. Defaults to False.
+        """
+        include_dupes = kwargs.get('include_dupes', False)
+
+        report_lines = [f"--- {self.report_name} ---"]
+        if include_dupes:
+            report_lines.append("Note: Includes Dupes")
+        else:
+            report_lines.append("Note: Does Not Include Dupes")
+        report_lines.append("")
 
         for log in self.logs:
             callsign = log.get_metadata().get('MyCall', 'Unknown')
             df_full = log.get_processed_data()
             
-            # Filter out dupes unless specified otherwise
             if not include_dupes and 'Dupe' in df_full.columns:
                 df = df_full[df_full['Dupe'] == False].copy()
                 qso_label = "Total QSOs (without dupes)"
@@ -63,7 +77,7 @@ class Report(ContestReport):
                 qso_label = "Total QSOs (with dupes)"
             
             total_qsos = len(df)
-            total_dupes = df_full['Dupe'].sum() # Always show total dupes from original log
+            total_dupes = df_full['Dupe'].sum()
             
             report_lines.append(f"Log: {callsign}")
             report_lines.append(f"  - {qso_label}: {total_qsos}")
@@ -77,4 +91,11 @@ class Report(ContestReport):
             
             report_lines.append("")
 
-        return "\n".join(report_lines)
+        report_content = "\n".join(report_lines)
+        os.makedirs(output_path, exist_ok=True)
+        filename = f"{self.report_id}_report.txt"
+        filepath = os.path.join(output_path, filename)
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(report_content)
+        
+        return f"Text report saved to: {filepath}"

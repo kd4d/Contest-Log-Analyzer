@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-21
-# Version: 0.11.0-Beta
+# Date: 2025-07-22
+# Version: 0.12.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,13 +21,10 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.11.0-Beta] - 2025-07-21
+## [0.12.0-Beta] - 2025-07-22
 ### Changed
-# - Added 'include_dupes' optional boolean argument to the generate() method
-#   signature to allow reports to optionally include duplicate QSOs.
-
-## [0.10.0-Beta] - 2025-07-21
-# - Initial release of the report interface.
+# - Refactored the generate() method to use **kwargs for flexible argument
+#   passing, improving scalability for future reports with custom arguments.
 
 from abc import ABC, abstractmethod
 from typing import List
@@ -62,17 +59,18 @@ class ContestReport(ABC):
         pass
 
     @abstractmethod
-    def generate(self, output_path: str, include_dupes: bool = False) -> str:
+    def generate(self, output_path: str, **kwargs) -> str:
         """
         Generates the report content.
 
         Args:
-            output_path (str): The directory where any output files (like plots) should be saved.
-            include_dupes (bool): If True, duplicate QSOs will be included in calculations.
-                                  Defaults to False.
+            output_path (str): The directory where any output files should be saved.
+            **kwargs: A dictionary for optional report-specific arguments.
+                - include_dupes (bool): If True, include dupes. Defaults to False.
+                - mult_type (str): 'dxcc' or 'wae'. Defaults to 'dxcc'.
 
         Returns:
-            str: For 'text' reports, this is the report content.
-                 For 'plot' reports, this is the filename of the generated plot.
+            str: For 'text' reports, a summary message or the content itself.
+                 For 'plot' reports, a summary message or the primary filename.
         """
         pass

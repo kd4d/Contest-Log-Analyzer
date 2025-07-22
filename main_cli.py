@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-21
-# Version: 0.11.1-Beta
+# Date: 2025-07-22
+# Version: 0.12.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -23,18 +23,10 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.11.1-Beta] - 2025-07-21
-### Fixed
-# - Restored the prompt in the usage instructions to remind the user to set
-#   the CTY_DAT_PATH environment variable.
-# - Updated usage string to correctly show the optional --include-dupes flag.
-
-## [0.11.0-Beta] - 2025-07-21
+## [0.12.0-Beta] - 2025-07-22
 ### Changed
-# - Modified to handle reports that save their own files. The main script
-#   now prints the summary message returned by the report's generate() method.
-# - Report output is now saved to a structured directory:
-#   reports_output/YYYY/ContestName/
+# - Refactored argument parsing to use a kwargs dictionary, which is passed
+#   to the report generator. This aligns with the new flexible report interface.
 
 import sys
 import os
@@ -48,14 +40,30 @@ def main():
     print("--- Contest Log Analyzer ---")
 
     # --- Argument Parsing ---
-    include_dupes = '--include-dupes' in sys.argv
-    if include_dupes:
-        sys.argv.remove('--include-dupes')
+    args = sys.argv[1:]
+    report_kwargs = {}
 
-    if len(sys.argv) < 3 or sys.argv[1] != '--report':
-        print("\nUsage: python main_cli.py --report <ReportID|all> <LogFilePath1> [<LogFilePath2>...] [--include-dupes]")
-        print("\nExample: python main_cli.py --report summary k3lr.log --include-dupes")
-        print("\nEnsure the CTY_DAT_PATH environment variable is set to the location of your cty.dat file.")
+    if '--include-dupes' in args:
+        report_kwargs['include_dupes'] = True
+        args.remove('--include-dupes')
+
+    if '--mult-type' in args:
+        try:
+            mt_index = args.index('--mult-type')
+            mult_type = args[mt_index + 1].lower()
+            if mult_type not in ['dxcc', 'wae']:
+                raise ValueError("Multiplier type must be 'dxcc' or 'wae'.")
+            report_kwargs['mult_type'] = mult_type
+            args.pop(mt_index)
+            args.pop(mt_index)
+        except (IndexError, ValueError) as e:
+            print(f"\nError with --mult-type argument: {e}")
+            sys.exit(1)
+
+    if len(args) < 2 or args[0] != '--report':
+        print("\nUsage: python main_cli.py --report <ReportID|all> <LogFilePath1>... [--include-dupes] [--mult-type <dxcc|wae>]")
+        print("\nExample: python main_cli.py --report missed_country_mults k3lr.log kc1xx.log --mult-type wae")
+        print("\nEnsure the CTY_DAT_PATH environment variable is set.")
         
         if AVAILABLE_REPORTS:
             print("\nAvailable reports:")
@@ -66,8 +74,8 @@ def main():
             
         sys.exit(1)
 
-    report_id = sys.argv[2]
-    log_filepaths = sys.argv[3:]
+    report_id = args[1]
+    log_filepaths = args[2:]
 
     # --- Input Validation ---
     if report_id.lower() != 'all' and report_id not in AVAILABLE_REPORTS:
@@ -108,11 +116,10 @@ def main():
         for ReportClass in reports_to_run:
             report_instance = ReportClass(logs)
             print(f"\nGenerating report: '{report_instance.report_name}'...")
-            result = report_instance.generate(output_path=output_dir, include_dupes=include_dupes)
+            result = report_instance.generate(output_path=output_dir, **report_kwargs)
 
             # --- Output ---
             if report_instance.report_type == 'text':
-                # The report now saves its own file(s) and returns a summary message.
                 print(result)
             elif report_instance.report_type == 'plot':
                 print(f"\nPlot(s) generated. See '{output_dir}/' directory.")
