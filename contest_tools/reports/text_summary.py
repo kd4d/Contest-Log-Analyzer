@@ -5,7 +5,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-07-22
-# Version: 0.12.0-Beta
+# Version: 0.13.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,10 +21,10 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.12.0-Beta] - 2025-07-22
+## [0.13.0-Beta] - 2025-07-22
 ### Changed
-# - The generate() method now saves its own output file and returns a
-#   confirmation message, standardizing behavior with other reports.
+# - Refactored the generate() method to use **kwargs for flexible argument passing.
+# - The method now saves its own output file and returns a summary message.
 
 from typing import List
 import os

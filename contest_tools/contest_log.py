@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-21
-# Version: 0.12.3-Beta
+# Date: 2025-07-22
+# Version: 0.13.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -23,15 +23,11 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.12.3-Beta] - 2025-07-21
+## [0.13.0-Beta] - 2025-07-22
 ### Changed
-# - Added detailed debugging prints to the dynamic module loader to show
-#   which scoring modules it is attempting to import.
-
-## [0.12.2-Beta] - 2025-07-21
-### Fixed
-# - Changed dynamic module loading to use absolute import paths instead of
-#   relative ones to prevent ImportError.
+# - The 'apply_annotations' method now passes the ContestDefinition object
+#   to the country data processing function, enabling the use of
+#   contest-specific country files.
 
 import pandas as pd
 from datetime import datetime
@@ -164,7 +160,8 @@ class ContestLog:
 
         try:
             print("Applying DXCC/Zone lookup annotation...")
-            self.qsos_df = process_dataframe_for_cty_data(self.qsos_df)
+            # Pass the contest definition to the lookup function
+            self.qsos_df = process_dataframe_for_cty_data(self.qsos_df, self.contest_definition)
             print("DXCC/Zone lookup annotation complete.")
         except Exception as e:
             print(f"Error during DXCC/Zone lookup: {e}. Skipping.")
@@ -186,7 +183,15 @@ class ContestLog:
             return
             
         try:
-            cty_dat_path = os.environ.get('CTY_DAT_PATH').strip().strip('"').strip("'")
+            # Determine which country file to use for our own callsign lookup
+            country_file_to_use = self.contest_definition.country_file_name
+            base_cty_path = os.environ.get('CTY_DAT_PATH').strip().strip('"').strip("'")
+            if country_file_to_use:
+                base_dir = os.path.dirname(base_cty_path)
+                cty_dat_path = os.path.join(base_dir, country_file_to_use)
+            else:
+                cty_dat_path = base_cty_path
+
             cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)
             my_call_info = cty_lookup.get_cty_DXCC_WAE(my_call)._asdict()
         except Exception as e:
@@ -197,28 +202,23 @@ class ContestLog:
         # --- Dynamically load the scoring module with fallback ---
         scoring_module = None
         try:
-            # First, try the full, specific name (e.g., cq_wpx_cw_scoring)
             module_name_specific = self.contest_name.lower().replace('-', '_')
-            module_path_specific = f"contest_tools.contest_specific_annotations.{module_name_specific}_scoring"
-            print(f"DEBUG: Attempting to import specific module: {module_path_specific}") # DEBUG
-            scoring_module = importlib.import_module(module_path_specific)
-            print(f"{self.contest_name} scoring complete.")
+            scoring_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{module_name_specific}_scoring")
+            print(f"Using specific scoring module for {self.contest_name}.")
         except ImportError:
             try:
-                # If specific module fails, try a more generic name by stripping the mode (e.g., cq_wpx_scoring)
                 base_contest_name = self.contest_name.rsplit('-', 1)[0]
                 module_name_generic = base_contest_name.lower().replace('-', '_')
-                module_path_generic = f"contest_tools.contest_specific_annotations.{module_name_generic}_scoring"
-                print(f"DEBUG: Specific module not found. Attempting to import generic module: {module_path_generic}") # DEBUG
-                scoring_module = importlib.import_module(module_path_generic)
-                print(f"{self.contest_name} scoring complete (using generic '{base_contest_name}' rules).")
+                scoring_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{module_name_generic}_scoring")
+                print(f"Using generic scoring module for {self.contest_name} (rules for '{base_contest_name}').")
             except (ImportError, IndexError):
                 print(f"Warning: No scoring module found for contest '{self.contest_name}'. Points will be 0.")
                 self.qsos_df['QSOPoints'] = 0
-                return # Exit if no module found
+                return
         
         try:
             self.qsos_df['QSOPoints'] = scoring_module.calculate_points(self.qsos_df, my_call_info)
+            print(f"Scoring complete.")
         except Exception as e:
             print(f"Error during {self.contest_name} scoring: {e}")
             self.qsos_df['QSOPoints'] = 0

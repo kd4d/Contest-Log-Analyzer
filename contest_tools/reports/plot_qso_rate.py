@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-07-22
-# Version: 0.12.0-Beta
+# Version: 0.13.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,7 +22,7 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.12.0-Beta] - 2025-07-22
+## [0.13.0-Beta] - 2025-07-22
 ### Changed
 # - Refactored the generate() method to use **kwargs for flexible argument passing.
 
@@ -144,7 +144,5 @@ class Report(ContestReport):
         
         num_bands = len(bands_to_plot) -1 # Subtract 'All'
         summary_message = f"Generated {num_bands + 1} plots (All Bands + {num_bands} individual bands)."
-        
-        primary_filename = "qso_rate_all_plot.png"
         
         return summary_message

@@ -1,11 +1,12 @@
-# Contest Log Analyzer/contest_tools/reports/text_missed_country_mults.py
+# Contest Log Analyzer/contest_tools/reports/text_missed_multipliers.py
 #
-# Purpose: A text report that generates a comparative "missed multipliers" summary for countries.
+# Purpose: A data-driven text report that generates a comparative "missed multipliers"
+#          summary for any multiplier type defined in a contest's JSON file.
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-07-22
-# Version: 0.12.0-Beta
+# Version: 0.13.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,9 +22,11 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.12.0-Beta] - 2025-07-22
-### Changed
-# - Refactored the generate() method to use **kwargs for flexible argument passing.
+## [0.13.0-Beta] - 2025-07-22
+# - Initial release of the generic Missed Multipliers report.
+# - The report is now data-driven by the 'multiplier_rules' in the contest JSON.
+# - Requires a 'mult_name' argument to specify which multiplier to analyze.
+# - Uses set operations and correct formatting for the output table.
 
 from typing import List, Dict, Any, Set
 import pandas as pd
@@ -34,16 +37,16 @@ from .report_interface import ContestReport
 
 class Report(ContestReport):
     """
-    Generates a comparative report showing country multipliers worked by each station
-    on each band, highlighting missed opportunities.
+    Generates a comparative report showing a specific multiplier worked by each
+    station on each band, highlighting missed opportunities.
     """
     @property
     def report_id(self) -> str:
-        return "missed_country_mults"
+        return "missed_multipliers"
 
     @property
     def report_name(self) -> str:
-        return "Missed Country Multipliers"
+        return "Missed Multipliers"
 
     @property
     def report_type(self) -> str:
@@ -68,34 +71,39 @@ class Report(ContestReport):
             output_path (str): The directory where any output files should be saved.
             **kwargs:
                 - include_dupes (bool): This report always excludes dupes.
-                - mult_type (str): 'dxcc' or 'wae'. Defaults to 'dxcc'.
+                - mult_name (str): The name of the multiplier to analyze (e.g., 'Countries', 'Zones').
         """
         include_dupes = kwargs.get('include_dupes', False)
-        mult_type = kwargs.get('mult_type', 'dxcc')
+        mult_name = kwargs.get('mult_name')
+
+        if not mult_name:
+            return "Error: 'mult_name' argument is required for the Missed Multipliers report."
+
+        first_log_def = self.logs[0].contest_definition
+        mult_column = None
+        for rule in first_log_def.multiplier_rules:
+            if rule.get('name', '').lower() == mult_name.lower():
+                mult_column = rule.get('column')
+                break
+        
+        if not mult_column:
+            return f"Error: Multiplier type '{mult_name}' not found in definition for {first_log_def.contest_name}."
 
         if include_dupes:
-            print("Note: The Missed Country Multipliers report always excludes dupes.")
+            print(f"Note: The Missed {mult_name} report always excludes dupes.")
         
-        mult_header_text = "WAE Countries" if mult_type == 'wae' else "DXCC Countries"
-        
-        title_line = f"-    Missed {mult_header_text}    -"
+        title_line = f"-    Missed {mult_name}    -"
         separator_line = "-" * len(title_line)
 
-        report_lines = [
-            separator_line,
-            title_line,
-            separator_line,
-            ""
-        ]
+        report_lines = [separator_line, title_line, separator_line, ""]
 
         all_calls = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])
         bands = ['160M', '80M', '40M', '20M', '15M', '10M']
-        col_width = 12 # Set a fixed width for each callsign column
+        col_width = 12
 
         for band in bands:
             report_lines.append(f"            {band.replace('M', '')} Meters")
             
-            # --- Data Aggregation for the Band ---
             band_data: Dict[str, pd.DataFrame] = {}
             mult_sets: Dict[str, Set[str]] = {call: set() for call in all_calls}
 
@@ -105,23 +113,16 @@ class Report(ContestReport):
                 
                 df = df_full[df_full['Dupe'] == False].copy()
                 
-                if df.empty:
+                if df.empty or mult_column not in df.columns:
                     continue
-
-                if mult_type == 'wae':
-                    df['MultiplierPfx'] = np.where(
-                        (df['WAEPfx'].notna()) & (df['WAEPfx'] != ''), 
-                        df['WAEPfx'], 
-                        df['DXCCPfx']
-                    )
-                else: # Default to DXCC
-                    df['MultiplierPfx'] = df['DXCCPfx']
                 
-                df_band = df[df['Band'] == band]
+                df_band = df[df['Band'] == band].copy()
                 if df_band.empty:
                     continue
                 
-                agg_data = df_band.groupby('MultiplierPfx').agg(
+                df_band.dropna(subset=[mult_column], inplace=True)
+
+                agg_data = df_band.groupby(mult_column).agg(
                     QSO_Count=('Call', 'size'),
                     Run_SP_Status=('Run', self._get_run_sp_status)
                 )
@@ -129,11 +130,10 @@ class Report(ContestReport):
                 band_data[callsign] = agg_data
                 mult_sets[callsign].update(agg_data.index)
 
-            # --- Use Set Operations to Find Missed Multipliers ---
             union_of_all_mults = set.union(*mult_sets.values())
             
             if not union_of_all_mults:
-                report_lines.append("      (No QSOs on this band for any log)")
+                report_lines.append("      (No multipliers on this band for any log)")
                 report_lines.append("")
                 continue
 
@@ -142,11 +142,10 @@ class Report(ContestReport):
                 missed_mults.update(union_of_all_mults.difference(mult_sets[call]))
 
             if not missed_mults:
-                report_lines.append("      (No missed multipliers on this band)")
+                report_lines.append(f"      (No missed {mult_name} on this band)")
                 report_lines.append("")
                 continue
 
-            # --- Format the Table for the Band ---
             header_cells = [f"{call:^{col_width}}" for call in all_calls]
             header = f"{'':<7} | {' | '.join(header_cells)}"
             report_lines.append(header)
@@ -162,10 +161,9 @@ class Report(ContestReport):
                     
                     cell_parts.append(f"{cell_content:^{col_width}}")
                 
-                row_str = f"{mult:<7} | {' | '.join(cell_parts)}"
+                row_str = f"{str(mult):<7} | {' | '.join(cell_parts)}"
                 report_lines.append(row_str)
 
-            # --- Footer Calculation and Formatting ---
             separator_cells = [f"{'---':^{col_width}}" for _ in all_calls]
             separator = f"{'':<7} | {' | '.join(separator_cells)}"
             report_lines.append(separator)
@@ -187,12 +185,11 @@ class Report(ContestReport):
             report_lines.append(delta_line)
             report_lines.append("")
 
-        # --- Save the Report File ---
         report_content = "\n".join(report_lines)
         os.makedirs(output_path, exist_ok=True)
         
         filename_calls = '_vs_'.join(sorted(all_calls))
-        filename = f"{self.report_id}_{filename_calls}.txt"
+        filename = f"{self.report_id}_{mult_name.lower()}_{filename_calls}.txt"
         filepath = os.path.join(output_path, filename)
         
         with open(filepath, 'w', encoding='utf-8') as f:

@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-21
-# Version: 0.10.0-Beta
+# Date: 2025-07-22
+# Version: 0.13.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -23,18 +23,12 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.10.0-Beta] - 2025-07-21
-# - Updated version for consistency with new reporting structure.
-# - This version contains the final, robust slash-handling logic.
-
-### Changed
-# - (None)
-
+## [0.13.0-Beta] - 2025-07-22
 ### Fixed
-# - (None)
-
-### Removed
-# - (None)
+# - The CTY.DAT parser is now flexible and can handle both the standard
+#   8-field format and simplified contest-specific formats (like cqww.cty)
+#   that have fewer fields. This resolves a bug where contest-specific
+#   country files were being ignored.
 
 import re
 from collections import namedtuple
@@ -86,13 +80,30 @@ class CtyLookup:
                 continue
 
             fields = line.split(':')
-            if len(fields) < 9:
-                continue
+            
+            # --- Flexible Parser for Standard and Simplified CTY files ---
+            cty_entity_info = None
+            primary_dxcc_code = ""
+            aliases_field_index = -1
 
-            primary_dxcc_code = fields[7]
+            if len(fields) >= 8: # Standard cty.dat format
+                cty_entity_info = self.CtyInfo(*fields[0:8])
+                primary_dxcc_code = fields[7]
+                aliases_field_index = 8
+            elif len(fields) >= 3: # Simplified format (e.g., cqww.cty)
+                # Assumes format: Name: CQZone: DXCCPfx: [Aliases]
+                name = fields[0]
+                cq_zone = fields[1]
+                primary_dxcc_code = fields[2]
+                # Fill missing fields with default values
+                cty_entity_info = self.CtyInfo(name, cq_zone, "0", "Unknown", "0.0", "0.0", "0.0", primary_dxcc_code)
+                aliases_field_index = 3
+
+            if not cty_entity_info:
+                continue # Skip malformed lines
+
             is_wae_entity = primary_dxcc_code.startswith('*')
             primary_prefix_key_str = primary_dxcc_code[1:] if is_wae_entity else primary_dxcc_code
-            cty_entity_info = self.CtyInfo(*fields[0:8])
             target_dict = self.waeprefixes if is_wae_entity else self.dxccprefixes
 
             if primary_prefix_key_str == "KG4":
@@ -100,40 +111,44 @@ class CtyLookup:
             else:
                 target_dict[primary_prefix_key_str] = cty_entity_info
 
-            raw_aliases_string = fields[8]
-            aliases = raw_aliases_string.split(",")
+            if len(fields) > aliases_field_index:
+                raw_aliases_string = fields[aliases_field_index]
+                aliases = raw_aliases_string.split(",")
 
-            for alias_entry in aliases:
-                alias_entry = alias_entry.strip()
-                if not alias_entry:
-                    continue
+                for alias_entry in aliases:
+                    alias_entry = alias_entry.strip()
+                    if not alias_entry:
+                        continue
 
-                is_exact_match_alias = alias_entry.startswith('=')
-                parsed_alias_entry = alias_entry[1:] if is_exact_match_alias else alias_entry
-                base_prefix_match = re.match(r'([A-Z0-9\-\/]+)', parsed_alias_entry)
-                if not base_prefix_match:
-                    continue
-                base_pfx_for_alias = base_prefix_match.group(1)
-                current_alias_info_list = list(fields[0:8])
+                    is_exact_match_alias = alias_entry.startswith('=')
+                    parsed_alias_entry = alias_entry[1:] if is_exact_match_alias else alias_entry
+                    base_prefix_match = re.match(r'([A-Z0-9\-\/]+)', parsed_alias_entry)
+                    if not base_prefix_match:
+                        continue
+                    base_pfx_for_alias = base_prefix_match.group(1)
+                    
+                    # Create a mutable list from the base entity's info
+                    current_alias_info_list = list(cty_entity_info)
 
-                cq_zone_match = re.search(r'\((\d+)\)', parsed_alias_entry)
-                if cq_zone_match:
-                    current_alias_info_list[1] = cq_zone_match.group(1)
+                    # Parse and apply overrides from the alias_entry string
+                    cq_zone_match = re.search(r'\((\d+)\)', parsed_alias_entry)
+                    if cq_zone_match:
+                        current_alias_info_list[1] = cq_zone_match.group(1) # Override CQ Zone
 
-                itu_zone_match = re.search(r'\[(\d+)\]', parsed_alias_entry)
-                if itu_zone_match:
-                    current_alias_info_list[2] = itu_zone_match.group(1)
+                    itu_zone_match = re.search(r'\[(\d+)\]', parsed_alias_entry)
+                    if itu_zone_match:
+                        current_alias_info_list[2] = itu_zone_match.group(1) # Override ITU Zone
 
-                continent_match = re.search(r'\{([A-Z]{2})\}', parsed_alias_entry)
-                if continent_match:
-                    current_alias_info_list[3] = continent_match.group(1)
+                    continent_match = re.search(r'\{([A-Z]{2})\}', parsed_alias_entry)
+                    if continent_match:
+                        current_alias_info_list[3] = continent_match.group(1) # Override Continent
 
-                final_alias_cty_info = self.CtyInfo(*current_alias_info_list)
+                    final_alias_cty_info = self.CtyInfo(*current_alias_info_list)
 
-                if is_exact_match_alias:
-                    target_dict["=" + base_pfx_for_alias] = final_alias_cty_info
-                else:
-                    target_dict[base_pfx_for_alias] = final_alias_cty_info
+                    if is_exact_match_alias:
+                        target_dict["=" + base_pfx_for_alias] = final_alias_cty_info
+                    else:
+                        target_dict[base_pfx_for_alias] = final_alias_cty_info
 
     def findprefix(self, callsign_segment):
         temp = callsign_segment
@@ -146,10 +161,6 @@ class CtyLookup:
         return None
 
     def is_valid_prefix(self, segment):
-        """
-        Checks if a given segment is an exact, valid prefix key.
-        This is used for strict slash rule checking.
-        """
         return (self.wae and segment in self.waeprefixes) or (segment in self.dxccprefixes)
 
     def get_cty(self, csign):
@@ -181,7 +192,6 @@ class CtyLookup:
         if len(parts) > 1:
             part1, part2 = parts[0], parts[-1]
 
-            # Handle special portable cases with a single numeric digit suffix
             if len(part2) == 1 and part2.isdigit():
                 us_call_pattern = re.compile(r'^(K|W|N|A[A-L])')
                 if us_call_pattern.match(part1):
@@ -200,7 +210,6 @@ class CtyLookup:
                         if special_lookup_result and special_lookup_result.name != "Unknown":
                             return special_lookup_result
             
-            # Standard slash rule logic starts here
             p1_valid = self.is_valid_prefix(part1)
             p2_valid = self.is_valid_prefix(part2)
             
@@ -208,21 +217,15 @@ class CtyLookup:
             elif p1_valid: return self.findprefix(part1)
             elif p2_valid: return self.findprefix(part2)
             else:
-                # FINAL LOGIC: Default to CEPT rule, but override for US/Canada portables.
                 part1_info = self.findprefix(part1)
 
-                # If part1 is not US/Canada, CEPT rule is definitive. (e.g., CE3/N5NU -> Chile)
                 if part1_info and part1_info.DXCC not in ('K', 'VE'):
                     return part1_info
 
-                # If part1 is US/Canada or unknown, check if part2 is a more specific US/Canada entity.
-                # This handles cases like KI6RRN/KL7 -> Alaska.
                 part2_info = self.findprefix(part2)
                 if part2_info and part2_info.DXCC in self._US_CANADA_PRIMARY_PREFIXES:
                     return part2_info
                 
-                # Otherwise, stick with the original part1 lookup. This correctly handles
-                # illegal calls like W0/EA5JJN by resolving to the US.
                 return part1_info if part1_info else UNKNOWN_CTY_INFO
 
         result = self.findprefix(callsign)

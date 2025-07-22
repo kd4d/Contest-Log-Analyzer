@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-21
-# Version: 0.10.0-Beta
+# Date: 2025-07-22
+# Version: 0.13.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -23,22 +23,15 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.10.0-Beta] - 2025-07-21
-# - Updated version for consistency with new reporting structure.
-
+## [0.13.0-Beta] - 2025-07-22
 ### Changed
-# - (None)
-
-### Fixed
-# - (None)
-
-### Removed
-# - (None)
+# - Added a 'multiplier_rules' property to read the list of multipliers
+#   (e.g., Countries, Zones) from the JSON definition.
 
 import json
 import os
 import copy
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 # --- Constants ---
 # Name of the common Cabrillo fields JSON file
@@ -65,15 +58,8 @@ class ContestDefinition:
         """
         Recursively merges two dictionaries. Values from 'new' overwrite values in 'base'.
         If both are dictionaries, merges them recursively.
-
-        Args:
-            base (Dict): The base dictionary.
-            new (Dict): The dictionary with new/overriding values.
-
-        Returns:
-            Dict: The merged dictionary.
         """
-        base = copy.deepcopy(base) # Ensure we don't modify the original base dict
+        base = copy.deepcopy(base)
         for key, value in new.items():
             if key in base and isinstance(base[key], dict) and isinstance(value, dict):
                 base[key] = cls._deep_merge_dicts(base[key], value)
@@ -85,22 +71,26 @@ class ContestDefinition:
     def from_json(cls, contest_name: str) -> 'ContestDefinition':
         """
         Loads the ContestDefinition for a given contest name from JSON files.
-        It first loads common fields and then merges contest-specific overrides.
-
-        Args:
-            contest_name (str): The name of the contest (e.g., 'CQ-WPX-CW'),
-                                corresponding to a JSON file name (e.g., 'cq_wpx_cw.json').
-
-        Returns:
-            ContestDefinition: An instance of ContestDefinition with the merged rules.
-
-        Raises:
-            FileNotFoundError: If the common fields file or the specific contest file is not found.
-            json.JSONDecodeError: If there's an error parsing the JSON files.
         """
         current_dir = os.path.dirname(os.path.abspath(__file__))
         common_file_path = os.path.join(current_dir, COMMON_CABRILLO_FIELDS_FILE)
-        contest_file_path = os.path.join(current_dir, f"{contest_name.lower().replace('-', '_')}.json")
+        
+        # Handle mode-specific contest names (e.g., CQ-WW-CW)
+        # The JSON file might be more generic (e.g., cq_ww.json)
+        base_contest_name = contest_name.rsplit('-', 1)[0].lower().replace('-', '_')
+        specific_contest_name = contest_name.lower().replace('-', '_')
+        
+        # Try specific file first, then generic
+        specific_file_path = os.path.join(current_dir, f"{specific_contest_name}.json")
+        generic_file_path = os.path.join(current_dir, f"{base_contest_name}.json")
+
+        if os.path.exists(specific_file_path):
+            contest_file_path = specific_file_path
+        elif os.path.exists(generic_file_path):
+            contest_file_path = generic_file_path
+        else:
+            raise FileNotFoundError(f"No definition file found for '{contest_name}' (tried {specific_file_path} and {generic_file_path})")
+
 
         try:
             with open(common_file_path, 'r', encoding='utf-8') as f:
@@ -113,8 +103,6 @@ class ContestDefinition:
         try:
             with open(contest_file_path, 'r', encoding='utf-8') as f:
                 contest_specific_data = json.load(f)
-        except FileNotFoundError:
-            raise FileNotFoundError(f"Contest definition file not found for '{contest_name}': {contest_file_path}")
         except json.JSONDecodeError as e:
             raise json.JSONDecodeError(f"Error parsing contest-specific JSON: {contest_file_path} - {e.msg}", e.doc, e.pos)
 
@@ -127,6 +115,16 @@ class ContestDefinition:
     def contest_name(self) -> str:
         """The official name of the contest (e.g., 'CQ-WPX-CW')."""
         return self._data.get('contest_name', 'Unknown Contest')
+
+    @property
+    def country_file_name(self) -> Optional[str]:
+        """The specific country file for this contest, if any (e.g., 'cqww.cty')."""
+        return self._data.get('country_file_name')
+
+    @property
+    def multiplier_rules(self) -> List[Dict[str, str]]:
+        """A list of dictionaries defining the multipliers for the contest."""
+        return self._data.get('multiplier_rules', [])
 
     @property
     def cabrillo_version(self) -> str:
@@ -166,21 +164,9 @@ class ContestDefinition:
         """Dictionary defining the scoring rules for the contest (points, multipliers, etc.)."""
         return self._data.get('scoring_rules', {})
 
-    @property
-    def multiplier_rules(self) -> Dict[str, Any]:
-        """Dictionary defining the multiplier rules for the contest."""
-        return self._data.get('multiplier_rules', {})
-
     def get_exchange_parse_info(self, cabrillo_contest_name: str) -> Optional[Dict[str, Any]]:
         """
         Retrieves the exchange parsing regex and groups for a specific contest name
         as it appears in the Cabrillo CONTEST: line.
-
-        Args:
-            cabrillo_contest_name (str): The contest name string found in the Cabrillo log.
-
-        Returns:
-            Optional[Dict[str, Any]]: A dictionary containing 'regex' and 'groups' for the exchange,
-                                      or None if no specific rules are found for that contest.
         """
         return self.exchange_parsing_rules.get(cabrillo_contest_name)

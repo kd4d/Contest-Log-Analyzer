@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-21
-# Version: 0.11.6-Beta
+# Date: 2025-07-22
+# Version: 0.13.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,16 +21,13 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.11.6-Beta] - 2025-07-21
+## [0.13.0-Beta] - 2025-07-22
 ### Changed
-# - Reverted 'Hour' column display to four digits (e.g., '0100').
-
-## [0.11.5-Beta] - 2025-07-21
-### Changed
-# - Changed the 'Hour' column display to two digits (e.g., '01') instead of four ('0100').
+# - Refactored the generate() method to use **kwargs for flexible argument passing.
 
 from typing import List
 import pandas as pd
+import os
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
 
@@ -50,12 +47,22 @@ class Report(ContestReport):
     def report_type(self) -> str:
         return "text"
 
-    def generate(self, output_path: str, include_dupes: bool = False) -> str:
-        final_report = []
+    def generate(self, output_path: str, **kwargs) -> str:
+        """
+        Generates the report content.
+
+        Args:
+            output_path (str): The directory where any output files should be saved.
+            **kwargs:
+                - include_dupes (bool): If True, dupes are included. Defaults to False.
+        """
+        include_dupes = kwargs.get('include_dupes', False)
+        final_report_messages = []
 
         for log in self.logs:
             metadata = log.get_metadata()
             df_full = log.get_processed_data()
+            callsign = metadata.get('MyCall', 'UnknownCall')
 
             # --- Data Preparation ---
             if not include_dupes and 'Dupe' in df_full.columns:
@@ -64,13 +71,19 @@ class Report(ContestReport):
                 df = df_full.copy()
 
             if df.empty:
-                final_report.append(f"No valid QSOs to report for {metadata.get('MyCall', 'Unknown Log')}.\n")
+                print(f"Skipping rate sheet for {callsign}: No valid QSOs to report.")
                 continue
 
             # --- Header Generation ---
+            first_qso_date = df['Date'].iloc[0]
+            year = first_qso_date.split('-')[0] if first_qso_date else "UnknownYear"
+            contest_name = metadata.get('ContestName', 'UnknownContest')
+
             report_lines = []
+            report_lines.append(f"{year} {contest_name}")
+            report_lines.append("")
             report_lines.append(f"CONTEST: {metadata.get('ContestName', '')}")
-            report_lines.append(f"CALLSIGN: {metadata.get('MyCall', '')}")
+            report_lines.append(f"CALLSIGN: {callsign}")
             report_lines.append(f"CATEGORY-OPERATOR: {metadata.get('CategoryOperator', '')}")
             report_lines.append(f"CATEGORY-TRANSMITTER: {metadata.get('CategoryTransmitter', '')}")
             report_lines.append(f"OPERATORS: {metadata.get('Operators', '')}") 
@@ -140,6 +153,14 @@ class Report(ContestReport):
             net_qsos = gross_qsos - dupes
             report_lines.append(f"Gross QSOs={gross_qsos}      Dupes={dupes}      Net QSOs={net_qsos if not include_dupes else gross_qsos}")
             
-            final_report.append("\n".join(report_lines))
+            # --- Save Individual Report File ---
+            report_content = "\n".join(report_lines)
+            os.makedirs(output_path, exist_ok=True)
+            filename = f"{self.report_id}_{callsign}.txt"
+            filepath = os.path.join(output_path, filename)
+            with open(filepath, 'w', encoding='utf-8') as f:
+                f.write(report_content)
+            
+            final_report_messages.append(f"Text report saved to: {filepath}")
 
-        return "\n\n".join(final_report)
+        return "\n".join(final_report_messages)

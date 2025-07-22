@@ -24,7 +24,10 @@
   "qso_common_field_names": ["FrequencyRaw", "Mode", "DateRaw", "TimeRaw", "MyCallRaw", "ExchangeRest"],
   "default_qso_columns": [
     "ContestName", "CategoryOverlay", "CategoryOperator", "CategoryTransmitter", "MyCall",
-    "Frequency", "Mode", "Datetime", "SentRST", "SentZone", "SentNR", "Call", "RST", "Zone", "NR", "Transmitter",
+    "Frequency", "Mode", "Datetime", 
+    "SentRS", "SentRST", "SentZone", "SentNR", 
+    "Call", 
+    "RS", "RST", "Zone", "NR", "Transmitter",
     "Band", "Date", "Hour", "Dupe",
     "DXCCName", "DXCCPfx", "CQZone", "ITUZone", "Continent", "WAEName", "WAEPfx", "Lat", "Lon", "Tzone",
     "Run", "QSOPoints"

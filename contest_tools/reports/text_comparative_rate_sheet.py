@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-21
-# Version: 0.11.3-Beta
+# Date: 2025-07-22
+# Version: 0.13.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,14 +21,9 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.11.3-Beta] - 2025-07-21
+## [0.13.0-Beta] - 2025-07-22
 ### Changed
-# - Updated the output filename to dynamically include the callsigns being
-#   compared (e.g., 'rate_sheet_comparison_K3LR_vs_KC1XX.txt').
-
-## [0.11.2-Beta] - 2025-07-21
-### Fixed
-# - Added logic to save the generated report to a text file.
+# - Refactored the generate() method to use **kwargs for flexible argument passing.
 
 from typing import List
 import pandas as pd
@@ -52,12 +47,22 @@ class Report(ContestReport):
     def report_type(self) -> str:
         return "text"
 
-    def generate(self, output_path: str, include_dupes: bool = False) -> str:
+    def generate(self, output_path: str, **kwargs) -> str:
+        """
+        Generates the report content, saves it to a file, and returns a summary.
+
+        Args:
+            output_path (str): The directory where any output files should be saved.
+            **kwargs:
+                - include_dupes (bool): If True, dupes are included. Defaults to False.
+        """
+        include_dupes = kwargs.get('include_dupes', False)
+
         if len(self.logs) < 2:
             return "Error: The Comparative Rate Sheet report requires at least two logs to be loaded."
 
         # --- Header Generation ---
-        all_calls = [log.get_metadata().get('MyCall', 'Unknown') for log in self.logs]
+        all_calls = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])
         first_log_meta = self.logs[0].get_metadata()
 
         report_lines = []
@@ -146,14 +151,11 @@ class Report(ContestReport):
         report_content = "\n".join(report_lines)
         os.makedirs(output_path, exist_ok=True)
         
-        # Create a dynamic filename with the callsigns, sorted for consistency
         filename_calls = '_vs_'.join(sorted(all_calls))
         filename = f"{self.report_id}_{filename_calls}.txt"
-        
         filepath = os.path.join(output_path, filename)
+        
         with open(filepath, 'w', encoding='utf-8') as f:
             f.write(report_content)
         
-        print(f"Text report saved to: {filepath}")
-
-        return report_content
+        return f"Text report saved to: {filepath}"

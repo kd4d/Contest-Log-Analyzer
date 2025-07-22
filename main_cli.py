@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-07-22
-# Version: 0.12.0-Beta
+# Version: 0.13.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -23,10 +23,18 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.12.0-Beta] - 2025-07-22
+## [0.13.1-Beta] - 2025-07-22
+### Fixed
+# - Corrected the output logic to ensure that confirmation messages from all
+#   report types (including plots) are printed to the console.
+
+## [0.13.0-Beta] - 2025-07-22
 ### Changed
-# - Refactored argument parsing to use a kwargs dictionary, which is passed
-#   to the report generator. This aligns with the new flexible report interface.
+# - The '--report all' command is now smarter. It will automatically generate
+#   the 'missed_multipliers' report for every multiplier type defined in the
+#   contest's JSON file (e.g., for Countries and Zones in CQ WW).
+# - Added a '--mult-name' argument, required for reports that analyze
+#   specific multiplier types (like the missed_multipliers report).
 
 import sys
 import os
@@ -46,7 +54,7 @@ def main():
     if '--include-dupes' in args:
         report_kwargs['include_dupes'] = True
         args.remove('--include-dupes')
-
+    
     if '--mult-type' in args:
         try:
             mt_index = args.index('--mult-type')
@@ -60,10 +68,23 @@ def main():
             print(f"\nError with --mult-type argument: {e}")
             sys.exit(1)
 
+    if '--mult-name' in args:
+        try:
+            mn_index = args.index('--mult-name')
+            mult_name = args[mn_index + 1]
+            report_kwargs['mult_name'] = mult_name
+            args.pop(mn_index)
+            args.pop(mn_index)
+        except IndexError:
+            print(f"\nError: --mult-name flag requires a value (e.g., 'Countries').")
+            sys.exit(1)
+
     if len(args) < 2 or args[0] != '--report':
-        print("\nUsage: python main_cli.py --report <ReportID|all> <LogFilePath1>... [--include-dupes] [--mult-type <dxcc|wae>]")
-        print("\nExample: python main_cli.py --report missed_country_mults k3lr.log kc1xx.log --mult-type wae")
-        print("\nEnsure the CTY_DAT_PATH environment variable is set.")
+        print("\nUsage: python main_cli.py --report <ReportID|all> <LogFilePath1>... [options]")
+        print("\nOptions:")
+        print("  --include-dupes         Include duplicate QSOs in calculations.")
+        print("  --mult-type <dxcc|wae>  Specify multiplier set for reports (e.g., 'wae').")
+        print("  --mult-name <name>      Specify multiplier for reports (e.g., 'Countries', 'Zones').")
         
         if AVAILABLE_REPORTS:
             print("\nAvailable reports:")
@@ -99,9 +120,9 @@ def main():
 
         reports_to_run = []
         if report_id.lower() == 'all':
-            reports_to_run = AVAILABLE_REPORTS.values()
+            reports_to_run = AVAILABLE_REPORTS.items()
         else:
-            reports_to_run = [AVAILABLE_REPORTS[report_id]]
+            reports_to_run = [(report_id, AVAILABLE_REPORTS[report_id])]
         
         # --- Define Output Directory Structure ---
         first_log = logs[0]
@@ -113,16 +134,30 @@ def main():
         output_dir = os.path.join("reports_output", year, contest_name)
         
         # Generate the selected reports
-        for ReportClass in reports_to_run:
+        for r_id, ReportClass in reports_to_run:
             report_instance = ReportClass(logs)
-            print(f"\nGenerating report: '{report_instance.report_name}'...")
-            result = report_instance.generate(output_path=output_dir, **report_kwargs)
-
-            # --- Output ---
-            if report_instance.report_type == 'text':
+            
+            # Special handling for reports that require a multiplier name
+            if r_id == 'missed_multipliers' and 'mult_name' not in report_kwargs:
+                print(f"\nAuto-generating '{report_instance.report_name}' for all available multiplier types...")
+                available_mults = first_log.contest_definition.multiplier_rules
+                if not available_mults:
+                    print(f"Warning: No multipliers defined for {contest_name}. Skipping report.")
+                    continue
+                
+                for mult_rule in available_mults:
+                    mult_name = mult_rule.get('name')
+                    if mult_name:
+                        print(f"  - Generating for: {mult_name}")
+                        current_kwargs = report_kwargs.copy()
+                        current_kwargs['mult_name'] = mult_name
+                        result = report_instance.generate(output_path=output_dir, **current_kwargs)
+                        print(result) # Print the result from the report
+            else:
+                print(f"\nGenerating report: '{report_instance.report_name}'...")
+                result = report_instance.generate(output_path=output_dir, **report_kwargs)
+                # Print the result from the report for all types
                 print(result)
-            elif report_instance.report_type == 'plot':
-                print(f"\nPlot(s) generated. See '{output_dir}/' directory.")
 
         print("\n--- Done ---")
 
