@@ -27,6 +27,6 @@
     "Frequency", "Mode", "Datetime", "SentRST", "SentNR", "Call", "RST", "NR", "Transmitter",
     "Band", "Date", "Hour", "Dupe",
     "DXCCName", "DXCCPfx", "CQZone", "ITUZone", "Continent", "WAEName", "WAEPfx", "Lat", "Lon", "Tzone",
-    "Run"
+    "Run", "QSOPoints"
   ]
 }
