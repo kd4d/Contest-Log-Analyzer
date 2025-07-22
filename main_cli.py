@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-07-21
-# Version: 0.11.0-Beta
+# Version: 0.11.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -23,17 +23,18 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
+## [0.11.1-Beta] - 2025-07-21
+### Fixed
+# - Restored the prompt in the usage instructions to remind the user to set
+#   the CTY_DAT_PATH environment variable.
+# - Updated usage string to correctly show the optional --include-dupes flag.
+
 ## [0.11.0-Beta] - 2025-07-21
 ### Changed
 # - Modified to handle reports that save their own files. The main script
 #   now prints the summary message returned by the report's generate() method.
 # - Report output is now saved to a structured directory:
 #   reports_output/YYYY/ContestName/
-# - The year is determined from the first QSO of the first log processed.
-
-## [0.10.0-Beta] - 2025-07-21
-# - Integrated new LogManager and reports packages.
-# - Added '--report <id|all>' command-line argument to generate reports.
 
 import sys
 import os
@@ -54,6 +55,7 @@ def main():
     if len(sys.argv) < 3 or sys.argv[1] != '--report':
         print("\nUsage: python main_cli.py --report <ReportID|all> <LogFilePath1> [<LogFilePath2>...] [--include-dupes]")
         print("\nExample: python main_cli.py --report summary k3lr.log --include-dupes")
+        print("\nEnsure the CTY_DAT_PATH environment variable is set to the location of your cty.dat file.")
         
         if AVAILABLE_REPORTS:
             print("\nAvailable reports:")
