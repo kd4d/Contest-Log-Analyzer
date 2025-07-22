@@ -1,0 +1,10 @@
+{
+  "_filename": "contest_tools/contest_definitions/cq_wpx_ssb.json",
+  "contest_name": "CQ-WPX-SSB",
+  "exchange_parsing_rules": {
+    "CQ-WPX-SSB": {
+      "regex": "(\\d{2})\\s+(\\d{1,5})\\s+([A-Z0-9/]+)\\s+(\\d{2})\\s+(\\d{1,5})(?:\\s+(\\d))?",
+      "groups": ["SentRS", "SentNR", "Call", "RS", "NR", "Transmitter"]
+    }
+  }
+}

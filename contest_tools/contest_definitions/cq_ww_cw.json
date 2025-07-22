@@ -1,0 +1,10 @@
+{
+  "_filename": "contest_tools/contest_definitions/cq_ww_cw.json",
+  "contest_name": "CQ-WW-CW",
+  "exchange_parsing_rules": {
+    "CQ-WW-CW": {
+      "regex": "(\\d{3})\\s+(\\d{1,2})\\s+([A-Z0-9/]+)\\s+(\\d{3})\\s+(\\d{1,2})(?:\\s+(\\d))?",
+      "groups": ["SentRST", "SentZone", "Call", "RST", "Zone", "Transmitter"]
+    }
+  }
+}
