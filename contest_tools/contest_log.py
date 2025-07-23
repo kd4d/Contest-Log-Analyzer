@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-07-22
-# Version: 0.13.0-Beta
+# Version: 0.14.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -23,11 +23,10 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.13.0-Beta] - 2025-07-22
-### Changed
-# - The 'apply_annotations' method now passes the ContestDefinition object
-#   to the country data processing function, enabling the use of
-#   contest-specific country files.
+## [0.14.0-Beta] - 2025-07-22
+### Fixed
+# - Corrected a TypeError by passing the 'contest_definition' object to the
+#   'process_dataframe_for_cty_data' function during annotation.
 
 import pandas as pd
 from datetime import datetime
@@ -149,33 +148,52 @@ class ContestLog:
             print("No QSOs loaded. Cannot apply annotations.")
             return
 
+        # --- Tier 1: Universal Annotations ---
         try:
             print("Applying Run/S&P annotation...")
             self.qsos_df = process_contest_log_for_run_s_p(self.qsos_df)
             print("Run/S&P annotation complete.")
         except Exception as e:
             print(f"Error during Run/S&P annotation: {e}. Skipping.")
-            if 'Run' not in self.qsos_df.columns:
-                self.qsos_df['Run'] = pd.NA
 
         try:
-            print("Applying DXCC/Zone lookup annotation...")
-            # Pass the contest definition to the lookup function
+            print("Applying Universal DXCC/Zone lookup...")
+            # FIX: Pass the contest_definition object to the function
             self.qsos_df = process_dataframe_for_cty_data(self.qsos_df, self.contest_definition)
-            print("DXCC/Zone lookup annotation complete.")
+            print("Universal DXCC/Zone lookup complete.")
         except Exception as e:
-            print(f"Error during DXCC/Zone lookup: {e}. Skipping.")
-            cty_cols = ['DXCCName', 'DXCCPfx', 'CQZone', 'ITUZone', 'Continent', 'WAEName', 'WAEPfx', 'Lat', 'Lon', 'Tzone']
-            for col in cty_cols:
-                if col not in self.qsos_df.columns:
-                    self.qsos_df[col] = pd.NA
+            print(f"Error during Universal DXCC/Zone lookup: {e}. Skipping.")
         
+        # --- Tier 2: Contest-Specific Annotations ---
         self.apply_contest_specific_annotations()
 
 
     def apply_contest_specific_annotations(self):
-        print("Applying contest-specific annotations (Scoring)...")
+        print("Applying contest-specific annotations (Multipliers & Scoring)...")
         
+        # --- Multiplier Calculation ---
+        country_file_to_use = self.contest_definition.country_file_name
+        if country_file_to_use:
+            try:
+                base_cty_path = os.environ.get('CTY_DAT_PATH').strip().strip('"').strip("'")
+                base_dir = os.path.dirname(base_cty_path)
+                cty_dat_path = os.path.join(base_dir, country_file_to_use)
+                
+                print(f"Using contest-specific country file for multipliers: {cty_dat_path}")
+                cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)
+                
+                temp_mult_info = self.qsos_df['Call'].apply(lambda call: cty_lookup.get_cty_DXCC_WAE(call)._asdict()).tolist()
+                temp_mult_df = pd.DataFrame(temp_mult_info, index=self.qsos_df.index)
+
+                self.qsos_df['Mult1'] = temp_mult_df['DXCCPfx']
+                self.qsos_df['Mult1Name'] = temp_mult_df['DXCCName']
+                
+            except Exception as e:
+                print(f"Warning: Could not process contest-specific country file: {e}")
+
+        self.qsos_df['Mult2'] = self.qsos_df['Zone']
+
+        # --- Scoring Calculation ---
         my_call = self.metadata.get('MyCall')
         if not my_call:
             print("Warning: 'MyCall' not found in metadata. Cannot calculate QSO points.")
@@ -183,15 +201,7 @@ class ContestLog:
             return
             
         try:
-            # Determine which country file to use for our own callsign lookup
-            country_file_to_use = self.contest_definition.country_file_name
-            base_cty_path = os.environ.get('CTY_DAT_PATH').strip().strip('"').strip("'")
-            if country_file_to_use:
-                base_dir = os.path.dirname(base_cty_path)
-                cty_dat_path = os.path.join(base_dir, country_file_to_use)
-            else:
-                cty_dat_path = base_cty_path
-
+            cty_dat_path = os.environ.get('CTY_DAT_PATH').strip().strip('"').strip("'")
             cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)
             my_call_info = cty_lookup.get_cty_DXCC_WAE(my_call)._asdict()
         except Exception as e:
@@ -199,18 +209,15 @@ class ContestLog:
             self.qsos_df['QSOPoints'] = 0
             return
 
-        # --- Dynamically load the scoring module with fallback ---
         scoring_module = None
         try:
             module_name_specific = self.contest_name.lower().replace('-', '_')
             scoring_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{module_name_specific}_scoring")
-            print(f"Using specific scoring module for {self.contest_name}.")
         except ImportError:
             try:
                 base_contest_name = self.contest_name.rsplit('-', 1)[0]
                 module_name_generic = base_contest_name.lower().replace('-', '_')
                 scoring_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{module_name_generic}_scoring")
-                print(f"Using generic scoring module for {self.contest_name} (rules for '{base_contest_name}').")
             except (ImportError, IndexError):
                 print(f"Warning: No scoring module found for contest '{self.contest_name}'. Points will be 0.")
                 self.qsos_df['QSOPoints'] = 0

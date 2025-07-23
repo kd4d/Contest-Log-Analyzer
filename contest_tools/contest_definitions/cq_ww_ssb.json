@@ -11,11 +11,11 @@
   "multiplier_rules": [
     {
       "name": "Countries",
-      "column": "DXCCPfx"
+      "column": "Mult1"
     },
     {
       "name": "Zones",
-      "column": "Zone"
+      "column": "Mult2"
     }
   ]
 }

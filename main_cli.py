@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-07-22
-# Version: 0.13.1-Beta
+# Version: 0.14.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -23,18 +23,15 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.13.1-Beta] - 2025-07-22
-### Fixed
-# - Corrected the output logic to ensure that confirmation messages from all
-#   report types (including plots) are printed to the console.
-
-## [0.13.0-Beta] - 2025-07-22
+## [0.14.1-Beta] - 2025-07-22
 ### Changed
-# - The '--report all' command is now smarter. It will automatically generate
-#   the 'missed_multipliers' report for every multiplier type defined in the
-#   contest's JSON file (e.g., for Countries and Zones in CQ WW).
-# - Added a '--mult-name' argument, required for reports that analyze
-#   specific multiplier types (like the missed_multipliers report).
+# - Added a note to the usage instructions about the requirement for
+#   contest-specific CTY files (e.g., cqww.cty).
+
+## [0.14.0-Beta] - 2025-07-22
+### Changed
+# - Added a note to the main usage instructions to remind the user to set
+#   the CTY_DAT_PATH environment variable.
 
 import sys
 import os
@@ -85,6 +82,9 @@ def main():
         print("  --include-dupes         Include duplicate QSOs in calculations.")
         print("  --mult-type <dxcc|wae>  Specify multiplier set for reports (e.g., 'wae').")
         print("  --mult-name <name>      Specify multiplier for reports (e.g., 'Countries', 'Zones').")
+        print("\nNote: The CTY_DAT_PATH environment variable must be set to the location of your cty.dat file.")
+        print("      For some contests (e.g., CQ-WW), a specific country file (e.g., cqww.cty) must")
+        print("      be present in the same directory as cty.dat.")
         
         if AVAILABLE_REPORTS:
             print("\nAvailable reports:")
@@ -156,7 +156,6 @@ def main():
             else:
                 print(f"\nGenerating report: '{report_instance.report_name}'...")
                 result = report_instance.generate(output_path=output_dir, **report_kwargs)
-                # Print the result from the report for all types
                 print(result)
 
         print("\n--- Done ---")

@@ -30,6 +30,7 @@
     "RS", "RST", "Zone", "NR", "Transmitter",
     "Band", "Date", "Hour", "Dupe",
     "DXCCName", "DXCCPfx", "CQZone", "ITUZone", "Continent", "WAEName", "WAEPfx", "Lat", "Lon", "Tzone",
-    "Run", "QSOPoints"
+    "Run", "QSOPoints",
+    "Mult1", "Mult1Name", "Mult2", "Mult2Name"
   ]
 }

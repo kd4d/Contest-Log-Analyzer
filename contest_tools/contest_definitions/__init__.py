@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-07-22
-# Version: 0.13.0-Beta
+# Version: 0.14.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -23,10 +23,8 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.13.0-Beta] - 2025-07-22
-### Changed
-# - Added a 'multiplier_rules' property to read the list of multipliers
-#   (e.g., Countries, Zones) from the JSON definition.
+## [0.14.0-Beta] - 2025-07-22
+# - Updated version for consistency. No functional changes.
 
 import json
 import os
