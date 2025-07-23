@@ -5,7 +5,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-07-23
-# Version: 0.14.4-Beta
+# Version: 0.14.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,11 +21,11 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.14.4-Beta] - 2025-07-23
-### Changed
-# - Updated band titles to include "QSOs" (e.g., "160 Meter QSOs").
-# - Split "Unique Run" and "Unique S&P" headers into two lines to narrow columns.
-# - Removed redundant "QSOs" from the second line of column headers.
+## [0.14.5-Beta] - 2025-07-23
+### Fixed
+# - Corrected the underlying logic to use QSO counts for all metrics instead of
+#   mixing QSO counts and multiplier counts. This ensures all totals and
+#   sub-totals in the report are consistent and accurate.
 
 from typing import List, Dict, Any, Set
 import pandas as pd
@@ -110,29 +110,37 @@ class Report(ContestReport):
 
             # --- Calculate Metrics for both logs ---
             for call, df_current, df_other in [(call1, df1_band, df2_band), (call2, df2_band, df1_band)]:
-                calls_current = set(df_current['Call'].unique())
-                calls_other = set(df_other['Call'].unique())
+                calls_current_set = set(df_current['Call'].unique())
+                calls_other_set = set(df_other['Call'].unique())
 
-                common_calls = calls_current.intersection(calls_other)
-                unique_to_current = calls_current.difference(calls_other)
+                common_calls_set = calls_current_set.intersection(calls_other_set)
+                unique_to_current_set = calls_current_set.difference(calls_other_set)
 
+                # --- Total QSO metrics ---
+                total_qsos = len(df_current)
                 run_total = (df_current['Run'] == 'Run').sum()
                 sp_total = (df_current['Run'] == 'S&P').sum()
 
-                df_unique = df_current[df_current['Call'].isin(unique_to_current)]
+                # --- Unique QSO metrics ---
+                df_unique = df_current[df_current['Call'].isin(unique_to_current_set)]
+                unique_qsos_total = len(df_unique)
                 run_unique = (df_unique['Run'] == 'Run').sum()
                 sp_unique = (df_unique['Run'] == 'S&P').sum()
+
+                # --- Common QSO metrics ---
+                df_common = df_current[df_current['Call'].isin(common_calls_set)]
+                common_qsos_total = len(df_common)
                 
                 # --- Format and Append Row ---
                 row_str = (
                     f"{call:<{col_widths[0]}}"
-                    f"{len(calls_current):>{col_widths[1]}}"
+                    f"{total_qsos:>{col_widths[1]}}"
                     f"{run_total:>{col_widths[2]}}"
                     f"{sp_total:>{col_widths[3]}}"
-                    f"{len(unique_to_current):>{col_widths[4]}}"
+                    f"{unique_qsos_total:>{col_widths[4]}}"
                     f"{run_unique:>{col_widths[5]}}"
                     f"{sp_unique:>{col_widths[6]}}"
-                    f"{len(common_calls):>{col_widths[7]}}"
+                    f"{common_qsos_total:>{col_widths[7]}}"
                 )
                 report_lines.append(row_str)
             report_lines.append("")
