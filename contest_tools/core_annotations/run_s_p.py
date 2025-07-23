@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-21
-# Version: 0.10.0-Beta
+# Date: 2025-07-23
+# Version: 0.14.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -23,17 +23,11 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.10.0-Beta] - 2025-07-21
-# - Updated version for consistency with new reporting structure.
-
-### Changed
-# - (None)
-
+## [0.14.3-Beta] - 2025-07-23
 ### Fixed
-# - (None)
-
-### Removed
-# - (None)
+# - Corrected the "sticky run" logic to only break a run if the consecutive
+#   off-frequency QSOs are on the same new frequency, not on multiple
+#   different S&P frequencies.
 
 import pandas as pd
 from collections import deque
@@ -46,89 +40,98 @@ DEFAULT_RUN_TIME_WINDOW_MINUTES = 10
 DEFAULT_FREQ_TOLERANCE_CW = 0.1
 DEFAULT_FREQ_TOLERANCE_PH = 0.5
 DEFAULT_MIN_QSO_FOR_RUN = 3
+RUN_BREAK_QSO_COUNT = 3
+RUN_BREAK_TIME_MINUTES = 2
 
-# --- Core Inference Logic (internal helper function) ---
-def _infer_run_s_and_p_logic(
-    df: pd.DataFrame,
-    my_call_column: str,
-    datetime_column: str,
-    frequency_column: str,
-    mode_column: str,
-    band_column: str,
-    run_time_window_minutes: int,
-    freq_tolerance_cw: float,
-    freq_tolerance_ph: float,
-    min_qso_for_run: int
-) -> pd.DataFrame:
+def _get_run_info_from_buffer(base_freq: float, buffer_to_check: deque, min_qso: int, time_threshold: pd.Timedelta, tol: float):
     """
-    Internal helper to infer "Run" or "S&P" status for QSO records.
+    Helper to check if a given `base_freq` forms a valid run within the `buffer_to_check`.
     """
-    df_sorted = df.sort_values(by=[my_call_column, band_column, mode_column, datetime_column]).copy()
-    df_sorted['Inferred_Run'] = 'S&P'
-    time_delta_threshold = pd.Timedelta(minutes=run_time_window_minutes) + pd.Timedelta(seconds=1)
+    relevant_qso_data = []
+    for buffered_idx, buffered_time, buffered_freq in buffer_to_check:
+        if abs(buffered_freq - base_freq) <= tol:
+            relevant_qso_data.append((buffered_idx, buffered_time))
 
-    def _get_run_info_from_buffer(base_freq: float, buffer_to_check: deque, min_qso: int, time_threshold: pd.Timedelta, tol: float):
-        relevant_qso_data = []
-        for buffered_idx, buffered_time, buffered_freq in buffer_to_check:
-            if abs(buffered_freq - base_freq) <= tol:
-                relevant_qso_data.append((buffered_idx, buffered_time))
-
-        if len(relevant_qso_data) < min_qso:
-            return False, []
-
-        for i in range(min_qso - 1, len(relevant_qso_data)):
-            latest_time_in_segment = relevant_qso_data[i][1]
-            oldest_time_in_segment = relevant_qso_data[i - (min_qso - 1)][1]
-            if (latest_time_in_segment - oldest_time_in_segment) <= time_threshold:
-                qualifying_indices = [q[0] for q in relevant_qso_data[i - (min_qso - 1) : i + 1]]
-                return True, qualifying_indices
+    if len(relevant_qso_data) < min_qso:
         return False, []
 
-    def _evaluate_single_stream_run(stream_df_original: pd.DataFrame, stream_tolerance: float):
-        inferred_run_status_raw_list = ['S&P'] * len(stream_df_original)
-        original_idx_to_list_pos = {idx: i for i, idx in enumerate(stream_df_original.index)}
-        all_recent_qso_buffer = deque()
-        active_run_freq = None
+    # Check from the most recent QSOs backwards
+    for i in range(len(relevant_qso_data) - 1, min_qso - 2, -1):
+        latest_time_in_segment = relevant_qso_data[i][1]
+        oldest_time_in_segment = relevant_qso_data[i - (min_qso - 1)][1]
+        if (latest_time_in_segment - oldest_time_in_segment) <= time_threshold:
+            qualifying_indices = [q[0] for q in relevant_qso_data[i - (min_qso - 1) : i + 1]]
+            return True, qualifying_indices
+    return False, []
 
-        for local_list_pos in range(len(stream_df_original)):
-            original_df_idx = stream_df_original.index[local_list_pos]
-            current_qso_time = stream_df_original.at[original_df_idx, datetime_column]
-            current_qso_freq = stream_df_original.at[original_df_idx, frequency_column]
+def _evaluate_single_stream_run(
+    stream_df_original: pd.DataFrame, 
+    datetime_column: str,
+    frequency_column: str,
+    stream_tolerance: float,
+    time_delta_threshold: pd.Timedelta,
+    min_qso_for_run: int
+):
+    """
+    Evaluates run status for a single operational stream using a "sticky run" state machine.
+    """
+    inferred_run_status = ['S&P'] * len(stream_df_original)
+    original_idx_to_list_pos = {idx: i for i, idx in enumerate(stream_df_original.index)}
 
-            while all_recent_qso_buffer and (current_qso_time - all_recent_qso_buffer[0][1]) > time_delta_threshold:
-                all_recent_qso_buffer.popleft()
-            all_recent_qso_buffer.append((original_df_idx, current_qso_time, current_qso_freq))
+    active_run_freq = None
+    last_qso_on_run_freq_time = None
+    off_frequency_qso_count = 0
+    potential_new_run_freq = None # Track the frequency of consecutive S&P QSOs
+    qso_buffer = deque()
 
-            if active_run_freq is not None:
-                if abs(current_qso_freq - active_run_freq) > stream_tolerance:
-                    active_run_freq = None
-                    inferred_run_status_raw_list[original_idx_to_list_pos[original_df_idx]] = 'S&P'
-                else:
-                    is_active_run_still_valid, segment_indices = _get_run_info_from_buffer(active_run_freq, all_recent_qso_buffer, min_qso_for_run, time_delta_threshold, stream_tolerance)
-                    if is_active_run_still_valid:
-                        for idx in segment_indices:
-                            inferred_run_status_raw_list[original_idx_to_list_pos[idx]] = 'Run'
-                    else:
-                        active_run_freq = None
-                        inferred_run_status_raw_list[original_idx_to_list_pos[original_df_idx]] = 'S&P'
+    for list_pos, original_df_idx in enumerate(stream_df_original.index):
+        current_qso_time = stream_df_original.at[original_df_idx, datetime_column]
+        current_qso_freq = stream_df_original.at[original_df_idx, frequency_column]
+        
+        qso_buffer.append((original_df_idx, current_qso_time, current_qso_freq))
+        while qso_buffer and (current_qso_time - qso_buffer[0][1]) > time_delta_threshold:
+            qso_buffer.popleft()
 
-            if active_run_freq is None:
-                is_new_run, new_run_indices = _get_run_info_from_buffer(current_qso_freq, all_recent_qso_buffer, min_qso_for_run, time_delta_threshold, stream_tolerance)
-                if is_new_run:
-                    active_run_freq = current_qso_freq
-                    for idx in new_run_indices:
-                        inferred_run_status_raw_list[original_idx_to_list_pos[idx]] = 'Run'
+        # --- Main State Machine: Prioritize maintaining an existing run ---
+        if active_run_freq is not None:
+            is_on_run_freq = abs(current_qso_freq - active_run_freq) <= stream_tolerance
+            timed_out = (current_qso_time - last_qso_on_run_freq_time) > pd.Timedelta(minutes=RUN_BREAK_TIME_MINUTES)
 
-        return pd.Series(inferred_run_status_raw_list, index=stream_df_original.index, dtype=str)
+            if is_on_run_freq and not timed_out:
+                inferred_run_status[list_pos] = 'Run'
+                last_qso_on_run_freq_time = current_qso_time
+                off_frequency_qso_count = 0
+                potential_new_run_freq = None
+            else:
+                inferred_run_status[list_pos] = 'S&P'
+                if not is_on_run_freq:
+                    # Check if this S&P QSO continues a potential new run
+                    if potential_new_run_freq and abs(current_qso_freq - potential_new_run_freq) <= stream_tolerance:
+                        off_frequency_qso_count += 1
+                    else: # It's a new S&P frequency, reset the counter
+                        potential_new_run_freq = current_qso_freq
+                        off_frequency_qso_count = 1
+                
+                if timed_out or off_frequency_qso_count >= RUN_BREAK_QSO_COUNT:
+                    active_run_freq = None # Break the run
+        
+        # --- If no run is active, check if a new one has formed ---
+        if active_run_freq is None:
+            is_new_run, new_run_indices = _get_run_info_from_buffer(
+                current_qso_freq, qso_buffer, min_qso_for_run, time_delta_threshold, stream_tolerance
+            )
+            if is_new_run:
+                active_run_freq = current_qso_freq
+                last_qso_on_run_freq_time = current_qso_time
+                off_frequency_qso_count = 0
+                potential_new_run_freq = None
+                for idx in new_run_indices:
+                    if idx in original_idx_to_list_pos:
+                        inferred_run_status[original_idx_to_list_pos[idx]] = 'Run'
+            else:
+                inferred_run_status[list_pos] = 'S&P'
 
-    grouped_df_object = df_sorted.groupby([my_call_column, band_column, mode_column], group_keys=True)
-    for group_name, group_df_original in grouped_df_object:
-        representative_mode = group_name[2]
-        stream_tolerance = freq_tolerance_cw if representative_mode.upper() == 'CW' else freq_tolerance_ph
-        group_results_series = _evaluate_single_stream_run(group_df_original, stream_tolerance)
-        df_sorted.loc[group_results_series.index, 'Inferred_Run'] = group_results_series
-
-    return df_sorted
+    return pd.Series(inferred_run_status, index=stream_df_original.index, dtype=str)
 
 def process_contest_log_for_run_s_p(
     df: pd.DataFrame,
@@ -136,11 +139,7 @@ def process_contest_log_for_run_s_p(
     datetime_column: str = 'Datetime',
     frequency_column: str = 'Frequency',
     mode_column: str = 'Mode',
-    band_column: str = 'Band',
-    run_time_window_minutes: int = DEFAULT_RUN_TIME_WINDOW_MINUTES,
-    freq_tolerance_cw: float = DEFAULT_FREQ_TOLERANCE_CW,
-    freq_tolerance_ph: float = DEFAULT_FREQ_TOLERANCE_PH,
-    min_qso_for_run: int = DEFAULT_MIN_QSO_FOR_RUN
+    band_column: str = 'Band'
 ) -> pd.DataFrame:
     """
     Main wrapper function to infer "Run" or "S&P" status for each QSO in a DataFrame.
@@ -152,7 +151,6 @@ def process_contest_log_for_run_s_p(
             if col not in processed_df.columns:
                 raise KeyError(f"Missing required column for Run/S&P processing: '{col}'")
         
-        # Ensure correct data types before processing
         processed_df[datetime_column] = pd.to_datetime(processed_df[datetime_column], errors='coerce')
         processed_df[frequency_column] = pd.to_numeric(processed_df[frequency_column], errors='coerce')
         processed_df.dropna(subset=[datetime_column, frequency_column], inplace=True)
@@ -163,12 +161,27 @@ def process_contest_log_for_run_s_p(
         if 'Run' in processed_df.columns:
             processed_df.drop(columns=['Run'], inplace=True)
 
-        processed_df_with_run = _infer_run_s_and_p_logic(
-            processed_df, my_call_column, datetime_column, frequency_column, mode_column, band_column,
-            run_time_window_minutes, freq_tolerance_cw, freq_tolerance_ph, min_qso_for_run
-        )
-        processed_df_with_run.rename(columns={'Inferred_Run': 'Run'}, inplace=True)
-        return processed_df_with_run
+        df_sorted = processed_df.sort_values(by=[my_call_column, band_column, mode_column, datetime_column])
+        time_delta_threshold = pd.Timedelta(minutes=DEFAULT_RUN_TIME_WINDOW_MINUTES) + pd.Timedelta(seconds=1)
+        
+        results = []
+        for group_name, group_df in df_sorted.groupby([my_call_column, band_column, mode_column], group_keys=False):
+            representative_mode = group_name[2]
+            stream_tolerance = DEFAULT_FREQ_TOLERANCE_CW if representative_mode.upper() == 'CW' else DEFAULT_FREQ_TOLERANCE_PH
+            
+            group_results_series = _evaluate_single_stream_run(
+                group_df, datetime_column, frequency_column, stream_tolerance,
+                time_delta_threshold, DEFAULT_MIN_QSO_FOR_RUN
+            )
+            results.append(group_results_series)
+        
+        if results:
+            run_column_series = pd.concat(results)
+            processed_df['Run'] = run_column_series
+        else:
+            processed_df['Run'] = 'S&P'
+
+        return processed_df
 
     except KeyError as e:
         raise KeyError(f"Error during Run/S&P pre-processing: {e}")
@@ -191,7 +204,6 @@ if __name__ == "__main__":
 
         processed_df = process_contest_log_for_run_s_p(df=initial_df)
         
-        # Prepare for output
         df_for_output = processed_df.copy()
         if 'Datetime' in df_for_output.columns:
              df_for_output['Datetime'] = pd.to_datetime(df_for_output['Datetime']).dt.strftime('%Y-%m-%d %H:%M:%S')
