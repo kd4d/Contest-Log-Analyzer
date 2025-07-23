@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-07-22
-# Version: 0.14.0-Beta
+# Version: 0.14.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -23,10 +23,15 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
+## [0.14.1-Beta] - 2025-07-22
+### Changed
+# - The '--report all' command now automatically generates the cumulative
+#   difference plots for both QSOs and Points.
+
 ## [0.14.0-Beta] - 2025-07-22
 ### Changed
-# - Implemented a new, structured output directory system. Reports are now
-#   saved into 'text' and 'plots' subdirectories.
+# - Added an optional '--metric <qsos|points>' flag to the command line to
+#   specify the metric for the cumulative difference plot.
 
 import sys
 import os
@@ -70,6 +75,19 @@ def main():
         except IndexError:
             print(f"\nError: --mult-name flag requires a value (e.g., 'Countries').")
             sys.exit(1)
+            
+    if '--metric' in args:
+        try:
+            m_index = args.index('--metric')
+            metric = args[m_index + 1].lower()
+            if metric not in ['qsos', 'points']:
+                raise ValueError("Metric type must be 'qsos' or 'points'.")
+            report_kwargs['metric'] = metric
+            args.pop(m_index)
+            args.pop(m_index)
+        except (IndexError, ValueError) as e:
+            print(f"\nError with --metric argument: {e}")
+            sys.exit(1)
 
     if len(args) < 2 or args[0] != '--report':
         print("\nUsage: python main_cli.py --report <ReportID|all> <LogFilePath1>... [options]")
@@ -77,6 +95,7 @@ def main():
         print("  --include-dupes         Include duplicate QSOs in calculations.")
         print("  --mult-type <dxcc|wae>  Specify multiplier set for reports (e.g., 'wae').")
         print("  --mult-name <name>      Specify multiplier for reports (e.g., 'Countries', 'Zones').")
+        print("  --metric <qsos|points>  Specify metric for difference plots (defaults to 'qsos').")
         print("\nNote: The CTY_DAT_PATH environment variable must be set to the location of your cty.dat file.")
         print("      For some contests (e.g., CQ-WW), a specific country file (e.g., cqww.cty) must")
         print("      be present in the same directory as cty.dat.")
@@ -129,36 +148,32 @@ def main():
         base_output_dir = os.path.join("reports_output", year, contest_name)
         text_output_dir = os.path.join(base_output_dir, "text")
         plots_output_dir = os.path.join(base_output_dir, "plots")
-        # charts_output_dir = os.path.join(base_output_dir, "charts") # For future use
-
+        
         # Generate the selected reports
         for r_id, ReportClass in reports_to_run:
             report_instance = ReportClass(logs)
             
-            # Determine the correct output path for this report type
-            if report_instance.report_type == 'text':
-                output_path = text_output_dir
-            elif report_instance.report_type == 'plot':
-                output_path = plots_output_dir
-            else:
-                output_path = base_output_dir # Default fallback
+            output_path = text_output_dir if report_instance.report_type == 'text' else plots_output_dir
 
-            # Special handling for reports that require a multiplier name
+            # --- Special Handling for Auto-Generating Multiple Report Variations ---
             if r_id == 'missed_multipliers' and 'mult_name' not in report_kwargs:
                 print(f"\nAuto-generating '{report_instance.report_name}' for all available multiplier types...")
-                available_mults = first_log.contest_definition.multiplier_rules
-                if not available_mults:
-                    print(f"Warning: No multipliers defined for {contest_name}. Skipping report.")
-                    continue
-                
-                for mult_rule in available_mults:
+                for mult_rule in first_log.contest_definition.multiplier_rules:
                     mult_name = mult_rule.get('name')
                     if mult_name:
                         print(f"  - Generating for: {mult_name}")
                         current_kwargs = report_kwargs.copy()
                         current_kwargs['mult_name'] = mult_name
                         result = report_instance.generate(output_path=output_path, **current_kwargs)
-                        print(result) 
+                        print(result)
+            elif r_id == 'cumulative_difference_plots' and 'metric' not in report_kwargs:
+                print(f"\nAuto-generating '{report_instance.report_name}' for all available metrics...")
+                for metric in ['qsos', 'points']:
+                    print(f"  - Generating for: {metric.capitalize()}")
+                    current_kwargs = report_kwargs.copy()
+                    current_kwargs['metric'] = metric
+                    result = report_instance.generate(output_path=output_path, **current_kwargs)
+                    print(result)
             else:
                 print(f"\nGenerating report: '{report_instance.report_name}'...")
                 result = report_instance.generate(output_path=output_path, **report_kwargs)
