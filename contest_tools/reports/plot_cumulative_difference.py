@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-07-22
-# Version: 0.14.0-Beta
+# Version: 0.14.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,8 +22,15 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.14.0-Beta] - 2025-07-22
-# - Initial release of the Cumulative Difference Plot report.
+## [0.14.2-Beta] - 2025-07-22
+### Fixed
+# - Updated pandas resample method from deprecated 'H' to 'h' to resolve
+#   FutureWarning.
+
+## [0.14.1-Beta] - 2025-07-22
+### Fixed
+# - Resolved a TypeError ('got multiple values for keyword argument') by
+#   simplifying the arguments passed to the internal plotting helper function.
 
 from typing import List
 import pandas as pd
@@ -51,7 +58,7 @@ class Report(ContestReport):
     def report_type(self) -> str:
         return "plot"
 
-    def _generate_single_plot(self, output_path: str, band_filter: str, metric: str, **kwargs):
+    def _generate_single_plot(self, output_path: str, band_filter: str, metric: str):
         """
         Helper function to generate a single cumulative difference plot.
         """
@@ -79,8 +86,9 @@ class Report(ContestReport):
             return None
 
         # Create pivot tables for each log to get hourly rates for Run/S&P
-        pt1 = df1.pivot_table(index='Datetime', columns='Run', values=value_column, aggfunc=agg_func).resample('1H').sum().fillna(0)
-        pt2 = df2.pivot_table(index='Datetime', columns='Run', values=value_column, aggfunc=agg_func).resample('1H').sum().fillna(0)
+        # FIX: Changed '1H' to '1h' to resolve FutureWarning
+        pt1 = df1.pivot_table(index='Datetime', columns='Run', values=value_column, aggfunc=agg_func).resample('1h').sum().fillna(0)
+        pt2 = df2.pivot_table(index='Datetime', columns='Run', values=value_column, aggfunc=agg_func).resample('1h').sum().fillna(0)
 
         # Ensure both tables have 'Run' and 'S&P' columns
         for col in ['Run', 'S&P']:
@@ -136,7 +144,7 @@ class Report(ContestReport):
         # --- Save File ---
         os.makedirs(output_path, exist_ok=True)
         filename_band = band_filter.lower().replace('m', '')
-        filename = f"diff_{metric}_{filename_band}_plot.png"
+        filename = f"diff_{metric}_{filename_band}_{call1}_vs_{call2}.png"
         filepath = os.path.join(output_path, filename)
         fig.savefig(filepath)
         plt.close(fig)
@@ -160,8 +168,7 @@ class Report(ContestReport):
                 filepath = self._generate_single_plot(
                     output_path=save_path,
                     band_filter=band,
-                    metric=metric,
-                    **kwargs
+                    metric=metric
                 )
                 if filepath:
                     created_files.append(filepath)
@@ -171,4 +178,4 @@ class Report(ContestReport):
         if not created_files:
             return f"No difference plots were generated for metric '{metric}'."
 
-        return f"Cumulative difference plots saved to the 'plots' directory and its subdirectories."
+        return f"Cumulative difference plots for {metric} saved to the 'plots' directory and its subdirectories."

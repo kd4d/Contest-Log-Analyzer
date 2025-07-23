@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-07-22
-# Version: 0.14.1-Beta
+# Version: 0.14.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -23,18 +23,15 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.14.1-Beta] - 2025-07-22
+## [0.14.2-Beta] - 2025-07-22
 ### Changed
-# - The '--report all' command now automatically generates the cumulative
-#   difference plots for both QSOs and Points.
-
-## [0.14.0-Beta] - 2025-07-22
-### Changed
-# - Added an optional '--metric <qsos|points>' flag to the command line to
-#   specify the metric for the cumulative difference plot.
+# - The 'cumulative_difference_plots' report now correctly generates a
+#   separate plot for every possible pair of logs when more than two
+#   are provided.
 
 import sys
 import os
+import itertools
 from contest_tools.log_manager import LogManager
 from contest_tools.reports import AVAILABLE_REPORTS
 
@@ -151,12 +148,11 @@ def main():
         
         # Generate the selected reports
         for r_id, ReportClass in reports_to_run:
-            report_instance = ReportClass(logs)
-            
-            output_path = text_output_dir if report_instance.report_type == 'text' else plots_output_dir
+            output_path = text_output_dir if ReportClass.report_type.fget(None) == 'text' else plots_output_dir
 
             # --- Special Handling for Auto-Generating Multiple Report Variations ---
             if r_id == 'missed_multipliers' and 'mult_name' not in report_kwargs:
+                report_instance = ReportClass(logs)
                 print(f"\nAuto-generating '{report_instance.report_name}' for all available multiplier types...")
                 for mult_rule in first_log.contest_definition.multiplier_rules:
                     mult_name = mult_rule.get('name')
@@ -166,15 +162,32 @@ def main():
                         current_kwargs['mult_name'] = mult_name
                         result = report_instance.generate(output_path=output_path, **current_kwargs)
                         print(result)
-            elif r_id == 'cumulative_difference_plots' and 'metric' not in report_kwargs:
-                print(f"\nAuto-generating '{report_instance.report_name}' for all available metrics...")
-                for metric in ['qsos', 'points']:
-                    print(f"  - Generating for: {metric.capitalize()}")
-                    current_kwargs = report_kwargs.copy()
-                    current_kwargs['metric'] = metric
-                    result = report_instance.generate(output_path=output_path, **current_kwargs)
-                    print(result)
+            elif r_id == 'cumulative_difference_plots':
+                if len(logs) < 2:
+                    print(f"\nSkipping '{ReportClass.report_name.fget(None)}': requires at least two logs.")
+                    continue
+                
+                print(f"\nGenerating '{ReportClass.report_name.fget(None)}' for all log pairs...")
+                for log_pair in itertools.combinations(logs, 2):
+                    report_instance = ReportClass(list(log_pair))
+                    call1 = log_pair[0].get_metadata().get('MyCall')
+                    call2 = log_pair[1].get_metadata().get('MyCall')
+                    print(f"  - Comparing {call1} vs {call2}:")
+
+                    if 'metric' not in report_kwargs:
+                        for metric in ['qsos', 'points']:
+                            print(f"    - Generating for: {metric.capitalize()}")
+                            current_kwargs = report_kwargs.copy()
+                            current_kwargs['metric'] = metric
+                            result = report_instance.generate(output_path=output_path, **current_kwargs)
+                            print(result)
+                    else:
+                        metric = report_kwargs['metric']
+                        print(f"    - Generating for: {metric.capitalize()}")
+                        result = report_instance.generate(output_path=output_path, **report_kwargs)
+                        print(result)
             else:
+                report_instance = ReportClass(logs)
                 print(f"\nGenerating report: '{report_instance.report_name}'...")
                 result = report_instance.generate(output_path=output_path, **report_kwargs)
                 print(result)
