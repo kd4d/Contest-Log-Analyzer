@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-07-23
-# Version: 0.14.3-Beta
+# Version: 0.14.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -23,10 +23,10 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.14.3-Beta] - 2025-07-23
-### Fixed
-# - Updated the pairwise report logic to correctly reference the new
-#   'qso_comparison' report ID, replacing the obsolete 'unique_qsos'.
+## [0.14.0-Beta] - 2025-07-23
+### Changed
+# - Added the new 'venn_diagrams' report to the list of pairwise reports,
+#   ensuring it is generated correctly for all log combinations.
 
 import sys
 import os
@@ -144,10 +144,19 @@ def main():
         base_output_dir = os.path.join("reports_output", year, contest_name)
         text_output_dir = os.path.join(base_output_dir, "text")
         plots_output_dir = os.path.join(base_output_dir, "plots")
-        
+        charts_output_dir = os.path.join(base_output_dir, "charts")
+
         # Generate the selected reports
         for r_id, ReportClass in reports_to_run:
-            output_path = text_output_dir if ReportClass.report_type.fget(None) == 'text' else plots_output_dir
+            report_type = ReportClass.report_type.fget(None)
+            if report_type == 'text':
+                output_path = text_output_dir
+            elif report_type == 'plot':
+                output_path = plots_output_dir
+            elif report_type == 'chart':
+                output_path = charts_output_dir
+            else:
+                output_path = base_output_dir
 
             # --- Special Handling for Auto-Generating Multiple Report Variations ---
             if r_id == 'missed_multipliers' and 'mult_name' not in report_kwargs:
@@ -161,7 +170,7 @@ def main():
                         current_kwargs['mult_name'] = mult_name
                         result = report_instance.generate(output_path=output_path, **current_kwargs)
                         print(result)
-            elif r_id in ['cumulative_difference_plots', 'qso_comparison']:
+            elif r_id in ['cumulative_difference_plots', 'qso_comparison', 'qso_breakdown_chart', 'venn_diagrams']:
                 if len(logs) < 2:
                     print(f"\nSkipping '{ReportClass.report_name.fget(None)}': requires at least two logs.")
                     continue
