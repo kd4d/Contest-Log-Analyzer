@@ -1,6 +1,6 @@
-# Contest Log Analyzer/contest_tools/reports/plot_qso_rate.py
+# Contest Log Analyzer/contest_tools/reports/plot_point_rate.py
 #
-# Purpose: A plot report that generates a QSO rate graph for all bands
+# Purpose: A plot report that generates a point rate graph for all bands
 #          and for each individual band by calling a shared utility.
 #
 # Author: Mark Bailey, KD4D
@@ -36,16 +36,16 @@ from ._plot_utils import generate_rate_plot # Import the shared helper
 
 class Report(ContestReport):
     """
-    Generates a series of plots comparing QSO rates: one for all bands
+    Generates a series of plots comparing cumulative points: one for all bands
     combined, and one for each individual contest band.
     """
     @property
     def report_id(self) -> str:
-        return "qso_rate_plots"
+        return "point_rate_plots"
 
     @property
     def report_name(self) -> str:
-        return "QSO Rate Comparison Plots"
+        return "Point Rate Comparison Plots"
 
     @property
     def report_type(self) -> str:
@@ -53,7 +53,7 @@ class Report(ContestReport):
 
     def generate(self, output_path: str, **kwargs) -> str:
         """
-        Orchestrates the generation of all QSO rate plots.
+        Orchestrates the generation of all point rate plots.
 
         Args:
             output_path (str): The base directory for plot outputs (e.g., '.../plots/').
@@ -76,18 +76,18 @@ class Report(ContestReport):
                     logs=self.logs,
                     output_path=save_path,
                     band_filter=band,
-                    value_column=None,  # Use None to count QSOs instead of summing a column
-                    main_title_verb="QSO Rate",
-                    y_axis_label="Total QSOs",
-                    filename_prefix="qso_rate",
+                    value_column='QSOPoints',  # Sum the QSOPoints column
+                    main_title_verb="Point Rate",
+                    y_axis_label="Total Points",
+                    filename_prefix="point_rate",
                     include_dupes=include_dupes
                 )
                 created_files.append(filepath)
             except Exception as e:
-                print(f"  - Failed to generate QSO rate plot for {band}: {e}")
+                print(f"  - Failed to generate point rate plot for {band}: {e}")
 
         if not created_files:
-            return "No QSO rate plots were generated."
+            return "No point rate plots were generated."
 
-        summary_message = "QSO rate plots saved to the 'plots' directory and its subdirectories."
+        summary_message = "Point rate plots saved to the 'plots' directory and its subdirectories."
         return summary_message

@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-07-22
-# Version: 0.14.1-Beta
+# Version: 0.14.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -23,15 +23,10 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.14.1-Beta] - 2025-07-22
-### Changed
-# - Added a note to the usage instructions about the requirement for
-#   contest-specific CTY files (e.g., cqww.cty).
-
 ## [0.14.0-Beta] - 2025-07-22
 ### Changed
-# - Added a note to the main usage instructions to remind the user to set
-#   the CTY_DAT_PATH environment variable.
+# - Implemented a new, structured output directory system. Reports are now
+#   saved into 'text' and 'plots' subdirectories.
 
 import sys
 import os
@@ -131,12 +126,23 @@ def main():
         first_qso_date = first_log.get_processed_data()['Date'].iloc[0]
         year = first_qso_date.split('-')[0] if first_qso_date else "UnknownYear"
 
-        output_dir = os.path.join("reports_output", year, contest_name)
-        
+        base_output_dir = os.path.join("reports_output", year, contest_name)
+        text_output_dir = os.path.join(base_output_dir, "text")
+        plots_output_dir = os.path.join(base_output_dir, "plots")
+        # charts_output_dir = os.path.join(base_output_dir, "charts") # For future use
+
         # Generate the selected reports
         for r_id, ReportClass in reports_to_run:
             report_instance = ReportClass(logs)
             
+            # Determine the correct output path for this report type
+            if report_instance.report_type == 'text':
+                output_path = text_output_dir
+            elif report_instance.report_type == 'plot':
+                output_path = plots_output_dir
+            else:
+                output_path = base_output_dir # Default fallback
+
             # Special handling for reports that require a multiplier name
             if r_id == 'missed_multipliers' and 'mult_name' not in report_kwargs:
                 print(f"\nAuto-generating '{report_instance.report_name}' for all available multiplier types...")
@@ -151,11 +157,11 @@ def main():
                         print(f"  - Generating for: {mult_name}")
                         current_kwargs = report_kwargs.copy()
                         current_kwargs['mult_name'] = mult_name
-                        result = report_instance.generate(output_path=output_dir, **current_kwargs)
-                        print(result) # Print the result from the report
+                        result = report_instance.generate(output_path=output_path, **current_kwargs)
+                        print(result) 
             else:
                 print(f"\nGenerating report: '{report_instance.report_name}'...")
-                result = report_instance.generate(output_path=output_dir, **report_kwargs)
+                result = report_instance.generate(output_path=output_path, **report_kwargs)
                 print(result)
 
         print("\n--- Done ---")
