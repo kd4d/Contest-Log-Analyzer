@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-22
-# Version: 0.14.2-Beta
+# Date: 2025-07-23
+# Version: 0.14.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -23,11 +23,10 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.14.2-Beta] - 2025-07-22
-### Changed
-# - The 'cumulative_difference_plots' report now correctly generates a
-#   separate plot for every possible pair of logs when more than two
-#   are provided.
+## [0.14.3-Beta] - 2025-07-23
+### Fixed
+# - Updated the pairwise report logic to correctly reference the new
+#   'qso_comparison' report ID, replacing the obsolete 'unique_qsos'.
 
 import sys
 import os
@@ -162,7 +161,7 @@ def main():
                         current_kwargs['mult_name'] = mult_name
                         result = report_instance.generate(output_path=output_path, **current_kwargs)
                         print(result)
-            elif r_id == 'cumulative_difference_plots':
+            elif r_id in ['cumulative_difference_plots', 'qso_comparison']:
                 if len(logs) < 2:
                     print(f"\nSkipping '{ReportClass.report_name.fget(None)}': requires at least two logs.")
                     continue
@@ -174,7 +173,7 @@ def main():
                     call2 = log_pair[1].get_metadata().get('MyCall')
                     print(f"  - Comparing {call1} vs {call2}:")
 
-                    if 'metric' not in report_kwargs:
+                    if r_id == 'cumulative_difference_plots' and 'metric' not in report_kwargs:
                         for metric in ['qsos', 'points']:
                             print(f"    - Generating for: {metric.capitalize()}")
                             current_kwargs = report_kwargs.copy()
@@ -182,8 +181,6 @@ def main():
                             result = report_instance.generate(output_path=output_path, **current_kwargs)
                             print(result)
                     else:
-                        metric = report_kwargs['metric']
-                        print(f"    - Generating for: {metric.capitalize()}")
                         result = report_instance.generate(output_path=output_path, **report_kwargs)
                         print(result)
             else:
