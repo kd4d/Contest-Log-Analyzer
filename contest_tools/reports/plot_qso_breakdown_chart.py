@@ -5,7 +5,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-07-24
-# Version: 0.14.5-Beta
+# Version: 0.14.12-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,10 +21,10 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.14.5-Beta] - 2025-07-24
+## [0.14.12-Beta] - 2025-07-24
 ### Fixed
-# - Adjusted the vertical positioning and padding of the two-level x-axis
-#   labels to reduce white space and prevent overlap.
+# - Fine-tuned the vertical positioning of the two-level x-axis labels to
+#   reduce white space and bring the label lines closer together.
 
 from typing import List
 import pandas as pd
@@ -110,8 +110,9 @@ class Report(ContestReport):
         sns.set_theme(style="whitegrid")
         fig, ax = plt.subplots(figsize=(15, 8)) # Landscape orientation
 
-        index = np.arange(len(plot_data['bands']))
-        bar_width = 0.25
+        group_spacing = 3.0 
+        bar_width = 0.8
+        index = np.arange(len(plot_data['bands'])) * group_spacing
 
         # Bar group for Log 1 (Unique QSOs)
         run1_bars = np.array(plot_data[call1]['run'])
@@ -140,29 +141,31 @@ class Report(ContestReport):
         # --- Two-Level X-Axis Labels ---
         ax.set_xticks(index)
         ax.set_xticklabels([''] * len(plot_data['bands']))
-        ax.tick_params(axis='x', length=0, pad=18) # Adjust padding for the top level
+        ax.tick_params(axis='x', length=0)
 
         default_fontsize = plt.rcParams['xtick.labelsize']
         callsign_fontsize = default_fontsize - 2
 
-        for i in index:
+        # Add the two label lines manually
+        for i, group_center in enumerate(index):
             # Top line: Callsigns (closer to the axis)
-            y_pos_top = -0.05 
-            ax.text(i - bar_width, y_pos_top, call1, ha='center', va='top', transform=ax.get_xaxis_transform(), fontweight='bold', fontsize=callsign_fontsize)
-            ax.text(i, y_pos_top, "Common", ha='center', va='top', transform=ax.get_xaxis_transform(), fontweight='bold', fontsize=callsign_fontsize)
-            ax.text(i + bar_width, y_pos_top, call2, ha='center', va='top', transform=ax.get_xaxis_transform(), fontweight='bold', fontsize=callsign_fontsize)
+            y_pos_top = -0.02
+            ax.text(group_center - bar_width, y_pos_top, f"{call1}  ", ha='center', va='top', transform=ax.get_xaxis_transform(), fontweight='bold', fontsize=callsign_fontsize)
+            ax.text(group_center, y_pos_top, "Common", ha='center', va='top', transform=ax.get_xaxis_transform(), fontweight='bold', fontsize=callsign_fontsize)
+            ax.text(group_center + bar_width, y_pos_top, f"  {call2}", ha='center', va='top', transform=ax.get_xaxis_transform(), fontweight='bold', fontsize=callsign_fontsize)
             
             # Bottom line: Bands (further from the axis)
-            y_pos_bottom = -0.10
+            y_pos_bottom = -0.05
             band_text = f"{plot_data['bands'][i]} Meters"
-            ax.text(i, y_pos_bottom, band_text, ha='center', va='top', transform=ax.get_xaxis_transform(), fontsize=default_fontsize)
+            ax.text(group_center, y_pos_bottom, band_text, ha='center', va='top', transform=ax.get_xaxis_transform(), fontsize=default_fontsize)
         
         # Create a clean legend
         handles, labels = ax.get_legend_handles_labels()
         unique_labels = dict(zip(labels, handles))
         ax.legend(unique_labels.values(), unique_labels.keys(), ncol=4)
 
-        fig.tight_layout()
+        # Adjust subplot parameters to reduce bottom margin
+        plt.subplots_adjust(bottom=0.1)
 
         # --- Save File ---
         os.makedirs(output_path, exist_ok=True)
