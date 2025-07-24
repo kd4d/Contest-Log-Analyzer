@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-23
-# Version: 0.14.5-Beta
+# Date: 2025-07-24
+# Version: 0.14.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,11 +21,11 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.14.5-Beta] - 2025-07-23
-### Fixed
-# - Corrected the underlying logic to use QSO counts for all metrics instead of
-#   mixing QSO counts and multiplier counts. This ensures all totals and
-#   sub-totals in the report are consistent and accurate.
+## [0.14.0-Beta] - 2025-07-24
+### Changed
+# - Updated the report to correctly handle and display the new "Unknown"
+#   classification in all relevant metrics.
+# - Adjusted table formatting to accommodate the new "Unknown" columns.
 
 from typing import List, Dict, Any, Set
 import pandas as pd
@@ -36,7 +36,7 @@ from .report_interface import ContestReport
 class Report(ContestReport):
     """
     Generates a detailed pairwise comparison of QSO statistics, including
-    breakdowns by Run/S&P for total and unique QSOs.
+    breakdowns by Run/S&P/Unknown for total and unique QSOs.
     """
     @property
     def report_id(self) -> str:
@@ -80,9 +80,9 @@ class Report(ContestReport):
         df2_full = log2.get_processed_data()[log2.get_processed_data()['Dupe'] == False]
 
         # --- Define Table Format ---
-        headers1 = ["", "Total", "Run", "S&P", "Unique", "Unique", "Unique", "Common"]
-        headers2 = ["Callsign", "", "", "", "", "Run", "S&P", ""]
-        col_widths = [12, 8, 8, 8, 8, 8, 8, 8]
+        headers1 = ["", "Total", "Run", "S&P", "Unk", "Unique", "Unique", "Unique", "Unique", "Common"]
+        headers2 = ["Callsign", "", "", "", "", "", "Run", "S&P", "Unk", ""]
+        col_widths = [12, 8, 8, 8, 8, 8, 8, 8, 8, 8]
 
         header1_str = "".join([f"{h:>{w}}" for h, w in zip(headers1, col_widths)])
         header2_str = "".join([f"{h:>{w}}" for h, w in zip(headers2, col_widths)])
@@ -120,12 +120,14 @@ class Report(ContestReport):
                 total_qsos = len(df_current)
                 run_total = (df_current['Run'] == 'Run').sum()
                 sp_total = (df_current['Run'] == 'S&P').sum()
+                unknown_total = (df_current['Run'] == 'Unknown').sum()
 
                 # --- Unique QSO metrics ---
                 df_unique = df_current[df_current['Call'].isin(unique_to_current_set)]
                 unique_qsos_total = len(df_unique)
                 run_unique = (df_unique['Run'] == 'Run').sum()
                 sp_unique = (df_unique['Run'] == 'S&P').sum()
+                unknown_unique = (df_unique['Run'] == 'Unknown').sum()
 
                 # --- Common QSO metrics ---
                 df_common = df_current[df_current['Call'].isin(common_calls_set)]
@@ -137,10 +139,12 @@ class Report(ContestReport):
                     f"{total_qsos:>{col_widths[1]}}"
                     f"{run_total:>{col_widths[2]}}"
                     f"{sp_total:>{col_widths[3]}}"
-                    f"{unique_qsos_total:>{col_widths[4]}}"
-                    f"{run_unique:>{col_widths[5]}}"
-                    f"{sp_unique:>{col_widths[6]}}"
-                    f"{common_qsos_total:>{col_widths[7]}}"
+                    f"{unknown_total:>{col_widths[4]}}"
+                    f"{unique_qsos_total:>{col_widths[5]}}"
+                    f"{run_unique:>{col_widths[6]}}"
+                    f"{sp_unique:>{col_widths[7]}}"
+                    f"{unknown_unique:>{col_widths[8]}}"
+                    f"{common_qsos_total:>{col_widths[9]}}"
                 )
                 report_lines.append(row_str)
             report_lines.append("")

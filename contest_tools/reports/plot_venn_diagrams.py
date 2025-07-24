@@ -1,12 +1,12 @@
 # Contest Log Analyzer/contest_tools/reports/plot_venn_diagrams.py
 #
 # Purpose: A plot report that generates a comparative Venn diagram of QSO overlap,
-#          with unique regions subdivided by Run/S&P.
+#          with unique regions subdivided by Run/S&P/Unknown.
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-23
-# Version: 0.14.7-Beta
+# Date: 2025-07-24
+# Version: 0.14.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,11 +22,12 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.14.7-Beta] - 2025-07-23
+## [0.14.2-Beta] - 2025-07-24
 ### Changed
-# - Increased the font size of the external text labels by approximately 40%
-#   to improve readability.
-# - Adjusted line spacing and plot padding to accommodate the larger text.
+# - Combined 'S&P' and 'Unknown' categories into a single yellow segment in the
+#   Venn diagram's unique regions for a cleaner visual.
+# - Updated the external text labels to use a darker gold color for S&P and
+#   Unknown counts and made them bold to improve readability.
 
 from typing import List
 import pandas as pd
@@ -41,7 +42,6 @@ try:
     from shapely.ops import split as shapely_split
 except ImportError:
     print("Warning: 'shapely' library not found. The 'venn_diagrams' report will be unavailable.")
-    # Allow the module to be imported, but generate() will fail gracefully.
     Point = None 
 
 from ..contest_log import ContestLog
@@ -50,7 +50,7 @@ from .report_interface import ContestReport
 class Report(ContestReport):
     """
     Generates a Venn diagram for each band, showing the overlap of
-    worked callsigns between two logs, with unique regions split by Run/S&P.
+    worked callsigns between two logs, with unique regions split by Run/S&P/Unknown.
     """
     @property
     def report_id(self) -> str:
@@ -126,8 +126,11 @@ class Report(ContestReport):
 
         k1_only_run = (k1_unique_df['Run'] == 'Run').sum()
         k1_only_snp = (k1_unique_df['Run'] == 'S&P').sum()
+        k1_only_unk = (k1_unique_df['Run'] == 'Unknown').sum()
+        
         k2_only_run = (k2_unique_df['Run'] == 'Run').sum()
         k2_only_snp = (k2_unique_df['Run'] == 'S&P').sum()
+        k2_only_unk = (k2_unique_df['Run'] == 'Unknown').sum()
         
         # --- Calculate Proportional Geometry ---
         scale_factor = 0.005
@@ -148,7 +151,7 @@ class Report(ContestReport):
         crescent2 = circle_b.difference(circle_a)
 
         # --- Plotting ---
-        fig, ax = plt.subplots(figsize=(12, 9)) # Increased figure size for larger text
+        fig, ax = plt.subplots(figsize=(12, 9))
         ax.set_aspect('equal')
         ax.axis('off')
 
@@ -159,52 +162,64 @@ class Report(ContestReport):
             ax.text(label_pos[0], label_pos[1], f"Common\n{common_qso}", ha='center', va='center', color='white', fontsize=17, weight='bold', zorder=3)
 
         # --- Draw Split Crescents ---
-        for crescent, run_count, snp_count in [(crescent1, k1_only_run, k1_only_snp), (crescent2, k2_only_run, k2_only_snp)]:
+        for crescent, run, snp, unk in [(crescent1, k1_only_run, k1_only_snp, k1_only_unk), 
+                                        (crescent2, k2_only_run, k2_only_snp, k2_only_unk)]:
             if crescent.is_empty: continue
-            total_unique = run_count + snp_count
-            run_prop = run_count / total_unique if total_unique > 0 else 0
+            total_unique = run + snp + unk
+            if total_unique == 0: continue
+
+            run_prop = run / total_unique
             
-            bounds = crescent.bounds
-            is_vertical = (bounds[2] - bounds[0]) > (bounds[3] - bounds[1])
-            
-            if is_vertical:
-                split_coord = bounds[0] + (bounds[2] - bounds[0]) * run_prop
-                split_line = LineString([(split_coord, bounds[1] - 1), (split_coord, bounds[3] + 1)])
-            else:
-                split_coord = bounds[1] + (bounds[3] - bounds[1]) * run_prop
-                split_line = LineString([(bounds[0] - 1, split_coord), (bounds[2] + 1, split_coord)])
-            
-            try:
-                split_result = shapely_split(crescent, split_line)
-                if len(split_result.geoms) == 2:
-                    p1, p2 = split_result.geoms
-                    run_poly, snp_poly = (p1, p2) if (p1.centroid.x < split_coord if is_vertical else p1.centroid.y < split_coord) else (p2, p1)
+            if run_prop == 1.0: # All Run
+                self._plot_polygon(ax, crescent, facecolor='#d62728', alpha=0.6, zorder=1) # Red
+            elif run_prop == 0.0: # All S&P/Unknown
+                self._plot_polygon(ax, crescent, facecolor='gold', alpha=0.6, zorder=1) # Yellow
+            else: # Mixed, needs splitting
+                bounds = crescent.bounds
+                is_vertical = (bounds[2] - bounds[0]) > (bounds[3] - bounds[1])
+                
+                try:
+                    if is_vertical:
+                        split_coord = bounds[0] + (bounds[2] - bounds[0]) * run_prop
+                        split_line = LineString([(split_coord, bounds[1] - 1), (split_coord, bounds[3] + 1)])
+                    else:
+                        split_coord = bounds[1] + (bounds[3] - bounds[1]) * run_prop
+                        split_line = LineString([(bounds[0] - 1, split_coord), (bounds[2] + 1, split_coord)])
+
+                    split_result = shapely_split(crescent, split_line)
                     
-                    self._plot_polygon(ax, run_poly, facecolor='#d62728', alpha=0.6, zorder=1) # Desaturated Red
-                    self._plot_polygon(ax, snp_poly, facecolor='#2ca02c', alpha=0.6, zorder=1) # Desaturated Green
-                else: 
+                    if len(split_result.geoms) == 2:
+                        p1, p2 = split_result.geoms
+                        run_poly, other_poly = (p1, p2) if (p1.centroid.x < split_coord if is_vertical else p1.centroid.y < split_coord) else (p2, p1)
+                        
+                        self._plot_polygon(ax, run_poly, facecolor='#d62728', alpha=0.6, zorder=1) # Red
+                        self._plot_polygon(ax, other_poly, facecolor='gold', alpha=0.6, zorder=1) # Yellow
+                    else: 
+                        self._plot_polygon(ax, crescent, facecolor='grey', alpha=0.5, zorder=1)
+                except: 
                     self._plot_polygon(ax, crescent, facecolor='grey', alpha=0.5, zorder=1)
-            except: 
-                self._plot_polygon(ax, crescent, facecolor='grey', alpha=0.5, zorder=1)
 
         # --- Add Detailed, Color-Coded Labels Outside Circles ---
-        line_height = max(r1, r2) * 0.30 # Adjusted line height for larger font
+        line_height = max(r1, r2) * 0.28
+        gold_color = '#DAA520' # Goldenrod
         
         # Label for Log 1
-        y_start1 = center1.y + line_height * 2
+        y_start1 = center1.y + line_height * 2.5
         ax.text(center1.x - r1 - 0.15, y_start1, f"{call1}", ha='right', va='center', fontsize=17, weight='bold', color='black')
         ax.text(center1.x - r1 - 0.15, y_start1 - line_height, f"Total: {len(calls1)}", ha='right', va='center', fontsize=14, color='black')
         ax.text(center1.x - r1 - 0.15, y_start1 - line_height * 2.5, f"Unique: {len(k1_only_calls)}", ha='right', va='center', fontsize=14, color='black')
         ax.text(center1.x - r1 - 0.15, y_start1 - line_height * 3.5, f"Run: {k1_only_run}", ha='right', va='center', fontsize=14, weight='bold', color='#d62728')
-        ax.text(center1.x - r1 - 0.15, y_start1 - line_height * 4.5, f"S&P: {k1_only_snp}", ha='right', va='center', fontsize=14, weight='bold', color='#2ca02c')
+        ax.text(center1.x - r1 - 0.15, y_start1 - line_height * 4.5, f"S&P: {k1_only_snp}", ha='right', va='center', fontsize=14, weight='bold', color=gold_color)
+        ax.text(center1.x - r1 - 0.15, y_start1 - line_height * 5.5, f"Unknown: {k1_only_unk}", ha='right', va='center', fontsize=14, weight='bold', color=gold_color)
 
         # Label for Log 2
-        y_start2 = center2.y + line_height * 2
+        y_start2 = center2.y + line_height * 2.5
         ax.text(center2.x + r2 + 0.15, y_start2, f"{call2}", ha='left', va='center', fontsize=17, weight='bold', color='black')
         ax.text(center2.x + r2 + 0.15, y_start2 - line_height, f"Total: {len(calls2)}", ha='left', va='center', fontsize=14, color='black')
         ax.text(center2.x + r2 + 0.15, y_start2 - line_height * 2.5, f"Unique: {len(k2_only_calls)}", ha='left', va='center', fontsize=14, color='black')
         ax.text(center2.x + r2 + 0.15, y_start2 - line_height * 3.5, f"Run: {k2_only_run}", ha='left', va='center', fontsize=14, weight='bold', color='#d62728')
-        ax.text(center2.x + r2 + 0.15, y_start2 - line_height * 4.5, f"S&P: {k2_only_snp}", ha='left', va='center', fontsize=14, weight='bold', color='#2ca02c')
+        ax.text(center2.x + r2 + 0.15, y_start2 - line_height * 4.5, f"S&P: {k2_only_snp}", ha='left', va='center', fontsize=14, weight='bold', color=gold_color)
+        ax.text(center2.x + r2 + 0.15, y_start2 - line_height * 5.5, f"Unknown: {k2_only_unk}", ha='left', va='center', fontsize=14, weight='bold', color=gold_color)
 
         # --- Formatting and Saving ---
         contest_name = log1.get_metadata().get('ContestName', '')
@@ -221,8 +236,8 @@ class Report(ContestReport):
         
         x_range = max_x - min_x
         y_range = max_y - min_y
-        ax.set_xlim(min_x - x_range * 0.4, max_x + x_range * 0.4) 
-        ax.set_ylim(min_y - y_range * 0.4, max_y + y_range * 0.4)
+        ax.set_xlim(min_x - x_range * 0.5, max_x + x_range * 0.5)
+        ax.set_ylim(min_y - y_range * 0.5, max_y + y_range * 0.5)
 
         os.makedirs(output_path, exist_ok=True)
         filename_band = band_filter.lower().replace('m', '')

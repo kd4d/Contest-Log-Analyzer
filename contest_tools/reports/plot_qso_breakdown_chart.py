@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-23
-# Version: 0.14.0-Beta
+# Date: 2025-07-24
+# Version: 0.14.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,11 +21,10 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.14.0-Beta] - 2025-07-23
-### Changed
-# - The 'report_type' is now 'chart' to save output to the 'charts' directory.
-# - Removed the "All Bands" summary bar from the plot to improve the scale
-#   and readability of the band-by-band comparison.
+## [0.14.5-Beta] - 2025-07-24
+### Fixed
+# - Adjusted the vertical positioning and padding of the two-level x-axis
+#   labels to reduce white space and prevent overlap.
 
 from typing import List
 import pandas as pd
@@ -39,7 +38,7 @@ from .report_interface import ContestReport
 
 class Report(ContestReport):
     """
-    Generates a stacked bar chart comparing the QSO breakdown (Run/S&P/Common)
+    Generates a stacked bar chart comparing the QSO breakdown (Run/S&P/Unknown/Common)
     between two logs for each band.
     """
     @property
@@ -74,8 +73,8 @@ class Report(ContestReport):
         # --- Data Aggregation ---
         plot_data = {
             'bands': [b.replace('M', '') for b in bands],
-            call1: {'run': [], 'sp': []},
-            call2: {'run': [], 'sp': []},
+            call1: {'run': [], 'sp': [], 'unknown': []},
+            call2: {'run': [], 'sp': [], 'unknown': []},
             'common': []
         }
 
@@ -88,12 +87,23 @@ class Report(ContestReport):
 
             calls1 = set(df1_band['Call'].unique())
             calls2 = set(df2_band['Call'].unique())
+            
             common_calls = calls1.intersection(calls2)
+            unique_to_1 = calls1.difference(calls2)
+            unique_to_2 = calls2.difference(calls1)
 
-            plot_data[call1]['run'].append((df1_band['Run'] == 'Run').sum())
-            plot_data[call1]['sp'].append((df1_band['Run'] == 'S&P').sum())
-            plot_data[call2]['run'].append((df2_band['Run'] == 'Run').sum())
-            plot_data[call2]['sp'].append((df2_band['Run'] == 'S&P').sum())
+            # Filter to only unique QSOs before counting
+            df1_unique = df1_band[df1_band['Call'].isin(unique_to_1)]
+            df2_unique = df2_band[df2_band['Call'].isin(unique_to_2)]
+
+            plot_data[call1]['run'].append((df1_unique['Run'] == 'Run').sum())
+            plot_data[call1]['sp'].append((df1_unique['Run'] == 'S&P').sum())
+            plot_data[call1]['unknown'].append((df1_unique['Run'] == 'Unknown').sum())
+            
+            plot_data[call2]['run'].append((df2_unique['Run'] == 'Run').sum())
+            plot_data[call2]['sp'].append((df2_unique['Run'] == 'S&P').sum())
+            plot_data[call2]['unknown'].append((df2_unique['Run'] == 'Unknown').sum())
+            
             plot_data['common'].append(len(common_calls))
 
         # --- Plotting ---
@@ -103,31 +113,54 @@ class Report(ContestReport):
         index = np.arange(len(plot_data['bands']))
         bar_width = 0.25
 
-        # Bar group for Log 1
-        ax.bar(index - bar_width, plot_data[call1]['run'], bar_width, color='red', label=f'{call1} Run')
-        ax.bar(index - bar_width, plot_data[call1]['sp'], bar_width, bottom=plot_data[call1]['run'], color='green', label=f'{call1} S&P')
+        # Bar group for Log 1 (Unique QSOs)
+        run1_bars = np.array(plot_data[call1]['run'])
+        sp1_bars = np.array(plot_data[call1]['sp'])
+        ax.bar(index - bar_width, run1_bars, bar_width, color='red', label=f'Unique Run')
+        ax.bar(index - bar_width, sp1_bars, bar_width, bottom=run1_bars, color='green', label=f'Unique S&P')
+        ax.bar(index - bar_width, plot_data[call1]['unknown'], bar_width, bottom=run1_bars + sp1_bars, color='gold', label=f'Unique Unknown')
 
         # Bar group for Common QSOs
         ax.bar(index, plot_data['common'], bar_width, color='grey', label='Common Calls')
 
-        # Bar group for Log 2
-        ax.bar(index + bar_width, plot_data[call2]['run'], bar_width, color='red', label=f'{call2} Run')
-        ax.bar(index + bar_width, plot_data[call2]['sp'], bar_width, bottom=plot_data[call2]['run'], color='green', label=f'{call2} S&P')
+        # Bar group for Log 2 (Unique QSOs)
+        run2_bars = np.array(plot_data[call2]['run'])
+        sp2_bars = np.array(plot_data[call2]['sp'])
+        ax.bar(index + bar_width, run2_bars, bar_width, color='red')
+        ax.bar(index + bar_width, sp2_bars, bar_width, bottom=run2_bars, color='green')
+        ax.bar(index + bar_width, plot_data[call2]['unknown'], bar_width, bottom=run2_bars + sp2_bars, color='gold')
 
         # --- Formatting ---
         contest_name = log1.get_metadata().get('ContestName', '')
         year = log1.get_processed_data()['Date'].iloc[0].split('-')[0]
         
         ax.set_ylabel('QSO Count')
-        ax.set_title(f"{year} {contest_name}\nQSO Breakdown by Band ({call1} vs {call2})", fontsize=16, fontweight='bold')
+        ax.set_title(f"{year} {contest_name}\nQSO Breakdown ({call1} vs {call2})", fontsize=16, fontweight='bold')
+        
+        # --- Two-Level X-Axis Labels ---
         ax.set_xticks(index)
-        ax.set_xticklabels(plot_data['bands'])
+        ax.set_xticklabels([''] * len(plot_data['bands']))
+        ax.tick_params(axis='x', length=0, pad=18) # Adjust padding for the top level
+
+        default_fontsize = plt.rcParams['xtick.labelsize']
+        callsign_fontsize = default_fontsize - 2
+
+        for i in index:
+            # Top line: Callsigns (closer to the axis)
+            y_pos_top = -0.05 
+            ax.text(i - bar_width, y_pos_top, call1, ha='center', va='top', transform=ax.get_xaxis_transform(), fontweight='bold', fontsize=callsign_fontsize)
+            ax.text(i, y_pos_top, "Common", ha='center', va='top', transform=ax.get_xaxis_transform(), fontweight='bold', fontsize=callsign_fontsize)
+            ax.text(i + bar_width, y_pos_top, call2, ha='center', va='top', transform=ax.get_xaxis_transform(), fontweight='bold', fontsize=callsign_fontsize)
+            
+            # Bottom line: Bands (further from the axis)
+            y_pos_bottom = -0.10
+            band_text = f"{plot_data['bands'][i]} Meters"
+            ax.text(i, y_pos_bottom, band_text, ha='center', va='top', transform=ax.get_xaxis_transform(), fontsize=default_fontsize)
         
         # Create a clean legend
         handles, labels = ax.get_legend_handles_labels()
-        # Use a dictionary to remove duplicate labels (e.g., two "Run" labels)
         unique_labels = dict(zip(labels, handles))
-        ax.legend(unique_labels.values(), unique_labels.keys(), ncol=3)
+        ax.legend(unique_labels.values(), unique_labels.keys(), ncol=4)
 
         fig.tight_layout()
 

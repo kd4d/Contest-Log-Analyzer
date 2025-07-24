@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-22
-# Version: 0.13.0-Beta
+# Date: 2025-07-24
+# Version: 0.14.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,10 +21,10 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.13.0-Beta] - 2025-07-22
+## [0.14.0-Beta] - 2025-07-24
 ### Changed
-# - Refactored the generate() method to use **kwargs for flexible argument passing.
-# - The method now saves its own output file and returns a summary message.
+# - Updated to correctly handle and display the new "Unknown" classification
+#   in the QSO summary.
 
 from typing import List
 import os
@@ -86,8 +86,10 @@ class Report(ContestReport):
             if 'Run' in df.columns:
                 run_qsos = (df['Run'] == 'Run').sum()
                 sp_qsos = (df['Run'] == 'S&P').sum()
+                unknown_qsos = (df['Run'] == 'Unknown').sum()
                 report_lines.append(f"  - Run QSOs: {run_qsos}")
                 report_lines.append(f"  - S&P QSOs: {sp_qsos}")
+                report_lines.append(f"  - Unknown QSOs: {unknown_qsos}")
             
             report_lines.append("")
 
