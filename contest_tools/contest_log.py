@@ -32,11 +32,14 @@
 #   two-tiered data model (Universal Annotations vs. Contest Multipliers).
 # - The method now performs a second country lookup using a contest-specific
 #   CTY file (if defined) to populate the new Mult1, Mult2, etc., columns.
+### Fixed
+# - Corrected a TypeError by passing the 'contest_definition' object to the
+#   'process_dataframe_for_cty_data' function during annotation.
 
 ## [0.13.0-Beta] - 2025-07-22
-### Changed
-# - Updated to dynamically load contest-specific scoring modules, resolving
-#   circular import errors and improving scalability.
+### Fixed
+# - Resolved a circular import error by dynamically loading contest-specific
+#   scoring modules at runtime instead of using a static top-level import.
 
 ## [0.12.0-Beta] - 2025-07-21
 ### Changed
@@ -175,7 +178,8 @@ class ContestLog:
 
         try:
             print("Applying Universal DXCC/Zone lookup...")
-            self.qsos_df = process_dataframe_for_cty_data(self.qsos_df)
+            # Pass the contest definition to the lookup function
+            self.qsos_df = process_dataframe_for_cty_data(self.qsos_df, self.contest_definition)
             print("Universal DXCC/Zone lookup complete.")
         except Exception as e:
             print(f"Error during Universal DXCC/Zone lookup: {e}. Skipping.")

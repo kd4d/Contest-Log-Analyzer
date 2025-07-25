@@ -1,4 +1,4 @@
-v# Contest Log Analyzer/contest_tools/cabrillo_parser.py
+# Contest Log Analyzer/contest_tools/cabrillo_parser.py
 #
 # Purpose: Provides functionality to parse Cabrillo log files into a Pandas DataFrame
 #          and extract log metadata. It uses a ContestDefinition object to guide

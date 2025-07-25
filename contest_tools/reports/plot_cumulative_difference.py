@@ -32,6 +32,9 @@
 # - The bottom subplot now displays the cumulative difference for "S&P + Unknown"
 #   QSOs/Points combined.
 # - Added the band name as a second line to the main title of each plot.
+### Fixed
+# - Corrected a critical bug in the data aggregation logic that was causing
+#   the difference plots to show incorrect values.
 
 from typing import List
 import pandas as pd
@@ -72,21 +75,17 @@ class Report(ContestReport):
         agg_func = 'sum' if metric == 'points' else 'count'
         
         # --- Data Preparation using the shared helper ---
-        logs_to_align = [log for log in [log1, log2] if not log.get_processed_data()[log.get_processed_data()['Band'] == band_filter if band_filter != "All" else True].empty]
-        
-        if len(logs_to_align) < 2:
-             print(f"  - Skipping {band_filter} difference plot: one or both logs have no QSOs on this band.")
-             return None
-
         aligned_data = align_logs_by_time(
-            logs=logs_to_align,
+            logs=self.logs,
             value_column=value_column,
             agg_func=agg_func,
+            band_filter=band_filter, # Pass the band filter here
             time_unit='1h'
         )
 
-        if not aligned_data:
-            return None
+        if len(aligned_data) < 2:
+             print(f"  - Skipping {band_filter} difference plot: one or both logs have no QSOs on this band.")
+             return None
             
         pt1_aligned = aligned_data[call1]
         pt2_aligned = aligned_data[call2]

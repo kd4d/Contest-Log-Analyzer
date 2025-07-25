@@ -23,10 +23,9 @@
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
 ## [0.15.0-Beta] - 2025-07-25
-# - Renamed from _plot_utils.py to _report_utils.py to better reflect its
-#   generic purpose.
-# - Initial release of the report utilities helper module.
-# - Includes the 'align_logs_by_time' function for robust time-series analysis.
+### Changed
+# - The 'align_logs_by_time' function now accepts a 'band_filter' argument
+#   to correctly process data for individual bands.
 
 from typing import List, Dict
 import pandas as pd
@@ -37,6 +36,7 @@ def align_logs_by_time(
     logs: List[ContestLog],
     value_column: str,
     agg_func: str,
+    band_filter: str = "All",
     time_unit: str = '1h'
 ) -> Dict[str, pd.DataFrame]:
     """
@@ -46,6 +46,7 @@ def align_logs_by_time(
         logs (List[ContestLog]): The list of ContestLog objects to process.
         value_column (str): The column to aggregate (e.g., 'QSOPoints' or 'Call').
         agg_func (str): The aggregation function to use ('sum' or 'count').
+        band_filter (str): The band to filter for (e.g., '20M', or 'All').
         time_unit (str): The time frequency for resampling (e.g., '1h', '10min').
 
     Returns:
@@ -58,8 +59,14 @@ def align_logs_by_time(
     # First pass: process each log and find the global time range
     for log in logs:
         callsign = log.get_metadata().get('MyCall', 'Unknown')
-        df = log.get_processed_data()[log.get_processed_data()['Dupe'] == False].copy()
+        df_full = log.get_processed_data()[log.get_processed_data()['Dupe'] == False].copy()
         
+        # Apply the band filter
+        if band_filter != "All":
+            df = df_full[df_full['Band'] == band_filter].copy()
+        else:
+            df = df_full.copy()
+
         if df.empty:
             continue
         

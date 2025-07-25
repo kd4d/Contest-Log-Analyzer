@@ -75,21 +75,17 @@ class Report(ContestReport):
         fig, ax = plt.subplots(figsize=(12, 7))
 
         # --- Data Preparation using the shared helper ---
-        logs_to_align = [log for log in self.logs if not log.get_processed_data()[log.get_processed_data()['Band'] == band_filter if band_filter != "All" else True].empty]
-        
-        if not logs_to_align:
-             print(f"  - Skipping {band_filter} QSO rate plot: no logs have QSOs on this band.")
-             return None
-
         aligned_data = align_logs_by_time(
-            logs=logs_to_align,
+            logs=self.logs,
             value_column='Call',
             agg_func='count',
+            band_filter=band_filter, # Pass the band filter here
             time_unit='10min'
         )
         
         if not aligned_data:
-            return None
+             print(f"  - Skipping {band_filter} QSO rate plot: no logs have QSOs on this band.")
+             return None
 
         # --- Plotting ---
         for callsign, df_aligned in aligned_data.items():
