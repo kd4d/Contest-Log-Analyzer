@@ -1,4 +1,4 @@
-# Contest Log Analyzer/contest_tools/cabrillo_parser.py
+v# Contest Log Analyzer/contest_tools/cabrillo_parser.py
 #
 # Purpose: Provides functionality to parse Cabrillo log files into a Pandas DataFrame
 #          and extract log metadata. It uses a ContestDefinition object to guide
@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-21
-# Version: 0.10.0-Beta
+# Date: 2025-07-25
+# Version: 0.15.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -23,17 +23,14 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.10.0-Beta] - 2025-07-21
-# - Updated version for consistency with new reporting structure.
+## [0.15.0-Beta] - 2025-07-25
+# - Standardized version for final review. No functional changes.
 
-### Changed
-# - (None)
-
-### Fixed
-# - (None)
-
-### Removed
-# - (None)
+## [0.9.0-Beta] - 2025-07-18
+# - Initial Beta release of `cabrillo_parser.py`.
+# - Implemented `parse_cabrillo_file` function for Cabrillo ingestion.
+# - Handles parsing of Cabrillo header lines and standard QSO fields.
+# - Integrates with `ContestDefinition` to dynamically parse contest-specific exchange fields.
 
 import re
 import pandas as pd

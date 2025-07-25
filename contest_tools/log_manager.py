@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-21
-# Version: 0.12.0-Beta
+# Date: 2025-07-25
+# Version: 0.15.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,10 +22,16 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.12.0-Beta] - 2025-07-21
+## [0.15.0-Beta] - 2025-07-25
+# - Standardized version for final review. No functional changes.
+
+## [0.12.0-Beta] - 2025-07-22
 ### Changed
 # - The load_log method now automatically exports a '_processed.csv' file for
 #   each log after all annotations are applied.
+
+## [0.10.0-Beta] - 2025-07-21
+# - Initial release of the LogManager class.
 
 from typing import Dict, List, Optional
 from .contest_log import ContestLog

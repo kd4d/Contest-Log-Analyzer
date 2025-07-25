@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-22
-# Version: 0.12.0-Beta
+# Date: 2025-07-25
+# Version: 0.15.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,10 +21,23 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
+## [0.15.0-Beta] - 2025-07-25
+# - Standardized version for final review. No functional changes.
+
 ## [0.12.0-Beta] - 2025-07-22
 ### Changed
 # - Refactored the generate() method to use **kwargs for flexible argument
 #   passing, improving scalability for future reports with custom arguments.
+# - Added 'mult_type' optional string argument to the generate() method
+#   to allow reports to select between 'dxcc' and 'wae' multipliers.
+
+## [0.11.0-Beta] - 2025-07-21
+### Changed
+# - Added 'include_dupes' optional boolean argument to the generate() method
+#   signature to allow reports to optionally include duplicate QSOs.
+
+## [0.10.0-Beta] - 2025-07-21
+# - Initial release of the report interface.
 
 from abc import ABC, abstractmethod
 from typing import List
@@ -55,7 +68,7 @@ class ContestReport(ABC):
     @property
     @abstractmethod
     def report_type(self) -> str:
-        """The type of report, either 'text' or 'plot'."""
+        """The type of report, either 'text', 'plot', or 'chart'."""
         pass
 
     @abstractmethod
@@ -68,9 +81,10 @@ class ContestReport(ABC):
             **kwargs: A dictionary for optional report-specific arguments.
                 - include_dupes (bool): If True, include dupes. Defaults to False.
                 - mult_type (str): 'dxcc' or 'wae'. Defaults to 'dxcc'.
+                - mult_name (str): The name of the multiplier to analyze.
+                - metric (str): 'qsos' or 'points'.
 
         Returns:
-            str: For 'text' reports, a summary message or the content itself.
-                 For 'plot' reports, a summary message or the primary filename.
+            str: A summary message confirming the report generation.
         """
         pass

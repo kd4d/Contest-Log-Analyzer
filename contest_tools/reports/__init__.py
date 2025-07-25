@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-21
-# Version: 0.10.0-Beta
+# Date: 2025-07-25
+# Version: 0.15.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,17 +22,11 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
+## [0.15.0-Beta] - 2025-07-25
+# - Standardized version for final review. No functional changes.
+
 ## [0.10.0-Beta] - 2025-07-21
 # - Initial release of the report discovery mechanism.
-
-### Changed
-# - (None)
-
-### Fixed
-# - (None)
-
-### Removed
-# - (None)
 
 import os
 import importlib
@@ -52,7 +46,7 @@ def discover_reports():
 
     current_dir = os.path.dirname(__file__)
     for filename in os.listdir(current_dir):
-        if filename.endswith('.py') and not filename.startswith('__') and filename != 'report_interface.py':
+        if filename.endswith('.py') and not filename.startswith('__') and not filename.startswith('_'):
             module_name = filename[:-3]
             try:
                 module = importlib.import_module(f".{module_name}", package=__name__)

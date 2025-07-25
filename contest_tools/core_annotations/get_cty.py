@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-22
-# Version: 0.13.0-Beta
+# Date: 2025-07-25
+# Version: 0.15.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -23,12 +23,27 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
+## [0.15.0-Beta] - 2025-07-25
+# - Standardized version for final review. No functional changes.
+
 ## [0.13.0-Beta] - 2025-07-22
 ### Fixed
 # - The CTY.DAT parser is now flexible and can handle both the standard
-#   8-field format and simplified contest-specific formats (like cqww.cty)
-#   that have fewer fields. This resolves a bug where contest-specific
-#   country files were being ignored.
+#   8-field format and simplified contest-specific formats (like cqww.cty).
+
+## [1.0.0-Final] - 2025-07-19
+### Fixed
+# - Finalized the slash-handling logic. The CEPT rule (resolve by A) is now
+#   only overridden if A resolves to US/Canada AND B resolves to a more
+#   specific US/Canadian entity. This prevents incorrect lookups for illegal
+#   callsigns like 'W0/EA5JJN'.
+# - Added logic to strip surrounding quotes from the CTY_DAT_PATH environment
+#   variable in the standalone __main__ block.
+
+## [0.9.0-Beta] - 2025-07-18
+# - Initial release of the CtyLookup class with comprehensive, multi-step
+#   callsign resolution logic, including special rules for portable operations,
+#   numeric suffixes, and exact matches.
 
 import re
 from collections import namedtuple
@@ -81,7 +96,6 @@ class CtyLookup:
 
             fields = line.split(':')
             
-            # --- Flexible Parser for Standard and Simplified CTY files ---
             cty_entity_info = None
             primary_dxcc_code = ""
             aliases_field_index = -1
@@ -91,16 +105,14 @@ class CtyLookup:
                 primary_dxcc_code = fields[7]
                 aliases_field_index = 8
             elif len(fields) >= 3: # Simplified format (e.g., cqww.cty)
-                # Assumes format: Name: CQZone: DXCCPfx: [Aliases]
                 name = fields[0]
                 cq_zone = fields[1]
                 primary_dxcc_code = fields[2]
-                # Fill missing fields with default values
                 cty_entity_info = self.CtyInfo(name, cq_zone, "0", "Unknown", "0.0", "0.0", "0.0", primary_dxcc_code)
                 aliases_field_index = 3
 
             if not cty_entity_info:
-                continue # Skip malformed lines
+                continue
 
             is_wae_entity = primary_dxcc_code.startswith('*')
             primary_prefix_key_str = primary_dxcc_code[1:] if is_wae_entity else primary_dxcc_code
@@ -127,21 +139,19 @@ class CtyLookup:
                         continue
                     base_pfx_for_alias = base_prefix_match.group(1)
                     
-                    # Create a mutable list from the base entity's info
                     current_alias_info_list = list(cty_entity_info)
 
-                    # Parse and apply overrides from the alias_entry string
                     cq_zone_match = re.search(r'\((\d+)\)', parsed_alias_entry)
                     if cq_zone_match:
-                        current_alias_info_list[1] = cq_zone_match.group(1) # Override CQ Zone
+                        current_alias_info_list[1] = cq_zone_match.group(1)
 
                     itu_zone_match = re.search(r'\[(\d+)\]', parsed_alias_entry)
                     if itu_zone_match:
-                        current_alias_info_list[2] = itu_zone_match.group(1) # Override ITU Zone
+                        current_alias_info_list[2] = itu_zone_match.group(1)
 
                     continent_match = re.search(r'\{([A-Z]{2})\}', parsed_alias_entry)
                     if continent_match:
-                        current_alias_info_list[3] = continent_match.group(1) # Override Continent
+                        current_alias_info_list[3] = continent_match.group(1)
 
                     final_alias_cty_info = self.CtyInfo(*current_alias_info_list)
 

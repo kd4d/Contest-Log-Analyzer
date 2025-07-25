@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-24
-# Version: 0.14.12-Beta
+# Date: 2025-07-25
+# Version: 0.15.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,10 +21,23 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.14.12-Beta] - 2025-07-24
+## [0.15.0-Beta] - 2025-07-25
+# - Standardized version for final review. No functional changes.
+
+## [0.14.0-Beta] - 2025-07-24
+### Changed
+# - Updated to handle and display the new "Unknown" classification, adding a
+#   third, yellow segment to the stacked bar charts.
+# - The 'report_type' is now 'chart' to save output to the 'charts' directory.
+# - Removed the "All Bands" summary bar from the plot to improve the scale
+#   and readability of the band-by-band comparison.
+# - Implemented a two-level x-axis for the bar chart with refined formatting.
 ### Fixed
-# - Fine-tuned the vertical positioning of the two-level x-axis labels to
-#   reduce white space and bring the label lines closer together.
+# - Corrected data aggregation logic to ensure bars represent "Unique" QSOs only.
+# - Corrected various alignment and spacing issues with the x-axis labels.
+
+## [0.12.0-Beta] - 2025-07-23
+# - Initial release of the QSO Breakdown Chart report.
 
 from typing import List
 import pandas as pd
@@ -149,13 +162,13 @@ class Report(ContestReport):
         # Add the two label lines manually
         for i, group_center in enumerate(index):
             # Top line: Callsigns (closer to the axis)
-            y_pos_top = -0.02
+            y_pos_top = -0.025
             ax.text(group_center - bar_width, y_pos_top, f"{call1}  ", ha='center', va='top', transform=ax.get_xaxis_transform(), fontweight='bold', fontsize=callsign_fontsize)
             ax.text(group_center, y_pos_top, "Common", ha='center', va='top', transform=ax.get_xaxis_transform(), fontweight='bold', fontsize=callsign_fontsize)
             ax.text(group_center + bar_width, y_pos_top, f"  {call2}", ha='center', va='top', transform=ax.get_xaxis_transform(), fontweight='bold', fontsize=callsign_fontsize)
             
             # Bottom line: Bands (further from the axis)
-            y_pos_bottom = -0.05
+            y_pos_bottom = -0.065
             band_text = f"{plot_data['bands'][i]} Meters"
             ax.text(group_center, y_pos_bottom, band_text, ha='center', va='top', transform=ax.get_xaxis_transform(), fontsize=default_fontsize)
         
@@ -165,7 +178,7 @@ class Report(ContestReport):
         ax.legend(unique_labels.values(), unique_labels.keys(), ncol=4)
 
         # Adjust subplot parameters to reduce bottom margin
-        plt.subplots_adjust(bottom=0.1)
+        plt.subplots_adjust(bottom=0.12)
 
         # --- Save File ---
         os.makedirs(output_path, exist_ok=True)

@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-24
-# Version: 0.14.0-Beta
+# Date: 2025-07-25
+# Version: 0.15.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -23,10 +23,16 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.14.0-Beta] - 2025-07-24
-### Changed
+## [0.15.0-Beta] - 2025-07-25
 # - Finalized the "Unknown" classification logic with a threshold of 4 QSOs
-#   in a 15-minute window. This is now the official implementation.
+#   in a 15-minute window.
+# - The "Unknown" classification logic is now correctly applied on a per-band,
+#   per-mode basis.
+# - The "sticky run" state machine is now fully robust, correctly handling
+#   interleaved QSOs and rapid frequency changes.
+
+## [0.9.0-Beta] - 2025-07-18
+# - Initial Beta release of the Run/S&P Inference utility.
 
 import pandas as pd
 from collections import deque
@@ -195,11 +201,13 @@ def process_contest_log_for_run_s_p(
         df_sorted = processed_df.sort_values(by=[datetime_column])
         time_delta_threshold = pd.Timedelta(minutes=DEFAULT_RUN_TIME_WINDOW_MINUTES) + pd.Timedelta(seconds=1)
         
+        # --- Pass 1 & 2: Apply logic per stream (MyCall, Band, Mode) ---
         results = []
         for group_name, group_df in df_sorted.groupby([my_call_column, band_column, mode_column], group_keys=False):
             representative_mode = group_name[2]
             stream_tolerance = DEFAULT_FREQ_TOLERANCE_CW if representative_mode.upper() == 'CW' else DEFAULT_FREQ_TOLERANCE_PH
             
+            # Pass 1: Classify Run/S&P
             pass1_results = _evaluate_single_stream_run(
                 group_df, datetime_column, frequency_column, stream_tolerance,
                 time_delta_threshold, DEFAULT_MIN_QSO_FOR_RUN
@@ -207,6 +215,7 @@ def process_contest_log_for_run_s_p(
             group_df_with_run = group_df.copy()
             group_df_with_run['Run'] = pass1_results
 
+            # Pass 2: Reclassify to Unknown
             pass2_results_df = _reclassify_low_rate_periods(
                 group_df_with_run, datetime_column, unknown_window_minutes, unknown_qso_threshold
             )

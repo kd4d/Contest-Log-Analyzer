@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-22
-# Version: 0.14.1-Beta
+# Date: 2025-07-25
+# Version: 0.15.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,6 +21,9 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
+## [0.15.0-Beta] - 2025-07-25
+# - Standardized version for final review. No functional changes.
+
 ## [0.14.1-Beta] - 2025-07-22
 ### Changed
 # - Added a console warning when a QSO is scored as 0 due to missing
@@ -31,6 +34,11 @@
 # - Added checks for missing data (pd.isna) in the scoring logic to prevent
 #   "boolean value of NA is ambiguous" errors. QSOs with unresolved country
 #   or continent data will now correctly be scored as 0 points.
+
+## [0.13.0-Beta] - 2025-07-22
+# - Initial release of the CQ WW scoring module.
+# - Implemented the official CQ WW scoring rules, including the special
+#   case for North American stations.
 
 import pandas as pd
 from typing import Dict, Any
@@ -53,8 +61,6 @@ def _calculate_single_qso_points(row: pd.Series, my_dxcc_pfx: str, my_continent:
     if row['DXCCPfx'] == my_dxcc_pfx:
         return 0
 
-    is_low_band = row['Band'] in ('160M', '80M', '40M')
-    
     # Rule 1: Contacts between stations on different continents.
     if row['Continent'] != my_continent:
         return 3 # Points are the same for high and low bands in this case

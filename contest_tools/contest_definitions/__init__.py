@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-22
-# Version: 0.14.0-Beta
+# Date: 2025-07-25
+# Version: 0.15.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -23,8 +23,20 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.14.0-Beta] - 2025-07-22
-# - Updated version for consistency. No functional changes.
+## [0.15.0-Beta] - 2025-07-25
+# - Standardized version for final review. No functional changes.
+
+## [0.13.0-Beta] - 2025-07-22
+### Changed
+# - Added a 'multiplier_rules' property to read the list of multipliers
+#   (e.g., Countries, Zones) from the JSON definition.
+# - Added a 'country_file_name' property to read the contest-specific
+#   country file (e.g., 'cqww.cty') from the JSON definition.
+
+## [0.10.0-Beta] - 2025-07-21
+# - Initial release of the ContestDefinition class.
+# - Implemented logic to find specific (e.g., cq_wpx_cw.json) or generic
+#   (e.g., cq_wpx.json) contest definition files.
 
 import json
 import os

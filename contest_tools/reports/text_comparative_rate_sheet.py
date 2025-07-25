@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-22
-# Version: 0.13.0-Beta
+# Date: 2025-07-25
+# Version: 0.15.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,9 +21,21 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
+## [0.15.0-Beta] - 2025-07-25
+# - Standardized version for final review. No functional changes.
+
 ## [0.13.0-Beta] - 2025-07-22
 ### Changed
 # - Refactored the generate() method to use **kwargs for flexible argument passing.
+
+## [0.11.2-Beta] - 2025-07-21
+### Fixed
+# - Added logic to save the generated report to a text file.
+### Changed
+# - Filename now dynamically includes the callsigns being compared.
+
+## [0.11.0-Beta] - 2025-07-21
+# - Initial release of the Comparative Rate Sheet report.
 
 from typing import List
 import pandas as pd
@@ -59,7 +71,7 @@ class Report(ContestReport):
         include_dupes = kwargs.get('include_dupes', False)
 
         if len(self.logs) < 2:
-            return "Error: The Comparative Rate Sheet report requires at least two logs to be loaded."
+            return "Error: The Comparative Rate Sheet report requires at least two logs."
 
         # --- Header Generation ---
         all_calls = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])

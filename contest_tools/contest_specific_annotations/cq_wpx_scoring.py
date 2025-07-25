@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-21
-# Version: 0.12.0-Beta
+# Date: 2025-07-25
+# Version: 0.15.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,17 +21,19 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
+## [0.15.0-Beta] - 2025-07-25
+# - Standardized version for final review. No functional changes.
+
+## [0.14.0-Beta] - 2025-07-22
+### Fixed
+# - Added checks for missing data (pd.isna) in the scoring logic to prevent
+#   "boolean value of NA is ambiguous" errors. QSOs with unresolved country
+#   or continent data will now correctly be scored as 0 points.
+
 ## [0.12.0-Beta] - 2025-07-21
 # - Initial release of the CQ WPX scoring module.
-
-### Changed
-# - (None)
-
-### Fixed
-# - (None)
-
-### Removed
-# - (None)
+# - Implemented the official CQ WPX scoring rules, including the special
+#   case for North American stations.
 
 import pandas as pd
 from typing import Dict, Any
@@ -43,6 +45,11 @@ def _calculate_single_qso_points(row: pd.Series, my_dxcc_pfx: str, my_continent:
     """
     # Rule: Dupes are always 0 points.
     if row['Dupe']:
+        return 0
+
+    # If essential data is missing, QSO is worth 0 points.
+    if pd.isna(row['DXCCPfx']) or pd.isna(row['Continent']):
+        print(f"Warning: Scoring failed for QSO with {row['Call']} at {row['Datetime']}. Missing DXCC or Continent info. Assigning 0 points.")
         return 0
 
     # Rule 3: Contacts between stations in the same country are worth 1 point.

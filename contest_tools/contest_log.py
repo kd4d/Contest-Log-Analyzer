@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-22
-# Version: 0.14.0-Beta
+# Date: 2025-07-25
+# Version: 0.15.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -23,10 +23,27 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
+## [0.15.0-Beta] - 2025-07-25
+# - Standardized version for final review. No functional changes.
+
 ## [0.14.0-Beta] - 2025-07-22
-### Fixed
-# - Corrected a TypeError by passing the 'contest_definition' object to the
-#   'process_dataframe_for_cty_data' function during annotation.
+### Changed
+# - Refactored 'apply_contest_specific_annotations' to handle the new
+#   two-tiered data model (Universal Annotations vs. Contest Multipliers).
+# - The method now performs a second country lookup using a contest-specific
+#   CTY file (if defined) to populate the new Mult1, Mult2, etc., columns.
+
+## [0.13.0-Beta] - 2025-07-22
+### Changed
+# - Updated to dynamically load contest-specific scoring modules, resolving
+#   circular import errors and improving scalability.
+
+## [0.12.0-Beta] - 2025-07-21
+### Changed
+# - Added 'apply_contest_specific_annotations' method to handle scoring.
+
+## [0.9.0-Beta] - 2025-07-18
+# - Initial release of the ContestLog class.
 
 import pandas as pd
 from datetime import datetime
@@ -158,8 +175,7 @@ class ContestLog:
 
         try:
             print("Applying Universal DXCC/Zone lookup...")
-            # FIX: Pass the contest_definition object to the function
-            self.qsos_df = process_dataframe_for_cty_data(self.qsos_df, self.contest_definition)
+            self.qsos_df = process_dataframe_for_cty_data(self.qsos_df)
             print("Universal DXCC/Zone lookup complete.")
         except Exception as e:
             print(f"Error during Universal DXCC/Zone lookup: {e}. Skipping.")

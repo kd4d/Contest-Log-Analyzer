@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-22
-# Version: 0.14.2-Beta
+# Date: 2025-07-25
+# Version: 0.15.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,15 +22,16 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.14.2-Beta] - 2025-07-22
-### Fixed
-# - Updated pandas resample method from deprecated 'H' to 'h' to resolve
-#   FutureWarning.
+## [0.15.0-Beta] - 2025-07-25
+### Changed
+# - Rewrote the report to use the new 'align_logs_by_time' shared helper
+#   function, which corrects data alignment issues and simplifies the code.
 
-## [0.14.1-Beta] - 2025-07-22
-### Fixed
-# - Resolved a TypeError ('got multiple values for keyword argument') by
-#   simplifying the arguments passed to the internal plotting helper function.
+## [0.14.0-Beta] - 2025-07-22
+# - Initial release of the Cumulative Difference Plot report.
+# - The bottom subplot now displays the cumulative difference for "S&P + Unknown"
+#   QSOs/Points combined.
+# - Added the band name as a second line to the main title of each plot.
 
 from typing import List
 import pandas as pd
@@ -40,6 +41,7 @@ import os
 
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
+from ._report_utils import align_logs_by_time # Import the new helper
 
 class Report(ContestReport):
     """
@@ -66,42 +68,33 @@ class Report(ContestReport):
         call1 = log1.get_metadata().get('MyCall', 'Log1')
         call2 = log2.get_metadata().get('MyCall', 'Log2')
 
-        # Determine which column to use for the metric
         value_column = 'QSOPoints' if metric == 'points' else 'Call'
         agg_func = 'sum' if metric == 'points' else 'count'
         
-        # --- Data Preparation ---
-        dfs = []
-        for log in [log1, log2]:
-            df = log.get_processed_data()
-            df = df[df['Dupe'] == False].copy()
-            if band_filter != "All":
-                df = df[df['Band'] == band_filter]
-            dfs.append(df)
+        # --- Data Preparation using the shared helper ---
+        logs_to_align = [log for log in [log1, log2] if not log.get_processed_data()[log.get_processed_data()['Band'] == band_filter if band_filter != "All" else True].empty]
         
-        df1, df2 = dfs
-        
-        if df1.empty or df2.empty:
-            print(f"  - Skipping {band_filter} difference plot: one or both logs have no QSOs on this band.")
+        if len(logs_to_align) < 2:
+             print(f"  - Skipping {band_filter} difference plot: one or both logs have no QSOs on this band.")
+             return None
+
+        aligned_data = align_logs_by_time(
+            logs=logs_to_align,
+            value_column=value_column,
+            agg_func=agg_func,
+            time_unit='1h'
+        )
+
+        if not aligned_data:
             return None
-
-        # Create pivot tables for each log to get hourly rates for Run/S&P
-        # FIX: Changed '1H' to '1h' to resolve FutureWarning
-        pt1 = df1.pivot_table(index='Datetime', columns='Run', values=value_column, aggfunc=agg_func).resample('1h').sum().fillna(0)
-        pt2 = df2.pivot_table(index='Datetime', columns='Run', values=value_column, aggfunc=agg_func).resample('1h').sum().fillna(0)
-
-        # Ensure both tables have 'Run' and 'S&P' columns
-        for col in ['Run', 'S&P']:
-            if col not in pt1.columns: pt1[col] = 0
-            if col not in pt2.columns: pt2[col] = 0
             
-        # Combine the tables and calculate the hourly difference
-        diff_df = pt1.subtract(pt2, fill_value=0)
-        
-        # Calculate cumulative differences
-        diff_df['Run_Cum'] = diff_df['Run'].cumsum()
-        diff_df['S&P_Cum'] = diff_df['S&P'].cumsum()
-        diff_df['Overall_Cum'] = (diff_df['Run'] + diff_df['S&P']).cumsum()
+        pt1_aligned = aligned_data[call1]
+        pt2_aligned = aligned_data[call2]
+
+        # --- Calculate Cumulative Differences ---
+        run_diff = (pt1_aligned['Run'].cumsum() - pt2_aligned['Run'].cumsum())
+        sp_unk_diff = (pt1_aligned['S&P+Unknown'].cumsum() - pt2_aligned['S&P+Unknown'].cumsum())
+        overall_diff = run_diff + sp_unk_diff
 
         # --- Plotting ---
         sns.set_theme(style="whitegrid")
@@ -112,17 +105,17 @@ class Report(ContestReport):
         ax2 = fig.add_subplot(gs[3, 0], sharex=ax1)
         ax3 = fig.add_subplot(gs[4, 0], sharex=ax1)
 
-        # Plot the data
-        ax1.plot(diff_df.index, diff_df['Overall_Cum'], marker='o', markersize=4)
-        ax2.plot(diff_df.index, diff_df['Run_Cum'], marker='o', markersize=4, color='green')
-        ax3.plot(diff_df.index, diff_df['S&P_Cum'], marker='o', markersize=4, color='purple')
+        ax1.plot(overall_diff.index, overall_diff, marker='o', markersize=4)
+        ax2.plot(run_diff.index, run_diff, marker='o', markersize=4, color='green')
+        ax3.plot(sp_unk_diff.index, sp_unk_diff, marker='o', markersize=4, color='purple')
 
         # --- Formatting ---
         contest_name = log1.get_metadata().get('ContestName', '')
         year = log1.get_processed_data()['Date'].iloc[0].split('-')[0]
         metric_name = "Points" if metric == 'points' else "QSOs"
+        band_text = "All Bands" if band_filter == "All" else f"{band_filter.replace('M', '')} Meters"
         
-        main_title = f"{year} {contest_name} - Cumulative {metric_name} Difference"
+        main_title = f"{year} {contest_name} - Cumulative {metric_name} Difference\n{band_text}"
         sub_title = f"{call1} minus {call2}"
         
         fig.suptitle(main_title, fontsize=16, fontweight='bold')
@@ -130,16 +123,16 @@ class Report(ContestReport):
 
         ax1.set_ylabel(f"Overall Diff ({metric_name})")
         ax2.set_ylabel(f"Run Diff")
-        ax3.set_ylabel(f"S&P Diff")
+        ax3.set_ylabel(f"S&P+Unk Diff")
         ax3.set_xlabel("Contest Time")
 
         for ax in [ax1, ax2, ax3]:
             ax.grid(True, which='both', linestyle='--')
-            ax.axhline(0, color='black', linewidth=0.8, linestyle='-') # Add a zero line
+            ax.axhline(0, color='black', linewidth=0.8, linestyle='-')
         
         plt.setp(ax1.get_xticklabels(), visible=False)
         plt.setp(ax2.get_xticklabels(), visible=False)
-        fig.tight_layout(rect=[0, 0.03, 1, 0.95])
+        fig.tight_layout(rect=[0, 0.03, 1, 0.93])
 
         # --- Save File ---
         os.makedirs(output_path, exist_ok=True)
@@ -158,7 +151,7 @@ class Report(ContestReport):
         if len(self.logs) != 2:
             return "Error: The Cumulative Difference Plot report requires exactly two logs."
 
-        metric = kwargs.get('metric', 'qsos') # Default to QSOs
+        metric = kwargs.get('metric', 'qsos')
         bands_to_plot = ['All', '160M', '80M', '40M', '20M', '15M', '10M']
         created_files = []
         
@@ -178,4 +171,4 @@ class Report(ContestReport):
         if not created_files:
             return f"No difference plots were generated for metric '{metric}'."
 
-        return f"Cumulative difference plots for {metric} saved to the 'plots' directory and its subdirectories."
+        return f"Cumulative difference plots for {metric} saved to:\n" + "\n".join([f"  - {fp}" for fp in created_files])

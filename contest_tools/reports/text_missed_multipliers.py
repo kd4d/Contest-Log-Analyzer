@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-22
-# Version: 0.13.11-Beta
+# Date: 2025-07-25
+# Version: 0.15.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,10 +22,20 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.13.11-Beta] - 2025-07-22
+## [0.15.0-Beta] - 2025-07-25
+# - Standardized version for final review. No functional changes.
+
+## [0.13.0-Beta] - 2025-07-22
 ### Changed
-# - Added a dynamic header (e.g., "Zone", "Country") to the first column of
-#   the report tables for improved clarity.
+# - Refactored to be a generic, data-driven report that can handle any
+#   multiplier type defined in the contest's JSON file.
+# - The report now requires a '--mult-name' argument to specify which
+#   multiplier to analyze.
+# - Logic was updated to use efficient set operations for comparisons.
+# - Report header, footer, and filename are now dynamically generated and formatted.
+
+## [0.12.0-Beta] - 2025-07-22
+# - Initial release as 'text_missed_country_mults.py'.
 
 from typing import List, Dict, Any, Set
 import pandas as pd
@@ -85,15 +95,13 @@ class Report(ContestReport):
         all_calls = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])
         
         # --- Dynamic Column Width and Headers ---
+        col_width = 14 # Default width
         if mult_name.lower() == 'zones':
             col_width = 11
-            first_col_header = "Zone"
         elif mult_name.lower() == 'countries':
             col_width = 12
-            first_col_header = "Country"
-        else:
-            col_width = 14 # Default
-            first_col_header = mult_name.rstrip('s')
+        
+        first_col_header = mult_name.rstrip('s').capitalize()
 
 
         # --- Dynamic Header Generation ---

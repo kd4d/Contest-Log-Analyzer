@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-24
-# Version: 0.14.0-Beta
+# Date: 2025-07-25
+# Version: 0.15.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,10 +21,28 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
+## [0.15.0-Beta] - 2025-07-25
+# - Standardized version for final review. No functional changes.
+
 ## [0.14.0-Beta] - 2025-07-24
 ### Changed
 # - Updated to correctly handle and display the new "Unknown" classification
 #   in the QSO summary.
+
+## [0.12.1-Beta] - 2025-07-22
+### Fixed
+# - Added missing 'import os' statement to resolve a NameError.
+### Changed
+# - Refactored the generate() method to use **kwargs for flexible argument passing.
+# - The method now saves its own output file and returns a summary message.
+
+## [0.11.0-Beta] - 2025-07-21
+### Changed
+# - Added logic to exclude duplicate QSOs from calculations by default.
+# - Added a note to the report header to explicitly state dupe inclusion status.
+
+## [0.10.0-Beta] - 2025-07-21
+# - Initial release of the QSO Summary report.
 
 from typing import List
 import os

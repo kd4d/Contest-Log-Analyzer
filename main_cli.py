@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-23
-# Version: 0.14.0-Beta
+# Date: 2025-07-25
+# Version: 0.15.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -23,10 +23,37 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
+## [0.15.0-Beta] - 2025-07-25
+# - Standardized version for final review. No functional changes.
+
 ## [0.14.0-Beta] - 2025-07-23
 ### Changed
-# - Added the new 'venn_diagrams' report to the list of pairwise reports,
-#   ensuring it is generated correctly for all log combinations.
+# - Added logic to auto-generate pairwise reports (like qso_comparison and
+#   venn_diagrams) for all combinations of logs when more than two are provided.
+# - Added a 'charts' output subdirectory for chart-based reports.
+
+## [0.13.0-Beta] - 2025-07-22
+### Changed
+# - The '--report all' command now automatically generates reports for all
+#   available multiplier types and metrics.
+# - Added '--mult-name' and '--metric' command-line arguments.
+
+## [0.11.0-Beta] - 2025-07-21
+### Changed
+# - Added an optional '--include-dupes' flag to the command line.
+
+## [0.10.0-Beta] - 2025-07-21
+### Changed
+# - Integrated the new LogManager and reports packages.
+# - Added '--report <id|all>' command-line argument to generate reports.
+
+## [0.9.1-Beta] - 2025-07-19
+### Changed
+# - Modified the script to automatically detect the contest name from the
+#   Cabrillo file's CONTEST: header if it is not provided as a command-line argument.
+
+## [0.9.0-Beta] - 2025-07-18
+# - Initial release of the command-line interface.
 
 import sys
 import os
@@ -145,7 +172,7 @@ def main():
         text_output_dir = os.path.join(base_output_dir, "text")
         plots_output_dir = os.path.join(base_output_dir, "plots")
         charts_output_dir = os.path.join(base_output_dir, "charts")
-
+        
         # Generate the selected reports
         for r_id, ReportClass in reports_to_run:
             report_type = ReportClass.report_type.fget(None)

@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-24
-# Version: 0.14.0-Beta
+# Date: 2025-07-25
+# Version: 0.15.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,11 +21,33 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.14.0-Beta] - 2025-07-24
+## [0.15.0-Beta] - 2025-07-25
+# - Standardized version for final review. No functional changes.
+
+## [0.14.5-Beta] - 2025-07-23
+### Fixed
+# - Corrected the underlying logic to use QSO counts for all metrics instead of
+#   mixing QSO counts and multiplier counts. This ensures all totals and
+#   sub-totals in the report are consistent and accurate.
+
+## [0.14.4-Beta] - 2025-07-23
+### Changed
+# - Updated band titles to include "QSOs" (e.g., "160 Meter QSOs").
+# - Split "Unique Run" and "Unique S&P" headers into two lines to narrow columns.
+# - Removed redundant "QSOs" from the second line of column headers.
+
+## [0.14.1-Beta] - 2025-07-23
+### Changed
+# - Reformatted the report to have callsigns as rows and metrics as columns,
+#   with a two-line header for readability.
+
+## [0.14.0-Beta] - 2025-07-23
 ### Changed
 # - Updated the report to correctly handle and display the new "Unknown"
 #   classification in all relevant metrics.
-# - Adjusted table formatting to accommodate the new "Unknown" columns.
+
+## [0.12.0-Beta] - 2025-07-23
+# - Initial release of the QSO Comparison report (formerly Unique QSOs).
 
 from typing import List, Dict, Any, Set
 import pandas as pd

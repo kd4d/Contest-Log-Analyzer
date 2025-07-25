@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-24
-# Version: 0.14.2-Beta
+# Date: 2025-07-25
+# Version: 0.15.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,12 +22,20 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.14.2-Beta] - 2025-07-24
+## [0.15.0-Beta] - 2025-07-25
+# - Standardized version for final review. No functional changes.
+
+## [0.14.0-Beta] - 2025-07-24
 ### Changed
-# - Combined 'S&P' and 'Unknown' categories into a single yellow segment in the
-#   Venn diagram's unique regions for a cleaner visual.
-# - Updated the external text labels to use a darker gold color for S&P and
-#   Unknown counts and made them bold to improve readability.
+# - Updated to handle and display the new "Unknown" classification.
+# - The unique (non-overlapping) areas are now visually split into
+#   proportional Run, S&P, and Unknown sections.
+# - Refined label positioning, font sizes, and plot boundaries for better readability.
+# - Combined 'S&P' and 'Unknown' categories into a single yellow segment.
+
+## [0.12.0-Beta] - 2025-07-23
+# - Initial release of the QSO Overlap Venn Diagram report using Shapely
+#   for area-proportional diagrams.
 
 from typing import List
 import pandas as pd
@@ -203,7 +211,6 @@ class Report(ContestReport):
         line_height = max(r1, r2) * 0.28
         gold_color = '#DAA520' # Goldenrod
         
-        # Label for Log 1
         y_start1 = center1.y + line_height * 2.5
         ax.text(center1.x - r1 - 0.15, y_start1, f"{call1}", ha='right', va='center', fontsize=17, weight='bold', color='black')
         ax.text(center1.x - r1 - 0.15, y_start1 - line_height, f"Total: {len(calls1)}", ha='right', va='center', fontsize=14, color='black')
@@ -212,7 +219,6 @@ class Report(ContestReport):
         ax.text(center1.x - r1 - 0.15, y_start1 - line_height * 4.5, f"S&P: {k1_only_snp}", ha='right', va='center', fontsize=14, weight='bold', color=gold_color)
         ax.text(center1.x - r1 - 0.15, y_start1 - line_height * 5.5, f"Unknown: {k1_only_unk}", ha='right', va='center', fontsize=14, weight='bold', color=gold_color)
 
-        # Label for Log 2
         y_start2 = center2.y + line_height * 2.5
         ax.text(center2.x + r2 + 0.15, y_start2, f"{call2}", ha='left', va='center', fontsize=17, weight='bold', color='black')
         ax.text(center2.x + r2 + 0.15, y_start2 - line_height, f"Total: {len(calls2)}", ha='left', va='center', fontsize=14, color='black')

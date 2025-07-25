@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-22
-# Version: 0.14.0-Beta
+# Date: 2025-07-25
+# Version: 0.15.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,17 +22,33 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
+## [0.15.0-Beta] - 2025-07-25
+### Changed
+# - Refactored to use the new 'align_logs_by_time' shared helper function
+#   for robust data alignment and consistency.
+
 ## [0.14.0-Beta] - 2025-07-22
 ### Changed
-# - Updated to save per-band plots into their own subdirectories
-#   (e.g., plots/160M/, plots/80M/).
+# - Added hourly markers to the plot lines.
+# - Refined plot titles to a two-line format with dynamic contest info.
+# - Improved plot layout and spacing.
+
+## [0.11.0-Beta] - 2025-07-21
+### Changed
+# - Added logic to exclude duplicate QSOs from calculations by default.
+
+## [0.10.0-Beta] - 2025-07-21
+# - Initial release of the QSO rate plot report.
 
 from typing import List
 import os
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from ._plot_utils import generate_rate_plot # Import the shared helper
+from ._report_utils import align_logs_by_time # Import the shared helper
 
 class Report(ContestReport):
     """
@@ -51,14 +67,67 @@ class Report(ContestReport):
     def report_type(self) -> str:
         return "plot"
 
+    def _generate_single_plot(self, output_path: str, include_dupes: bool, band_filter: str) -> str:
+        """
+        Helper function to generate a single QSO rate plot for a specific band.
+        """
+        sns.set_theme(style="whitegrid")
+        fig, ax = plt.subplots(figsize=(12, 7))
+
+        # --- Data Preparation using the shared helper ---
+        logs_to_align = [log for log in self.logs if not log.get_processed_data()[log.get_processed_data()['Band'] == band_filter if band_filter != "All" else True].empty]
+        
+        if not logs_to_align:
+             print(f"  - Skipping {band_filter} QSO rate plot: no logs have QSOs on this band.")
+             return None
+
+        aligned_data = align_logs_by_time(
+            logs=logs_to_align,
+            value_column='Call',
+            agg_func='count',
+            time_unit='10min'
+        )
+        
+        if not aligned_data:
+            return None
+
+        # --- Plotting ---
+        for callsign, df_aligned in aligned_data.items():
+            cumulative_qsos = df_aligned['Overall'].cumsum()
+            ax.plot(cumulative_qsos.index, cumulative_qsos, marker='o', linestyle='-', markersize=4, label=callsign)
+
+        # --- Formatting ---
+        first_log_meta = self.logs[0].get_metadata()
+        contest_name = first_log_meta.get('ContestName', '')
+        year = self.logs[0].get_processed_data()['Date'].iloc[0].split('-')[0]
+        
+        main_title = f"{year} {contest_name} QSO Rate Comparison"
+        band_text = "All Bands" if band_filter == "All" else f"{band_filter.replace('M', '')} Meters"
+        dupe_text = "(Includes Dupes)" if include_dupes else "(Does Not Include Dupes)"
+        sub_title = f"{band_text} - {dupe_text}"
+
+        fig.suptitle(main_title, fontsize=16, fontweight='bold')
+        ax.set_title(sub_title, fontsize=12)
+        
+        ax.set_xlabel("Contest Time")
+        ax.set_ylabel("Total QSOs")
+        ax.legend()
+        ax.grid(True)
+        fig.tight_layout(rect=[0, 0.03, 1, 0.95])
+
+        # --- Save File ---
+        os.makedirs(output_path, exist_ok=True)
+        filename_band = band_filter.lower().replace('m', '')
+        filename = f"qso_rate_{filename_band}_plot.png"
+        filepath = os.path.join(output_path, filename)
+        fig.savefig(filepath)
+        plt.close(fig)
+
+        return filepath
+
     def generate(self, output_path: str, **kwargs) -> str:
         """
         Orchestrates the generation of all QSO rate plots.
-
-        Args:
-            output_path (str): The base directory for plot outputs (e.g., '.../plots/').
-            **kwargs:
-                - include_dupes (bool): If True, dupes are included. Defaults to False.
         """
         include_dupes = kwargs.get('include_dupes', False)
         bands_to_plot = ['All', '160M', '80M', '40M', '20M', '15M', '10M']
@@ -66,28 +135,18 @@ class Report(ContestReport):
         
         for band in bands_to_plot:
             try:
-                # Determine the correct save path for this plot
-                if band == "All":
-                    save_path = output_path
-                else:
-                    save_path = os.path.join(output_path, band)
-
-                filepath = generate_rate_plot(
-                    logs=self.logs,
+                save_path = os.path.join(output_path, band) if band != "All" else output_path
+                filepath = self._generate_single_plot(
                     output_path=save_path,
-                    band_filter=band,
-                    value_column=None,  # Use None to count QSOs instead of summing a column
-                    main_title_verb="QSO Rate",
-                    y_axis_label="Total QSOs",
-                    filename_prefix="qso_rate",
-                    include_dupes=include_dupes
+                    include_dupes=include_dupes,
+                    band_filter=band
                 )
-                created_files.append(filepath)
+                if filepath:
+                    created_files.append(filepath)
             except Exception as e:
                 print(f"  - Failed to generate QSO rate plot for {band}: {e}")
 
         if not created_files:
             return "No QSO rate plots were generated."
 
-        summary_message = "QSO rate plots saved to the 'plots' directory and its subdirectories."
-        return summary_message
+        return "QSO rate plots saved to:\n" + "\n".join([f"  - {fp}" for fp in created_files])
