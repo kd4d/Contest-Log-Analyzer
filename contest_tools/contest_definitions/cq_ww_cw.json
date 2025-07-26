@@ -11,11 +11,14 @@
   "multiplier_rules": [
     {
       "name": "Countries",
-      "column": "Mult1"
+      "source": "contest_cty",
+      "value_column": "Mult1",
+      "name_column": "Mult1Name"
     },
     {
       "name": "Zones",
-      "column": "Mult2"
+      "source_column": "Zone",
+      "value_column": "Mult2"
     }
   ]
 }

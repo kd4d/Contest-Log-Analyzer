@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-25
-# Version: 0.15.0-Beta
+# Date: 2025-07-26
+# Version: 0.16.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -23,31 +23,13 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.15.0-Beta] - 2025-07-25
-# - Standardized version for final review. No functional changes.
-
-## [0.14.0-Beta] - 2025-07-22
-### Changed
-# - Refactored 'apply_contest_specific_annotations' to handle the new
-#   two-tiered data model (Universal Annotations vs. Contest Multipliers).
-# - The method now performs a second country lookup using a contest-specific
-#   CTY file (if defined) to populate the new Mult1, Mult2, etc., columns.
+## [0.16.0-Beta] - 2025-07-26
 ### Fixed
 # - Corrected a TypeError by passing the 'contest_definition' object to the
-#   'process_dataframe_for_cty_data' function during annotation.
+#   'process_dataframe_for_cty_data' function during the universal
+#   annotation step.
 
-## [0.13.0-Beta] - 2025-07-22
-### Fixed
-# - Resolved a circular import error by dynamically loading contest-specific
-#   scoring modules at runtime instead of using a static top-level import.
-
-## [0.12.0-Beta] - 2025-07-21
-### Changed
-# - Added 'apply_contest_specific_annotations' method to handle scoring.
-
-## [0.9.0-Beta] - 2025-07-18
-# - Initial release of the ContestLog class.
-
+from typing import List
 import pandas as pd
 from datetime import datetime
 from typing import Dict, Any, Optional, Set, Tuple
@@ -178,7 +160,7 @@ class ContestLog:
 
         try:
             print("Applying Universal DXCC/Zone lookup...")
-            # Pass the contest definition to the lookup function
+            # FIX: Pass the contest_definition object to the function
             self.qsos_df = process_dataframe_for_cty_data(self.qsos_df, self.contest_definition)
             print("Universal DXCC/Zone lookup complete.")
         except Exception as e:
@@ -192,26 +174,50 @@ class ContestLog:
         print("Applying contest-specific annotations (Multipliers & Scoring)...")
         
         # --- Multiplier Calculation ---
-        country_file_to_use = self.contest_definition.country_file_name
-        if country_file_to_use:
-            try:
-                base_cty_path = os.environ.get('CTY_DAT_PATH').strip().strip('"').strip("'")
-                base_dir = os.path.dirname(base_cty_path)
-                cty_dat_path = os.path.join(base_dir, country_file_to_use)
+        multiplier_rules = self.contest_definition.multiplier_rules
+        if multiplier_rules:
+            print("Calculating contest multipliers...")
+            for rule in multiplier_rules:
+                dest_col = rule.get('value_column')
+                dest_name_col = rule.get('name_column')
+                source = rule.get('source')
                 
-                print(f"Using contest-specific country file for multipliers: {cty_dat_path}")
-                cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)
-                
-                temp_mult_info = self.qsos_df['Call'].apply(lambda call: cty_lookup.get_cty_DXCC_WAE(call)._asdict()).tolist()
-                temp_mult_df = pd.DataFrame(temp_mult_info, index=self.qsos_df.index)
+                if not dest_col: continue
 
-                self.qsos_df['Mult1'] = temp_mult_df['DXCCPfx']
-                self.qsos_df['Mult1Name'] = temp_mult_df['DXCCName']
-                
-            except Exception as e:
-                print(f"Warning: Could not process contest-specific country file: {e}")
+                if source == 'contest_cty':
+                    try:
+                        country_file = self.contest_definition.country_file_name
+                        if not country_file:
+                            print(f"Warning: Multiplier rule '{rule.get('name')}' requires a contest CTY file, but none is defined.")
+                            continue
+                        
+                        base_cty_path = os.environ.get('CTY_DAT_PATH').strip().strip('"').strip("'")
+                        base_dir = os.path.dirname(base_cty_path)
+                        cty_dat_path = os.path.join(base_dir, country_file)
+                        
+                        cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)
+                        
+                        temp_mult_info = self.qsos_df['Call'].apply(lambda call: cty_lookup.get_cty_DXCC_WAE(call)._asdict()).tolist()
+                        temp_mult_df = pd.DataFrame(temp_mult_info, index=self.qsos_df.index)
 
-        self.qsos_df['Mult2'] = self.qsos_df['Zone']
+                        self.qsos_df[dest_col] = temp_mult_df['DXCCPfx']
+                        if dest_name_col:
+                            self.qsos_df[dest_name_col] = temp_mult_df['DXCCName']
+
+                    except Exception as e:
+                        print(f"Warning: Could not process contest-specific country file for multiplier '{rule.get('name')}': {e}")
+                
+                elif 'source_column' in rule:
+                    source_col = rule.get('source_column')
+                    if source_col in self.qsos_df.columns:
+                        self.qsos_df[dest_col] = self.qsos_df[source_col]
+                    else:
+                        print(f"Warning: Source column '{source_col}' not found for multiplier '{rule.get('name')}'.")
+                
+                elif 'calculation_module' in rule:
+                    # This is where the WPX prefix logic will go in the future
+                    print(f"Notice: Calculation module for multiplier '{rule.get('name')}' is not yet implemented.")
+
 
         # --- Scoring Calculation ---
         my_call = self.metadata.get('MyCall')
