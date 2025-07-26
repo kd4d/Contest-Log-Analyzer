@@ -23,7 +23,9 @@
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
 ## [0.16.0-Beta] - 2025-07-26
-# - Initial release of the Continent QSO Summary report.
+### Fixed
+# - Corrected the logic to handle two-letter continent abbreviations (e.g., 'NA')
+#   from the CTY.DAT file, allowing the report to generate correctly.
 
 from typing import List
 import pandas as pd
@@ -62,7 +64,6 @@ class Report(ContestReport):
             else:
                 df = df_full.copy()
             
-            # Add MyCall to each row for grouping
             df['MyCall'] = log.get_metadata().get('MyCall', 'Unknown')
             all_dfs.append(df)
 
@@ -75,38 +76,41 @@ class Report(ContestReport):
             return "No valid QSOs to report."
 
         # --- Report Generation ---
-        report_lines = []
-        continents = ['North America', 'South America', 'Europe', 'Asia', 'Africa', 'Oceania', 'Unknown']
+        continent_map = {
+            'NA': 'North America', 'SA': 'South America', 'EU': 'Europe',
+            'AS': 'Asia', 'AF': 'Africa', 'OC': 'Oceania', 'Unknown': 'Unknown'
+        }
         bands = ['160M', '80M', '40M', '20M', '15M', '10M']
         all_calls = sorted(combined_df['MyCall'].unique())
 
-        # Create the main pivot table
+        # Map the continent codes to full names for the report
+        combined_df['ContinentName'] = combined_df['Continent'].map(continent_map).fillna('Unknown')
+
         pivot = combined_df.pivot_table(
-            index=['Continent', 'MyCall'],
+            index=['ContinentName', 'MyCall'],
             columns='Band',
             aggfunc='size',
             fill_value=0
         )
 
-        # Ensure all bands are present
         for band in bands:
             if band not in pivot.columns:
                 pivot[band] = 0
-        pivot = pivot[bands] # Enforce order
+        pivot = pivot[bands]
         pivot['Total'] = pivot.sum(axis=1)
 
         # --- Formatting ---
         header = f"{'':<17}" + "".join([f"{b.replace('M',''):>7}" for b in bands]) + f"{'Total':>7}"
         separator = "-" * len(header)
         
-        report_lines.append("------------------- C o n t i n e n t   S u m m a r y -----------------")
+        report_lines = ["------------------- C o n t i n e n t   S u m m a r y -----------------"]
         report_lines.append(header)
         report_lines.append(separator)
 
-        for continent in continents:
-            if continent in pivot.index.get_level_values('Continent'):
-                report_lines.append(continent)
-                continent_data = pivot.loc[continent]
+        for cont_name in continent_map.values():
+            if cont_name in pivot.index.get_level_values('ContinentName'):
+                report_lines.append(cont_name)
+                continent_data = pivot.loc[cont_name]
                 for call in all_calls:
                     if call in continent_data.index:
                         row = continent_data.loc[call]
@@ -116,7 +120,6 @@ class Report(ContestReport):
                         line += f"{row.get('Total', 0):>7}"
                         report_lines.append(line)
 
-        # --- Total Footer ---
         report_lines.append(separator)
         report_lines.append("Total")
         

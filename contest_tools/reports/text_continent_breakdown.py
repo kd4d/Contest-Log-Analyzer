@@ -23,7 +23,9 @@
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
 ## [0.16.0-Beta] - 2025-07-26
-# - Initial release of the Continent QSO Breakdown report.
+### Fixed
+# - Corrected the logic to handle two-letter continent abbreviations (e.g., 'NA')
+#   from the CTY.DAT file, allowing the report to generate correctly.
 
 from typing import List
 import pandas as pd
@@ -74,10 +76,16 @@ class Report(ContestReport):
             return "No valid QSOs to report."
 
         # --- Report Generation ---
-        continents = ['North America', 'South America', 'Europe', 'Asia', 'Africa', 'Oceania', 'Unknown']
+        continent_map = {
+            'NA': 'North America', 'SA': 'South America', 'EU': 'Europe',
+            'AS': 'Asia', 'AF': 'Africa', 'OC': 'Oceania', 'Unknown': 'Unknown'
+        }
         bands = ['160M', '80M', '40M', '20M', '15M', '10M']
         all_calls = sorted(combined_df['MyCall'].unique())
         created_files = []
+
+        # Map the continent codes to full names for the report
+        combined_df['ContinentName'] = combined_df['Continent'].map(continent_map).fillna('Unknown')
 
         for band in bands:
             band_df = combined_df[combined_df['Band'] == band]
@@ -95,16 +103,16 @@ class Report(ContestReport):
 
             # --- Pivot and Format ---
             pivot = band_df.pivot_table(
-                index=['Continent', 'MyCall'],
+                index=['ContinentName', 'MyCall'],
                 columns='Run',
                 aggfunc='size',
                 fill_value=0
             )
 
-            for continent in continents:
-                if continent in pivot.index.get_level_values('Continent'):
-                    report_lines.append(continent)
-                    continent_data = pivot.loc[continent]
+            for cont_name in continent_map.values():
+                if cont_name in pivot.index.get_level_values('ContinentName'):
+                    report_lines.append(cont_name)
+                    continent_data = pivot.loc[cont_name]
                     
                     for run_status in ['Run', 'S&P', 'Unknown']:
                         line = f"  {run_status:<11}:"
