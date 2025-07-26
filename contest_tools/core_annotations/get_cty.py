@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-07-26
-# Version: 0.16.2-Beta
+# Version: 0.16.4-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -23,6 +23,18 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
+## [0.16.4-Beta] - 2025-07-26
+### Fixed
+# - Corrected the CTY file parser to treat any alias with a zone, ITU, or
+#   continent override (e.g., 'WN4AAA(3)') as an exact callsign match, even
+#   if it lacks a leading '='. This resolves critical lookup failures with
+#   simplified country files like cqww.cty.
+
+## [0.16.3-Beta] - 2025-07-26
+### Changed
+# - Added temporary debugging prints to the 'get_cty' method to trace the
+#   logic for portable callsigns containing 'FS/' to diagnose a lookup issue.
+
 ## [0.16.2-Beta] - 2025-07-26
 ### Changed
 # - Reverted changes from version 0.16.1-Beta to restore the previous
@@ -31,8 +43,7 @@
 ## [0.16.1-Beta] - 2025-07-26
 ### Fixed
 # - Corrected the slash-handling logic to prioritize an exact prefix match
-#   (e.g., 'FS' in 'FS/WN4AAA') over the more complex portable operation rules,
-#   ensuring correct lookup for such callsigns.
+#   (e.g., 'FS' in 'FS/WN4AAA') over the more complex portable operation rules.
 
 ## [0.16.0-Beta] - 2025-07-26
 ### Fixed
@@ -147,8 +158,14 @@ class CtyLookup:
                     if not alias_entry:
                         continue
 
-                    is_exact_match_alias = alias_entry.startswith('=')
-                    parsed_alias_entry = alias_entry[1:] if is_exact_match_alias else alias_entry
+                    # --- FIX: Determine if it's an exact match ---
+                    # An alias is an exact callsign match if it starts with '=' OR
+                    # if it contains a zone, ITU, or continent override.
+                    is_forced_exact = alias_entry.startswith('=')
+                    has_override = re.search(r'[\(\[\{]', alias_entry)
+                    is_exact_match = is_forced_exact or has_override
+
+                    parsed_alias_entry = alias_entry[1:] if is_forced_exact else alias_entry
                     base_prefix_match = re.match(r'([A-Z0-9\-\/]+)', parsed_alias_entry)
                     if not base_prefix_match:
                         continue
@@ -170,7 +187,7 @@ class CtyLookup:
 
                     final_alias_cty_info = self.CtyInfo(*current_alias_info_list)
 
-                    if is_exact_match_alias:
+                    if is_exact_match:
                         target_dict["=" + base_pfx_for_alias] = final_alias_cty_info
                     else:
                         target_dict[base_pfx_for_alias] = final_alias_cty_info
@@ -216,6 +233,16 @@ class CtyLookup:
         parts = callsign.split('/')
         if len(parts) > 1:
             part1, part2 = parts[0], parts[-1]
+            
+            # --- DEBUGGING PRINTS FOR FS/ ---
+            if 'FS/' in callsign:
+                print(f"\n--- DEBUG TRACE for {callsign} ---")
+                print(f"  File: {self.filename}")
+                print(f"  part1='{part1}', part2='{part2}'")
+                p1_valid = self.is_valid_prefix(part1)
+                p2_valid = self.is_valid_prefix(part2)
+                print(f"  is_valid_prefix('{part1}') -> {p1_valid}")
+                print(f"  is_valid_prefix('{part2}') -> {p2_valid}")
 
             if len(part2) == 1 and part2.isdigit():
                 us_call_pattern = re.compile(r'^(K|W|N|A[A-L])')
