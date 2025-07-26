@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-25
-# Version: 0.15.0-Beta
+# Date: 2025-07-26
+# Version: 0.16.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -23,8 +23,10 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.15.0-Beta] - 2025-07-25
-# - Standardized version for final review. No functional changes.
+## [0.16.0-Beta] - 2025-07-26
+### Fixed
+# - Corrected the CTY file parser to properly handle spaces within country
+#   names, preventing names like "Rodriguez Island" from being compressed.
 
 ## [0.13.0-Beta] - 2025-07-22
 ### Fixed
@@ -33,18 +35,15 @@
 
 ## [1.0.0-Final] - 2025-07-19
 ### Fixed
-# - Finalized the slash-handling logic. The CEPT rule (resolve by A) is now
-#   only overridden if A resolves to US/Canada AND B resolves to a more
-#   specific US/Canadian entity. This prevents incorrect lookups for illegal
-#   callsigns like 'W0/EA5JJN'.
+# - Finalized the slash-handling logic for portable callsigns, including
+#   special rules for US/Canada, numeric suffixes, and exact matches.
 # - Added logic to strip surrounding quotes from the CTY_DAT_PATH environment
 #   variable in the standalone __main__ block.
 
 ## [0.9.0-Beta] - 2025-07-18
-# - Initial release of the CtyLookup class with comprehensive, multi-step
-#   callsign resolution logic, including special rules for portable operations,
-#   numeric suffixes, and exact matches.
+# - Initial release of the CtyLookup class.
 
+from typing import List
 import re
 from collections import namedtuple
 import sys
@@ -90,11 +89,12 @@ class CtyLookup:
         lines = lines_content.split(';')
 
         for l in lines:
-            line = re.sub(r'[\n\r ]', '', l).strip()
+            line = l.strip()
             if not line:
                 continue
 
-            fields = line.split(':')
+            # Split by colon first to preserve spaces in names
+            fields = [field.strip() for field in line.split(':')]
             
             cty_entity_info = None
             primary_dxcc_code = ""
