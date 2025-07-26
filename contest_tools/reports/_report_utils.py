@@ -23,9 +23,8 @@
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
 ## [0.15.0-Beta] - 2025-07-25
-### Changed
-# - The 'align_logs_by_time' function now accepts a 'band_filter' argument
-#   to correctly process data for individual bands.
+# - Initial release of the report utilities helper module.
+# - Includes the 'align_logs_by_time' function for robust time-series analysis.
 
 from typing import List, Dict
 import pandas as pd
@@ -40,7 +39,8 @@ def align_logs_by_time(
     time_unit: str = '1h'
 ) -> Dict[str, pd.DataFrame]:
     """
-    Aligns time-series data from multiple logs to a common, continuous time index.
+    Aggregates and aligns time-series data from multiple logs to a common,
+    continuous time index.
 
     Args:
         logs (List[ContestLog]): The list of ContestLog objects to process.
@@ -56,7 +56,7 @@ def align_logs_by_time(
     processed_logs = {}
     all_datetimes = []
 
-    # First pass: process each log and find the global time range
+    # First pass: process each log individually and find the global time range
     for log in logs:
         callsign = log.get_metadata().get('MyCall', 'Unknown')
         df_full = log.get_processed_data()[log.get_processed_data()['Dupe'] == False].copy()

@@ -1,6 +1,6 @@
-# Contest Log Analyzer/contest_tools/reports/plot_qso_rate.py
+# Contest Log Analyzer/contest_tools/reports/plot_point_rate.py
 #
-# Purpose: A plot report that generates a QSO rate graph for all bands
+# Purpose: A plot report that generates a point rate graph for all bands
 #          and for each individual band by calling a shared utility.
 #
 # Author: Mark Bailey, KD4D
@@ -28,17 +28,7 @@
 #   for robust data alignment and consistency.
 
 ## [0.14.0-Beta] - 2025-07-22
-### Changed
-# - Added hourly markers to the plot lines.
-# - Refined plot titles to a two-line format with dynamic contest info.
-# - Improved plot layout and spacing.
-
-## [0.11.0-Beta] - 2025-07-21
-### Changed
-# - Added logic to exclude duplicate QSOs from calculations by default.
-
-## [0.10.0-Beta] - 2025-07-21
-# - Initial release of the QSO rate plot report.
+# - Initial release of the Point Rate plot report.
 
 from typing import List
 import os
@@ -52,16 +42,16 @@ from ._report_utils import align_logs_by_time # Import the shared helper
 
 class Report(ContestReport):
     """
-    Generates a series of plots comparing QSO rates: one for all bands
+    Generates a series of plots comparing cumulative points: one for all bands
     combined, and one for each individual contest band.
     """
     @property
     def report_id(self) -> str:
-        return "qso_rate_plots"
+        return "point_rate_plots"
 
     @property
     def report_name(self) -> str:
-        return "QSO Rate Comparison Plots"
+        return "Point Rate Comparison Plots"
 
     @property
     def report_type(self) -> str:
@@ -69,7 +59,7 @@ class Report(ContestReport):
 
     def _generate_single_plot(self, output_path: str, include_dupes: bool, band_filter: str) -> str:
         """
-        Helper function to generate a single QSO rate plot for a specific band.
+        Helper function to generate a single point rate plot for a specific band.
         """
         sns.set_theme(style="whitegrid")
         fig, ax = plt.subplots(figsize=(12, 7))
@@ -77,27 +67,27 @@ class Report(ContestReport):
         # --- Data Preparation using the shared helper ---
         aligned_data = align_logs_by_time(
             logs=self.logs,
-            value_column='Call',
-            agg_func='count',
+            value_column='QSOPoints',
+            agg_func='sum',
             band_filter=band_filter, # Pass the band filter here
             time_unit='10min'
         )
         
         if not aligned_data:
-             print(f"  - Skipping {band_filter} QSO rate plot: no logs have QSOs on this band.")
+             print(f"  - Skipping {band_filter} point rate plot: no logs have QSOs on this band.")
              return None
 
         # --- Plotting ---
         for callsign, df_aligned in aligned_data.items():
-            cumulative_qsos = df_aligned['Overall'].cumsum()
-            ax.plot(cumulative_qsos.index, cumulative_qsos, marker='o', linestyle='-', markersize=4, label=callsign)
+            cumulative_points = df_aligned['Overall'].cumsum()
+            ax.plot(cumulative_points.index, cumulative_points, marker='o', linestyle='-', markersize=4, label=callsign)
 
         # --- Formatting ---
         first_log_meta = self.logs[0].get_metadata()
         contest_name = first_log_meta.get('ContestName', '')
         year = self.logs[0].get_processed_data()['Date'].iloc[0].split('-')[0]
         
-        main_title = f"{year} {contest_name} QSO Rate Comparison"
+        main_title = f"{year} {contest_name} Point Rate Comparison"
         band_text = "All Bands" if band_filter == "All" else f"{band_filter.replace('M', '')} Meters"
         dupe_text = "(Includes Dupes)" if include_dupes else "(Does Not Include Dupes)"
         sub_title = f"{band_text} - {dupe_text}"
@@ -106,7 +96,7 @@ class Report(ContestReport):
         ax.set_title(sub_title, fontsize=12)
         
         ax.set_xlabel("Contest Time")
-        ax.set_ylabel("Total QSOs")
+        ax.set_ylabel("Total Points")
         ax.legend()
         ax.grid(True)
         fig.tight_layout(rect=[0, 0.03, 1, 0.95])
@@ -114,7 +104,7 @@ class Report(ContestReport):
         # --- Save File ---
         os.makedirs(output_path, exist_ok=True)
         filename_band = band_filter.lower().replace('m', '')
-        filename = f"qso_rate_{filename_band}_plot.png"
+        filename = f"point_rate_{filename_band}_plot.png"
         filepath = os.path.join(output_path, filename)
         fig.savefig(filepath)
         plt.close(fig)
@@ -123,7 +113,7 @@ class Report(ContestReport):
 
     def generate(self, output_path: str, **kwargs) -> str:
         """
-        Orchestrates the generation of all QSO rate plots.
+        Orchestrates the generation of all point rate plots.
         """
         include_dupes = kwargs.get('include_dupes', False)
         bands_to_plot = ['All', '160M', '80M', '40M', '20M', '15M', '10M']
@@ -140,9 +130,9 @@ class Report(ContestReport):
                 if filepath:
                     created_files.append(filepath)
             except Exception as e:
-                print(f"  - Failed to generate QSO rate plot for {band}: {e}")
+                print(f"  - Failed to generate point rate plot for {band}: {e}")
 
         if not created_files:
-            return "No QSO rate plots were generated."
+            return "No point rate plots were generated."
 
-        return "QSO rate plots saved to:\n" + "\n".join([f"  - {fp}" for fp in created_files])
+        return "Point rate plots saved to:\n" + "\n".join([f"  - {fp}" for fp in created_files])
