@@ -5,7 +5,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-07-25
-# Version: 0.15.0-Beta
+# Version: 0.15.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,21 +21,13 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
+## [0.15.1-Beta] - 2025-07-25
+### Fixed
+# - Corrected the column alignment in the report table by properly indenting
+#   the headers to match the data rows.
+
 ## [0.15.0-Beta] - 2025-07-25
 # - Standardized version for final review. No functional changes.
-
-## [0.13.0-Beta] - 2025-07-22
-### Changed
-# - Refactored the generate() method to use **kwargs for flexible argument passing.
-
-## [0.11.2-Beta] - 2025-07-21
-### Fixed
-# - Added logic to save the generated report to a text file.
-### Changed
-# - Filename now dynamically includes the callsigns being compared.
-
-## [0.11.0-Beta] - 2025-07-21
-# - Initial release of the Comparative Rate Sheet report.
 
 from typing import List
 import pandas as pd
@@ -62,11 +54,6 @@ class Report(ContestReport):
     def generate(self, output_path: str, **kwargs) -> str:
         """
         Generates the report content, saves it to a file, and returns a summary.
-
-        Args:
-            output_path (str): The directory where any output files should be saved.
-            **kwargs:
-                - include_dupes (bool): If True, dupes are included. Defaults to False.
         """
         include_dupes = kwargs.get('include_dupes', False)
 
@@ -89,11 +76,17 @@ class Report(ContestReport):
         report_lines.append("")
         report_lines.append("---------------- Q S O   R a t e   S u m m a r y ---------------------")
         
-        header1 = f"{'':<5} {'':>5} {'':>5} {'':>5} {'':>5} {'':>5} {'':>5} {'Hourly':>7} {'Cumulative':>11}"
-        header2 = f"{'Hour':<5} {'160':>5} {'80':>5} {'40':>5} {'20':>5} {'15':>5} {'10':>5} {'Total':>7} {'Total':>11}"
+        # Define column widths and prefix for alignment
+        prefix_width = 11 # 2 spaces for indent + 7 for callsign + 2 for ': '
+        band_width = 6
+        hourly_width = 8
+        cum_width = 12
+        
+        header1 = f"{'':<{prefix_width}}{'':>{band_width}}{'':>{band_width}}{'':>{band_width}}{'':>{band_width}}{'':>{band_width}}{'':>{band_width}}{'Hourly':>{hourly_width}}{'Cumulative':>{cum_width}}"
+        header2 = f"{'':<{prefix_width}}{'160':>{band_width}}{'80':>{band_width}}{'40':>{band_width}}{'20':>{band_width}}{'15':>{band_width}}{'10':>{band_width}}{'Total':>{hourly_width}}{'Total':>{cum_width}}"
         report_lines.append(header1)
         report_lines.append(header2)
-        separator = "-" * len(header2)
+        separator = " " * prefix_width + "-" * (len(header2) - prefix_width)
         report_lines.append(separator)
 
         # --- Data Aggregation for All Logs ---
@@ -144,18 +137,28 @@ class Report(ContestReport):
                     cumulative_totals[callsign] += hourly_total
                     line = (
                         f"  {callsign:<7}: "
-                        f"{row.get('160M', 0):>5} "
-                        f"{row.get('80M', 0):>5} "
-                        f"{row.get('40M', 0):>5} "
-                        f"{row.get('20M', 0):>5} "
-                        f"{row.get('15M', 0):>5} "
-                        f"{row.get('10M', 0):>5} "
-                        f"{hourly_total:>7} "
-                        f"{cumulative_totals[callsign]:>11}"
+                        f"{row.get('160M', 0):>{band_width}}"
+                        f"{row.get('80M', 0):>{band_width}}"
+                        f"{row.get('40M', 0):>{band_width}}"
+                        f"{row.get('20M', 0):>{band_width}}"
+                        f"{row.get('15M', 0):>{band_width}}"
+                        f"{row.get('10M', 0):>{band_width}}"
+                        f"{hourly_total:>{hourly_width}}"
+                        f"{cumulative_totals[callsign]:>{cum_width}}"
                     )
                 else:
                     # If log has no data for this hour, print a placeholder
-                    line = f"  {callsign:<7}: {'0':>5} {'0':>5} {'0':>5} {'0':>5} {'0':>5} {'0':>5} {'0':>7} {cumulative_totals[callsign]:>11}"
+                    line = (
+                        f"  {callsign:<7}: "
+                        f"{0:>{band_width}}"
+                        f"{0:>{band_width}}"
+                        f"{0:>{band_width}}"
+                        f"{0:>{band_width}}"
+                        f"{0:>{band_width}}"
+                        f"{0:>{band_width}}"
+                        f"{0:>{hourly_width}}"
+                        f"{cumulative_totals[callsign]:>{cum_width}}"
+                    )
                 
                 report_lines.append(line)
         
