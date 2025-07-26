@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-07-26
-# Version: 0.16.0-Beta
+# Version: 0.16.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,8 +22,15 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
+## [0.16.1-Beta] - 2025-07-26
+### Fixed
+# - Added a specific check to correctly handle the singular form of "Countries",
+#   preventing it from being incorrectly changed to "Countrie".
+
 ## [0.16.0-Beta] - 2025-07-26
-# - Initial release of the generic Multiplier Summary report.
+### Fixed
+# - Corrected the logic to handle two-letter continent abbreviations (e.g., 'NA')
+#   from the CTY.DAT file, allowing the report to generate correctly.
 
 from typing import List
 import pandas as pd
@@ -118,7 +125,12 @@ class Report(ContestReport):
         pivot['Total'] = pivot.sum(axis=1)
 
         # --- Formatting ---
-        header = f"{mult_name.rstrip('s'):<17}" + "".join([f"{b.replace('M',''):>7}" for b in bands]) + f"{'Total':>7}"
+        if mult_name.lower() == 'countries':
+            first_col_header = 'Country'
+        else:
+            first_col_header = mult_name[:-1] if mult_name.lower().endswith('s') else mult_name
+            
+        header = f"{first_col_header:<17}" + "".join([f"{b.replace('M',''):>7}" for b in bands]) + f"{'Total':>7}"
         separator = "-" * len(header)
         
         report_lines = [f"-------------------- {mult_name} S u m m a r y -------------------".center(len(header))]

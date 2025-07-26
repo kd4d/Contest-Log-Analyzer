@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-07-26
-# Version: 0.16.0-Beta
+# Version: 0.16.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -23,8 +23,21 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
+## [0.16.2-Beta] - 2025-07-26
+### Changed
+# - Reverted changes from version 0.16.1-Beta to restore the previous
+#   slash-handling logic.
+
+## [0.16.1-Beta] - 2025-07-26
+### Fixed
+# - Corrected the slash-handling logic to prioritize an exact prefix match
+#   (e.g., 'FS' in 'FS/WN4AAA') over the more complex portable operation rules,
+#   ensuring correct lookup for such callsigns.
+
 ## [0.16.0-Beta] - 2025-07-26
 ### Fixed
+# - Corrected the CTY file parser to properly handle multi-line alias
+#   definitions that use the '&' continuation character.
 # - Corrected the CTY file parser to properly handle spaces within country
 #   names, preventing names like "Rodriguez Island" from being compressed.
 
@@ -86,6 +99,8 @@ class CtyLookup:
         except Exception as e:
             raise IOError(f"Error reading CTY.DAT file {self.filename}: {e}")
 
+        # Pre-process the entire file content to handle multi-line aliases
+        lines_content = re.sub(r'\s*&\s*', ',', lines_content)
         lines = lines_content.split(';')
 
         for l in lines:
