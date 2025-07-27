@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-26
-# Version: 0.16.5-Beta
+# Date: 2025-07-27
+# Version: 0.20.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -23,6 +23,58 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
+## [0.20.2-Beta] - 2025-07-27
+### Fixed
+# - Corrected the Canadian callsign regex pattern to include the full range of
+#   official prefixes (CZ and XO), resolving validation warnings.
+# - Added a hard-coded exception to the validation logic to ignore special
+#   versioning prefixes (e.g., 'VER20250718') found in some cty.dat files.
+
+## [0.20.1-Beta] - 2025-07-27
+### Fixed
+# - Corrected the comprehensive pattern validation logic. It now creates a
+#   structurally valid test callsign (e.g., 'K1A') from each prefix,
+#   preventing false negative warnings.
+
+## [0.20.0-Beta] - 2025-07-27
+### Changed
+# - Expanded the pattern validation logic to be comprehensive. It now checks
+#   all non-exact US and Canadian aliases from the loaded cty.dat file against
+#   the internal regex patterns, reporting any discrepancies.
+
+## [0.19.1-Beta] - 2025-07-27
+### Fixed
+# - Corrected the pattern validation logic to ensure it only tests the primary
+#   DXCC prefix for the USA and Canada, ignoring aliases (e.g., '=WZ8X').
+#   This prevents erroneous warnings when loading a valid cty.dat file.
+
+## [0.19.0-Beta] - 2025-07-27
+### Added
+# - Added a validation check during initialization to ensure that the primary
+#   prefixes for the USA and Canada found in the CTY.DAT file are compatible
+#   with the internal regex patterns used for portable callsign resolution.
+#   A warning is now printed to stderr if an incompatibility is found.
+
+## [0.18.0-Beta] - 2025-07-27
+### Changed
+# - Eliminated the hard-coded '_US_CANADA_PRIMARY_PREFIXES' list. The logic
+#   for resolving portable callsigns now uses a more robust and accurate
+#   pattern-based approach to identify US and Canadian callsign structures.
+
+## [0.17.0-Beta] - 2025-07-27
+### Changed
+# - Refactored the internal list of US/Canada prefixes to remove redundant
+#   aliases and corrected several entries to match their primary DXCC prefix
+#   (e.g., KL7 -> KL).
+# - Added comments clarifying the list's purpose in resolving portable
+#   callsign ambiguity (e.g., W1AW/KP4).
+
+## [0.16.6-Beta] - 2025-07-27
+### Fixed
+# - Corrected the CTY file parser to properly handle end-of-line comments
+#   (e.g., '; NA'). The new logic strips all text between a semicolon and
+#   a newline, preventing comments from being merged with the next record.
+
 ## [0.16.5-Beta] - 2025-07-26
 ### Fixed
 # - Rewrote the CTY file parsing logic to be more robust. It now correctly
@@ -36,21 +88,6 @@
 #   continent override (e.g., 'WN4AAA(3)') as an exact callsign match, even
 #   if it lacks a leading '='. This resolves critical lookup failures with
 #   simplified country files like cqww.cty.
-
-## [0.16.3-Beta] - 2025-07-26
-### Changed
-# - Added temporary debugging prints to the 'get_cty' method to trace the
-#   logic for portable callsigns containing 'FS/' to diagnose a lookup issue.
-
-## [0.16.2-Beta] - 2025-07-26
-### Changed
-# - Reverted changes from version 0.16.1-Beta to restore the previous
-#   slash-handling logic.
-
-## [0.16.1-Beta] - 2025-07-26
-### Fixed
-# - Corrected the slash-handling logic to prioritize an exact prefix match
-#   (e.g., 'FS' in 'FS/WN4AAA') over the more complex portable operation rules.
 
 ## [0.16.0-Beta] - 2025-07-26
 ### Fixed
@@ -90,10 +127,12 @@ class CtyLookup:
     CtyInfo = namedtuple('CtyInfo', 'name CQZone ITUZone Continent Lat Lon Tzone DXCC')
     FullCtyInfo = namedtuple('FullCtyInfo', 'DXCCName DXCCPfx CQZone ITUZone Continent Lat Lon Tzone WAEName WAEPfx')
 
-    _US_CANADA_PRIMARY_PREFIXES = [
-        'K', 'VE', 'KL7', 'KP2', 'KP4', 'KH0', 'KH2', 'KH6', 'CY0', 'CY9',
-        'VO1', 'VO2', 'VY1', 'VY2', 'KP1', 'KP3', 'KP5', 'KC6'
-    ]
+    # --- Patterns for identifying US and Canadian callsign structures ---
+    # Used to resolve ambiguity in portable callsigns (e.g., W1AW/KP4 vs. EA8/W1AW)
+    _US_PATTERN = re.compile(r'^(A[A-L]|K|N|W)[A-Z]?[0-9]')
+    # Corrected regex to include the full C[F-Z] and X[J-O] ranges.
+    _CA_PATTERN = re.compile(r'^(C[F-Z]|V[A-G]|V[O-Y]|X[J-O])[0-9]')
+
 
     def __init__(self, cty_dat_path: str, wae: bool = True):
         """
@@ -117,7 +156,8 @@ class CtyLookup:
         except Exception as e:
             raise IOError(f"Error reading CTY.DAT file {self.filename}: {e}")
 
-        # Pre-process the entire file content to handle multi-line aliases
+        # --- Pre-processing ---
+        lines_content = re.sub(r';[^\n\r]*', ';', lines_content)
         lines_content = re.sub(r'\s*&\s*', ',', lines_content)
         lines = lines_content.split(';')
 
@@ -127,7 +167,6 @@ class CtyLookup:
                 continue
 
             # --- Robust Parser ---
-            # Use maxsplit to correctly separate the main fields from the alias list
             fields = line.split(':', 8)
             
             cty_entity_info = None
@@ -142,7 +181,7 @@ class CtyLookup:
             else:
                 # Fallback for simplified format
                 fields = line.split(':', 3)
-                if len(fields) >= 3: # Simplified format (e.g., cqww.cty)
+                if len(fields) >= 3:
                     name = fields[0].strip()
                     cq_zone = fields[1].strip()
                     primary_dxcc_code = fields[2].strip()
@@ -201,6 +240,41 @@ class CtyLookup:
                     else:
                         target_dict[base_pfx_for_alias] = final_alias_cty_info
 
+        # --- Validate pattern consistency with the loaded CTY.DAT ---
+        self._validate_patterns()
+
+    def _validate_patterns(self):
+        """
+        Checks all US and Canadian aliases from the loaded file to ensure they
+        are compatible with the internal regex patterns.
+        """
+        us_mismatches = []
+        ca_mismatches = []
+
+        for prefix, info in self.dxccprefixes.items():
+            if prefix.startswith(('=', 'VER')): # Ignore exact calls and version tags
+                continue
+
+            # Create a structurally valid sample callsign from the prefix for testing.
+            # The regex requires a number, so we append '1A'.
+            # E.g., for prefix "K", test "K1A"; for "VO1", test "VO11A".
+            test_call = f"{prefix}1A" 
+
+            if info.name == "United States":
+                if not self._US_PATTERN.match(test_call):
+                    us_mismatches.append(prefix)
+            elif info.name == "Canada":
+                if not self._CA_PATTERN.match(test_call):
+                    ca_mismatches.append(prefix)
+        
+        if us_mismatches:
+            print(f"Warning: The following US prefixes from '{self.filename}' do not match the expected "
+                  f"callsign pattern in CtyLookup: {', '.join(us_mismatches)}", file=sys.stderr)
+        
+        if ca_mismatches:
+            print(f"Warning: The following Canadian prefixes from '{self.filename}' do not match the expected "
+                  f"callsign pattern in CtyLookup: {', '.join(ca_mismatches)}", file=sys.stderr)
+
     def findprefix(self, callsign_segment):
         temp = callsign_segment
         while len(temp) > 0:
@@ -243,41 +317,25 @@ class CtyLookup:
         if len(parts) > 1:
             part1, part2 = parts[0], parts[-1]
 
-            if len(part2) == 1 and part2.isdigit():
-                us_call_pattern = re.compile(r'^(K|W|N|A[A-L])')
-                if us_call_pattern.match(part1):
-                    return self.findprefix('K')
+            def is_us_ca_system(pfx_str):
+                return bool(self._US_PATTERN.match(pfx_str) or self._CA_PATTERN.match(pfx_str))
 
-                last_digit_match = re.search(r'\d(?=[^\d]*$)', part1)
-                if last_digit_match:
-                    digit_index = last_digit_match.start()
-                    part_before_digit = part1[:digit_index]
-                    part_after_digit = part1[digit_index + 1:]
-                    cond1_followed_by_letter = re.search(r'[A-Z]', part_after_digit)
-                    cond2_preceded_by_letter = re.search(r'[A-Z]', part_before_digit)
-                    if cond1_followed_by_letter and cond2_preceded_by_letter:
-                        new_call = part_before_digit + part2 + part_after_digit
-                        special_lookup_result = self.findprefix(new_call)
-                        if special_lookup_result and special_lookup_result.name != "Unknown":
-                            return special_lookup_result
+            if len(part2) == 1 and part2.isdigit() and is_us_ca_system(part1):
+                return self.findprefix(part1)
+
+            part1_info = self.findprefix(part1)
+            part2_info = self.findprefix(part2)
+
+            if is_us_ca_system(part1):
+                return part2_info if part2_info else part1_info
+
+            if part1_info:
+                return part1_info
             
-            p1_valid = self.is_valid_prefix(part1)
-            p2_valid = self.is_valid_prefix(part2)
+            if part2_info:
+                return part2_info
             
-            if p1_valid and p2_valid: return UNKNOWN_CTY_INFO
-            elif p1_valid: return self.findprefix(part1)
-            elif p2_valid: return self.findprefix(part2)
-            else:
-                part1_info = self.findprefix(part1)
-
-                if part1_info and part1_info.DXCC not in ('K', 'VE'):
-                    return part1_info
-
-                part2_info = self.findprefix(part2)
-                if part2_info and part2_info.DXCC in self._US_CANADA_PRIMARY_PREFIXES:
-                    return part2_info
-                
-                return part1_info if part1_info else UNKNOWN_CTY_INFO
+            return UNKNOWN_CTY_INFO
 
         result = self.findprefix(callsign)
         return result if result else UNKNOWN_CTY_INFO

@@ -123,7 +123,7 @@ class Report(ContestReport):
             fill_value=0
         )
 
-        # --- Create a robust name mapping (FIX) ---
+        # --- Create a robust name mapping ---
         name_map = {}
         if name_column and name_column in combined_df.columns:
             name_map_df = combined_df[[mult_column, name_column]].dropna().drop_duplicates()
@@ -136,7 +136,7 @@ class Report(ContestReport):
         pivot = pivot[bands] # Enforce order
         pivot['Total'] = pivot.sum(axis=1)
 
-        # --- Formatting (FIX for "Countries") ---
+        # --- Formatting ---
         if mult_name.lower() == 'countries':
             first_col_header = 'Country'
         else:
@@ -155,7 +155,7 @@ class Report(ContestReport):
             mult_display = str(mult)
             if name_column:
                 mult_full_name = name_map.get(mult, '')
-                # --- Data Cleaning (FIX) ---
+                # --- Data Cleaning ---
                 if pd.isna(mult_full_name):
                     clean_name = ''
                 else:
@@ -174,7 +174,7 @@ class Report(ContestReport):
                     line += f"{row.get('Total', 0):>7}"
                     report_lines.append(line)
 
-        # --- Total Footer (FIX - Optimized) ---
+        # --- Total Footer (Optimized) ---
         report_lines.append(separator)
         report_lines.append(f"{'Total':<25}")
         
