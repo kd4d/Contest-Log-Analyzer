@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-07-27
-# Version: 0.20.2-Beta
+# Version: 0.20.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,6 +22,13 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.20.3-Beta] - 2025-07-27
+### Fixed
+# - Corrected a regression bug in the CTY.DAT parser. Prefixes with overrides
+#   (e.g., 'VO2(2)') are now correctly stored as both an exact match AND a
+#   regular prefix. This restores the ability to look up callsigns like
+#   'VO2AC' while preserving the special override rules.
 
 ## [0.20.2-Beta] - 2025-07-27
 ### Fixed
@@ -89,6 +96,21 @@
 #   if it lacks a leading '='. This resolves critical lookup failures with
 #   simplified country files like cqww.cty.
 
+## [0.16.3-Beta] - 2025-07-26
+### Changed
+# - Added temporary debugging prints to the 'get_cty' method to trace the
+#   logic for portable callsigns containing 'FS/' to diagnose a lookup issue.
+
+## [0.16.2-Beta] - 2025-07-26
+### Changed
+# - Reverted changes from version 0.16.1-Beta to restore the previous
+#   slash-handling logic.
+
+## [0.16.1-Beta] - 2025-07-26
+### Fixed
+# - Corrected the slash-handling logic to prioritize an exact prefix match
+#   (e.g., 'FS' in 'FS/WN4AAA') over the more complex portable operation rules.
+
 ## [0.16.0-Beta] - 2025-07-26
 ### Fixed
 # - Corrected the CTY file parser to properly handle multi-line alias
@@ -130,7 +152,6 @@ class CtyLookup:
     # --- Patterns for identifying US and Canadian callsign structures ---
     # Used to resolve ambiguity in portable callsigns (e.g., W1AW/KP4 vs. EA8/W1AW)
     _US_PATTERN = re.compile(r'^(A[A-L]|K|N|W)[A-Z]?[0-9]')
-    # Corrected regex to include the full C[F-Z] and X[J-O] ranges.
     _CA_PATTERN = re.compile(r'^(C[F-Z]|V[A-G]|V[O-Y]|X[J-O])[0-9]')
 
 
@@ -237,7 +258,8 @@ class CtyLookup:
 
                     if is_exact_match:
                         target_dict["=" + base_pfx_for_alias] = final_alias_cty_info
-                    else:
+                    
+                    if not is_forced_exact:
                         target_dict[base_pfx_for_alias] = final_alias_cty_info
 
         # --- Validate pattern consistency with the loaded CTY.DAT ---
@@ -252,12 +274,9 @@ class CtyLookup:
         ca_mismatches = []
 
         for prefix, info in self.dxccprefixes.items():
-            if prefix.startswith(('=', 'VER')): # Ignore exact calls and version tags
+            if prefix.startswith(('=', 'VER')):
                 continue
 
-            # Create a structurally valid sample callsign from the prefix for testing.
-            # The regex requires a number, so we append '1A'.
-            # E.g., for prefix "K", test "K1A"; for "VO1", test "VO11A".
             test_call = f"{prefix}1A" 
 
             if info.name == "United States":

@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-07-27
-# Version: 0.17.2-Beta
+# Version: 0.17.6-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,6 +21,29 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.17.6-Beta] - 2025-07-27
+### Fixed
+# - Corrected the "All Bands Summary" logic to calculate the sum of multipliers
+#   worked on each band, which is the correct scoring method for contests
+#   like CQWW. This replaces the previous logic that counted only unique
+#   multipliers across all bands.
+
+## [0.17.5-Beta] - 2025-07-27
+### Fixed
+# - Corrected the '_get_run_sp_status' helper to properly handle the
+#   'Unknown' classification, preventing an empty '()' from appearing in
+#   the report. It now correctly displays '(Unk)'.
+
+## [0.17.4-Beta] - 2025-07-27
+### Changed
+# - Increased the width of the first column (multiplier name) by two
+#   characters for better spacing and readability.
+
+## [0.17.3-Beta] - 2025-07-27
+### Fixed
+# - Corrected the pluralization logic for the first column header to specifically
+#   handle "Countries" -> "Country", preventing it from becoming "Countrie".
 
 ## [0.17.2-Beta] - 2025-07-27
 ### Fixed
@@ -94,14 +117,20 @@ class Report(ContestReport):
         return "text"
 
     def _get_run_sp_status(self, series: pd.Series) -> str:
-        """Determines if a multiplier was worked via Run, S&P, or Both."""
+        """Determines if a multiplier was worked via Run, S&P, Unknown, or a combination."""
         modes = set(series.unique())
-        if "Run" in modes and "S&P" in modes:
+        
+        has_run = "Run" in modes
+        has_sp = "S&P" in modes
+
+        if has_run and has_sp:
             return "Both"
-        elif "Run" in modes:
+        elif has_run:
             return "Run"
-        elif "S&P" in modes:
+        elif has_sp:
             return "S&P"
+        elif "Unknown" in modes:
+            return "Unk"
         return ""
 
     def generate(self, output_path: str, **kwargs) -> str:
@@ -136,8 +165,13 @@ class Report(ContestReport):
         elif mult_name.lower() == 'countries':
             col_width = 12
         
-        first_col_header = mult_name.rstrip('s').capitalize()
-        first_col_width = 25 if name_column else 7
+        if mult_name.lower() == 'countries':
+            first_col_header = 'Country'
+        else:
+            first_col_header = mult_name[:-1] if mult_name.lower().endswith('s') else mult_name
+            first_col_header = first_col_header.capitalize()
+            
+        first_col_width = 27 if name_column else 9
 
 
         # --- Dynamic Header Generation ---
@@ -158,18 +192,18 @@ class Report(ContestReport):
 
         bands = ['160M', '80M', '40M', '20M', '15M', '10M']
         
-        overall_mult_sets = {call: set() for call in all_calls}
+        # --- Initialize accumulators for the "All Bands Summary" ---
+        all_bands_worked_sum = {call: 0 for call in all_calls}
+        all_bands_missed_sum = {call: 0 for call in all_calls}
         overall_prefix_to_name_map = {}
-        for log in self.logs:
-            callsign = log.get_metadata().get('MyCall', 'Unknown')
-            df_full = log.get_processed_data()
-            df = df_full[df_full['Dupe'] == False].copy()
-            if df.empty or mult_column not in df.columns:
-                continue
-            df.dropna(subset=[mult_column], inplace=True)
-            overall_mult_sets[callsign].update(df[mult_column].unique())
 
-            if name_column and name_column in df.columns:
+        # Pre-populate the name map for display purposes
+        if name_column:
+            for log in self.logs:
+                df_full = log.get_processed_data()
+                df = df_full[df_full['Dupe'] == False].copy()
+                if df.empty or mult_column not in df.columns or name_column not in df.columns:
+                    continue
                 name_map_df = df[[mult_column, name_column]].dropna().drop_duplicates()
                 for _, row in name_map_df.iterrows():
                     overall_prefix_to_name_map[row[mult_column]] = row[name_column]
@@ -246,12 +280,9 @@ class Report(ContestReport):
                     if name_column:
                         mult_full_name = prefix_to_name_map.get(mult, overall_prefix_to_name_map.get(mult, ''))
 
-                        # --- Data Cleaning (FIX) ---
-                        # Clean data by ignoring text after a semicolon (;) comment.
                         if pd.isna(mult_full_name):
                             clean_name = ''
                         else:
-                            # Take only the part before a semicolon and clean up whitespace.
                             clean_name = str(mult_full_name).split(';')[0]
                             clean_name = clean_name.replace('\n', ' ').replace('\r', ' ').strip()
                         
@@ -289,6 +320,12 @@ class Report(ContestReport):
             report_lines.append(delta_line)
             report_lines.append("")
 
+            # --- Accumulate totals for the final summary ---
+            for call in all_calls:
+                all_bands_worked_sum[call] += total_counts[call]
+                all_bands_missed_sum[call] += union_count - total_counts[call]
+
+        # --- All Bands Summary ---
         report_lines.append(f"     All Bands Summary".center(table_width))
         
         all_header_cells = [f"{call:^{col_width}}" for call in all_calls]
@@ -299,23 +336,17 @@ class Report(ContestReport):
         all_separator = f"{'':<{first_col_width}} | {' | '.join(all_separator_cells)}"
         report_lines.append(all_separator)
 
-        union_of_all_overall_mults = set.union(*overall_mult_sets.values())
-        total_overall_counts = {call: len(overall_mult_sets[call]) for call in all_calls}
-        max_mults_all = max(total_overall_counts.values()) if total_overall_counts else 0
-        union_overall_count = len(union_of_all_overall_mults)
+        max_mults_all = max(all_bands_worked_sum.values()) if all_bands_worked_sum else 0
 
-        all_worked_cells = [f"{total_overall_counts[call]:>{col_width}}" for call in all_calls]
+        all_worked_cells = [f"{all_bands_worked_sum[call]:>{col_width}}" for call in all_calls]
         all_worked_line = f"{'Worked:':<{first_col_width}} | {' | '.join(all_worked_cells)}"
         
-        all_missed_cells = []
-        for call in all_calls:
-            missed_count = union_overall_count - total_overall_counts[call]
-            all_missed_cells.append(f"{missed_count:>{col_width}}")
+        all_missed_cells = [f"{all_bands_missed_sum[call]:>{col_width}}" for call in all_calls]
         all_missed_line = f"{'Missed:':<{first_col_width}} | {' | '.join(all_missed_cells)}"
 
         all_delta_cells = []
         for call in all_calls:
-            delta = total_overall_counts[call] - max_mults_all
+            delta = all_bands_worked_sum[call] - max_mults_all
             delta_str = str(delta) if delta != 0 else ""
             all_delta_cells.append(f"{delta_str:>{col_width}}")
         all_delta_line = f"{'Delta:':<{first_col_width}} | {' | '.join(all_delta_cells)}"
