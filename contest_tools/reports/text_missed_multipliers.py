@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-07-27
-# Version: 0.17.6-Beta
+# Version: 0.21.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,6 +21,11 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.21.0-Beta] - 2025-07-27
+### Changed
+# - The report no longer includes "Unknown" as a multiplier. All data associated
+#   with an "Unknown" multiplier is now filtered out before the report is generated.
 
 ## [0.17.6-Beta] - 2025-07-27
 ### Fixed
@@ -226,6 +231,10 @@ class Report(ContestReport):
                     continue
                 
                 df_band = df[df['Band'] == band].copy()
+                
+                # --- Filter out "Unknown" multipliers ---
+                df_band = df_band[df_band[mult_column] != 'Unknown']
+                
                 if df_band.empty:
                     continue
                 
