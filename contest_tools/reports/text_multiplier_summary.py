@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-26
-# Version: 0.16.1-Beta
+# Date: 2025-07-27
+# Version: 0.17.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,6 +21,17 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.17.0-Beta] - 2025-07-27
+### Fixed
+# - Corrected the pluralization logic for the first column header to specifically
+#   handle "Countries" -> "Country", preventing it from becoming "Countrie".
+# - Added data cleaning for multiplier names to correctly parse semicolon (;)
+#   comments from source files, preventing stray data from appearing.
+# - Optimized the footer calculation by summing the existing pivot table,
+#   avoiding the need to process the entire dataset a second time.
+# - Made the multiplier name mapping logic more robust by handling potential
+#   duplicate entries from the combined log data.
 
 ## [0.16.1-Beta] - 2025-07-26
 ### Fixed
@@ -112,10 +123,11 @@ class Report(ContestReport):
             fill_value=0
         )
 
-        # Create a name mapping if applicable
+        # --- Create a robust name mapping (FIX) ---
         name_map = {}
         if name_column and name_column in combined_df.columns:
-            name_map = combined_df.dropna(subset=[name_column]).set_index(mult_column)[name_column].to_dict()
+            name_map_df = combined_df[[mult_column, name_column]].dropna().drop_duplicates()
+            name_map = name_map_df.set_index(mult_column)[name_column].to_dict()
 
         # Ensure all bands are present
         for band in bands:
@@ -124,13 +136,13 @@ class Report(ContestReport):
         pivot = pivot[bands] # Enforce order
         pivot['Total'] = pivot.sum(axis=1)
 
-        # --- Formatting ---
+        # --- Formatting (FIX for "Countries") ---
         if mult_name.lower() == 'countries':
             first_col_header = 'Country'
         else:
             first_col_header = mult_name[:-1] if mult_name.lower().endswith('s') else mult_name
             
-        header = f"{first_col_header:<17}" + "".join([f"{b.replace('M',''):>7}" for b in bands]) + f"{'Total':>7}"
+        header = f"{first_col_header:<25}" + "".join([f"{b.replace('M',''):>7}" for b in bands]) + f"{'Total':>7}"
         separator = "-" * len(header)
         
         report_lines = [f"-------------------- {mult_name} S u m m a r y -------------------".center(len(header))]
@@ -142,34 +154,37 @@ class Report(ContestReport):
         for mult in sorted_mults:
             mult_display = str(mult)
             if name_column:
-                mult_display = f"{mult} ({name_map.get(mult, '')})"
-            report_lines.append(mult_display)
+                mult_full_name = name_map.get(mult, '')
+                # --- Data Cleaning (FIX) ---
+                if pd.isna(mult_full_name):
+                    clean_name = ''
+                else:
+                    clean_name = str(mult_full_name).split(';')[0].strip()
+                mult_display = f"{mult} ({clean_name})"
+
+            report_lines.append(f"{mult_display:<25}")
             
             mult_data = pivot.loc[mult]
             for call in all_calls:
                 if call in mult_data.index:
                     row = mult_data.loc[call]
-                    line = f"        {call:<8}:"
+                    line = f"  {call:<21}"
                     for band in bands:
                         line += f"{row.get(band, 0):>7}"
                     line += f"{row.get('Total', 0):>7}"
                     report_lines.append(line)
 
-        # --- Total Footer ---
+        # --- Total Footer (FIX - Optimized) ---
         report_lines.append(separator)
-        report_lines.append("Total")
+        report_lines.append(f"{'Total':<25}")
         
-        total_pivot = combined_df.pivot_table(index='MyCall', columns='Band', aggfunc='size', fill_value=0)
-        for band in bands:
-            if band not in total_pivot.columns:
-                total_pivot[band] = 0
-        total_pivot = total_pivot[bands]
-        total_pivot['Total'] = total_pivot.sum(axis=1)
+        # Calculate totals by summing the existing pivot table, which is more efficient.
+        total_pivot = pivot.groupby(level='MyCall').sum()
 
         for call in all_calls:
              if call in total_pivot.index:
                 row = total_pivot.loc[call]
-                line = f"        {call:<8}:"
+                line = f"  {call:<21}"
                 for band in bands:
                     line += f"{row.get(band, 0):>7}"
                 line += f"{row.get('Total', 0):>7}"

@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-07-26
-# Version: 0.16.4-Beta
+# Version: 0.16.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,6 +22,13 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.16.5-Beta] - 2025-07-26
+### Fixed
+# - Rewrote the CTY file parsing logic to be more robust. It now correctly
+#   handles complex, multi-line alias definitions (e.g., for Canada) in
+#   standard cty.dat files, fixing a regression bug that caused lookups
+#   for prefixes like VO2 and VY0 to fail.
 
 ## [0.16.4-Beta] - 2025-07-26
 ### Fixed
@@ -119,23 +126,29 @@ class CtyLookup:
             if not line:
                 continue
 
-            # Split by colon first to preserve spaces in names
-            fields = [field.strip() for field in line.split(':')]
+            # --- Robust Parser ---
+            # Use maxsplit to correctly separate the main fields from the alias list
+            fields = line.split(':', 8)
             
             cty_entity_info = None
             primary_dxcc_code = ""
-            aliases_field_index = -1
+            raw_aliases_string = ""
 
             if len(fields) >= 8: # Standard cty.dat format
-                cty_entity_info = self.CtyInfo(*fields[0:8])
-                primary_dxcc_code = fields[7]
-                aliases_field_index = 8
-            elif len(fields) >= 3: # Simplified format (e.g., cqww.cty)
-                name = fields[0]
-                cq_zone = fields[1]
-                primary_dxcc_code = fields[2]
-                cty_entity_info = self.CtyInfo(name, cq_zone, "0", "Unknown", "0.0", "0.0", "0.0", primary_dxcc_code)
-                aliases_field_index = 3
+                cty_entity_info = self.CtyInfo(*[f.strip() for f in fields[0:8]])
+                primary_dxcc_code = fields[7].strip()
+                if len(fields) > 8:
+                    raw_aliases_string = fields[8]
+            else:
+                # Fallback for simplified format
+                fields = line.split(':', 3)
+                if len(fields) >= 3: # Simplified format (e.g., cqww.cty)
+                    name = fields[0].strip()
+                    cq_zone = fields[1].strip()
+                    primary_dxcc_code = fields[2].strip()
+                    cty_entity_info = self.CtyInfo(name, cq_zone, "0", "Unknown", "0.0", "0.0", "0.0", primary_dxcc_code)
+                    if len(fields) > 3:
+                        raw_aliases_string = fields[3]
 
             if not cty_entity_info:
                 continue
@@ -149,8 +162,7 @@ class CtyLookup:
             else:
                 target_dict[primary_prefix_key_str] = cty_entity_info
 
-            if len(fields) > aliases_field_index:
-                raw_aliases_string = fields[aliases_field_index]
+            if raw_aliases_string:
                 aliases = raw_aliases_string.split(",")
 
                 for alias_entry in aliases:
@@ -158,9 +170,6 @@ class CtyLookup:
                     if not alias_entry:
                         continue
 
-                    # --- FIX: Determine if it's an exact match ---
-                    # An alias is an exact callsign match if it starts with '=' OR
-                    # if it contains a zone, ITU, or continent override.
                     is_forced_exact = alias_entry.startswith('=')
                     has_override = re.search(r'[\(\[\{]', alias_entry)
                     is_exact_match = is_forced_exact or has_override
@@ -233,16 +242,6 @@ class CtyLookup:
         parts = callsign.split('/')
         if len(parts) > 1:
             part1, part2 = parts[0], parts[-1]
-            
-            # --- DEBUGGING PRINTS FOR FS/ ---
-            if 'FS/' in callsign:
-                print(f"\n--- DEBUG TRACE for {callsign} ---")
-                print(f"  File: {self.filename}")
-                print(f"  part1='{part1}', part2='{part2}'")
-                p1_valid = self.is_valid_prefix(part1)
-                p2_valid = self.is_valid_prefix(part2)
-                print(f"  is_valid_prefix('{part1}') -> {p1_valid}")
-                print(f"  is_valid_prefix('{part2}') -> {p2_valid}")
 
             if len(part2) == 1 and part2.isdigit():
                 us_call_pattern = re.compile(r'^(K|W|N|A[A-L])')

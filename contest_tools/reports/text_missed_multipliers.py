@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-26
-# Version: 0.16.0-Beta
+# Date: 2025-07-27
+# Version: 0.17.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,14 +22,40 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.16.0-Beta] - 2025-07-26
-### Changed
-# - The report now includes the full multiplier name (e.g., "Vietnam") next
-#   to the prefix (e.g., "3W") when a 'name_column' is available in the
-#   contest definition.
+## [0.17.2-Beta] - 2025-07-27
+### Fixed
+# - Refined multiplier name cleaning to correctly handle source files that use
+#   semicolons (;) for comments. The parser now ignores all text after a
+#   semicolon, preventing stray data like continent codes from appearing.
 
-## [0.15.0-Beta] - 2025-07-25
-# - Standardized version for final review. No functional changes.
+## [0.17.1-Beta] - 2025-07-27
+### Fixed
+# - Added data cleaning for multiplier names to remove embedded newline
+#   characters and "NA" artifacts, preventing broken lines in the report.
+
+## [0.17.0-Beta] - 2025-07-27
+### Fixed
+# - Corrected the "All Bands" summary logic. It no longer sums per-band counts
+#   and now correctly calculates totals based on the unique set of multipliers
+#   worked across all bands, preventing inflated and inaccurate results.
+# - Fixed the table width calculation. Width is now derived from the actual
+#   length of the generated header row, ensuring titles are always centered
+#   properly regardless of the number of logs being compared.
+# - The per-band footer is now always displayed for consistency, even if no
+#   multipliers were missed on a band.
+# - Reordered the per-band and "All Bands" footer rows to the more logical
+#   sequence of "Worked", "Missed", and "Delta" for improved readability.
+
+## [0.16.0-Beta] - 2025-07-26
+### Fixed
+# - Corrected the logic to use the 'value_column' and 'name_column' keys from
+#   the contest definition, resolving a "Multiplier type not found" error.
+
+## [0.14.0-Beta] - 2025-07-23
+### Changed
+# - Added the full multiplier name (e.g., "Vietnam") next to the prefix
+#   (e.g., "3W") when a 'name_column' is available in the contest definition.
+# - Refined table formatting for alignment, spacing, and dynamic headers.
 
 ## [0.13.0-Beta] - 2025-07-22
 ### Changed
@@ -38,8 +64,10 @@
 # - The report now requires a '--mult-name' argument to specify which
 #   multiplier to analyze.
 # - Logic was updated to use efficient set operations for comparisons.
-# - Report header, footer, and filename are now dynamically generated and formatted.
 # - Added a final summary table for "All Bands" to the end of the report.
+
+## [0.12.0-Beta] - 2025-07-22
+# - Initial release as 'text_missed_country_mults.py'.
 
 from typing import List, Dict, Any, Set
 import pandas as pd
@@ -93,16 +121,21 @@ class Report(ContestReport):
                 mult_rule = rule
                 break
         
-        if not mult_rule or 'column' not in mult_rule:
+        if not mult_rule or 'value_column' not in mult_rule:
             return f"Error: Multiplier type '{mult_name}' not found in definition for {first_log_def.contest_name}."
 
-        mult_column = mult_rule['column']
-        name_column = mult_rule.get('name_column') # Will be None if not defined
+        mult_column = mult_rule['value_column']
+        name_column = mult_rule.get('name_column')
 
         all_calls = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])
         
         # --- Dynamic Column Width and Headers ---
         col_width = 14
+        if mult_name.lower() == 'zones':
+            col_width = 11
+        elif mult_name.lower() == 'countries':
+            col_width = 12
+        
         first_col_header = mult_name.rstrip('s').capitalize()
         first_col_width = 25 if name_column else 7
 
@@ -113,7 +146,9 @@ class Report(ContestReport):
         first_qso_date = first_log.get_processed_data()['Date'].iloc[0]
         year = first_qso_date.split('-')[0] if first_qso_date else "UnknownYear"
         
-        table_width = first_col_width + 3 + (len(all_calls) * (col_width + 3)) - 1
+        header_cells = [f"{call:^{col_width}}" for call in all_calls]
+        header_line_for_width = f"{first_col_header:<{first_col_width}} | {' | '.join(header_cells)}"
+        table_width = len(header_line_for_width)
         
         title_text = f"{year} {contest_name} Missed {mult_name}"
         centered_title = f"- {title_text} -".center(table_width)
@@ -123,8 +158,21 @@ class Report(ContestReport):
 
         bands = ['160M', '80M', '40M', '20M', '15M', '10M']
         
-        all_bands_worked = {call: 0 for call in all_calls}
-        all_bands_missed = {call: 0 for call in all_calls}
+        overall_mult_sets = {call: set() for call in all_calls}
+        overall_prefix_to_name_map = {}
+        for log in self.logs:
+            callsign = log.get_metadata().get('MyCall', 'Unknown')
+            df_full = log.get_processed_data()
+            df = df_full[df_full['Dupe'] == False].copy()
+            if df.empty or mult_column not in df.columns:
+                continue
+            df.dropna(subset=[mult_column], inplace=True)
+            overall_mult_sets[callsign].update(df[mult_column].unique())
+
+            if name_column and name_column in df.columns:
+                name_map_df = df[[mult_column, name_column]].dropna().drop_duplicates()
+                for _, row in name_map_df.iterrows():
+                    overall_prefix_to_name_map[row[mult_column]] = row[name_column]
 
         for band in bands:
             band_header_text = f"{band.replace('M', '')} Meters Missed Multipliers"
@@ -132,7 +180,6 @@ class Report(ContestReport):
             
             band_data: Dict[str, pd.DataFrame] = {}
             mult_sets: Dict[str, Set[str]] = {call: set() for call in all_calls}
-            # Store a map of prefix to name for this band
             prefix_to_name_map = {}
 
             for log in self.logs:
@@ -150,7 +197,6 @@ class Report(ContestReport):
                 
                 df_band.dropna(subset=[mult_column], inplace=True)
                 
-                # Update the prefix-to-name map if a name column is used
                 if name_column and name_column in df_band.columns:
                     name_map_df = df_band[[mult_column, name_column]].dropna().drop_duplicates()
                     for _, row in name_map_df.iterrows():
@@ -167,7 +213,7 @@ class Report(ContestReport):
             union_of_all_mults = set.union(*mult_sets.values())
             
             if not union_of_all_mults:
-                report_lines.append("      (No multipliers on this band for any log)".center(table_width))
+                report_lines.append("     (No multipliers on this band for any log)".center(table_width))
                 report_lines.append("")
                 continue
 
@@ -175,13 +221,11 @@ class Report(ContestReport):
             for call in all_calls:
                 missed_mults_on_band.update(union_of_all_mults.difference(mult_sets[call]))
 
-            # --- Format the Table for the Band ---
-            header_cells = [f"{call:^{col_width}}" for call in all_calls]
             header = f"{first_col_header:<{first_col_width}} | {' | '.join(header_cells)}"
             report_lines.append(header)
 
             if not missed_mults_on_band:
-                report_lines.append(f"      (No missed {mult_name} on this band)".center(table_width))
+                report_lines.append(f"     (No missed {mult_name} on this band)".center(table_width))
             else:
                 for mult in sorted(list(missed_mults_on_band)):
                     cell_parts = []
@@ -200,12 +244,22 @@ class Report(ContestReport):
                     
                     display_mult = str(mult)
                     if name_column:
-                        display_mult = f"{mult} ({prefix_to_name_map.get(mult, '')})"
+                        mult_full_name = prefix_to_name_map.get(mult, overall_prefix_to_name_map.get(mult, ''))
+
+                        # --- Data Cleaning (FIX) ---
+                        # Clean data by ignoring text after a semicolon (;) comment.
+                        if pd.isna(mult_full_name):
+                            clean_name = ''
+                        else:
+                            # Take only the part before a semicolon and clean up whitespace.
+                            clean_name = str(mult_full_name).split(';')[0]
+                            clean_name = clean_name.replace('\n', ' ').replace('\r', ' ').strip()
+                        
+                        display_mult = f"{mult} ({clean_name})"
 
                     row_str = f"{display_mult:<{first_col_width}} | {' | '.join(cell_parts)}"
                     report_lines.append(row_str)
 
-            # --- Footer Calculation and Formatting (runs for every band) ---
             separator_cells = [f"{'---':^{col_width}}" for _ in all_calls]
             separator = f"{'':<{first_col_width}} | {' | '.join(separator_cells)}"
             report_lines.append(separator)
@@ -217,34 +271,25 @@ class Report(ContestReport):
             worked_cells = [f"{total_counts[call]:>{col_width}}" for call in all_calls]
             worked_line = f"{'Worked:':<{first_col_width}} | {' | '.join(worked_cells)}"
             
-            if missed_mults_on_band:
-                missed_cells = []
-                for call in all_calls:
-                    missed_count = union_count - total_counts[call]
-                    missed_cells.append(f"{missed_count:>{col_width}}")
-                missed_line = f"{'Missed:':<{first_col_width}} | {' | '.join(missed_cells)}"
-                
-                delta_cells = []
-                for call in all_calls:
-                    delta = total_counts[call] - max_mults
-                    delta_str = str(delta) if delta != 0 else ""
-                    delta_cells.append(f"{delta_str:>{col_width}}")
-                delta_line = f"{'Delta:':<{first_col_width}} | {' | '.join(delta_cells)}"
-                
-                report_lines.append(missed_line)
-                report_lines.append(delta_line)
-
+            missed_cells = []
+            for call in all_calls:
+                missed_count = union_count - total_counts[call]
+                missed_cells.append(f"{missed_count:>{col_width}}")
+            missed_line = f"{'Missed:':<{first_col_width}} | {' | '.join(missed_cells)}"
+            
+            delta_cells = []
+            for call in all_calls:
+                delta = total_counts[call] - max_mults
+                delta_str = str(delta) if delta != 0 else ""
+                delta_cells.append(f"{delta_str:>{col_width}}")
+            delta_line = f"{'Delta:':<{first_col_width}} | {' | '.join(delta_cells)}"
+            
             report_lines.append(worked_line)
+            report_lines.append(missed_line)
+            report_lines.append(delta_line)
             report_lines.append("")
 
-            # Accumulate totals for the final summary
-            for call in all_calls:
-                all_bands_worked[call] += total_counts[call]
-                all_bands_missed[call] += union_count - total_counts[call]
-
-
-        # --- All Bands Summary ---
-        report_lines.append(f"        All Bands Summary".center(table_width))
+        report_lines.append(f"     All Bands Summary".center(table_width))
         
         all_header_cells = [f"{call:^{col_width}}" for call in all_calls]
         all_header = f"{first_col_header:<{first_col_width}} | {' | '.join(all_header_cells)}"
@@ -254,27 +299,32 @@ class Report(ContestReport):
         all_separator = f"{'':<{first_col_width}} | {' | '.join(all_separator_cells)}"
         report_lines.append(all_separator)
 
-        max_mults_all = max(all_bands_worked.values()) if all_bands_worked else 0
+        union_of_all_overall_mults = set.union(*overall_mult_sets.values())
+        total_overall_counts = {call: len(overall_mult_sets[call]) for call in all_calls}
+        max_mults_all = max(total_overall_counts.values()) if total_overall_counts else 0
+        union_overall_count = len(union_of_all_overall_mults)
 
-        all_missed_cells = [f"{all_bands_missed[call]:>{col_width}}" for call in all_calls]
+        all_worked_cells = [f"{total_overall_counts[call]:>{col_width}}" for call in all_calls]
+        all_worked_line = f"{'Worked:':<{first_col_width}} | {' | '.join(all_worked_cells)}"
+        
+        all_missed_cells = []
+        for call in all_calls:
+            missed_count = union_overall_count - total_overall_counts[call]
+            all_missed_cells.append(f"{missed_count:>{col_width}}")
         all_missed_line = f"{'Missed:':<{first_col_width}} | {' | '.join(all_missed_cells)}"
 
         all_delta_cells = []
         for call in all_calls:
-            delta = all_bands_worked[call] - max_mults_all
+            delta = total_overall_counts[call] - max_mults_all
             delta_str = str(delta) if delta != 0 else ""
             all_delta_cells.append(f"{delta_str:>{col_width}}")
         all_delta_line = f"{'Delta:':<{first_col_width}} | {' | '.join(all_delta_cells)}"
 
-        all_worked_cells = [f"{all_bands_worked[call]:>{col_width}}" for call in all_calls]
-        all_worked_line = f"{'Worked:':<{first_col_width}} | {' | '.join(all_worked_cells)}"
-        
+        report_lines.append(all_worked_line)
         report_lines.append(all_missed_line)
         report_lines.append(all_delta_line)
-        report_lines.append(all_worked_line)
         report_lines.append("")
 
-        # --- Save the Report File ---
         report_content = "\n".join(report_lines)
         os.makedirs(output_path, exist_ok=True)
         
