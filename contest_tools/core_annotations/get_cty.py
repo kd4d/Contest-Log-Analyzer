@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-07-27
-# Version: 0.20.3-Beta
+# Version: 0.21.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,6 +22,14 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.21.1-Beta] - 2025-07-27
+### Changed
+# - Implemented a new high-priority rule for portable callsigns (A/B). If
+#   exactly one of A or B is a direct prefix match in the CTY file, it is
+#   now immediately used as the location, fixing lookups for calls like
+#   'KH0/4Z5LA'. The more complex pattern-matching logic is now only used
+#   as a fallback for ambiguous cases.
 
 ## [0.20.3-Beta] - 2025-07-27
 ### Fixed
@@ -54,13 +62,6 @@
 # - Corrected the pattern validation logic to ensure it only tests the primary
 #   DXCC prefix for the USA and Canada, ignoring aliases (e.g., '=WZ8X').
 #   This prevents erroneous warnings when loading a valid cty.dat file.
-
-## [0.19.0-Beta] - 2025-07-27
-### Added
-# - Added a validation check during initialization to ensure that the primary
-#   prefixes for the USA and Canada found in the CTY.DAT file are compatible
-#   with the internal regex patterns used for portable callsign resolution.
-#   A warning is now printed to stderr if an incompatibility is found.
 
 ## [0.18.0-Beta] - 2025-07-27
 ### Changed
@@ -95,21 +96,6 @@
 #   continent override (e.g., 'WN4AAA(3)') as an exact callsign match, even
 #   if it lacks a leading '='. This resolves critical lookup failures with
 #   simplified country files like cqww.cty.
-
-## [0.16.3-Beta] - 2025-07-26
-### Changed
-# - Added temporary debugging prints to the 'get_cty' method to trace the
-#   logic for portable callsigns containing 'FS/' to diagnose a lookup issue.
-
-## [0.16.2-Beta] - 2025-07-26
-### Changed
-# - Reverted changes from version 0.16.1-Beta to restore the previous
-#   slash-handling logic.
-
-## [0.16.1-Beta] - 2025-07-26
-### Fixed
-# - Corrected the slash-handling logic to prioritize an exact prefix match
-#   (e.g., 'FS' in 'FS/WN4AAA') over the more complex portable operation rules.
 
 ## [0.16.0-Beta] - 2025-07-26
 ### Fixed
@@ -304,9 +290,6 @@ class CtyLookup:
             temp = temp[:-1]
         return None
 
-    def is_valid_prefix(self, segment):
-        return (self.wae and segment in self.waeprefixes) or (segment in self.dxccprefixes)
-
     def get_cty(self, csign):
         UNKNOWN_CTY_INFO = self.CtyInfo("Unknown", "Unknown", "Unknown", "Unknown", "0.0", "0.0", "0.0", "Unknown")
         callsign = csign.upper().strip().partition('-')[0]
@@ -336,6 +319,16 @@ class CtyLookup:
         if len(parts) > 1:
             part1, part2 = parts[0], parts[-1]
 
+            # --- High-priority check for unambiguous prefix matches ---
+            part1_is_prefix = part1 in self.dxccprefixes or (self.wae and part1 in self.waeprefixes)
+            part2_is_prefix = part2 in self.dxccprefixes or (self.wae and part2 in self.waeprefixes)
+
+            if part1_is_prefix and not part2_is_prefix:
+                return self.dxccprefixes.get(part1) or self.waeprefixes.get(part1)
+            if part2_is_prefix and not part1_is_prefix:
+                return self.dxccprefixes.get(part2) or self.waeprefixes.get(part2)
+
+            # --- Fallback to pattern-based logic for ambiguous cases ---
             def is_us_ca_system(pfx_str):
                 return bool(self._US_PATTERN.match(pfx_str) or self._CA_PATTERN.match(pfx_str))
 
