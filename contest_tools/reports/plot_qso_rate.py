@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-26
-# Version: 0.15.0-Beta
+# Date: 2025-07-28
+# Version: 0.21.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,6 +21,27 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.21.3-Beta] - 2025-07-28
+### Fixed
+# - The inset summary table now has a solid background color, which makes it
+#   opaque and prevents the plot's grid lines from showing through.
+
+## [0.21.2-Beta] - 2025-07-27
+### Added
+# - Added a summary of final QSO totals as an inset table on the plot itself,
+#   placed in the bottom-right corner for better readability.
+
+## [0.21.1-Beta] - 2025-07-27
+### Reverted
+# - Reverted the addition of the summary table to the bottom of the plot.
+
+## [0.21.0-Beta] - 2025-07-27
+### Added
+# - Added a summary table to the bottom of the plot showing the final
+#   total, Run, S&P, and Unknown QSO counts for each station.
+### Changed
+# - Adjusted the plot layout to accommodate the new summary table.
 
 ## [0.15.0-Beta] - 2025-07-26
 ### Fixed
@@ -71,13 +92,24 @@ class Report(ContestReport):
         )
         
         if not aligned_data:
-             print(f"  - Skipping {band_filter} QSO rate plot: no logs have QSOs on this band.")
-             return None
+              print(f"  - Skipping {band_filter} QSO rate plot: no logs have QSOs on this band.")
+              return None
 
         # --- Plotting ---
+        summary_data = []
+        row_labels = []
         for callsign, df_aligned in aligned_data.items():
             cumulative_qsos = df_aligned['Overall'].cumsum()
             ax.plot(cumulative_qsos.index, cumulative_qsos, marker='o', linestyle='-', markersize=4, label=callsign)
+            
+            # --- Calculate Totals for Summary Table ---
+            row_labels.append(callsign)
+            summary_data.append([
+                int(df_aligned['Overall'].sum()),
+                int(df_aligned['Run'].sum()),
+                int(df_aligned['S&P'].sum()),
+                int(df_aligned['Unknown'].sum())
+            ])
 
         # --- Formatting ---
         first_log_meta = self.logs[0].get_metadata()
@@ -96,6 +128,21 @@ class Report(ContestReport):
         ax.set_ylabel("Total QSOs")
         ax.legend()
         ax.grid(True)
+        
+        # --- Add Inset Summary Table ---
+        col_labels = ['Total', 'Run', 'S&P', 'Unk']
+        table = ax.table(cellText=summary_data,
+                         rowLabels=row_labels,
+                         colLabels=col_labels,
+                         loc='lower right',
+                         cellLoc='center',
+                         bbox=[0.75, 0.05, 0.2, 0.25]) # Position [left, bottom, width, height]
+        
+        # Set face color for all cells to make the table opaque
+        table.set_alpha(0.9)
+        for key, cell in table.get_celld().items():
+            cell.set_facecolor('white')
+
         fig.tight_layout(rect=[0, 0.03, 1, 0.95])
 
         # --- Save File ---
