@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-07-28
-# Version: 0.21.6-Beta
+# Version: 0.21.7-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,6 +22,12 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.21.7-Beta] - 2025-07-28
+### Fixed
+# - Corrected the logic in 'get_cty_DXCC_WAE' to properly prioritize the
+#   continent, CQ zone, and ITU zone from the WAE lookup result when one is
+#   available. This ensures correct scoring for entities like *TA1 and *IG9.
 
 ## [0.21.6-Beta] - 2025-07-28
 ### Removed
@@ -267,17 +273,34 @@ class CtyLookup:
         result = self.findprefix(call)
         return result if result else UNKNOWN
 
-    def get_cty_DXCC_WAE(self, call):
-        self.wae = False; dxcc_res = self.get_cty(call); self.wae = True; wae_res = self.get_cty(call)
+    def get_cty_DXCC_WAE(self, callsign):
+        original_wae_setting = self.wae
+        self.wae = False
+        dxcc_res_obj = self.get_cty(callsign)
+        self.wae = True
+        wae_res_obj = self.get_cty(callsign)
+        self.wae = original_wae_setting
+
         dxcc_name, dxcc_pfx, cq, itu, cont, lat, lon, tz = "Unknown", "Unknown", "Unknown", "Unknown", "Unknown", "0.0", "0.0", "0.0"
         wae_name, wae_pfx = "", ""
-        p_obj = None
-        if dxcc_res and dxcc_res.name != "Unknown": p_obj = dxcc_res
-        elif wae_res and wae_res.name != "Unknown" and not wae_res.DXCC.startswith('*'): p_obj = wae_res
-        if p_obj: dxcc_name, cq, itu, cont, lat, lon, tz, dxcc_pfx = p_obj
-        if wae_res and wae_res.name != "Unknown" and wae_res.DXCC.startswith('*'):
-            wae_name, wae_pfx = wae_res.name, wae_res.DXCC
-            if dxcc_name == "Unknown": _, cq, itu, cont, lat, lon, tz, _ = wae_res
+
+        # Prioritize the DXCC result for the base entity information
+        if dxcc_res_obj and dxcc_res_obj.name != "Unknown":
+            dxcc_name, cq, itu, cont, lat, lon, tz, dxcc_pfx = dxcc_res_obj
+
+        # If a WAE result exists, it can override geographic data or add WAE-specific info
+        if wae_res_obj and wae_res_obj.name != "Unknown":
+            # WAE overrides geo-data (for cases like *TA1, *IG9)
+            _, cq, itu, cont, lat, lon, tz, _ = wae_res_obj
+            
+            # If it's a WAE-only entity, populate the WAE fields
+            if wae_res_obj.DXCC.startswith('*'):
+                wae_name = wae_res_obj.name
+                wae_pfx = wae_res_obj.DXCC
+                # If there was no base DXCC entity, use the WAE name as the DXCC name
+                if dxcc_name == "Unknown":
+                    dxcc_name = wae_res_obj.name
+        
         return self.FullCtyInfo(dxcc_name, dxcc_pfx, cq, itu, cont, lat, lon, tz, wae_name, wae_pfx)
 
 def _run_lookup(cty, call):
