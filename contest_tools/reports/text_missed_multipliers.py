@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-07-28
-# Version: 0.21.0-Beta
+# Version: 0.21.6-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,6 +21,11 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.21.6-Beta] - 2025-07-28
+### Added
+# - The report now includes a diagnostic list at the end, showing all unique
+#   callsigns that resulted in an "Unknown" multiplier classification.
 
 ## [0.21.0-Beta] - 2025-07-28
 ### Changed
@@ -201,14 +206,19 @@ class Report(ContestReport):
         all_bands_worked_sum = {call: 0 for call in all_calls}
         all_bands_missed_sum = {call: 0 for call in all_calls}
         overall_prefix_to_name_map = {}
+        all_unknown_calls = set()
 
-        # Pre-populate the name map for display purposes
-        if name_column:
-            for log in self.logs:
-                df_full = log.get_processed_data()
-                df = df_full[df_full['Dupe'] == False].copy()
-                if df.empty or mult_column not in df.columns or name_column not in df.columns:
-                    continue
+        # Pre-populate the name map and collect all unknown calls
+        for log in self.logs:
+            df_full = log.get_processed_data()
+            df = df_full[df_full['Dupe'] == False].copy()
+            if df.empty or mult_column not in df.columns:
+                continue
+            
+            unknown_df = df[df[mult_column] == 'Unknown']
+            all_unknown_calls.update(unknown_df['Call'].unique())
+            
+            if name_column and name_column in df.columns:
                 name_map_df = df[[mult_column, name_column]].dropna().drop_duplicates()
                 for _, row in name_map_df.iterrows():
                     overall_prefix_to_name_map[row[mult_column]] = row[name_column]
@@ -365,6 +375,21 @@ class Report(ContestReport):
         report_lines.append(all_delta_line)
         report_lines.append("")
 
+        # --- Add Diagnostic List for Unknown Calls ---
+        if all_unknown_calls:
+            report_lines.append("\n" + "-" * 30)
+            report_lines.append("Callsigns with 'Unknown' Multiplier:")
+            report_lines.append("-" * 30)
+            
+            sorted_unknowns = sorted(list(all_unknown_calls))
+            col_width = 12
+            num_cols = max(1, table_width // (col_width + 2))
+            
+            for i in range(0, len(sorted_unknowns), num_cols):
+                line_calls = sorted_unknowns[i:i+num_cols]
+                report_lines.append("  ".join([f"{call:<{col_width}}" for call in line_calls]))
+
+        # --- Save the Report File ---
         report_content = "\n".join(report_lines)
         os.makedirs(output_path, exist_ok=True)
         

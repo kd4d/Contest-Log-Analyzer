@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-26
-# Version: 0.16.0-Beta
+# Date: 2025-07-28
+# Version: 0.21.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,6 +21,12 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.21.5-Beta] - 2025-07-28
+### Added
+# - Each per-band report now includes a diagnostic list at the end, showing
+#   all unique callsigns from that band that resulted in an "Unknown"
+#   continent classification.
 
 ## [0.16.0-Beta] - 2025-07-26
 ### Fixed
@@ -123,6 +129,22 @@ class Report(ContestReport):
                                 line += f"{0:>12}"
                         report_lines.append(line)
             
+            # --- Add Diagnostic List for Unknown Calls ---
+            unknown_continent_df = band_df[band_df['ContinentName'] == 'Unknown']
+            unique_unknown_calls = sorted(unknown_continent_df['Call'].unique())
+
+            if unique_unknown_calls:
+                report_lines.append("\n" + "-" * 30)
+                report_lines.append("Callsigns with 'Unknown' Continent:")
+                report_lines.append("-" * 30)
+                
+                col_width = 12
+                num_cols = max(1, len(header) // (col_width + 2))
+                
+                for i in range(0, len(unique_unknown_calls), num_cols):
+                    line_calls = unique_unknown_calls[i:i+num_cols]
+                    report_lines.append("  ".join([f"{call:<{col_width}}" for call in line_calls]))
+
             # --- Save Individual Report File ---
             report_content = "\n".join(report_lines)
             

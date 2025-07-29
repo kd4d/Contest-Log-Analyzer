@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-07-28
-# Version: 0.21.0-Beta
+# Version: 0.21.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,6 +22,11 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.21.1-Beta] - 2025-07-28
+### Changed
+# - Updated the '--report all' logic to correctly auto-generate the new
+#   'multipliers_by_hour' report for all available multiplier types.
 
 ## [0.21.0-Beta] - 2025-07-28
 ### Removed
@@ -178,7 +183,7 @@ def main():
                 output_path = base_output_dir
 
             # --- Special Handling for Auto-Generating Multiple Report Variations ---
-            if r_id in ['missed_multipliers', 'multiplier_summary'] and 'mult_name' not in report_kwargs:
+            if r_id in ['missed_multipliers', 'multiplier_summary', 'multipliers_by_hour'] and 'mult_name' not in report_kwargs:
                 report_instance = ReportClass(logs)
                 print(f"\nAuto-generating '{report_instance.report_name}' for all available multiplier types...")
                 for mult_rule in first_log.contest_definition.multiplier_rules:

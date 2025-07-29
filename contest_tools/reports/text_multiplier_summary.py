@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-27
-# Version: 0.17.0-Beta
+# Date: 2025-07-28
+# Version: 0.21.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,6 +21,11 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.21.3-Beta] - 2025-07-28
+### Added
+# - The report now includes a diagnostic list at the end, showing all unique
+#   callsigns that resulted in an "Unknown" multiplier classification.
 
 ## [0.17.0-Beta] - 2025-07-27
 ### Fixed
@@ -115,7 +120,11 @@ class Report(ContestReport):
         bands = ['160M', '80M', '40M', '20M', '15M', '10M']
         all_calls = sorted(combined_df['MyCall'].unique())
         
-        # Create the main pivot table
+        # --- Collect Unknown Calls for Diagnostics ---
+        unknown_calls_df = combined_df[combined_df[mult_column] == 'Unknown']
+        unique_unknown_calls = sorted(unknown_calls_df['Call'].unique())
+
+        # --- Create the main pivot table ---
         pivot = combined_df.pivot_table(
             index=[mult_column, 'MyCall'],
             columns='Band',
@@ -174,11 +183,10 @@ class Report(ContestReport):
                     line += f"{row.get('Total', 0):>7}"
                     report_lines.append(line)
 
-        # --- Total Footer (Optimized) ---
+        # --- Total Footer ---
         report_lines.append(separator)
         report_lines.append(f"{'Total':<25}")
         
-        # Calculate totals by summing the existing pivot table, which is more efficient.
         total_pivot = pivot.groupby(level='MyCall').sum()
 
         for call in all_calls:
@@ -189,6 +197,20 @@ class Report(ContestReport):
                     line += f"{row.get(band, 0):>7}"
                 line += f"{row.get('Total', 0):>7}"
                 report_lines.append(line)
+
+        # --- Add Diagnostic List for Unknown Calls ---
+        if unique_unknown_calls:
+            report_lines.append("\n" + "-" * 30)
+            report_lines.append("Callsigns with 'Unknown' Multiplier:")
+            report_lines.append("-" * 30)
+            
+            # Format into neat columns
+            col_width = 12
+            num_cols = max(1, len(header) // (col_width + 2))
+            
+            for i in range(0, len(unique_unknown_calls), num_cols):
+                line_calls = unique_unknown_calls[i:i+num_cols]
+                report_lines.append("  ".join([f"{call:<{col_width}}" for call in line_calls]))
 
         # --- Save the Report File ---
         report_content = "\n".join(report_lines)
