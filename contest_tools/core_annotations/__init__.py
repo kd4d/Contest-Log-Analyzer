@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-25
-# Version: 0.15.0-Beta
+# Date: 2025-07-28
+# Version: 0.21.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,6 +22,12 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.21.0-Beta] - 2025-07-28
+### Changed
+# - Simplified the 'process_dataframe_for_cty_data' function. It no longer
+#   requires a ContestDefinition object, as it now exclusively uses the
+#   main cty.dat file specified by the environment variable.
 
 ## [0.15.0-Beta] - 2025-07-25
 # - Standardized version for final review. No functional changes.
@@ -52,16 +58,14 @@ from typing import Dict, Any, List
 # Import the core annotation functions to make them available at the package level
 from .get_cty import CtyLookup
 from .run_s_p import process_contest_log_for_run_s_p
-from ..contest_definitions import ContestDefinition
 
-def process_dataframe_for_cty_data(df: pd.DataFrame, contest_definition: ContestDefinition) -> pd.DataFrame:
+def process_dataframe_for_cty_data(df: pd.DataFrame) -> pd.DataFrame:
     """
     Applies universal DXCC and WAE lookup to a DataFrame of QSO records
-    using the main cty.dat file.
+    using the main cty.dat file specified by the CTY_DAT_PATH environment variable.
 
     Args:
         df (pd.DataFrame): The input DataFrame, expected to have a 'Call' column.
-        contest_definition (ContestDefinition): The definition for the current contest.
 
     Returns:
         pd.DataFrame: The DataFrame with universal DXCC/WAE/Zone columns added/updated.
@@ -72,13 +76,12 @@ def process_dataframe_for_cty_data(df: pd.DataFrame, contest_definition: Contest
     if 'Call' not in df.columns:
         raise KeyError("DataFrame must contain a 'Call' column for CTY data lookup.")
 
-    # --- Use the default country file from the environment variable ---
     base_cty_path = os.environ.get('CTY_DAT_PATH')
     if not base_cty_path:
         raise ValueError("Environment variable CTY_DAT_PATH is not set.")
     
     cty_dat_file_path = base_cty_path.strip().strip('"').strip("'")
-    print(f"Using default country file for universal annotations: {cty_dat_file_path}")
+    print(f"Using country file for universal annotations: {cty_dat_file_path}")
 
     processed_df = df.copy()
     processed_df['Call'] = processed_df['Call'].fillna('').astype(str).str.strip().str.upper()

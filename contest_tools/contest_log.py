@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-26
-# Version: 0.16.0-Beta
+# Date: 2025-07-28
+# Version: 0.21.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,6 +22,14 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.21.0-Beta] - 2025-07-28
+### Changed
+# - Updated the multiplier calculation logic to correctly implement the official
+#   CQ WW country multiplier rule. It now uses the WAE (Worked All Europe)
+#   entity if available, and falls back to the standard DXCC entity otherwise.
+# - The program no longer uses contest-specific CTY files, relying on the
+#   main cty.dat file for all lookups.
 
 ## [0.16.0-Beta] - 2025-07-26
 ### Fixed
@@ -115,7 +123,7 @@ class ContestLog:
 
         for col in ['MyCallRaw', 'Call', 'Mode']:
              if col in raw_df.columns:
-                raw_df[col.replace('Raw','')] = raw_df[col].fillna('').astype(str).str.upper()
+                 raw_df[col.replace('Raw','')] = raw_df[col].fillna('').astype(str).str.upper()
 
         raw_df.drop(columns=['FrequencyRaw', 'DateRaw', 'TimeRaw', 'MyCallRaw'], inplace=True, errors='ignore')
         self.qsos_df = raw_df.reindex(columns=self.contest_definition.default_qso_columns)
@@ -160,8 +168,7 @@ class ContestLog:
 
         try:
             print("Applying Universal DXCC/Zone lookup...")
-            # FIX: Pass the contest_definition object to the function
-            self.qsos_df = process_dataframe_for_cty_data(self.qsos_df, self.contest_definition)
+            self.qsos_df = process_dataframe_for_cty_data(self.qsos_df)
             print("Universal DXCC/Zone lookup complete.")
         except Exception as e:
             print(f"Error during Universal DXCC/Zone lookup: {e}. Skipping.")
@@ -184,28 +191,12 @@ class ContestLog:
                 
                 if not dest_col: continue
 
-                if source == 'contest_cty':
-                    try:
-                        country_file = self.contest_definition.country_file_name
-                        if not country_file:
-                            print(f"Warning: Multiplier rule '{rule.get('name')}' requires a contest CTY file, but none is defined.")
-                            continue
-                        
-                        base_cty_path = os.environ.get('CTY_DAT_PATH').strip().strip('"').strip("'")
-                        base_dir = os.path.dirname(base_cty_path)
-                        cty_dat_path = os.path.join(base_dir, country_file)
-                        
-                        cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)
-                        
-                        temp_mult_info = self.qsos_df['Call'].apply(lambda call: cty_lookup.get_cty_DXCC_WAE(call)._asdict()).tolist()
-                        temp_mult_df = pd.DataFrame(temp_mult_info, index=self.qsos_df.index)
-
-                        self.qsos_df[dest_col] = temp_mult_df['DXCCPfx']
-                        if dest_name_col:
-                            self.qsos_df[dest_name_col] = temp_mult_df['DXCCName']
-
-                    except Exception as e:
-                        print(f"Warning: Could not process contest-specific country file for multiplier '{rule.get('name')}': {e}")
+                # --- NEW LOGIC for WAE/DXCC ---
+                if source == 'wae_dxcc':
+                    # Use WAE if available, otherwise fall back to DXCC
+                    self.qsos_df[dest_col] = self.qsos_df['WAEPfx'].where(self.qsos_df['WAEPfx'].notna() & (self.qsos_df['WAEPfx'] != ''), self.qsos_df['DXCCPfx'])
+                    if dest_name_col:
+                        self.qsos_df[dest_name_col] = self.qsos_df['WAEName'].where(self.qsos_df['WAEName'].notna() & (self.qsos_df['WAEName'] != ''), self.qsos_df['DXCCName'])
                 
                 elif 'source_column' in rule:
                     source_col = rule.get('source_column')
@@ -215,7 +206,6 @@ class ContestLog:
                         print(f"Warning: Source column '{source_col}' not found for multiplier '{rule.get('name')}'.")
                 
                 elif 'calculation_module' in rule:
-                    # This is where the WPX prefix logic will go in the future
                     print(f"Notice: Calculation module for multiplier '{rule.get('name')}' is not yet implemented.")
 
 

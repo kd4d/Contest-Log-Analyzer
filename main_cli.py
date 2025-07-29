@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-26
-# Version: 0.16.0-Beta
+# Date: 2025-07-28
+# Version: 0.21.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,6 +22,11 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.21.0-Beta] - 2025-07-28
+### Removed
+# - Removed the deprecated '--mult-type' command-line argument, as the new
+#   data-driven multiplier logic makes it obsolete.
 
 ## [0.16.0-Beta] - 2025-07-26
 ### Changed
@@ -78,19 +83,6 @@ def main():
         report_kwargs['include_dupes'] = True
         args.remove('--include-dupes')
     
-    if '--mult-type' in args:
-        try:
-            mt_index = args.index('--mult-type')
-            mult_type = args[mt_index + 1].lower()
-            if mult_type not in ['dxcc', 'wae']:
-                raise ValueError("Multiplier type must be 'dxcc' or 'wae'.")
-            report_kwargs['mult_type'] = mult_type
-            args.pop(mt_index)
-            args.pop(mt_index)
-        except (IndexError, ValueError) as e:
-            print(f"\nError with --mult-type argument: {e}")
-            sys.exit(1)
-
     if '--mult-name' in args:
         try:
             mn_index = args.index('--mult-name')
@@ -119,12 +111,9 @@ def main():
         print("\nUsage: python main_cli.py --report <ReportID|all> <LogFilePath1>... [options]")
         print("\nOptions:")
         print("  --include-dupes         Include duplicate QSOs in calculations.")
-        print("  --mult-type <dxcc|wae>  Specify multiplier set for reports (e.g., 'wae').")
         print("  --mult-name <name>      Specify multiplier for reports (e.g., 'Countries', 'Zones').")
         print("  --metric <qsos|points>  Specify metric for difference plots (defaults to 'qsos').")
         print("\nNote: The CTY_DAT_PATH environment variable must be set to the location of your cty.dat file.")
-        print("      For some contests (e.g., CQ-WW), a specific country file (e.g., cqww.cty) must")
-        print("      be present in the same directory as cty.dat.")
         
         if AVAILABLE_REPORTS:
             print("\nAvailable reports:")

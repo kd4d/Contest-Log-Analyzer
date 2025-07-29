@@ -5,7 +5,7 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-27
+# Date: 2025-07-28
 # Version: 0.21.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
@@ -22,7 +22,7 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.21.0-Beta] - 2025-07-27
+## [0.21.0-Beta] - 2025-07-28
 ### Changed
 # - The report no longer includes "Unknown" as a multiplier. All data associated
 #   with an "Unknown" multiplier is now filtered out before the report is generated.

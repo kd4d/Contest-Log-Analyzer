@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-07-28
-# Version: 0.21.4-Beta
+# Version: 0.21.6-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -23,25 +23,24 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
+## [0.21.6-Beta] - 2025-07-28
+### Removed
+# - Removed the '--cty-file' command-line argument from the standalone
+#   execution block to ensure it relies solely on the CTY_DAT_PATH
+#   environment variable, consistent with the main application.
+
+## [0.21.5-Beta] - 2025-07-28
+### Added
+# - Added a '--cty-file' command-line argument to the standalone execution
+#   block (__main__) to allow specifying a country file, overriding the
+#   CTY_DAT_PATH environment variable for easier debugging.
+
 ## [0.21.4-Beta] - 2025-07-28
 ### Changed
 # - Implemented a "strip the digit" heuristic for portable callsigns. If an
 #   unambiguous location cannot be found, the logic will now strip a single
 #   trailing digit from a prefix and re-check, correctly resolving calls
 #   like 'CT7/VA3FH' to Portugal.
-
-## [0.21.3-Beta] - 2025-07-28
-### Fixed
-# - The inset summary table now has a solid background color, which makes it
-#   opaque and prevents the plot's grid lines from showing through.
-
-## [0.21.2-Beta] - 2025-07-28
-### Changed
-# - The standalone execution block (__main__) now supports two modes:
-#   1. If a filename is provided as a command-line argument, it processes
-#      callsigns from that file.
-#   2. If no filename is provided, it enters an interactive prompt for
-#      individual callsign lookups.
 
 ## [0.21.1-Beta] - 2025-07-27
 ### Changed
@@ -144,6 +143,7 @@ import re
 from collections import namedtuple
 import sys
 import os
+import argparse
 
 class CtyLookup:
     """
@@ -155,8 +155,6 @@ class CtyLookup:
     CtyInfo = namedtuple('CtyInfo', 'name CQZone ITUZone Continent Lat Lon Tzone DXCC')
     FullCtyInfo = namedtuple('FullCtyInfo', 'DXCCName DXCCPfx CQZone ITUZone Continent Lat Lon Tzone WAEName WAEPfx')
 
-    # --- Patterns for identifying US and Canadian callsign structures ---
-    # Used to resolve ambiguity in portable callsigns (e.g., W1AW/KP4 vs. EA8/W1AW)
     _US_PATTERN = re.compile(r'^(A[A-L]|K|N|W)[A-Z]?[0-9]')
     _CA_PATTERN = re.compile(r'^(C[F-Z]|V[A-G]|V[O-Y]|X[J-O])[0-9]')
 
@@ -165,102 +163,69 @@ class CtyLookup:
         self.filename = cty_dat_path
         self.wae = wae
         self.KG4 = None
-
         self.dxccprefixes = {}
         self.waeprefixes = {}
-
-        if not os.path.exists(self.filename):
-            raise FileNotFoundError(f"CTY.DAT file not found at the specified path: {self.filename}")
-
+        if not os.path.exists(self.filename): raise FileNotFoundError(f"CTY.DAT file not found: {self.filename}")
         try:
-            with open(self.filename, 'r', encoding='utf-8', errors='ignore') as fcty:
-                lines_content = fcty.read()
-        except Exception as e:
-            raise IOError(f"Error reading CTY.DAT file {self.filename}: {e}")
-
+            with open(self.filename, 'r', encoding='utf-8', errors='ignore') as f: lines_content = f.read()
+        except Exception as e: raise IOError(f"Error reading CTY.DAT file {self.filename}: {e}")
         lines_content = re.sub(r';[^\n\r]*', ';', lines_content)
         lines_content = re.sub(r'\s*&\s*', ',', lines_content)
         lines = lines_content.split(';')
-
         for l in lines:
             line = l.strip()
-            if not line:
-                continue
-
+            if not line: continue
             fields = line.split(':', 8)
-            
-            cty_entity_info = None
-            primary_dxcc_code = ""
-            raw_aliases_string = ""
-
+            cty_entity_info, primary_dxcc_code, raw_aliases_string = None, "", ""
             if len(fields) >= 8:
                 cty_entity_info = self.CtyInfo(*[f.strip() for f in fields[0:8]])
                 primary_dxcc_code = fields[7].strip()
-                if len(fields) > 8:
-                    raw_aliases_string = fields[8]
+                if len(fields) > 8: raw_aliases_string = fields[8]
             else:
                 fields = line.split(':', 3)
                 if len(fields) >= 3:
-                    name = fields[0].strip()
-                    cq_zone = fields[1].strip()
-                    primary_dxcc_code = fields[2].strip()
-                    cty_entity_info = self.CtyInfo(name, cq_zone, "0", "Unknown", "0.0", "0.0", "0.0", primary_dxcc_code)
-                    if len(fields) > 3:
-                        raw_aliases_string = fields[3]
-
-            if not cty_entity_info:
-                continue
-
-            is_wae_entity = primary_dxcc_code.startswith('*')
-            primary_prefix_key_str = primary_dxcc_code[1:] if is_wae_entity else primary_dxcc_code
-            target_dict = self.waeprefixes if is_wae_entity else self.dxccprefixes
-
-            if primary_prefix_key_str == "KG4":
-                self.KG4 = cty_entity_info
-            else:
-                target_dict[primary_prefix_key_str] = cty_entity_info
-
+                    name, cq_zone, p_code = fields[0].strip(), fields[1].strip(), fields[2].strip()
+                    cty_entity_info = self.CtyInfo(name, cq_zone, "0", "Unknown", "0.0", "0.0", "0.0", p_code)
+                    if len(fields) > 3: raw_aliases_string = fields[3]
+            if not cty_entity_info: continue
+            is_wae = primary_dxcc_code.startswith('*')
+            p_key = primary_dxcc_code[1:] if is_wae else primary_dxcc_code
+            target = self.waeprefixes if is_wae else self.dxccprefixes
+            if p_key == "KG4": self.KG4 = cty_entity_info
+            else: target[p_key] = cty_entity_info
             if raw_aliases_string:
-                aliases = raw_aliases_string.split(",")
-                for alias_entry in aliases:
-                    alias_entry = alias_entry.strip()
-                    if not alias_entry:
-                        continue
-
-                    is_forced_exact = alias_entry.startswith('=')
-                    has_override = re.search(r'[\(\[\{]', alias_entry)
-                    is_exact_match = is_forced_exact or has_override
-                    parsed_alias_entry = alias_entry[1:] if is_forced_exact else alias_entry
-                    base_prefix_match = re.match(r'([A-Z0-9\-\/]+)', parsed_alias_entry)
-                    if not base_prefix_match:
-                        continue
-                    base_pfx_for_alias = base_prefix_match.group(1)
-                    current_alias_info_list = list(cty_entity_info)
-                    cq_zone_match = re.search(r'\((\d+)\)', parsed_alias_entry)
-                    if cq_zone_match: current_alias_info_list[1] = cq_zone_match.group(1)
-                    itu_zone_match = re.search(r'\[(\d+)\]', parsed_alias_entry)
-                    if itu_zone_match: current_alias_info_list[2] = itu_zone_match.group(1)
-                    continent_match = re.search(r'\{([A-Z]{2})\}', parsed_alias_entry)
-                    if continent_match: current_alias_info_list[3] = continent_match.group(1)
-                    final_alias_cty_info = self.CtyInfo(*current_alias_info_list)
-                    if is_exact_match: target_dict["=" + base_pfx_for_alias] = final_alias_cty_info
-                    if not is_forced_exact: target_dict[base_pfx_for_alias] = final_alias_cty_info
+                for alias in raw_aliases_string.split(","):
+                    alias = alias.strip()
+                    if not alias: continue
+                    is_exact = alias.startswith('=') or re.search(r'[\(\[\{]', alias)
+                    parsed_alias = alias[1:] if alias.startswith('=') else alias
+                    match = re.match(r'([A-Z0-9\-\/]+)', parsed_alias)
+                    if not match: continue
+                    base_pfx = match.group(1)
+                    info_list = list(cty_entity_info)
+                    cq_m = re.search(r'\((\d+)\)', parsed_alias);
+                    if cq_m: info_list[1] = cq_m.group(1)
+                    itu_m = re.search(r'\[(\d+)\]', parsed_alias);
+                    if itu_m: info_list[2] = itu_m.group(1)
+                    cont_m = re.search(r'\{([A-Z]{2})\}', parsed_alias);
+                    if cont_m: info_list[3] = cont_m.group(1)
+                    final_info = self.CtyInfo(*info_list)
+                    if is_exact: target["=" + base_pfx] = final_info
+                    if not alias.startswith('='): target[base_pfx] = final_info
         self._validate_patterns()
 
     def _validate_patterns(self):
         us_mismatches, ca_mismatches = [], []
-        for prefix, info in self.dxccprefixes.items():
-            if prefix.startswith(('=', 'VER')): continue
-            test_call = f"{prefix}1A" 
-            if info.name == "United States":
-                if not self._US_PATTERN.match(test_call): us_mismatches.append(prefix)
-            elif info.name == "Canada":
-                if not self._CA_PATTERN.match(test_call): ca_mismatches.append(prefix)
+        for pfx, info in self.dxccprefixes.items():
+            if pfx.startswith(('=', 'VER')): continue
+            test_call = f"{pfx}1A" 
+            if info.name == "United States" and not self._US_PATTERN.match(test_call): us_mismatches.append(pfx)
+            elif info.name == "Canada" and not self._CA_PATTERN.match(test_call): ca_mismatches.append(pfx)
         if us_mismatches: print(f"Warning: US prefixes from '{self.filename}' fail pattern match: {', '.join(us_mismatches)}", file=sys.stderr)
         if ca_mismatches: print(f"Warning: Canadian prefixes from '{self.filename}' fail pattern match: {', '.join(ca_mismatches)}", file=sys.stderr)
 
-    def findprefix(self, callsign_segment):
-        temp = callsign_segment
+    def findprefix(self, call):
+        temp = call
         while len(temp) > 0:
             if self.wae and temp in self.waeprefixes: return self.waeprefixes[temp]
             elif temp in self.dxccprefixes: return self.dxccprefixes[temp]
@@ -268,124 +233,86 @@ class CtyLookup:
         return None
 
     def get_cty(self, csign):
-        UNKNOWN_CTY_INFO = self.CtyInfo("Unknown", "Unknown", "Unknown", "Unknown", "0.0", "0.0", "0.0", "Unknown")
-        callsign = csign.upper().strip().partition('-')[0]
-        for suffix in ["/P", "/B", "/M", "/QRP"]:
-            if callsign.endswith(suffix):
-                callsign = callsign[:-len(suffix)]
-                break
-        if "=" + callsign in self.dxccprefixes: return self.dxccprefixes["=" + callsign]
-        if self.wae and "=" + callsign in self.waeprefixes: return self.waeprefixes["=" + callsign]
-        if callsign.endswith("/MM"): return UNKNOWN_CTY_INFO
-        if callsign.startswith("KG4"):
-            if len(callsign) == 5 and re.match(r"KG4[A-Z]{2}$", callsign):
+        UNKNOWN = self.CtyInfo("Unknown", "Unknown", "Unknown", "Unknown", "0.0", "0.0", "0.0", "Unknown")
+        call = csign.upper().strip().partition('-')[0]
+        for s in ["/P", "/B", "/M", "/QRP"]:
+            if call.endswith(s): call = call[:-len(s)]; break
+        if "=" + call in self.dxccprefixes: return self.dxccprefixes["=" + call]
+        if self.wae and "=" + call in self.waeprefixes: return self.waeprefixes["=" + call]
+        if call.endswith("/MM"): return UNKNOWN
+        if call.startswith("KG4"):
+            if len(call) == 5 and re.match(r"KG4[A-Z]{2}$", call):
                 if self.KG4: return self.KG4
-            return self.dxccprefixes.get("K", UNKNOWN_CTY_INFO)
-
-        parts = callsign.split('/')
+            return self.dxccprefixes.get("K", UNKNOWN)
+        parts = call.split('/')
         if len(parts) > 1:
-            part1, part2 = parts[0], parts[-1]
-            
-            # --- Heuristic 1: Unambiguous Prefix Match ---
-            part1_is_prefix = part1 in self.dxccprefixes or (self.wae and part1 in self.waeprefixes)
-            part2_is_prefix = part2 in self.dxccprefixes or (self.wae and part2 in self.waeprefixes)
-            if part1_is_prefix and not part2_is_prefix: return self.dxccprefixes.get(part1) or self.waeprefixes.get(part1)
-            if part2_is_prefix and not part1_is_prefix: return self.dxccprefixes.get(part2) or self.waeprefixes.get(part2)
+            p1, p2 = parts[0], parts[-1]
+            p1_is_pfx = p1 in self.dxccprefixes or (self.wae and p1 in self.waeprefixes)
+            p2_is_pfx = p2 in self.dxccprefixes or (self.wae and p2 in self.waeprefixes)
+            if p1_is_pfx and not p2_is_pfx: return self.dxccprefixes.get(p1) or self.waeprefixes.get(p1)
+            if p2_is_pfx and not p1_is_pfx: return self.dxccprefixes.get(p2) or self.waeprefixes.get(p2)
+            p1s = p1[:-1] if len(p1) > 1 and p1[-1].isdigit() and not p1[-2].isdigit() else None
+            p2s = p2[:-1] if len(p2) > 1 and p2[-1].isdigit() and not p2[-2].isdigit() else None
+            p1s_is_pfx = p1s and (p1s in self.dxccprefixes or (self.wae and p1s in self.waeprefixes))
+            p2s_is_pfx = p2s and (p2s in self.dxccprefixes or (self.wae and p2s in self.waeprefixes))
+            if p1s_is_pfx and not p2s_is_pfx: return self.dxccprefixes.get(p1s) or self.waeprefixes.get(p1s)
+            if p2s_is_pfx and not p1s_is_pfx: return self.dxccprefixes.get(p2s) or self.waeprefixes.get(p2s)
+            def is_usca(s): return bool(self._US_PATTERN.match(s) or self._CA_PATTERN.match(s))
+            if len(p2) == 1 and p2.isdigit() and is_usca(p1): return self.findprefix(p1)
+            p1_info, p2_info = self.findprefix(p1), self.findprefix(p2)
+            if is_usca(p1): return p2_info if p2_info else p1_info
+            if p1_info: return p1_info
+            if p2_info: return p2_info
+            return UNKNOWN
+        result = self.findprefix(call)
+        return result if result else UNKNOWN
 
-            # --- Heuristic 2: Strip Trailing Digit ---
-            part1_stripped = part1[:-1] if len(part1) > 1 and part1[-1].isdigit() and not part1[-2].isdigit() else None
-            part2_stripped = part2[:-1] if len(part2) > 1 and part2[-1].isdigit() and not part2[-2].isdigit() else None
-            
-            part1_strip_is_prefix = part1_stripped and (part1_stripped in self.dxccprefixes or (self.wae and part1_stripped in self.waeprefixes))
-            part2_strip_is_prefix = part2_stripped and (part2_stripped in self.dxccprefixes or (self.wae and part2_stripped in self.waeprefixes))
-            
-            if part1_strip_is_prefix and not part2_strip_is_prefix: return self.dxccprefixes.get(part1_stripped) or self.waeprefixes.get(part1_stripped)
-            if part2_strip_is_prefix and not part1_strip_is_prefix: return self.dxccprefixes.get(part2_stripped) or self.waeprefixes.get(part2_stripped)
+    def get_cty_DXCC_WAE(self, call):
+        self.wae = False; dxcc_res = self.get_cty(call); self.wae = True; wae_res = self.get_cty(call)
+        dxcc_name, dxcc_pfx, cq, itu, cont, lat, lon, tz = "Unknown", "Unknown", "Unknown", "Unknown", "Unknown", "0.0", "0.0", "0.0"
+        wae_name, wae_pfx = "", ""
+        p_obj = None
+        if dxcc_res and dxcc_res.name != "Unknown": p_obj = dxcc_res
+        elif wae_res and wae_res.name != "Unknown" and not wae_res.DXCC.startswith('*'): p_obj = wae_res
+        if p_obj: dxcc_name, cq, itu, cont, lat, lon, tz, dxcc_pfx = p_obj
+        if wae_res and wae_res.name != "Unknown" and wae_res.DXCC.startswith('*'):
+            wae_name, wae_pfx = wae_res.name, wae_res.DXCC
+            if dxcc_name == "Unknown": _, cq, itu, cont, lat, lon, tz, _ = wae_res
+        return self.FullCtyInfo(dxcc_name, dxcc_pfx, cq, itu, cont, lat, lon, tz, wae_name, wae_pfx)
 
-            # --- Heuristic 3: Fallback to Structural Patterns ---
-            def is_us_ca_system(pfx_str): return bool(self._US_PATTERN.match(pfx_str) or self._CA_PATTERN.match(pfx_str))
-            if len(part2) == 1 and part2.isdigit() and is_us_ca_system(part1): return self.findprefix(part1)
-            
-            part1_info = self.findprefix(part1)
-            part2_info = self.findprefix(part2)
-            
-            if is_us_ca_system(part1): return part2_info if part2_info else part1_info
-            if part1_info: return part1_info
-            if part2_info: return part2_info
-            return UNKNOWN_CTY_INFO
-
-        result = self.findprefix(callsign)
-        return result if result else UNKNOWN_CTY_INFO
-
-    def get_cty_DXCC_WAE(self, callsign):
-        original_wae_setting = self.wae
-        self.wae = False
-        dxcc_res_obj = self.get_cty(callsign)
-        self.wae = True
-        wae_res_obj = self.get_cty(callsign)
-        self.wae = original_wae_setting
-        dxcc_name_val, dxcc_pfx_val, cq_zone_val, itu_zone_val, continent_val, lat_val, lon_val, tzone_val = "Unknown", "Unknown", "Unknown", "Unknown", "Unknown", "0.0", "0.0", "0.0"
-        wae_name_val, wae_pfx_val = "", ""
-        primary_obj = None
-        if dxcc_res_obj and dxcc_res_obj.name != "Unknown": primary_obj = dxcc_res_obj
-        elif wae_res_obj and wae_res_obj.name != "Unknown" and not wae_res_obj.DXCC.startswith('*'): primary_obj = wae_res_obj
-        if primary_obj: dxcc_name_val, cq_zone_val, itu_zone_val, continent_val, lat_val, lon_val, tzone_val, dxcc_pfx_val = primary_obj
-        if wae_res_obj and wae_res_obj.name != "Unknown" and wae_res_obj.DXCC.startswith('*'):
-            wae_name_val = wae_res_obj.name
-            wae_pfx_val = wae_res_obj.DXCC
-            if dxcc_name_val == "Unknown": _, cq_zone_val, itu_zone_val, continent_val, lat_val, lon_val, tzone_val, _ = wae_res_obj
-        return self.FullCtyInfo(dxcc_name_val, dxcc_pfx_val, cq_zone_val, itu_zone_val, continent_val, lat_val, lon_val, tzone_val, wae_name_val, wae_pfx_val)
-
-def _run_lookup(cty_instance, callsign_to_check):
-    """Helper function to run and print a single lookup."""
-    full_result = cty_instance.get_cty_DXCC_WAE(callsign_to_check)
-    print(f"\n> {callsign_to_check}")
-    print(f"  Comprehensive: DXCC Name: {full_result.DXCCName:<20}, DXCC Pfx: {full_result.DXCCPfx:<10}")
-    print(f"                   WAE Name:  {full_result.WAEName:<20}, WAE Pfx:  {full_result.WAEPfx:<10}")
-    print(f"                   Zones: CQ {full_result.CQZone}, ITU {full_result.ITUZone}, Cont: {full_result.Continent}")
+def _run_lookup(cty, call):
+    res = cty.get_cty_DXCC_WAE(call)
+    print(f"\n> {call}\n  Comprehensive: DXCC Name: {res.DXCCName:<20}, DXCC Pfx: {res.DXCCPfx:<10}\n"
+          f"                   WAE Name:  {res.WAEName:<20}, WAE Pfx:  {res.WAEPfx:<10}\n"
+          f"                   Zones: CQ {res.CQZone}, ITU {res.ITUZone}, Cont: {res.Continent}")
 
 if __name__ == "__main__":
-    raw_path = os.environ.get('CTY_DAT_PATH')
-    if not raw_path:
-        print("Environment variable CTY_DAT_PATH not set.")
-        sys.exit(1)
-    
-    cty_dat_file_path = raw_path.strip().strip('"').strip("'")
-    if not os.path.exists(cty_dat_file_path):
-        print(f"Error: The file '{cty_dat_file_path}' could not be found.")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description="CTY.DAT lookup tool.")
+    parser.add_argument('callsign_file', nargs='?', default=None,
+                        help="Optional path to a file containing callsigns to look up, one per line.")
+    args = parser.parse_args()
 
+    path = os.environ.get('CTY_DAT_PATH')
+    if not path: print("Error: CTY_DAT_PATH environment variable not set.", file=sys.stderr); sys.exit(1)
+    cty_path = path.strip().strip('"').strip("'")
+    if not os.path.exists(cty_path): print(f"Error: The file '{cty_path}' could not be found.", file=sys.stderr); sys.exit(1)
     try:
-        cty_main = CtyLookup(cty_dat_path=cty_dat_file_path)
-        print(f"Successfully loaded CTY.DAT from: {cty_main.filename}")
-    except (FileNotFoundError, IOError) as e:
-        print(f"Error initializing CtyLookup: {e}")
-        sys.exit(1)
-
-    if len(sys.argv) > 1:
-        input_filename = sys.argv[1]
-        if not os.path.exists(input_filename):
-            print(f"Error: Input file '{input_filename}' not found.")
-            sys.exit(1)
-        
-        print(f"\n--- Processing callsigns from file: {input_filename} ---")
-        with open(input_filename, 'r') as f:
-            for line in f:
-                callsign = line.strip()
-                if callsign:
-                    _run_lookup(cty_main, callsign)
+        cty_main = CtyLookup(cty_dat_path=cty_path)
+        print(f"Successfully loaded CTY file from: {cty_main.filename}")
+    except (FileNotFoundError, IOError) as e: print(f"Error initializing CtyLookup: {e}", file=sys.stderr); sys.exit(1)
     
+    if args.callsign_file:
+        infile = args.callsign_file
+        if not os.path.exists(infile): print(f"Error: Input file '{infile}' not found.", file=sys.stderr); sys.exit(1)
+        print(f"\n--- Processing callsigns from file: {infile} ---")
+        with open(infile, 'r') as f:
+            for line in f:
+                if call := line.strip(): _run_lookup(cty_main, call)
     else:
-        print("\n--- Interactive Mode ---")
-        print("Enter callsigns to lookup. Type Ctrl+D (Unix) or Ctrl+Z+Enter (Windows) to quit.")
+        print("\n--- Interactive Mode ---\nEnter callsigns to lookup. Type Ctrl+D (Unix) or Ctrl+Z+Enter (Windows) to quit.")
         while True:
             try:
-                callsign_input = input("\nEnter callsign: ").strip()
-                if not callsign_input:
-                    continue
-                _run_lookup(cty_main, callsign_input)
-            except EOFError:
-                print("\nExiting.")
-                break
-            except Exception as e:
-                print(f"An error occurred: {e}")
+                call_in = input("\nEnter callsign: ").strip()
+                if call_in: _run_lookup(cty_main, call_in)
+            except EOFError: print("\nExiting."); break
+            except Exception as e: print(f"An error occurred: {e}", file=sys.stderr)
