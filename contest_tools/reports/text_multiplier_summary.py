@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-28
-# Version: 0.21.3-Beta
+# Date: 2025-07-29
+# Version: 0.21.9-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,6 +21,12 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.21.9-Beta] - 2025-07-29
+### Changed
+# - "Unknown" multipliers are no longer included in the main report body or totals.
+# - A new "Unknown Total" line has been added to the footer to show these counts separately.
+# - The diagnostic header is now dynamic (e.g., "Callsigns with unknown Country").
 
 ## [0.21.3-Beta] - 2025-07-28
 ### Added
@@ -80,16 +86,16 @@ class Report(ContestReport):
         if not mult_name:
             return "Error: 'mult_name' argument is required for the Multiplier Summary report."
 
+        # --- Find the correct multiplier column ---
         first_log = self.logs[0]
-        first_log_def = first_log.contest_definition
         mult_rule = None
-        for rule in first_log_def.multiplier_rules:
+        for rule in first_log.contest_definition.multiplier_rules:
             if rule.get('name', '').lower() == mult_name.lower():
                 mult_rule = rule
                 break
         
         if not mult_rule or 'value_column' not in mult_rule:
-            return f"Error: Multiplier type '{mult_name}' not found in definition for {first_log_def.contest_name}."
+            return f"Error: Multiplier type '{mult_name}' not found in definition for {first_log.contest_definition.contest_name}."
 
         mult_column = mult_rule['value_column']
         name_column = mult_rule.get('name_column')
@@ -116,33 +122,28 @@ class Report(ContestReport):
             
         combined_df.dropna(subset=[mult_column], inplace=True)
 
+        # --- Separate Unknowns and Prepare Main Data ---
+        unknown_df = combined_df[combined_df[mult_column] == 'Unknown']
+        main_df = combined_df[combined_df[mult_column] != 'Unknown']
+        
+        unique_unknown_calls = sorted(unknown_df['Call'].unique())
+        
         # --- Report Generation ---
         bands = ['160M', '80M', '40M', '20M', '15M', '10M']
-        all_calls = sorted(combined_df['MyCall'].unique())
+        all_calls = sorted(main_df['MyCall'].unique())
         
-        # --- Collect Unknown Calls for Diagnostics ---
-        unknown_calls_df = combined_df[combined_df[mult_column] == 'Unknown']
-        unique_unknown_calls = sorted(unknown_calls_df['Call'].unique())
-
-        # --- Create the main pivot table ---
-        pivot = combined_df.pivot_table(
-            index=[mult_column, 'MyCall'],
-            columns='Band',
-            aggfunc='size',
-            fill_value=0
+        pivot = main_df.pivot_table(
+            index=[mult_column, 'MyCall'], columns='Band', aggfunc='size', fill_value=0
         )
 
-        # --- Create a robust name mapping ---
         name_map = {}
-        if name_column and name_column in combined_df.columns:
-            name_map_df = combined_df[[mult_column, name_column]].dropna().drop_duplicates()
+        if name_column and name_column in main_df.columns:
+            name_map_df = main_df[[mult_column, name_column]].dropna().drop_duplicates()
             name_map = name_map_df.set_index(mult_column)[name_column].to_dict()
 
-        # Ensure all bands are present
         for band in bands:
-            if band not in pivot.columns:
-                pivot[band] = 0
-        pivot = pivot[bands] # Enforce order
+            if band not in pivot.columns: pivot[band] = 0
+        pivot = pivot[bands]
         pivot['Total'] = pivot.sum(axis=1)
 
         # --- Formatting ---
@@ -164,11 +165,8 @@ class Report(ContestReport):
             mult_display = str(mult)
             if name_column:
                 mult_full_name = name_map.get(mult, '')
-                # --- Data Cleaning ---
-                if pd.isna(mult_full_name):
-                    clean_name = ''
-                else:
-                    clean_name = str(mult_full_name).split(';')[0].strip()
+                if pd.isna(mult_full_name): clean_name = ''
+                else: clean_name = str(mult_full_name).split(';')[0].strip()
                 mult_display = f"{mult} ({clean_name})"
 
             report_lines.append(f"{mult_display:<25}")
@@ -178,33 +176,46 @@ class Report(ContestReport):
                 if call in mult_data.index:
                     row = mult_data.loc[call]
                     line = f"  {call:<21}"
-                    for band in bands:
-                        line += f"{row.get(band, 0):>7}"
+                    for band in bands: line += f"{row.get(band, 0):>7}"
                     line += f"{row.get('Total', 0):>7}"
                     report_lines.append(line)
 
-        # --- Total Footer ---
+        # --- Footer ---
         report_lines.append(separator)
         report_lines.append(f"{'Total':<25}")
         
         total_pivot = pivot.groupby(level='MyCall').sum()
-
         for call in all_calls:
              if call in total_pivot.index:
                 row = total_pivot.loc[call]
                 line = f"  {call:<21}"
-                for band in bands:
-                    line += f"{row.get(band, 0):>7}"
+                for band in bands: line += f"{row.get(band, 0):>7}"
                 line += f"{row.get('Total', 0):>7}"
                 report_lines.append(line)
 
+        # --- Add Unknown Total Line ---
+        if not unknown_df.empty:
+            report_lines.append(f"{'Unknown Total':<25}")
+            unknown_pivot = unknown_df.pivot_table(index='MyCall', columns='Band', aggfunc='size', fill_value=0)
+            for band in bands:
+                if band not in unknown_pivot.columns: unknown_pivot[band] = 0
+            unknown_pivot = unknown_pivot[bands]
+            unknown_pivot['Total'] = unknown_pivot.sum(axis=1)
+
+            for call in all_calls:
+                if call in unknown_pivot.index:
+                    row = unknown_pivot.loc[call]
+                    line = f"  {call:<21}"
+                    for band in bands: line += f"{row.get(band, 0):>7}"
+                    line += f"{row.get('Total', 0):>7}"
+                    report_lines.append(line)
+        
         # --- Add Diagnostic List for Unknown Calls ---
         if unique_unknown_calls:
             report_lines.append("\n" + "-" * 30)
-            report_lines.append("Callsigns with 'Unknown' Multiplier:")
+            report_lines.append(f"Callsigns with unknown {first_col_header}:")
             report_lines.append("-" * 30)
             
-            # Format into neat columns
             col_width = 12
             num_cols = max(1, len(header) // (col_width + 2))
             

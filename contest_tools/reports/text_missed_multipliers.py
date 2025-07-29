@@ -5,7 +5,7 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-28
+# Date: 2025-07-29
 # Version: 0.21.6-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
@@ -22,7 +22,7 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.21.6-Beta] - 2025-07-28
+## [0.21.6-Beta] - 2025-07-29
 ### Added
 # - The report now includes a diagnostic list at the end, showing all unique
 #   callsigns that resulted in an "Unknown" multiplier classification.
