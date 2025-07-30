@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-28
-# Version: 0.21.1-Beta
+# Date: 2025-07-29
+# Version: 0.21.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,6 +22,12 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.21.2-Beta] - 2025-07-29
+### Changed
+# - Comparative reports (e.g., missed_multipliers) now generate both the
+#   primary multi-way comparison and all possible two-way comparisons when
+#   three or more logs are provided.
 
 ## [0.21.1-Beta] - 2025-07-28
 ### Changed
@@ -170,31 +176,41 @@ def main():
         plots_output_dir = os.path.join(base_output_dir, "plots")
         charts_output_dir = os.path.join(base_output_dir, "charts")
         
+        # --- Define Report Categories ---
+        pairwise_only_reports = ['cumulative_difference_plots', 'qso_comparison', 'qso_breakdown_chart']
+        dual_mode_reports = ['missed_multipliers', 'multiplier_summary', 'rate_sheet_comparison']
+        
         # Generate the selected reports
         for r_id, ReportClass in reports_to_run:
             report_type = ReportClass.report_type.fget(None)
-            if report_type == 'text':
-                output_path = text_output_dir
-            elif report_type == 'plot':
-                output_path = plots_output_dir
-            elif report_type == 'chart':
-                output_path = charts_output_dir
-            else:
-                output_path = base_output_dir
+            if report_type == 'text': output_path = text_output_dir
+            elif report_type == 'plot': output_path = plots_output_dir
+            elif report_type == 'chart': output_path = charts_output_dir
+            else: output_path = base_output_dir
 
             # --- Special Handling for Auto-Generating Multiple Report Variations ---
             if r_id in ['missed_multipliers', 'multiplier_summary', 'multipliers_by_hour'] and 'mult_name' not in report_kwargs:
-                report_instance = ReportClass(logs)
-                print(f"\nAuto-generating '{report_instance.report_name}' for all available multiplier types...")
+                print(f"\nAuto-generating '{ReportClass.report_name.fget(None)}' for all available multiplier types...")
                 for mult_rule in first_log.contest_definition.multiplier_rules:
                     mult_name = mult_rule.get('name')
                     if mult_name:
                         print(f"  - Generating for: {mult_name}")
                         current_kwargs = report_kwargs.copy()
                         current_kwargs['mult_name'] = mult_name
-                        result = report_instance.generate(output_path=output_path, **current_kwargs)
+                        
+                        # Generate the main multi-way report
+                        instance = ReportClass(logs)
+                        result = instance.generate(output_path=output_path, **current_kwargs)
                         print(result)
-            elif r_id in ['cumulative_difference_plots', 'qso_comparison', 'qso_breakdown_chart']:
+
+                        # Also generate pairwise versions if applicable
+                        if r_id in dual_mode_reports and len(logs) > 2:
+                            for log_pair in itertools.combinations(logs, 2):
+                                pairwise_instance = ReportClass(list(log_pair))
+                                result = pairwise_instance.generate(output_path=output_path, **current_kwargs)
+                                print(result)
+
+            elif r_id in pairwise_only_reports:
                 if len(logs) < 2:
                     print(f"\nSkipping '{ReportClass.report_name.fget(None)}': requires at least two logs.")
                     continue
@@ -205,22 +221,26 @@ def main():
                     call1 = log_pair[0].get_metadata().get('MyCall')
                     call2 = log_pair[1].get_metadata().get('MyCall')
                     print(f"  - Comparing {call1} vs {call2}:")
-
-                    if r_id == 'cumulative_difference_plots' and 'metric' not in report_kwargs:
-                        for metric in ['qsos', 'points']:
-                            print(f"    - Generating for: {metric.capitalize()}")
-                            current_kwargs = report_kwargs.copy()
-                            current_kwargs['metric'] = metric
-                            result = report_instance.generate(output_path=output_path, **current_kwargs)
-                            print(result)
-                    else:
-                        result = report_instance.generate(output_path=output_path, **report_kwargs)
-                        print(result)
+                    result = report_instance.generate(output_path=output_path, **report_kwargs)
+                    print(result)
+            
             else:
+                # This handles single-log reports and the main multi-way reports
                 report_instance = ReportClass(logs)
                 print(f"\nGenerating report: '{report_instance.report_name}'...")
                 result = report_instance.generate(output_path=output_path, **report_kwargs)
                 print(result)
+
+                # Also generate pairwise versions for dual-mode reports
+                if r_id in dual_mode_reports and len(logs) > 2:
+                    print(f"\nAlso generating pairwise versions of '{report_instance.report_name}'...")
+                    for log_pair in itertools.combinations(logs, 2):
+                        pairwise_instance = ReportClass(list(log_pair))
+                        call1 = log_pair[0].get_metadata().get('MyCall')
+                        call2 = log_pair[1].get_metadata().get('MyCall')
+                        print(f"  - Comparing {call1} vs {call2}:")
+                        result = pairwise_instance.generate(output_path=output_path, **report_kwargs)
+                        print(result)
 
         print("\n--- Done ---")
 
