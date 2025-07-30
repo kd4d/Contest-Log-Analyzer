@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-25
-# Version: 0.15.0-Beta
+# Date: 2025-07-29
+# Version: 0.21.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,6 +20,12 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.21.0-Beta] - 2025-07-29
+### Changed
+# - Updated scoring logic to correctly handle Maritime Mobile (/MM) stations
+#   and stations with an "Unknown" country multiplier, per the official
+#   CQ WW contest rules.
 
 ## [0.15.0-Beta] - 2025-07-25
 # - Standardized version for final review. No functional changes.
@@ -52,20 +58,24 @@ def _calculate_single_qso_points(row: pd.Series, my_dxcc_pfx: str, my_continent:
     if row['Dupe']:
         return 0
         
-    # If essential data is missing, QSO is worth 0 points.
-    if pd.isna(row['DXCCPfx']) or pd.isna(row['Continent']):
+    # Rule: Maritime Mobile stations are worth 5 points.
+    if isinstance(row['Call'], str) and row['Call'].endswith('/MM'):
+        return 5
+
+    # If essential data is missing (and not /MM), QSO is worth 0 points.
+    if pd.isna(row['DXCCPfx']) or pd.isna(row['Continent']) or row['DXCCPfx'] == 'Unknown':
         print(f"Warning: Scoring failed for QSO with {row['Call']} at {row['Datetime']}. Missing DXCC or Continent info. Assigning 0 points.")
         return 0
 
-    # Rule 3: Contacts between stations in the same country have zero (0) QSO point value.
+    # Rule: Contacts between stations in the same country have zero (0) QSO point value.
     if row['DXCCPfx'] == my_dxcc_pfx:
         return 0
 
-    # Rule 1: Contacts between stations on different continents.
+    # Rule: Contacts between stations on different continents.
     if row['Continent'] != my_continent:
         return 3 # Points are the same for high and low bands in this case
 
-    # Rule 2: Contacts between stations on the same continent but in different countries.
+    # Rule: Contacts between stations on the same continent but in different countries.
     if row['Continent'] == my_continent and row['DXCCPfx'] != my_dxcc_pfx:
         # Special rule for North American stations.
         if my_continent == 'NA':
@@ -84,7 +94,7 @@ def calculate_points(df: pd.DataFrame, my_call_info: Dict[str, Any]) -> pd.Serie
     Args:
         df (pd.DataFrame): The DataFrame of QSOs to be scored.
         my_call_info (Dict[str, Any]): A dictionary containing the logger's
-                                       own location info ('DXCCPfx' and 'Continent').
+                                      own location info ('DXCCPfx' and 'Continent').
 
     Returns:
         pd.Series: A Pandas Series containing the calculated points for each QSO.
