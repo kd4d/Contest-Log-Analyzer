@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-25
-# Version: 0.15.0-Beta
+# Date: 2025-07-31
+# Version: 0.22.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,6 +21,11 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.22.0-Beta] - 2025-07-31
+### Changed
+# - Implemented the 'comparison_mode' property, correctly identifying this
+#   report as 'multi'.
 
 ## [0.15.0-Beta] - 2025-07-25
 ### Changed
@@ -57,6 +62,10 @@ class Report(ContestReport):
     def report_type(self) -> str:
         return "plot"
 
+    @property
+    def comparison_mode(self) -> str:
+        return "multi"
+
     def _generate_single_plot(self, output_path: str, include_dupes: bool, band_filter: str) -> str:
         """
         Helper function to generate a single point rate plot for a specific band.
@@ -74,8 +83,8 @@ class Report(ContestReport):
         )
         
         if not aligned_data:
-             print(f"  - Skipping {band_filter} point rate plot: no logs have QSOs on this band.")
-             return None
+              print(f"  - Skipping {band_filter} point rate plot: no logs have QSOs on this band.")
+              return None
 
         # --- Plotting ---
         for callsign, df_aligned in aligned_data.items():

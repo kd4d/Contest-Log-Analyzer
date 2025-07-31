@@ -6,7 +6,7 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-30
+# Date: 2025-07-31
 # Version: 0.22.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
@@ -23,11 +23,11 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.22.0-Beta] - 2025-07-30
-### Added
-# - Implemented the logic to dynamically load and execute multiplier
-#   calculation modules (e.g., for WPX prefixes) as defined in the
-#   contest's JSON file.
+## [0.22.0-Beta] - 2025-07-31
+### Changed
+# - The logic for loading multiplier calculation modules is now more explicit.
+#   It uses a 'function_name' key from the JSON definition instead of
+#   guessing the function name, fixing the WPX prefix calculation bug.
 
 ## [0.21.0-Beta] - 2025-07-28
 ### Changed
@@ -211,13 +211,13 @@ class ContestLog:
                 
                 elif source == 'calculation_module':
                     module_name = rule.get('module_name')
-                    if not module_name:
-                        print(f"Warning: 'module_name' not specified for multiplier '{rule.get('name')}'.")
+                    function_name = rule.get('function_name')
+                    if not module_name or not function_name:
+                        print(f"Warning: 'module_name' or 'function_name' not specified for multiplier '{rule.get('name')}'.")
                         continue
                     try:
                         calc_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{module_name}")
-                        calc_function_name = f"calculate_{module_name}s" # e.g., calculate_wpx_prefixes
-                        calc_function = getattr(calc_module, calc_function_name)
+                        calc_function = getattr(calc_module, function_name)
                         self.qsos_df[dest_col] = calc_function(self.qsos_df)
                         print(f"Successfully calculated '{rule.get('name')}' multipliers.")
                     except (ImportError, AttributeError) as e:

@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-29
-# Version: 0.21.7-Beta
+# Date: 2025-07-31
+# Version: 0.22.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,8 +22,10 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.21.7-Beta] - 2025-07-29
+## [0.22.0-Beta] - 2025-07-31
 ### Changed
+# - Implemented the 'comparison_mode' property, correctly identifying this
+#   report as 'single'.
 # - The report now correctly generates a separate output file for each log
 #   provided, ensuring consistency with other single-log summary reports.
 
@@ -58,6 +60,10 @@ class Report(ContestReport):
     @property
     def report_type(self) -> str:
         return "text"
+
+    @property
+    def comparison_mode(self) -> str:
+        return "single"
 
     def generate(self, output_path: str, **kwargs) -> str:
         """

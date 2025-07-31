@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-28
-# Version: 0.21.0-Beta
+# Date: 2025-07-31
+# Version: 0.22.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,6 +20,11 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.22.0-Beta] - 2025-07-31
+### Added
+# - Added a 'comparison_mode' abstract property to allow each report to
+#   declare how it handles multiple logs ('single', 'pairwise', or 'multi').
 
 ## [0.21.0-Beta] - 2025-07-28
 ### Removed
@@ -74,6 +79,18 @@ class ContestReport(ABC):
     @abstractmethod
     def report_type(self) -> str:
         """The type of report, either 'text', 'plot', or 'chart'."""
+        pass
+
+    @property
+    @abstractmethod
+    def comparison_mode(self) -> str:
+        """
+        Defines how the report handles multiple logs. Must be one of:
+        - 'single': Generates one report for each log.
+        - 'pairwise': Generates one report for every two-log combination.
+        - 'multi': Generates a single report combining all logs.
+        - 'dual': Generates a single multi-log report, plus all pairwise reports.
+        """
         pass
 
     @abstractmethod

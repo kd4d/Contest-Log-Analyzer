@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-29
-# Version: 0.21.2-Beta
+# Date: 2025-07-31
+# Version: 0.22.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,6 +22,23 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.22.2-Beta] - 2025-07-31
+### Changed
+# - Refactored the report generation logic to be fully data-driven. It now
+#   uses the 'comparison_mode' property from the report interface to determine
+#   how to handle single vs. multiple logs, removing the need for hard-coded lists.
+
+## [0.22.1-Beta] - 2025-07-31
+### Changed
+# - The program now prints the full usage guide after displaying a specific
+#   command-line error, providing better user feedback.
+
+## [0.22.0-Beta] - 2025-07-31
+### Changed
+# - Improved command-line argument validation to provide clearer, more
+#   specific error messages for common mistakes (e.g., '--reports' instead
+#   of '--report') and for a missing CTY_DAT_PATH environment variable.
 
 ## [0.21.2-Beta] - 2025-07-29
 ### Changed
@@ -80,14 +97,42 @@ import itertools
 from contest_tools.log_manager import LogManager
 from contest_tools.reports import AVAILABLE_REPORTS
 
+def print_usage_and_exit():
+    """Prints the command-line usage guide and exits."""
+    print("\nUsage: python main_cli.py --report <ReportID|all> <LogFilePath1> [<LogFile2>...] [options]")
+    print("\nOptions:")
+    print("  --include-dupes         Include duplicate QSOs in calculations.")
+    print("  --mult-name <name>      Specify multiplier for reports (e.g., 'Countries', 'Zones').")
+    print("  --metric <qsos|points>  Specify metric for difference plots (defaults to 'qsos').")
+    
+    if AVAILABLE_REPORTS:
+        print("\nAvailable reports:")
+        for report_id, report_class in AVAILABLE_REPORTS.items():
+            print(f"  - {report_id}: {report_class.report_name.fget(None)}")
+    else:
+        print("\nNo reports found.")
+        
+    sys.exit(1)
+
 def main():
     """
     Main function to run the contest log analyzer from the command line.
     """
     print("--- Contest Log Analyzer ---")
 
-    # --- Argument Parsing ---
+    # --- High-Priority Pre-Checks ---
     args = sys.argv[1:]
+    
+    if 'CTY_DAT_PATH' not in os.environ:
+        print("\nFATAL ERROR: The CTY_DAT_PATH environment variable is not set.")
+        print("Please set this variable to the full path of your cty.dat file.")
+        print_usage_and_exit()
+
+    if '--reports' in args:
+        print("\nERROR: Invalid argument '--reports' (plural). Did you mean '--report' (singular)?")
+        print_usage_and_exit()
+
+    # --- Argument Parsing ---
     report_kwargs = {}
 
     if '--include-dupes' in args:
@@ -119,21 +164,7 @@ def main():
             sys.exit(1)
 
     if len(args) < 2 or args[0] != '--report':
-        print("\nUsage: python main_cli.py --report <ReportID|all> <LogFilePath1>... [options]")
-        print("\nOptions:")
-        print("  --include-dupes         Include duplicate QSOs in calculations.")
-        print("  --mult-name <name>      Specify multiplier for reports (e.g., 'Countries', 'Zones').")
-        print("  --metric <qsos|points>  Specify metric for difference plots (defaults to 'qsos').")
-        print("\nNote: The CTY_DAT_PATH environment variable must be set to the location of your cty.dat file.")
-        
-        if AVAILABLE_REPORTS:
-            print("\nAvailable reports:")
-            for report_id, report_class in AVAILABLE_REPORTS.items():
-                print(f"  - {report_id}: {report_class.report_name.fget(None)}")
-        else:
-            print("\nNo reports found.")
-            
-        sys.exit(1)
+        print_usage_and_exit()
 
     report_id = args[1]
     log_filepaths = args[2:]
@@ -141,10 +172,6 @@ def main():
     # --- Input Validation ---
     if report_id.lower() != 'all' and report_id not in AVAILABLE_REPORTS:
         print(f"\nError: Report '{report_id}' not found.")
-        sys.exit(1)
-
-    if 'CTY_DAT_PATH' not in os.environ:
-        print("\nError: The CTY_DAT_PATH environment variable is not set.")
         sys.exit(1)
 
     # --- Processing ---
@@ -176,19 +203,17 @@ def main():
         plots_output_dir = os.path.join(base_output_dir, "plots")
         charts_output_dir = os.path.join(base_output_dir, "charts")
         
-        # --- Define Report Categories ---
-        pairwise_only_reports = ['cumulative_difference_plots', 'qso_comparison', 'qso_breakdown_chart']
-        dual_mode_reports = ['missed_multipliers', 'multiplier_summary', 'rate_sheet_comparison']
-        
-        # Generate the selected reports
+        # --- Generate the selected reports ---
         for r_id, ReportClass in reports_to_run:
             report_type = ReportClass.report_type.fget(None)
+            comp_mode = ReportClass.comparison_mode.fget(None)
+            
             if report_type == 'text': output_path = text_output_dir
             elif report_type == 'plot': output_path = plots_output_dir
             elif report_type == 'chart': output_path = charts_output_dir
             else: output_path = base_output_dir
 
-            # --- Special Handling for Auto-Generating Multiple Report Variations ---
+            # --- Auto-generate reports for each multiplier type if needed ---
             if r_id in ['missed_multipliers', 'multiplier_summary', 'multipliers_by_hour'] and 'mult_name' not in report_kwargs:
                 print(f"\nAuto-generating '{ReportClass.report_name.fget(None)}' for all available multiplier types...")
                 for mult_rule in first_log.contest_definition.multiplier_rules:
@@ -198,48 +223,44 @@ def main():
                         current_kwargs = report_kwargs.copy()
                         current_kwargs['mult_name'] = mult_name
                         
-                        # Generate the main multi-way report
                         instance = ReportClass(logs)
                         result = instance.generate(output_path=output_path, **current_kwargs)
                         print(result)
+            
+            # --- Handle report generation based on comparison mode ---
+            elif comp_mode == 'single':
+                print(f"\nGenerating report: '{ReportClass.report_name.fget(None)}' for each log...")
+                for log in logs:
+                    instance = ReportClass([log])
+                    result = instance.generate(output_path=output_path, **report_kwargs)
+                    print(result)
 
-                        # Also generate pairwise versions if applicable
-                        if r_id in dual_mode_reports and len(logs) > 2:
-                            for log_pair in itertools.combinations(logs, 2):
-                                pairwise_instance = ReportClass(list(log_pair))
-                                result = pairwise_instance.generate(output_path=output_path, **current_kwargs)
-                                print(result)
-
-            elif r_id in pairwise_only_reports:
+            elif comp_mode == 'pairwise':
                 if len(logs) < 2:
                     print(f"\nSkipping '{ReportClass.report_name.fget(None)}': requires at least two logs.")
                     continue
-                
                 print(f"\nGenerating '{ReportClass.report_name.fget(None)}' for all log pairs...")
                 for log_pair in itertools.combinations(logs, 2):
-                    report_instance = ReportClass(list(log_pair))
-                    call1 = log_pair[0].get_metadata().get('MyCall')
-                    call2 = log_pair[1].get_metadata().get('MyCall')
-                    print(f"  - Comparing {call1} vs {call2}:")
-                    result = report_instance.generate(output_path=output_path, **report_kwargs)
+                    instance = ReportClass(list(log_pair))
+                    result = instance.generate(output_path=output_path, **report_kwargs)
                     print(result)
-            
-            else:
-                # This handles single-log reports and the main multi-way reports
-                report_instance = ReportClass(logs)
-                print(f"\nGenerating report: '{report_instance.report_name}'...")
-                result = report_instance.generate(output_path=output_path, **report_kwargs)
-                print(result)
 
-                # Also generate pairwise versions for dual-mode reports
-                if r_id in dual_mode_reports and len(logs) > 2:
-                    print(f"\nAlso generating pairwise versions of '{report_instance.report_name}'...")
+            elif comp_mode == 'multi':
+                print(f"\nGenerating report: '{ReportClass.report_name.fget(None)}'...")
+                instance = ReportClass(logs)
+                result = instance.generate(output_path=output_path, **report_kwargs)
+                print(result)
+            
+            elif comp_mode == 'dual':
+                print(f"\nGenerating multi-log report: '{ReportClass.report_name.fget(None)}'...")
+                instance = ReportClass(logs)
+                result = instance.generate(output_path=output_path, **report_kwargs)
+                print(result)
+                if len(logs) > 2:
+                    print(f"\nAlso generating pairwise versions of '{ReportClass.report_name.fget(None)}'...")
                     for log_pair in itertools.combinations(logs, 2):
-                        pairwise_instance = ReportClass(list(log_pair))
-                        call1 = log_pair[0].get_metadata().get('MyCall')
-                        call2 = log_pair[1].get_metadata().get('MyCall')
-                        print(f"  - Comparing {call1} vs {call2}:")
-                        result = pairwise_instance.generate(output_path=output_path, **report_kwargs)
+                        instance = ReportClass(list(log_pair))
+                        result = instance.generate(output_path=output_path, **report_kwargs)
                         print(result)
 
         print("\n--- Done ---")

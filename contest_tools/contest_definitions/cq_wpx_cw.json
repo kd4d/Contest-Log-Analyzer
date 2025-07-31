@@ -12,6 +12,7 @@
       "name": "Prefixes",
       "source": "calculation_module",
       "module_name": "cq_wpx_prefix",
+      "function_name": "calculate_wpx_prefixes",
       "value_column": "Mult1"
     }
   ]
