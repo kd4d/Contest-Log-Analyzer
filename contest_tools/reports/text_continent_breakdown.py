@@ -50,6 +50,8 @@ class Report(ContestReport):
     """
     Generates a per-band summary of QSOs per continent with a Run/S&P/Unknown breakdown.
     """
+    supports_single = True
+    
     @property
     def report_id(self) -> str:
         return "continent_breakdown"
@@ -61,10 +63,6 @@ class Report(ContestReport):
     @property
     def report_type(self) -> str:
         return "text"
-
-    @property
-    def supports_single(self) -> bool:
-        return True
 
     def generate(self, output_path: str, **kwargs) -> str:
         """

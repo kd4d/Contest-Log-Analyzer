@@ -5,7 +5,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-07-31
-# Version: 0.22.0-Beta
+# Version: 0.22.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,6 +20,11 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.22.1-Beta] - 2025-07-31
+### Changed
+# - Replaced the boolean support properties with class attributes for a more
+#   robust, class-level implementation.
 
 ## [0.22.0-Beta] - 2025-07-31
 ### Changed
@@ -59,6 +64,10 @@ class ContestReport(ABC):
     Abstract base class for all report generators.
     Ensures that every report has a consistent structure.
     """
+    supports_single: bool = False
+    supports_pairwise: bool = False
+    supports_multi: bool = False
+
     def __init__(self, logs: List[ContestLog]):
         if not logs:
             raise ValueError("Cannot initialize a report with an empty list of logs.")
@@ -81,21 +90,6 @@ class ContestReport(ABC):
     def report_type(self) -> str:
         """The type of report, either 'text', 'plot', or 'chart'."""
         pass
-
-    @property
-    def supports_single(self) -> bool:
-        """True if the report should be generated once for each individual log."""
-        return False
-
-    @property
-    def supports_pairwise(self) -> bool:
-        """True if the report should be generated for every two-log combination."""
-        return False
-
-    @property
-    def supports_multi(self) -> bool:
-        """True if the report should be generated once with all logs combined."""
-        return False
 
     @abstractmethod
     def generate(self, output_path: str, **kwargs) -> str:

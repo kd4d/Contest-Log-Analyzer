@@ -45,6 +45,8 @@ class Report(ContestReport):
     """
     Generates a comparative summary of QSOs per continent, broken down by band.
     """
+    supports_multi = True
+    
     @property
     def report_id(self) -> str:
         return "comparative_continent_summary"
@@ -56,10 +58,6 @@ class Report(ContestReport):
     @property
     def report_type(self) -> str:
         return "text"
-
-    @property
-    def supports_multi(self) -> bool:
-        return True
 
     def generate(self, output_path: str, **kwargs) -> str:
         """

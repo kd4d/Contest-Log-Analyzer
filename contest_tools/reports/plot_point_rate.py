@@ -50,6 +50,8 @@ class Report(ContestReport):
     Generates a series of plots comparing cumulative points: one for all bands
     combined, and one for each individual contest band.
     """
+    supports_multi = True
+    
     @property
     def report_id(self) -> str:
         return "point_rate_plots"
@@ -61,10 +63,6 @@ class Report(ContestReport):
     @property
     def report_type(self) -> str:
         return "plot"
-
-    @property
-    def supports_multi(self) -> bool:
-        return True
 
     def _generate_single_plot(self, output_path: str, include_dupes: bool, band_filter: str) -> str:
         """

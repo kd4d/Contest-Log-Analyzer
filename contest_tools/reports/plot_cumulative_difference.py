@@ -56,6 +56,8 @@ class Report(ContestReport):
     Generates a three-subplot plot showing the cumulative difference in
     QSOs or Points between two logs.
     """
+    supports_pairwise = True
+    
     @property
     def report_id(self) -> str:
         return "cumulative_difference_plots"
@@ -67,10 +69,6 @@ class Report(ContestReport):
     @property
     def report_type(self) -> str:
         return "plot"
-
-    @property
-    def supports_pairwise(self) -> bool:
-        return True
 
     def _generate_single_plot(self, output_path: str, band_filter: str, metric: str):
         """

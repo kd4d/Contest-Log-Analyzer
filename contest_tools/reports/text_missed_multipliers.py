@@ -119,6 +119,9 @@ class Report(ContestReport):
     Generates a comparative report showing a specific multiplier worked by each
     station on each band, highlighting missed opportunities.
     """
+    supports_multi = True
+    supports_pairwise = True
+    
     @property
     def report_id(self) -> str:
         return "missed_multipliers"
@@ -130,14 +133,6 @@ class Report(ContestReport):
     @property
     def report_type(self) -> str:
         return "text"
-
-    @property
-    def supports_multi(self) -> bool:
-        return True
-
-    @property
-    def supports_pairwise(self) -> bool:
-        return True
 
     def _get_run_sp_status(self, series: pd.Series) -> str:
         """Determines if a multiplier was worked via Run, S&P, Unknown, or a combination."""

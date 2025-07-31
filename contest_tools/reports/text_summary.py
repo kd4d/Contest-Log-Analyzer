@@ -58,6 +58,8 @@ class Report(ContestReport):
     """
     Generates a text summary of key statistics for each log.
     """
+    supports_single = True
+    
     @property
     def report_id(self) -> str:
         return "summary"
@@ -69,10 +71,6 @@ class Report(ContestReport):
     @property
     def report_type(self) -> str:
         return "text"
-
-    @property
-    def supports_single(self) -> bool:
-        return True
 
     def generate(self, output_path: str, **kwargs) -> str:
         """

@@ -1,12 +1,12 @@
-# Contest Log Analyzer/contest_tools/reports/text_score_report.py
+v# Contest Log Analyzer/contest_tools/reports/text_score_report.py
 #
 # Purpose: A text report that generates a detailed score summary for each
 #          log, broken down by band.
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-29
-# Version: 0.21.13-Beta
+# Date: 2025-07-31
+# Version: 0.22.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,6 +21,11 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.22.0-Beta] - 2025-07-31
+### Changed
+# - Implemented the boolean support properties, correctly identifying this
+#   report as 'single'.
 
 ## [0.21.13-Beta] - 2025-07-29
 ### Changed
@@ -59,6 +64,8 @@ class Report(ContestReport):
     """
     Generates a detailed score summary report for each log.
     """
+    supports_single = True
+    
     @property
     def report_id(self) -> str:
         return "score_report"

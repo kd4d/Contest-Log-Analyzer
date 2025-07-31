@@ -59,6 +59,8 @@ class Report(ContestReport):
     Generates a stacked bar chart comparing the QSO breakdown (Run/S&P/Unknown/Common)
     between two logs for each band.
     """
+    supports_pairwise = True
+    
     @property
     def report_id(self) -> str:
         return "qso_breakdown_chart"
@@ -70,10 +72,6 @@ class Report(ContestReport):
     @property
     def report_type(self) -> str:
         return "chart"
-
-    @property
-    def supports_pairwise(self) -> bool:
-        return True
 
     def generate(self, output_path: str, **kwargs) -> str:
         """

@@ -56,6 +56,8 @@ class Report(ContestReport):
     """
     Generates a detailed hourly rate sheet for each log.
     """
+    supports_single = True
+    
     @property
     def report_id(self) -> str:
         return "rate_sheet"
@@ -67,10 +69,6 @@ class Report(ContestReport):
     @property
     def report_type(self) -> str:
         return "text"
-
-    @property
-    def supports_single(self) -> bool:
-        return True
 
     def generate(self, output_path: str, **kwargs) -> str:
         """
