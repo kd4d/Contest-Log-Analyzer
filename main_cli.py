@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-07-31
-# Version: 0.22.2-Beta
+# Version: 0.22.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,6 +22,11 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.22.3-Beta] - 2025-07-31
+### Fixed
+# - Refined the report generation logic to prevent duplicate reports. Multi-way
+#   reports now only run for 3+ logs, and pairwise for 2+ logs.
 
 ## [0.22.2-Beta] - 2025-07-31
 ### Changed
@@ -230,19 +235,16 @@ def main():
             else:
                 print(f"\nGenerating report: '{ReportClass.report_name.fget(None)}'...")
                 
-                if ReportClass.supports_multi:
+                if ReportClass.supports_multi and len(logs) >= 3:
                     instance = ReportClass(logs)
                     result = instance.generate(output_path=output_path, **report_kwargs)
                     print(result)
 
-                if ReportClass.supports_pairwise:
-                    if len(logs) < 2:
-                        print(f"  - Skipping pairwise comparison: requires at least two logs.")
-                    else:
-                        for log_pair in itertools.combinations(logs, 2):
-                            instance = ReportClass(list(log_pair))
-                            result = instance.generate(output_path=output_path, **report_kwargs)
-                            print(result)
+                if ReportClass.supports_pairwise and len(logs) >= 2:
+                    for log_pair in itertools.combinations(logs, 2):
+                        instance = ReportClass(list(log_pair))
+                        result = instance.generate(output_path=output_path, **report_kwargs)
+                        print(result)
                 
                 if ReportClass.supports_single:
                     for log in logs:
