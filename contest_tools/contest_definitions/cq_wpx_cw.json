@@ -3,8 +3,8 @@
   "contest_name": "CQ-WPX-CW",
   "exchange_parsing_rules": {
     "CQ-WPX-CW": {
-      "regex": "(\\d{3})\\s+(\\d{1,5})\\s+([A-Z0-9/]+)\\s+(\\d{3})\\s+(\\d{1,5})(?:\\s+(\\d))?",
-      "groups": ["SentRST", "SentNR", "Call", "RST", "NR", "Transmitter"]
+      "regex": "(\\d{2})\\s+(\\d{1,5})\\s+([A-Z0-9/]+)\\s+(\\d{2})\\s+(\\d{1,5})(?:\\s+(\\d))?",
+      "groups": ["SentRS", "SentNR", "Call", "RS", "NR", "Transmitter"]
     }
   },
   "multiplier_rules": [
@@ -15,5 +15,9 @@
       "function_name": "calculate_wpx_prefixes",
       "value_column": "Mult1"
     }
+  ],
+  "excluded_reports": [
+    "missed_multipliers",
+    "multiplier_summary"
   ]
 }

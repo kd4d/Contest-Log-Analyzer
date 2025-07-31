@@ -15,5 +15,9 @@
       "function_name": "calculate_wpx_prefixes",
       "value_column": "Mult1"
     }
+  ],
+  "excluded_reports": [
+    "missed_multipliers",
+    "multiplier_summary"
   ]
 }

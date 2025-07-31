@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-07-31
-# Version: 0.22.3-Beta
+# Version: 0.22.4-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,6 +21,11 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.22.4-Beta] - 2025-07-31
+### Fixed
+# - Added a special rule to correctly handle the singular form of "Prefixes"
+#   for the report's column header.
 
 ## [0.22.3-Beta] - 2025-07-31
 ### Changed
@@ -185,6 +190,8 @@ class Report(ContestReport):
         
         if mult_name.lower() == 'countries':
             first_col_header = 'Country'
+        elif mult_name.lower() == 'prefixes':
+            first_col_header = 'Prefix'
         else:
             first_col_header = mult_name[:-1] if mult_name.lower().endswith('s') else mult_name
             first_col_header = first_col_header.capitalize()
