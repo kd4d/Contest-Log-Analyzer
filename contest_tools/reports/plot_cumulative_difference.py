@@ -24,7 +24,7 @@
 
 ## [0.22.0-Beta] - 2025-07-31
 ### Changed
-# - Implemented the 'comparison_mode' property, correctly identifying this
+# - Implemented the boolean support properties, correctly identifying this
 #   report as 'pairwise'.
 
 ## [0.15.0-Beta] - 2025-07-25
@@ -69,8 +69,8 @@ class Report(ContestReport):
         return "plot"
 
     @property
-    def comparison_mode(self) -> str:
-        return "pairwise"
+    def supports_pairwise(self) -> bool:
+        return True
 
     def _generate_single_plot(self, output_path: str, band_filter: str, metric: str):
         """

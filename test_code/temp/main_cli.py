@@ -230,12 +230,12 @@ def main():
             else:
                 print(f"\nGenerating report: '{ReportClass.report_name.fget(None)}'...")
                 
-                if ReportClass.supports_multi(ReportClass(logs)):
+                if ReportClass.supports_multi.fget(None):
                     instance = ReportClass(logs)
                     result = instance.generate(output_path=output_path, **report_kwargs)
                     print(result)
 
-                if ReportClass.supports_pairwise(ReportClass(logs)):
+                if ReportClass.supports_pairwise.fget(None):
                     if len(logs) < 2:
                         print(f"  - Skipping pairwise comparison: requires at least two logs.")
                     else:
@@ -244,7 +244,7 @@ def main():
                             result = instance.generate(output_path=output_path, **report_kwargs)
                             print(result)
                 
-                if ReportClass.supports_single(ReportClass(logs)):
+                if ReportClass.supports_single.fget(None):
                     for log in logs:
                         instance = ReportClass([log])
                         result = instance.generate(output_path=output_path, **report_kwargs)

@@ -24,8 +24,8 @@
 
 ## [0.22.4-Beta] - 2025-07-31
 ### Changed
-# - Implemented the 'comparison_mode' property, correctly identifying this
-#   report as 'dual' mode (multi-way and pairwise).
+# - Implemented the boolean support properties, correctly identifying this
+#   report as supporting both 'multi' and 'pairwise' modes.
 
 ## [0.21.9-Beta] - 2025-07-29
 ### Changed
@@ -82,8 +82,12 @@ class Report(ContestReport):
         return "text"
 
     @property
-    def comparison_mode(self) -> str:
-        return "dual"
+    def supports_multi(self) -> bool:
+        return True
+
+    @property
+    def supports_pairwise(self) -> bool:
+        return True
 
     def generate(self, output_path: str, **kwargs) -> str:
         """

@@ -24,7 +24,7 @@
 
 ## [0.22.5-Beta] - 2025-07-31
 ### Changed
-# - Implemented the 'comparison_mode' property, correctly identifying this
+# - Implemented the boolean support properties, correctly identifying this
 #   report as 'single' mode.
 
 ## [0.21.2-Beta] - 2025-07-28
@@ -58,8 +58,8 @@ class Report(ContestReport):
         return "text"
 
     @property
-    def comparison_mode(self) -> str:
-        return "single"
+    def supports_single(self) -> bool:
+        return True
 
     def generate(self, output_path: str, **kwargs) -> str:
         """

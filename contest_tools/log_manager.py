@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-25
-# Version: 0.15.0-Beta
+# Date: 2025-07-31
+# Version: 0.22.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,6 +21,11 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.22.0-Beta] - 2025-07-31
+### Added
+# - The LogManager now validates that all loaded logs are for the same
+#   contest, raising a ValueError if a mismatch is found.
 
 ## [0.15.0-Beta] - 2025-07-25
 # - Standardized version for final review. No functional changes.
@@ -43,6 +48,7 @@ class LogManager:
     """
     def __init__(self):
         self._logs: Dict[str, ContestLog] = {}
+        self._expected_contest_name: Optional[str] = None
 
     def load_log(self, cabrillo_filepath: str) -> Optional[ContestLog]:
         """
@@ -59,6 +65,15 @@ class LogManager:
             print(f"Loading log: {cabrillo_filepath}...")
             # Auto-detect contest name from the file
             contest_name = self._get_contest_name_from_file(cabrillo_filepath)
+            
+            # --- New Validation Check ---
+            if self._expected_contest_name is None:
+                self._expected_contest_name = contest_name
+            elif self._expected_contest_name != contest_name:
+                raise ValueError(
+                    f"Contest name mismatch. Expected '{self._expected_contest_name}' "
+                    f"but found '{contest_name}' in {os.path.basename(cabrillo_filepath)}."
+                )
             
             log = ContestLog(contest_name=contest_name, cabrillo_filepath=cabrillo_filepath)
             log.apply_annotations()

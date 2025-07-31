@@ -24,8 +24,8 @@
 
 ## [0.22.3-Beta] - 2025-07-31
 ### Changed
-# - Implemented the 'comparison_mode' property, correctly identifying this
-#   report as 'dual' mode (multi-way and pairwise).
+# - Implemented the boolean support properties, correctly identifying this
+#   report as supporting both 'multi' and 'pairwise' modes.
 
 ## [0.21.6-Beta] - 2025-07-29
 ### Added
@@ -132,8 +132,12 @@ class Report(ContestReport):
         return "text"
 
     @property
-    def comparison_mode(self) -> str:
-        return "dual"
+    def supports_multi(self) -> bool:
+        return True
+
+    @property
+    def supports_pairwise(self) -> bool:
+        return True
 
     def _get_run_sp_status(self, series: pd.Series) -> str:
         """Determines if a multiplier was worked via Run, S&P, Unknown, or a combination."""

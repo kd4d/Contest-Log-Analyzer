@@ -24,7 +24,7 @@
 
 ## [0.22.2-Beta] - 2025-07-31
 ### Changed
-# - Implemented the 'comparison_mode' property, correctly identifying this
+# - Implemented the boolean support properties, correctly identifying this
 #   report as 'multi' mode.
 
 ## [0.22.1-Beta] - 2025-07-30
@@ -58,8 +58,8 @@ class Report(ContestReport):
         return "text"
 
     @property
-    def comparison_mode(self) -> str:
-        return "multi"
+    def supports_multi(self) -> bool:
+        return True
 
     def generate(self, output_path: str, **kwargs) -> str:
         """

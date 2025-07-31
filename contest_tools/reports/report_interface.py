@@ -22,9 +22,10 @@
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
 ## [0.22.0-Beta] - 2025-07-31
-### Added
-# - Added a 'comparison_mode' abstract property to allow each report to
-#   declare how it handles multiple logs ('single', 'pairwise', or 'multi').
+### Changed
+# - Replaced the 'comparison_mode' property with three distinct boolean
+#   properties ('supports_single', 'supports_pairwise', 'supports_multi')
+#   to create a more explicit and extensible report generation system.
 
 ## [0.21.0-Beta] - 2025-07-28
 ### Removed
@@ -82,16 +83,19 @@ class ContestReport(ABC):
         pass
 
     @property
-    @abstractmethod
-    def comparison_mode(self) -> str:
-        """
-        Defines how the report handles multiple logs. Must be one of:
-        - 'single': Generates one report for each log.
-        - 'pairwise': Generates one report for every two-log combination.
-        - 'multi': Generates a single report combining all logs.
-        - 'dual': Generates a single multi-log report, plus all pairwise reports.
-        """
-        pass
+    def supports_single(self) -> bool:
+        """True if the report should be generated once for each individual log."""
+        return False
+
+    @property
+    def supports_pairwise(self) -> bool:
+        """True if the report should be generated for every two-log combination."""
+        return False
+
+    @property
+    def supports_multi(self) -> bool:
+        """True if the report should be generated once with all logs combined."""
+        return False
 
     @abstractmethod
     def generate(self, output_path: str, **kwargs) -> str:
