@@ -1,4 +1,4 @@
-v# Contest Log Analyzer/contest_tools/reports/text_score_report.py
+# Contest Log Analyzer/contest_tools/reports/text_score_report.py
 #
 # Purpose: A text report that generates a detailed score summary for each
 #          log, broken down by band.
