@@ -2,9 +2,9 @@
   "_filename": "contest_tools/contest_definitions/cq_ww_cw.json",
   "contest_name": "CQ-WW-CW",
   "exchange_parsing_rules": {
-    "CQ-WW-CW": {
-      "regex": "(\\d{2})\\s+(\\d{1,2})\\s+([A-Z0-9/]+)\\s+(\\d{2})\\s+(\\d{1,2})(?:\\s+(\\d))?",
-      "groups": ["SentRS", "SentZone", "Call", "RS", "Zone", "Transmitter"]
+    "CQ-WW-DX-CW": {
+      "regex": "(\\d{3})\\s+(\\d{1,2})\\s+([A-Z0-9/]+)\\s+(\\d{3})\\s+(\\d{1,2})(?:\\s+(\\d))?",
+      "groups": ["SentRST", "SentZone", "Call", "RST", "Zone", "Transmitter"]
     }
   },
   "multiplier_rules": [

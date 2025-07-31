@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-25
-# Version: 0.15.0-Beta
+# Date: 2025-07-31
+# Version: 0.22.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,6 +22,13 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.22.0-Beta] - 2025-07-31
+### Changed
+# - The exchange parsing logic is now more robust. It iterates through all
+#   available parsing rules in the contest definition and uses the first one
+#   that successfully matches the QSO line, making it resilient to minor
+#   variations in the CONTEST header.
 
 ## [0.15.0-Beta] - 2025-07-25
 # - Standardized version for final review. No functional changes.
@@ -50,7 +57,7 @@ def parse_cabrillo_file(filepath: str, contest_definition: ContestDefinition) ->
     Args:
         filepath (str): The path to the Cabrillo log file.
         contest_definition (ContestDefinition): An instance of ContestDefinition
-                                                 containing rules for the contest.
+                                                containing rules for the contest.
 
     Returns:
         Tuple[pd.DataFrame, Dict[str, Any]]: A tuple containing:
@@ -66,7 +73,6 @@ def parse_cabrillo_file(filepath: str, contest_definition: ContestDefinition) ->
     log_metadata: Dict[str, Any] = {}
     qso_records: List[Dict[str, Any]] = []
     
-    # Track the actual contest name from the log's CONTEST: header
     actual_contest_name: Optional[str] = None
 
     try:
@@ -93,7 +99,7 @@ def parse_cabrillo_file(filepath: str, contest_definition: ContestDefinition) ->
             break
         elif line.startswith('QSO:'):
             in_header = False
-            qso_data = _parse_qso_line(line, contest_definition, log_metadata, actual_contest_name)
+            qso_data = _parse_qso_line(line, contest_definition, log_metadata)
             if qso_data:
                 qso_records.append(qso_data)
             continue 
@@ -113,11 +119,6 @@ def parse_cabrillo_file(filepath: str, contest_definition: ContestDefinition) ->
     if 'MyCall' not in log_metadata or 'ContestName' not in log_metadata:
         raise ValueError(f"Required header fields (CALLSIGN:, CONTEST:) not found in {filepath}")
     
-    # Ensure the actual_contest_name found matches the contest_definition's name for consistency
-    if actual_contest_name and actual_contest_name != contest_definition.contest_name:
-        raise ValueError(f"Contest name in Cabrillo file header ('{actual_contest_name}') "
-                         f"does not match the provided ContestDefinition ('{contest_definition.contest_name}').")
-
     # Construct DataFrame from the list of QSO dictionaries
     df = pd.DataFrame(qso_records)
 
@@ -126,20 +127,10 @@ def parse_cabrillo_file(filepath: str, contest_definition: ContestDefinition) ->
 def _parse_qso_line(
     line: str,
     contest_definition: ContestDefinition,
-    log_metadata: Dict[str, Any],
-    cabrillo_contest_name: Optional[str]
+    log_metadata: Dict[str, Any]
 ) -> Optional[Dict[str, Any]]:
     """
     Internal helper to parse a single QSO line from a Cabrillo log.
-
-    Args:
-        line (str): The raw QSO line string.
-        contest_definition (ContestDefinition): The definition object to guide parsing.
-        log_metadata (Dict[str, Any]): The extracted header metadata.
-        cabrillo_contest_name (Optional[str]): The contest name from the CONTEST: header.
-
-    Returns:
-        Optional[Dict[str, Any]]: A dictionary representing the parsed QSO, or None if parsing fails.
     """
     
     # Initialize the dictionary for this QSO with all possible final columns set to NA
@@ -160,12 +151,13 @@ def _parse_qso_line(
     # Extract the contest-specific exchange part
     exchange_rest = qso_final_dict.pop('ExchangeRest', '').strip()
 
-    # Parse the contest-specific exchange
-    exchange_info = contest_definition.get_exchange_parse_info(cabrillo_contest_name or contest_definition.contest_name)
-    
-    if exchange_info:
-        exchange_regex = exchange_info['regex']
-        exchange_groups = exchange_info['groups']
+    # --- New Robust Parsing Logic ---
+    # Iterate through all available exchange rules and use the first one that matches.
+    all_exchange_rules = contest_definition.exchange_parsing_rules
+    parsed_successfully = False
+    for contest_id, rule_info in all_exchange_rules.items():
+        exchange_regex = rule_info['regex']
+        exchange_groups = rule_info['groups']
         exchange_match = re.match(exchange_regex, exchange_rest)
         
         if exchange_match:
@@ -176,9 +168,8 @@ def _parse_qso_line(
                         qso_final_dict[group_name] = val.strip()
                 except IndexError:
                     qso_final_dict[group_name] = pd.NA
-        else:
-            # If exchange doesn't match, fields remain NA
-            pass
+            parsed_successfully = True
+            break # Stop after the first successful match
             
     # Add duplicated header metadata to each QSO record
     for cabrillo_tag, df_key in contest_definition.header_field_map.items():
