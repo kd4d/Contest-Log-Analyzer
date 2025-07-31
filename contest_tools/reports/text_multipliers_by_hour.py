@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-07-31
-# Version: 0.22.5-Beta
+# Version: 0.22.6-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,6 +21,11 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.22.6-Beta] - 2025-07-31
+### Changed
+# - The report now uses the 'totaling_method' from the contest definition
+#   to correctly calculate new multipliers for contests like WPX.
 
 ## [0.22.5-Beta] - 2025-07-31
 ### Changed
@@ -45,6 +50,8 @@ class Report(ContestReport):
     """
     Generates an hourly summary of new multipliers worked for each log.
     """
+    supports_single = True
+
     @property
     def report_id(self) -> str:
         return "multipliers_by_hour"
@@ -56,10 +63,6 @@ class Report(ContestReport):
     @property
     def report_type(self) -> str:
         return "text"
-
-    @property
-    def supports_single(self) -> bool:
-        return True
 
     def generate(self, output_path: str, **kwargs) -> str:
         """
@@ -77,7 +80,7 @@ class Report(ContestReport):
             callsign = metadata.get('MyCall', 'UnknownCall')
             contest_name = metadata.get('ContestName', 'UnknownContest')
             
-            # --- Find the correct multiplier column ---
+            # --- Find the correct multiplier column and totaling method ---
             mult_rule = None
             for rule in log.contest_definition.multiplier_rules:
                 if rule.get('name', '').lower() == mult_name.lower():
@@ -91,6 +94,7 @@ class Report(ContestReport):
                 continue
 
             mult_column = mult_rule['value_column']
+            totaling_method = mult_rule.get('totaling_method', 'sum_by_band')
 
             # --- Data Preparation ---
             df = df_full[df_full['Dupe'] == False].copy()
@@ -100,15 +104,14 @@ class Report(ContestReport):
                 final_report_messages.append(msg)
                 continue
             
-            # --- Filter out "Unknown" multipliers ---
             df = df[df[mult_column] != 'Unknown']
-
             df.dropna(subset=[mult_column], inplace=True)
             df['Hour'] = pd.to_numeric(df['Hour'])
 
             # --- Calculation of New Multipliers per Hour ---
             bands = ['160M', '80M', '40M', '20M', '15M', '10M']
             worked_mults_by_band: Dict[str, Set] = {band: set() for band in bands}
+            worked_mults_overall: Set = set()
             hourly_data = []
 
             dates = sorted(df['Date'].unique())
@@ -123,11 +126,17 @@ class Report(ContestReport):
                 
                 for band in bands:
                     band_df = hour_df[hour_df['Band'] == band]
-                    new_mults_on_band = set(band_df[mult_column].unique()) - worked_mults_by_band[band]
+                    current_hour_mults = set(band_df[mult_column].unique())
                     
-                    hourly_results[band] = len(new_mults_on_band)
-                    hourly_total += len(new_mults_on_band)
-                    worked_mults_by_band[band].update(new_mults_on_band)
+                    if totaling_method == 'once_per_log':
+                        new_mults = current_hour_mults - worked_mults_overall
+                        worked_mults_overall.update(new_mults)
+                    else: # Default to sum_by_band
+                        new_mults = current_hour_mults - worked_mults_by_band[band]
+                        worked_mults_by_band[band].update(new_mults)
+                    
+                    hourly_results[band] = len(new_mults)
+                    hourly_total += len(new_mults)
                 
                 hourly_results['Total'] = hourly_total
                 hourly_data.append(hourly_results)
