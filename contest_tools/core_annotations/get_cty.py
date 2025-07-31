@@ -250,7 +250,6 @@ class CtyLookup:
         for s in ["/P", "/B", "/M", "/QRP"]:
             if call.endswith(s): call = call[:-len(s)]; break
         
-        # FIX: Prioritize WAE exact match check when WAE is enabled
         if self.wae and "=" + call in self.waeprefixes: return self.waeprefixes["=" + call]
         if "=" + call in self.dxccprefixes: return self.dxccprefixes["=" + call]
 
