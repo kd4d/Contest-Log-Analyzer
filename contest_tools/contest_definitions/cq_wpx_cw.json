@@ -13,7 +13,8 @@
       "source": "calculation_module",
       "module_name": "cq_wpx_prefix",
       "function_name": "calculate_wpx_prefixes",
-      "value_column": "Mult1"
+      "value_column": "Mult1",
+      "totaling_method": "once_per_log"
     }
   ],
   "excluded_reports": [

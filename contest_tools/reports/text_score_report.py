@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-07-31
-# Version: 0.22.0-Beta
+# Version: 0.22.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,6 +21,11 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.22.5-Beta] - 2025-07-31
+### Changed
+# - The report now uses the 'totaling_method' from the contest definition
+#   to correctly calculate final scores for contests like WPX.
 
 ## [0.22.0-Beta] - 2025-07-31
 ### Changed
@@ -105,10 +110,12 @@ class Report(ContestReport):
             bands = ['160M', '80M', '40M', '20M', '15M', '10M']
             summary_data = []
             
+            df_net_full = df_full[df_full['Dupe'] == False].copy()
+            
             # --- Separate Unknowns for Diagnostics ---
             unknown_mult_callsigns = set()
             for m_col in mult_cols:
-                unknown_df = df_full[(df_full[m_col] == 'Unknown') & (~df_full['Call'].str.endswith('/MM', na=False))]
+                unknown_df = df_net_full[(df_net_full[m_col] == 'Unknown') & (~df_net_full['Call'].str.endswith('/MM', na=False))]
                 unknown_mult_callsigns.update(unknown_df['Call'].unique())
 
             for band in bands:
@@ -124,7 +131,6 @@ class Report(ContestReport):
                 band_summary['Points'] = band_df_net['QSOPoints'].sum()
                 
                 for i, m_col in enumerate(mult_cols):
-                    # Exclude 'Unknown' from multiplier counts
                     band_summary[mult_names[i]] = band_df_net[band_df_net[m_col] != 'Unknown'][m_col].nunique()
                 
                 band_summary['AVG'] = (band_summary['Points'] / band_summary['QSOs']) if band_summary['QSOs'] > 0 else 0
@@ -141,11 +147,22 @@ class Report(ContestReport):
             total_summary['QSOs'] = sum(item['QSOs'] for item in summary_data)
             total_summary['Dupes'] = sum(item['Dupes'] for item in summary_data)
             total_summary['Points'] = sum(item['Points'] for item in summary_data)
-            for name in mult_names:
-                total_summary[name] = sum(item[name] for item in summary_data)
-            total_summary['AVG'] = (total_summary['Points'] / total_summary['QSOs']) if total_summary['QSOs'] > 0 else 0
             
-            total_multiplier_count = sum(total_summary[name] for name in mult_names)
+            total_multiplier_count = 0
+            for i, rule in enumerate(multiplier_rules):
+                mult_name = mult_names[i]
+                mult_col = mult_cols[i]
+                totaling_method = rule.get('totaling_method', 'sum_by_band')
+                
+                if totaling_method == 'once_per_log':
+                    unique_mults = df_net_full[df_net_full[mult_col] != 'Unknown'][mult_col].nunique()
+                    total_summary[mult_name] = unique_mults
+                    total_multiplier_count += unique_mults
+                else: # Default to sum_by_band
+                    total_summary[mult_name] = sum(item[mult_name] for item in summary_data)
+                    total_multiplier_count += total_summary[mult_name]
+
+            total_summary['AVG'] = (total_summary['Points'] / total_summary['QSOs']) if total_summary['QSOs'] > 0 else 0
             final_score = total_summary['Points'] * total_multiplier_count
 
             # --- Dynamic Column Width Calculation ---
