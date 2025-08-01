@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-01
-# Version: 0.23.0-Beta
+# Version: 0.23.7-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,6 +22,12 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.23.7-Beta] - 2025-08-01
+### Fixed
+# - The auto-generation logic for multiplier reports now correctly filters
+#   rules based on the station's location type (W/VE or DX) for asymmetric
+#   contests, preventing inapplicable reports from being generated.
 
 ## [0.23.0-Beta] - 2025-08-01
 ### Changed
@@ -159,7 +165,7 @@ def main():
     report_kwargs = {}
 
     if '--include-dupes' in args:
-        report_kwargs['include_dupes'] = True
+        report_kwargs['include-dupes'] = True
         args.remove('--include-dupes')
     
     if '--mult-name' in args:
@@ -243,7 +249,20 @@ def main():
             # --- Auto-generate reports for each multiplier type if needed ---
             if r_id in ['missed_multipliers', 'multiplier_summary', 'multipliers_by_hour'] and 'mult_name' not in report_kwargs:
                 print(f"\nAuto-generating '{ReportClass.report_name.fget(None)}' for all available multiplier types...")
-                for mult_rule in first_log.contest_definition.multiplier_rules:
+                
+                # --- FIX: Filter multiplier rules for asymmetric contests ---
+                log_location_type = first_log._my_location_type
+                all_rules = first_log.contest_definition.multiplier_rules
+                
+                applicable_rules = []
+                if log_location_type: # This is an asymmetric contest
+                    for rule in all_rules:
+                        if rule.get('applies_to') == log_location_type:
+                            applicable_rules.append(rule)
+                else: # This is a standard contest
+                    applicable_rules = all_rules
+
+                for mult_rule in applicable_rules:
                     mult_name = mult_rule.get('name')
                     if mult_name:
                         print(f"  - Generating for: {mult_name}")
