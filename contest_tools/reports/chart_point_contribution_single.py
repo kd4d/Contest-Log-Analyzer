@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-01
-# Version: 0.22.23-Beta
+# Version: 0.22.25-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,6 +22,16 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.22.25-Beta] - 2025-08-01
+### Fixed
+# - Corrected the positioning logic for the "*NOT TO SCALE*" note to prevent
+#   it from overlapping with the summary table.
+
+## [0.22.24-Beta] - 2025-08-01
+### Fixed
+# - Corrected the vertical position of the "*NOT TO SCALE*" note, moving it
+#   up to sit correctly between the chart and the table.
 
 ## [0.22.23-Beta] - 2025-08-01
 ### Changed
@@ -232,7 +242,7 @@ class Report(ContestReport):
             
             wedges, texts, autotexts = ax.pie(pie_data, labels=labels, autopct='%1.1f%%',
                                               startangle=90, counterclock=False, radius=radius,
-                                              center=(0, 0.1))
+                                              center=(0, 0.25)) # Adjusted center
             for autotext in autotexts:
                 autotext.set_fontsize(8)
 
@@ -240,7 +250,7 @@ class Report(ContestReport):
 
             # --- Add "Not to Scale" note if needed ---
             if is_not_to_scale:
-                ax.text(0.5, 0.0, "*NOT TO SCALE*", ha='center', va='center',
+                ax.text(0.5, 0.1, "*NOT TO SCALE*", ha='center', va='center',
                         transform=ax.transAxes, fontsize=12, fontweight='bold')
 
             # --- Summary Table ---

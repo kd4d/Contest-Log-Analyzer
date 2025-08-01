@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-01
-# Version: 0.22.15-Beta
+# Version: 0.22.16-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,10 +22,10 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
-## [0.22.15-Beta] - 2025-08-01
-### Added
-# - A "*NOT TO SCALE" note is now added below any pie chart that is rendered
-#   at the minimum size, clarifying its proportionality.
+## [0.22.16-Beta] - 2025-08-01
+### Changed
+# - Implemented proportional, area-based sizing for the pie charts.
+# - Added a "*NOT TO SCALE*" note for charts at the minimum size.
 
 ## [0.22.14-Beta] - 2025-08-01
 ### Fixed
@@ -199,8 +199,8 @@ class Report(ContestReport):
 
             # --- Add "Not to Scale" note if needed ---
             if is_not_to_scale:
-                ax.text(0.5, -0.05, "*NOT TO SCALE*", ha='center', va='center',
-                        transform=ax.transAxes, fontsize=8, style='italic')
+                ax.text(0.5, -0.1, "*NOT TO SCALE*", ha='center', va='top',
+                        transform=ax.transAxes, fontsize=12, fontweight='bold')
 
             # --- Summary Table ---
             total_row = pd.DataFrame({
