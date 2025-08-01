@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-01
-# Version: 0.22.15-Beta
+# Version: 0.22.29-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,50 +22,29 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
+## [0.22.29-Beta] - 2025-08-01
+### Changed
+# - The list of bands to plot is now dynamically determined from the log
+#   data and sorted in reverse numerical order (by wavelength).
+
+## [0.22.16-Beta] - 2025-08-01
+### Changed
+# - Reworked the report to be fully data-driven. It now generates a single
+#   image with a grid of subplots (bands x logs) instead of separate
+#   files per band.
+
 ## [0.22.15-Beta] - 2025-08-01
 ### Changed
 # - Refactored to use the new '_create_pie_chart_subplot' shared helper
 #   function, simplifying the code and ensuring consistency.
-
-## [0.22.14-Beta] - 2025-08-01
-### Fixed
-# - Corrected the proportional sizing logic. The area of each log's pie chart
-#   is now correctly scaled based on the points scored on the specific band
-#   being plotted, not the overall contest total.
-
-## [0.22.13-Beta] - 2025-08-01
-### Changed
-# - The area of each log's pie chart is now proportional to that log's
-#   total points for the entire contest.
-# - Percentage labels are now smaller to prevent overlap.
-# - The subplot layout now dynamically adjusts for 2, 3, or 4 logs.
-
-## [0.22.3-Beta] - 2025-07-31
-### Changed
-# - Renamed the report_id to 'chart_point_contribution' to match the new
-#   filename and its report type.
-
-## [0.22.2-Beta] - 2025-07-31
-### Changed
-# - Changed the 'report_type' from 'plot' to 'chart' to ensure the output
-#   is saved to the correct subdirectory.
-
-## [0.22.1-Beta] - 2025-07-31
-### Changed
-# - Reworked the report to generate comparative, multi-chart images. Each
-#   output file now contains a side-by-side comparison of all provided logs
-#   for a specific band.
-# - Implemented the boolean support properties, correctly identifying this
-#   report as 'multi'.
-
-## [0.22.0-Beta] - 2025-07-31
-# - Initial release of the Point Contribution Breakdown report.
 
 from typing import List
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
 import numpy as np
+import re
+from matplotlib.gridspec import GridSpec
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
 from ._report_utils import _create_pie_chart_subplot
@@ -102,12 +81,15 @@ class Report(ContestReport):
         for df in all_dfs:
             all_bands.update(df['Band'].unique())
         
-        bands_to_plot = ['All Bands'] + sorted([b for b in all_bands if b != 'Invalid'])
+        bands_to_plot = ['All Bands'] + sorted(
+            [b for b in all_bands if b != 'Invalid'],
+            key=lambda b: int(re.search(r'\d+', b).group()),
+            reverse=True
+        )
         created_files = []
 
         for band in bands_to_plot:
             try:
-                # Create band-specific subdirectories for the output
                 save_path = os.path.join(output_path, band) if band != "All Bands" else output_path
                 filepath = self._create_plot_for_band(band, save_path)
                 if filepath:
@@ -126,21 +108,16 @@ class Report(ContestReport):
         """
         num_logs = len(self.logs)
         
-        # --- Dynamic Plot Layout ---
         if num_logs <= 3:
             nrows, ncols = 1, num_logs
-            figsize = (num_logs * 7, 8) # Increased width per subplot
+            figsize = (num_logs * 7, 8)
         else:
             nrows, ncols = 2, 2
             figsize = (14, 16)
 
-        fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=figsize)
-        if num_logs == 1:
-            axes = [axes]
-        else:
-            axes = axes.flatten()
+        fig = plt.figure(figsize=figsize)
+        outer_gs = GridSpec(nrows, ncols, figure=fig, hspace=0.4, wspace=0.3)
 
-        # --- Pre-calculate band-specific points for proportional sizing ---
         band_log_points = []
         for log in self.logs:
             df = log.get_processed_data()[log.get_processed_data()['Dupe'] == False]
@@ -150,9 +127,8 @@ class Report(ContestReport):
                 band_log_points.append(df[df['Band'] == band]['QSOPoints'].sum())
         max_band_points = max(band_log_points) if band_log_points else 1
 
-        # --- Generate a subplot for each log ---
         for i, log in enumerate(self.logs):
-            ax = axes[i]
+            gs = outer_gs[i]
             metadata = log.get_metadata()
             callsign = metadata.get('MyCall', f'Log {i+1}')
             df = log.get_processed_data()[log.get_processed_data()['Dupe'] == False].copy()
@@ -170,17 +146,11 @@ class Report(ContestReport):
             max_radius = 1.25
             radius = max_radius * np.sqrt(point_ratio)
 
-            _create_pie_chart_subplot(ax, band_df, callsign, radius, is_not_to_scale)
+            _create_pie_chart_subplot(fig, gs, band_df, callsign, radius, is_not_to_scale)
 
-        # --- Clean up unused subplots ---
-        for i in range(num_logs, len(axes)):
-            fig.delaxes(axes[i])
-
-        # --- Final Formatting and Save ---
         band_title = band.replace('M', ' Meters') if band != "All Bands" else "All Bands"
         fig.suptitle(f"Point Contribution Breakdown - {band_title}", fontsize=22, fontweight='bold')
-        fig.tight_layout(rect=[0, 0.03, 1, 0.95], pad=3.0) # Add padding
-
+        
         os.makedirs(output_path, exist_ok=True)
         filename_band = band.lower().replace('m','')
         all_calls = '_vs_'.join(sorted([log.get_metadata().get('MyCall', f'Log{i+1}') for i, log in enumerate(self.logs)]))

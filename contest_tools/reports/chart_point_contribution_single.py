@@ -151,6 +151,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import os
 import numpy as np
+import re
+from matplotlib.gridspec import GridSpec
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
 from ._report_utils import _create_pie_chart_subplot
@@ -203,19 +205,36 @@ class Report(ContestReport):
         if df.empty or 'QSOPoints' not in df.columns:
             return None
 
-        bands = ['160M', '80M', '40M', '20M', '15M', '10M']
+        # --- Data-driven Band Determination ---
+        bands = sorted(
+            [b for b in df['Band'].unique() if b != 'Invalid'],
+            key=lambda b: int(re.search(r'\d+', b).group()),
+            reverse=True
+        )
+        if not bands:
+            return f"No chart generated for {callsign}: No QSOs on valid bands."
+
+        # --- Dynamic Plot Layout ---
+        num_bands = len(bands)
+        if num_bands <= 3:
+            nrows, ncols = 1, num_bands
+            figsize = (num_bands * 7, 8)
+        elif num_bands == 4:
+            nrows, ncols = 2, 2
+            figsize = (14, 16)
+        else: # 5 or 6 bands
+            nrows, ncols = 2, 3
+            figsize = (20, 14)
+
+        fig = plt.figure(figsize=figsize)
+        outer_gs = GridSpec(nrows, ncols, figure=fig, hspace=0.4, wspace=0.3)
         
-        # --- Pre-calculate band points for proportional sizing ---
         band_points = {band: df[df['Band'] == band]['QSOPoints'].sum() for band in bands}
         max_band_points = max(band_points.values()) if band_points else 1
 
-        # --- Plot Layout ---
-        fig, axes = plt.subplots(nrows=2, ncols=3, figsize=(20, 14))
-        axes = axes.flatten()
-
         # --- Generate a subplot for each band ---
         for i, band in enumerate(bands):
-            ax = axes[i]
+            gs = outer_gs[i]
             band_df = df[df['Band'] == band]
             
             current_band_points = band_points.get(band, 0)
@@ -230,12 +249,11 @@ class Report(ContestReport):
             radius = max_radius * np.sqrt(point_ratio)
             
             title = f"{band.replace('M','')} Meters"
-            _create_pie_chart_subplot(ax, band_df, title, radius, is_not_to_scale)
+            _create_pie_chart_subplot(fig, gs, band_df, title, radius, is_not_to_scale)
 
         # --- Final Formatting and Save ---
         fig.suptitle(f"{callsign} - Point Contribution Breakdown by Band", fontsize=22, fontweight='bold')
-        fig.tight_layout(rect=[0, 0.03, 1, 0.95])
-
+        
         os.makedirs(output_path, exist_ok=True)
         filename = f"{self.report_id}_{callsign}.png"
         filepath = os.path.join(output_path, filename)

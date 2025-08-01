@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-01
-# Version: 0.22.0-Beta
+# Version: 0.22.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,6 +22,16 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
+## [0.22.2-Beta] - 2025-08-01
+### Changed
+# - The pie chart logic now excludes 0-point QSOs from the chart itself
+#   to prevent clutter, while still including them in the summary table.
+
+## [0.22.1-Beta] - 2025-08-01
+### Changed
+# - Removed the internal percentage labels from pie charts and made the
+#   external labels larger and bold for better readability.
+
 ## [0.22.0-Beta] - 2025-08-01
 ### Added
 # - Added the '_create_pie_chart_subplot' helper function to encapsulate
@@ -35,6 +45,7 @@ from typing import List, Dict
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.gridspec import GridSpec
 
 from ..contest_log import ContestLog
 
@@ -110,42 +121,54 @@ def align_logs_by_time(
 
     return aligned_logs
 
-def _create_pie_chart_subplot(ax: plt.Axes, band_df: pd.DataFrame, title: str, radius: float, is_not_to_scale: bool):
+def _create_pie_chart_subplot(fig: plt.Figure, gs: GridSpec, band_df: pd.DataFrame, title: str, radius: float, is_not_to_scale: bool):
     """
-    Generates a single pie chart subplot with a title, summary table, and
-    optional "not to scale" note.
+    Generates a single pie chart "widget" within a given GridSpec.
     """
+    # Create a nested GridSpec for this widget (3 rows: title, chart, table)
+    nested_gs = gs.subgridspec(3, 1, height_ratios=[0.5, 3, 1.5])
+
+    # --- Title ---
+    ax_title = fig.add_subplot(nested_gs[0, 0])
+    ax_title.text(0.5, 0.5, title, ha='center', va='center', fontweight='bold', fontsize=16)
+    ax_title.axis('off')
+
+    # --- Pie Chart ---
+    ax_pie = fig.add_subplot(nested_gs[1, 0])
     if band_df.empty or 'QSOPoints' not in band_df.columns or band_df['QSOPoints'].sum() == 0:
-        ax.text(0.5, 0.5, 'No Data', ha='center', va='center', fontsize=12)
-        ax.set_title(title, fontweight='bold', fontsize=16)
-        ax.axis('off')
+        ax_pie.text(0.5, 0.5, 'No Data', ha='center', va='center', fontsize=12)
+        ax_pie.axis('off')
+        # Turn off the table axis as well
+        ax_table = fig.add_subplot(nested_gs[2, 0])
+        ax_table.axis('off')
         return
 
-    # --- Data Aggregation for the subplot ---
     point_summary = band_df.groupby('QSOPoints').agg(
         QSOs=('Call', 'count')
     ).reset_index()
     point_summary['Points'] = point_summary['QSOPoints'] * point_summary['QSOs']
-    point_summary['AVG'] = point_summary['QSOPoints']
-
-    # --- Pie Chart ---
-    pie_data = point_summary.set_index('QSOPoints')['Points']
+    
+    # Exclude 0-point QSOs from the pie chart visualization
+    pie_chart_data = point_summary[point_summary['QSOPoints'] > 0]
+    
+    pie_data = pie_chart_data.set_index('QSOPoints')['Points']
     labels = [f"{idx} Pts" for idx in pie_data.index]
     
-    wedges, texts, autotexts = ax.pie(pie_data, labels=labels, autopct='%1.1f%%',
-                                      startangle=90, counterclock=False, radius=radius,
-                                      center=(0, 0.2))
-    for autotext in autotexts:
-        autotext.set_fontsize(8)
+    wedges, texts = ax_pie.pie(pie_data, labels=labels, autopct=None,
+                               startangle=90, counterclock=False, radius=radius,
+                               textprops={'fontsize': 12, 'fontweight': 'bold'})
+    
+    ax_pie.set_aspect('equal') # Ensure the pie is a circle
 
-    ax.set_title(title, fontweight='bold', fontsize=16)
-
-    # --- Add "Not to Scale" note if needed ---
+    # --- "Not to Scale" Note ---
     if is_not_to_scale:
-        ax.text(0.5, 0.0, "*NOT TO SCALE*", ha='center', va='center',
-                transform=ax.transAxes, fontsize=12, fontweight='bold')
+        ax_pie.text(0.5, 0.0, "*NOT TO SCALE*", ha='center', va='center',
+                    transform=ax_pie.transAxes, fontsize=12, fontweight='bold')
 
     # --- Summary Table ---
+    ax_table = fig.add_subplot(nested_gs[2, 0])
+    ax_table.axis('off')
+    
     total_row = pd.DataFrame({
         'QSOPoints': ['Total'],
         'QSOs': [point_summary['QSOs'].sum()],
@@ -153,12 +176,14 @@ def _create_pie_chart_subplot(ax: plt.Axes, band_df: pd.DataFrame, title: str, r
         'AVG': [point_summary['Points'].sum() / point_summary['QSOs'].sum() if point_summary['QSOs'].sum() > 0 else 0]
     })
     
+    point_summary['AVG'] = point_summary['QSOPoints']
     table_data = pd.concat([point_summary, total_row], ignore_index=True)
     table_data['AVG'] = table_data['AVG'].map('{:.2f}'.format)
     
     cell_text = table_data[['QSOPoints', 'QSOs', 'Points', 'AVG']].values
     col_labels = ['Pts/QSO', 'QSOs', 'Points', 'Avg']
     
-    table = ax.table(cellText=cell_text, colLabels=col_labels, cellLoc='center', loc='bottom', bbox=[0.1, -0.5, 0.8, 0.4])
+    table = ax_table.table(cellText=cell_text, colLabels=col_labels, cellLoc='center', loc='center')
     table.auto_set_font_size(False)
     table.set_fontsize(10)
+    table.scale(1, 1.5)
