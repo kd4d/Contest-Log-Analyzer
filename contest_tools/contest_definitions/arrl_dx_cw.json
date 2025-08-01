@@ -1,0 +1,44 @@
+{
+  "_filename": "contest_tools/contest_definitions/arrl_dx_cw.json",
+  "contest_name": "ARRL-DX-CW",
+  "mults_from_zero_point_qsos": false,
+  "custom_multiplier_resolver": "arrl_dx_resolver",
+  "exchange_parsing_rules": {
+    "ARRL-DX-CW-WVE": {
+      "regex": "(\\d{3})\\s+([A-Z]{2})\\s+([A-Z0-9/]+)\\s+(\\d{3})\\s+([A-Z0-9]+)(?:\\s+(\\d))?",
+      "groups": ["SentRST", "SentLocation", "Call", "RST", "RcvdPower", "Transmitter"]
+    },
+    "ARRL-DX-CW-DX": {
+      "regex": "(\\d{3})\\s+([A-Z0-9]+)\\s+([A-Z0-9/]+)\\s+(\\d{3})\\s+([A-Z]{2})(?:\\s+(\\d))?",
+      "groups": ["SentRST", "SentPower", "Call", "RST", "RcvdLocation", "Transmitter"]
+    }
+  },
+  "multiplier_rules": [
+    {
+      "name": "DXCC",
+      "applies_to": "W/VE",
+      "source": "dxcc",
+      "value_column": "Mult1",
+      "name_column": "Mult1Name",
+      "totaling_method": "sum_by_band"
+    },
+    {
+      "name": "STPROV",
+      "applies_to": "DX",
+      "source_column": "FinalMultiplier",
+      "value_column": "Mult1",
+      "totaling_method": "sum_by_band"
+    }
+  ],
+  "default_qso_columns": [
+    "ContestName", "CategoryOverlay", "CategoryOperator", "CategoryTransmitter", "MyCall",
+    "Frequency", "Mode", "Datetime", 
+    "SentRST", "SentLocation", "SentPower",
+    "Call", 
+    "RST", "RcvdLocation", "RcvdPower", "Transmitter",
+    "Band", "Date", "Hour", "Dupe",
+    "DXCCName", "DXCCPfx", "CQZone", "ITUZone", "Continent", "WAEName", "WAEPfx", "Lat", "Lon", "Tzone",
+    "Run", "QSOPoints",
+    "Mult1", "Mult1Name", "FinalMultiplier"
+  ]
+}

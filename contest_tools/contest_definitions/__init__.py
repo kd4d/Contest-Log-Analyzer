@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-31
-# Version: 0.22.0-Beta
+# Date: 2025-08-01
+# Version: 0.23.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,6 +22,15 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.23.5-Beta] - 2025-08-01
+### Fixed
+# - Added the missing 'mults_from_zero_point_qsos' property to the class.
+
+## [0.23.4-Beta] - 2025-08-01
+### Added
+# - Added a 'mults_from_zero_point_qsos' property to support contest-specific
+#   scoring rules.
 
 ## [0.22.0-Beta] - 2025-07-31
 ### Added
@@ -114,6 +123,11 @@ class ContestDefinition:
     @property
     def excluded_reports(self) -> List[str]:
         return self._data.get('excluded_reports', [])
+        
+    @property
+    def mults_from_zero_point_qsos(self) -> bool:
+        # Defaults to True for backward compatibility with older JSON files
+        return self._data.get('mults_from_zero_point_qsos', True)
 
     @property
     def cabrillo_version(self) -> str:

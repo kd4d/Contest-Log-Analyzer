@@ -1,0 +1,78 @@
+# ARRL DX Contest Multiplier Alias File
+#
+# Date: 2025-08-01
+#
+# Format: A comma-separated list of aliases, followed by a colon,
+#         the official 2-letter multiplier, and the full name in parentheses.
+#         Example -> ALIAS_1,ALIAS_2:Official_Abbreviation (Full Name)
+#
+# This file maps common callsign prefixes and other abbreviations to the
+# official multipliers for the ARRL DX Contest.
+#
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+# --- US States (48 Contiguous) ---
+AL:AL (Alabama)
+AZ:AZ (Arizona)
+AR:AR (Arkansas)
+CA:CA (California)
+CO:CO (Colorado)
+CT:CT (Connecticut)
+DE:DE (Delaware)
+FL:FL (Florida)
+GA:GA (Georgia)
+ID:ID (Idaho)
+IL:IL (Illinois)
+IN:IN (Indiana)
+IA:IA (Iowa)
+KS:KS (Kansas)
+KY:KY (Kentucky)
+LA:LA (Louisiana)
+ME:ME (Maine)
+MD:MD (Maryland)
+MA:MA (Massachusetts)
+MI:MI (Michigan)
+MN:MN (Minnesota)
+MS:MS (Mississippi)
+MO:MO (Missouri)
+MT:MT (Montana)
+NE:NE (Nebraska)
+NV:NV (Nevada)
+NH:NH (New Hampshire)
+NJ:NJ (New Jersey)
+NM:NM (New Mexico)
+NY:NY (New York)
+NC:NC (North Carolina)
+ND:ND (North Dakota)
+OH:OH (Ohio)
+OK:OK (Oklahoma)
+OR:OR (Oregon)
+PA:PA (Pennsylvania)
+RI:RI (Rhode Island)
+SC:SC (South Carolina)
+SD:SD (South Dakota)
+TN:TN (Tennessee)
+TX:TX (Texas)
+UT:UT (Utah)
+VT:VT (Vermont)
+VA:VA (Virginia)
+WA:WA (Washington)
+WV:WV (West Virginia)
+WI:WI (Wisconsin)
+WY:WY (Wyoming)
+# --- Canadian Provinces/Territories ---
+VE6:AB (Alberta)
+VE7:BC (British Columbia)
+VO2:LB (Labrador)
+VE4:MB (Manitoba)
+VE9:NB (New Brunswick)
+VO1,VO2:NF (Newfoundland and Labrador)
+VE1:NS (Nova Scotia)
+VE8:NT (Northwest Territories)
+VY0:NU (Nunavut)
+VE3:ON (Ontario)
+VY2,PEI:PE (Prince Edward Island)
+VE2,PQ:QC (Quebec)
+VE5:SK (Saskatchewan)
+VY1:YT (Yukon Territories)

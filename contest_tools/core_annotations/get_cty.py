@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-29
-# Version: 0.21.8-Beta
+# Date: 2025-08-01
+# Version: 0.23.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,6 +22,11 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.23.0-Beta] - 2025-08-01
+### Changed
+# - Standalone execution block updated to use the new CONTEST_DATA_DIR
+#   environment variable instead of CTY_DAT_PATH.
 
 ## [0.21.8-Beta] - 2025-07-29
 ### Fixed
@@ -313,9 +318,11 @@ if __name__ == "__main__":
                         help="Optional path to a file containing callsigns to look up, one per line.")
     args = parser.parse_args()
 
-    path = os.environ.get('CTY_DAT_PATH')
-    if not path: print("Error: CTY_DAT_PATH environment variable not set.", file=sys.stderr); sys.exit(1)
-    cty_path = path.strip().strip('"').strip("'")
+    data_dir = os.environ.get('CONTEST_DATA_DIR')
+    if not data_dir: print("Error: CONTEST_DATA_DIR environment variable not set.", file=sys.stderr); sys.exit(1)
+    
+    cty_path = os.path.join(data_dir.strip().strip('"').strip("'"), 'cty.dat')
+
     if not os.path.exists(cty_path): print(f"Error: The file '{cty_path}' could not be found.", file=sys.stderr); sys.exit(1)
     try:
         cty_main = CtyLookup(cty_dat_path=cty_path)

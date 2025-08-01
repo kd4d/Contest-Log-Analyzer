@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-31
-# Version: 0.22.5-Beta
+# Date: 2025-08-01
+# Version: 0.23.4-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,6 +21,21 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.23.4-Beta] - 2025-08-01
+### Changed
+# - Multiplier calculation is now controlled by a 'mults_from_zero_point_qsos'
+#   flag in the contest definition to correctly handle contests like CQ WW.
+
+## [0.23.3-Beta] - 2025-08-01
+### Fixed
+# - Multiplier counts now correctly exclude QSOs worth zero points, fixing a
+#   bug where W/VE stations were getting multiplier credit for other W/VE stations.
+
+## [0.23.2-Beta] - 2025-08-01
+### Fixed
+# - The report now correctly filters multiplier columns based on the station's
+#   location type (W/VE or DX) for asymmetric contests like ARRL-DX.
 
 ## [0.22.5-Beta] - 2025-07-31
 ### Changed
@@ -63,6 +78,7 @@ from typing import List, Dict
 import pandas as pd
 import os
 from ..contest_log import ContestLog
+from ..core_annotations import CtyLookup
 from .report_interface import ContestReport
 
 class Report(ContestReport):
@@ -101,8 +117,27 @@ class Report(ContestReport):
                 final_report_messages.append(msg)
                 continue
 
-            # --- Data-driven Multiplier Setup ---
-            multiplier_rules = log.contest_definition.multiplier_rules
+            # --- Determine Station Location Type for Asymmetric Contests ---
+            location_type = None
+            if "ARRL-DX" in contest_name.upper():
+                data_dir = os.environ.get('CONTEST_DATA_DIR').strip().strip('"').strip("'")
+                cty_dat_path = os.path.join(data_dir, 'cty.dat')
+                cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)
+                info = cty_lookup.get_cty(callsign)
+                location_type = "W/VE" if info.name in ["United States", "Canada"] else "DX"
+
+            # --- Data-driven Multiplier Setup (Filtered) ---
+            all_multiplier_rules = log.contest_definition.multiplier_rules
+            
+            # Filter rules based on location if applicable
+            if location_type:
+                multiplier_rules = [
+                    rule for rule in all_multiplier_rules 
+                    if rule.get('applies_to') == location_type
+                ]
+            else:
+                multiplier_rules = all_multiplier_rules
+
             mult_cols = [rule['value_column'] for rule in multiplier_rules]
             mult_names = [rule['name'] for rule in multiplier_rules]
 
@@ -115,8 +150,12 @@ class Report(ContestReport):
             # --- Separate Unknowns for Diagnostics ---
             unknown_mult_callsigns = set()
             for m_col in mult_cols:
-                unknown_df = df_net_full[(df_net_full[m_col] == 'Unknown') & (~df_net_full['Call'].str.endswith('/MM', na=False))]
-                unknown_mult_callsigns.update(unknown_df['Call'].unique())
+                if m_col in df_net_full.columns:
+                    unknown_df = df_net_full[(df_net_full[m_col] == 'Unknown') & (~df_net_full['Call'].str.endswith('/MM', na=False))]
+                    unknown_mult_callsigns.update(unknown_df['Call'].unique())
+            
+            # --- Get contest-specific rule for multiplier counting ---
+            count_mults_from_zero_pt_qsos = log.contest_definition.mults_from_zero_point_qsos
 
             for band in bands:
                 band_df_full = df_full[df_full['Band'] == band]
@@ -124,6 +163,12 @@ class Report(ContestReport):
                     continue
                 
                 band_df_net = band_df_full[band_df_full['Dupe'] == False]
+                
+                # Conditionally filter for QSOs with points before counting multipliers
+                if not count_mults_from_zero_pt_qsos:
+                    band_df_valid_mults = band_df_net[band_df_net['QSOPoints'] > 0]
+                else:
+                    band_df_valid_mults = band_df_net
 
                 band_summary = {'Band': band.replace('M', '')}
                 band_summary['QSOs'] = len(band_df_net)
@@ -131,7 +176,8 @@ class Report(ContestReport):
                 band_summary['Points'] = band_df_net['QSOPoints'].sum()
                 
                 for i, m_col in enumerate(mult_cols):
-                    band_summary[mult_names[i]] = band_df_net[band_df_net[m_col] != 'Unknown'][m_col].nunique()
+                    if m_col in band_df_valid_mults.columns:
+                        band_summary[mult_names[i]] = band_df_valid_mults[band_df_valid_mults[m_col] != 'Unknown'][m_col].nunique()
                 
                 band_summary['AVG'] = (band_summary['Points'] / band_summary['QSOs']) if band_summary['QSOs'] > 0 else 0
                 summary_data.append(band_summary)
@@ -149,17 +195,28 @@ class Report(ContestReport):
             total_summary['Points'] = sum(item['Points'] for item in summary_data)
             
             total_multiplier_count = 0
+            
+            # Conditionally filter for QSOs with points before counting total multipliers
+            if not count_mults_from_zero_pt_qsos:
+                df_net_valid_mults = df_net_full[df_net_full['QSOPoints'] > 0]
+            else:
+                df_net_valid_mults = df_net_full
+
             for i, rule in enumerate(multiplier_rules):
                 mult_name = mult_names[i]
                 mult_col = mult_cols[i]
                 totaling_method = rule.get('totaling_method', 'sum_by_band')
                 
+                if mult_col not in df_net_valid_mults.columns:
+                    total_summary[mult_name] = 0
+                    continue
+
                 if totaling_method == 'once_per_log':
-                    unique_mults = df_net_full[df_net_full[mult_col] != 'Unknown'][mult_col].nunique()
+                    unique_mults = df_net_valid_mults[df_net_valid_mults[mult_col] != 'Unknown'][mult_col].nunique()
                     total_summary[mult_name] = unique_mults
                     total_multiplier_count += unique_mults
                 else: # Default to sum_by_band
-                    total_summary[mult_name] = sum(item[mult_name] for item in summary_data)
+                    total_summary[mult_name] = sum(item.get(mult_name, 0) for item in summary_data)
                     total_multiplier_count += total_summary[mult_name]
 
             total_summary['AVG'] = (total_summary['Points'] / total_summary['QSOs']) if total_summary['QSOs'] > 0 else 0

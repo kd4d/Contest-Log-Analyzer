@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-31
-# Version: 0.22.0-Beta
+# Date: 2025-08-01
+# Version: 0.23.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,6 +21,11 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.23.0-Beta] - 2025-08-01
+### Added
+# - For ARRL-DX contests, the LogManager now validates that all loaded logs
+#   are of the same type (either all W/VE or all DX), raising an error on a mismatch.
 
 ## [0.22.0-Beta] - 2025-07-31
 ### Added
@@ -40,6 +45,7 @@
 
 from typing import Dict, List, Optional
 from .contest_log import ContestLog
+from .core_annotations import CtyLookup
 import os
 
 class LogManager:
@@ -49,6 +55,21 @@ class LogManager:
     def __init__(self):
         self._logs: Dict[str, ContestLog] = {}
         self._expected_contest_name: Optional[str] = None
+        self._expected_location_type: Optional[str] = None # 'W/VE' or 'DX'
+        
+        data_dir = os.environ.get('CONTEST_DATA_DIR')
+        if not data_dir:
+            raise ValueError("CONTEST_DATA_DIR environment variable not set.")
+        cty_dat_path = os.path.join(data_dir.strip().strip('"').strip("'"), 'cty.dat')
+        self.cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)
+
+
+    def _get_station_location_type(self, callsign: str) -> str:
+        """Determines if a station is W/VE or DX for ARRL DX Contest purposes."""
+        info = self.cty_lookup.get_cty(callsign)
+        if info.name in ["United States", "Canada"]:
+            return "W/VE"
+        return "DX"
 
     def load_log(self, cabrillo_filepath: str) -> Optional[ContestLog]:
         """
@@ -66,7 +87,7 @@ class LogManager:
             # Auto-detect contest name from the file
             contest_name = self._get_contest_name_from_file(cabrillo_filepath)
             
-            # --- New Validation Check ---
+            # --- Contest Name Validation Check ---
             if self._expected_contest_name is None:
                 self._expected_contest_name = contest_name
             elif self._expected_contest_name != contest_name:
@@ -76,6 +97,21 @@ class LogManager:
                 )
             
             log = ContestLog(contest_name=contest_name, cabrillo_filepath=cabrillo_filepath)
+            
+            # --- ARRL-DX Location Type Validation ---
+            if "ARRL-DX" in contest_name.upper():
+                callsign = log.get_metadata().get('MyCall')
+                location_type = self._get_station_location_type(callsign)
+                
+                if self._expected_location_type is None:
+                    self._expected_location_type = location_type
+                elif self._expected_location_type != location_type:
+                    raise ValueError(
+                        f"ARRL-DX Log Mismatch. All logs must be of the same type.\n"
+                        f"  - Expected station type: {self._expected_location_type}\n"
+                        f"  - Found '{location_type}' for call {callsign} in {os.path.basename(cabrillo_filepath)}"
+                    )
+
             log.apply_annotations()
             
             # Export the processed DataFrame to a CSV file
@@ -83,9 +119,9 @@ class LogManager:
             output_csv_path = f"{base_name}_processed.csv"
             log.export_to_csv(output_csv_path)
             
-            callsign = log.get_metadata().get('MyCall', os.path.basename(cabrillo_filepath))
-            self._logs[callsign] = log
-            print(f"Successfully loaded and processed log for {callsign}.")
+            callsign_key = log.get_metadata().get('MyCall', os.path.basename(cabrillo_filepath))
+            self._logs[callsign_key] = log
+            print(f"Successfully loaded and processed log for {callsign_key}.")
             return log
         except (ValueError, FileNotFoundError, KeyError, IOError) as e:
             print(f"Error loading log {cabrillo_filepath}: {e}")

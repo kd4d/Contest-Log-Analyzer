@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-31
-# Version: 0.22.4-Beta
+# Date: 2025-08-01
+# Version: 0.23.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,6 +22,13 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.23.0-Beta] - 2025-08-01
+### Changed
+# - Refactored data file handling to use a single CONTEST_DATA_DIR environment
+#   variable instead of the file-specific CTY_DAT_PATH.
+# - The program will now exit if a mix of W/VE and DX station logs are
+#   provided for the ARRL-DX contest.
 
 ## [0.22.4-Beta] - 2025-07-31
 ### Added
@@ -132,9 +139,9 @@ def main():
     # --- High-Priority Pre-Checks ---
     args = sys.argv[1:]
     
-    if 'CTY_DAT_PATH' not in os.environ:
-        print("\nFATAL ERROR: The CTY_DAT_PATH environment variable is not set.")
-        print("Please set this variable to the full path of your cty.dat file.")
+    if 'CONTEST_DATA_DIR' not in os.environ:
+        print("\nFATAL ERROR: The CONTEST_DATA_DIR environment variable is not set.")
+        print("Please set this variable to the path of your data directory (containing cty.dat).")
         print_usage_and_exit()
 
     if '--reports' in args:
@@ -152,7 +159,7 @@ def main():
     report_kwargs = {}
 
     if '--include-dupes' in args:
-        report_kwargs['include-dupes'] = True
+        report_kwargs['include_dupes'] = True
         args.remove('--include-dupes')
     
     if '--mult-name' in args:
@@ -221,7 +228,7 @@ def main():
         
         # --- Generate the selected reports ---
         for r_id, ReportClass in reports_to_run:
-            # --- New: Check if report is excluded for this contest ---
+            # --- Check if report is excluded for this contest ---
             if r_id in first_log.contest_definition.excluded_reports:
                 print(f"\nSkipping report '{ReportClass.report_name.fget(None)}': excluded for this contest.")
                 continue

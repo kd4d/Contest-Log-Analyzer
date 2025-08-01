@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-31
-# Version: 0.22.0-Beta
+# Date: 2025-08-01
+# Version: 0.23.6-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,6 +22,19 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.23.6-Beta] - 2025-08-01
+### Added
+# - Added an explicit 'dxcc' source type for multiplier rules to correctly
+#   handle standard DXCC multipliers without invoking WAE-specific logic.
+
+## [0.23.0-Beta] - 2025-08-01
+### Changed
+# - Multiplier calculation logic updated to handle asymmetric contests (like ARRL-DX)
+#   by checking an `applies_to` key in the multiplier rules.
+# - Scoring logic updated to use the CONTEST_DATA_DIR environment variable.
+### Added
+# - Integration hook for the new ARRL-DX multiplier alias resolver.
 
 ## [0.22.0-Beta] - 2025-07-31
 ### Changed
@@ -94,6 +107,7 @@ class ContestLog:
         self.metadata: Dict[str, Any] = {}
         self.dupe_sets: Dict[str, Set[Tuple[str, str]]] = {}
         self.filepath = cabrillo_filepath
+        self._my_location_type: Optional[str] = None # W/VE or DX
 
         try:
             self.contest_definition = ContestDefinition.from_json(contest_name)
@@ -129,7 +143,7 @@ class ContestLog:
 
         for col in ['MyCallRaw', 'Call', 'Mode']:
              if col in raw_df.columns:
-                 raw_df[col.replace('Raw','')] = raw_df[col].fillna('').astype(str).str.upper()
+                raw_df[col.replace('Raw','')] = raw_df[col].fillna('').astype(str).str.upper()
 
         raw_df.drop(columns=['FrequencyRaw', 'DateRaw', 'TimeRaw', 'MyCallRaw'], inplace=True, errors='ignore')
         self.qsos_df = raw_df.reindex(columns=self.contest_definition.default_qso_columns)
@@ -186,11 +200,35 @@ class ContestLog:
     def apply_contest_specific_annotations(self):
         print("Applying contest-specific annotations (Multipliers & Scoring)...")
         
+        # --- Pre-calculation: Determine own location type for asymmetric contests ---
+        my_call = self.metadata.get('MyCall')
+        if "ARRL-DX" in self.contest_name.upper() and my_call:
+            data_dir = os.environ.get('CONTEST_DATA_DIR').strip().strip('"').strip("'")
+            cty_dat_path = os.path.join(data_dir, 'cty.dat')
+            cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)
+            info = cty_lookup.get_cty(my_call)
+            self._my_location_type = "W/VE" if info.name in ["United States", "Canada"] else "DX"
+            print(f"Logger location type determined as: {self._my_location_type}")
+
+        # --- Contest-Specific Multiplier Resolution (e.g., ARRL-DX) ---
+        if self.contest_definition._data.get("custom_multiplier_resolver") == "arrl_dx_resolver":
+            try:
+                resolver_module = importlib.import_module("contest_tools.contest_specific_annotations.arrl_dx_multiplier_resolver")
+                self.qsos_df = resolver_module.resolve_multipliers(self.qsos_df, self._my_location_type)
+                print("Successfully applied ARRL-DX multiplier resolver.")
+            except Exception as e:
+                print(f"Warning: Could not run ARRL-DX multiplier resolver: {e}")
+
         # --- Multiplier Calculation ---
         multiplier_rules = self.contest_definition.multiplier_rules
         if multiplier_rules:
             print("Calculating contest multipliers...")
             for rule in multiplier_rules:
+                # For asymmetric contests, only apply rule if it matches our location
+                applies_to = rule.get('applies_to')
+                if applies_to and self._my_location_type and applies_to != self._my_location_type:
+                    continue
+
                 dest_col = rule.get('value_column')
                 dest_name_col = rule.get('name_column')
                 source = rule.get('source')
@@ -202,6 +240,11 @@ class ContestLog:
                     if dest_name_col:
                         self.qsos_df[dest_name_col] = self.qsos_df['WAEName'].where(self.qsos_df['WAEName'].notna() & (self.qsos_df['WAEName'] != ''), self.qsos_df['DXCCName'])
                 
+                elif source == 'dxcc':
+                    self.qsos_df[dest_col] = self.qsos_df['DXCCPfx']
+                    if dest_name_col:
+                        self.qsos_df[dest_name_col] = self.qsos_df['DXCCName']
+
                 elif 'source_column' in rule:
                     source_col = rule.get('source_column')
                     if source_col in self.qsos_df.columns:
@@ -225,14 +268,14 @@ class ContestLog:
 
 
         # --- Scoring Calculation ---
-        my_call = self.metadata.get('MyCall')
         if not my_call:
             print("Warning: 'MyCall' not found in metadata. Cannot calculate QSO points.")
             self.qsos_df['QSOPoints'] = 0
             return
             
         try:
-            cty_dat_path = os.environ.get('CTY_DAT_PATH').strip().strip('"').strip("'")
+            data_dir = os.environ.get('CONTEST_DATA_DIR').strip().strip('"').strip("'")
+            cty_dat_path = os.path.join(data_dir, 'cty.dat')
             cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)
             my_call_info = cty_lookup.get_cty_DXCC_WAE(my_call)._asdict()
         except Exception as e:

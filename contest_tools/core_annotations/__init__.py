@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-28
-# Version: 0.21.0-Beta
+# Date: 2025-08-01
+# Version: 0.23.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,6 +22,11 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.23.0-Beta] - 2025-08-01
+### Changed
+# - Updated `process_dataframe_for_cty_data` to use the new CONTEST_DATA_DIR
+#   environment variable to locate the cty.dat file.
 
 ## [0.21.0-Beta] - 2025-07-28
 ### Changed
@@ -62,7 +67,7 @@ from .run_s_p import process_contest_log_for_run_s_p
 def process_dataframe_for_cty_data(df: pd.DataFrame) -> pd.DataFrame:
     """
     Applies universal DXCC and WAE lookup to a DataFrame of QSO records
-    using the main cty.dat file specified by the CTY_DAT_PATH environment variable.
+    using the main cty.dat file specified by the CONTEST_DATA_DIR environment variable.
 
     Args:
         df (pd.DataFrame): The input DataFrame, expected to have a 'Call' column.
@@ -76,11 +81,11 @@ def process_dataframe_for_cty_data(df: pd.DataFrame) -> pd.DataFrame:
     if 'Call' not in df.columns:
         raise KeyError("DataFrame must contain a 'Call' column for CTY data lookup.")
 
-    base_cty_path = os.environ.get('CTY_DAT_PATH')
-    if not base_cty_path:
-        raise ValueError("Environment variable CTY_DAT_PATH is not set.")
+    data_dir = os.environ.get('CONTEST_DATA_DIR')
+    if not data_dir:
+        raise ValueError("Environment variable CONTEST_DATA_DIR is not set.")
     
-    cty_dat_file_path = base_cty_path.strip().strip('"').strip("'")
+    cty_dat_file_path = os.path.join(data_dir.strip().strip('"').strip("'"), 'cty.dat')
     print(f"Using country file for universal annotations: {cty_dat_file_path}")
 
     processed_df = df.copy()
