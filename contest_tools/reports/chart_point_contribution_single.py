@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-01
-# Version: 0.22.25-Beta
+# Version: 0.22.26-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,6 +22,11 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.22.26-Beta] - 2025-08-01
+### Changed
+# - Refactored to use the new '_create_pie_chart_subplot' shared helper
+#   function, simplifying the code and ensuring consistency.
 
 ## [0.22.25-Beta] - 2025-08-01
 ### Fixed
@@ -148,6 +153,7 @@ import os
 import numpy as np
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
+from ._report_utils import _create_pie_chart_subplot
 
 class Report(ContestReport):
     """
@@ -211,21 +217,7 @@ class Report(ContestReport):
         for i, band in enumerate(bands):
             ax = axes[i]
             band_df = df[df['Band'] == band]
-
-            if band_df.empty or band_df['QSOPoints'].sum() == 0:
-                ax.text(0.5, 0.5, 'No Data', ha='center', va='center', fontsize=12)
-                ax.set_title(f"{band.replace('M','')} Meters", fontweight='bold', fontsize=16)
-                ax.axis('off')
-                continue
-
-            # --- Data Aggregation for the subplot ---
-            point_summary = band_df.groupby('QSOPoints').agg(
-                QSOs=('Call', 'count')
-            ).reset_index()
-            point_summary['Points'] = point_summary['QSOPoints'] * point_summary['QSOs']
-            point_summary['AVG'] = point_summary['QSOPoints']
-
-            # --- Proportional Pie Chart Sizing ---
+            
             current_band_points = band_points.get(band, 0)
             point_ratio = (current_band_points / max_band_points) if max_band_points > 0 else 0
             
@@ -236,40 +228,9 @@ class Report(ContestReport):
 
             max_radius = 1.25
             radius = max_radius * np.sqrt(point_ratio)
-
-            pie_data = point_summary.set_index('QSOPoints')['Points']
-            labels = [f"{idx} Pts" for idx in pie_data.index]
             
-            wedges, texts, autotexts = ax.pie(pie_data, labels=labels, autopct='%1.1f%%',
-                                              startangle=90, counterclock=False, radius=radius,
-                                              center=(0, 0.25)) # Adjusted center
-            for autotext in autotexts:
-                autotext.set_fontsize(8)
-
-            ax.set_title(f"{band.replace('M','')} Meters", fontweight='bold', fontsize=16)
-
-            # --- Add "Not to Scale" note if needed ---
-            if is_not_to_scale:
-                ax.text(0.5, 0.1, "*NOT TO SCALE*", ha='center', va='center',
-                        transform=ax.transAxes, fontsize=12, fontweight='bold')
-
-            # --- Summary Table ---
-            total_row = pd.DataFrame({
-                'QSOPoints': ['Total'],
-                'QSOs': [point_summary['QSOs'].sum()],
-                'Points': [point_summary['Points'].sum()],
-                'AVG': [point_summary['Points'].sum() / point_summary['QSOs'].sum() if point_summary['QSOs'].sum() > 0 else 0]
-            })
-            
-            table_data = pd.concat([point_summary, total_row], ignore_index=True)
-            table_data['AVG'] = table_data['AVG'].map('{:.2f}'.format)
-            
-            cell_text = table_data[['QSOPoints', 'QSOs', 'Points', 'AVG']].values
-            col_labels = ['Pts/QSO', 'QSOs', 'Points', 'Avg']
-            
-            table = ax.table(cellText=cell_text, colLabels=col_labels, cellLoc='center', loc='bottom', bbox=[0.1, -0.5, 0.8, 0.4])
-            table.auto_set_font_size(False)
-            table.set_fontsize(10)
+            title = f"{band.replace('M','')} Meters"
+            _create_pie_chart_subplot(ax, band_df, title, radius, is_not_to_scale)
 
         # --- Final Formatting and Save ---
         fig.suptitle(f"{callsign} - Point Contribution Breakdown by Band", fontsize=22, fontweight='bold')
