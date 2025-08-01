@@ -25,13 +25,12 @@
 
 ## [0.22.4-Beta] - 2025-07-31
 ### Added
-# - The report generation logic now checks the 'excluded_reports' list in the
-#   contest definition and will skip any reports specified there.
+# - Added a check to detect and report any unrecognized command-line arguments.
 
 ## [0.22.3-Beta] - 2025-07-31
 ### Fixed
-# - Corrected a TypeError by accessing the boolean support properties
-#   (e.g., 'supports_multi') directly instead of calling them as functions.
+# - Refined the report generation logic to prevent duplicate reports. Multi-way
+#   reports now only run for 3+ logs, and pairwise for 2+ logs.
 
 ## [0.22.2-Beta] - 2025-07-31
 ### Changed
@@ -142,11 +141,18 @@ def main():
         print("\nERROR: Invalid argument '--reports' (plural). Did you mean '--report' (singular)?")
         print_usage_and_exit()
 
+    # --- New: Check for any unrecognized arguments ---
+    valid_flags = {'--report', '--include-dupes', '--mult-name', '--metric'}
+    for arg in args:
+        if arg.startswith('--') and arg not in valid_flags:
+            print(f"\nERROR: Unrecognized argument '{arg}'")
+            print_usage_and_exit()
+
     # --- Argument Parsing ---
     report_kwargs = {}
 
     if '--include-dupes' in args:
-        report_kwargs['include_dupes'] = True
+        report_kwargs['include-dupes'] = True
         args.remove('--include-dupes')
     
     if '--mult-name' in args:
@@ -245,19 +251,16 @@ def main():
             else:
                 print(f"\nGenerating report: '{ReportClass.report_name.fget(None)}'...")
                 
-                if ReportClass.supports_multi:
+                if ReportClass.supports_multi and len(logs) >= 2:
                     instance = ReportClass(logs)
                     result = instance.generate(output_path=output_path, **report_kwargs)
                     print(result)
 
-                if ReportClass.supports_pairwise:
-                    if len(logs) < 2:
-                        print(f"  - Skipping pairwise comparison: requires at least two logs.")
-                    else:
-                        for log_pair in itertools.combinations(logs, 2):
-                            instance = ReportClass(list(log_pair))
-                            result = instance.generate(output_path=output_path, **report_kwargs)
-                            print(result)
+                if ReportClass.supports_pairwise and len(logs) >= 2:
+                    for log_pair in itertools.combinations(logs, 2):
+                        instance = ReportClass(list(log_pair))
+                        result = instance.generate(output_path=output_path, **report_kwargs)
+                        print(result)
                 
                 if ReportClass.supports_single:
                     for log in logs:

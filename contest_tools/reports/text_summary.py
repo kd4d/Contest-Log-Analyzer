@@ -5,7 +5,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-07-31
-# Version: 0.22.0-Beta
+# Version: 0.22.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,6 +20,16 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.22.2-Beta] - 2025-07-31
+### Changed
+# - Converted the report from a 'single' log summary to a 'multi' log
+#   comparative summary table.
+
+## [0.22.1-Beta] - 2025-07-31
+### Fixed
+# - Corrected the filename generation logic to include the callsign, preventing
+#   the report from being overwritten when multiple logs are provided.
 
 ## [0.22.0-Beta] - 2025-07-31
 ### Changed
@@ -58,7 +68,7 @@ class Report(ContestReport):
     """
     Generates a text summary of key statistics for each log.
     """
-    supports_single = True
+    supports_multi = True
     
     @property
     def report_id(self) -> str:
@@ -82,46 +92,60 @@ class Report(ContestReport):
                 - include_dupes (bool): If True, dupes are included. Defaults to False.
         """
         include_dupes = kwargs.get('include_dupes', False)
-
-        report_lines = [f"--- {self.report_name} ---"]
-        if include_dupes:
-            report_lines.append("Note: Includes Dupes")
-        else:
-            report_lines.append("Note: Does Not Include Dupes")
-        report_lines.append("")
+        
+        report_data = []
+        all_calls = []
 
         for log in self.logs:
             callsign = log.get_metadata().get('MyCall', 'Unknown')
+            all_calls.append(callsign)
             df_full = log.get_processed_data()
             
             if not include_dupes and 'Dupe' in df_full.columns:
                 df = df_full[df_full['Dupe'] == False].copy()
-                qso_label = "Total QSOs (without dupes)"
             else:
                 df = df_full.copy()
-                qso_label = "Total QSOs (with dupes)"
             
-            total_qsos = len(df)
-            total_dupes = df_full['Dupe'].sum()
-            
-            report_lines.append(f"Log: {callsign}")
-            report_lines.append(f"  - {qso_label}: {total_qsos}")
-            report_lines.append(f"  - Total Dupes (in original log): {total_dupes}")
-            
-            if 'Run' in df.columns:
-                run_qsos = (df['Run'] == 'Run').sum()
-                sp_qsos = (df['Run'] == 'S&P').sum()
-                unknown_qsos = (df['Run'] == 'Unknown').sum()
-                report_lines.append(f"  - Run QSOs: {run_qsos}")
-                report_lines.append(f"  - S&P QSOs: {sp_qsos}")
-                report_lines.append(f"  - Unknown QSOs: {unknown_qsos}")
-            
-            report_lines.append("")
+            log_summary = {
+                'Callsign': callsign,
+                'Total QSOs': len(df),
+                'Dupes': df_full['Dupe'].sum(),
+                'Run': (df['Run'] == 'Run').sum() if 'Run' in df.columns else 0,
+                'S&P': (df['Run'] == 'S&P').sum() if 'Run' in df.columns else 0,
+                'Unknown': (df['Run'] == 'Unknown').sum() if 'Run' in df.columns else 0,
+            }
+            report_data.append(log_summary)
+
+        # --- Formatting ---
+        headers = ["Callsign", "Total QSOs", "Dupes", "Run", "S&P", "Unknown"]
+        col_widths = {h: len(h) for h in headers}
+
+        for row in report_data:
+            for key, value in row.items():
+                col_widths[key] = max(col_widths.get(key, 0), len(str(value)))
+
+        header_str = "  ".join([f"{h:<{col_widths[h]}}" for h in headers])
+        separator = "-" * len(header_str)
+
+        report_lines = [
+            f"--- {self.report_name} ---",
+            "Note: Does Not Include Dupes" if not include_dupes else "Note: Includes Dupes",
+            "",
+            header_str,
+            separator
+        ]
+
+        for row in report_data:
+            data_parts = [f"{row[h]:<{col_widths[h]}}" for h in headers]
+            report_lines.append("  ".join(data_parts))
 
         report_content = "\n".join(report_lines)
         os.makedirs(output_path, exist_ok=True)
-        filename = f"{self.report_id}_report.txt"
+        
+        filename_calls = '_vs_'.join(sorted(all_calls))
+        filename = f"{self.report_id}_{filename_calls}.txt"
         filepath = os.path.join(output_path, filename)
+        
         with open(filepath, 'w', encoding='utf-8') as f:
             f.write(report_content)
         
