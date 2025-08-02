@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-01
-# Version: 0.25.0-Beta
+# Date: 2025-08-02
+# Version: 0.26.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,6 +22,12 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.26.0-Beta] - 2025-08-02
+### Added
+# - Added 'multiplier_report_scope' property to control report generation.
+# - The 'multiplier_rules' property now supports 'include_missed_summary' and
+#   'alias_file' keys for enhanced score reporting.
 
 ## [0.25.0-Beta] - 2025-08-01
 ### Added
@@ -126,7 +132,7 @@ class ContestDefinition:
         return self._data.get('contest_name', 'Unknown Contest')
 
     @property
-    def multiplier_rules(self) -> List[Dict[str, str]]:
+    def multiplier_rules(self) -> List[Dict[str, Any]]:
         return self._data.get('multiplier_rules', [])
 
     @property
@@ -150,6 +156,11 @@ class ContestDefinition:
     @property
     def contest_period(self) -> Optional[Dict[str, str]]:
         return self._data.get('contest_period')
+
+    @property
+    def multiplier_report_scope(self) -> str:
+        # Defaults to 'per_band' for standard multiplier reports
+        return self._data.get('multiplier_report_scope', 'per_band')
 
     @property
     def cabrillo_version(self) -> str:

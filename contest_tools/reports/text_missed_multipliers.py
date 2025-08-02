@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-01
-# Version: 0.24.2-Beta
+# Date: 2025-08-02
+# Version: 0.26.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,6 +21,11 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.26.0-Beta] - 2025-08-02
+### Changed
+# - The report now checks the 'multiplier_report_scope' property to generate
+#   either a single "All Bands" summary or a band-by-band report.
 
 ## [0.24.2-Beta] - 2025-08-01
 ### Changed
@@ -188,6 +193,7 @@ class Report(ContestReport):
 
         mult_column = mult_rule['value_column']
         name_column = mult_rule.get('name_column')
+        report_scope = first_log_def.multiplier_report_scope
 
         all_calls = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])
         
@@ -248,126 +254,127 @@ class Report(ContestReport):
                 for _, row in name_map_df.iterrows():
                     overall_prefix_to_name_map[row[mult_column]] = row[name_column]
 
-        for band in bands:
-            band_header_text = f"{band.replace('M', '')} Meters Missed Multipliers"
-            report_lines.append(band_header_text.center(table_width))
-            
-            band_data: Dict[str, pd.DataFrame] = {}
-            mult_sets: Dict[str, Set[str]] = {call: set() for call in all_calls}
-            prefix_to_name_map = {}
+        if report_scope == 'per_band':
+            for band in bands:
+                band_header_text = f"{band.replace('M', '')} Meters Missed Multipliers"
+                report_lines.append(band_header_text.center(table_width))
+                
+                band_data: Dict[str, pd.DataFrame] = {}
+                mult_sets: Dict[str, Set[str]] = {call: set() for call in all_calls}
+                prefix_to_name_map = {}
 
-            for log in self.logs:
-                callsign = log.get_metadata().get('MyCall', 'Unknown')
-                df_full = log.get_processed_data()
-                
-                df = df_full[df_full['Dupe'] == False].copy()
-                
-                if df.empty or mult_column not in df.columns:
-                    continue
-                
-                df_band = df[df['Band'] == band].copy()
-                
-                # --- Filter out "Unknown" multipliers ---
-                df_band = df_band[df_band[mult_column] != 'Unknown']
-                
-                if df_band.empty:
-                    continue
-                
-                df_band.dropna(subset=[mult_column], inplace=True)
-                
-                if name_column and name_column in df_band.columns:
-                    name_map_df = df_band[[mult_column, name_column]].dropna().drop_duplicates()
-                    for _, row in name_map_df.iterrows():
-                        prefix_to_name_map[row[mult_column]] = row[name_column]
-
-                agg_data = df_band.groupby(mult_column).agg(
-                    QSO_Count=('Call', 'size'),
-                    Run_SP_Status=('Run', self._get_run_sp_status)
-                )
-                
-                band_data[callsign] = agg_data
-                mult_sets[callsign].update(agg_data.index)
-
-            union_of_all_mults = set.union(*mult_sets.values())
-            
-            if not union_of_all_mults:
-                report_lines.append("     (No multipliers on this band for any log)".center(table_width))
-                report_lines.append("")
-                continue
-
-            missed_mults_on_band = set()
-            for call in all_calls:
-                missed_mults_on_band.update(union_of_all_mults.difference(mult_sets[call]))
-
-            header = f"{first_col_header:<{first_col_width}} | {' | '.join(header_cells)}"
-            report_lines.append(header)
-
-            if not missed_mults_on_band:
-                report_lines.append(f"     (No missed {mult_name} on this band)".center(table_width))
-            else:
-                for mult in sorted(list(missed_mults_on_band)):
-                    cell_parts = []
-                    for call in all_calls:
-                        if call in band_data and mult in band_data[call].index:
-                            qso_count = band_data[call].loc[mult, 'QSO_Count']
-                            run_sp = band_data[call].loc[mult, 'Run_SP_Status']
-                            text_part = f"({run_sp})"
-                            num_part = str(qso_count)
-                            padding = " " * (col_width - len(text_part) - len(num_part))
-                            cell_content = f"{text_part}{padding}{num_part}"
-                        else:
-                            cell_content = f"{'0':>{col_width}}"
-                        
-                        cell_parts.append(cell_content)
+                for log in self.logs:
+                    callsign = log.get_metadata().get('MyCall', 'Unknown')
+                    df_full = log.get_processed_data()
                     
-                    display_mult = str(mult)
-                    if name_column:
-                        mult_full_name = prefix_to_name_map.get(mult, overall_prefix_to_name_map.get(mult, ''))
+                    df = df_full[df_full['Dupe'] == False].copy()
+                    
+                    if df.empty or mult_column not in df.columns:
+                        continue
+                    
+                    df_band = df[df['Band'] == band].copy()
+                    
+                    # --- Filter out "Unknown" multipliers ---
+                    df_band = df_band[df_band[mult_column] != 'Unknown']
+                    
+                    if df_band.empty:
+                        continue
+                    
+                    df_band.dropna(subset=[mult_column], inplace=True)
+                    
+                    if name_column and name_column in df_band.columns:
+                        name_map_df = df_band[[mult_column, name_column]].dropna().drop_duplicates()
+                        for _, row in name_map_df.iterrows():
+                            prefix_to_name_map[row[mult_column]] = row[name_column]
 
-                        if pd.isna(mult_full_name):
-                            clean_name = ''
-                        else:
-                            clean_name = str(mult_full_name).split(';')[0]
-                            clean_name = clean_name.replace('\n', ' ').replace('\r', ' ').strip()
+                    agg_data = df_band.groupby(mult_column).agg(
+                        QSO_Count=('Call', 'size'),
+                        Run_SP_Status=('Run', self._get_run_sp_status)
+                    )
+                    
+                    band_data[callsign] = agg_data
+                    mult_sets[callsign].update(agg_data.index)
+
+                union_of_all_mults = set.union(*mult_sets.values())
+                
+                if not union_of_all_mults:
+                    report_lines.append("     (No multipliers on this band for any log)".center(table_width))
+                    report_lines.append("")
+                    continue
+
+                missed_mults_on_band = set()
+                for call in all_calls:
+                    missed_mults_on_band.update(union_of_all_mults.difference(mult_sets[call]))
+
+                header = f"{first_col_header:<{first_col_width}} | {' | '.join(header_cells)}"
+                report_lines.append(header)
+
+                if not missed_mults_on_band:
+                    report_lines.append(f"     (No missed {mult_name} on this band)".center(table_width))
+                else:
+                    for mult in sorted(list(missed_mults_on_band)):
+                        cell_parts = []
+                        for call in all_calls:
+                            if call in band_data and mult in band_data[call].index:
+                                qso_count = band_data[call].loc[mult, 'QSO_Count']
+                                run_sp = band_data[call].loc[mult, 'Run_SP_Status']
+                                text_part = f"({run_sp})"
+                                num_part = str(qso_count)
+                                padding = " " * (col_width - len(text_part) - len(num_part))
+                                cell_content = f"{text_part}{padding}{num_part}"
+                            else:
+                                cell_content = f"{'0':>{col_width}}"
+                            
+                            cell_parts.append(cell_content)
                         
-                        display_mult = f"{mult} ({clean_name})"
+                        display_mult = str(mult)
+                        if name_column:
+                            mult_full_name = prefix_to_name_map.get(mult, overall_prefix_to_name_map.get(mult, ''))
 
-                    row_str = f"{display_mult:<{first_col_width}} | {' | '.join(cell_parts)}"
-                    report_lines.append(row_str)
+                            if pd.isna(mult_full_name):
+                                clean_name = ''
+                            else:
+                                clean_name = str(mult_full_name).split(';')[0]
+                                clean_name = clean_name.replace('\n', ' ').replace('\r', ' ').strip()
+                            
+                            display_mult = f"{mult} ({clean_name})"
 
-            separator_cells = [f"{'---':^{col_width}}" for _ in all_calls]
-            separator = f"{'':<{first_col_width}} | {' | '.join(separator_cells)}"
-            report_lines.append(separator)
-            
-            total_counts = {call: len(mult_sets[call]) for call in all_calls}
-            union_count = len(union_of_all_mults)
-            max_mults = max(total_counts.values()) if total_counts else 0
+                        row_str = f"{display_mult:<{first_col_width}} | {' | '.join(cell_parts)}"
+                        report_lines.append(row_str)
 
-            worked_cells = [f"{total_counts[call]:>{col_width}}" for call in all_calls]
-            worked_line = f"{'Worked:':<{first_col_width}} | {' | '.join(worked_cells)}"
-            
-            missed_cells = []
-            for call in all_calls:
-                missed_count = union_count - total_counts[call]
-                missed_cells.append(f"{missed_count:>{col_width}}")
-            missed_line = f"{'Missed:':<{first_col_width}} | {' | '.join(missed_cells)}"
-            
-            delta_cells = []
-            for call in all_calls:
-                delta = total_counts[call] - max_mults
-                delta_str = str(delta) if delta != 0 else ""
-                delta_cells.append(f"{delta_str:>{col_width}}")
-            delta_line = f"{'Delta:':<{first_col_width}} | {' | '.join(delta_cells)}"
-            
-            report_lines.append(worked_line)
-            report_lines.append(missed_line)
-            report_lines.append(delta_line)
-            report_lines.append("")
+                separator_cells = [f"{'---':^{col_width}}" for _ in all_calls]
+                separator = f"{'':<{first_col_width}} | {' | '.join(separator_cells)}"
+                report_lines.append(separator)
+                
+                total_counts = {call: len(mult_sets[call]) for call in all_calls}
+                union_count = len(union_of_all_mults)
+                max_mults = max(total_counts.values()) if total_counts else 0
 
-            # --- Accumulate totals for the final summary ---
-            for call in all_calls:
-                all_bands_worked_sum[call] += total_counts[call]
-                all_bands_missed_sum[call] += union_count - total_counts[call]
+                worked_cells = [f"{total_counts[call]:>{col_width}}" for call in all_calls]
+                worked_line = f"{'Worked:':<{first_col_width}} | {' | '.join(worked_cells)}"
+                
+                missed_cells = []
+                for call in all_calls:
+                    missed_count = union_count - total_counts[call]
+                    missed_cells.append(f"{missed_count:>{col_width}}")
+                missed_line = f"{'Missed:':<{first_col_width}} | {' | '.join(missed_cells)}"
+                
+                delta_cells = []
+                for call in all_calls:
+                    delta = total_counts[call] - max_mults
+                    delta_str = str(delta) if delta != 0 else ""
+                    delta_cells.append(f"{delta_str:>{col_width}}")
+                delta_line = f"{'Delta:':<{first_col_width}} | {' | '.join(delta_cells)}"
+                
+                report_lines.append(worked_line)
+                report_lines.append(missed_line)
+                report_lines.append(delta_line)
+                report_lines.append("")
+
+                # --- Accumulate totals for the final summary ---
+                for call in all_calls:
+                    all_bands_worked_sum[call] += total_counts[call]
+                    all_bands_missed_sum[call] += union_count - total_counts[call]
 
         # --- All Bands Summary ---
         report_lines.append(f"     All Bands Summary".center(table_width))

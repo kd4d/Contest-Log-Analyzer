@@ -1,6 +1,14 @@
 {
   "_filename": "contest_tools/contest_definitions/cq_wpx_ssb.json",
   "contest_name": "CQ-WPX-SSB",
+  "mults_from_zero_point_qsos": true,
+  "contest_period": {
+    "start_day": "Saturday",
+    "start_time": "00:00:00 UTC",
+    "end_day": "Sunday",
+    "end_time": "23:59:59 UTC"
+  },
+  "multiplier_report_scope": "all_bands",
   "exchange_parsing_rules": {
     "CQ-WPX-SSB": {
       "regex": "(\\d{2})\\s+(\\d{1,5})\\s+([A-Z0-9/]+)\\s+(\\d{2})\\s+(\\d{1,5})(?:\\s+(\\d))?",

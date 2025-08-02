@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-01
-# Version: 0.23.4-Beta
+# Date: 2025-08-02
+# Version: 0.26.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,6 +21,11 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.26.0-Beta] - 2025-08-02
+### Added
+# - The report now generates a summary of unworked multipliers if the
+#   'include_missed_summary' flag is set in the contest definition.
 
 ## [0.23.4-Beta] - 2025-08-01
 ### Changed
@@ -74,12 +79,43 @@
 ## [0.21.0-Beta] - 2025-07-29
 # - Initial release of the Score Summary report.
 
-from typing import List, Dict
+from typing import List, Dict, Set
 import pandas as pd
 import os
+import re
 from ..contest_log import ContestLog
 from ..core_annotations import CtyLookup
 from .report_interface import ContestReport
+
+def _load_all_multipliers_from_alias_file(alias_filename: str) -> Set[str]:
+    """
+    Parses a .dat alias file to extract the set of all official multiplier abbreviations.
+    """
+    all_mults = set()
+    data_dir = os.environ.get('CONTEST_DATA_DIR').strip().strip('"').strip("'")
+    filepath = os.path.join(data_dir, alias_filename)
+    
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                
+                parts = line.split(':')
+                if len(parts) != 2:
+                    continue
+                    
+                official_part = parts[1]
+                match = re.match(r'([A-Z]{2,3})\s+\(.*\)', official_part.strip())
+                if match:
+                    all_mults.add(match.group(1).upper())
+    except FileNotFoundError:
+        print(f"Warning: Alias file '{alias_filename}' not found. Cannot generate missed multiplier summary.")
+    except Exception as e:
+        print(f"Error reading alias file '{alias_filename}': {e}")
+        
+    return all_mults
 
 class Report(ContestReport):
     """
@@ -129,7 +165,6 @@ class Report(ContestReport):
             # --- Data-driven Multiplier Setup (Filtered) ---
             all_multiplier_rules = log.contest_definition.multiplier_rules
             
-            # Filter rules based on location if applicable
             if location_type:
                 multiplier_rules = [
                     rule for rule in all_multiplier_rules 
@@ -147,14 +182,12 @@ class Report(ContestReport):
             
             df_net_full = df_full[df_full['Dupe'] == False].copy()
             
-            # --- Separate Unknowns for Diagnostics ---
             unknown_mult_callsigns = set()
             for m_col in mult_cols:
                 if m_col in df_net_full.columns:
                     unknown_df = df_net_full[(df_net_full[m_col] == 'Unknown') & (~df_net_full['Call'].str.endswith('/MM', na=False))]
                     unknown_mult_callsigns.update(unknown_df['Call'].unique())
             
-            # --- Get contest-specific rule for multiplier counting ---
             count_mults_from_zero_pt_qsos = log.contest_definition.mults_from_zero_point_qsos
 
             for band in bands:
@@ -164,7 +197,6 @@ class Report(ContestReport):
                 
                 band_df_net = band_df_full[band_df_full['Dupe'] == False]
                 
-                # Conditionally filter for QSOs with points before counting multipliers
                 if not count_mults_from_zero_pt_qsos:
                     band_df_valid_mults = band_df_net[band_df_net['QSOPoints'] > 0]
                 else:
@@ -196,7 +228,6 @@ class Report(ContestReport):
             
             total_multiplier_count = 0
             
-            # Conditionally filter for QSOs with points before counting total multipliers
             if not count_mults_from_zero_pt_qsos:
                 df_net_valid_mults = df_net_full[df_net_full['QSOPoints'] > 0]
             else:
@@ -279,7 +310,27 @@ class Report(ContestReport):
             report_lines.append("=" * len(header))
             report_lines.append(f"        TOTAL SCORE : {final_score:,.0f}")
 
-            # --- Add Diagnostic List for Unknown Calls ---
+            # --- Unworked Multiplier Summary ---
+            for rule in multiplier_rules:
+                if rule.get('include_missed_summary') and 'alias_file' in rule:
+                    mult_col = rule['value_column']
+                    all_possible_mults = _load_all_multipliers_from_alias_file(rule['alias_file'])
+                    worked_mults = set(df_net_valid_mults[df_net_valid_mults[mult_col] != 'Unknown'][mult_col].unique())
+                    missed_mults = sorted(list(all_possible_mults - worked_mults))
+                    
+                    if missed_mults:
+                        report_lines.append("\n" + "-" * 40)
+                        report_lines.append(f"Unworked {rule['name']}:")
+                        report_lines.append("-" * 40)
+                        
+                        col_width = 8
+                        num_cols = max(1, len(header) // (col_width + 2))
+                        
+                        for i in range(0, len(missed_mults), num_cols):
+                            line_mults = missed_mults[i:i+num_cols]
+                            report_lines.append("  ".join([f"{mult:<{col_width}}" for mult in line_mults]))
+
+            # --- Diagnostic List for Unknown Calls ---
             if unknown_mult_callsigns:
                 report_lines.append("\n" + "-" * 40)
                 report_lines.append("Callsigns with 'Unknown' Country Multiplier:")

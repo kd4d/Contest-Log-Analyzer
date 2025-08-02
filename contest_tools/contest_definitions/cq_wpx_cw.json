@@ -1,6 +1,14 @@
 {
   "_filename": "contest_tools/contest_definitions/cq_wpx_cw.json",
   "contest_name": "CQ-WPX-CW",
+  "mults_from_zero_point_qsos": true,
+  "contest_period": {
+    "start_day": "Saturday",
+    "start_time": "00:00:00 UTC",
+    "end_day": "Sunday",
+    "end_time": "23:59:59 UTC"
+  },
+  "multiplier_report_scope": "all_bands",
   "exchange_parsing_rules": {
     "CQ-WPX-CW": {
       "regex": "(\\d{3})\\s+(\\d{1,5})\\s+([A-Z0-9/]+)\\s+(\\d{3})\\s+(\\d{1,5})(?:\\s+(\\d))?",
