@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-01
-# Version: 0.25.0-Beta
+# Date: 2025-08-02
+# Version: 0.26.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,6 +21,11 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.26.1-Beta] - 2025-08-02
+### Fixed
+# - Converted report_id, report_name, and report_type from @property methods
+#   to simple class attributes to fix a bug in the report generation loop.
 
 ## [0.25.0-Beta] - 2025-08-01
 ### Changed
@@ -61,20 +66,11 @@ class Report(ContestReport):
     Generates a three-subplot plot showing the cumulative difference in
     QSOs or Points between two logs.
     """
+    report_id: str = "cumulative_difference_plots"
+    report_name: str = "Cumulative Difference Plots"
+    report_type: str = "plot"
     supports_pairwise = True
     
-    @property
-    def report_id(self) -> str:
-        return "cumulative_difference_plots"
-
-    @property
-    def report_name(self) -> str:
-        return "Cumulative Difference Plots"
-
-    @property
-    def report_type(self) -> str:
-        return "plot"
-
     def _generate_single_plot(self, output_path: str, band_filter: str, metric: str, master_index: pd.DatetimeIndex):
         """
         Helper function to generate a single cumulative difference plot.
@@ -97,9 +93,9 @@ class Report(ContestReport):
         )
 
         if len(aligned_data) < 2:
-              print(f"  - Skipping {band_filter} difference plot: one or both logs have no QSOs on this band.")
-              return None
-            
+                print(f"  - Skipping {band_filter} difference plot: one or both logs have no QSOs on this band.")
+                return None
+                
         pt1_aligned = aligned_data[call1]
         pt2_aligned = aligned_data[call2]
 

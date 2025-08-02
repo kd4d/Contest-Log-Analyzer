@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-01
-# Version: 0.24.2-Beta
+# Date: 2025-08-02
+# Version: 0.26.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,6 +21,11 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.26.1-Beta] - 2025-08-02
+### Fixed
+# - Converted report_id, report_name, and report_type from @property methods
+#   to simple class attributes to fix a bug in the report generation loop.
 
 ## [0.24.2-Beta] - 2025-08-01
 ### Changed
@@ -73,22 +78,13 @@ class Report(ContestReport):
     """
     Generates a summary of QSOs per multiplier, broken down by band.
     """
+    report_id: str = "multiplier_summary"
+    report_name: str = "Multiplier Summary"
+    report_type: str = "text"
     supports_single = False
     supports_multi = True
     supports_pairwise = True
     
-    @property
-    def report_id(self) -> str:
-        return "multiplier_summary"
-
-    @property
-    def report_name(self) -> str:
-        return "Multiplier Summary"
-
-    @property
-    def report_type(self) -> str:
-        return "text"
-
     def generate(self, output_path: str, **kwargs) -> str:
         """
         Generates the report content.
@@ -199,12 +195,12 @@ class Report(ContestReport):
         
         total_pivot = pivot.groupby(level='MyCall').sum()
         for call in all_calls:
-             if call in total_pivot.index:
-                row = total_pivot.loc[call]
-                line = f"  {call:<21}"
-                for band in bands: line += f"{row.get(band, 0):>7}"
-                line += f"{row.get('Total', 0):>7}"
-                report_lines.append(line)
+                if call in total_pivot.index:
+                    row = total_pivot.loc[call]
+                    line = f"  {call:<21}"
+                    for band in bands: line += f"{row.get(band, 0):>7}"
+                    line += f"{row.get('Total', 0):>7}"
+                    report_lines.append(line)
 
         # --- Add Unknown Total Line ---
         if not unknown_df.empty:

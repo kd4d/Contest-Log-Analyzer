@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-31
-# Version: 0.22.2-Beta
+# Date: 2025-08-02
+# Version: 0.26.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,6 +20,11 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.26.1-Beta] - 2025-08-02
+### Fixed
+# - Converted report_id, report_name, and report_type from @property methods
+#   to simple class attributes to fix a bug in the report generation loop.
 
 ## [0.22.2-Beta] - 2025-07-31
 ### Changed
@@ -68,20 +73,11 @@ class Report(ContestReport):
     """
     Generates a text summary of key statistics for each log.
     """
+    report_id: str = "summary"
+    report_name: str = "QSO Summary"
+    report_type: str = "text"
     supports_multi = True
     
-    @property
-    def report_id(self) -> str:
-        return "summary"
-
-    @property
-    def report_name(self) -> str:
-        return "QSO Summary"
-
-    @property
-    def report_type(self) -> str:
-        return "text"
-
     def generate(self, output_path: str, **kwargs) -> str:
         """
         Generates the report content, saves it to a file, and returns a summary.

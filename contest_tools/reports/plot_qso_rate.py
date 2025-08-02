@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-01
-# Version: 0.25.0-Beta
+# Date: 2025-08-02
+# Version: 0.26.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,6 +21,11 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.26.1-Beta] - 2025-08-02
+### Fixed
+# - Converted report_id, report_name, and report_type from @property methods
+#   to simple class attributes to fix a bug in the report generation loop.
 
 ## [0.25.0-Beta] - 2025-08-01
 ### Changed
@@ -73,20 +78,11 @@ class Report(ContestReport):
     Generates a series of plots comparing QSO rates: one for all bands
     combined, and one for each individual contest band.
     """
+    report_id: str = "qso_rate_plots"
+    report_name: str = "QSO Rate Comparison Plots"
+    report_type: str = "plot"
     supports_multi = True
     
-    @property
-    def report_id(self) -> str:
-        return "qso_rate_plots"
-
-    @property
-    def report_name(self) -> str:
-        return "QSO Rate Comparison Plots"
-
-    @property
-    def report_type(self) -> str:
-        return "plot"
-
     def _generate_single_plot(self, output_path: str, include_dupes: bool, band_filter: str, master_index: pd.DatetimeIndex) -> str:
         """
         Helper function to generate a single QSO rate plot for a specific band.
@@ -105,8 +101,8 @@ class Report(ContestReport):
         )
         
         if not aligned_data:
-              print(f"  - Skipping {band_filter} QSO rate plot: no logs have QSOs on this band.")
-              return None
+                print(f"  - Skipping {band_filter} QSO rate plot: no logs have QSOs on this band.")
+                return None
 
         # --- Plotting ---
         summary_data = []
@@ -145,11 +141,11 @@ class Report(ContestReport):
         # --- Add Inset Summary Table ---
         col_labels = ['Total', 'Run', 'S&P', 'Unk']
         table = ax.table(cellText=summary_data,
-                         rowLabels=row_labels,
-                         colLabels=col_labels,
-                         loc='lower right',
-                         cellLoc='center',
-                         bbox=[0.75, 0.05, 0.2, 0.25]) # Position [left, bottom, width, height]
+                            rowLabels=row_labels,
+                            colLabels=col_labels,
+                            loc='lower right',
+                            cellLoc='center',
+                            bbox=[0.75, 0.05, 0.2, 0.25]) # Position [left, bottom, width, height]
         
         # Set face color for all cells to make the table opaque
         table.set_alpha(0.9)

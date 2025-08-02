@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-31
-# Version: 0.22.1-Beta
+# Date: 2025-08-02
+# Version: 0.26.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,6 +20,13 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.26.1-Beta] - 2025-08-02
+### Fixed
+# - Converted report_id, report_name, and report_type from @property methods
+#   to simple class attributes. This fixes a bug where accessing these
+#   attributes at the class level would return a property object instead of the
+#   string value.
 
 ## [0.22.1-Beta] - 2025-07-31
 ### Changed
@@ -64,6 +71,11 @@ class ContestReport(ABC):
     Abstract base class for all report generators.
     Ensures that every report has a consistent structure.
     """
+    # --- Class attributes defining report metadata and behavior ---
+    report_id: str = "abstract_report"
+    report_name: str = "Abstract Report"
+    report_type: str = "text"
+    
     supports_single: bool = False
     supports_pairwise: bool = False
     supports_multi: bool = False
@@ -72,24 +84,6 @@ class ContestReport(ABC):
         if not logs:
             raise ValueError("Cannot initialize a report with an empty list of logs.")
         self.logs = logs
-
-    @property
-    @abstractmethod
-    def report_id(self) -> str:
-        """A unique, machine-readable identifier for the report (e.g., 'summary_text')."""
-        pass
-
-    @property
-    @abstractmethod
-    def report_name(self) -> str:
-        """A human-readable name for the report (e.g., 'Contest Summary')."""
-        pass
-
-    @property
-    @abstractmethod
-    def report_type(self) -> str:
-        """The type of report, either 'text', 'plot', or 'chart'."""
-        pass
 
     @abstractmethod
     def generate(self, output_path: str, **kwargs) -> str:

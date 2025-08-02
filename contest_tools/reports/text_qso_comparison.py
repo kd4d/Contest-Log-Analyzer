@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-31
-# Version: 0.22.0-Beta
+# Date: 2025-08-02
+# Version: 0.26.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,6 +20,11 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.26.1-Beta] - 2025-08-02
+### Fixed
+# - Converted report_id, report_name, and report_type from @property methods
+#   to simple class attributes to fix a bug in the report generation loop.
 
 ## [0.22.0-Beta] - 2025-07-31
 ### Changed
@@ -65,21 +70,10 @@ class Report(ContestReport):
     Generates a detailed pairwise comparison of QSO statistics, including
     breakdowns by Run/S&P/Unknown for total and unique QSOs.
     """
-    @property
-    def report_id(self) -> str:
-        return "qso_comparison"
-
-    @property
-    def report_name(self) -> str:
-        return "QSO Comparison Summary"
-
-    @property
-    def report_type(self) -> str:
-        return "text"
-
-    @property
-    def supports_pairwise(self) -> bool:
-        return True
+    report_id: str = "qso_comparison"
+    report_name: str = "QSO Comparison Summary"
+    report_type: str = "text"
+    supports_pairwise = True
 
     def generate(self, output_path: str, **kwargs) -> str:
         """

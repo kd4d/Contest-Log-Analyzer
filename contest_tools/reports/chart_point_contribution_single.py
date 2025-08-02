@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-01
-# Version: 0.22.26-Beta
+# Date: 2025-08-02
+# Version: 0.26.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,6 +22,11 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.26.1-Beta] - 2025-08-02
+### Fixed
+# - Converted report_id, report_name, and report_type from @property methods
+#   to simple class attributes to fix a bug in the report generation loop.
 
 ## [0.22.26-Beta] - 2025-08-01
 ### Changed
@@ -163,19 +168,10 @@ class Report(ContestReport):
     showing the breakdown of total points by the point value of each QSO.
     The size of each pie chart is proportional to its point total.
     """
+    report_id: str = "chart_point_contribution_single"
+    report_name: str = "Single Log Point Contribution"
+    report_type: str = "chart"
     supports_single = True
-
-    @property
-    def report_id(self) -> str:
-        return "chart_point_contribution_single"
-
-    @property
-    def report_name(self) -> str:
-        return "Single Log Point Contribution"
-
-    @property
-    def report_type(self) -> str:
-        return "chart"
 
     def generate(self, output_path: str, **kwargs) -> str:
         """
