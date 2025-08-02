@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-31
-# Version: 0.22.4-Beta
+# Date: 2025-08-01
+# Version: 0.24.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,6 +21,15 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.24.2-Beta] - 2025-08-01
+### Changed
+# - Set supports_single to False to prevent the report from running on a single log.
+
+## [0.23.1-Beta] - 2025-08-01
+### Fixed
+# - Sanitized the multiplier name before creating the output filename to
+#   remove invalid characters like slashes ('/').
 
 ## [0.22.4-Beta] - 2025-07-31
 ### Fixed
@@ -124,6 +133,7 @@ class Report(ContestReport):
     Generates a comparative report showing a specific multiplier worked by each
     station on each band, highlighting missed opportunities.
     """
+    supports_single = False
     supports_multi = True
     supports_pairwise = True
     
@@ -409,7 +419,9 @@ class Report(ContestReport):
         os.makedirs(output_path, exist_ok=True)
         
         filename_calls = '_vs_'.join(sorted(all_calls))
-        filename = f"{self.report_id}_{mult_name.lower()}_{filename_calls}.txt"
+        # --- FIX: Sanitize mult_name for the filename ---
+        safe_mult_name = mult_name.lower().replace('/', '_')
+        filename = f"{self.report_id}_{safe_mult_name}_{filename_calls}.txt"
         filepath = os.path.join(output_path, filename)
         
         with open(filepath, 'w', encoding='utf-8') as f:

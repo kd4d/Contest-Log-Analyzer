@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-31
-# Version: 0.22.4-Beta
+# Date: 2025-08-01
+# Version: 0.24.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,6 +21,10 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.24.2-Beta] - 2025-08-01
+### Changed
+# - Set supports_single to False to prevent the report from running on a single log.
 
 ## [0.22.4-Beta] - 2025-07-31
 ### Changed
@@ -69,6 +73,7 @@ class Report(ContestReport):
     """
     Generates a summary of QSOs per multiplier, broken down by band.
     """
+    supports_single = False
     supports_multi = True
     supports_pairwise = True
     

@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-01
-# Version: 0.23.5-Beta
+# Version: 0.25.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,6 +22,15 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.25.0-Beta] - 2025-08-01
+### Added
+# - Added 'contest_period' property to support fixed contest start and end times.
+
+## [0.24.0-Beta] - 2025-08-01
+### Added
+# - Added 'dupe_check_scope' and 'custom_multiplier_resolver' properties
+#   to support contest-specific dupe rules and multiplier logic.
 
 ## [0.23.5-Beta] - 2025-08-01
 ### Fixed
@@ -128,6 +137,19 @@ class ContestDefinition:
     def mults_from_zero_point_qsos(self) -> bool:
         # Defaults to True for backward compatibility with older JSON files
         return self._data.get('mults_from_zero_point_qsos', True)
+
+    @property
+    def dupe_check_scope(self) -> str:
+        # Defaults to 'per_band' for standard dupe checking
+        return self._data.get('dupe_check_scope', 'per_band')
+
+    @property
+    def custom_multiplier_resolver(self) -> Optional[str]:
+        return self._data.get('custom_multiplier_resolver')
+
+    @property
+    def contest_period(self) -> Optional[Dict[str, str]]:
+        return self._data.get('contest_period')
 
     @property
     def cabrillo_version(self) -> str:

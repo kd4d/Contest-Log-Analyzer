@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-01
-# Version: 0.22.2-Beta
+# Version: 0.25.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,6 +21,11 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.25.0-Beta] - 2025-08-01
+### Changed
+# - The 'align_logs_by_time' function now accepts a pre-calculated master
+#   time index to ensure all reports use a consistent contest period.
 
 ## [0.22.2-Beta] - 2025-08-01
 ### Changed
@@ -53,6 +58,7 @@ def align_logs_by_time(
     logs: List[ContestLog],
     value_column: str,
     agg_func: str,
+    master_index: pd.DatetimeIndex,
     band_filter: str = "All",
     time_unit: str = '1h'
 ) -> Dict[str, pd.DataFrame]:
@@ -64,6 +70,7 @@ def align_logs_by_time(
         logs (List[ContestLog]): The list of ContestLog objects to process.
         value_column (str): The column to aggregate (e.g., 'QSOPoints' or 'Call').
         agg_func (str): The aggregation function to use ('sum' or 'count').
+        master_index (pd.DatetimeIndex): The pre-calculated time index for the contest.
         band_filter (str): The band to filter for (e.g., '20M', or 'All').
         time_unit (str): The time frequency for resampling (e.g., '1h', '10min').
 
@@ -72,14 +79,11 @@ def align_logs_by_time(
                                  are perfectly aligned DataFrames of aggregated data.
     """
     processed_logs = {}
-    all_datetimes = []
 
-    # First pass: process each log individually and find the global time range
     for log in logs:
         callsign = log.get_metadata().get('MyCall', 'Unknown')
         df_full = log.get_processed_data()[log.get_processed_data()['Dupe'] == False].copy()
         
-        # Apply the band filter
         if band_filter != "All":
             df = df_full[df_full['Band'] == band_filter].copy()
         else:
@@ -88,15 +92,12 @@ def align_logs_by_time(
         if df.empty:
             continue
         
-        all_datetimes.extend(df['Datetime'])
-        
-        # Create a pivot table for the current log
         pt = df.pivot_table(
-            index='Datetime', 
+            index=pd.to_datetime(df['Datetime']).dt.floor(time_unit), 
             columns='Run', 
             values=value_column, 
             aggfunc=agg_func
-        ).resample(time_unit).sum().fillna(0)
+        ).fillna(0)
         
         for col in ['Run', 'S&P', 'Unknown']:
             if col not in pt.columns:
@@ -107,13 +108,8 @@ def align_logs_by_time(
         
         processed_logs[callsign] = pt
 
-    if not processed_logs or not all_datetimes:
+    if not processed_logs:
         return {}
-
-    # Second pass: align all processed logs to a master time index
-    start_time = min(all_datetimes).floor(time_unit)
-    end_time = max(all_datetimes).ceil(time_unit)
-    master_index = pd.date_range(start=start_time, end=end_time, freq=time_unit)
 
     aligned_logs = {}
     for callsign, pt in processed_logs.items():

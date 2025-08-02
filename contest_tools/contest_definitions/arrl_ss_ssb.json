@@ -1,0 +1,41 @@
+{
+  "_filename": "contest_tools/contest_definitions/arrl_ss_ssb.json",
+  "contest_name": "ARRL-SS-SSB",
+  "dupe_check_scope": "all_bands",
+  "custom_multiplier_resolver": "arrl_ss_multiplier_resolver",
+  "contest_period": {
+    "start_day": "Saturday",
+    "start_time": "21:00:00 UTC",
+    "end_day": "Monday",
+    "end_time": "03:00:00 UTC"
+  },
+  "exchange_parsing_rules": {
+    "ARRL-SS-SSB-11-FIELD": {
+      "regex": "(\\d+)\\s+([A-Z])\\s+([A-Z0-9/]+)\\s+(\\d{2})\\s+([A-Z]{2,3})\\s+([A-Z0-9/]+)\\s+(\\d+)\\s+([A-Z])\\s+([A-Z0-9/]+)\\s+(\\d{2})\\s+([A-Z]{2,3})",
+      "groups": ["SentNR", "SentPrecedence", "SentCall", "SentCheck", "SentSection", "Call", "RcvdNR", "RcvdPrecedence", "RcvdCall", "RcvdCheck", "RcvdSection"]
+    },
+    "ARRL-SS-SSB-9-FIELD": {
+      "regex": "(\\d+)\\s+([A-Z])\\s+(\\d{2})\\s+([A-Z]{2,3})\\s+([A-Z0-9/]+)\\s+(\\d+)\\s+([A-Z])\\s+(\\d{2})\\s+([A-Z]{2,3})",
+      "groups": ["SentNR", "SentPrecedence", "SentCheck", "SentSection", "Call", "RcvdNR", "RcvdPrecedence", "RcvdCheck", "RcvdSection"]
+    }
+  },
+  "multiplier_rules": [
+    {
+      "name": "Sections",
+      "source_column": "FinalMultiplier",
+      "value_column": "Mult1",
+      "totaling_method": "once_per_log"
+    }
+  ],
+  "default_qso_columns": [
+    "ContestName", "CategoryOverlay", "CategoryOperator", "CategoryTransmitter", "MyCall",
+    "Frequency", "Mode", "Datetime", 
+    "SentNR", "SentPrecedence", "SentCall", "SentCheck", "SentSection",
+    "Call", 
+    "RcvdNR", "RcvdPrecedence", "RcvdCall", "RcvdCheck", "RcvdSection",
+    "Band", "Date", "Hour", "Dupe",
+    "DXCCName", "DXCCPfx", "CQZone", "ITUZone", "Continent", "WAEName", "WAEPfx", "Lat", "Lon", "Tzone",
+    "Run", "QSOPoints",
+    "Mult1", "Mult1Name", "FinalMultiplier"
+  ]
+}

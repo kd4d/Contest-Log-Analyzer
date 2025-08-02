@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-31
-# Version: 0.22.6-Beta
+# Date: 2025-08-01
+# Version: 0.25.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,6 +21,11 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.25.0-Beta] - 2025-08-01
+### Changed
+# - The report now uses the pre-aligned master time index to display the
+#   entire contest period, correctly showing gaps in operating time.
 
 ## [0.22.6-Beta] - 2025-07-31
 ### Changed
@@ -73,6 +78,11 @@ class Report(ContestReport):
             return "Error: 'mult_name' argument is required for the Multipliers by Hour report."
 
         final_report_messages = []
+        
+        log_manager = getattr(self.logs[0], '_log_manager_ref', None)
+        if not log_manager or log_manager.master_time_index is None:
+            return "Error: Master time index not available for report."
+        master_time_index = log_manager.master_time_index
 
         for log in self.logs:
             metadata = log.get_metadata()
@@ -106,7 +116,7 @@ class Report(ContestReport):
             
             df = df[df[mult_column] != 'Unknown']
             df.dropna(subset=[mult_column], inplace=True)
-            df['Hour'] = pd.to_numeric(df['Hour'])
+            df['HourDT'] = pd.to_datetime(df['Datetime']).dt.floor('h')
 
             # --- Calculation of New Multipliers per Hour ---
             bands = ['160M', '80M', '40M', '20M', '15M', '10M']
@@ -114,14 +124,10 @@ class Report(ContestReport):
             worked_mults_overall: Set = set()
             hourly_data = []
 
-            dates = sorted(df['Date'].unique())
-            hours = range(24)
-            full_index = pd.MultiIndex.from_product([dates, hours], names=['Date', 'Hour'])
-
-            for date, hour in full_index:
-                hour_df = df[(df['Date'] == date) & (df['Hour'] == hour)]
+            for timestamp in master_time_index:
+                hour_df = df[df['HourDT'] == timestamp]
                 
-                hourly_results = {'Date': date, 'Hour': f"{hour:02d}"}
+                hourly_results = {'Timestamp': timestamp}
                 hourly_total = 0
                 
                 for band in bands:
@@ -148,7 +154,7 @@ class Report(ContestReport):
             report_lines.append("")
 
             header1 = f"{'Date':<12}{'Hr':>4}" + "".join([f"{b.replace('M',''):>9}" for b in bands]) + f"{'Total':>9}"
-            header2 = f"{'':<12}{'':>4}" + "".join([f"{'CW':>9}" for b in bands]) + f"{'':>9}"
+            header2 = f"{'':<12}{'':>4}" + "".join([f"{'':>9}" for b in bands]) + f"{'':>9}" # Removed mode line
             separator = "-" * len(header1)
             
             report_lines.append(header1)
@@ -159,7 +165,7 @@ class Report(ContestReport):
             total_row['Total'] = 0
 
             for row_data in hourly_data:
-                line = f"{row_data['Date']:<12}{row_data['Hour']:>4}"
+                line = f"{row_data['Timestamp'].strftime('%Y-%m-%d'):<12}{row_data['Timestamp'].strftime('%H%M'):>4}"
                 for band in bands:
                     line += f"{row_data[band]:>9}"
                     total_row[band] += row_data[band]

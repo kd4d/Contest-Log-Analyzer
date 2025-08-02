@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-01
-# Version: 0.23.6-Beta
+# Version: 0.24.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,6 +22,12 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.24.0-Beta] - 2025-08-01
+### Added
+# - Added logic to handle contest-wide dupe checking (for ARRL Sweepstakes)
+#   based on a 'dupe_check_scope' flag in the contest definition.
+# - Added integration hook for the new ARRL Sweepstakes multiplier resolver.
 
 ## [0.23.6-Beta] - 2025-08-01
 ### Added
@@ -153,25 +159,40 @@ class ContestLog:
         self.qsos_df['Dupe'] = False
         self.dupe_sets.clear()
         
-        for band in self.qsos_df['Band'].unique():
-            if band == 'Invalid' or not band:
-                continue
-            
-            self.dupe_sets[band] = set()
-            band_indices = self.qsos_df[self.qsos_df['Band'] == band].index
-            
-            for idx in band_indices:
+        dupe_scope = self.contest_definition.dupe_check_scope
+        
+        if dupe_scope == 'all_bands':
+            # For contests like Sweepstakes, dupes are checked across all bands
+            all_bands_dupe_set = set()
+            for idx in self.qsos_df.index:
                 call = self.qsos_df.loc[idx, 'Call']
-                mode = self.qsos_df.loc[idx, 'Mode']
-                
-                if not call or not mode:
+                if not call:
                     continue
-                    
-                qso_tuple = (call, mode)
-                if qso_tuple in self.dupe_sets[band]:
+                if call in all_bands_dupe_set:
                     self.qsos_df.loc[idx, 'Dupe'] = True
                 else:
-                    self.dupe_sets[band].add(qso_tuple)
+                    all_bands_dupe_set.add(call)
+        else:
+            # Default behavior: check for dupes per band
+            for band in self.qsos_df['Band'].unique():
+                if band == 'Invalid' or not band:
+                    continue
+                
+                self.dupe_sets[band] = set()
+                band_indices = self.qsos_df[self.qsos_df['Band'] == band].index
+                
+                for idx in band_indices:
+                    call = self.qsos_df.loc[idx, 'Call']
+                    mode = self.qsos_df.loc[idx, 'Mode']
+                    
+                    if not call or not mode:
+                        continue
+                        
+                    qso_tuple = (call, mode)
+                    if qso_tuple in self.dupe_sets[band]:
+                        self.qsos_df.loc[idx, 'Dupe'] = True
+                    else:
+                        self.dupe_sets[band].add(qso_tuple)
 
     def apply_annotations(self):
         if self.qsos_df.empty:
@@ -210,14 +231,15 @@ class ContestLog:
             self._my_location_type = "W/VE" if info.name in ["United States", "Canada"] else "DX"
             print(f"Logger location type determined as: {self._my_location_type}")
 
-        # --- Contest-Specific Multiplier Resolution (e.g., ARRL-DX) ---
-        if self.contest_definition._data.get("custom_multiplier_resolver") == "arrl_dx_resolver":
+        # --- Contest-Specific Multiplier Resolution ---
+        resolver_name = self.contest_definition.custom_multiplier_resolver
+        if resolver_name:
             try:
-                resolver_module = importlib.import_module("contest_tools.contest_specific_annotations.arrl_dx_multiplier_resolver")
+                resolver_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{resolver_name}")
                 self.qsos_df = resolver_module.resolve_multipliers(self.qsos_df, self._my_location_type)
-                print("Successfully applied ARRL-DX multiplier resolver.")
+                print(f"Successfully applied '{resolver_name}' multiplier resolver.")
             except Exception as e:
-                print(f"Warning: Could not run ARRL-DX multiplier resolver: {e}")
+                print(f"Warning: Could not run '{resolver_name}' multiplier resolver: {e}")
 
         # --- Multiplier Calculation ---
         multiplier_rules = self.contest_definition.multiplier_rules

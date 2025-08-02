@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-31
-# Version: 0.22.0-Beta
+# Date: 2025-08-01
+# Version: 0.25.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,6 +21,11 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.25.0-Beta] - 2025-08-01
+### Changed
+# - The report now uses the pre-aligned master time index to display the
+#   entire contest period.
 
 ## [0.22.0-Beta] - 2025-07-31
 ### Changed
@@ -70,7 +75,7 @@ class Report(ContestReport):
     def report_type(self) -> str:
         return "plot"
 
-    def _generate_single_plot(self, output_path: str, band_filter: str, metric: str):
+    def _generate_single_plot(self, output_path: str, band_filter: str, metric: str, master_index: pd.DatetimeIndex):
         """
         Helper function to generate a single cumulative difference plot.
         """
@@ -86,7 +91,8 @@ class Report(ContestReport):
             logs=self.logs,
             value_column=value_column,
             agg_func=agg_func,
-            band_filter=band_filter, # Pass the band filter here
+            master_index=master_index,
+            band_filter=band_filter,
             time_unit='1h'
         )
 
@@ -157,6 +163,11 @@ class Report(ContestReport):
         if len(self.logs) != 2:
             return "Error: The Cumulative Difference Plot report requires exactly two logs."
 
+        log_manager = getattr(self.logs[0], '_log_manager_ref', None)
+        if not log_manager or log_manager.master_time_index is None:
+            return "Error: Master time index not available for plot report."
+        master_index = log_manager.master_time_index
+
         metric = kwargs.get('metric', 'qsos')
         bands_to_plot = ['All', '160M', '80M', '40M', '20M', '15M', '10M']
         created_files = []
@@ -167,7 +178,8 @@ class Report(ContestReport):
                 filepath = self._generate_single_plot(
                     output_path=save_path,
                     band_filter=band,
-                    metric=metric
+                    metric=metric,
+                    master_index=master_index
                 )
                 if filepath:
                     created_files.append(filepath)

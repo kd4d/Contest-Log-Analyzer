@@ -2,6 +2,12 @@
   "_filename": "contest_tools/contest_definitions/cq_ww_cw.json",
   "contest_name": "CQ-WW-CW",
   "mults_from_zero_point_qsos": true,
+  "contest_period": {
+    "start_day": "Saturday",
+    "start_time": "00:00:00 UTC",
+    "end_day": "Sunday",
+    "end_time": "23:59:59 UTC"
+  },
   "exchange_parsing_rules": {
     "CQ-WW-DX-CW": {
       "regex": "(\\d{3})\\s+(\\d{1,2})\\s+([A-Z0-9/]+)\\s+(\\d{3})\\s+(\\d{1,2})(?:\\s+(\\d))?",

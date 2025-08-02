@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-01
-# Version: 0.23.7-Beta
+# Version: 0.25.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,6 +22,23 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.25.0-Beta] - 2025-08-01
+### Changed
+# - Updated the main loop to pass the full list of log paths to the
+#   LogManager to support master time index calculation.
+
+## [0.24.2-Beta] - 2025-08-01
+### Fixed
+# - The auto-generation logic for multiplier reports now correctly handles
+#   single-log, multi-log, and pairwise reports based on their class properties.
+
+## [0.24.1-Beta] - 2025-08-01
+### Fixed
+# - The auto-generation logic for multiplier reports now correctly skips
+#   comparative reports (like missed_multipliers) if only one log is provided.
+# - Corrected auto-generation logic for single-log reports (like multipliers_by_hour)
+#   to correctly instantiate the report for each log individually.
 
 ## [0.23.7-Beta] - 2025-08-01
 ### Fixed
@@ -207,7 +224,7 @@ def main():
     try:
         log_manager = LogManager()
         for path in log_filepaths:
-            log_manager.load_log(path)
+            log_manager.load_log(path, log_filepaths)
         
         logs = log_manager.get_all_logs()
         if not logs:
@@ -250,7 +267,7 @@ def main():
             if r_id in ['missed_multipliers', 'multiplier_summary', 'multipliers_by_hour'] and 'mult_name' not in report_kwargs:
                 print(f"\nAuto-generating '{ReportClass.report_name.fget(None)}' for all available multiplier types...")
                 
-                # --- FIX: Filter multiplier rules for asymmetric contests ---
+                # Filter multiplier rules for asymmetric contests
                 log_location_type = first_log._my_location_type
                 all_rules = first_log.contest_definition.multiplier_rules
                 
@@ -269,9 +286,20 @@ def main():
                         current_kwargs = report_kwargs.copy()
                         current_kwargs['mult_name'] = mult_name
                         
-                        instance = ReportClass(logs)
-                        result = instance.generate(output_path=output_path, **current_kwargs)
-                        print(result)
+                        # Handle single vs multi-log reports correctly
+                        if ReportClass.supports_single:
+                            for log in logs:
+                                instance = ReportClass([log])
+                                result = instance.generate(output_path=output_path, **current_kwargs)
+                                print(result)
+                        elif (ReportClass.supports_multi or ReportClass.supports_pairwise):
+                            if len(logs) < 2:
+                                print(f"    - Skipping: {ReportClass.report_name.fget(None)} requires at least two logs.")
+                                continue
+                            
+                            instance = ReportClass(logs)
+                            result = instance.generate(output_path=output_path, **current_kwargs)
+                            print(result)
             
             # --- Handle report generation based on comparison mode ---
             else:

@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-31
-# Version: 0.22.1-Beta
+# Date: 2025-08-01
+# Version: 0.25.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,6 +20,11 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.25.0-Beta] - 2025-08-01
+### Changed
+# - The report now uses the pre-aligned master time index to display the
+#   entire contest period, correctly showing gaps in operating time.
 
 ## [0.22.1-Beta] - 2025-07-31
 ### Changed
@@ -68,6 +73,11 @@ class Report(ContestReport):
 
         if len(self.logs) < 2:
             return "Error: The Comparative Rate Sheet report requires at least two logs."
+            
+        log_manager = getattr(self.logs[0], '_log_manager_ref', None)
+        if not log_manager or log_manager.master_time_index is None:
+            return "Error: Master time index not available for rate sheet report."
+        master_time_index = log_manager.master_time_index
 
         # --- Header Generation ---
         all_calls = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])
@@ -100,7 +110,6 @@ class Report(ContestReport):
 
         # --- Data Aggregation for All Logs ---
         processed_data = {}
-        all_dates = set()
         bands = ['160M', '80M', '40M', '20M', '15M', '10M']
         cumulative_totals = {call: 0 for call in all_calls}
 
@@ -114,12 +123,14 @@ class Report(ContestReport):
                 df = df_full.copy()
             
             if df.empty:
-                continue
+                rate_data = pd.DataFrame(0, index=master_time_index, columns=bands)
+            else:
+                rate_data = df.pivot_table(index=pd.to_datetime(df['Datetime']).dt.floor('h'), 
+                                           columns='Band', 
+                                           aggfunc='size', 
+                                           fill_value=0)
+                rate_data = rate_data.reindex(master_time_index, fill_value=0)
 
-            all_dates.update(df['Date'].unique())
-            df['Hour'] = pd.to_numeric(df['Hour'])
-            rate_data = df.pivot_table(index=['Date', 'Hour'], columns='Band', aggfunc='size', fill_value=0)
-            
             for band in bands:
                 if band not in rate_data.columns:
                     rate_data[band] = 0
@@ -129,19 +140,15 @@ class Report(ContestReport):
             processed_data[callsign] = rate_data
 
         # --- Format Combined Rate Table ---
-        sorted_dates = sorted(list(all_dates))
-        hours = range(24)
-        full_index = pd.MultiIndex.from_product([sorted_dates, hours], names=['Date', 'Hour'])
-
-        for date, hour in full_index:
-            hour_str = f"{hour:02d}00"
+        for timestamp in master_time_index:
+            hour_str = timestamp.strftime('%H%M')
             report_lines.append(hour_str)
 
             for callsign in all_calls:
                 log_data = processed_data.get(callsign)
                 hourly_total = 0
-                if log_data is not None and (date, hour) in log_data.index:
-                    row = log_data.loc[(date, hour)]
+                if log_data is not None and timestamp in log_data.index:
+                    row = log_data.loc[timestamp]
                     hourly_total = row['Hourly Total']
                     cumulative_totals[callsign] += hourly_total
                     line = (

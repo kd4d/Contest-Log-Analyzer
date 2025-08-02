@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-31
-# Version: 0.22.0-Beta
+# Date: 2025-08-01
+# Version: 0.25.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,6 +21,11 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.25.0-Beta] - 2025-08-01
+### Changed
+# - The report now uses the pre-aligned master time index to display the
+#   entire contest period.
 
 ## [0.22.0-Beta] - 2025-07-31
 ### Changed
@@ -82,7 +87,7 @@ class Report(ContestReport):
     def report_type(self) -> str:
         return "plot"
 
-    def _generate_single_plot(self, output_path: str, include_dupes: bool, band_filter: str) -> str:
+    def _generate_single_plot(self, output_path: str, include_dupes: bool, band_filter: str, master_index: pd.DatetimeIndex) -> str:
         """
         Helper function to generate a single QSO rate plot for a specific band.
         """
@@ -94,6 +99,7 @@ class Report(ContestReport):
             logs=self.logs,
             value_column='Call',
             agg_func='count', # Use 'count' for QSO rate
+            master_index=master_index,
             band_filter=band_filter,
             time_unit='10min'
         )
@@ -166,6 +172,11 @@ class Report(ContestReport):
         """
         Orchestrates the generation of all QSO rate plots.
         """
+        log_manager = getattr(self.logs[0], '_log_manager_ref', None)
+        if not log_manager or log_manager.master_time_index is None:
+            return "Error: Master time index not available for plot report."
+        master_index = log_manager.master_time_index
+
         include_dupes = kwargs.get('include_dupes', False)
         bands_to_plot = ['All', '160M', '80M', '40M', '20M', '15M', '10M']
         created_files = []
@@ -176,7 +187,8 @@ class Report(ContestReport):
                 filepath = self._generate_single_plot(
                     output_path=save_path,
                     include_dupes=include_dupes,
-                    band_filter=band
+                    band_filter=band,
+                    master_index=master_index
                 )
                 if filepath:
                     created_files.append(filepath)

@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-31
-# Version: 0.22.0-Beta
+# Date: 2025-08-01
+# Version: 0.25.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,6 +20,11 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.25.0-Beta] - 2025-08-01
+### Changed
+# - The report now uses the pre-aligned master time index to display the
+#   entire contest period, correctly showing gaps in operating time.
 
 ## [0.22.0-Beta] - 2025-07-31
 ### Changed
@@ -51,6 +56,7 @@ import pandas as pd
 import os
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
+from ._report_utils import align_logs_by_time
 
 class Report(ContestReport):
     """
@@ -73,19 +79,29 @@ class Report(ContestReport):
     def generate(self, output_path: str, **kwargs) -> str:
         """
         Generates the report content.
-
-        Args:
-            output_path (str): The directory where any output files should be saved.
-            **kwargs:
-                - include_dupes (bool): If True, dupes are included. Defaults to False.
         """
         include_dupes = kwargs.get('include_dupes', False)
         final_report_messages = []
+
+        if not self.logs:
+            return "No logs to process."
+        
+        log_manager = getattr(self.logs[0], '_log_manager_ref', None)
+        if not log_manager or log_manager.master_time_index is None:
+            # This can happen if no logs had QSOs to establish a time range
+            print("Warning: Master time index not available. Rate sheet may be incomplete.")
+            master_time_index = pd.DatetimeIndex([])
+        else:
+            master_time_index = log_manager.master_time_index
 
         for log in self.logs:
             metadata = log.get_metadata()
             df_full = log.get_processed_data()
             callsign = metadata.get('MyCall', 'UnknownCall')
+
+            if df_full.empty:
+                print(f"Skipping rate sheet for {callsign}: No valid QSOs to report.")
+                continue
 
             # --- Data Preparation ---
             if not include_dupes and 'Dupe' in df_full.columns:
@@ -93,13 +109,8 @@ class Report(ContestReport):
             else:
                 df = df_full.copy()
 
-            if df.empty:
-                print(f"Skipping rate sheet for {callsign}: No valid QSOs to report.")
-                continue
-
             # --- Header Generation ---
-            first_qso_date = df['Date'].iloc[0]
-            year = first_qso_date.split('-')[0] if first_qso_date else "UnknownYear"
+            year = df['Date'].iloc[0].split('-')[0] if not df.empty else "UnknownYear"
             contest_name = metadata.get('ContestName', 'UnknownContest')
 
             report_lines = []
@@ -120,16 +131,19 @@ class Report(ContestReport):
             separator = "-" * len(header2)
             report_lines.append(separator)
 
-            # --- Rate Calculation ---
-            df['Hour'] = pd.to_numeric(df['Hour'])
+            # --- Rate Calculation using aligned data ---
             bands = ['160M', '80M', '40M', '20M', '15M', '10M']
             
-            dates = sorted(df['Date'].unique())
-            hours = range(24)
-            full_index = pd.MultiIndex.from_product([dates, hours], names=['Date', 'Hour'])
+            if df.empty:
+                rate_data = pd.DataFrame(0, index=master_time_index, columns=bands)
+            else:
+                rate_data = df.pivot_table(index=pd.to_datetime(df['Datetime']).dt.floor('h'), 
+                                           columns='Band', 
+                                           aggfunc='size', 
+                                           fill_value=0)
 
-            rate_data = df.pivot_table(index=['Date', 'Hour'], columns='Band', aggfunc='size', fill_value=0)
-            rate_data = rate_data.reindex(full_index, fill_value=0)
+            # Reindex to the master contest period, filling missing hours with 0
+            rate_data = rate_data.reindex(master_time_index, fill_value=0)
 
             for band in bands:
                 if band not in rate_data.columns:
@@ -141,8 +155,8 @@ class Report(ContestReport):
             rate_data['Cumulative Total'] = rate_data['Hourly Total'].cumsum()
 
             # --- Format Rate Table ---
-            for (date, hour), row in rate_data.iterrows():
-                hour_str = f"{hour:02d}00"
+            for timestamp, row in rate_data.iterrows():
+                hour_str = timestamp.strftime('%H%M')
                 line = (
                     f"{hour_str:<5} "
                     f"{row.get('160M', 0):>5} "
