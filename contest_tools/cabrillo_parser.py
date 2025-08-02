@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-31
-# Version: 0.22.0-Beta
+# Date: 2025-08-01
+# Version: 0.24.8-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,6 +22,15 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.24.8-Beta] - 2025-08-01
+### Fixed
+# - The 'Datetime' column is now correctly created as timezone-aware (UTC) to
+#   prevent alignment issues with the master time index in reports.
+
+## [0.24.7-Beta] - 2025-08-01
+### Added
+# - Added temporary diagnostic print statements to debug QSO line parsing failures.
 
 ## [0.22.0-Beta] - 2025-07-31
 ### Changed
@@ -112,7 +121,7 @@ def parse_cabrillo_file(filepath: str, contest_definition: ContestDefinition) ->
                     if cabrillo_tag == 'CONTEST':
                         actual_contest_name = value
                     break 
-
+    
     if not qso_records:
         raise ValueError(f"No valid QSO lines found in Cabrillo file: {filepath}")
     

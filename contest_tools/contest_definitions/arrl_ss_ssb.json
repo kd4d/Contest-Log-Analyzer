@@ -3,12 +3,6 @@
   "contest_name": "ARRL-SS-SSB",
   "dupe_check_scope": "all_bands",
   "custom_multiplier_resolver": "arrl_ss_multiplier_resolver",
-  "contest_period": {
-    "start_day": "Saturday",
-    "start_time": "21:00:00 UTC",
-    "end_day": "Monday",
-    "end_time": "03:00:00 UTC"
-  },
   "exchange_parsing_rules": {
     "ARRL-SS-SSB-11-FIELD": {
       "regex": "(\\d+)\\s+([A-Z])\\s+([A-Z0-9/]+)\\s+(\\d{2})\\s+([A-Z]{2,3})\\s+([A-Z0-9/]+)\\s+(\\d+)\\s+([A-Z])\\s+([A-Z0-9/]+)\\s+(\\d{2})\\s+([A-Z]{2,3})",
