@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-01
-# Version: 0.25.0-Beta
+# Date: 2025-08-02
+# Version: 0.26.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,6 +21,17 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.26.3-Beta] - 2025-08-02
+### Fixed
+# - Corrected a time alignment bug by resampling pivot tables to an hourly
+#   frequency before reindexing against the master time index.
+### Removed
+# - Removed temporary diagnostic print statements.
+
+## [0.26.1-Beta] - 2025-08-02
+### Added
+# - Added temporary diagnostic print statements to debug time-series alignment.
 
 ## [0.25.0-Beta] - 2025-08-01
 ### Changed
@@ -65,21 +76,9 @@ def align_logs_by_time(
     """
     Aggregates and aligns time-series data from multiple logs to a common,
     continuous time index.
-
-    Args:
-        logs (List[ContestLog]): The list of ContestLog objects to process.
-        value_column (str): The column to aggregate (e.g., 'QSOPoints' or 'Call').
-        agg_func (str): The aggregation function to use ('sum' or 'count').
-        master_index (pd.DatetimeIndex): The pre-calculated time index for the contest.
-        band_filter (str): The band to filter for (e.g., '20M', or 'All').
-        time_unit (str): The time frequency for resampling (e.g., '1h', '10min').
-
-    Returns:
-        Dict[str, pd.DataFrame]: A dictionary where keys are callsigns and values
-                                 are perfectly aligned DataFrames of aggregated data.
     """
     processed_logs = {}
-
+    
     for log in logs:
         callsign = log.get_metadata().get('MyCall', 'Unknown')
         df_full = log.get_processed_data()[log.get_processed_data()['Dupe'] == False].copy()
@@ -92,8 +91,11 @@ def align_logs_by_time(
         if df.empty:
             continue
         
+        # Ensure 'Datetime' is a proper datetime object before creating the pivot table
+        df['Datetime'] = pd.to_datetime(df['Datetime'], utc=True)
+
         pt = df.pivot_table(
-            index=pd.to_datetime(df['Datetime']).dt.floor(time_unit), 
+            index=df['Datetime'].dt.floor(time_unit), 
             columns='Run', 
             values=value_column, 
             aggfunc=agg_func
@@ -113,7 +115,9 @@ def align_logs_by_time(
 
     aligned_logs = {}
     for callsign, pt in processed_logs.items():
-        aligned_logs[callsign] = pt.reindex(master_index, fill_value=0)
+        # Resample to hourly frequency to match the master index before reindexing
+        pt_resampled = pt.resample('h').sum()
+        aligned_logs[callsign] = pt_resampled.reindex(master_index, fill_value=0)
 
     return aligned_logs
 

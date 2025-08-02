@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-01
-# Version: 0.25.0-Beta
+# Date: 2025-08-02
+# Version: 0.26.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,6 +21,18 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.26.5-Beta] - 2025-08-02
+### Fixed
+# - Corrected the logic for calculating new multipliers when the totaling
+#   method is 'once_per_log' to use the correct set of previously
+#   worked multipliers.
+### Removed
+# - Removed temporary diagnostic print statements.
+
+## [0.26.4-Beta] - 2025-08-02
+### Added
+# - Added temporary diagnostic print statements to debug multiplier calculation.
 
 ## [0.25.0-Beta] - 2025-08-01
 ### Changed
@@ -116,7 +128,7 @@ class Report(ContestReport):
             
             df = df[df[mult_column] != 'Unknown']
             df.dropna(subset=[mult_column], inplace=True)
-            df['HourDT'] = pd.to_datetime(df['Datetime']).dt.floor('h')
+            df['HourDT'] = pd.to_datetime(df['Datetime'], utc=True).dt.floor('h')
 
             # --- Calculation of New Multipliers per Hour ---
             bands = ['160M', '80M', '40M', '20M', '15M', '10M']
@@ -154,7 +166,7 @@ class Report(ContestReport):
             report_lines.append("")
 
             header1 = f"{'Date':<12}{'Hr':>4}" + "".join([f"{b.replace('M',''):>9}" for b in bands]) + f"{'Total':>9}"
-            header2 = f"{'':<12}{'':>4}" + "".join([f"{'':>9}" for b in bands]) + f"{'':>9}" # Removed mode line
+            header2 = f"{'':<12}{'':>4}" + "".join([f"{'':>9}" for b in bands]) + f"{'':>9}"
             separator = "-" * len(header1)
             
             report_lines.append(header1)

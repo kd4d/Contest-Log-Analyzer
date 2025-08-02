@@ -10,6 +10,12 @@
     "end_time": "03:00:00 UTC"
   },
   "multiplier_report_scope": "all_bands",
+  "excluded_reports": [
+    "point_rate_plots",
+    "continent_breakdown",
+    "comparative_continent_summary",
+    "continent_summary"
+  ],
   "exchange_parsing_rules": {
     "ARRL-SS-SSB-11-FIELD": {
       "regex": "(\\d+)\\s+([A-Z])\\s+([A-Z0-9/]+)\\s+(\\d{2})\\s+([A-Z]{2,3})\\s+([A-Z0-9/]+)\\s+(\\d+)\\s+([A-Z])\\s+([A-Z0-9/]+)\\s+(\\d{2})\\s+([A-Z]{2,3})",

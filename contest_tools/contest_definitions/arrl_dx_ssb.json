@@ -3,6 +3,10 @@
   "contest_name": "ARRL-DX-SSB",
   "mults_from_zero_point_qsos": false,
   "custom_multiplier_resolver": "arrl_dx_resolver",
+  "multiplier_report_scope": "per_band",
+  "excluded_reports": [
+    "point_rate_plots"
+  ],
   "exchange_parsing_rules": {
     "ARRL-DX-SSB-WVE": {
       "regex": "(\\d{2})\\s+([A-Z]{2})\\s+([A-Z0-9/]+)\\s+(\\d{2})\\s+([A-Z0-9]+)(?:\\s+(\\d))?",
@@ -27,7 +31,9 @@
       "applies_to": "DX",
       "source_column": "FinalMultiplier",
       "value_column": "Mult1",
-      "totaling_method": "sum_by_band"
+      "totaling_method": "sum_by_band",
+      "include_missed_summary": true,
+      "alias_file": "ARRLDXmults.dat"
     }
   ],
   "default_qso_columns": [

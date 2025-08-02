@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-01
-# Version: 0.25.0-Beta
+# Date: 2025-08-02
+# Version: 0.26.6-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,6 +20,11 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.26.6-Beta] - 2025-08-02
+### Fixed
+# - Corrected a timezone mismatch by ensuring the QSO 'Datetime' column is
+#   converted to UTC before creating the pivot table for alignment.
 
 ## [0.25.0-Beta] - 2025-08-01
 ### Changed
@@ -125,7 +130,9 @@ class Report(ContestReport):
             if df.empty:
                 rate_data = pd.DataFrame(0, index=master_time_index, columns=bands)
             else:
-                rate_data = df.pivot_table(index=pd.to_datetime(df['Datetime']).dt.floor('h'), 
+                # FIX: Ensure datetime is timezone-aware before pivoting
+                df['Datetime'] = pd.to_datetime(df['Datetime'], utc=True)
+                rate_data = df.pivot_table(index=df['Datetime'].dt.floor('h'), 
                                            columns='Band', 
                                            aggfunc='size', 
                                            fill_value=0)
