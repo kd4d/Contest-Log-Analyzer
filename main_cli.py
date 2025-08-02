@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-01
-# Version: 0.25.0-Beta
+# Date: 2025-08-02
+# Version: 0.26.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,6 +22,11 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.26.0-Beta] - 2025-08-02
+### Changed
+# - Refactored the complex report generation loop into a new, separate
+#   ReportGenerator class to improve separation of concerns.
 
 ## [0.25.0-Beta] - 2025-08-01
 ### Changed
@@ -132,9 +137,9 @@
 
 import sys
 import os
-import itertools
 from contest_tools.log_manager import LogManager
 from contest_tools.reports import AVAILABLE_REPORTS
+from contest_tools.report_generator import ReportGenerator # <-- NEW IMPORT
 
 def print_usage_and_exit():
     """Prints the command-line usage guide and exits."""
@@ -147,7 +152,7 @@ def print_usage_and_exit():
     if AVAILABLE_REPORTS:
         print("\nAvailable reports:")
         for report_id, report_class in AVAILABLE_REPORTS.items():
-            print(f"  - {report_id}: {report_class.report_name.fget(None)}")
+            print(f"  - {report_id}: {report_class.report_name}")
     else:
         print("\nNo reports found.")
         
@@ -182,7 +187,7 @@ def main():
     report_kwargs = {}
 
     if '--include-dupes' in args:
-        report_kwargs['include-dupes'] = True
+        report_kwargs['include_dupes'] = True
         args.remove('--include-dupes')
     
     if '--mult-name' in args:
@@ -230,97 +235,10 @@ def main():
         if not logs:
             print("\nError: No logs were successfully loaded. Aborting report generation.")
             sys.exit(1)
-
-        reports_to_run = []
-        if report_id.lower() == 'all':
-            reports_to_run = AVAILABLE_REPORTS.items()
-        else:
-            reports_to_run = [(report_id, AVAILABLE_REPORTS[report_id])]
         
-        # --- Define Output Directory Structure ---
-        first_log = logs[0]
-        contest_name = first_log.get_metadata().get('ContestName', 'UnknownContest').replace(' ', '_')
-        
-        first_qso_date = first_log.get_processed_data()['Date'].iloc[0]
-        year = first_qso_date.split('-')[0] if first_qso_date else "UnknownYear"
-
-        base_output_dir = os.path.join("reports_output", year, contest_name)
-        text_output_dir = os.path.join(base_output_dir, "text")
-        plots_output_dir = os.path.join(base_output_dir, "plots")
-        charts_output_dir = os.path.join(base_output_dir, "charts")
-        
-        # --- Generate the selected reports ---
-        for r_id, ReportClass in reports_to_run:
-            # --- Check if report is excluded for this contest ---
-            if r_id in first_log.contest_definition.excluded_reports:
-                print(f"\nSkipping report '{ReportClass.report_name.fget(None)}': excluded for this contest.")
-                continue
-
-            report_type = ReportClass.report_type.fget(None)
-            
-            if report_type == 'text': output_path = text_output_dir
-            elif report_type == 'plot': output_path = plots_output_dir
-            elif report_type == 'chart': output_path = charts_output_dir
-            else: output_path = base_output_dir
-
-            # --- Auto-generate reports for each multiplier type if needed ---
-            if r_id in ['missed_multipliers', 'multiplier_summary', 'multipliers_by_hour'] and 'mult_name' not in report_kwargs:
-                print(f"\nAuto-generating '{ReportClass.report_name.fget(None)}' for all available multiplier types...")
-                
-                # Filter multiplier rules for asymmetric contests
-                log_location_type = first_log._my_location_type
-                all_rules = first_log.contest_definition.multiplier_rules
-                
-                applicable_rules = []
-                if log_location_type: # This is an asymmetric contest
-                    for rule in all_rules:
-                        if rule.get('applies_to') == log_location_type:
-                            applicable_rules.append(rule)
-                else: # This is a standard contest
-                    applicable_rules = all_rules
-
-                for mult_rule in applicable_rules:
-                    mult_name = mult_rule.get('name')
-                    if mult_name:
-                        print(f"  - Generating for: {mult_name}")
-                        current_kwargs = report_kwargs.copy()
-                        current_kwargs['mult_name'] = mult_name
-                        
-                        # Handle single vs multi-log reports correctly
-                        if ReportClass.supports_single:
-                            for log in logs:
-                                instance = ReportClass([log])
-                                result = instance.generate(output_path=output_path, **current_kwargs)
-                                print(result)
-                        elif (ReportClass.supports_multi or ReportClass.supports_pairwise):
-                            if len(logs) < 2:
-                                print(f"    - Skipping: {ReportClass.report_name.fget(None)} requires at least two logs.")
-                                continue
-                            
-                            instance = ReportClass(logs)
-                            result = instance.generate(output_path=output_path, **current_kwargs)
-                            print(result)
-            
-            # --- Handle report generation based on comparison mode ---
-            else:
-                print(f"\nGenerating report: '{ReportClass.report_name.fget(None)}'...")
-                
-                if ReportClass.supports_multi and len(logs) >= 2:
-                    instance = ReportClass(logs)
-                    result = instance.generate(output_path=output_path, **report_kwargs)
-                    print(result)
-
-                if ReportClass.supports_pairwise and len(logs) >= 2:
-                    for log_pair in itertools.combinations(logs, 2):
-                        instance = ReportClass(list(log_pair))
-                        result = instance.generate(output_path=output_path, **report_kwargs)
-                        print(result)
-                
-                if ReportClass.supports_single:
-                    for log in logs:
-                        instance = ReportClass([log])
-                        result = instance.generate(output_path=output_path, **report_kwargs)
-                        print(result)
+        # --- REFACTORED: Generate reports using the new ReportGenerator class ---
+        generator = ReportGenerator(logs)
+        generator.run_reports(report_id, **report_kwargs)
 
         print("\n--- Done ---")
 
