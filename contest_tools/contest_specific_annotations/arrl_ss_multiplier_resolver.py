@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-01
-# Version: 0.24.4-Beta
+# Version: 0.24.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,6 +21,10 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.24.5-Beta] - 2025-08-01
+### Removed
+# - Removed temporary diagnostic print statements.
 
 ## [0.24.4-Beta] - 2025-08-01
 ### Added
@@ -50,41 +54,34 @@ class SectionAliasLookup:
         self._parse_file()
 
     def _parse_file(self):
-        print("\n--- DEBUG: Starting to parse SweepstakesSections.dat ---")
         try:
             with open(self.filepath, 'r', encoding='utf-8') as f:
-                for i, line in enumerate(f):
+                for line in f:
                     line = line.strip()
                     if not line or line.startswith('#'):
                         continue
                     
                     parts = line.split(':')
                     if len(parts) != 2:
-                        print(f"  - DEBUG (Line {i+1}): Skipping line, no colon found.")
                         continue
                         
                     aliases_part, official_part = parts[0], parts[1]
                     aliases = [alias.strip().upper() for alias in aliases_part.split(',')]
                     
-                    print(f"  - DEBUG (Line {i+1}): Trying to match: '{official_part.strip()}'")
                     match = re.match(r'([A-Z]{2,3})\s+\((.*)\)', official_part.strip())
-                    
                     if not match:
-                        print(f"  - DEBUG (Line {i+1}): NO REGEX MATCH.")
                         continue
                     
                     official_abbr = match.group(1).upper()
                     full_name = match.group(2)
                     
-                    print(f"  - DEBUG (Line {i+1}): SUCCESS -> Section: {official_abbr}, Name: {full_name}")
                     self._valid_mults.add(official_abbr)
                     for alias in aliases:
                         self._lookup[alias] = (official_abbr, full_name)
-            print(f"--- DEBUG: Finished parsing. Loaded {len(self._valid_mults)} sections. ---\n")
         except FileNotFoundError:
-            print(f"--- DEBUG: FATAL -> File not found at {self.filepath} ---")
+            print(f"Warning: Section alias file not found at {self.filepath}. Alias lookup will be disabled.")
         except Exception as e:
-            print(f"--- DEBUG: FATAL -> Error reading section alias file {self.filepath}: {e} ---")
+            print(f"Error reading section alias file {self.filepath}: {e}")
 
     def get_section(self, value: str) -> str:
         """
