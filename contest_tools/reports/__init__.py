@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-01
-# Version: 0.25.1-Beta
+# Date: 2025-08-02
+# Version: 0.26.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,6 +21,11 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.26.3-Beta] - 2025-08-02
+### Fixed
+# - Corrected the report discovery logic to access 'report_id' as a direct
+#   class attribute instead of a property, fixing an 'AttributeError'.
 
 ## [0.25.1-Beta] - 2025-08-01
 ### Changed
@@ -61,7 +66,8 @@ def discover_reports():
             try:
                 module = importlib.import_module(f".{module_name}", package=__name__)
                 if hasattr(module, 'Report') and issubclass(module.Report, ContestReport):
-                    report_id = module.Report.report_id.fget(None)
+                    # --- FIX: Access report_id as a direct class attribute ---
+                    report_id = module.Report.report_id
                     if report_id in AVAILABLE_REPORTS:
                         print(f"  - WARNING: Duplicate report_id '{report_id}' found in {filename}. The original report will be overwritten.")
                     AVAILABLE_REPORTS[report_id] = module.Report

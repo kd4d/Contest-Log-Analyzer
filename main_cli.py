@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-02
-# Version: 0.26.0-Beta
+# Version: 0.26.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,6 +22,11 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.26.3-Beta] - 2025-08-02
+### Fixed
+# - Corrected the usage guide to access 'report_name' as a direct
+#   class attribute instead of a property, fixing an 'AttributeError'.
 
 ## [0.26.0-Beta] - 2025-08-02
 ### Changed
@@ -139,7 +144,7 @@ import sys
 import os
 from contest_tools.log_manager import LogManager
 from contest_tools.reports import AVAILABLE_REPORTS
-from contest_tools.report_generator import ReportGenerator # <-- NEW IMPORT
+from contest_tools.report_generator import ReportGenerator
 
 def print_usage_and_exit():
     """Prints the command-line usage guide and exits."""
@@ -152,6 +157,7 @@ def print_usage_and_exit():
     if AVAILABLE_REPORTS:
         print("\nAvailable reports:")
         for report_id, report_class in AVAILABLE_REPORTS.items():
+            # --- FIX: Access report_name as a direct class attribute ---
             print(f"  - {report_id}: {report_class.report_name}")
     else:
         print("\nNo reports found.")
@@ -236,7 +242,7 @@ def main():
             print("\nError: No logs were successfully loaded. Aborting report generation.")
             sys.exit(1)
         
-        # --- REFACTORED: Generate reports using the new ReportGenerator class ---
+        # --- Generate reports using the new ReportGenerator class ---
         generator = ReportGenerator(logs)
         generator.run_reports(report_id, **report_kwargs)
 
