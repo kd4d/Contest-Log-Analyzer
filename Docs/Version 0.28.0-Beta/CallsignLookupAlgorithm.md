@@ -1,14 +1,15 @@
 # Callsign Lookup Algorithm Specification
 
-**Version: 0.28.2-Beta**
-**Date: 2025-08-02**
+**Version: 0.28.8-Beta**
+**Date: 2025-08-03**
 
 This document describes the algorithm implemented in `get_cty.py` for determining an amateur radio callsign's DXCC entity and other geographical data based on the `CTY.DAT` file.
 
 ---
 ### --- Revision History ---
-- 2025-08-02: Initial release of this specification document.
+- 2025-08-03: Replaced the 'Final Fallback' heuristic with a rule to return 'Unknown' for ambiguous calls and inserted the 'ends in a digit' heuristic.
 - 2025-08-02: Added `portableid` to the output data structure and a rule to invalidate `digit/call` formats.
+- 2025-08-02: Initial release of this specification document.
 ---
 
 ## 1. Core Purpose
@@ -46,14 +47,16 @@ If the call is not resolved by any of the previous steps, this default lookup me
 
 ## 4. Portable Call Heuristics
 
-The `_handle_portable_call` method is the most complex part of the script. It uses the following ordered checks to determine the `portableid` and resolve the call's location.
+The `_handle_portable_call` method uses the following ordered checks. If a rule is satisfied, a result is returned and the process stops.
 
-1.  **Invalid `digit/call` Format (Bug Fix):** The script first checks for the invalid `digit/callsign` format (e.g., `7/KD4D`). If this pattern is found, the call is considered invalid and returns "Unknown".
+1.  **Invalid `digit/call` Format:** The script first checks for the invalid `digit/callsign` format (e.g., `7/KD4D`). If this pattern is found, the call is considered invalid and returns "Unknown".
 
 2.  **Unambiguous Prefix Rule:** The script checks if exactly one side of the `/` is a valid prefix in `cty.dat` while the other is not. If so, the valid side is identified as the `portableid`.
 
-3.  **"Strip the Digit" Heuristic:** If the call is still ambiguous, this tie-breaker temporarily strips a trailing digit from each side. If this makes one side a valid prefix while the other remains invalid, the original, unmodified side that produced the match is chosen as the `portableid`.
+3.  **"Strip the Digit" Heuristic:** If the call is still ambiguous, this tie-breaker temporarily strips a trailing digit from each side. If this makes one side a valid prefix while the other remains invalid, the original, unmodified side that produced the match is chosen as the `portableid`. This is critical for calls like `HC8N/4`.
 
-4.  **US/Canada Heuristic:** This rule handles the `callsign/digit` format. If one side appears to have the structure of a US or Canadian callsign and the other is a single digit, the script identifies the **single digit** as the `portableid`, but resolves the location based on the US/Canadian callsign.
+4.  **US/Canada Heuristic:** This rule handles the `callsign/digit` format for domestic US/Canada calls. If one side appears to have the structure of a US or Canadian callsign and the other is a single digit, the script identifies the **single digit** as the `portableid`.
 
-5.  **Final Fallback:** As a last resort, the script uses the US/Canada callsign structure to break the final tie. If the part *before* the `/` has a US/Canada structure, it prioritizes the part *after* the `/` as the `portableid`, and vice-versa.
+5.  **"Ends in a Digit" Heuristic:** This is the final tie-breaker. If exactly one side of the `/` ends in a digit while the other does not, the side ending in the digit is identified as the `portableid`. This correctly resolves calls like `WT7/OL5Y`.
+
+6.  **Final Action (No Fallback):** If a call remains ambiguous after all of the above heuristics have been attempted, the script **gives up and returns "Unknown"**. The previous "Final Fallback" logic that attempted to guess the location has been removed to prevent incorrect resolutions.

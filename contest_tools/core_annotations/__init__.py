@@ -7,33 +7,40 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-02
-# Version: 0.27.0-Beta
+# Version: 0.28.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
 # License: Mozilla Public License, v. 2.0
-#          (https://www.mozilla.org/MPL/2.0/)
+#          https://www.mozilla.org/MPL/2.0/
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 # --- Revision History ---
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
-
+## [0.28.5-Beta] - 2025-08-02
+### Changed
+# - Refactored the column merging logic to be fully dynamic. It now iterates
+#   through the columns of the CTY lookup results instead of using a
+#   hardcoded list, preventing future scalability issues.
+#
+## [0.28.4-Beta] - 2025-08-02
+### Fixed
+# - Updated the hardcoded `cty_columns` list to include the new `portableid`
+#   field, ensuring it is correctly merged into the main dataframe after lookup.
+#
 ## [0.27.0-Beta] - 2025-08-02
 ### Fixed
 # - Corrected the instantiation of the CtyLookup class to align with the
 #   refactored get_cty.py module, removing the unexpected 'wae' keyword
 #   argument that was causing a TypeError.
-
 ## [0.23.0-Beta] - 2025-08-01
 ### Changed
 # - Updated `process_dataframe_for_cty_data` to use the new CONTEST_DATA_DIR
 #   environment variable to locate the cty.dat file.
-
 import pandas as pd
 import os
 from typing import Dict, Any, List
@@ -70,9 +77,6 @@ def process_dataframe_for_cty_data(df: pd.DataFrame) -> pd.DataFrame:
     processed_df['Call'] = processed_df['Call'].fillna('').astype(str).str.strip().str.upper()
 
     try:
-        # --- FIX: Removed the 'wae=True' argument ---
-        # The new CtyLookup class does not take this argument in its constructor.
-        # The WAE logic is now handled internally by the get_cty_DXCC_WAE method.
         cty_lookup_instance = CtyLookup(cty_dat_path=cty_dat_file_path)
     except (FileNotFoundError, IOError) as e:
         print(f"Fatal Error initializing CtyLookup for universal annotations: {e}")
@@ -84,11 +88,10 @@ def process_dataframe_for_cty_data(df: pd.DataFrame) -> pd.DataFrame:
 
     temp_df = pd.DataFrame(temp_results, index=processed_df.index)
 
-    cty_columns = ['DXCCName', 'DXCCPfx', 'CQZone', 'ITUZone', 'Continent', 'WAEName', 'WAEPfx', 'Lat', 'Lon', 'Tzone']
-
-    for col in cty_columns:
-        if col in temp_df:
-            processed_df[col] = temp_df[col]
+    # --- FIX: Dynamically merge all columns from the CTY lookup result ---
+    # This prevents bugs if new fields are added to the CtyInfo tuple in the future.
+    for col in temp_df.columns:
+        processed_df[col] = temp_df[col]
 
     for col in ['CQZone', 'ITUZone']:
         if col in processed_df.columns:

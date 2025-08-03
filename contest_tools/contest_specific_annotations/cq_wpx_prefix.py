@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-02
-# Version: 0.28.2-Beta
+# Version: 0.28.6-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,10 +20,16 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.28.6-Beta] - 2025-08-02
+### Fixed
+# - Refined the non-portable override rule to only apply when the DXCCPfx
+#   is *longer* than the default "up-to-the-last-digit" prefix. This
+#   correctly resolves ambiguity between special and standard prefixes.
+#
 ## [0.28.2-Beta] - 2025-08-02
 ### Changed
 # - Complete rewrite of the prefix determination logic to implement a new,
-#   comprehensive, and hierarchical set of rules based on user specification.
+#   comprehensive, and hierarchical set of rules.
 # - The routine now accepts the full DataFrame row and uses the `DXCCPfx` and
 #   a new `portableid` field from `get_cty.py` to resolve ambiguity.
 ### Added
@@ -52,7 +58,6 @@ def _clean_callsign(call: str) -> str:
     call = call.upper().strip()
     call = call.partition('-')[0]
     
-    # This list is for suffixes that are NOT part of a portable designator
     suffixes_to_strip = ['/P', '/M', '/A', '/E', '/J', '/B', '/QRP']
     for suffix in suffixes_to_strip:
         if call.endswith(suffix):
@@ -62,23 +67,28 @@ def _clean_callsign(call: str) -> str:
 
 def _get_prefix_for_non_portable(call: str, dxc_pfx: str) -> str:
     """
-    Determines the WPX prefix for a standard, non-portable callsign.
+    Determines the WPX prefix for a standard, non-portable callsign using
+    the refined two-step logic.
     """
-    # Rule 1: Override - if the call starts with its DXCC prefix, use that.
-    if dxc_pfx and dxc_pfx != "Unknown" and call.startswith(dxc_pfx):
-        return dxc_pfx
-
-    # Rule 2: Default - everything up to and including the last digit.
+    # First, determine the default prefix ("everything up to last digit").
+    default_prefix = "Unknown"
     match = re.search(r'\d(?!.*\d)', call)
     if match:
         last_digit_index = match.start()
-        return call[:last_digit_index + 1]
+        default_prefix = call[:last_digit_index + 1]
+    else:
+        # No number fallback rule.
+        if len(call) >= 2:
+            default_prefix = call[:2] + '0'
+
+    # Next, apply the override rule. It only triggers if the DXCCPfx is a
+    # more specific (longer) prefix than the default.
+    if (dxc_pfx and dxc_pfx != "Unknown" and
+        call.startswith(dxc_pfx) and
+        len(dxc_pfx) > len(default_prefix)):
+        return dxc_pfx
     
-    # Rule 3: No number fallback - first two letters plus a zero.
-    if len(call) >= 2:
-        return call[:2] + '0'
-    
-    return "Unknown"
+    return default_prefix
 
 def _get_wpx_prefix_from_row(row: pd.Series) -> str:
     """
@@ -91,7 +101,7 @@ def _get_wpx_prefix_from_row(row: pd.Series) -> str:
     if not raw_call:
         return "Unknown"
 
-    # WPX Rule: Maritime mobile does not count as a prefix. Highest priority.
+    # WPX Rule: Maritime mobile does not count as a prefix. This is the highest priority.
     if raw_call.upper().strip().endswith('/MM'):
         return "Unknown"
 
@@ -104,9 +114,12 @@ def _get_wpx_prefix_from_row(row: pd.Series) -> str:
 
         # Rule: call/digit (e.g., WN5N/7 -> WN7)
         if len(portable_id) == 1 and portable_id.isdigit():
-            root_call = cleaned_call.split('/')[0]
-            # We need the DXCC of the root call to properly find its prefix
-            # This is a complex dependency we assume is handled by get_cty
+            root_call = ""
+            parts = cleaned_call.split('/')
+            if len(parts) > 1:
+                # Determine root call by finding the part that is NOT the portable_id
+                root_call = parts[0] if parts[1] == portable_id else parts[1]
+
             root_prefix = _get_prefix_for_non_portable(root_call, dxc_pfx)
             
             match = re.search(r'\d(?!.*\d)', root_prefix)
@@ -140,6 +153,9 @@ def calculate_wpx_prefixes(df: pd.DataFrame) -> pd.Series:
     required_cols = ['Call', 'DXCCPfx', 'portableid']
     for col in required_cols:
         if col not in df.columns:
-            raise ValueError(f"Input DataFrame must contain a '{col}' column.")
+            # Return a series of "Unknown" if a required column is missing
+            # to prevent a hard crash during the annotation phase.
+            print(f"Error: Input DataFrame for WPX prefix calculation must contain a '{col}' column. Returning Unknowns.")
+            return pd.Series("Unknown", index=df.index)
 
     return df.apply(_get_wpx_prefix_from_row, axis=1)

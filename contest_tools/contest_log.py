@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-02
-# Version: 0.27.3-Beta
+# Version: 0.28.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,24 +17,26 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 # --- Revision History ---
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
-
+## [0.28.3-Beta] - 2025-08-02
+### Fixed
+# - Corrected a bug in `apply_annotations` where the dataframe returned by
+#   `process_dataframe_for_cty_data` was not being assigned back, causing
+#   the new `portableid` column to be lost.
+#
 ## [0.27.3-Beta] - 2025-08-02
 ### Fixed
 # - Reverted dynamic imports to use absolute paths. The previous change to
 #   relative imports was incorrect; the root cause of the ModuleNotFoundError
 #   was a data error in the JSON definition files.
-
 ## [0.24.0-Beta] - 2025-08-01
 ### Added
 # - Added logic to handle contest-wide dupe checking (for ARRL Sweepstakes)
 #   based on a 'dupe_check_scope' flag in the contest definition.
 # - Added integration hook for the new ARRL Sweepstakes multiplier resolver.
-
 from typing import List
 import pandas as pd
 from datetime import datetime
@@ -67,7 +69,7 @@ class ContestLog:
         ((50000., 54000.), '6M'),
         ((144000., 148000.), '2M'),
         ((222000., 225000.), '1.25M'),
-        ((420000., 450000.), '70CM'),
+         ((420000., 450000.), '70CM'),
     ]
 
     @staticmethod
@@ -133,7 +135,7 @@ class ContestLog:
         self.dupe_sets.clear()
         
         dupe_scope = self.contest_definition.dupe_check_scope
-        
+         
         if dupe_scope == 'all_bands':
             # For contests like Sweepstakes, dupes are checked across all bands
             all_bands_dupe_set = set()
@@ -160,7 +162,7 @@ class ContestLog:
                     
                     if not call or not mode:
                         continue
-                        
+                    
                     qso_tuple = (call, mode)
                     if qso_tuple in self.dupe_sets[band]:
                         self.qsos_df.loc[idx, 'Dupe'] = True
@@ -182,6 +184,7 @@ class ContestLog:
 
         try:
             print("Applying Universal DXCC/Zone lookup...")
+            # --- FIX: Assign the returned dataframe back to self.qsos_df ---
             self.qsos_df = process_dataframe_for_cty_data(self.qsos_df)
             print("Universal DXCC/Zone lookup complete.")
         except Exception as e:

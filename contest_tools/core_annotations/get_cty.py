@@ -7,8 +7,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-02
-# Version: 0.28.1-Beta
+# Date: 2025-08-03
+# Version: 0.28.8-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,13 +22,16 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
-## [0.28.1-Beta] - 2025-08-02
+## [0.28.8-Beta] - 2025-08-03
 ### Added
-# - Added a `portableid` field to the return tuples to pass the identified
-#   portable designator to downstream routines.
+# - Added `portableid` field to CtyInfo and FullCtyInfo tuples.
+# - Inserted a new "ends in a digit" heuristic to resolve ambiguous portable calls.
+### Changed
+# - The "Final Fallback" heuristic has been removed. Ambiguous portable calls
+#   that are not resolved by other heuristics now correctly return "Unknown".
+# - All return statements in the portable handler now populate the `portableid`.
 ### Fixed
-# - Added a high-priority check to invalidate `digit/call` portable formats
-#   (e.g., `7/KD4D`), which the previous logic did not handle.
+# - Added a high-priority check to invalidate `digit/call` portable formats.
 #
 ## [0.27.1-Beta] - 2025-08-02
 ### Fixed
@@ -84,7 +87,6 @@ class CtyLookup:
         except Exception as e:
             raise IOError(f"Error reading CTY.DAT file {self.filename}: {e}")
 
-        # Pre-process the file content to handle comments and multi-line aliases
         content = re.sub(r';[^\n\r]*', ';', content)
         content = re.sub(r'\s*&\s*', ',', content)
         
@@ -99,10 +101,10 @@ class CtyLookup:
         """Parses a single entity record from the CTY.DAT file."""
         parts = record.split(':', 8)
         if len(parts) < 8:
-            return # Skip malformed records
+            return
 
         entity_info_base = [p.strip() for p in parts[0:8]]
-        entity_info = self.CtyInfo(*entity_info_base, portableid="") # Add blank portableid
+        entity_info = self.CtyInfo(*entity_info_base, portableid="")
         
         primary_prefix = entity_info.DXCC
         aliases_str = parts[8] if len(parts) > 8 else ""
@@ -110,11 +112,9 @@ class CtyLookup:
         is_wae = primary_prefix.startswith('*')
         target_dict = self.waeprefixes if is_wae else self.dxccprefixes
         
-        # Store the primary prefix (without the '*' if WAE)
         key = primary_prefix[1:] if is_wae else primary_prefix
         target_dict[key] = entity_info
 
-        # Parse and store all aliases for this entity
         for alias in aliases_str.split(','):
             alias = alias.strip()
             if not alias:
@@ -122,13 +122,11 @@ class CtyLookup:
 
             is_exact = alias.startswith('=') or re.search(r'[\[({]', alias)
             
-            # Extract base prefix and any overrides
             match = re.match(r'=?([A-Z0-9\-\/]+)', alias)
             if not match:
                 continue
             base_prefix = match.group(1)
             
-            # Apply overrides to create a new CtyInfo object for the alias
             info_list = list(entity_info_base)
             cq_m = re.search(r'\((\d+)\)', alias)
             if cq_m: info_list[1] = cq_m.group(1)
@@ -136,12 +134,11 @@ class CtyLookup:
             if itu_m: info_list[2] = itu_m.group(1)
             cont_m = re.search(r'\{([A-Z]{2})\}', alias)
             if cont_m: info_list[3] = cont_m.group(1)
-            final_info = self.CtyInfo(*info_list, portableid="") # Add blank portableid
+            final_info = self.CtyInfo(*info_list, portableid="")
             
             if is_exact:
                 target_dict["=" + base_prefix] = final_info
             
-            # A non-exact alias is also a prefix match
             if not alias.startswith('='):
                 target_dict[base_prefix] = final_info
 
@@ -150,7 +147,7 @@ class CtyLookup:
         us_mismatches, ca_mismatches = [], []
         for pfx, info in self.dxccprefixes.items():
             if pfx.startswith(('=', 'VER')): continue
-            test_call = f"{pfx}1A" # Create a structurally valid test call
+            test_call = f"{pfx}1A"
             if info.name == "United States" and not self._US_PATTERN.match(test_call):
                 us_mismatches.append(pfx)
             elif info.name == "Canada" and not self._CA_PATTERN.match(test_call):
@@ -162,23 +159,17 @@ class CtyLookup:
 
     def get_cty_DXCC_WAE(self, callsign: str) -> FullCtyInfo:
         """
-        Primary entry point. Performs two lookups and merges the results
-        according to the specification.
+        Primary entry point. Performs two lookups and merges the results.
         """
-        # 1. Perform DXCC-Only Lookup
         dxcc_res_obj = self.get_cty(callsign, wae=False)
-
-        # 2. Perform WAE-Priority Lookup
         wae_res_obj = self.get_cty(callsign, wae=True)
 
-        # 3. Merge Results
         base_info = self.UNKNOWN_ENTITY._asdict()
         dxcc_name, cq, itu, cont, lat, lon, tz, dxcc_pfx = (
             base_info['name'], base_info['CQZone'], base_info['ITUZone'], base_info['Continent'],
             base_info['Lat'], base_info['Lon'], base_info['Tzone'], base_info['DXCC']
         )
-        wae_name, wae_pfx = "", ""
-        portableid = ""
+        wae_name, wae_pfx, portableid = "", "", ""
 
         if dxcc_res_obj.name != "Unknown":
             dxcc_name = dxcc_res_obj.name
@@ -209,26 +200,16 @@ class CtyLookup:
         """
         Core logic function that implements the ordered lookup algorithm.
         """
-        # Step 1: Pre-processing
         processed_call = self._preprocess_callsign(callsign)
-
-        # Step 2: Exact Match
         result = self._check_exact_match(processed_call, wae)
         if result: return result
-
-        # Step 3: Hardcoded Special Cases
         result = self._check_special_cases(processed_call)
         if result: return result
-
-        # Step 4: Portable Callsign Logic
         if '/' in processed_call:
             result = self._handle_portable_call(processed_call, wae)
             if result: return result
-
-        # Step 5: Longest Prefix Match
         result = self._find_longest_prefix(processed_call, wae)
         if result: return result
-
         return self.UNKNOWN_ENTITY
 
     def _preprocess_callsign(self, call: str) -> str:
@@ -252,13 +233,10 @@ class CtyLookup:
         """Implements Step 3 of the algorithm."""
         if call.endswith("/MM"):
             return self.UNKNOWN_ENTITY
-
-        # Guantanamo Bay Rule (corrected logic)
         if re.fullmatch(r'KG4[A-Z]{2}', call):
             return self.dxccprefixes.get("KG4")
         if '/' in call and any(re.fullmatch(r'KG4[A-Z]{2}', part) for part in call.split('/')):
             return self.UNKNOWN_ENTITY
-        
         return None
 
     def _handle_portable_call(self, call: str, wae: bool) -> Optional[CtyInfo]:
@@ -266,9 +244,16 @@ class CtyLookup:
         parts = call.split('/')
         p1, p2 = parts[0], parts[-1]
 
-        # New high-priority check for invalid digit/call format
-        if len(p1) == 1 and p1.isdigit() and not p2.isdigit():
+        # High-priority check for invalid digit/call format.
+        if len(p1) == 1 and p1.isdigit() and len(p2) > 1 and not p2.isdigit():
             return self.UNKNOWN_ENTITY
+        
+        def determine_portable_id(part1, part2, chosen_part):
+            """Final check to assign correct portableid for call/digit formats."""
+            if len(part2) == 1 and part2.isdigit():
+                return part2
+            # The invalid check catches digit/call, so this case is safe.
+            return chosen_part
 
         def is_valid_prefix(p):
             if p in self.dxccprefixes: return True
@@ -278,9 +263,11 @@ class CtyLookup:
         # 4a. Unambiguous Prefix Rule
         p1_is_pfx, p2_is_pfx = is_valid_prefix(p1), is_valid_prefix(p2)
         if p1_is_pfx and not p2_is_pfx:
-            return self._get_prefix_entity(p1, wae)._replace(portableid=p1)
+            pid = determine_portable_id(p1, p2, p1)
+            return self._get_prefix_entity(p1, wae)._replace(portableid=pid)
         if p2_is_pfx and not p1_is_pfx:
-            return self._get_prefix_entity(p2, wae)._replace(portableid=p2)
+            pid = determine_portable_id(p1, p2, p2)
+            return self._get_prefix_entity(p2, wae)._replace(portableid=pid)
 
         # 4b. "Strip the Digit" Heuristic
         p1s = p1[:-1] if len(p1) > 1 and p1[-1].isdigit() and not p1[-2].isdigit() else None
@@ -289,9 +276,11 @@ class CtyLookup:
             p1s_is_pfx = is_valid_prefix(p1s) if p1s else False
             p2s_is_pfx = is_valid_prefix(p2s) if p2s else False
             if p1s_is_pfx and not p2s_is_pfx:
-                return self._get_prefix_entity(p1s, wae)._replace(portableid=p1)
+                pid = determine_portable_id(p1, p2, p1)
+                return self._get_prefix_entity(p1s, wae)._replace(portableid=pid)
             if p2s_is_pfx and not p1s_is_pfx:
-                return self._get_prefix_entity(p2s, wae)._replace(portableid=p2)
+                pid = determine_portable_id(p1, p2, p2)
+                return self._get_prefix_entity(p2s, wae)._replace(portableid=pid)
 
         # 4c. US/Canada Heuristic
         if len(p2) == 1 and p2.isdigit() and (self._US_PATTERN.match(p1) or self._CA_PATTERN.match(p1)):
@@ -300,19 +289,18 @@ class CtyLookup:
                 return cty_info._replace(portableid=p2)
             return self.UNKNOWN_ENTITY
 
-        # 4d. Final Portable Fallback
-        p1_info = self._find_longest_prefix(p1, wae)
-        p2_info = self._find_longest_prefix(p2, wae)
-        
-        is_p1_usca = bool(self._US_PATTERN.match(p1) or self._CA_PATTERN.match(p1))
-        
-        if is_p1_usca:
-            if p2_info: return p2_info._replace(portableid=p2)
-            if p1_info: return p1_info._replace(portableid=p1)
-        else:
-            if p1_info: return p1_info._replace(portableid=p1)
-            if p2_info: return p2_info._replace(portableid=p2)
-        
+        # 4d. New "Ends in a Digit" Heuristic
+        p1_ends_digit = p1[-1].isdigit()
+        p2_ends_digit = p2[-1].isdigit()
+        if p1_ends_digit and not p2_ends_digit:
+            cty_info = self._find_longest_prefix(p1, wae)
+            if cty_info: return cty_info._replace(portableid=p1)
+        if p2_ends_digit and not p1_ends_digit:
+            cty_info = self._find_longest_prefix(p2, wae)
+            if cty_info: return cty_info._replace(portableid=p2)
+
+        # 4e. Final Action: No Fallback Guessing
+        # If the call is still ambiguous, it will fall through and be returned as Unknown.
         return None
 
     def _find_longest_prefix(self, call: str, wae: bool) -> Optional[CtyInfo]:
