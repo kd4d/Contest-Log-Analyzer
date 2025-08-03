@@ -2,7 +2,7 @@ Filename: "Docs/Working with Gemini.md"
 
 # Project Workflow Guide
 
-**Version: 0.28.12-Beta**
+**Version: 0.28.13-Beta**
 **Date: 2025-08-03**
 
 This document outlines the standard operating procedures for developing and documenting the Contest Log Analyzer. Adhering to this workflow ensures consistency, prevents data loss, and allows for efficient collaboration.
@@ -31,7 +31,7 @@ When the AI provides updated files, it must follow these rules to ensure data in
 
 ## 3. Versioning
 
-1.  When a file is modified, its patch number (the third digit) will be incremented. For example, a change to a `0.28.11-Beta` file will result in version `0.28.12-Beta` for that file.
+1.  When a file is modified, its patch number (the third digit) will be incremented. For example, a change to a `0.28.12-Beta` file will result in version `0.28.13-Beta` for that file.
 2.  Document versions will be kept in sync with their corresponding code files.
 3.  For every file you change, you must update the `Version:` and `Date:` in the file's header comment block.
 
@@ -70,3 +70,10 @@ When a single logical task requires modifying multiple files, this protocol ensu
 3.  **User Acknowledgment:** You will provide a simple confirmation (e.g., 'OK', 'Ready', 'next') to signal that you have received the file and are ready for the next one.
 4.  **Iteration:** The AI will then provide the next file in the sequence, repeating this turn-by-turn process until all declared files have been delivered.
 5.  **Completion:** After sending the final file, the AI will state that the multi-file update is complete.
+---
+
+## 9. Protocol for Large File Sets
+
+While project files may be provided to the AI in a single bundle, the AI cannot return a large bundle in a single response due to platform size limitations.
+
+To work around this, any task that requires updating a large number of files will be handled by sending each file individually, following the **Multi-File Change Protocol** (Section 8).
