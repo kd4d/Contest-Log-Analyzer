@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-02
-# Version: 0.26.1-Beta
+# Date: 2025-08-03
+# Version: 0.28.18-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -15,52 +15,31 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 # --- Revision History ---
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
-
+## [0.28.18-Beta] - 2025-08-03
+### Added
+# - Added a "Total" row to the bottom of the rate table to show the
+#   total QSO count for each individual band.
+#
 ## [0.26.1-Beta] - 2025-08-02
 ### Fixed
 # - Converted report_id, report_name, and report_type from @property methods
 #   to simple class attributes to fix a bug in the report generation loop.
-
 ## [0.26.6-Beta] - 2025-08-02
 ### Fixed
 # - Corrected a timezone mismatch by ensuring the QSO 'Datetime' column is
 #   converted to UTC before creating the pivot table for alignment.
-
 ## [0.25.0-Beta] - 2025-08-01
 ### Changed
 # - The report now uses the pre-aligned master time index to display the
 #   entire contest period, correctly showing gaps in operating time.
-
 ## [0.22.0-Beta] - 2025-07-31
 ### Changed
 # - Implemented the boolean support properties, correctly identifying this
 #   report as 'single'.
-
-## [0.15.0-Beta] - 2025-07-25
-# - Standardized version for final review. No functional changes.
-
-## [0.13.0-Beta] - 2025-07-22
-### Changed
-# - Refactored the generate() method to use **kwargs for flexible argument passing.
-
-## [0.11.0-Beta] - 2025-07-21
-### Changed
-# - The report now generates a separate output file for each log.
-# - Added a "YYYY Contest-Name" header to the top of each report file.
-# - Modified the rate calculation to group by both Date and Hour, creating a
-#   full 48-hour rate sheet.
-# - Removed the 'Pct' (percentage) column and renamed 'Rate'/'Total' columns.
-# - Adjusted column spacing and alignment for a more compact and readable format.
-# - Reverted 'Hour' column display to four digits (e.g., '0100').
-
-## [0.10.0-Beta] - 2025-07-21
-# - Initial release of the Rate Sheet report.
-
 from typing import List
 import pandas as pd
 import os
@@ -89,7 +68,6 @@ class Report(ContestReport):
         
         log_manager = getattr(self.logs[0], '_log_manager_ref', None)
         if not log_manager or log_manager.master_time_index is None:
-            # This can happen if no logs had QSOs to establish a time range
             print("Warning: Master time index not available. Rate sheet may be incomplete.")
             master_time_index = pd.DatetimeIndex([])
         else:
@@ -104,13 +82,11 @@ class Report(ContestReport):
                 print(f"Skipping rate sheet for {callsign}: No valid QSOs to report.")
                 continue
 
-            # --- Data Preparation ---
             if not include_dupes and 'Dupe' in df_full.columns:
                 df = df_full[df_full['Dupe'] == False].copy()
             else:
                 df = df_full.copy()
 
-            # --- Header Generation ---
             year = df['Date'].iloc[0].split('-')[0] if not df.empty else "UnknownYear"
             contest_name = metadata.get('ContestName', 'UnknownContest')
 
@@ -132,20 +108,17 @@ class Report(ContestReport):
             separator = "-" * len(header2)
             report_lines.append(separator)
 
-            # --- Rate Calculation using aligned data ---
             bands = ['160M', '80M', '40M', '20M', '15M', '10M']
             
             if df.empty:
                 rate_data = pd.DataFrame(0, index=master_time_index, columns=bands)
             else:
-                # FIX: Ensure datetime is timezone-aware before pivoting
                 df['Datetime'] = pd.to_datetime(df['Datetime'], utc=True)
                 rate_data = df.pivot_table(index=df['Datetime'].dt.floor('h'), 
                                            columns='Band', 
                                            aggfunc='size', 
                                            fill_value=0)
 
-            # Reindex to the master contest period, filling missing hours with 0
             rate_data = rate_data.reindex(master_time_index, fill_value=0)
 
             for band in bands:
@@ -157,7 +130,6 @@ class Report(ContestReport):
             rate_data['Hourly Total'] = rate_data.sum(axis=1)
             rate_data['Cumulative Total'] = rate_data['Hourly Total'].cumsum()
 
-            # --- Format Rate Table ---
             for timestamp, row in rate_data.iterrows():
                 hour_str = timestamp.strftime('%H%M')
                 line = (
@@ -173,7 +145,6 @@ class Report(ContestReport):
                 )
                 report_lines.append(line)
 
-            # --- Footer Generation ---
             report_lines.append(separator)
             total_line = (
                 f"{'Total':<5} "
@@ -193,7 +164,6 @@ class Report(ContestReport):
             net_qsos = gross_qsos - dupes
             report_lines.append(f"Gross QSOs={gross_qsos}     Dupes={dupes}     Net QSOs={net_qsos if not include_dupes else gross_qsos}")
             
-            # --- Save Individual Report File ---
             report_content = "\n".join(report_lines)
             os.makedirs(output_path, exist_ok=True)
             filename = f"{self.report_id}_{callsign}.txt"
