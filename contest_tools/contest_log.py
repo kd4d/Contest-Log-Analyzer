@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-01
-# Version: 0.24.0-Beta
+# Date: 2025-08-02
+# Version: 0.27.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -23,44 +23,17 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
+## [0.27.3-Beta] - 2025-08-02
+### Fixed
+# - Reverted dynamic imports to use absolute paths. The previous change to
+#   relative imports was incorrect; the root cause of the ModuleNotFoundError
+#   was a data error in the JSON definition files.
+
 ## [0.24.0-Beta] - 2025-08-01
 ### Added
 # - Added logic to handle contest-wide dupe checking (for ARRL Sweepstakes)
 #   based on a 'dupe_check_scope' flag in the contest definition.
 # - Added integration hook for the new ARRL Sweepstakes multiplier resolver.
-
-## [0.23.6-Beta] - 2025-08-01
-### Added
-# - Added an explicit 'dxcc' source type for multiplier rules to correctly
-#   handle standard DXCC multipliers without invoking WAE-specific logic.
-
-## [0.23.0-Beta] - 2025-08-01
-### Changed
-# - Multiplier calculation logic updated to handle asymmetric contests (like ARRL-DX)
-#   by checking an `applies_to` key in the multiplier rules.
-# - Scoring logic updated to use the CONTEST_DATA_DIR environment variable.
-### Added
-# - Integration hook for the new ARRL-DX multiplier alias resolver.
-
-## [0.22.0-Beta] - 2025-07-31
-### Changed
-# - The logic for loading multiplier calculation modules is now more explicit.
-#   It uses a 'function_name' key from the JSON definition instead of
-#   guessing the function name, fixing the WPX prefix calculation bug.
-
-## [0.21.0-Beta] - 2025-07-28
-### Changed
-# - Updated the multiplier calculation logic to correctly implement the official
-#   CQ WW country multiplier rule. It now uses the WAE (Worked All Europe)
-#   entity if available, and falls back to the standard DXCC entity otherwise.
-# - The program no longer uses contest-specific CTY files, relying on the
-#   main cty.dat file for all lookups.
-
-## [0.16.0-Beta] - 2025-07-26
-### Fixed
-# - Corrected a TypeError by passing the 'contest_definition' object to the
-#   'process_dataframe_for_cty_data' function during the universal
-#   annotation step.
 
 from typing import List
 import pandas as pd
@@ -235,6 +208,7 @@ class ContestLog:
         resolver_name = self.contest_definition.custom_multiplier_resolver
         if resolver_name:
             try:
+                # --- FIX: Reverted to absolute import path ---
                 resolver_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{resolver_name}")
                 self.qsos_df = resolver_module.resolve_multipliers(self.qsos_df, self._my_location_type)
                 print(f"Successfully applied '{resolver_name}' multiplier resolver.")
@@ -281,6 +255,7 @@ class ContestLog:
                         print(f"Warning: 'module_name' or 'function_name' not specified for multiplier '{rule.get('name')}'.")
                         continue
                     try:
+                        # --- FIX: Reverted to absolute import path ---
                         calc_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{module_name}")
                         calc_function = getattr(calc_module, function_name)
                         self.qsos_df[dest_col] = calc_function(self.qsos_df)
@@ -308,11 +283,13 @@ class ContestLog:
         scoring_module = None
         try:
             module_name_specific = self.contest_name.lower().replace('-', '_')
+            # --- FIX: Reverted to absolute import path ---
             scoring_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{module_name_specific}_scoring")
         except ImportError:
             try:
                 base_contest_name = self.contest_name.rsplit('-', 1)[0]
                 module_name_generic = base_contest_name.lower().replace('-', '_')
+                # --- FIX: Reverted to absolute import path ---
                 scoring_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{module_name_generic}_scoring")
             except (ImportError, IndexError):
                 print(f"Warning: No scoring module found for contest '{self.contest_name}'. Points will be 0.")

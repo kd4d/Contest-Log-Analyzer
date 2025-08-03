@@ -2,7 +2,7 @@
   "_filename": "contest_tools/contest_definitions/arrl_dx_cw.json",
   "contest_name": "ARRL-DX-CW",
   "mults_from_zero_point_qsos": false,
-  "custom_multiplier_resolver": "arrl_dx_resolver",
+  "custom_multiplier_resolver": "arrl_dx_multiplier_resolver",
   "multiplier_report_scope": "per_band",
   "excluded_reports": [
     "point_rate_plots"

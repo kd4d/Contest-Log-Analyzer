@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-01
-# Version: 0.23.0-Beta
+# Date: 2025-08-02
+# Version: 0.27.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -23,38 +23,16 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
+## [0.27.0-Beta] - 2025-08-02
+### Fixed
+# - Corrected the instantiation of the CtyLookup class to align with the
+#   refactored get_cty.py module, removing the unexpected 'wae' keyword
+#   argument that was causing a TypeError.
+
 ## [0.23.0-Beta] - 2025-08-01
 ### Changed
 # - Updated `process_dataframe_for_cty_data` to use the new CONTEST_DATA_DIR
 #   environment variable to locate the cty.dat file.
-
-## [0.21.0-Beta] - 2025-07-28
-### Changed
-# - Simplified the 'process_dataframe_for_cty_data' function. It no longer
-#   requires a ContestDefinition object, as it now exclusively uses the
-#   main cty.dat file specified by the environment variable.
-
-## [0.15.0-Beta] - 2025-07-25
-# - Standardized version for final review. No functional changes.
-
-## [0.14.0-Beta] - 2025-07-22
-### Changed
-# - 'process_dataframe_for_cty_data' now accepts a ContestDefinition object
-#   to enable the use of contest-specific country files.
-
-## [0.13.0-Beta] - 2025-07-22
-### Changed
-# - Refactored to use the new CtyLookup.get_cty_DXCC_WAE method for more
-#   comprehensive country data.
-# - Added logic to strip quotes from the CTY_DAT_PATH environment variable.
-
-## [0.9.2-Beta] - 2025-07-19
-### Fixed
-# - Resolved "'Series' object has no attribute 'strip'" error by using the
-#   .str accessor for string operations on the 'Call' column.
-
-## [0.9.0-Beta] - 2025-07-18
-# - Initial release of the core_annotations package.
 
 import pandas as pd
 import os
@@ -92,7 +70,10 @@ def process_dataframe_for_cty_data(df: pd.DataFrame) -> pd.DataFrame:
     processed_df['Call'] = processed_df['Call'].fillna('').astype(str).str.strip().str.upper()
 
     try:
-        cty_lookup_instance = CtyLookup(cty_dat_path=cty_dat_file_path, wae=True)
+        # --- FIX: Removed the 'wae=True' argument ---
+        # The new CtyLookup class does not take this argument in its constructor.
+        # The WAE logic is now handled internally by the get_cty_DXCC_WAE method.
+        cty_lookup_instance = CtyLookup(cty_dat_path=cty_dat_file_path)
     except (FileNotFoundError, IOError) as e:
         print(f"Fatal Error initializing CtyLookup for universal annotations: {e}")
         raise

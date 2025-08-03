@@ -1,45 +1,86 @@
-# Contest-Log-Analyzer/Docs/Version 0.26.0-Beta/CallsignLookupAlgorithm.md
+# Definitive Callsign Lookup Algorithm Specification
 
-# Callsign Lookup Algorithm Description
+**Version: 1.4.0 (Based on `get_cty.py` v0.26.0-Beta with corrections)**
 
-**Version: 0.26.2-Beta**
+This document specifies the precise, ordered algorithm for determining a callsign's DXCC and WAE entity information. The process is a sequence of rules executed in a specific order. The first rule to yield a definitive result terminates that branch of the logic.
 
-The algorithm determines a callsign's DXCC entity by processing it through a sequence of checks, ordered from most specific to most general. The first rule that provides a definitive answer stops the process.
+---
 
-### 1. Initial Cleanup
+### **Function: `get_cty_DXCC_WAE(callsign)` (Primary Entry Point)**
 
-The raw callsign is first standardized. It's converted to uppercase, and common non-location suffixes like `/P` (portable), `/M` (mobile), or `-` are removed to isolate the core callsign for lookup.
+This is the main function called by the application. It performs two separate lookups (DXCC-only and WAE-priority) and merges the results.
 
-### 2. Exact Callsign Match (Highest Priority)
+1.  **Perform DXCC-Only Lookup:**
+    * Call the core `get_cty(callsign)` function with the WAE lookup feature **disabled**.
+    * Store the resulting `CtyInfo` object as `dxcc_res_obj`.
 
-The algorithm first checks if the cleaned callsign is an exact match for a special-case callsign defined in the country file (e.g., `=W1AW`). These entries override all other rules and are used for stations with unique operating locations or statuses. If an exact match is found, that entity is returned immediately.
+2.  **Perform WAE-Priority Lookup:**
+    * Call the core `get_cty(callsign)` function with the WAE lookup feature **enabled**.
+    * Store the resulting `CtyInfo` object as `wae_res_obj`.
 
-### 3. Special Rule Checks
+3.  **Merge Results:**
+    * Initialize a `FullCtyInfo` result with all fields set to "Unknown" or empty.
+    * **If** `dxcc_res_obj` is valid (not "Unknown"):
+        * Populate the `DXCCName`, `DXCCPfx`, `CQZone`, `ITUZone`, `Continent`, `Lat`, `Lon`, and `Tzone` fields of the final result from `dxcc_res_obj`.
+    * **If** `wae_res_obj` is valid (not "Unknown"):
+        * **Overwrite** the `CQZone`, `ITUZone`, `Continent`, `Lat`, `Lon`, and `Tzone` fields of the final result with the data from `wae_res_obj`. This is the WAE **override** for geographic data.
+        * **If** the WAE entity's primary prefix starts with an asterisk (`*`):
+            * Populate the `WAEName` and `WAEPfx` fields of the final result from `wae_res_obj`.
 
-Next, a few hard-coded special rules are checked:
+4.  **Return** the final, merged `FullCtyInfo` object.
 
-* **Maritime Mobile**: If the callsign ends in `/MM`, it is identified as a maritime station with no fixed country, and the process stops.
+---
 
-* **Guantanamo Bay (KG4)**: The algorithm specifically checks if the callsign fits the `KG4xx` (two-letter suffix) pattern. If it does, it's assigned to Guantanamo Bay. All other KG4 callsigns are correctly identified as standard United States stations later in the process.
+### **Function: `get_cty(callsign)` (Core Logic)**
 
-### 4. Portable Operation Logic (/)
+This function contains the core decision tree for resolving a single callsign. It is always called with a `wae` flag (True or False) to control whether WAE prefixes are included in the lookup. *Note: Throughout this section, "the callsign" refers to the string variable as it is being processed at each sequential step.*
 
-If the callsign contains a slash, it's treated as a portable operation. The logic uses a multi-step process to determine the location:
+**Step 1: Pre-processing and Standardization**
 
-* **Unambiguous Prefix Match (High-Priority Rule)**: The algorithm first checks if either the part before the slash (A) or the part after (B) is an exact match for a prefix in the country file, but not both. If exactly one part is a valid prefix, that part is immediately identified as the location. This correctly resolves the vast majority of portable callsigns (e.g., `KH0/4Z5LA` -> Mariana Is., `EA8/W1AW` -> Canary Is.).
+1.  Convert the input `callsign` to uppercase.
+2.  Remove any leading/trailing whitespace.
+3.  Partition the callsign by the first hyphen (`-`) and keep only the part before it.
+4.  Iterate through the suffix list \[`/P`, `/B`, `/M`, `/QRP`\]. If the callsign ends with one of these, strip it. Only the first one found is stripped.
 
-* **"Strip the Digit" Heuristic**: If the first check is inconclusive, the logic attempts to resolve prefixes that imply a numeric range (e.g., `CT` implies `CT1`, `CT2`, etc.). If a part of the call ends in a single digit (like `CT7`), that digit is stripped (`CT`), and the check for an unambiguous prefix match is run again.
+**Step 2: Exact Match Lookup (Highest Priority)**
 
-* **Fallback for Ambiguous Calls**: If both checks are inconclusive, the algorithm proceeds to a structural analysis based on established conventions for US/Canadian callsigns versus others.
+1.  **If `wae` is enabled**, check if `="<callsign>"` exists in the `waeprefixes` dictionary. If yes, **return** the corresponding entity.
+2.  Check if `="<callsign>"` exists in the `dxccprefixes` dictionary. If yes, **return** the corresponding entity.
 
-### 5. General Prefix Lookup (Longest Match)
+**Step 3: Hardcoded Special Cases**
 
-If the callsign is not an exact match or a special case, the algorithm performs its primary function: a "longest prefix match." It starts with the full callsign and checks if it's a known prefix. If not, it shortens the callsign by one character from the right and checks again, repeating until it finds the longest valid prefix in its database (e.g., `VO2AC` -> `VO2A` -> `VO2`). The entity for that longest matching prefix is then returned.
+1.  **Maritime Mobile:** If the callsign ends in `/MM`, **return** the "Unknown" entity.
+2.  **Guantanamo Bay:** This check is performed **before** the portable callsign logic.
+    * If the callsign string exactly matches the regex `^KG4[A-Z]{2}$` (e.g., "KG4XX"), **return** the entity for `KG4` (Guantanamo Bay).
+    * If the callsign contains a `/` and one of its parts (split by `/`) exactly matches the regex `^KG4[A-Z]{2}$`, it is an invalid portable operation. **Return** the "Unknown" entity.
+    * *Note: If a callsign starts with "KG4" but does not meet either of the conditions above (e.g., `KG4A`, `KG4ABC`), this rule takes no action, and the callsign proceeds to the next steps for normal resolution.*
 
-### 6. WAE (Worked All Europe) Override
+**Step 4: Portable Callsign Logic (contains `/`)**
+*If the callsign contains a `/`, the following ordered logic is applied:*
 
-After the primary DXCC entity has been determined, a second lookup is performed specifically against the WAE (Worked All Europe) country list. If a WAE-specific entry is found for the callsign (e.g., `*4U1V` for Vienna Intl Ctr), the geographic data from that WAE entry (Continent, CQ Zone, ITU Zone) will override the data from the standard DXCC lookup. This is critical for contests like CQ WW, where entities like `*TA1` (European Turkey) must be correctly placed in Europe for scoring, even though the primary DXCC entity for Turkey is in Asia.
+1.  Split the callsign into parts. The first part is `p1`, and the last part is `p2`.
+2.  Determine if `p1` is a valid prefix (`p1_is_pfx`). A prefix is valid if it exists as a key in `dxccprefixes`, or if `wae` is enabled, if it exists as a key in `waeprefixes`.
+3.  Determine if `p2` is a valid prefix (`p2_is_pfx`) using the same logic.
+4.  **Unambiguous Prefix Rule:**
+    * If `p1_is_pfx` is true and `p2_is_pfx` is false, **return** the entity for `p1`.
+    * If `p2_is_pfx` is true and `p1_is_pfx` is false, **return** the entity for `p2`.
+5.  **"Strip the Digit" Heuristic:**
+    * If the above rule was inconclusive, create stripped versions `p1s` and `p2s` by removing a single trailing digit (if present).
+    * Repeat the **Unambiguous Prefix Rule** using these stripped versions. If it produces a result, **return** it.
+6.  **US/Canada Heuristic:**
+    * If `p2` is a single digit (`0`-`9`) AND `p1` matches the structural pattern of a US or Canadian callsign, **return** the result of the **Longest Prefix Match** (Step 5) on `p1`.
+7.  **Final Portable Fallback:**
+    * Perform a **Longest Prefix Match** (Step 5) on `p1` and `p2` separately.
+    * If `p1` matches the structural pattern of a US or Canadian callsign, **return** the result for `p2` (if valid), otherwise return the result for `p1`.
+    * If `p1` is not a US/Canadian structure, **return** the result for `p1` (if valid), otherwise return the result for `p2`.
+    * If no result is found, **return** the "Unknown" entity.
 
-### 7. Fallback
+**Step 5: Longest Prefix Match (General Case)**
+*If the callsign is not portable and has not been matched by a prior rule:*
 
-If, after all of these checks, no entity can be determined, the callsign is assigned to an "Unknown" entity.
+1.  Start with the full callsign as the `temp` string.
+2.  Loop as long as `temp` has characters:
+    * **If `wae` is enabled**, check if `temp` exists as a key in the `waeprefixes` dictionary. If yes, **return** that entity.
+    * Check if `temp` exists as a key in the `dxccprefixes` dictionary. If yes, **return** that entity.
+    * If no match, shorten `temp` by removing the last character and repeat the loop.
+3.  If the loop finishes with no match, **return** the "Unknown" entity.
