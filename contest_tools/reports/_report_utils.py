@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-02
-# Version: 0.28.1-Beta
+# Date: 2025-08-03
+# Version: 0.28.11-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,12 +16,26 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 # --- Revision History ---
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
-
+## [0.28.11-Beta] - 2025-08-03
+### Fixed
+# - Explicitly set the `zorder` of the inset summary table to ensure it
+#   is rendered on top of the plot's grid lines.
+#
+## [0.28.10-Beta] - 2025-08-03
+### Fixed
+# - The background color of the inset summary table in rate plots now
+#   dynamically matches the plot's background color instead of being
+#   hardcoded to white.
+#
+## [0.28.9-Beta] - 2025-08-03
+### Changed
+# - The inset summary table in rate plots is now opaque with a white
+#   background to cover the grid lines, improving readability.
+#
 ## [0.28.1-Beta] - 2025-08-02
 ### Added
 # - Added a new shared helper function, _create_cumulative_rate_plot, to
@@ -29,12 +43,10 @@
 # - The inset summary table in rate plots is now opaque with a white
 #   background to cover the grid lines.
 # - The Point Rate plot now correctly includes the summary table.
-
 ## [0.26.3-Beta] - 2025-08-02
 ### Fixed
 # - Corrected a time alignment bug by resampling pivot tables to an hourly
 #   frequency before reindexing against the master time index.
-
 from typing import List, Dict
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -224,11 +236,14 @@ def _create_cumulative_rate_plot(
                         colLabels=col_labels,
                         loc='lower right',
                         cellLoc='center',
-                        bbox=[0.75, 0.05, 0.2, 0.25])
+                        bbox=[0.75, 0.05, 0.2, 0.25],
+                        zorder=10)
     
+    # --- FIX: Make table opaque and ensure it's on top of the grid ---
+    plot_bg_color = ax.get_facecolor()
     table.set_alpha(1.0)
     for key, cell in table.get_celld().items():
-        cell.set_facecolor('white')
+        cell.set_facecolor(plot_bg_color)
 
     fig.tight_layout(rect=[0, 0.03, 1, 0.95])
 
