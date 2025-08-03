@@ -8,7 +8,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-02
-# Version: 0.27.1-Beta
+# Version: 0.28.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,18 +18,23 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 # --- Revision History ---
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
-
+## [0.28.1-Beta] - 2025-08-02
+### Added
+# - Added a `portableid` field to the return tuples to pass the identified
+#   portable designator to downstream routines.
+### Fixed
+# - Added a high-priority check to invalidate `digit/call` portable formats
+#   (e.g., `7/KD4D`), which the previous logic did not handle.
+#
 ## [0.27.1-Beta] - 2025-08-02
 ### Fixed
 # - Corrected a bug in the get_cty_DXCC_WAE merge logic where the CtyInfo
 #   tuple was being unpacked into variables in the wrong order. The logic
 #   now unpacks by field name to prevent column shifts in the output.
-
 ## [0.27.0-Beta] - 2025-08-02
 ### Changed
 # - Complete refactoring of the module to align with the "Definitive
@@ -52,9 +57,9 @@ class CtyLookup:
     """
 
     # --- Data Structures ---
-    CtyInfo = namedtuple('CtyInfo', 'name CQZone ITUZone Continent Lat Lon Tzone DXCC')
-    FullCtyInfo = namedtuple('FullCtyInfo', 'DXCCName DXCCPfx CQZone ITUZone Continent Lat Lon Tzone WAEName WAEPfx')
-    UNKNOWN_ENTITY = CtyInfo("Unknown", "Unknown", "Unknown", "Unknown", "0.0", "0.0", "0.0", "Unknown")
+    CtyInfo = namedtuple('CtyInfo', 'name CQZone ITUZone Continent Lat Lon Tzone DXCC portableid')
+    FullCtyInfo = namedtuple('FullCtyInfo', 'DXCCName DXCCPfx CQZone ITUZone Continent Lat Lon Tzone WAEName WAEPfx portableid')
+    UNKNOWN_ENTITY = CtyInfo("Unknown", "Unknown", "Unknown", "Unknown", "0.0", "0.0", "0.0", "Unknown", "")
 
     # --- US/Canada Structural Patterns for Portable Logic ---
     _US_PATTERN = re.compile(r'^(A[A-L]|K|N|W)[A-Z]?[0-9]')
@@ -96,7 +101,9 @@ class CtyLookup:
         if len(parts) < 8:
             return # Skip malformed records
 
-        entity_info = self.CtyInfo(*[p.strip() for p in parts[0:8]])
+        entity_info_base = [p.strip() for p in parts[0:8]]
+        entity_info = self.CtyInfo(*entity_info_base, portableid="") # Add blank portableid
+        
         primary_prefix = entity_info.DXCC
         aliases_str = parts[8] if len(parts) > 8 else ""
         
@@ -122,14 +129,14 @@ class CtyLookup:
             base_prefix = match.group(1)
             
             # Apply overrides to create a new CtyInfo object for the alias
-            info_list = list(entity_info)
+            info_list = list(entity_info_base)
             cq_m = re.search(r'\((\d+)\)', alias)
             if cq_m: info_list[1] = cq_m.group(1)
             itu_m = re.search(r'\[(\d+)\]', alias)
             if itu_m: info_list[2] = itu_m.group(1)
             cont_m = re.search(r'\{([A-Z]{2})\}', alias)
             if cont_m: info_list[3] = cont_m.group(1)
-            final_info = self.CtyInfo(*info_list)
+            final_info = self.CtyInfo(*info_list, portableid="") # Add blank portableid
             
             if is_exact:
                 target_dict["=" + base_prefix] = final_info
@@ -165,19 +172,15 @@ class CtyLookup:
         wae_res_obj = self.get_cty(callsign, wae=True)
 
         # 3. Merge Results
-        # --- FIX: Initialize from UNKNOWN_ENTITY by field name for clarity ---
-        dxcc_name = self.UNKNOWN_ENTITY.name
-        cq = self.UNKNOWN_ENTITY.CQZone
-        itu = self.UNKNOWN_ENTITY.ITUZone
-        cont = self.UNKNOWN_ENTITY.Continent
-        lat = self.UNKNOWN_ENTITY.Lat
-        lon = self.UNKNOWN_ENTITY.Lon
-        tz = self.UNKNOWN_ENTITY.Tzone
-        dxcc_pfx = self.UNKNOWN_ENTITY.DXCC
+        base_info = self.UNKNOWN_ENTITY._asdict()
+        dxcc_name, cq, itu, cont, lat, lon, tz, dxcc_pfx = (
+            base_info['name'], base_info['CQZone'], base_info['ITUZone'], base_info['Continent'],
+            base_info['Lat'], base_info['Lon'], base_info['Tzone'], base_info['DXCC']
+        )
         wae_name, wae_pfx = "", ""
+        portableid = ""
 
         if dxcc_res_obj.name != "Unknown":
-            # --- FIX: Unpack by field name to prevent order-related bugs ---
             dxcc_name = dxcc_res_obj.name
             cq = dxcc_res_obj.CQZone
             itu = dxcc_res_obj.ITUZone
@@ -188,20 +191,19 @@ class CtyLookup:
             dxcc_pfx = dxcc_res_obj.DXCC
 
         if wae_res_obj.name != "Unknown":
-            # --- FIX: Overwrite by field name for clarity and safety ---
             cq = wae_res_obj.CQZone
             itu = wae_res_obj.ITUZone
             cont = wae_res_obj.Continent
             lat = wae_res_obj.Lat
             lon = wae_res_obj.Lon
             tz = wae_res_obj.Tzone
+            portableid = wae_res_obj.portableid
             
-            # If it's a WAE-specific entity, populate WAE fields
             if wae_res_obj.DXCC.startswith('*'):
                 wae_name = wae_res_obj.name
                 wae_pfx = wae_res_obj.DXCC
         
-        return self.FullCtyInfo(dxcc_name, dxcc_pfx, cq, itu, cont, lat, lon, tz, wae_name, wae_pfx)
+        return self.FullCtyInfo(dxcc_name, dxcc_pfx, cq, itu, cont, lat, lon, tz, wae_name, wae_pfx, portableid)
 
     def get_cty(self, callsign: str, wae: bool = True) -> CtyInfo:
         """
@@ -264,6 +266,10 @@ class CtyLookup:
         parts = call.split('/')
         p1, p2 = parts[0], parts[-1]
 
+        # New high-priority check for invalid digit/call format
+        if len(p1) == 1 and p1.isdigit() and not p2.isdigit():
+            return self.UNKNOWN_ENTITY
+
         def is_valid_prefix(p):
             if p in self.dxccprefixes: return True
             if wae and p in self.waeprefixes: return True
@@ -271,8 +277,10 @@ class CtyLookup:
 
         # 4a. Unambiguous Prefix Rule
         p1_is_pfx, p2_is_pfx = is_valid_prefix(p1), is_valid_prefix(p2)
-        if p1_is_pfx and not p2_is_pfx: return self._get_prefix_entity(p1, wae)
-        if p2_is_pfx and not p1_is_pfx: return self._get_prefix_entity(p2, wae)
+        if p1_is_pfx and not p2_is_pfx:
+            return self._get_prefix_entity(p1, wae)._replace(portableid=p1)
+        if p2_is_pfx and not p1_is_pfx:
+            return self._get_prefix_entity(p2, wae)._replace(portableid=p2)
 
         # 4b. "Strip the Digit" Heuristic
         p1s = p1[:-1] if len(p1) > 1 and p1[-1].isdigit() and not p1[-2].isdigit() else None
@@ -280,12 +288,17 @@ class CtyLookup:
         if p1s or p2s:
             p1s_is_pfx = is_valid_prefix(p1s) if p1s else False
             p2s_is_pfx = is_valid_prefix(p2s) if p2s else False
-            if p1s_is_pfx and not p2s_is_pfx: return self._get_prefix_entity(p1s, wae)
-            if p2s_is_pfx and not p1s_is_pfx: return self._get_prefix_entity(p2s, wae)
+            if p1s_is_pfx and not p2s_is_pfx:
+                return self._get_prefix_entity(p1s, wae)._replace(portableid=p1)
+            if p2s_is_pfx and not p1s_is_pfx:
+                return self._get_prefix_entity(p2s, wae)._replace(portableid=p2)
 
         # 4c. US/Canada Heuristic
         if len(p2) == 1 and p2.isdigit() and (self._US_PATTERN.match(p1) or self._CA_PATTERN.match(p1)):
-            return self._find_longest_prefix(p1, wae)
+            cty_info = self._find_longest_prefix(p1, wae)
+            if cty_info:
+                return cty_info._replace(portableid=p2)
+            return self.UNKNOWN_ENTITY
 
         # 4d. Final Portable Fallback
         p1_info = self._find_longest_prefix(p1, wae)
@@ -294,9 +307,13 @@ class CtyLookup:
         is_p1_usca = bool(self._US_PATTERN.match(p1) or self._CA_PATTERN.match(p1))
         
         if is_p1_usca:
-            return p2_info if p2_info else p1_info
+            if p2_info: return p2_info._replace(portableid=p2)
+            if p1_info: return p1_info._replace(portableid=p1)
         else:
-            return p1_info if p1_info else p2_info
+            if p1_info: return p1_info._replace(portableid=p1)
+            if p2_info: return p2_info._replace(portableid=p2)
+        
+        return None
 
     def _find_longest_prefix(self, call: str, wae: bool) -> Optional[CtyInfo]:
         """Implements Step 5 of the algorithm."""
@@ -319,7 +336,8 @@ def _run_lookup(cty: CtyLookup, call: str):
     res = cty.get_cty_DXCC_WAE(call)
     print(f"\n> {call}\n  Comprehensive: DXCC Name: {res.DXCCName:<20}, DXCC Pfx: {res.DXCCPfx:<10}\n"
           f"                   WAE Name:  {res.WAEName:<20}, WAE Pfx:  {res.WAEPfx:<10}\n"
-          f"                   Zones: CQ {res.CQZone}, ITU {res.ITUZone}, Cont: {res.Continent}")
+          f"                   Zones: CQ {res.CQZone}, ITU {res.ITUZone}, Cont: {res.Continent}\n"
+          f"                   Portable ID: {res.portableid}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="CTY.DAT lookup tool.")
