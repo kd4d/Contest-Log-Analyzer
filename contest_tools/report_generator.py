@@ -7,8 +7,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-02
-# Version: 0.26.0-Beta
+# Date: 2025-08-03
+# Version: 0.28.12-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,18 +18,20 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 # --- Revision History ---
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
-
+## [0.28.12-Beta] - 2025-08-03
+### Added
+# - Implemented logic to honor the `excluded_reports` list from contest
+#   definition files, preventing inapplicable reports from being generated.
+#
 ## [0.26.0-Beta] - 2025-08-02
 ### Added
 # - Initial release of the ReportGenerator class.
 # - Refactored the complex report generation loop from main_cli.py into this
 #   class to improve separation of concerns and prepare for future UI integration.
-
 import os
 import itertools
 from .reports import AVAILABLE_REPORTS
@@ -81,6 +83,13 @@ class ReportGenerator:
 
         # --- This entire block is the logic moved from main_cli.py ---
         for r_id, ReportClass in reports_to_run:
+            # --- FIX: Check if the report is excluded by the contest definition ---
+            first_log = self.logs[0]
+            excluded = first_log.contest_definition.excluded_reports
+            if r_id in excluded:
+                print(f"\nSkipping report '{ReportClass.report_name}': Excluded by contest definition.")
+                continue
+
             report_type = ReportClass.report_type
             
             if report_type == 'text': output_path = self.text_output_dir

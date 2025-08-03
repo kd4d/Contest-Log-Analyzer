@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-02
-# Version: 0.28.6-Beta
+# Date: 2025-08-03
+# Version: 0.28.13-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,6 +20,14 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.28.13-Beta] - 2025-08-03
+### Added
+# - Added a final validation check to set any calculated prefix that is a
+#   single digit to "Unknown".
+### Fixed
+# - Corrected the logic for the `call/digit` portable case to simply and
+#   reliably identify the root callsign, fixing the bug with IZ5TJD/7.
+#
 ## [0.28.6-Beta] - 2025-08-02
 ### Fixed
 # - Refined the non-portable override rule to only apply when the DXCCPfx
@@ -97,6 +105,7 @@ def _get_wpx_prefix_from_row(row: pd.Series) -> str:
     raw_call = row.get('Call')
     dxc_pfx = row.get('DXCCPfx')
     portable_id = row.get('portableid')
+    prefix_result = "Unknown" # Default value
 
     if not raw_call:
         return "Unknown"
@@ -110,34 +119,36 @@ def _get_wpx_prefix_from_row(row: pd.Series) -> str:
     # --- Portable Call Logic ---
     if portable_id:
         if dxc_pfx == "Unknown":
-            return "Unknown"
-
+            prefix_result = "Unknown"
         # Rule: call/digit (e.g., WN5N/7 -> WN7)
-        if len(portable_id) == 1 and portable_id.isdigit():
-            root_call = ""
+        elif len(portable_id) == 1 and portable_id.isdigit():
             parts = cleaned_call.split('/')
-            if len(parts) > 1:
-                # Determine root call by finding the part that is NOT the portable_id
-                root_call = parts[0] if parts[1] == portable_id else parts[1]
-
+            # The root call is the part that is NOT the single-digit portableid.
+            root_call = parts[0] if len(parts) > 1 and parts[1] == portable_id else parts[-1]
+            
             root_prefix = _get_prefix_for_non_portable(root_call, dxc_pfx)
             
             match = re.search(r'\d(?!.*\d)', root_prefix)
             if match:
                 last_digit_index = match.start()
-                return root_prefix[:last_digit_index] + portable_id
-            return root_prefix + portable_id
-
+                prefix_result = root_prefix[:last_digit_index] + portable_id
+            else:
+                prefix_result = root_prefix + portable_id
         # Rule: call/letters (e.g., LX/KD4D -> LX0)
-        if portable_id.isalpha():
-            return portable_id + '0'
-
+        elif portable_id.isalpha():
+            prefix_result = portable_id + '0'
         # Rule: call/prefix (e.g., VP2V/KD4D -> VP2V)
-        return portable_id
-
+        else:
+            prefix_result = portable_id
     # --- Non-Portable Call Logic ---
     else:
-        return _get_prefix_for_non_portable(cleaned_call, dxc_pfx)
+        prefix_result = _get_prefix_for_non_portable(cleaned_call, dxc_pfx)
+
+    # Final validation: a single digit is not a valid prefix.
+    if len(prefix_result) == 1 and prefix_result.isdigit():
+        return "Unknown"
+    
+    return prefix_result
 
 def calculate_wpx_prefixes(df: pd.DataFrame) -> pd.Series:
     """
@@ -153,8 +164,6 @@ def calculate_wpx_prefixes(df: pd.DataFrame) -> pd.Series:
     required_cols = ['Call', 'DXCCPfx', 'portableid']
     for col in required_cols:
         if col not in df.columns:
-            # Return a series of "Unknown" if a required column is missing
-            # to prevent a hard crash during the annotation phase.
             print(f"Error: Input DataFrame for WPX prefix calculation must contain a '{col}' column. Returning Unknowns.")
             return pd.Series("Unknown", index=df.index)
 
