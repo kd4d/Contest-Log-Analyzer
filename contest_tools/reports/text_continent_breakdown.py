@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-02
-# Version: 0.26.1-Beta
+# Date: 2025-08-03
+# Version: 0.28.25-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,35 +16,25 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 # --- Revision History ---
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
-
-## [0.26.1-Beta] - 2025-08-02
-### Fixed
-# - Converted report_id, report_name, and report_type from @property methods
-#   to simple class attributes to fix a bug in the report generation loop.
-
-## [0.22.0-Beta] - 2025-07-31
+## [0.28.25-Beta] - 2025-08-03
 ### Changed
-# - Implemented the boolean support properties, correctly identifying this
-#   report as 'single'.
-# - The report now correctly generates a separate set of per-band output files
-#   for each log provided, ensuring consistency with other summary reports.
-
-## [0.21.5-Beta] - 2025-07-28
+# - Rewrote the report format to display continent data in a 3x2 grid
+#   instead of a single vertical column for a more compact view.
+#
+## [0.28.21-Beta] - 2025-08-03
 ### Added
-# - Each per-band report now includes a diagnostic list at the end, showing
-#   all unique callsigns from that band that resulted in an "Unknown"
-#   continent classification.
-
-## [0.16.0-Beta] - 2025-07-26
-### Fixed
-# - Corrected the logic to handle two-letter continent abbreviations (e.g., 'NA')
-#   from the CTY.DAT file, allowing the report to generate correctly.
-
+# - Added a diagnostic section to the end of the report that lists all
+#   callsigns with an 'Unknown' continent.
+#
+## [0.28.20-Beta] - 2025-08-03
+### Changed
+# - Consolidated the report from multiple, per-band files into a single,
+#   comprehensive file that groups the breakdown by continent, then by band.
+#
 from typing import List
 import pandas as pd
 import os
@@ -65,95 +55,112 @@ class Report(ContestReport):
         Generates the report content.
         """
         include_dupes = kwargs.get('include_dupes', False)
-        created_files_for_log = []
+        final_report_messages = []
 
         for log in self.logs:
             metadata = log.get_metadata()
             df_full = log.get_processed_data()
             callsign = metadata.get('MyCall', 'UnknownCall')
 
-            # --- Data Preparation ---
             if not include_dupes and 'Dupe' in df_full.columns:
                 df = df_full[df_full['Dupe'] == False].copy()
             else:
                 df = df_full.copy()
             
             if df.empty:
-                print(f"Skipping report for {callsign}: No valid QSOs to report.")
+                msg = f"Skipping report for {callsign}: No valid QSOs to report."
+                print(msg)
+                final_report_messages.append(msg)
                 continue
 
-            # --- Report Generation ---
             continent_map = {
                 'NA': 'North America', 'SA': 'South America', 'EU': 'Europe',
                 'AS': 'Asia', 'AF': 'Africa', 'OC': 'Oceania', 'Unknown': 'Unknown'
             }
             bands = ['160M', '80M', '40M', '20M', '15M', '10M']
-            
             df['ContinentName'] = df['Continent'].map(continent_map).fillna('Unknown')
 
-            for band in bands:
-                band_df = df[df['Band'] == band]
-                if band_df.empty:
+            pivot = df.pivot_table(
+                index=['ContinentName', 'Band'],
+                columns='Run',
+                aggfunc='size',
+                fill_value=0
+            )
+
+            header = f"--- Continent Breakdown for {callsign} ---"
+            report_lines = [header]
+
+            # --- Grid Formatting Logic ---
+            # 1. Pre-format the data for each continent into a list of strings
+            formatted_data = {}
+            col_width = 35  # Define a fixed width for each column in the grid
+            
+            for cont_name in sorted(continent_map.values()):
+                if cont_name in pivot.index.get_level_values('ContinentName'):
+                    continent_lines = []
+                    continent_data = pivot.loc[cont_name]
+                    for band in bands:
+                        if band in continent_data.index:
+                            band_data = continent_data.loc[band]
+                            continent_lines.append(f"  {band.replace('M','')} Meters:")
+                            for run_status in ['Run', 'S&P', 'Unknown']:
+                                line = f"    {run_status:<9}: {band_data.get(run_status, 0):>8}"
+                                continent_lines.append(line)
+                    formatted_data[cont_name] = continent_lines
+
+            # 2. Define the grid layout
+            grid_layout = [
+                ["North America", "South America", "Europe"],
+                ["Asia", "Africa", "Oceania"]
+            ]
+            
+            # 3. Build the grid output line by line
+            for grid_row in grid_layout:
+                row_continent_data = [formatted_data.get(c, []) for c in grid_row]
+                
+                if not any(row_continent_data): # Skip empty rows of continents
                     continue
 
-                report_lines = []
-                
-                # --- Header ---
-                header = f"{'Continent':<14}{callsign:>12}"
-                separator = "-" * len(header)
-                report_lines.append(f"--- {band.replace('M','')} Meters Continent Breakdown for {callsign} ---")
-                report_lines.append(header)
+                header_line = "".join([f"{name:^{col_width}}" for name in grid_row])
+                separator = "".join([f"{'-' * (len(name)):^{col_width}}" for name in grid_row])
+                report_lines.append("\n" + header_line)
                 report_lines.append(separator)
 
-                # --- Pivot and Format ---
-                pivot = band_df.pivot_table(
-                    index='ContinentName',
-                    columns='Run',
-                    aggfunc='size',
-                    fill_value=0
-                )
+                max_lines = max(len(d) for d in row_continent_data) if row_continent_data else 0
+                for i in range(max_lines):
+                    line_parts = []
+                    for continent_data_block in row_continent_data:
+                        line = continent_data_block[i] if i < len(continent_data_block) else ""
+                        line_parts.append(f"{line:<{col_width}}")
+                    report_lines.append("".join(line_parts))
 
-                for cont_name in continent_map.values():
-                    if cont_name in pivot.index:
-                        report_lines.append(cont_name)
-                        continent_data = pivot.loc[cont_name]
-                        
-                        for run_status in ['Run', 'S&P', 'Unknown']:
-                            line = f"  {run_status:<11}:"
-                            line += f"{continent_data.get(run_status, 0):>12}"
-                            report_lines.append(line)
-                
-                # --- Add Diagnostic List for Unknown Calls ---
-                unknown_continent_df = band_df[band_df['ContinentName'] == 'Unknown']
-                unique_unknown_calls = sorted(unknown_continent_df['Call'].unique())
+            # --- Add Diagnostic List for Unknown Calls ---
+            unknown_continent_df = df[df['ContinentName'] == 'Unknown']
+            unique_unknown_calls = sorted(unknown_continent_df['Call'].unique())
 
-                if unique_unknown_calls:
-                    report_lines.append("\n" + "-" * 30)
-                    report_lines.append("Callsigns with 'Unknown' Continent:")
-                    report_lines.append("-" * 30)
-                    
-                    col_width = 12
-                    num_cols = max(1, len(header) // (col_width + 2))
-                    
-                    for i in range(0, len(unique_unknown_calls), num_cols):
-                        line_calls = unique_unknown_calls[i:i+num_cols]
-                        report_lines.append("  ".join([f"{call:<{col_width}}" for call in line_calls]))
+            if unique_unknown_calls:
+                report_lines.append("\n" + "-" * 40)
+                report_lines.append("Callsigns with 'Unknown' Continent:")
+                report_lines.append("-" * 40)
+                
+                num_cols = max(1, (col_width * 3) // 14)
+                
+                for i in range(0, len(unique_unknown_calls), num_cols):
+                    line_calls = unique_unknown_calls[i:i+num_cols]
+                    report_lines.append("  ".join([f"{call:<12}" for call in line_calls]))
 
-                # --- Save Individual Report File ---
-                report_content = "\n".join(report_lines)
-                
-                band_output_path = os.path.join(output_path, band)
-                os.makedirs(band_output_path, exist_ok=True)
-                
-                filename = f"{self.report_id}_{band.lower()}_{callsign}.txt"
-                filepath = os.path.join(band_output_path, filename)
-                
-                with open(filepath, 'w', encoding='utf-8') as f:
-                    f.write(report_content)
-                
-                created_files_for_log.append(filepath)
+            # --- Save the SINGLE Report File ---
+            report_content = "\n".join(report_lines)
+            os.makedirs(output_path, exist_ok=True)
+            filename = f"{self.report_id}_{callsign}.txt"
+            filepath = os.path.join(output_path, filename)
+            
+            with open(filepath, 'w', encoding='utf-8') as f:
+                f.write(report_content)
+            
+            final_report_messages.append(f"Text report saved to: {filepath}")
 
-        if not created_files_for_log:
+        if not final_report_messages:
             return "No continent breakdown reports were generated."
-
-        return f"Continent breakdown reports generated."
+            
+        return "\n".join(final_report_messages)

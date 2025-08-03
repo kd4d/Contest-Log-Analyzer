@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-03
-# Version: 0.28.14-Beta
+# Version: 0.28.24-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,6 +20,17 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.28.24-Beta] - 2025-08-03
+### Changed
+# - Adjusted formatting in the TOTAL section: removed a separator line,
+#   added a blank line before final scores, and right-justified the
+#   final score lines to align with the table.
+#
+## [0.28.22-Beta] - 2025-08-03
+### Added
+# - The report now includes the final calculated score for each log at the
+#   bottom of the TOTAL section.
+#
 ## [0.28.14-Beta] - 2025-08-03
 ### Added
 # - Initial release of the Comparative Score Report.
@@ -48,17 +59,14 @@ class Report(ContestReport):
         all_calls = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])
         first_log = self.logs[0]
 
-        # --- Data-driven Multiplier Setup ---
         multiplier_rules = first_log.contest_definition.multiplier_rules
         mult_cols = [rule['value_column'] for rule in multiplier_rules]
         mult_names = [rule['name'] for rule in multiplier_rules]
 
-        # --- Dynamic Header and Column Width Calculation ---
         col_order = ['Callsign', 'QSOs'] + mult_names + ['Dupes', 'Points', 'AVG']
         col_widths = {key: len(str(key)) for key in col_order}
         col_widths['Callsign'] = max([len(call) for call in all_calls] + [len('Callsign')])
 
-        # --- Report Generation ---
         report_lines = []
         bands = ['160M', '80M', '40M', '20M', '15M', '10M']
         
@@ -99,7 +107,6 @@ class Report(ContestReport):
                     data_parts = [f"{row_data[name]:<{col_widths[name]}}" if name == 'Callsign' else f"{row_data.get(name, 0):>{col_widths[name]}}" if not isinstance(row_data.get(name), float) else f"{row_data.get(name, 0):>{col_widths[name]}.2f}" for name in col_order]
                     report_lines.append("  ".join(data_parts))
 
-        # --- Calculate and Format Totals ---
         header_parts = [f"{name:>{col_widths[name]}}" for name in col_order]
         header = "  ".join(header_parts)
         separator = "-" * len(header)
@@ -107,18 +114,26 @@ class Report(ContestReport):
         report_lines.insert(0, header)
         report_lines.insert(1, separator)
         
-        report_lines.append("\n" + separator)
-        report_lines.append("--- TOTAL ---")
+        report_lines.append("\n--- TOTAL ---")
         
-        for log in self.logs:
-            total_summary = self._calculate_totals(log, mult_cols, mult_names)
-            total_parts = [f"{total_summary[name]:<{col_widths[name]}}" if name == 'Callsign' else f"{total_summary.get(name, 0):>{col_widths[name]}}" if not isinstance(total_summary.get(name), float) else f"{total_summary.get(name, 0):>{col_widths[name]}.2f}" for name in col_order]
+        total_summaries = [self._calculate_totals(log, mult_cols, mult_names) for log in self.logs]
+
+        for summary in total_summaries:
+            total_parts = [f"{summary[name]:<{col_widths[name]}}" if name == 'Callsign' else f"{summary.get(name, 0):>{col_widths[name]}}" if not isinstance(summary.get(name), float) else f"{summary.get(name, 0):>{col_widths[name]}.2f}" for name in col_order]
             report_lines.append("  ".join(total_parts))
 
-        # --- Diagnostic Sections ---
+        report_lines.append("=" * len(header))
+        report_lines.append("") # Add blank line before scores
+        for summary in total_summaries:
+            callsign = summary['Callsign']
+            score = summary['FinalScore']
+            score_text = f"TOTAL SCORE ({callsign}) : {score:,.0f}"
+            # Right-justify the score line to the width of the table header
+            justified_score_line = score_text.rjust(len(header))
+            report_lines.append(justified_score_line)
+
         self._add_diagnostic_sections(report_lines)
 
-        # --- Save the Report File ---
         report_content = "\n".join(report_lines)
         os.makedirs(output_path, exist_ok=True)
         filename_calls = '_vs_'.join(all_calls)
@@ -140,6 +155,7 @@ class Report(ContestReport):
         total_summary['Dupes'] = df_full['Dupe'].sum()
         total_summary['Points'] = df_net['QSOPoints'].sum()
 
+        total_multiplier_count = 0
         for i, rule in enumerate(log.contest_definition.multiplier_rules):
             mult_name = mult_names[i]
             mult_col = mult_cols[i]
@@ -150,12 +166,16 @@ class Report(ContestReport):
                 continue
 
             if totaling_method == 'once_per_log':
-                total_summary[mult_name] = df_valid_mults[df_valid_mults[mult_col] != 'Unknown'][mult_col].nunique()
+                unique_mults = df_valid_mults[df_valid_mults[mult_col] != 'Unknown'][mult_col].nunique()
+                total_summary[mult_name] = unique_mults
+                total_multiplier_count += unique_mults
             else: # Default to sum_by_band
                 band_mults = df_valid_mults[df_valid_mults[mult_col] != 'Unknown'].groupby('Band')[mult_col].nunique()
                 total_summary[mult_name] = band_mults.sum()
+                total_multiplier_count += total_summary[mult_name]
 
         total_summary['AVG'] = (total_summary['Points'] / total_summary['QSOs']) if total_summary['QSOs'] > 0 else 0
+        total_summary['FinalScore'] = total_summary['Points'] * total_multiplier_count
         return total_summary
 
     def _add_diagnostic_sections(self, report_lines: List[str]):

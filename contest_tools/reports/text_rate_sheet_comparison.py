@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-02
-# Version: 0.26.1-Beta
+# Date: 2025-08-03
+# Version: 0.28.19-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -15,41 +15,31 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 # --- Revision History ---
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
-
+## [0.28.19-Beta] - 2025-08-03
+### Added
+# - Added a "TOTALS" section to the bottom of the report to show the
+#   total QSO count for each individual band, per log.
+#
 ## [0.26.1-Beta] - 2025-08-02
 ### Fixed
 # - Converted report_id, report_name, and report_type from @property methods
 #   to simple class attributes to fix a bug in the report generation loop.
-
 ## [0.26.6-Beta] - 2025-08-02
 ### Fixed
 # - Corrected a timezone mismatch by ensuring the QSO 'Datetime' column is
 #   converted to UTC before creating the pivot table for alignment.
-
 ## [0.25.0-Beta] - 2025-08-01
 ### Changed
 # - The report now uses the pre-aligned master time index to display the
 #   entire contest period, correctly showing gaps in operating time.
-
 ## [0.22.1-Beta] - 2025-07-31
 ### Changed
 # - Implemented the boolean support properties, correctly identifying this
 #   report as supporting both 'multi' and 'pairwise' modes.
-# - Corrected the filename in the header comment to match the actual module name.
-
-## [0.15.1-Beta] - 2025-07-25
-### Fixed
-# - Corrected the column alignment in the report table by properly indenting
-#   the headers to match the data rows.
-
-## [0.15.0-Beta] - 2025-07-25
-# - Standardized version for final review. No functional changes.
-
 from typing import List
 import pandas as pd
 import os
@@ -68,19 +58,18 @@ class Report(ContestReport):
     
     def generate(self, output_path: str, **kwargs) -> str:
         """
-        Generates the report content, saves it to a file, and returns a summary.
+         Generates the report content, saves it to a file, and returns a summary.
         """
         include_dupes = kwargs.get('include_dupes', False)
 
         if len(self.logs) < 2:
             return "Error: The Comparative Rate Sheet report requires at least two logs."
-            
+        
         log_manager = getattr(self.logs[0], '_log_manager_ref', None)
         if not log_manager or log_manager.master_time_index is None:
             return "Error: Master time index not available for rate sheet report."
         master_time_index = log_manager.master_time_index
 
-        # --- Header Generation ---
         all_calls = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])
         first_log_meta = self.logs[0].get_metadata()
 
@@ -96,8 +85,7 @@ class Report(ContestReport):
         report_lines.append("")
         report_lines.append("---------------- Q S O   R a t e   S u m m a r y ---------------------")
         
-        # Define column widths and prefix for alignment
-        prefix_width = 11 # 2 spaces for indent + 7 for callsign + 2 for ': '
+        prefix_width = 11
         band_width = 6
         hourly_width = 8
         cum_width = 12
@@ -109,7 +97,6 @@ class Report(ContestReport):
         separator = " " * prefix_width + "-" * (len(header2) - prefix_width)
         report_lines.append(separator)
 
-        # --- Data Aggregation for All Logs ---
         processed_data = {}
         bands = ['160M', '80M', '40M', '20M', '15M', '10M']
         cumulative_totals = {call: 0 for call in all_calls}
@@ -126,7 +113,6 @@ class Report(ContestReport):
             if df.empty:
                 rate_data = pd.DataFrame(0, index=master_time_index, columns=bands)
             else:
-                # FIX: Ensure datetime is timezone-aware before pivoting
                 df['Datetime'] = pd.to_datetime(df['Datetime'], utc=True)
                 rate_data = df.pivot_table(index=df['Datetime'].dt.floor('h'), 
                                            columns='Band', 
@@ -142,7 +128,6 @@ class Report(ContestReport):
             rate_data['Hourly Total'] = rate_data.sum(axis=1)
             processed_data[callsign] = rate_data
 
-        # --- Format Combined Rate Table ---
         for timestamp in master_time_index:
             hour_str = timestamp.strftime('%H%M')
             report_lines.append(hour_str)
@@ -166,7 +151,6 @@ class Report(ContestReport):
                         f"{cumulative_totals[callsign]:>{cum_width}}"
                     )
                 else:
-                    # If log has no data for this hour, print a placeholder
                     line = (
                         f"  {callsign:<7}: "
                         f"{0:>{band_width}}"
@@ -178,10 +162,23 @@ class Report(ContestReport):
                         f"{0:>{hourly_width}}"
                         f"{cumulative_totals[callsign]:>{cum_width}}"
                     )
-                
                 report_lines.append(line)
         
-        # --- Save the Report to a File ---
+        # --- Totals Section ---
+        report_lines.append(separator)
+        report_lines.append("TOTALS")
+        for callsign in all_calls:
+            log_data = processed_data.get(callsign)
+            if log_data is not None:
+                total_line = f"  {callsign:<7}: "
+                grand_total = 0
+                for band in bands:
+                    band_total = log_data[band].sum()
+                    total_line += f"{band_total:>{band_width}}"
+                    grand_total += band_total
+                total_line += f"{grand_total:>{hourly_width}}"
+                report_lines.append(total_line)
+
         report_content = "\n".join(report_lines)
         os.makedirs(output_path, exist_ok=True)
         
