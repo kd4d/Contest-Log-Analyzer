@@ -1,33 +1,35 @@
-Filename: "Docs/ProgrammersGuide.md"
+# Contest-Log-Analyzer/Docs/Version 0.26.0-Beta/ProgrammersGuide.md
 
 # Contest Log Analyzer - Programmer's Guide
 
-**Version: 0.26.3-Beta**
-**Date: 2025-08-03**
+**Version: 0.26.2-Beta**
 
 ## 1. Introduction
 
 This guide is for developers who want to understand, maintain, or extend the Contest Log Analyzer. It provides an overview of the project's architecture, explains the core data flow, and gives step-by-step instructions for common development tasks like adding new reports, contest definitions, and scoring logic.
+
 ---
 
 ## 2. Project Architecture & Directory Structure
 
 The project is designed to be highly modular, separating data, processing, and presentation.
+
 * `Contest-Log-Analyzer/` (Project Root)
     * `main_cli.py`: The main command-line interface (CLI) script and the entry point for the application.
-* `contest_tools/`: The core Python application package containing all the processing logic.
-    * `cabrillo_parser.py`: Contains low-level functions for reading and parsing the standard Cabrillo log file format.
-    * `contest_log.py`: Defines the `ContestLog` class, the central object that holds all data and metadata for a single, fully processed log.
-    * `log_manager.py`: Defines the `LogManager` class, which handles loading and managing one or more `ContestLog` instances for comparative analysis.
-    * `report_generator.py`: Defines the `ReportGenerator` class, which orchestrates the execution of all reports.
-    * `contest_definitions/`: A data-driven package containing JSON files that define the rules, multipliers, and exchange formats for each supported contest.
-    * `core_annotations/`: Contains modules for universal data enrichment that applies to most contests, such as country lookup (`get_cty.py`) and Run/S&P classification (`run_s_p.py`).
-    * `contest_specific_annotations/`: Contains modules with logic unique to a specific contest, such as the scoring rules for CQ WW or ARRL SS.
-    * `reports/`: The "plug-and-play" reporting system. Each Python file in this directory is a self-contained report generator that is automatically discovered by the program.
-* `Logs/` (Recommended User Directory)
-    * This directory is the recommended location for storing your raw Cabrillo log files, organized by year and contest.
-* `reports_output/` (Generated Directory)
-    * This directory is automatically created by the program to store all generated reports and charts.
+    * `contest_tools/`: The core Python application package containing all the processing logic.
+        * `cabrillo_parser.py`: Contains low-level functions for reading and parsing the standard Cabrillo log file format.
+        * `contest_log.py`: Defines the `ContestLog` class, the central object that holds all data and metadata for a single, fully processed log.
+        * `log_manager.py`: Defines the `LogManager` class, which handles loading and managing one or more `ContestLog` instances for comparative analysis.
+        * `report_generator.py`: Defines the `ReportGenerator` class, which orchestrates the execution of all reports.
+        * `contest_definitions/`: A data-driven package containing JSON files that define the rules, multipliers, and exchange formats for each supported contest.
+        * `core_annotations/`: Contains modules for universal data enrichment that applies to most contests, such as country lookup (`get_cty.py`) and Run/S&P classification (`run_s_p.py`).
+        * `contest_specific_annotations/`: Contains modules with logic unique to a specific contest, such as the scoring rules for CQ WW or ARRL SS.
+        * `reports/`: The "plug-and-play" reporting system. Each Python file in this directory is a self-contained report generator that is automatically discovered by the program.
+    * `Logs/` (Recommended User Directory)
+        * This directory is the recommended location for storing your raw Cabrillo log files, organized by year and contest.
+    * `reports_output/` (Generated Directory)
+        * This directory is automatically created by the program to store all generated reports and charts.
+
 ---
 
 ## 3. Core Concepts & Data Flow
@@ -41,7 +43,8 @@ The process follows a clear pipeline:
 5.  **Annotation**: The `ContestLog` object's `apply_annotations()` method is called. This is a crucial step where the raw data is enriched:
     * Core Annotations are applied first (Country/Zone lookup, Run/S&P classification).
     * Contest-Specific Annotations are applied next (QSO point calculation, multiplier identification).
-6.  **Reporting**: The final, fully-annotated list of `ContestLog` objects is passed to the `ReportGenerator`. It executes the requested reports based on their defined capabilities (single, pairwise, multi-log) and also honors an `excluded_reports` list from the `ContestDefinition` to prevent inapplicable reports from being generated.
+6.  **Reporting**: The final, fully-annotated list of `ContestLog` objects is passed to the `ReportGenerator`, which executes the requested reports based on their defined capabilities (single, pairwise, multi-log).
+
 ---
 
 ## 4. Extending the Analyzer
