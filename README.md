@@ -1,94 +1,118 @@
-Filename: "Docs/ProgrammersGuide.md"
+Filename: "README.md"
 
-# Contest Log Analyzer - Programmer's Guide
+# Contest Log Analyzer
 
 **Version: 0.26.3-Beta**
 **Date: 2025-08-03**
 
-## 1. Introduction
-
-This guide is for developers who want to understand, maintain, or extend the Contest Log Analyzer. It provides an overview of the project's architecture, explains the core data flow, and gives step-by-step instructions for common development tasks like adding new reports, contest definitions, and scoring logic.
+A Python-based tool for in-depth analysis and comparison of amateur radio contest logs. This application processes standard Cabrillo files to generate detailed reports, charts, and visualizations, providing deep insights into operator strategy and performance.
 ---
+## Key Features
 
-## 2. Project Architecture & Directory Structure
+* **Data-Driven Architecture**: Uses simple JSON files to define the rules, scoring, and exchange formats for each contest, making the tool highly extensible.
+* **Run/S&P Heuristics**: A sophisticated, multi-pass heuristic analyzes QSO timing and frequency to classify each contact as "Run," "Search & Pounce," or "Unknown," providing a clear picture of operating strategy.
+* **Unique vs. Common QSO Analysis**: The analyzer precisely identifies "unique" QSOs (worked by only one of two logs) and "common" QSOs (worked by both), breaking them down by Run/S&P status to reveal strategic advantages.
+* **Cumulative Difference Plots**: Goes beyond traditional rate graphs by presenting QSO and Point rate data in "Cumulative Difference Plots," which visualize performance trends and momentum shifts much more clearly.
+* **Annotated CSV Output**: Generates detailed, "annotated" CSV files from the processed logs, perfect for loading into Excel or other tools for custom analysis and prototyping.
+* **Contest-Specific Scoring**: A modular system calculates QSO points based on the official rules for supported contests (ARRL-DX, ARRL-SS, CQ-WPX, CQ-WW).
+* **Dynamic Reporting Engine**: A flexible, "plug-and-play" system for generating a wide variety of text, plot, and chart-based reports.
 
-The project is designed to be highly modular, separating data, processing, and presentation.
-* `Contest-Log-Analyzer/` (Project Root)
-    * `main_cli.py`: The main command-line interface (CLI) script and the entry point for the application.
-* `contest_tools/`: The core Python application package containing all the processing logic.
-    * `cabrillo_parser.py`: Contains low-level functions for reading and parsing the standard Cabrillo log file format.
-    * `contest_log.py`: Defines the `ContestLog` class, the central object that holds all data and metadata for a single, fully processed log.
-    * `log_manager.py`: Defines the `LogManager` class, which handles loading and managing one or more `ContestLog` instances for comparative analysis.
-    * `report_generator.py`: Defines the `ReportGenerator` class, which orchestrates the execution of all reports.
-    * `contest_definitions/`: A data-driven package containing JSON files that define the rules, multipliers, and exchange formats for each supported contest.
-    * `core_annotations/`: Contains modules for universal data enrichment that applies to most contests, such as country lookup (`get_cty.py`) and Run/S&P classification (`run_s_p.py`).
-    * `contest_specific_annotations/`: Contains modules with logic unique to a specific contest, such as the scoring rules for CQ WW or ARRL SS.
-    * `reports/`: The "plug-and-play" reporting system. Each Python file in this directory is a self-contained report generator that is automatically discovered by the program.
-* `Logs/` (Recommended User Directory)
-    * This directory is the recommended location for storing your raw Cabrillo log files, organized by year and contest.
-* `reports_output/` (Generated Directory)
-    * This directory is automatically created by the program to store all generated reports and charts.
 ---
+## Installation
 
-## 3. Core Concepts & Data Flow
+This project uses `conda` for environment and package management.
 
-The process follows a clear pipeline:
+#### 1. Clone the Repository
 
-1.  **Loading**: The `LogManager` is called by `main_cli.py` with paths to raw Cabrillo logs.
-2.  **Definition**: The manager reads the `CONTEST:` header from each file to identify the contest (e.g., "CQ-WW-CW"). It then loads the corresponding JSON file (e.g., `cq_ww_cw.json`) into a `ContestDefinition` object.
-3.  **Parsing**: The `cabrillo_parser` uses the rules from the `ContestDefinition` object to parse the raw text file into a structured pandas DataFrame and a metadata dictionary.
-4.  **Instantiation**: A `ContestLog` object is created to hold the parsed DataFrame and metadata for each log.
-5.  **Annotation**: The `ContestLog` object's `apply_annotations()` method is called. This is a crucial step where the raw data is enriched:
-    * Core Annotations are applied first (Country/Zone lookup, Run/S&P classification).
-    * Contest-Specific Annotations are applied next (QSO point calculation, multiplier identification).
-6.  **Reporting**: The final, fully-annotated list of `ContestLog` objects is passed to the `ReportGenerator`. It executes the requested reports based on their defined capabilities (single, pairwise, multi-log) and also honors an `excluded_reports` list from the `ContestDefinition` to prevent inapplicable reports from being generated.
+    git clone https://github.com/kd4d/Contest-Log-Analyzer.git "Contest-Log-Analyzer"
+    cd "Contest-Log-Analyzer"
+
+#### 2. Create and Activate Conda Environment
+
+It is recommended to use Miniforge and create a dedicated environment.
+
+    conda create --name contest-analyzer python=3.11 -y
+    conda activate contest-analyzer
+
+#### 3. Install Dependencies
+
+Update the base packages and then install the required libraries.
+
+    conda update --all -y
+    conda install pandas matplotlib seaborn -y
+
+#### 4. Set Up Environment Variable
+
+The program requires the `CONTEST_DATA_DIR` environment variable to be set to the location of your data directory.
+* **Windows (Temporary):**
+    
+        set CONTEST_DATA_DIR="C:\path\to\your\Contest-Log-Analyzer\data"
+    
+* **macOS/Linux (Temporary):**
+
+        export CONTEST_DATA_DIR="/path/to/your/Contest-Log-Analyzer/data"
+
+#### 5. Download Data Files
+
+Place the necessary data files in a central `data/` directory.
+* **Required for all contests:** `cty.dat` (from [country-files.com](http://www.country-files.com/cty/cty.dat))
+* **Required for ARRL DX:** `ARRLDXmults.dat`
+* **Required for ARRL SS:** `SweepstakesSections.dat`
+
 ---
+## Usage
 
-## 4. Extending the Analyzer
+The analyzer is run from the command line using `main_cli.py`.
 
-### How to Add a New Report
+#### **Basic Syntax**
 
-The reporting system is designed to be "plug-and-play." To add a new report, you simply create a new Python file in the `contest_tools/reports/` directory. The system will automatically discover it.
+    python main_cli.py --report <ReportID|all> <LogFile1> [<LogFile2>...] [options]
 
-#### The Report Interface
+#### **Examples**
 
-Every report file must contain a class named `Report` that inherits from `ContestReport`. This base class ensures a consistent structure. You must define the following class attributes:
+* **Generate all available reports for two logs:**
 
-* `report_id`: A unique, machine-readable string for your report (e.g., `band_summary`). This is what the user types on the command line.
-* `report_name`: A human-readable name for your report (e.g., "QSOs per Band Summary").
-* `report_type`: Must be one of `text`, `plot`, or `chart`. This determines the output subdirectory.
-* `supports_single`, `supports_pairwise`, `supports_multi`: Booleans (`True`/`False`) that tell the `ReportGenerator` how to run your report.
+        python main_cli.py --report all Logs/2024/cq-ww-cw/k3lr.log Logs/2024/cq-ww-cw/kc1xx.log
 
-You must also implement the `generate(self, output_path: str, **kwargs)` method. This is where your main logic goes. It is responsible for saving its own output file(s) and must return a string confirmation message.
+* **Generate a specific report (Score Summary) for a single log:**
 
-#### Step-by-Step Guide
+        python main_cli.py --report score_report Logs/2024/cq-ww-cw/k3lr.log
 
-1.  **Create Your Report File**: In the `contest_tools/reports/` directory, create a new Python file (e.g., `text_my_new_report.py`).
-2.  **Use a Template**: Copy the contents of an existing report file (like `text_summary.py`) into your new file to get the correct structure.
-3.  **Customize Your Report Class**:
-    * Update the class attributes (`report_id`, `report_name`, etc.).
-    * Write your analysis logic in the `generate` method.
-        * Access the fully processed logs via `self.logs`.
-        * Get the pandas DataFrame with `log.get_processed_data()`.
-        * Get the header data with `log.get_metadata()`.
-        * Safely access optional arguments via `kwargs.get('arg_name', default_value)`.
-4.  **Run It!** The system will automatically discover your report.
+* **Generate a Missed Multipliers report for CQ WW Zones:**
 
-### How to Add a New Contest Definition
+        python main_cli.py --report missed_multipliers --mult-name Zones Logs/2024/cq-ww-cw/k3lr.log Logs/2024/cq-ww-cw/kc1xx.log
 
-If you want to add support for a contest not currently defined, you only need to create a new JSON file.
+---
+## Available Reports
 
-1.  **Create JSON File**: In `contest_tools/contest_definitions/`, create a new file (e.g., `arrl_dx_cw.json`).
-2.  **Define `contest_name`**: Add the exact name from the Cabrillo `CONTEST:` header (e.g., `"contest_name": "ARRL-DX-CW",`).
-3.  **Define Exchange Parsing**: Under `exchange_parsing_rules`, create an entry for the contest name. Provide a regex to capture the exchange fields and a list of `groups` to name them.
-4.  **Define Multipliers**: Add a `multiplier_rules` list to define the multipliers for the contest (e.g., states, countries). Specify the source of the multiplier data.
-5.  **(Optional) Add Scoring**: If the contest requires custom scoring, see the next section.
+All generated files are saved to a structured directory under `reports_output/YYYY/CONTEST_NAME/`.
 
-### How to Add New Contest-Specific Scoring
+#### **Text Reports (`text/`)**
 
-The system can dynamically load scoring logic for any contest.
+* `summary`: High-level overview of QSO counts (Run, S&P, Unknown).
+* `score_report`: Comprehensive score breakdown by band for a single log.
+* `rate_sheet`: Detailed hourly QSO rates per band for a single log.
+* `rate_sheet_comparison`: Side-by-side hourly rate comparison for multiple logs.
+* `qso_comparison`: Detailed pairwise breakdown of Total, Unique, and Common QSOs.
+* `missed_multipliers`: Comparative report showing multipliers missed by each station.
+* `multiplier_summary`: Detailed breakdown of QSOs per multiplier.
+* `multipliers_by_hour`: Shows new multipliers worked each hour of the contest.
+* `continent_summary`: Total QSOs per continent for a single log.
+* `comparative_continent_summary`: Side-by-side comparison of QSOs per continent.
+* `continent_breakdown`: Detailed QSOs per continent broken down by Run/S&P status.
 
-1.  **Create Scoring File**: In `contest_tools/contest_specific_annotations/`, create a new Python file whose name matches the contest's JSON file (e.g., `arrl_dx_scoring.py`).
-2.  **Implement `calculate_points`**: The file must contain a function with the signature `calculate_points(df: pd.DataFrame, my_call_info: Dict[str, Any]) -> pd.Series`.
-3.  **Write Logic**: Inside this function, write the logic to calculate the point value for each QSO in the input DataFrame (`df`). The `my_call_info` dictionary provides the operator's own location data, which is often needed for scoring.
-4.  **Automatic Discovery**: The `ContestLog` class will automatically find and execute this function during the annotation process based on the contest name.
+#### **Plots (`plots/`)**
+
+* `qso_rate_plots`: Cumulative QSO rate line graphs.
+* `point_rate_plots`: Cumulative point rate line graphs.
+* `cumulative_difference_plots`: Plot showing the running QSO or Point difference between two logs.
+
+#### **Charts (`charts/`)**
+
+* `qso_breakdown_chart`: Stacked bar chart comparing unique QSO counts for two logs.
+* `chart_point_contribution`: Side-by-side pie charts comparing point sources.
+* `chart_point_contribution_single`: Per-band pie charts showing point sources for one log.
+---
+## License
+
+This project is licensed under the **Mozilla Public License, v. 2.0**.

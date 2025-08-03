@@ -1,14 +1,15 @@
-#ARRL Sweepstakes Section Alias File
-#Date: 2025-08-01
-#Format: A comma-separated list of aliases, followed by a colon,
-#the official section abbreviation, and the full name in parentheses.
+# data/SweepstakesSections.dat
 #
-#Example -> ALIAS_1,ALIAS_2:Official_Abbreviation (Full Name)
+# Author: Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
+# Date: 2025-08-03
+# Version: 1.0.0-Beta
 #
-#This Source Code Form is subject to the terms of the Mozilla Public
-#License, v. 2.0. If a copy of the MPL was not distributed with this
-#file, You can obtain one at http://mozilla.org/MPL/2.0/.
+# This data file is released into the public domain.
 #
+# Purpose: Defines aliases for ARRL/RAC Section multipliers for Sweepstakes.
+# Format: ALIAS_1,ALIAS_2:Official_Abbreviation (Full Name)
+
 #--- US Sections ---
 CT,CN,CON:CT (Connecticut)
 EMA,EM:EMA (Eastern Massachusetts)
@@ -81,6 +82,7 @@ MO:MO (Missouri)
 NE:NE (Nebraska)
 ND:ND (North Dakota)
 SD:SD (South Dakota)
+
 #--- Canadian (RAC) Sections ---
 VE6,ALT,ALB:AB (Alberta)
 VE7:BC (British Columbia)
