@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-02
-# Version: 0.26.1-Beta
+# Date: 2025-08-03
+# Version: 0.26.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,140 +17,22 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 # --- Revision History ---
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
-
+## [0.26.2-Beta] - 2025-08-03
+### Changed
+# - The report now uses the dynamic `valid_bands` list from the contest
+#   definition instead of deriving the band list from the log content.
 ## [0.26.1-Beta] - 2025-08-02
 ### Fixed
 # - Converted report_id, report_name, and report_type from @property methods
 #   to simple class attributes to fix a bug in the report generation loop.
-
 ## [0.22.26-Beta] - 2025-08-01
 ### Changed
 # - Refactored to use the new '_create_pie_chart_subplot' shared helper
 #   function, simplifying the code and ensuring consistency.
-
-## [0.22.25-Beta] - 2025-08-01
-### Fixed
-# - Corrected the positioning logic for the "*NOT TO SCALE*" note to prevent
-#   it from overlapping with the summary table.
-
-## [0.22.24-Beta] - 2025-08-01
-### Fixed
-# - Corrected the vertical position of the "*NOT TO SCALE*" note, moving it
-#   up to sit correctly between the chart and the table.
-
-## [0.22.23-Beta] - 2025-08-01
-### Changed
-# - Corrected the vertical position of the "*NOT TO SCALE*" note, moving it
-#   up to sit correctly between the chart and the table.
-
-## [0.22.22-Beta] - 2025-08-01
-### Changed
-# - Corrected the vertical position of the "*NOT TO SCALE*" note, moving it
-#   up to sit correctly between the chart and the table.
-
-## [0.22.21-Beta] - 2025-08-01
-### Changed
-# - Corrected the vertical position of the "*NOT TO SCALE*" note, moving it
-#   up to sit correctly between the chart and the table.
-
-## [0.22.20-Beta] - 2025-08-01
-### Changed
-# - Further adjusted the vertical position of the "*NOT TO SCALE*" note to
-#   center it correctly between the chart and the table.
-
-## [0.22.19-Beta] - 2025-08-01
-### Changed
-# - Further adjusted the vertical position of the "*NOT TO SCALE*" note to
-#   place it closer to the pie chart it refers to.
-
-## [0.22.18-Beta] - 2025-08-01
-### Changed
-# - Increased the font size and corrected the vertical position of the
-#   "*NOT TO SCALE*" note for better visibility and layout.
-
-## [0.22.17-Beta] - 2025-08-01
-### Changed
-# - Increased the font size and adjusted the vertical position of the
-#   "*NOT TO SCALE*" note for better visibility and layout.
-
-## [0.22.16-Beta] - 2025-08-01
-### Added
-# - A "*NOT TO SCALE" note is now added below any pie chart that is rendered
-#   at the minimum size, clarifying its proportionality.
-
-## [0.22.12-Beta] - 2025-08-01
-### Changed
-# - Reverted the label placement logic. Percentage labels are now always
-#   drawn inside the pie chart.
-# - Reduced the font size of the percentage labels to prevent overlap on
-#   smaller charts.
-
-## [0.22.11-Beta] - 2025-08-01
-### Changed
-# - Refined the threshold for moving percentage labels outside the pie chart
-#   to affect only the smallest charts.
-# - Increased the distance for external labels and their connecting lines.
-
-## [0.22.10-Beta] - 2025-08-01
-### Changed
-# - For smaller pie charts, the percentage labels are now drawn outside the
-#   slices with connecting lines to prevent text overlap and improve readability.
-
-## [0.22.9-Beta] - 2025-07-31
-### Changed
-# - Slightly reduced the maximum radius of the pie charts to prevent any
-#   overlap with the subplot titles.
-
-## [0.22.8-Beta] - 2025-07-31
-### Changed
-# - Further adjusted the vertical positioning of the pie charts and tables
-#   to achieve better centering within the subplot area.
-
-## [0.22.7-Beta] - 2025-07-31
-### Changed
-# - Adjusted the vertical positioning of the pie charts and summary tables
-#   to create a more balanced and centered layout.
-
-## [0.22.6-Beta] - 2025-07-31
-### Changed
-# - Removed markdown bold characters from titles and increased title font
-#   sizes for better readability.
-
-## [0.22.5-Beta] - 2025-07-31
-### Changed
-# - Adjusted the vertical positioning of the pie charts and summary tables
-#   to create a more balanced and centered layout.
-
-## [0.22.4-Beta] - 2025-07-31
-### Changed
-# - The proportional sizing logic now enforces a minimum chart area of 5%
-#   of the largest chart for any band with points.
-
-## [0.22.3-Beta] - 2025-07-31
-### Changed
-# - Reduced the maximum radius for the pie charts to prevent the largest
-#   chart from overlapping with the subplot title.
-
-## [0.22.2-Beta] - 2025-07-31
-### Changed
-# - Reworked the pie chart sizing logic. The AREA of each chart is now
-#   proportional to the total points for that band, providing a more
-#   accurate visual representation.
-# - Increased the overall size of the pie charts to better fill the subplot area.
-
-## [0.22.1-Beta] - 2025-07-31
-### Changed
-# - The radius of each band's pie chart is now proportional to the total
-#   points earned on that band, not the total number of QSOs.
-
-## [0.22.0-Beta] - 2025-07-31
-# - Initial release of the Single Log Point Contribution chart report.
-
 from typing import List
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -201,14 +83,14 @@ class Report(ContestReport):
         if df.empty or 'QSOPoints' not in df.columns:
             return None
 
-        # --- Data-driven Band Determination ---
+        # --- Use dynamic band list from contest definition ---
         bands = sorted(
-            [b for b in df['Band'].unique() if b != 'Invalid'],
+            log.contest_definition.valid_bands,
             key=lambda b: int(re.search(r'\d+', b).group()),
             reverse=True
         )
         if not bands:
-            return f"No chart generated for {callsign}: No QSOs on valid bands."
+            return f"No chart generated for {callsign}: No valid bands defined for contest."
 
         # --- Dynamic Plot Layout ---
         num_bands = len(bands)

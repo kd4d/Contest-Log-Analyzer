@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-02
-# Version: 0.28.3-Beta
+# Date: 2025-08-03
+# Version: 0.28.4-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,6 +21,12 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.28.4-Beta] - 2025-08-03
+### Added
+# - A new method, `_calculate_operating_time`, to calculate on-time based on
+#   rules from the contest definition (min_off_time, max_hours).
+# - The calculated on-time is now determined and stored in the log's metadata
+#   after all other annotations are applied.
 ## [0.28.3-Beta] - 2025-08-02
 ### Fixed
 # - Corrected a bug in `apply_annotations` where the dataframe returned by
@@ -69,7 +75,7 @@ class ContestLog:
         ((50000., 54000.), '6M'),
         ((144000., 148000.), '2M'),
         ((222000., 225000.), '1.25M'),
-         ((420000., 450000.), '70CM'),
+        ((420000., 450000.), '70CM'),
     ]
 
     @staticmethod
@@ -123,7 +129,7 @@ class ContestLog:
         raw_df['Hour'] = raw_df['Datetime'].dt.strftime('%H')
 
         for col in ['MyCallRaw', 'Call', 'Mode']:
-             if col in raw_df.columns:
+            if col in raw_df.columns:
                 raw_df[col.replace('Raw','')] = raw_df[col].fillna('').astype(str).str.upper()
 
         raw_df.drop(columns=['FrequencyRaw', 'DateRaw', 'TimeRaw', 'MyCallRaw'], inplace=True, errors='ignore')
@@ -135,7 +141,7 @@ class ContestLog:
         self.dupe_sets.clear()
         
         dupe_scope = self.contest_definition.dupe_check_scope
-         
+        
         if dupe_scope == 'all_bands':
             # For contests like Sweepstakes, dupes are checked across all bands
             all_bands_dupe_set = set()
@@ -169,6 +175,43 @@ class ContestLog:
                     else:
                         self.dupe_sets[band].add(qso_tuple)
 
+    def _calculate_operating_time(self) -> Optional[str]:
+        """
+        Calculates the on-time based on rules in the contest definition.
+        An off-time is any gap between QSOs > min_off_time_minutes.
+        """
+        rules = self.contest_definition.operating_time_rules
+        if not rules:
+            return None
+
+        min_off_time = pd.Timedelta(minutes=rules.get('min_off_time_minutes', 30))
+        
+        df = self.qsos_df[self.qsos_df['Dupe'] == False].sort_values(by='Datetime')
+        
+        if len(df) < 2:
+            return "00:00"
+
+        total_duration = df['Datetime'].iloc[-1] - df['Datetime'].iloc[0]
+        gaps = df['Datetime'].diff()
+        off_time_gaps = gaps[gaps > min_off_time]
+        total_off_time = off_time_gaps.sum()
+        
+        on_time = total_duration - total_off_time
+
+        # Format the timedelta for output
+        total_seconds = on_time.total_seconds()
+        hours = int(total_seconds // 3600)
+        minutes = int((total_seconds % 3600) // 60)
+        on_time_str = f"{hours:02d}:{minutes:02d}"
+        
+        category = self.metadata.get('CategoryOperator', 'SINGLE-OP').upper()
+        if 'MULTI' in category:
+            max_hours = rules.get('multi_op_max_hours', 48)
+        else:
+            max_hours = rules.get('single_op_max_hours', 48)
+
+        return f"{on_time_str} of {max_hours}:00 allowed"
+
     def apply_annotations(self):
         if self.qsos_df.empty:
             print("No QSOs loaded. Cannot apply annotations.")
@@ -192,6 +235,12 @@ class ContestLog:
         
         # --- Tier 2: Contest-Specific Annotations ---
         self.apply_contest_specific_annotations()
+        
+        # --- Final Step: Calculate Operating Time ---
+        try:
+            self.metadata['OperatingTime'] = self._calculate_operating_time()
+        except Exception as e:
+            print(f"Error during on-time calculation: {e}. Skipping.")
 
 
     def apply_contest_specific_annotations(self):

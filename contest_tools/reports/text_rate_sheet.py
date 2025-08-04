@@ -5,7 +5,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-03
-# Version: 0.28.18-Beta
+# Version: 0.28.19-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,6 +19,10 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.28.19-Beta] - 2025-08-03
+### Changed
+# - The report now uses the dynamic `valid_bands` list from the contest
+#   definition instead of a hardcoded list.
 ## [0.28.18-Beta] - 2025-08-03
 ### Added
 # - Added a "Total" row to the bottom of the rate table to show the
@@ -65,7 +69,7 @@ class Report(ContestReport):
 
         if not self.logs:
             return "No logs to process."
-        
+            
         log_manager = getattr(self.logs[0], '_log_manager_ref', None)
         if not log_manager or log_manager.master_time_index is None:
             print("Warning: Master time index not available. Rate sheet may be incomplete.")
@@ -101,14 +105,16 @@ class Report(ContestReport):
             report_lines.append("")
             report_lines.append("---------------- Q S O   R a t e   S u m m a r y -----------------")
             
-            header1 = f"{'':<5} {'':>5} {'':>5} {'':>5} {'':>5} {'':>5} {'':>5} {'Hourly':>7} {'Cumulative':>11}"
-            header2 = f"{'Hour':<5} {'160':>5} {'80':>5} {'40':>5} {'20':>5} {'15':>5} {'10':>5} {'Total':>7} {'Total':>11}"
+            bands = log.contest_definition.valid_bands
+            
+            header1_parts = [f"{'Hour':<5}"] + [f"{b.replace('M',''):>5}" for b in bands]
+            header1 = " ".join(header1_parts) + f" {'Hourly':>7} {'Cumulative':>11}"
+            header2 = f"{'':<5}" + "".join([f"{'':>6}" for _ in bands]) + f" {'Total':>7} {'Total':>11}"
+            
             report_lines.append(header1)
             report_lines.append(header2)
-            separator = "-" * len(header2)
+            separator = "-" * len(header1)
             report_lines.append(separator)
-
-            bands = ['160M', '80M', '40M', '20M', '15M', '10M']
             
             if df.empty:
                 rate_data = pd.DataFrame(0, index=master_time_index, columns=bands)
@@ -132,30 +138,22 @@ class Report(ContestReport):
 
             for timestamp, row in rate_data.iterrows():
                 hour_str = timestamp.strftime('%H%M')
-                line = (
-                    f"{hour_str:<5} "
-                    f"{row.get('160M', 0):>5} "
-                    f"{row.get('80M', 0):>5} "
-                    f"{row.get('40M', 0):>5} "
-                    f"{row.get('20M', 0):>5} "
-                    f"{row.get('15M', 0):>5} "
-                    f"{row.get('10M', 0):>5} "
-                    f"{row['Hourly Total']:>7} "
-                    f"{row['Cumulative Total']:>11}"
-                )
+                line_parts = [f"{hour_str:<5}"]
+                for band in bands:
+                    line_parts.append(f"{row.get(band, 0):>5}")
+                
+                line = " ".join(line_parts)
+                line += f" {row['Hourly Total']:>7} "
+                line += f"{row['Cumulative Total']:>11}"
                 report_lines.append(line)
 
             report_lines.append(separator)
-            total_line = (
-                f"{'Total':<5} "
-                f"{rate_data['160M'].sum():>5} "
-                f"{rate_data['80M'].sum():>5} "
-                f"{rate_data['40M'].sum():>5} "
-                f"{rate_data['20M'].sum():>5} "
-                f"{rate_data['15M'].sum():>5} "
-                f"{rate_data['10M'].sum():>5} "
-                f"{rate_data['Hourly Total'].sum():>7}"
-            )
+            
+            total_line_parts = [f"{'Total':<5}"]
+            for band in bands:
+                total_line_parts.append(f"{rate_data[band].sum():>5}")
+            total_line = " ".join(total_line_parts)
+            total_line += f" {rate_data['Hourly Total'].sum():>7}"
             report_lines.append(total_line)
             report_lines.append("")
 

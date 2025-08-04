@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-02
-# Version: 0.26.1-Beta
+# Date: 2025-08-03
+# Version: 0.26.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,58 +16,25 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 # --- Revision History ---
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
-
+## [0.26.2-Beta] - 2025-08-03
+### Changed
+# - The report now uses the dynamic `valid_bands` list from the contest
+#   definition instead of a hardcoded list.
 ## [0.26.1-Beta] - 2025-08-02
 ### Fixed
 # - Converted report_id, report_name, and report_type from @property methods
 #   to simple class attributes to fix a bug in the report generation loop.
-
 ## [0.24.2-Beta] - 2025-08-01
 ### Changed
 # - Set supports_single to False to prevent the report from running on a single log.
-
 ## [0.22.4-Beta] - 2025-07-31
 ### Changed
 # - Implemented the boolean support properties, correctly identifying this
 #   report as supporting both 'multi' and 'pairwise' modes.
-
-## [0.21.9-Beta] - 2025-07-29
-### Changed
-# - "Unknown" multipliers are no longer included in the main report body or totals.
-# - A new "Unknown Total" line has been added to the footer to show these counts separately.
-# - The diagnostic header is now dynamic (e.g., "Callsigns with unknown Country").
-
-## [0.21.3-Beta] - 2025-07-28
-### Added
-# - The report now includes a diagnostic list at the end, showing all unique
-#   callsigns that resulted in an "Unknown" multiplier classification.
-
-## [0.17.0-Beta] - 2025-07-27
-### Fixed
-# - Corrected the pluralization logic for the first column header to specifically
-#   handle "Countries" -> "Country", preventing it from becoming "Countrie".
-# - Added data cleaning for multiplier names to correctly parse semicolon (;)
-#   comments from source files, preventing stray data from appearing.
-# - Optimized the footer calculation by summing the existing pivot table,
-#   avoiding the need to process the entire dataset a second time.
-# - Made the multiplier name mapping logic more robust by handling potential
-#   duplicate entries from the combined log data.
-
-## [0.16.1-Beta] - 2025-07-26
-### Fixed
-# - Added a specific check to correctly handle the singular form of "Countries",
-#   preventing it from being incorrectly changed to "Countrie".
-
-## [0.16.0-Beta] - 2025-07-26
-### Fixed
-# - Corrected the logic to handle two-letter continent abbreviations (e.g., 'NA')
-#   from the CTY.DAT file, allowing the report to generate correctly.
-
 from typing import List
 import pandas as pd
 import os
@@ -94,7 +61,7 @@ class Report(ContestReport):
 
         if not mult_name:
             return "Error: 'mult_name' argument is required for the Multiplier Summary report."
-
+        
         # --- Find the correct multiplier column ---
         first_log = self.logs[0]
         mult_rule = None
@@ -105,7 +72,7 @@ class Report(ContestReport):
         
         if not mult_rule or 'value_column' not in mult_rule:
             return f"Error: Multiplier type '{mult_name}' not found in definition for {first_log.contest_definition.contest_name}."
-
+        
         mult_column = mult_rule['value_column']
         name_column = mult_rule.get('name_column')
 
@@ -123,12 +90,12 @@ class Report(ContestReport):
 
         if not all_dfs:
             return "No data available to generate report."
-
+        
         combined_df = pd.concat(all_dfs, ignore_index=True)
         
         if combined_df.empty or mult_column not in combined_df.columns:
             return f"No '{mult_name}' multiplier data to report."
-            
+        
         combined_df.dropna(subset=[mult_column], inplace=True)
 
         # --- Separate Unknowns and Prepare Main Data ---
@@ -138,7 +105,7 @@ class Report(ContestReport):
         unique_unknown_calls = sorted(unknown_df['Call'].unique())
         
         # --- Report Generation ---
-        bands = ['160M', '80M', '40M', '20M', '15M', '10M']
+        bands = first_log.contest_definition.valid_bands
         all_calls = sorted(main_df['MyCall'].unique())
         
         pivot = main_df.pivot_table(

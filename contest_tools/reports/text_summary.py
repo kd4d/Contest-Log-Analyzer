@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-02
-# Version: 0.26.1-Beta
+# Date: 2025-08-03
+# Version: 0.26.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -15,55 +15,48 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 # --- Revision History ---
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
-
+## [0.26.2-Beta] - 2025-08-03
+### Added
+# - The report now includes a new 'On-Time' column to display the calculated
+#   operating time for each log.
 ## [0.26.1-Beta] - 2025-08-02
 ### Fixed
 # - Converted report_id, report_name, and report_type from @property methods
 #   to simple class attributes to fix a bug in the report generation loop.
-
 ## [0.22.2-Beta] - 2025-07-31
 ### Changed
 # - Converted the report from a 'single' log summary to a 'multi' log
 #   comparative summary table.
-
 ## [0.22.1-Beta] - 2025-07-31
 ### Fixed
 # - Corrected the filename generation logic to include the callsign, preventing
 #   the report from being overwritten when multiple logs are provided.
-
 ## [0.22.0-Beta] - 2025-07-31
 ### Changed
 # - Implemented the boolean support properties, correctly identifying this
 #   report as 'single'.
-
 ## [0.15.0-Beta] - 2025-07-25
 # - Standardized version for final review. No functional changes.
-
 ## [0.14.0-Beta] - 2025-07-24
 ### Changed
 # - Updated to correctly handle and display the new "Unknown" classification
 #   in the QSO summary.
-
 ## [0.12.1-Beta] - 2025-07-22
 ### Fixed
 # - Added missing 'import os' statement to resolve a NameError.
 ### Changed
 # - Refactored the generate() method to use **kwargs for flexible argument passing.
 # - The method now saves its own output file and returns a summary message.
-
 ## [0.11.0-Beta] - 2025-07-21
 ### Changed
 # - Added logic to exclude duplicate QSOs from calculations by default.
 # - Added a note to the report header to explicitly state dupe inclusion status.
-
 ## [0.10.0-Beta] - 2025-07-21
 # - Initial release of the QSO Summary report.
-
 from typing import List
 import os
 from ..contest_log import ContestLog
@@ -104,6 +97,7 @@ class Report(ContestReport):
             
             log_summary = {
                 'Callsign': callsign,
+                'On-Time': log.get_metadata().get('OperatingTime', 'N/A'),
                 'Total QSOs': len(df),
                 'Dupes': df_full['Dupe'].sum(),
                 'Run': (df['Run'] == 'Run').sum() if 'Run' in df.columns else 0,
@@ -113,12 +107,16 @@ class Report(ContestReport):
             report_data.append(log_summary)
 
         # --- Formatting ---
-        headers = ["Callsign", "Total QSOs", "Dupes", "Run", "S&P", "Unknown"]
+        headers = ["Callsign", "On-Time", "Total QSOs", "Dupes", "Run", "S&P", "Unknown"]
         col_widths = {h: len(h) for h in headers}
 
         for row in report_data:
             for key, value in row.items():
                 col_widths[key] = max(col_widths.get(key, 0), len(str(value)))
+
+        # Adjust width for On-Time specifically if it's long
+        col_widths['On-Time'] = max(col_widths.get('On-Time', 7), len("HH:MM of HH:MM allowed"))
+
 
         header_str = "  ".join([f"{h:<{col_widths[h]}}" for h in headers])
         separator = "-" * len(header_str)
@@ -132,7 +130,7 @@ class Report(ContestReport):
         ]
 
         for row in report_data:
-            data_parts = [f"{row[h]:<{col_widths[h]}}" for h in headers]
+            data_parts = [f"{str(row.get(h, 'N/A')):<{col_widths[h]}}" for h in headers]
             report_lines.append("  ".join(data_parts))
 
         report_content = "\n".join(report_lines)

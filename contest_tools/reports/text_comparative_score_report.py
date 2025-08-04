@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-03
-# Version: 0.28.24-Beta
+# Version: 0.28.26-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,6 +20,14 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.28.26-Beta] - 2025-08-03
+### Fixed
+# - Corrected an UnboundLocalError that occurred during the pre-calculation
+#   of column widths by using a proper list comprehension.
+## [0.28.25-Beta] - 2025-08-03
+### Added
+# - The 'TOTAL' section of the report now includes the calculated operating
+#   on-time for each log.
 ## [0.28.24-Beta] - 2025-08-03
 ### Changed
 # - Adjusted formatting in the TOTAL section: removed a separator line,
@@ -63,13 +71,20 @@ class Report(ContestReport):
         mult_cols = [rule['value_column'] for rule in multiplier_rules]
         mult_names = [rule['name'] for rule in multiplier_rules]
 
-        col_order = ['Callsign', 'QSOs'] + mult_names + ['Dupes', 'Points', 'AVG']
-        col_widths = {key: len(str(key)) for key in col_order}
-        col_widths['Callsign'] = max([len(call) for call in all_calls] + [len('Callsign')])
-
-        report_lines = []
-        bands = ['160M', '80M', '40M', '20M', '15M', '10M']
+        col_order_band = ['Callsign', 'QSOs'] + mult_names + ['Dupes', 'Points', 'AVG']
         
+        report_lines = []
+        bands = self.logs[0].contest_definition.valid_bands
+        
+        # --- Pre-calculate all column widths ---
+        all_summaries = [self._calculate_totals(log, mult_cols, mult_names) for log in self.logs]
+        col_widths = {key: len(str(key)) for key in all_summaries[0].keys()}
+        col_widths['Callsign'] = max([len(call) for call in all_calls] + [len('Callsign')])
+        for summary in all_summaries:
+             for key, value in summary.items():
+                val_len = len(f"{value:.2f}") if isinstance(value, float) else len(str(value))
+                col_widths[key] = max(col_widths.get(key, 0), val_len)
+
         for band in bands:
             band_has_data = False
             band_lines = []
@@ -95,31 +110,38 @@ class Report(ContestReport):
                 
                 band_summary['AVG'] = (band_summary['Points'] / band_summary['QSOs']) if band_summary['QSOs'] > 0 else 0
                 
-                for key, value in band_summary.items():
-                    val_len = len(f"{value:.2f}") if isinstance(value, float) else len(str(value))
-                    col_widths[key] = max(col_widths.get(key, 0), val_len)
-
                 band_lines.append(band_summary)
 
             if band_has_data:
                 report_lines.append(f"\n--- {band.replace('M', '')} Meters ---")
                 for row_data in band_lines:
-                    data_parts = [f"{row_data[name]:<{col_widths[name]}}" if name == 'Callsign' else f"{row_data.get(name, 0):>{col_widths[name]}}" if not isinstance(row_data.get(name), float) else f"{row_data.get(name, 0):>{col_widths[name]}.2f}" for name in col_order]
+                    data_parts = [f"{row_data[name]:<{col_widths[name]}}" if name == 'Callsign' else f"{row_data.get(name, 0):>{col_widths[name]}}" if not isinstance(row_data.get(name), float) else f"{row_data.get(name, 0):>{col_widths[name]}.2f}" for name in col_order_band]
                     report_lines.append("  ".join(data_parts))
 
-        header_parts = [f"{name:>{col_widths[name]}}" for name in col_order]
+        header_parts = [f"{name:>{col_widths[name]}}" for name in col_order_band]
         header = "  ".join(header_parts)
         separator = "-" * len(header)
         
         report_lines.insert(0, header)
         report_lines.insert(1, separator)
         
+        # --- TOTAL Section ---
         report_lines.append("\n--- TOTAL ---")
-        
         total_summaries = [self._calculate_totals(log, mult_cols, mult_names) for log in self.logs]
+        col_order_total = ['Callsign', 'On-Time'] + col_order_band[1:] # Add On-Time for totals
+        col_widths['On-Time'] = max(len('On-Time'), max(len(s.get('On-Time', '')) for s in total_summaries))
 
         for summary in total_summaries:
-            total_parts = [f"{summary[name]:<{col_widths[name]}}" if name == 'Callsign' else f"{summary.get(name, 0):>{col_widths[name]}}" if not isinstance(summary.get(name), float) else f"{summary.get(name, 0):>{col_widths[name]}.2f}" for name in col_order]
+            total_parts = []
+            for name in col_order_total:
+                if name == 'Callsign':
+                    total_parts.append(f"{summary[name]:<{col_widths[name]}}")
+                elif name == 'On-Time':
+                     total_parts.append(f"{summary.get(name, 'N/A'):<{col_widths.get(name, 25)}}")
+                elif isinstance(summary.get(name), float):
+                    total_parts.append(f"{summary.get(name, 0):>{col_widths[name]}.2f}")
+                else:
+                    total_parts.append(f"{summary.get(name, 0):>{col_widths[name]}}")
             report_lines.append("  ".join(total_parts))
 
         report_lines.append("=" * len(header))
@@ -151,6 +173,7 @@ class Report(ContestReport):
         df_valid_mults = df_net[df_net['QSOPoints'] > 0] if not log.contest_definition.mults_from_zero_point_qsos else df_net
 
         total_summary = {'Callsign': log.get_metadata().get('MyCall', 'Unknown')}
+        total_summary['On-Time'] = log.get_metadata().get('OperatingTime', 'N/A')
         total_summary['QSOs'] = len(df_net)
         total_summary['Dupes'] = df_full['Dupe'].sum()
         total_summary['Points'] = df_net['QSOPoints'].sum()
@@ -165,7 +188,7 @@ class Report(ContestReport):
                 total_summary[mult_name] = 0
                 continue
 
-            if totaling_method == 'once_per_log':
+            if totaling_method == 'once_per_contest':
                 unique_mults = df_valid_mults[df_valid_mults[mult_col] != 'Unknown'][mult_col].nunique()
                 total_summary[mult_name] = unique_mults
                 total_multiplier_count += unique_mults

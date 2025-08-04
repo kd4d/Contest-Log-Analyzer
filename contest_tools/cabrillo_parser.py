@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-01
-# Version: 0.24.8-Beta
+# Date: 2025-08-03
+# Version: 0.24.9-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,37 +17,34 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 # --- Revision History ---
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
-
+## [0.24.9-Beta] - 2025-08-03
+### Changed
+# - Reworked `_parse_qso_line` to handle a list of regex rules for a single
+#   contest, enabling support for complex, asymmetric exchanges.
 ## [0.24.8-Beta] - 2025-08-01
 ### Fixed
 # - The 'Datetime' column is now correctly created as timezone-aware (UTC) to
 #   prevent alignment issues with the master time index in reports.
-
 ## [0.24.7-Beta] - 2025-08-01
 ### Added
 # - Added temporary diagnostic print statements to debug QSO line parsing failures.
-
 ## [0.22.0-Beta] - 2025-07-31
 ### Changed
 # - The exchange parsing logic is now more robust. It iterates through all
 #   available parsing rules in the contest definition and uses the first one
 #   that successfully matches the QSO line, making it resilient to minor
 #   variations in the CONTEST header.
-
 ## [0.15.0-Beta] - 2025-07-25
 # - Standardized version for final review. No functional changes.
-
 ## [0.9.0-Beta] - 2025-07-18
 # - Initial Beta release of `cabrillo_parser.py`.
 # - Implemented `parse_cabrillo_file` function for Cabrillo ingestion.
 # - Handles parsing of Cabrillo header lines and standard QSO fields.
 # - Integrates with `ContestDefinition` to dynamically parse contest-specific exchange fields.
-
 import re
 import pandas as pd
 from typing import Dict, Any, List, Tuple, Optional
@@ -142,29 +139,38 @@ def _parse_qso_line(
     Internal helper to parse a single QSO line from a Cabrillo log.
     """
     
-    # Initialize the dictionary for this QSO with all possible final columns set to NA
     qso_final_dict = {col: pd.NA for col in contest_definition.default_qso_columns}
 
-    # Parse the common part of the QSO line
     common_match = re.match(contest_definition.qso_common_fields_regex, line)
     if not common_match:
-        return None # Skip malformed common part
+        return None 
 
-    # Map captured common groups to their names
     qso_dict_common_parsed = dict(zip(contest_definition.qso_common_field_names, common_match.groups()))
     
-    # Add raw parsed fields to the final dictionary for downstream processing
     for key, val in qso_dict_common_parsed.items():
         qso_final_dict[key] = val.strip() if isinstance(val, str) else val
 
-    # Extract the contest-specific exchange part
     exchange_rest = qso_final_dict.pop('ExchangeRest', '').strip()
 
     # --- New Robust Parsing Logic ---
-    # Iterate through all available exchange rules and use the first one that matches.
-    all_exchange_rules = contest_definition.exchange_parsing_rules
+    # Look up the rules for the specific contest identified in the header.
+    contest_name = log_metadata.get('ContestName')
+    rules_for_contest = contest_definition.exchange_parsing_rules.get(contest_name)
+    
+    if not rules_for_contest:
+        # Fallback for contests that might use a generic name (e.g., NAQP-CW using NAQP rules)
+        base_contest_name = contest_name.rsplit('-', 1)[0]
+        rules_for_contest = contest_definition.exchange_parsing_rules.get(base_contest_name)
+
+    if not rules_for_contest:
+        return None # No parsing rule found for this contest
+
+    # Ensure rules are in a list to handle both single-rule and multi-rule contests
+    if not isinstance(rules_for_contest, list):
+        rules_for_contest = [rules_for_contest]
+
     parsed_successfully = False
-    for contest_id, rule_info in all_exchange_rules.items():
+    for rule_info in rules_for_contest:
         exchange_regex = rule_info['regex']
         exchange_groups = rule_info['groups']
         exchange_match = re.match(exchange_regex, exchange_rest)
@@ -180,7 +186,9 @@ def _parse_qso_line(
             parsed_successfully = True
             break # Stop after the first successful match
             
-    # Add duplicated header metadata to each QSO record
+    if not parsed_successfully:
+        return None # None of the rules for this contest matched the line
+
     for cabrillo_tag, df_key in contest_definition.header_field_map.items():
         if df_key in log_metadata:
             qso_final_dict[df_key] = log_metadata[df_key]

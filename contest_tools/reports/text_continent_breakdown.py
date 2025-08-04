@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-03
-# Version: 0.28.25-Beta
+# Version: 0.28.26-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,6 +20,10 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.28.26-Beta] - 2025-08-03
+### Changed
+# - The report now uses the dynamic `valid_bands` list from the contest
+#   definition instead of a hardcoded list.
 ## [0.28.25-Beta] - 2025-08-03
 ### Changed
 # - Rewrote the report format to display continent data in a 3x2 grid
@@ -77,7 +81,7 @@ class Report(ContestReport):
                 'NA': 'North America', 'SA': 'South America', 'EU': 'Europe',
                 'AS': 'Asia', 'AF': 'Africa', 'OC': 'Oceania', 'Unknown': 'Unknown'
             }
-            bands = ['160M', '80M', '40M', '20M', '15M', '10M']
+            bands = log.contest_definition.valid_bands
             df['ContinentName'] = df['Continent'].map(continent_map).fillna('Unknown')
 
             pivot = df.pivot_table(
@@ -144,7 +148,7 @@ class Report(ContestReport):
                 report_lines.append("-" * 40)
                 
                 num_cols = max(1, (col_width * 3) // 14)
-                
+            
                 for i in range(0, len(unique_unknown_calls), num_cols):
                     line_calls = unique_unknown_calls[i:i+num_cols]
                     report_lines.append("  ".join([f"{call:<12}" for call in line_calls]))
@@ -162,5 +166,4 @@ class Report(ContestReport):
 
         if not final_report_messages:
             return "No continent breakdown reports were generated."
-            
         return "\n".join(final_report_messages)

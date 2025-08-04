@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-02
-# Version: 0.26.1-Beta
+# Date: 2025-08-03
+# Version: 0.26.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,32 +16,30 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 # --- Revision History ---
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
-
+## [0.26.2-Beta] - 2025-08-03
+### Changed
+# - The report now uses the dynamic `valid_bands` list from the contest
+#   definition instead of a hardcoded list.
 ## [0.26.1-Beta] - 2025-08-02
 ### Fixed
 # - Converted report_id, report_name, and report_type from @property methods
 #   to simple class attributes to fix a bug in the report generation loop.
-
 ## [0.25.0-Beta] - 2025-08-01
 ### Changed
 # - The report now uses the pre-aligned master time index to display the
 #   entire contest period.
-
 ## [0.22.0-Beta] - 2025-07-31
 ### Changed
 # - Implemented the boolean support properties, correctly identifying this
 #   report as 'pairwise'.
-
 ## [0.15.0-Beta] - 2025-07-25
 ### Changed
 # - Rewrote the report to use the new 'align_logs_by_time' shared helper
 #   function, which corrects data alignment issues and simplifies the code.
-
 ## [0.14.0-Beta] - 2025-07-22
 # - Initial release of the Cumulative Difference Plot report.
 # - The bottom subplot now displays the cumulative difference for "S&P + Unknown"
@@ -50,7 +48,6 @@
 ### Fixed
 # - Corrected a critical bug in the data aggregation logic that was causing
 #   the difference plots to show incorrect values.
-
 from typing import List
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -165,7 +162,7 @@ class Report(ContestReport):
         master_index = log_manager.master_time_index
 
         metric = kwargs.get('metric', 'qsos')
-        bands_to_plot = ['All', '160M', '80M', '40M', '20M', '15M', '10M']
+        bands_to_plot = ['All'] + self.logs[0].contest_definition.valid_bands
         created_files = []
         
         for band in bands_to_plot:

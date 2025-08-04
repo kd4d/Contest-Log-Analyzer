@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-02
-# Version: 0.26.1-Beta
+# Date: 2025-08-03
+# Version: 0.26.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -15,50 +15,24 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 # --- Revision History ---
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
-
+## [0.26.2-Beta] - 2025-08-03
+### Changed
+# - The report now uses the dynamic `valid_bands` list from the contest
+#   definition instead of a hardcoded list.
 ## [0.26.1-Beta] - 2025-08-02
 ### Fixed
 # - Converted report_id, report_name, and report_type from @property methods
 #   to simple class attributes to fix a bug in the report generation loop.
-
 ## [0.22.0-Beta] - 2025-07-31
 ### Changed
 # - Implemented the boolean support properties, correctly identifying this
 #   report as 'pairwise'.
-
 ## [0.15.0-Beta] - 2025-07-25
 # - Standardized version for final review. No functional changes.
-
-## [0.14.5-Beta] - 2025-07-23
-### Fixed
-# - Corrected the underlying logic to use QSO counts for all metrics instead of
-#   mixing QSO counts and multiplier counts. This ensures all totals and
-#   sub-totals in the report are consistent and accurate.
-
-## [0.14.4-Beta] - 2025-07-23
-### Changed
-# - Updated band titles to include "QSOs" (e.g., "160 Meter QSOs").
-# - Split "Unique Run" and "Unique S&P" headers into two lines to narrow columns.
-# - Removed redundant "QSOs" from the second line of column headers.
-
-## [0.14.1-Beta] - 2025-07-23
-### Changed
-# - Reformatted the report to have callsigns as rows and metrics as columns,
-#   with a two-line header for readability.
-
-## [0.14.0-Beta] - 2025-07-23
-### Changed
-# - Updated the report to correctly handle and display the new "Unknown"
-#   classification in all relevant metrics.
-
-## [0.12.0-Beta] - 2025-07-23
-# - Initial release of the QSO Comparison report (formerly Unique QSOs).
-
 from typing import List, Dict, Any, Set
 import pandas as pd
 import os
@@ -99,7 +73,7 @@ class Report(ContestReport):
         
         report_lines = []
 
-        bands = ['160M', '80M', '40M', '20M', '15M', '10M', 'All Bands']
+        bands = self.logs[0].contest_definition.valid_bands + ['All Bands']
         
         df1_full = log1.get_processed_data()[log1.get_processed_data()['Dupe'] == False]
         df2_full = log2.get_processed_data()[log2.get_processed_data()['Dupe'] == False]

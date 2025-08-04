@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-02
-# Version: 0.26.1-Beta
+# Date: 2025-08-03
+# Version: 0.26.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,33 +16,31 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 # --- Revision History ---
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
-
+## [0.26.2-Beta] - 2025-08-03
+### Changed
+# - The report now uses the dynamic `valid_bands` list from the contest
+#   definition instead of deriving the band list from the log content.
 ## [0.26.1-Beta] - 2025-08-02
 ### Fixed
 # - Converted report_id, report_name, and report_type from @property methods
 #   to simple class attributes to fix a bug in the report generation loop.
-
 ## [0.22.29-Beta] - 2025-08-01
 ### Changed
 # - The list of bands to plot is now dynamically determined from the log
 #   data and sorted in reverse numerical order (by wavelength).
-
 ## [0.22.16-Beta] - 2025-08-01
 ### Changed
 # - Reworked the report to be fully data-driven. It now generates a single
 #   image with a grid of subplots (bands x logs) instead of separate
 #   files per band.
-
 ## [0.22.15-Beta] - 2025-08-01
 ### Changed
 # - Refactored to use the new '_create_pie_chart_subplot' shared helper
 #   function, simplifying the code and ensuring consistency.
-
 from typing import List
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -71,14 +69,10 @@ class Report(ContestReport):
         """
         if len(self.logs) > self.MAX_LOGS_TO_COMPARE:
             return f"Error: This report supports a maximum of {self.MAX_LOGS_TO_COMPARE} logs."
-
-        all_dfs = [log.get_processed_data()[log.get_processed_data()['Dupe'] == False] for log in self.logs]
-        all_bands = set()
-        for df in all_dfs:
-            all_bands.update(df['Band'].unique())
         
+        valid_bands = self.logs[0].contest_definition.valid_bands
         bands_to_plot = ['All Bands'] + sorted(
-            [b for b in all_bands if b != 'Invalid'],
+            valid_bands,
             key=lambda b: int(re.search(r'\d+', b).group()),
             reverse=True
         )

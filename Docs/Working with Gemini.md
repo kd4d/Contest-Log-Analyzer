@@ -2,10 +2,12 @@ Filename: "Docs/Working with Gemini.md"
 
 # Project Workflow Guide
 
-**Version: 0.28.13-Beta**
+**Version: 0.28.17-Beta**
 **Date: 2025-08-03**
 
-This document outlines the standard operating procedures for developing and documenting the Contest Log Analyzer. Adhering to this workflow ensures consistency, prevents data loss, and allows for efficient collaboration.
+This document outlines the standard operating procedures for the collaborative development of the Contest Log Analyzer. **The primary audience for this document is the Gemini AI agent.**
+
+**Its core purpose is to serve as a persistent set of rules and context.** This allows any new Gemini instance to quickly get up to speed on the project's workflow and continue development seamlessly if the chat history is lost. Adhering to this workflow ensures consistency and prevents data loss.
 ---
 
 ## 1. Project File Input
@@ -31,49 +33,58 @@ When the AI provides updated files, it must follow these rules to ensure data in
 
 ## 3. Versioning
 
-1.  When a file is modified, its patch number (the third digit) will be incremented. For example, a change to a `0.28.12-Beta` file will result in version `0.28.13-Beta` for that file.
+1.  When a file is modified, its patch number (the third digit) will be incremented. For example, a change to a `0.28.16-Beta` file will result in version `0.28.17-Beta` for that file.
 2.  Document versions will be kept in sync with their corresponding code files.
 3.  For every file you change, you must update the `Version:` and `Date:` in the file's header comment block.
 
 ---
 
-## 4. File Verification
+## 4. File and Checksum Verification
 
-My file system uses Windows CRLF (`\r\n`) line endings. This is important for SHA-256 checksum verification. Your output can use standard LF (`\n`) line endings, and you should just be aware of this difference if we need to compare checksums.
-
----
-
-## 5. Debugging Protocol
-
-When a bug or regression is identified, you will place a greater emphasis on analyzing the specific data and context provided before proposing a solution, rather than relying on general patterns.
+1.  The user's file system uses Windows CRLF (`\r\n`) line endings. The AI's output can use standard LF (`\n`). The AI must be aware of this difference when comparing checksums.
+2.  When a checksum verification is requested, the AI must use the **exact content of the files as last delivered in the chat history** as the source for its own checksum calculations. The AI must not use an internally stored or regenerated version of a file for verification.
 
 ---
 
-## 6. Canvas Interface Fallback
+## 5. Development Protocol
+
+1.  When creating or modifying any project file (e.g., `.py`, `.json`, `.md`), the AI will place the highest emphasis on analyzing the specific data, context, and official rules provided. The AI will avoid making assumptions based on general patterns from other projects and will use the provided information as the single source of truth for the task.
+2.  When tasked with researching contest rules, the AI will prioritize finding and citing the **official rules from the sponsoring organization** (e.g., NCJ for NAQP, CQ Magazine for CQ contests).
+
+---
+
+## 6. Code Modification Protocol
+
+1.  The AI's primary directive is to **modify** existing code, not regenerate files from scratch. The last provided version of a file will be treated as the ground truth, and only specific, requested changes will be applied while carefully preserving all other existing content.
+2.  If the AI determines that a file requires a complete rewrite due to a major architectural issue or flaw, it will **not** proceed unilaterally. It will first propose the rewrite and request permission to proceed.
+
+---
+
+## 7. Canvas Interface Fallback
 
 If the Canvas interface fails to appear or becomes unresponsive, our established fallback procedure is for you to send a simple Python script (e.g., 'Hello, world!') to the Canvas to restore its functionality.
 
 ---
 
-## 7. Communication Protocol
+## 8. Communication Protocol
 
 When discussing technical concepts, variables, rules, or code, you must use the exact, consistent terminology used in the source code or our discussions. Do not use conversational synonyms or rephrase technical terms. Precision and consistency are paramount.
 
 ---
 
-## 8. Multi-File Change Protocol
+## 9. Multi-File Change Protocol
 
 When a single logical task requires modifying multiple files, this protocol ensures changes are delivered sequentially and clearly, while adhering to the "one file per response" rule.
 
 1.  **Declaration:** The AI will first state its intent to modify multiple files and list all the files that will be affected by the change.
 2.  **Sequential Delivery:** The AI will provide the first updated file. The response will end with a clear statement, such as: "Please confirm when you are ready for the next file."
-3.  **User Acknowledgment:** You will provide a simple confirmation (e.g., 'OK', 'Ready', 'next') to signal that you have received the file and are ready for the next one.
+3.  **Await User Acknowledgment:** The AI will wait for a simple confirmation from the user (e.g., 'OK', 'Ready', 'next') before sending the next file.
 4.  **Iteration:** The AI will then provide the next file in the sequence, repeating this turn-by-turn process until all declared files have been delivered.
 5.  **Completion:** After sending the final file, the AI will state that the multi-file update is complete.
 ---
 
-## 9. Protocol for Large File Sets
+## 10. Protocol for Large File Sets
 
 While project files may be provided to the AI in a single bundle, the AI cannot return a large bundle in a single response due to platform size limitations.
 
-To work around this, any task that requires updating a large number of files will be handled by sending each file individually, following the **Multi-File Change Protocol** (Section 8).
+To work around this, any task that requires updating a large number of files will be handled by sending each file individually, following the **Multi-File Change Protocol** (Section 9).

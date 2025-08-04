@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-02
-# Version: 0.26.1-Beta
+# Date: 2025-08-03
+# Version: 0.26.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,121 +16,18 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 # --- Revision History ---
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
-
+## [0.26.2-Beta] - 2025-08-03
+### Changed
+# - The report now uses the dynamic `valid_bands` list from the contest definition.
+# - The diagnostic section header is now dynamic based on the multiplier name.
 ## [0.26.1-Beta] - 2025-08-02
 ### Fixed
 # - Converted report_id, report_name, and report_type from @property methods
 #   to simple class attributes to fix a bug in the report generation loop.
-
-## [0.26.0-Beta] - 2025-08-02
-### Changed
-# - The report now checks the 'multiplier_report_scope' property to generate
-#   either a single "All Bands" summary or a band-by-band report.
-
-## [0.24.2-Beta] - 2025-08-01
-### Changed
-# - Set supports_single to False to prevent the report from running on a single log.
-
-## [0.23.1-Beta] - 2025-08-01
-### Fixed
-# - Sanitized the multiplier name before creating the output filename to
-#   remove invalid characters like slashes ('/').
-
-## [0.22.4-Beta] - 2025-07-31
-### Fixed
-# - Added a special rule to correctly handle the singular form of "Prefixes"
-#   for the report's column header.
-
-## [0.22.3-Beta] - 2025-07-31
-### Changed
-# - Implemented the boolean support properties, correctly identifying this
-#   report as supporting both 'multi' and 'pairwise' modes.
-
-## [0.21.6-Beta] - 2025-07-29
-### Added
-# - The report now includes a diagnostic list at the end, showing all unique
-#   callsigns that resulted in an "Unknown" multiplier classification.
-
-## [0.21.0-Beta] - 2025-07-28
-### Changed
-# - The report no longer includes "Unknown" as a multiplier. All data associated
-#   with an "Unknown" multiplier is now filtered out before the report is generated.
-
-## [0.17.6-Beta] - 2025-07-27
-### Fixed
-# - Corrected the "All Bands Summary" logic to calculate the sum of multipliers
-#   worked on each band, which is the correct scoring method for contests
-#   like CQWW. This replaces the previous logic that counted only unique
-#   multipliers across all bands.
-
-## [0.17.5-Beta] - 2025-07-27
-### Fixed
-# - Corrected the '_get_run_sp_status' helper to properly handle the
-#   'Unknown' classification, preventing an empty '()' from appearing in
-#   the report. It now correctly displays '(Unk)'.
-
-## [0.17.4-Beta] - 2025-07-27
-### Changed
-# - Increased the width of the first column (multiplier name) by two
-#   characters for better spacing and readability.
-
-## [0.17.3-Beta] - 2025-07-27
-### Fixed
-# - Corrected the pluralization logic for the first column header to specifically
-#   handle "Countries" -> "Country", preventing it from becoming "Countrie".
-
-## [0.17.2-Beta] - 2025-07-27
-### Fixed
-# - Refined multiplier name cleaning to correctly handle source files that use
-#   semicolons (;) for comments. The parser now ignores all text after a
-#   semicolon, preventing stray data like continent codes from appearing.
-
-## [0.17.1-Beta] - 2025-07-27
-### Fixed
-# - Added data cleaning for multiplier names to remove embedded newline
-#   characters and "NA" artifacts, preventing broken lines in the report.
-
-## [0.17.0-Beta] - 2025-07-27
-### Fixed
-# - Corrected the "All Bands" summary logic. It no longer sums per-band counts
-#   and now correctly calculates totals based on the unique set of multipliers
-#   worked across all bands, preventing inflated and inaccurate results.
-# - Fixed the table width calculation. Width is now derived from the actual
-#   length of the generated header row, ensuring titles are always centered
-#   properly regardless of the number of logs being compared.
-# - The per-band footer is now always displayed for consistency, even if no
-#   multipliers were missed on a band.
-# - Reordered the per-band and "All Bands" footer rows to the more logical
-#   sequence of "Worked", "Missed", and "Delta" for improved readability.
-
-## [0.16.0-Beta] - 2025-07-26
-### Fixed
-# - Corrected the logic to use the 'value_column' and 'name_column' keys from
-#   the contest definition, resolving a "Multiplier type not found" error.
-
-## [0.14.0-Beta] - 2025-07-23
-### Changed
-# - Added the full multiplier name (e.g., "Vietnam") next to the prefix
-#   (e.g., "3W") when a 'name_column' is available in the contest definition.
-# - Refined table formatting for alignment, spacing, and dynamic headers.
-
-## [0.13.0-Beta] - 2025-07-22
-### Changed
-# - Refactored to be a generic, data-driven report that can handle any
-#   multiplier type defined in the contest's JSON file.
-# - The report now requires a '--mult-name' argument to specify which
-#   multiplier to analyze.
-# - Logic was updated to use efficient set operations for comparisons.
-# - Added a final summary table for "All Bands" to the end of the report.
-
-## [0.12.0-Beta] - 2025-07-22
-# - Initial release as 'text_missed_country_mults.py'.
-
 from typing import List, Dict, Any, Set
 import pandas as pd
 import numpy as np
@@ -227,7 +124,7 @@ class Report(ContestReport):
 
         report_lines = [separator_line, centered_title, separator_line, ""]
 
-        bands = ['160M', '80M', '40M', '20M', '15M', '10M']
+        bands = first_log.contest_definition.valid_bands
         
         # --- Initialize accumulators for the "All Bands Summary" ---
         all_bands_worked_sum = {call: 0 for call in all_calls}
@@ -406,7 +303,7 @@ class Report(ContestReport):
         # --- Add Diagnostic List for Unknown Calls ---
         if all_unknown_calls:
             report_lines.append("\n" + "-" * 30)
-            report_lines.append("Callsigns with 'Unknown' Multiplier:")
+            report_lines.append(f"Callsigns with 'Unknown' {mult_name}:")
             report_lines.append("-" * 30)
             
             sorted_unknowns = sorted(list(all_unknown_calls))

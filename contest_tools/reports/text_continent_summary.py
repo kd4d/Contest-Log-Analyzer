@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-02
-# Version: 0.26.1-Beta
+# Date: 2025-08-03
+# Version: 0.26.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,34 +16,32 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 # --- Revision History ---
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
-
+## [0.26.2-Beta] - 2025-08-03
+### Changed
+# - The report now uses the dynamic `valid_bands` list from the contest
+#   definition instead of a hardcoded list.
 ## [0.26.1-Beta] - 2025-08-02
 ### Fixed
 # - Converted report_id, report_name, and report_type from @property methods
 #   to simple class attributes to fix a bug in the report generation loop.
-
 ## [0.22.0-Beta] - 2025-07-31
 ### Changed
 # - Implemented the boolean support properties, correctly identifying this
 #   report as 'single'.
 # - The report now correctly generates a separate output file for each log
 #   provided, ensuring consistency with other single-log summary reports.
-
 ## [0.21.4-Beta] - 2025-07-28
 ### Added
 # - The report now includes a diagnostic list at the end, showing all unique
 #   callsigns that resulted in an "Unknown" continent classification.
-
 ## [0.16.0-Beta] - 2025-07-26
 ### Fixed
 # - Corrected the logic to handle two-letter continent abbreviations (e.g., 'NA')
 #   from the CTY.DAT file, allowing the report to generate correctly.
-
 from typing import List
 import pandas as pd
 import os
@@ -88,7 +86,7 @@ class Report(ContestReport):
                 'NA': 'North America', 'SA': 'South America', 'EU': 'Europe',
                 'AS': 'Asia', 'AF': 'Africa', 'OC': 'Oceania', 'Unknown': 'Unknown'
             }
-            bands = ['160M', '80M', '40M', '20M', '15M', '10M']
+            bands = log.contest_definition.valid_bands
 
             # --- Collect Unknown Calls for Diagnostics ---
             unknown_continent_df = df[df['Continent'].isin(['Unknown', None, ''])]

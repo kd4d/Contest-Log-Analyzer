@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-02
-# Version: 0.28.1-Beta
+# Date: 2025-08-03
+# Version: 0.28.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,23 +16,23 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 # --- Revision History ---
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
-
+## [0.28.2-Beta] - 2025-08-03
+### Changed
+# - The report now uses the dynamic `valid_bands` list from the contest
+#   definition instead of a hardcoded list.
 ## [0.28.1-Beta] - 2025-08-02
 ### Changed
 # - Refactored to use the new _create_cumulative_rate_plot shared helper
 #   function from _report_utils, reducing code duplication.
 # - The inset summary table is now opaque to cover grid lines.
-
 ## [0.26.1-Beta] - 2025-08-02
 ### Fixed
 # - Converted report_id, report_name, and report_type from @property methods
 #   to simple class attributes to fix a bug in the report generation loop.
-
 from typing import List
 import os
 import pandas as pd
@@ -60,7 +60,7 @@ class Report(ContestReport):
             return "Error: Master time index not available for plot report."
         master_index = log_manager.master_time_index
 
-        bands_to_plot = ['All', '160M', '80M', '40M', '20M', '15M', '10M']
+        bands_to_plot = ['All'] + self.logs[0].contest_definition.valid_bands
         created_files = []
         
         for band in bands_to_plot:
@@ -83,5 +83,4 @@ class Report(ContestReport):
 
         if not created_files:
             return "No QSO rate plots were generated."
-
         return "QSO rate plots saved to:\n" + "\n".join([f"  - {fp}" for fp in created_files])

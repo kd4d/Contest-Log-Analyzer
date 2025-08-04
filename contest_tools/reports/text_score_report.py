@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-03
-# Version: 0.28.23-Beta
+# Version: 0.28.25-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,6 +20,13 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.28.25-Beta] - 2025-08-03
+### Fixed
+# - Corrected an AttributeError in the diagnostic sections by initializing
+#   collections as sets instead of lists.
+## [0.28.24-Beta] - 2025-08-03
+### Added
+# - The report header now includes the calculated operating on-time.
 ## [0.28.23-Beta] - 2025-08-03
 ### Fixed
 # - Changed the `report_id` from "summary" to "score_report" to resolve
@@ -124,7 +131,7 @@ class Report(ContestReport):
             mult_cols = [rule['value_column'] for rule in multiplier_rules]
             mult_names = [rule['name'] for rule in multiplier_rules]
 
-            bands = ['160M', '80M', '40M', '20M', '15M', '10M']
+            bands = self.logs[0].contest_definition.valid_bands
             summary_data = []
             
             df_net_full = df_full[df_full['Dupe'] == False].copy()
@@ -179,7 +186,7 @@ class Report(ContestReport):
                     total_summary[mult_name] = 0
                     continue
 
-                if totaling_method == 'once_per_log':
+                if totaling_method == 'once_per_log' or totaling_method == 'once_per_contest':
                     unique_mults = df_net_valid_mults[df_net_valid_mults[mult_col] != 'Unknown'][mult_col].nunique()
                     total_summary[mult_name] = unique_mults
                     total_multiplier_count += unique_mults
@@ -203,6 +210,11 @@ class Report(ContestReport):
             report_lines = []
             report_lines.append(f"Contest           : {year} {contest_name}")
             report_lines.append(f"Callsign          : {callsign}")
+            
+            on_time_str = metadata.get('OperatingTime')
+            if on_time_str:
+                report_lines.append(f"Operating Time    : {on_time_str}")
+
             report_lines.append("")
             
             header_parts = [f"{name:>{col_widths[name]}}" for name in col_order]
@@ -252,7 +264,7 @@ class Report(ContestReport):
                         num_cols = max(1, len(header) // (col_width + 2))
                         
                         for i in range(0, len(missed_mults), num_cols):
-                            line_mults = missed_mults[i:i+num_cols]
+                            line_mults = missed_mults[i:i+5]
                             report_lines.append("  ".join([f"{mult:<{col_width}}" for mult in line_mults]))
 
             self._add_diagnostic_sections(report_lines)
@@ -270,22 +282,26 @@ class Report(ContestReport):
 
     def _add_diagnostic_sections(self, report_lines: List[str]):
         """Appends sections for Unknown DXCC and WPX prefixes to the report."""
-        log = self.logs[0]
-        df = log.get_processed_data()
+        df = self.logs[0].get_processed_data()
 
-        unknown_dxcc_calls = sorted(list(df[df['DXCCPfx'] == 'Unknown']['Call'].unique()))
-        
-        unknown_wpx_calls = []
+        unknown_dxcc_calls = set()
+        unknown_wpx_calls = set()
+
+        unknown_dxcc_df = df[df['DXCCPfx'] == 'Unknown']
+        unknown_dxcc_calls.update(unknown_dxcc_df['Call'].unique())
+
         if 'Mult1' in df.columns:
-            unknown_wpx_calls = sorted(list(df[df['Mult1'] == 'Unknown']['Call'].unique()))
+            unknown_wpx_df = df[df['Mult1'] == 'Unknown']
+            unknown_wpx_calls.update(unknown_wpx_df['Call'].unique())
 
         if unknown_dxcc_calls:
             report_lines.append("\n" + "-" * 40)
             report_lines.append("Callsigns with Unknown DXCC Prefix:")
             report_lines.append("-" * 40)
             col_width = 12
-            for i in range(0, len(unknown_dxcc_calls), 5):
-                line_calls = unknown_dxcc_calls[i:i+5]
+            sorted_calls = sorted(list(unknown_dxcc_calls))
+            for i in range(0, len(sorted_calls), 5):
+                line_calls = sorted_calls[i:i+5]
                 report_lines.append("  ".join([f"{call:<{col_width}}" for call in line_calls]))
 
         if unknown_wpx_calls:
@@ -293,6 +309,7 @@ class Report(ContestReport):
             report_lines.append("Callsigns with Unknown WPX Prefix (Mult1):")
             report_lines.append("-" * 40)
             col_width = 12
-            for i in range(0, len(unknown_wpx_calls), 5):
-                line_calls = unknown_wpx_calls[i:i+5]
+            sorted_calls = sorted(list(unknown_wpx_calls))
+            for i in range(0, len(sorted_calls), 5):
+                line_calls = sorted_calls[i:i+5]
                 report_lines.append("  ".join([f"{call:<{col_width}}" for call in line_calls]))

@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-02
-# Version: 0.26.1-Beta
+# Date: 2025-08-03
+# Version: 0.26.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -15,25 +15,24 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 # --- Revision History ---
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
-
+## [0.26.2-Beta] - 2025-08-03
+### Changed
+# - The report now uses the dynamic `valid_bands` list from the contest
+#   definition instead of a hardcoded list.
 ## [0.26.1-Beta] - 2025-08-02
 ### Fixed
 # - Converted report_id, report_name, and report_type from @property methods
 #   to simple class attributes to fix a bug in the report generation loop.
-
 ## [0.22.0-Beta] - 2025-07-31
 ### Changed
 # - Implemented the boolean support properties, correctly identifying this
 #   report as 'pairwise'.
-
 ## [0.15.0-Beta] - 2025-07-25
 # - Standardized version for final review. No functional changes.
-
 ## [0.14.0-Beta] - 2025-07-24
 ### Changed
 # - Updated to handle and display the new "Unknown" classification, adding a
@@ -45,10 +44,8 @@
 ### Fixed
 # - Corrected data aggregation logic to ensure bars represent "Unique" QSOs only.
 # - Corrected various alignment and spacing issues with the x-axis labels.
-
 ## [0.12.0-Beta] - 2025-07-23
 # - Initial release of the QSO Breakdown Chart report.
-
 from typing import List
 import pandas as pd
 import numpy as np
@@ -84,7 +81,7 @@ class Report(ContestReport):
         call1 = log1.get_metadata().get('MyCall', 'Log1')
         call2 = log2.get_metadata().get('MyCall', 'Log2')
 
-        bands = ['160M', '80M', '40M', '20M', '15M', '10M'] # Exclude 'All Bands'
+        bands = self.logs[0].contest_definition.valid_bands
         
         # --- Data Aggregation ---
         plot_data = {

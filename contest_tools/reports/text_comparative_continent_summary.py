@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-03
-# Version: 0.28.15-Beta
+# Version: 0.28.17-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,6 +20,17 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.28.17-Beta] - 2025-08-03
+### Changed
+# - The report now uses the dynamic `valid_bands` list from the contest
+#   definition instead of a hardcoded list of bands.
+# - The diagnostic section is now context-aware and includes a report
+#   for callsigns with an Unknown Continent.
+## [0.28.16-Beta] - 2025-08-03
+### Changed
+# - The diagnostic section for unknown multipliers is now data-driven and
+#   uses the multiplier name from the contest definition instead of a
+#   hardcoded label.
 ## [0.28.15-Beta] - 2025-08-03
 ### Added
 # - Added new diagnostic sections to the end of the report for callsigns
@@ -43,6 +54,7 @@ from typing import List
 import pandas as pd
 import os
 from ..contest_log import ContestLog
+from ..contest_definitions import ContestDefinition
 from .report_interface import ContestReport
 
 class Report(ContestReport):
@@ -81,11 +93,14 @@ class Report(ContestReport):
             return "No valid QSOs to report."
         
         # --- Report Generation ---
+        first_log = self.logs[0]
+        contest_def = first_log.contest_definition
+        
         continent_map = {
             'NA': 'North America', 'SA': 'South America', 'EU': 'Europe',
             'AS': 'Asia', 'AF': 'Africa', 'OC': 'Oceania', 'Unknown': 'Unknown'
         }
-        bands = ['160M', '80M', '40M', '20M', '15M', '10M']
+        bands = contest_def.valid_bands
         all_calls = sorted(combined_df['MyCall'].unique())
 
         combined_df['ContinentName'] = combined_df['Continent'].map(continent_map).fillna('Unknown')
@@ -145,7 +160,7 @@ class Report(ContestReport):
                     report_lines.append(line)
         
         # --- Diagnostic Sections ---
-        self._add_diagnostic_sections(report_lines)
+        self._add_diagnostic_sections(report_lines, contest_def)
 
         # --- Save the Report File ---
         report_content = "\n".join(report_lines)
@@ -160,38 +175,51 @@ class Report(ContestReport):
         
         return f"Text report saved to: {filepath}"
 
-    def _add_diagnostic_sections(self, report_lines: List[str]):
-        """Appends sections for Unknown DXCC and WPX prefixes to the report."""
-        unknown_dxcc_calls = set()
-        unknown_wpx_calls = set()
+    def _add_diagnostic_sections(self, report_lines: List[str], contest_def: ContestDefinition):
+        """Appends sections for various unknown data points to the report."""
+        
+        combined_df = pd.concat([log.get_processed_data() for log in self.logs])
+        if combined_df.empty:
+            return
 
-        # Consolidate data from all logs for this specific report instance
-        for log in self.logs:
-            df = log.get_processed_data()
-            unknown_dxcc_df = df[df['DXCCPfx'] == 'Unknown']
-            unknown_dxcc_calls.update(unknown_dxcc_df['Call'].unique())
-
-            if 'Mult1' in df.columns:
-                unknown_wpx_df = df[df['Mult1'] == 'Unknown']
-                unknown_wpx_calls.update(unknown_wpx_df['Call'].unique())
-
+        # --- Check for Unknown DXCC Prefix ---
+        unknown_dxcc_df = combined_df[combined_df['DXCCPfx'] == 'Unknown']
+        unknown_dxcc_calls = sorted(list(unknown_dxcc_df['Call'].unique()))
         if unknown_dxcc_calls:
             report_lines.append("\n" + "-" * 40)
             report_lines.append("Callsigns with Unknown DXCC Prefix:")
             report_lines.append("-" * 40)
             col_width = 12
-            sorted_calls = sorted(list(unknown_dxcc_calls))
-            # Format into neat columns
-            for i in range(0, len(sorted_calls), 5):
-                line_calls = sorted_calls[i:i+5]
+            for i in range(0, len(unknown_dxcc_calls), 5):
+                line_calls = unknown_dxcc_calls[i:i+5]
                 report_lines.append("  ".join([f"{call:<{col_width}}" for call in line_calls]))
 
-        if unknown_wpx_calls:
+        # --- Check for Unknown Continent ---
+        unknown_continent_df = combined_df[combined_df['Continent'] == 'Unknown']
+        unknown_continent_calls = sorted(list(unknown_continent_df['Call'].unique()))
+        if unknown_continent_calls:
             report_lines.append("\n" + "-" * 40)
-            report_lines.append("Callsigns with Unknown WPX Prefix (Mult1):")
+            report_lines.append("Callsigns with Unknown Continent:")
             report_lines.append("-" * 40)
             col_width = 12
-            sorted_calls = sorted(list(unknown_wpx_calls))
-            for i in range(0, len(sorted_calls), 5):
-                line_calls = sorted_calls[i:i+5]
+            for i in range(0, len(unknown_continent_calls), 5):
+                line_calls = unknown_continent_calls[i:i+5]
                 report_lines.append("  ".join([f"{call:<{col_width}}" for call in line_calls]))
+
+        # --- Context-Aware Check for Unknown Multipliers (WPX Only) ---
+        if 'CQ-WPX' in contest_def.contest_name:
+            rule = next((r for r in contest_def.multiplier_rules if r.get('name') == 'Prefixes'), None)
+            if rule:
+                col = rule.get('value_column')
+                if col and col in combined_df.columns:
+                    unknown_mult_df = combined_df[combined_df[col] == 'Unknown']
+                    unknown_calls = sorted(list(unknown_mult_df['Call'].unique()))
+                    
+                    if unknown_calls:
+                        report_lines.append("\n" + "-" * 40)
+                        report_lines.append(f"Callsigns with Unknown {rule['name']} ({col}):")
+                        report_lines.append("-" * 40)
+                        col_width = 12
+                        for i in range(0, len(unknown_calls), 5):
+                            line_calls = unknown_calls[i:i+5]
+                            report_lines.append("  ".join([f"{call:<{col_width}}" for call in line_calls]))
