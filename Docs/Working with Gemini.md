@@ -1,8 +1,7 @@
-Filename: "Docs/Working with Gemini.md"
-
+--- FILE: Docs/Working with Gemini.md ---
 # Project Workflow Guide
 
-**Version: 0.28.21-Beta**
+**Version: 0.29.6-Beta**
 **Date: 2025-08-04**
 
 This document outlines the standard operating procedures for the collaborative development of the Contest Log Analyzer. **The primary audience for this document is the Gemini AI agent.**
@@ -31,9 +30,9 @@ The bundle uses a simple text header to separate each file:
 
 When the AI provides updated files, it must follow these rules to ensure data integrity and prevent reformatting by the chat interface.
 
-1.  **One File Per Response**: Only one file will be delivered in a single response.
+1.  **Single File or Bundle Per Response**: Only one file or one project bundle will be delivered in a single response.
 2.  **Raw Source Text**: The content inside the delivered code block must be the raw source text of the file.
-3.  **Code File Delivery**: For code files (e.g., `.py`, `.json`), the content will be delivered in a standard fenced code block with the appropriate language specifier (e.g., ` ```python ... ``` `).
+3.  **Code File Delivery**: For code files (e.g., `.py`, `.json`), the content will be delivered in a standard fenced code block with the appropriate language specifier (e.g., ` ```python ... ``` `). Project bundles will use the `text` specifier.
 4.  **Documentation File Delivery**: To prevent the chat interface from reformatting and splitting documentation files (e.g., `.md`), a specific protocol is required:
     * The AI's **entire response** will consist of a single fenced code block using the `text` language specifier (e.g., ` ```text ... ``` `). No conversational text will precede or follow this block.
     * Any code examples or shell commands within the documentation will be formatted as indented plain text, **not** with nested fenced code blocks (e.g., ` ```bash`). This is critical to ensure the file is delivered as one unbroken block.
@@ -81,26 +80,20 @@ When discussing technical concepts, variables, rules, or code, you must use the 
 
 ---
 
-## 9. Multi-File Change Protocol
+## 9. Protocol for Multi-File and Bundled Delivery
 
-When a single logical task requires modifying multiple files, this protocol ensures changes are delivered sequentially and clearly, while adhering to the "one file per response" rule.
+When a single logical task requires modifying multiple files, this protocol ensures changes are delivered sequentially and clearly.
 
 1.  **Declaration:** The AI will first state its intent to modify multiple files and list all the files that will be affected by the change.
-2.  **Sequential Delivery:** The AI will provide the first updated file. The response will end with a clear statement, such as: "Please confirm when you are ready for the next file."
-3.  **Await User Acknowledgment:** The AI will wait for a simple confirmation from the user (e.g., 'OK', 'Ready', 'next') before sending the next file.
-4.  **Iteration:** The AI will then provide the next file in the sequence, repeating this turn-by-turn process until all declared files have been delivered.
-5.  **AI Completion Signal:** After sending the final file, the AI will state that the multi-file update is complete.
-6.  **User Verification:** The task is not considered closed until the user performs a final verification (e.g., running a test or a checksum comparison) and confirms success.
+2.  **Bundling Strategy:** The AI will group the files into one or more **project bundles**. Each bundle's total size must not exceed the platform's safe limit of **37 kilobytes**.
+3.  **Sequential Delivery:** The AI will provide the first file or bundle. The response will end with a clear statement, such as: "Please confirm when you are ready for the next file/bundle."
+4.  **Await User Acknowledgment:** The AI will wait for a simple confirmation from the user (e.g., 'OK', 'Ready', 'next') before sending the next file or bundle.
+5.  **Iteration:** The AI will then provide the next item in the sequence, repeating this turn-by-turn process until all declared files have been delivered.
+6.  **AI Completion Signal:** After sending the final file or bundle, the AI will state that the multi-file update is complete.
+7.  **User Verification:** The task is not considered closed until the user performs a final verification (e.g., running a test or a checksum comparison) and confirms success.
 ---
 
-## 10. Protocol for Large File Sets
-
-1.  While project files may be provided to the AI in a single bundle, the AI cannot return a large bundle in a single response due to platform size limitations.
-2.  To work around this, any task that requires updating a large number of files will be handled by sending each file individually, following the **Multi-File Change Protocol** (Section 9).
-3.  The agreed-upon safe size for a project bundle is less than **37 kilobytes**.
----
-
-## 11. Context Checkpoint Protocol
+## 10. Context Checkpoint Protocol
 
 If the AI appears to have lost context, is recycling old responses, or is not following the established protocols, the user can reset the AI's focus by issuing a **Context Checkpoint**.
 
@@ -112,7 +105,7 @@ If the AI appears to have lost context, is recycling old responses, or is not fo
     * **Key Rule:** The most important rule, bug, or constraint for the current task.
 ---
 
-## 12. Technical Debt Cleanup Protocol
+## 11. Technical Debt Cleanup Protocol
 
 When an extended period of incremental bug-fixing results in convoluted or inconsistent code, we will pause new feature development to conduct a **Technical Debt Cleanup Sprint**.
 

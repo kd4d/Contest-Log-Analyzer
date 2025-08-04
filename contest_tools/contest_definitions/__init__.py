@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-04
-# Version: 0.26.3-Beta
+# Version: 0.29.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,8 +19,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
 # All notable changes to this project will be documented in this file.
-# The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
-# and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.29.5-Beta] - 2025-08-04
+### Added
+# - Added the missing `contest_specific_event_id_resolver` property to
+#   the class to support the new event ID resolver system.
 ## [0.26.3-Beta] - 2025-08-04
 ### Added
 # - Added the missing `operating_time_rules` property to the class to
@@ -105,6 +107,10 @@ class ContestDefinition:
     @property
     def operating_time_rules(self) -> Optional[Dict[str, int]]:
         return self._data.get('operating_time_rules')
+        
+    @property
+    def contest_specific_event_id_resolver(self) -> Optional[str]:
+        return self._data.get('contest_specific_event_id_resolver')
 
     @property
     def multiplier_rules(self) -> List[Dict[str, Any]]:

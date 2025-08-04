@@ -7,8 +7,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-03
-# Version: 0.28.8-Beta
+# Date: 2025-08-04
+# Version: 0.29.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,8 +20,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
 # All notable changes to this project will be documented in this file.
-# The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
-# and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.29.5-Beta] - 2025-08-04
+### Changed
+# - Replaced all `print` statements with calls to the new logging framework.
 ## [0.28.8-Beta] - 2025-08-03
 ### Added
 # - Added `portableid` field to CtyInfo and FullCtyInfo tuples.
@@ -38,19 +39,13 @@
 # - Corrected a bug in the get_cty_DXCC_WAE merge logic where the CtyInfo
 #   tuple was being unpacked into variables in the wrong order. The logic
 #   now unpacks by field name to prevent column shifts in the output.
-## [0.27.0-Beta] - 2025-08-02
-### Changed
-# - Complete refactoring of the module to align with the "Definitive
-#   Callsign Lookup Algorithm Specification v1.4.0". The logic is now
-#   functionally identical but implemented in a cleaner, more maintainable
-#   structure. This replaces all previous versions.
-
 from typing import List, Dict, Optional, Tuple
 import re
 from collections import namedtuple
 import sys
 import os
 import argparse
+import logging
 
 class CtyLookup:
     """
@@ -153,9 +148,9 @@ class CtyLookup:
             elif info.name == "Canada" and not self._CA_PATTERN.match(test_call):
                 ca_mismatches.append(pfx)
         if us_mismatches:
-            print(f"Warning: US prefixes from '{self.filename}' fail pattern match: {', '.join(us_mismatches)}", file=sys.stderr)
+            logging.warning(f"US prefixes from '{self.filename}' fail pattern match: {', '.join(us_mismatches)}")
         if ca_mismatches:
-            print(f"Warning: Canadian prefixes from '{self.filename}' fail pattern match: {', '.join(ca_mismatches)}", file=sys.stderr)
+            logging.warning(f"Canadian prefixes from '{self.filename}' fail pattern match: {', '.join(ca_mismatches)}")
 
     def get_cty_DXCC_WAE(self, callsign: str) -> FullCtyInfo:
         """
@@ -322,7 +317,7 @@ class CtyLookup:
 # --- Standalone Execution for Testing ---
 def _run_lookup(cty: CtyLookup, call: str):
     res = cty.get_cty_DXCC_WAE(call)
-    print(f"\n> {call}\n  Comprehensive: DXCC Name: {res.DXCCName:<20}, DXCC Pfx: {res.DXCCPfx:<10}\n"
+    logging.info(f"\n> {call}\n  Comprehensive: DXCC Name: {res.DXCCName:<20}, DXCC Pfx: {res.DXCCPfx:<10}\n"
           f"                   WAE Name:  {res.WAEName:<20}, WAE Pfx:  {res.WAEPfx:<10}\n"
           f"                   Zones: CQ {res.CQZone}, ITU {res.ITUZone}, Cont: {res.Continent}\n"
           f"                   Portable ID: {res.portableid}")
@@ -333,42 +328,45 @@ if __name__ == "__main__":
                         help="Optional path to a file containing callsigns to look up, one per line.")
     args = parser.parse_args()
 
+    # Setup basic logging for standalone execution
+    setup_logging(verbose=True)
+
     data_dir = os.environ.get('CONTEST_DATA_DIR')
     if not data_dir:
-        print("Error: CONTEST_DATA_DIR environment variable not set.", file=sys.stderr)
+        logging.critical("CONTEST_DATA_DIR environment variable not set.")
         sys.exit(1)
     
     cty_path = os.path.join(data_dir.strip().strip('"').strip("'"), 'cty.dat')
 
     if not os.path.exists(cty_path):
-        print(f"Error: The file '{cty_path}' could not be found.", file=sys.stderr)
+        logging.critical(f"The file '{cty_path}' could not be found.")
         sys.exit(1)
     try:
         cty_main = CtyLookup(cty_dat_path=cty_path)
-        print(f"Successfully loaded CTY file from: {cty_main.filename}")
+        logging.info(f"Successfully loaded CTY file from: {cty_main.filename}")
     except (FileNotFoundError, IOError) as e:
-        print(f"Error initializing CtyLookup: {e}", file=sys.stderr)
+        logging.critical(f"Error initializing CtyLookup: {e}")
         sys.exit(1)
     
     if args.callsign_file:
         infile = args.callsign_file
         if not os.path.exists(infile):
-            print(f"Error: Input file '{infile}' not found.", file=sys.stderr)
+            logging.critical(f"Input file '{infile}' not found.")
             sys.exit(1)
-        print(f"\n--- Processing callsigns from file: {infile} ---")
+        logging.info(f"\n--- Processing callsigns from file: {infile} ---")
         with open(infile, 'r') as f:
             for line in f:
                 if call := line.strip():
                     _run_lookup(cty_main, call)
     else:
-        print("\n--- Interactive Mode ---\nEnter callsigns to lookup. Type Ctrl+D (Unix) or Ctrl+Z+Enter (Windows) to quit.")
+        logging.info("\n--- Interactive Mode ---\nEnter callsigns to lookup. Type Ctrl+D (Unix) or Ctrl+Z+Enter (Windows) to quit.")
         while True:
             try:
                 call_in = input("\nEnter callsign: ").strip()
                 if call_in:
                     _run_lookup(cty_main, call_in)
             except EOFError:
-                print("\nExiting.")
+                logging.info("\nExiting.")
                 break
             except Exception as e:
-                print(f"An error occurred: {e}", file=sys.stderr)
+                logging.error(f"An error occurred: {e}")

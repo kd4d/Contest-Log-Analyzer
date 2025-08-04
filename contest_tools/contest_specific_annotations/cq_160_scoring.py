@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-03
-# Version: 0.29.0-Beta
+# Date: 2025-08-04
+# Version: 0.29.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,12 +17,16 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
 # All notable changes to this project will be documented in this file.
+## [0.29.5-Beta] - 2025-08-04
+### Changed
+# - Replaced all `print` statements with calls to the new logging framework.
 ## [0.29.0-Beta] - 2025-08-03
 ### Added
 # - Initial release of the CQ 160 contest scoring module.
 
 import pandas as pd
 from typing import Dict, Any
+import logging
 
 def _calculate_single_qso_points(row: pd.Series, my_dxcc_pfx: str, my_continent: str) -> int:
     """
@@ -35,7 +39,7 @@ def _calculate_single_qso_points(row: pd.Series, my_dxcc_pfx: str, my_continent:
 
     # If essential data is missing, QSO is worth 0 points.
     if pd.isna(row['DXCCPfx']) or pd.isna(row['Continent']):
-        print(f"Warning: Scoring failed for QSO with {row['Call']} at {row['Datetime']}. Missing DXCC or Continent info. Assigning 0 points.")
+        logging.warning(f"Scoring failed for QSO with {row['Call']} at {row['Datetime']}. Missing DXCC or Continent info. Assigning 0 points.")
         return 0
         
     # Rule: Maritime Mobile contacts count 5 points.

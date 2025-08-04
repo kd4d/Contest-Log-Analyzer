@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-02
-# Version: 0.28.5-Beta
+# Date: 2025-08-04
+# Version: 0.29.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,8 +19,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
 # All notable changes to this project will be documented in this file.
-# The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
-# and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.29.5-Beta] - 2025-08-04
+### Changed
+# - Replaced all `print` statements with calls to the new logging framework.
 ## [0.28.5-Beta] - 2025-08-02
 ### Changed
 # - Refactored the column merging logic to be fully dynamic. It now iterates
@@ -37,12 +38,9 @@
 # - Corrected the instantiation of the CtyLookup class to align with the
 #   refactored get_cty.py module, removing the unexpected 'wae' keyword
 #   argument that was causing a TypeError.
-## [0.23.0-Beta] - 2025-08-01
-### Changed
-# - Updated `process_dataframe_for_cty_data` to use the new CONTEST_DATA_DIR
-#   environment variable to locate the cty.dat file.
 import pandas as pd
 import os
+import logging
 from typing import Dict, Any, List
 
 # Import the core annotation functions to make them available at the package level
@@ -71,7 +69,7 @@ def process_dataframe_for_cty_data(df: pd.DataFrame) -> pd.DataFrame:
         raise ValueError("Environment variable CONTEST_DATA_DIR is not set.")
     
     cty_dat_file_path = os.path.join(data_dir.strip().strip('"').strip("'"), 'cty.dat')
-    print(f"Using country file for universal annotations: {cty_dat_file_path}")
+    logging.info(f"Using country file for universal annotations: {cty_dat_file_path}")
 
     processed_df = df.copy()
     processed_df['Call'] = processed_df['Call'].fillna('').astype(str).str.strip().str.upper()
@@ -79,7 +77,7 @@ def process_dataframe_for_cty_data(df: pd.DataFrame) -> pd.DataFrame:
     try:
         cty_lookup_instance = CtyLookup(cty_dat_path=cty_dat_file_path)
     except (FileNotFoundError, IOError) as e:
-        print(f"Fatal Error initializing CtyLookup for universal annotations: {e}")
+        logging.critical(f"Fatal Error initializing CtyLookup for universal annotations: {e}")
         raise
 
     temp_results = processed_df['Call'].apply(

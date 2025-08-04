@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-03
-# Version: 0.28.13-Beta
+# Date: 2025-08-04
+# Version: 0.29.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,8 +18,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
 # All notable changes to this project will be documented in this file.
-# The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
-# and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.29.5-Beta] - 2025-08-04
+### Changed
+# - Replaced all `print` statements with calls to the new logging framework.
 ## [0.28.13-Beta] - 2025-08-03
 ### Added
 # - Added a final validation check to set any calculated prefix that is a
@@ -34,26 +35,9 @@
 #   is *longer* than the default "up-to-the-last-digit" prefix. This
 #   correctly resolves ambiguity between special and standard prefixes.
 #
-## [0.28.2-Beta] - 2025-08-02
-### Changed
-# - Complete rewrite of the prefix determination logic to implement a new,
-#   comprehensive, and hierarchical set of rules.
-# - The routine now accepts the full DataFrame row and uses the `DXCCPfx` and
-#   a new `portableid` field from `get_cty.py` to resolve ambiguity.
-### Added
-# - A standalone cleaning function to strip suffixes like /P, /M, etc.
-# - Logic to handle all portable cases: `call/digit` (e.g., WN5N/7->WN7),
-#   `call/letters` (e.g., LX/KD4D->LX0), and `call/prefix` (e.g., WN5N/KQ7->KQ7).
-# - Logic for non-portable calls, including an override for `DXCCPfx` matches
-#   (e.g., VP2VMM->VP2V) and a default "up to last digit" rule.
-### Fixed
-# - All previously identified bugs related to incorrect prefix determination
-#   for portable and complex callsigns are resolved by the new algorithm.
-#
-## [0.22.0-Beta] - 2025-07-30
-# - Initial release of the WPX prefix calculation module.
 import pandas as pd
 import re
+import logging
 
 def _clean_callsign(call: str) -> str:
     """
@@ -164,7 +148,7 @@ def calculate_wpx_prefixes(df: pd.DataFrame) -> pd.Series:
     required_cols = ['Call', 'DXCCPfx', 'portableid']
     for col in required_cols:
         if col not in df.columns:
-            print(f"Error: Input DataFrame for WPX prefix calculation must contain a '{col}' column. Returning Unknowns.")
+            logging.error(f"Input DataFrame for WPX prefix calculation must contain a '{col}' column. Returning Unknowns.")
             return pd.Series("Unknown", index=df.index)
 
     return df.apply(_get_wpx_prefix_from_row, axis=1)

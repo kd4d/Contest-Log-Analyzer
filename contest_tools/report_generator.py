@@ -8,7 +8,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-04
-# Version: 0.28.15-Beta
+# Version: 0.29.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,44 +20,68 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
 # All notable changes to this project will be documented in this file.
-# The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
-# and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.29.5-Beta] - 2025-08-04
+### Changed
+# - Replaced all `print` statements with calls to the new logging framework.
+## [0.29.2-Beta] - 2025-08-04
+### Changed
+# - Reworked the directory structure logic to be fully data-driven.
+# - The generator now uses the new event_id_resolver system to create
+#   unique subdirectories for contests that occur multiple times a year.
+# - It also creates a final subdirectory based on the unique combination
+#   of callsigns being analyzed.
+# - Renamed the root output directory to "reports".
 ## [0.28.15-Beta] - 2025-08-04
 ### Fixed
 # - The main report generation loop now correctly skips multiplier reports,
 #   fixing the "'mult_name' argument is required" error.
-## [0.28.14-Beta] - 2025-08-04
-### Fixed
-# - Corrected the auto-generation logic to correctly handle reports that
-#   support both single and multi-log modes (e.g., multiplier_summary).
 import os
 import itertools
+import importlib
+import logging
 from .reports import AVAILABLE_REPORTS
 
 class ReportGenerator:
     """
     Handles the logic of selecting, configuring, and running one or more reports.
     """
-    def __init__(self, logs, output_base_dir="reports_output"):
+    def __init__(self, logs, root_output_dir="reports"):
         """
-        Initializes the ReportGenerator.
+        Initializes the ReportGenerator and creates the unique output directory path.
 
         Args:
             logs (list): A list of loaded ContestLog objects.
-            output_base_dir (str): The root directory for report output.
+            root_output_dir (str): The root directory for all report output.
         """
         if not logs:
             raise ValueError("ReportGenerator must be initialized with at least one log.")
         self.logs = logs
         
-        # --- Define Output Directory Structure ---
+        # --- Define Fully Unique Output Directory Structure ---
         first_log = self.logs[0]
         contest_name = first_log.get_metadata().get('ContestName', 'UnknownContest').replace(' ', '_')
         
-        first_qso_date = first_log.get_processed_data()['Date'].dropna().iloc[0] if not first_log.get_processed_data().empty and not first_log.get_processed_data()['Date'].dropna().empty else None
-        year = first_qso_date.split('-')[0] if first_qso_date else "UnknownYear"
+        df = first_log.get_processed_data()
+        year = df['Date'].dropna().iloc[0].split('-')[0] if not df.empty and not df['Date'].dropna().empty else "UnknownYear"
 
-        self.base_output_dir = os.path.join(output_base_dir, year, contest_name)
+        # --- Get Event ID from Resolver (if defined) ---
+        event_id = ""
+        resolver_name = first_log.contest_definition.contest_specific_event_id_resolver
+        if resolver_name:
+            try:
+                resolver_module = importlib.import_module(f"contest_tools.event_resolvers.{resolver_name}")
+                first_qso_time = df['Datetime'].iloc[0]
+                event_id = resolver_module.resolve_event_id(first_qso_time)
+            except (ImportError, AttributeError, IndexError) as e:
+                logging.warning(f"Could not run event ID resolver '{resolver_name}': {e}")
+                event_id = "UnknownEvent"
+
+        # --- Get Callsign Combination ID ---
+        all_calls = sorted([log.get_metadata().get('MyCall', f'Log{i+1}') for i, log in enumerate(self.logs)])
+        callsign_combo_id = '_'.join(all_calls)
+
+        # --- Construct Final Path ---
+        self.base_output_dir = os.path.join(root_output_dir, year, contest_name, event_id, callsign_combo_id)
         self.text_output_dir = os.path.join(self.base_output_dir, "text")
         self.plots_output_dir = os.path.join(self.base_output_dir, "plots")
         self.charts_output_dir = os.path.join(self.base_output_dir, "charts")
@@ -65,10 +89,6 @@ class ReportGenerator:
     def run_reports(self, report_id, **report_kwargs):
         """
         Executes the requested reports based on the report_id and options.
-
-        Args:
-            report_id (str): The ID of the report to run, or 'all'.
-            **report_kwargs: A dictionary of options to pass to the reports.
         """
         reports_to_run = []
         if report_id.lower() == 'all':
@@ -76,15 +96,14 @@ class ReportGenerator:
         elif report_id in AVAILABLE_REPORTS:
             reports_to_run = [(report_id, AVAILABLE_REPORTS[report_id])]
         else:
-            print(f"Error: Report '{report_id}' not found.")
+            logging.error(f"Report '{report_id}' not found.")
             return
 
-        # --- This entire block is the logic moved from main_cli.py ---
         for r_id, ReportClass in reports_to_run:
             first_log = self.logs[0]
             excluded = first_log.contest_definition.excluded_reports
             if r_id in excluded:
-                print(f"\nSkipping report '{ReportClass.report_name}': Excluded by contest definition.")
+                logging.info(f"\nSkipping report '{ReportClass.report_name}': Excluded by contest definition.")
                 continue
 
             report_type = ReportClass.report_type
@@ -94,70 +113,64 @@ class ReportGenerator:
             elif report_type == 'chart': output_path = self.charts_output_dir
             else: output_path = self.base_output_dir
 
-            # --- Auto-generate reports for each multiplier type if needed ---
             is_multiplier_report = r_id in ['missed_multipliers', 'multiplier_summary', 'multipliers_by_hour']
             
             if is_multiplier_report and not report_kwargs.get('mult_name'):
-                print(f"\nAuto-generating '{ReportClass.report_name}' for all available multiplier types...")
+                logging.info(f"\nAuto-generating '{ReportClass.report_name}' for all available multiplier types...")
                 
-                first_log = self.logs[0]
                 log_location_type = first_log._my_location_type
                 all_rules = first_log.contest_definition.multiplier_rules
                 
                 applicable_rules = []
-                if log_location_type: # This is an asymmetric contest
+                if log_location_type:
                     for rule in all_rules:
                         applies_to = rule.get('applies_to')
                         if applies_to is None or applies_to == log_location_type:
                             applicable_rules.append(rule)
-                else: # This is a standard contest
+                else:
                     applicable_rules = all_rules
 
                 for mult_rule in applicable_rules:
                     mult_name = mult_rule.get('name')
                     if mult_name:
-                        print(f"  - Generating for: {mult_name}")
+                        logging.info(f"  - Generating for: {mult_name}")
                         current_kwargs = report_kwargs.copy()
                         current_kwargs['mult_name'] = mult_name
                         
-                        # Handle single-log reports
                         if ReportClass.supports_single:
                             for log in self.logs:
                                 instance = ReportClass([log])
                                 result = instance.generate(output_path=output_path, **current_kwargs)
-                                print(result)
+                                logging.info(result)
                         
-                        # Handle multi-log and pairwise reports
                         if (ReportClass.supports_multi or ReportClass.supports_pairwise):
                             if len(self.logs) < 2:
-                                print(f"    - Skipping comparative version: Requires at least two logs.")
+                                logging.info(f"    - Skipping comparative version: Requires at least two logs.")
                                 continue
                             
                             instance = ReportClass(self.logs)
                             result = instance.generate(output_path=output_path, **current_kwargs)
-                            print(result)
+                            logging.info(result)
             
-            # --- Handle report generation based on comparison mode ---
             else:
-                # Explicitly skip multiplier reports in this generic section
                 if is_multiplier_report:
                     continue
 
-                print(f"\nGenerating report: '{ReportClass.report_name}'...")
+                logging.info(f"\nGenerating report: '{ReportClass.report_name}'...")
                 
                 if ReportClass.supports_multi and len(self.logs) >= 2:
                     instance = ReportClass(self.logs)
                     result = instance.generate(output_path=output_path, **report_kwargs)
-                    print(result)
+                    logging.info(result)
 
                 if ReportClass.supports_pairwise and len(self.logs) >= 2:
                     for log_pair in itertools.combinations(self.logs, 2):
                         instance = ReportClass(list(log_pair))
                         result = instance.generate(output_path=output_path, **report_kwargs)
-                        print(result)
+                        logging.info(result)
                 
                 if ReportClass.supports_single:
                     for log in self.logs:
                         instance = ReportClass([log])
                         result = instance.generate(output_path=output_path, **report_kwargs)
-                        print(result)
+                        logging.info(result)

@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-04
-# Version: 0.28.8-Beta
+# Version: 0.29.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,18 +19,14 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
 # All notable changes to this project will be documented in this file.
-# The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
-# and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.29.5-Beta] - 2025-08-04
+### Changed
+# - Replaced all `print` statements with calls to the new logging framework.
 ## [0.28.8-Beta] - 2025-08-04
 ### Fixed
 # - The multiplier processing logic now correctly copies the multiplier's
 #   full name from a resolver's custom `_Name` column (e.g., `DXCC_MultName`)
 #   into the generic name column (e.g., `Mult2Name`) used by reports.
-## [0.28.7-Beta] - 2025-08-04
-### Fixed
-# - The logic to determine a station's location type (W/VE or DX) for
-#   asymmetric contests now correctly runs for any contest, not just ARRL DX.
-#   This fixes multiplier and on-time calculation failures for CQ-160.
 from typing import List
 import pandas as pd
 from datetime import datetime
@@ -39,6 +35,7 @@ import os
 import re
 import json
 import importlib
+import logging
 
 # Relative imports from within the contest_tools package
 from .cabrillo_parser import parse_cabrillo_file
@@ -206,49 +203,49 @@ class ContestLog:
                 cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)
                 info = cty_lookup.get_cty(my_call)
                 self._my_location_type = "W/VE" if info.name in ["United States", "Canada"] else "DX"
-                print(f"Logger location type determined as: {self._my_location_type}")
+                logging.info(f"Logger location type determined as: {self._my_location_type}")
 
     def apply_annotations(self):
         if self.qsos_df.empty:
-            print("No QSOs loaded. Cannot apply annotations.")
+            logging.warning("No QSOs loaded. Cannot apply annotations.")
             return
 
         try:
-            print("Applying Run/S&P annotation...")
+            logging.info("Applying Run/S&P annotation...")
             self.qsos_df = process_contest_log_for_run_s_p(self.qsos_df)
-            print("Run/S&P annotation complete.")
+            logging.info("Run/S&P annotation complete.")
         except Exception as e:
-            print(f"Error during Run/S&P annotation: {e}. Skipping.")
+            logging.error(f"Error during Run/S&P annotation: {e}. Skipping.")
 
         try:
-            print("Applying Universal DXCC/Zone lookup...")
+            logging.info("Applying Universal DXCC/Zone lookup...")
             self.qsos_df = process_dataframe_for_cty_data(self.qsos_df)
-            print("Universal DXCC/Zone lookup complete.")
+            logging.info("Universal DXCC/Zone lookup complete.")
         except Exception as e:
-            print(f"Error during Universal DXCC/Zone lookup: {e}. Skipping.")
+            logging.error(f"Error during Universal DXCC/Zone lookup: {e}. Skipping.")
         
         self.apply_contest_specific_annotations()
         
         try:
             self.metadata['OperatingTime'] = self._calculate_operating_time()
         except Exception as e:
-            print(f"Error during on-time calculation: {e}. Skipping.")
+            logging.error(f"Error during on-time calculation: {e}. Skipping.")
 
     def apply_contest_specific_annotations(self):
-        print("Applying contest-specific annotations (Multipliers & Scoring)...")
+        logging.info("Applying contest-specific annotations (Multipliers & Scoring)...")
         
         resolver_name = self.contest_definition.custom_multiplier_resolver
         if resolver_name:
             try:
                 resolver_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{resolver_name}")
                 self.qsos_df = resolver_module.resolve_multipliers(self.qsos_df, self._my_location_type)
-                print(f"Successfully applied '{resolver_name}' multiplier resolver.")
+                logging.info(f"Successfully applied '{resolver_name}' multiplier resolver.")
             except Exception as e:
-                print(f"Warning: Could not run '{resolver_name}' multiplier resolver: {e}")
+                logging.warning(f"Could not run '{resolver_name}' multiplier resolver: {e}")
 
         multiplier_rules = self.contest_definition.multiplier_rules
         if multiplier_rules:
-            print("Calculating contest multipliers...")
+            logging.info("Calculating contest multipliers...")
             for rule in multiplier_rules:
                 applies_to = rule.get('applies_to')
                 if applies_to and self._my_location_type and applies_to != self._my_location_type:
@@ -256,7 +253,6 @@ class ContestLog:
 
                 dest_col = rule.get('value_column')
                 dest_name_col = rule.get('name_column')
-                source = rule.get('source')
                 
                 if not dest_col: continue
 
@@ -265,20 +261,19 @@ class ContestLog:
                     if source_col in self.qsos_df.columns:
                         self.qsos_df[dest_col] = self.qsos_df[source_col]
                         
-                        # New logic: Auto-detect and copy the corresponding _Name column
                         if dest_name_col:
                             source_name_col = f"{source_col}Name"
                             if source_name_col in self.qsos_df.columns:
                                 self.qsos_df[dest_name_col] = self.qsos_df[source_name_col]
                             else:
-                                print(f"Warning: Name column '{source_name_col}' not found for source '{source_col}'.")
+                                logging.warning(f"Name column '{source_name_col}' not found for source '{source_col}'.")
                     else:
-                        print(f"Warning: Source column '{source_col}' not found for multiplier '{rule.get('name')}'.")
+                        logging.warning(f"Source column '{source_col}' not found for multiplier '{rule.get('name')}'.")
 
         # --- Scoring Calculation ---
         my_call = self.metadata.get('MyCall')
         if not my_call:
-            print("Warning: 'MyCall' not found in metadata. Cannot calculate QSO points.")
+            logging.warning("'MyCall' not found in metadata. Cannot calculate QSO points.")
             self.qsos_df['QSOPoints'] = 0
             return
             
@@ -288,7 +283,7 @@ class ContestLog:
             cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)
             my_call_info = cty_lookup.get_cty_DXCC_WAE(my_call)._asdict()
         except Exception as e:
-            print(f"Warning: Could not determine own location for scoring due to CTY error: {e}")
+            logging.warning(f"Could not determine own location for scoring due to CTY error: {e}")
             self.qsos_df['QSOPoints'] = 0
             return
 
@@ -302,21 +297,21 @@ class ContestLog:
                 module_name_generic = base_contest_name.lower().replace('-', '_')
                 scoring_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{module_name_generic}_scoring")
             except (ImportError, IndexError):
-                print(f"Warning: No scoring module found for contest '{self.contest_name}'. Points will be 0.")
+                logging.warning(f"No scoring module found for contest '{self.contest_name}'. Points will be 0.")
                 self.qsos_df['QSOPoints'] = 0
                 return
         
         try:
             self.qsos_df['QSOPoints'] = scoring_module.calculate_points(self.qsos_df, my_call_info)
-            print(f"Scoring complete.")
+            logging.info(f"Scoring complete.")
         except Exception as e:
-            print(f"Error during {self.contest_name} scoring: {e}")
+            logging.error(f"Error during {self.contest_name} scoring: {e}")
             self.qsos_df['QSOPoints'] = 0
 
 
     def export_to_csv(self, output_filepath: str):
         if self.qsos_df.empty:
-            print(f"No QSOs to export. CSV file '{output_filepath}' will not be created.")
+            logging.warning(f"No QSOs to export. CSV file '{output_filepath}' will not be created.")
             return
 
         try:
@@ -334,9 +329,9 @@ class ContestLog:
             df_for_output.fillna('', inplace=True)
 
             df_for_output.to_csv(output_filepath, index=False)
-            print(f"Processed log saved to: {output_filepath}")
+            logging.info(f"Processed log saved to: {output_filepath}")
         except Exception as e:
-            print(f"Error exporting log to CSV '{output_filepath}': {e}")
+            logging.error(f"Error exporting log to CSV '{output_filepath}': {e}")
             raise
 
     def get_processed_data(self) -> pd.DataFrame:

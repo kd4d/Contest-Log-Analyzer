@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-25
-# Version: 0.15.0-Beta
+# Date: 2025-08-04
+# Version: 0.29.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,12 +17,11 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 # --- Revision History ---
 # All notable changes to this project will be documented in this file.
-# The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
-# and this project aims to adhere to Semantic Versioning (https://semver.org/).
-
+## [0.29.5-Beta] - 2025-08-04
+### Changed
+# - Replaced all `print` statements with calls to the new logging framework.
 ## [0.15.0-Beta] - 2025-07-25
 # - Finalized the "Unknown" classification logic with a threshold of 4 QSOs
 #   in a 15-minute window.
@@ -30,15 +29,12 @@
 #   per-mode basis.
 # - The "sticky run" state machine is now fully robust, correctly handling
 #   interleaved QSOs and rapid frequency changes.
-
-## [0.9.0-Beta] - 2025-07-18
-# - Initial Beta release of the Run/S&P Inference utility.
-
 import pandas as pd
 from collections import deque
 import os
 import sys
 import traceback
+import logging
 
 # --- Constants ---
 DEFAULT_RUN_TIME_WINDOW_MINUTES = 10
@@ -231,7 +227,7 @@ def process_contest_log_for_run_s_p(
     except KeyError as e:
         raise KeyError(f"Error during Run/S&P pre-processing: {e}")
     except Exception as e:
-        print(f"An unexpected error occurred during Run/S&P processing: {e}")
+        logging.error(f"An unexpected error occurred during Run/S&P processing: {e}")
         traceback.print_exc()
         raise
 
@@ -255,11 +251,11 @@ if __name__ == "__main__":
         df_for_output = df_for_output.sort_values(by='Datetime', na_position='last').reset_index(drop=True)
         df_for_output.to_csv(output_file_path, index=False)
 
-        print(f"\n--- Processing Complete ---")
-        print(f"Processed CSV file created at: {output_file_path}")
+        logging.info(f"\n--- Processing Complete ---")
+        logging.info(f"Processed CSV file created at: {output_file_path}")
         
         if not processed_df.empty:
-            print("\n--- Summary of Inferred Run/S&P/Unknown Counts ---")
+            logging.info("\n--- Summary of Inferred Run/S&P/Unknown Counts ---")
             
             summary_table = pd.pivot_table(
                 processed_df,
@@ -281,5 +277,5 @@ if __name__ == "__main__":
             print(summary_table.to_string())
 
     except Exception as e:
-        print(f"Script execution terminated due to an error: {e}")
+        logging.critical(f"Script execution terminated due to an error: {e}")
         sys.exit(1)

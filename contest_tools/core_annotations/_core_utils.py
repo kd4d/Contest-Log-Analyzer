@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-04
-# Version: 0.29.0-Beta
+# Version: 0.29.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
 # All notable changes to this project will be documented in this file.
+## [0.29.5-Beta] - 2025-08-04
+### Changed
+# - Replaced all `print` statements with calls to the new logging framework.
 ## [0.29.0-Beta] - 2025-08-04
 ### Added
 # - Initial release of the core utilities module.
@@ -26,6 +29,7 @@
 import pandas as pd
 import os
 import re
+import logging
 from typing import Dict, Tuple, Optional
 
 class AliasLookup:
@@ -65,9 +69,9 @@ class AliasLookup:
                     for alias in aliases:
                         self._lookup[alias] = (official_abbr, full_name)
         except FileNotFoundError:
-            print(f"Warning: Multiplier alias file not found at {self.filepath}. Alias lookup will be disabled.")
+            logging.warning(f"Multiplier alias file not found at {self.filepath}. Alias lookup will be disabled.")
         except Exception as e:
-            print(f"Error reading multiplier alias file {self.filepath}: {e}")
+            logging.error(f"Error reading multiplier alias file {self.filepath}: {e}")
 
     def get_multiplier(self, value: str) -> Tuple[Optional[str], Optional[str]]:
         """

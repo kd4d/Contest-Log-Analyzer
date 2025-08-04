@@ -1,33 +1,33 @@
 {
   "_filename": "contest_tools/contest_definitions/naqp.json",
-  "_version": "0.29.0-Beta",
-  "_date": "2025-08-03",
+  "_version": "0.29.5-Beta",
+  "_date": "2025-08-04",
   "contest_name": "NAQP",
   "dupe_check_scope": "per_band",
   "custom_multiplier_resolver": "naqp_multiplier_resolver",
+  "contest_specific_event_id_resolver": "naqp_event_id_resolver",
   "exchange_parsing_rules": {
     "NAQP-CW": {
-      "regex": "(\\d{3})\\s+([A-Z]+)\\s+([A-Z0-9/]+)(?:\\s+(\\d))?",
-      "groups": ["RST", "RcvdName", "RcvdLocation", "Transmitter"]
+      "regex": "([A-Z]+)\\s+([A-Z0-9/]+)(?:\\s+(\\d))?",
+      "groups": ["RcvdName", "RcvdLocation", "Transmitter"]
     },
     "NAQP-SSB": {
-      "regex": "(\\d{2})\\s+([A-Z]+)\\s+([A-Z0-9/]+)(?:\\s+(\\d))?",
-      "groups": ["RS", "RcvdName", "RcvdLocation", "Transmitter"]
+      "regex": "([A-Z]+)\\s+([A-Z0-9/]+)(?:\\s+(\\d))?",
+      "groups": ["RcvdName", "RcvdLocation", "Transmitter"]
     }
   },
   "multiplier_rules": [
     {
       "name": "STPROV",
-      "source_column": "FinalMultiplier",
+      "source_column": "STPROV_Mult",
       "value_column": "Mult1",
-      "totaling_method": "sum_by_band",
-      "alias_file": "NAQPmults.dat"
+      "totaling_method": "sum_by_band"
     },
     {
       "name": "DXCC",
-      "source": "dxcc",
+      "source_column": "NADXCC_Mult",
       "value_column": "Mult2",
-      "name_column": "Mult2Name",
+      "name_column": "NADXCC_MultName",
       "totaling_method": "sum_by_band"
     }
   ],
@@ -40,6 +40,6 @@
     "Band", "Date", "Hour", "Dupe",
     "DXCCName", "DXCCPfx", "CQZone", "ITUZone", "Continent", "WAEName", "WAEPfx", "Lat", "Lon", "Tzone",
     "Run", "QSOPoints",
-    "Mult1", "Mult1Name", "Mult2", "Mult2Name", "FinalMultiplier"
+    "Mult1", "Mult1Name", "Mult2", "Mult2Name", "STPROV_Mult", "NADXCC_Mult", "NADXCC_MultName"
   ]
 }
