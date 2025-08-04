@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-03
-# Version: 0.28.4-Beta
+# Date: 2025-08-04
+# Version: 0.28.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,28 +21,18 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.28.5-Beta] - 2025-08-04
+### Changed
+# - The `dxcc` multiplier source logic now correctly excludes contacts with
+#   the USA and Canada to prevent "double multipliers".
+# - The logic also inherently prevents a station from getting their own
+#   country as a DXCC multiplier.
 ## [0.28.4-Beta] - 2025-08-03
 ### Added
 # - A new method, `_calculate_operating_time`, to calculate on-time based on
 #   rules from the contest definition (min_off_time, max_hours).
 # - The calculated on-time is now determined and stored in the log's metadata
 #   after all other annotations are applied.
-## [0.28.3-Beta] - 2025-08-02
-### Fixed
-# - Corrected a bug in `apply_annotations` where the dataframe returned by
-#   `process_dataframe_for_cty_data` was not being assigned back, causing
-#   the new `portableid` column to be lost.
-#
-## [0.27.3-Beta] - 2025-08-02
-### Fixed
-# - Reverted dynamic imports to use absolute paths. The previous change to
-#   relative imports was incorrect; the root cause of the ModuleNotFoundError
-#   was a data error in the JSON definition files.
-## [0.24.0-Beta] - 2025-08-01
-### Added
-# - Added logic to handle contest-wide dupe checking (for ARRL Sweepstakes)
-#   based on a 'dupe_check_scope' flag in the contest definition.
-# - Added integration hook for the new ARRL Sweepstakes multiplier resolver.
 from typing import List
 import pandas as pd
 from datetime import datetime
@@ -103,6 +93,8 @@ class ContestLog:
 
         if cabrillo_filepath:
             self._ingest_cabrillo_data(cabrillo_filepath)
+            self._determine_own_location_type()
+
 
     def _ingest_cabrillo_data(self, cabrillo_filepath: str):
         raw_df, metadata = parse_cabrillo_file(cabrillo_filepath, self.contest_definition)
@@ -143,7 +135,6 @@ class ContestLog:
         dupe_scope = self.contest_definition.dupe_check_scope
         
         if dupe_scope == 'all_bands':
-            # For contests like Sweepstakes, dupes are checked across all bands
             all_bands_dupe_set = set()
             for idx in self.qsos_df.index:
                 call = self.qsos_df.loc[idx, 'Call']
@@ -154,7 +145,6 @@ class ContestLog:
                 else:
                     all_bands_dupe_set.add(call)
         else:
-            # Default behavior: check for dupes per band
             for band in self.qsos_df['Band'].unique():
                 if band == 'Invalid' or not band:
                     continue
@@ -176,10 +166,6 @@ class ContestLog:
                         self.dupe_sets[band].add(qso_tuple)
 
     def _calculate_operating_time(self) -> Optional[str]:
-        """
-        Calculates the on-time based on rules in the contest definition.
-        An off-time is any gap between QSOs > min_off_time_minutes.
-        """
         rules = self.contest_definition.operating_time_rules
         if not rules:
             return None
@@ -198,7 +184,6 @@ class ContestLog:
         
         on_time = total_duration - total_off_time
 
-        # Format the timedelta for output
         total_seconds = on_time.total_seconds()
         hours = int(total_seconds // 3600)
         minutes = int((total_seconds % 3600) // 60)
@@ -211,13 +196,22 @@ class ContestLog:
             max_hours = rules.get('single_op_max_hours', 48)
 
         return f"{on_time_str} of {max_hours}:00 allowed"
+        
+    def _determine_own_location_type(self):
+        my_call = self.metadata.get('MyCall')
+        if my_call:
+            data_dir = os.environ.get('CONTEST_DATA_DIR').strip().strip('"').strip("'")
+            cty_dat_path = os.path.join(data_dir, 'cty.dat')
+            cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)
+            info = cty_lookup.get_cty(my_call)
+            self._my_location_type = "W/VE" if info.name in ["United States", "Canada"] else "DX"
+            print(f"Logger location type determined as: {self._my_location_type}")
 
     def apply_annotations(self):
         if self.qsos_df.empty:
             print("No QSOs loaded. Cannot apply annotations.")
             return
 
-        # --- Tier 1: Universal Annotations ---
         try:
             print("Applying Run/S&P annotation...")
             self.qsos_df = process_contest_log_for_run_s_p(self.qsos_df)
@@ -227,52 +221,34 @@ class ContestLog:
 
         try:
             print("Applying Universal DXCC/Zone lookup...")
-            # --- FIX: Assign the returned dataframe back to self.qsos_df ---
             self.qsos_df = process_dataframe_for_cty_data(self.qsos_df)
             print("Universal DXCC/Zone lookup complete.")
         except Exception as e:
             print(f"Error during Universal DXCC/Zone lookup: {e}. Skipping.")
         
-        # --- Tier 2: Contest-Specific Annotations ---
         self.apply_contest_specific_annotations()
         
-        # --- Final Step: Calculate Operating Time ---
         try:
             self.metadata['OperatingTime'] = self._calculate_operating_time()
         except Exception as e:
             print(f"Error during on-time calculation: {e}. Skipping.")
 
-
     def apply_contest_specific_annotations(self):
         print("Applying contest-specific annotations (Multipliers & Scoring)...")
         
-        # --- Pre-calculation: Determine own location type for asymmetric contests ---
-        my_call = self.metadata.get('MyCall')
-        if "ARRL-DX" in self.contest_name.upper() and my_call:
-            data_dir = os.environ.get('CONTEST_DATA_DIR').strip().strip('"').strip("'")
-            cty_dat_path = os.path.join(data_dir, 'cty.dat')
-            cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)
-            info = cty_lookup.get_cty(my_call)
-            self._my_location_type = "W/VE" if info.name in ["United States", "Canada"] else "DX"
-            print(f"Logger location type determined as: {self._my_location_type}")
-
-        # --- Contest-Specific Multiplier Resolution ---
         resolver_name = self.contest_definition.custom_multiplier_resolver
         if resolver_name:
             try:
-                # --- FIX: Reverted to absolute import path ---
                 resolver_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{resolver_name}")
                 self.qsos_df = resolver_module.resolve_multipliers(self.qsos_df, self._my_location_type)
                 print(f"Successfully applied '{resolver_name}' multiplier resolver.")
             except Exception as e:
                 print(f"Warning: Could not run '{resolver_name}' multiplier resolver: {e}")
 
-        # --- Multiplier Calculation ---
         multiplier_rules = self.contest_definition.multiplier_rules
         if multiplier_rules:
             print("Calculating contest multipliers...")
             for rule in multiplier_rules:
-                # For asymmetric contests, only apply rule if it matches our location
                 applies_to = rule.get('applies_to')
                 if applies_to and self._my_location_type and applies_to != self._my_location_type:
                     continue
@@ -283,15 +259,22 @@ class ContestLog:
                 
                 if not dest_col: continue
 
-                if source == 'wae_dxcc':
+                if source == 'dxcc':
+                    # --- New logic to exclude W/VE from DXCC multipliers ---
+                    temp_mult_col = self.qsos_df['DXCCPfx'].copy()
+                    is_w_ve_qso = self.qsos_df['DXCCName'].isin(['United States', 'Canada'])
+                    temp_mult_col[is_w_ve_qso] = pd.NA
+                    self.qsos_df[dest_col] = temp_mult_col
+                    
+                    if dest_name_col:
+                        temp_name_col = self.qsos_df['DXCCName'].copy()
+                        temp_name_col[is_w_ve_qso] = pd.NA
+                        self.qsos_df[dest_name_col] = temp_name_col
+                
+                elif source == 'wae_dxcc':
                     self.qsos_df[dest_col] = self.qsos_df['WAEPfx'].where(self.qsos_df['WAEPfx'].notna() & (self.qsos_df['WAEPfx'] != ''), self.qsos_df['DXCCPfx'])
                     if dest_name_col:
                         self.qsos_df[dest_name_col] = self.qsos_df['WAEName'].where(self.qsos_df['WAEName'].notna() & (self.qsos_df['WAEName'] != ''), self.qsos_df['DXCCName'])
-                
-                elif source == 'dxcc':
-                    self.qsos_df[dest_col] = self.qsos_df['DXCCPfx']
-                    if dest_name_col:
-                        self.qsos_df[dest_name_col] = self.qsos_df['DXCCName']
 
                 elif 'source_column' in rule:
                     source_col = rule.get('source_column')
@@ -307,7 +290,6 @@ class ContestLog:
                         print(f"Warning: 'module_name' or 'function_name' not specified for multiplier '{rule.get('name')}'.")
                         continue
                     try:
-                        # --- FIX: Reverted to absolute import path ---
                         calc_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{module_name}")
                         calc_function = getattr(calc_module, function_name)
                         self.qsos_df[dest_col] = calc_function(self.qsos_df)
@@ -317,6 +299,7 @@ class ContestLog:
 
 
         # --- Scoring Calculation ---
+        my_call = self.metadata.get('MyCall')
         if not my_call:
             print("Warning: 'MyCall' not found in metadata. Cannot calculate QSO points.")
             self.qsos_df['QSOPoints'] = 0
@@ -335,13 +318,11 @@ class ContestLog:
         scoring_module = None
         try:
             module_name_specific = self.contest_name.lower().replace('-', '_')
-            # --- FIX: Reverted to absolute import path ---
             scoring_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{module_name_specific}_scoring")
         except ImportError:
             try:
                 base_contest_name = self.contest_name.rsplit('-', 1)[0]
                 module_name_generic = base_contest_name.lower().replace('-', '_')
-                # --- FIX: Reverted to absolute import path ---
                 scoring_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{module_name_generic}_scoring")
             except (ImportError, IndexError):
                 print(f"Warning: No scoring module found for contest '{self.contest_name}'. Points will be 0.")

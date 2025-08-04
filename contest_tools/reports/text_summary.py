@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-03
-# Version: 0.26.2-Beta
+# Date: 2025-08-04
+# Version: 0.26.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,6 +19,9 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.26.3-Beta] - 2025-08-04
+### Changed
+# - Standardized the report header to use a two-line title.
 ## [0.26.2-Beta] - 2025-08-03
 ### Added
 # - The report now includes a new 'On-Time' column to display the calculated
@@ -27,36 +30,6 @@
 ### Fixed
 # - Converted report_id, report_name, and report_type from @property methods
 #   to simple class attributes to fix a bug in the report generation loop.
-## [0.22.2-Beta] - 2025-07-31
-### Changed
-# - Converted the report from a 'single' log summary to a 'multi' log
-#   comparative summary table.
-## [0.22.1-Beta] - 2025-07-31
-### Fixed
-# - Corrected the filename generation logic to include the callsign, preventing
-#   the report from being overwritten when multiple logs are provided.
-## [0.22.0-Beta] - 2025-07-31
-### Changed
-# - Implemented the boolean support properties, correctly identifying this
-#   report as 'single'.
-## [0.15.0-Beta] - 2025-07-25
-# - Standardized version for final review. No functional changes.
-## [0.14.0-Beta] - 2025-07-24
-### Changed
-# - Updated to correctly handle and display the new "Unknown" classification
-#   in the QSO summary.
-## [0.12.1-Beta] - 2025-07-22
-### Fixed
-# - Added missing 'import os' statement to resolve a NameError.
-### Changed
-# - Refactored the generate() method to use **kwargs for flexible argument passing.
-# - The method now saves its own output file and returns a summary message.
-## [0.11.0-Beta] - 2025-07-21
-### Changed
-# - Added logic to exclude duplicate QSOs from calculations by default.
-# - Added a note to the report header to explicitly state dupe inclusion status.
-## [0.10.0-Beta] - 2025-07-21
-# - Initial release of the QSO Summary report.
 from typing import List
 import os
 from ..contest_log import ContestLog
@@ -112,17 +85,27 @@ class Report(ContestReport):
 
         for row in report_data:
             for key, value in row.items():
-                col_widths[key] = max(col_widths.get(key, 0), len(str(value)))
-
-        # Adjust width for On-Time specifically if it's long
-        col_widths['On-Time'] = max(col_widths.get('On-Time', 7), len("HH:MM of HH:MM allowed"))
+                if key in col_widths:
+                    col_widths[key] = max(col_widths.get(key, 0), len(str(value)))
+        
+        if any(row.get('On-Time') and row.get('On-Time') != 'N/A' for row in report_data):
+            col_widths['On-Time'] = max(col_widths.get('On-Time', 7), len("HH:MM of HH:MM allowed"))
+        else:
+            headers.remove('On-Time')
 
 
         header_str = "  ".join([f"{h:<{col_widths[h]}}" for h in headers])
         separator = "-" * len(header_str)
+        
+        first_log = self.logs[0]
+        contest_name = first_log.get_metadata().get('ContestName', 'UnknownContest')
+        year = first_log.get_processed_data()['Date'].iloc[0].split('-')[0] if not first_log.get_processed_data().empty else "----"
+        subtitle = f"{year} {contest_name} - {', '.join(all_calls)}"
 
         report_lines = [
-            f"--- {self.report_name} ---",
+            f"--- {self.report_name} ---".center(len(header_str)),
+            subtitle.center(len(header_str)),
+            "",
             "Note: Does Not Include Dupes" if not include_dupes else "Note: Includes Dupes",
             "",
             header_str,
