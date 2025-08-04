@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-04
-# Version: 0.28.27-Beta
+# Version: 0.28.28-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,6 +20,9 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.28.28-Beta] - 2025-08-04
+### Changed
+# - Standardized the report header to use a two-line title.
 ## [0.28.27-Beta] - 2025-08-04
 ### Changed
 # - Standardized the report header to use a two-line title.
@@ -84,10 +87,18 @@ class Report(ContestReport):
 
             col_width = 35
             table_width = col_width * 3
-            subtitle = f"{year} {contest_name} - {callsign}"
+            title1 = f"--- {self.report_name} ---"
+            title2 = f"{year} {contest_name} - {callsign}"
+            
             report_lines = []
-            report_lines.append(f"--- {self.report_name} ---".center(table_width))
-            report_lines.append(subtitle.center(table_width))
+            if len(title1) > table_width or len(title2) > table_width:
+                 header_width = max(len(title1), len(title2))
+                 report_lines.append(f"{title1.ljust(header_width)}")
+                 report_lines.append(f"{title2.center(header_width)}")
+            else:
+                 header_width = table_width
+                 report_lines.append(title1.center(header_width))
+                 report_lines.append(title2.center(header_width))
             report_lines.append("")
 
             # --- Grid Formatting Logic ---

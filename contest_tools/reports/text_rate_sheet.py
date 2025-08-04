@@ -5,7 +5,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-04
-# Version: 0.28.20-Beta
+# Version: 0.28.21-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,15 +19,14 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.28.21-Beta] - 2025-08-04
+### Changed
+# - Standardized the report header to use a two-line title with proper formatting.
+### Fixed
+# - Redundant 'Hourly Total' column is now omitted for single-band contests.
 ## [0.28.20-Beta] - 2025-08-04
 ### Changed
 # - Standardized the report header to use a two-line title.
-### Fixed
-# - Redundant 'Hourly Total' column is now omitted for single-band contests.
-## [0.28.19-Beta] - 2025-08-03
-### Changed
-# - The report now uses the dynamic `valid_bands` list from the contest
-#   definition instead of a hardcoded list.
 from typing import List
 import pandas as pd
 import os
@@ -93,13 +92,23 @@ class Report(ContestReport):
                 header2 += f" {'Total':>7}"
             header2 += f" {'Total':>11}"
             
-            separator = "-" * len(header1)
-            subtitle = f"{year} {contest_name} - {callsign}"
+            table_width = len(header1)
+            separator = "-" * table_width
             
+            title1 = f"--- {self.report_name} ---"
+            title2 = f"{year} {contest_name} - {callsign}"
+
             report_lines = []
-            report_lines.append(f"--- {self.report_name} ---".center(len(header1)))
-            report_lines.append(subtitle.center(len(header1)))
+            if len(title1) > table_width or len(title2) > table_width:
+                 header_width = max(len(title1), len(title2))
+                 report_lines.append(f"{title1.ljust(header_width)}")
+                 report_lines.append(f"{title2.center(header_width)}")
+            else:
+                 header_width = table_width
+                 report_lines.append(title1.center(header_width))
+                 report_lines.append(title2.center(header_width))
             report_lines.append("")
+            
             report_lines.append(header1)
             report_lines.append(header2)
             report_lines.append(separator)
@@ -121,9 +130,9 @@ class Report(ContestReport):
             
             rate_data = rate_data[bands].fillna(0).astype(int)
 
-            if not is_single_band:
-                rate_data['Hourly Total'] = rate_data.sum(axis=1)
             rate_data['Cumulative Total'] = rate_data[bands].sum(axis=1).cumsum()
+            if not is_single_band:
+                rate_data['Hourly Total'] = rate_data[bands].sum(axis=1)
 
             for timestamp, row in rate_data.iterrows():
                 hour_str = timestamp.strftime('%H%M')
@@ -140,11 +149,14 @@ class Report(ContestReport):
             report_lines.append(separator)
             
             total_line_parts = [f"{'Total':<5}"]
+            grand_total = 0
             for band in bands:
-                total_line_parts.append(f"{rate_data[band].sum():>5}")
+                band_total = rate_data[band].sum()
+                total_line_parts.append(f"{band_total:>5}")
+                grand_total += band_total
             total_line = " ".join(total_line_parts)
             if not is_single_band:
-                total_line += f" {rate_data['Hourly Total'].sum():>7}"
+                total_line += f" {grand_total:>7}"
             report_lines.append(total_line)
             report_lines.append("")
 

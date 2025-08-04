@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-04
-# Version: 0.26.3-Beta
+# Version: 0.26.4-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,15 +20,15 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.26.4-Beta] - 2025-08-04
+### Changed
+# - Reworked the header formatting logic to correctly handle titles that
+#   are wider than the data table.
+### Fixed
+# - The redundant 'All Bands Summary' is now omitted for single-band contests.
 ## [0.26.3-Beta] - 2025-08-04
 ### Changed
 # - Standardized the report header to use a two-line title.
-### Fixed
-# - The redundant 'All Bands Summary' is now omitted for single-band contests.
-## [0.26.2-Beta] - 2025-08-03
-### Changed
-# - The report now uses the dynamic `valid_bands` list from the contest definition.
-# - The diagnostic section header is now dynamic based on the multiplier name.
 from typing import List, Dict, Any, Set
 import pandas as pd
 import numpy as np
@@ -109,17 +109,25 @@ class Report(ContestReport):
 
         metadata = first_log.get_metadata()
         contest_name = metadata.get('ContestName', 'UnknownContest')
-        first_qso_date = first_log.get_processed_data()['Date'].iloc[0]
-        year = first_qso_date.split('-')[0] if first_qso_date else "UnknownYear"
+        first_qso_date = first_log.get_processed_data()['Date'].iloc[0] if not first_log.get_processed_data().empty else "----"
+        year = first_qso_date.split('-')[0]
         
         header_cells = [f"{call:^{col_width}}" for call in all_calls]
-        header_line_for_width = f"{first_col_header:<{first_col_width}} | {' | '.join(header_cells)}"
-        table_width = len(header_line_for_width)
+        table_header = f"{first_col_header:<{first_col_width}} | {' | '.join(header_cells)}"
+        table_width = len(table_header)
         
-        subtitle = f"{year} {contest_name} - {', '.join(all_calls)}"
+        title1 = f"--- {self.report_name}: {mult_name} ---"
+        title2 = f"{year} {contest_name} - {', '.join(all_calls)}"
+        
         report_lines = []
-        report_lines.append(f"--- {self.report_name}: {mult_name} ---".center(table_width))
-        report_lines.append(subtitle.center(table_width))
+        if len(title1) > table_width or len(title2) > table_width:
+             header_width = max(len(title1), len(title2))
+             report_lines.append(f"{title1.ljust(header_width)}")
+             report_lines.append(f"{title2.center(header_width)}")
+        else:
+             header_width = table_width
+             report_lines.append(title1.center(header_width))
+             report_lines.append(title2.center(header_width))
         report_lines.append("")
 
         bands = first_log.contest_definition.valid_bands
@@ -130,7 +138,6 @@ class Report(ContestReport):
         overall_prefix_to_name_map = {}
         all_unknown_calls = set()
 
-        # Pre-populate the name map and collect all unknown calls
         for log in self.logs:
             df_full = log.get_processed_data()
             df = df_full[df_full['Dupe'] == False].copy()
@@ -138,7 +145,8 @@ class Report(ContestReport):
                 continue
             
             unknown_df = df[df[mult_column] == 'Unknown']
-            all_unknown_calls.update(unknown_df['Call'].unique())
+            w_ve_unknown_df = unknown_df[unknown_df['DXCCName'].isin(['United States', 'Canada'])]
+            all_unknown_calls.update(w_ve_unknown_df['Call'].unique())
             
             if name_column and name_column in df.columns:
                 name_map_df = df[[mult_column, name_column]].dropna().drop_duplicates()
@@ -164,12 +172,10 @@ class Report(ContestReport):
                         continue
                     
                     df_band = df[df['Band'] == band].copy()
-                    df_band = df_band[df_band[mult_column] != 'Unknown']
+                    df_band = df_band[df_band[mult_column].notna()]
                     
                     if df_band.empty:
                         continue
-                    
-                    df_band.dropna(subset=[mult_column], inplace=True)
                     
                     if name_column and name_column in df_band.columns:
                         name_map_df = df_band[[mult_column, name_column]].dropna().drop_duplicates()
@@ -195,8 +201,7 @@ class Report(ContestReport):
                 for call in all_calls:
                     missed_mults_on_band.update(union_of_all_mults.difference(mult_sets[call]))
 
-                header = f"{first_col_header:<{first_col_width}} | {' | '.join(header_cells)}"
-                report_lines.append(header)
+                report_lines.append(table_header)
 
                 if not missed_mults_on_band:
                     report_lines.append(f"     (No missed {mult_name} on this band)".center(table_width))

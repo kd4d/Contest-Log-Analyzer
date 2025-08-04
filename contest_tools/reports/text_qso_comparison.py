@@ -69,18 +69,24 @@ class Report(ContestReport):
         
         contest_name = log1.get_metadata().get('ContestName', 'UnknownContest')
         year = log1.get_processed_data()['Date'].iloc[0].split('-')[0] if not log1.get_processed_data().empty else "----"
-        subtitle = f"{year} {contest_name} - {call1} vs {call2}"
         
-        final_report_lines = [
-            f"--- {self.report_name} ---".center(table_width),
-            subtitle.center(table_width),
-            ""
-        ]
+        title1 = f"--- {self.report_name} ---"
+        title2 = f"{year} {contest_name} - {call1} vs {call2}"
+
+        report_lines = []
+        if len(title1) > table_width or len(title2) > table_width:
+             header_width = max(len(title1), len(title2))
+             report_lines.append(f"{title1.ljust(header_width)}")
+             report_lines.append(f"{title2.center(header_width)}")
+        else:
+             header_width = table_width
+             report_lines.append(title1.center(header_width))
+             report_lines.append(title2.center(header_width))
+        report_lines.append("")
 
         bands = self.logs[0].contest_definition.valid_bands
         is_single_band = len(bands) == 1
         
-        # Add "All Bands" section only if it's a multi-band contest
         bands_to_report = bands if is_single_band else bands + ['All Bands']
         
         df1_full = log1.get_processed_data()[log1.get_processed_data()['Dupe'] == False]
@@ -88,10 +94,10 @@ class Report(ContestReport):
 
         for band in bands_to_report:
             band_header_text = f"{band.replace('M', '')} Meter QSOs" if band != "All Bands" else "All Band QSOs"
-            final_report_lines.append(band_header_text.center(table_width))
-            final_report_lines.append(header1_str)
-            final_report_lines.append(header2_str)
-            final_report_lines.append("-" * table_width)
+            report_lines.append(band_header_text.center(table_width))
+            report_lines.append(header1_str)
+            report_lines.append(header2_str)
+            report_lines.append("-" * table_width)
             
             if band == 'All Bands':
                 df1_band = df1_full
@@ -133,10 +139,10 @@ class Report(ContestReport):
                     f"{unknown_unique:>{col_widths[8]}}"
                     f"{common_qsos_total:>{col_widths[9]}}"
                 )
-                final_report_lines.append(row_str)
-            final_report_lines.append("")
+                report_lines.append(row_str)
+            report_lines.append("")
 
-        report_content = "\n".join(final_report_lines)
+        report_content = "\n".join(report_lines)
         os.makedirs(output_path, exist_ok=True)
         
         filename_calls = f"{call1}_vs_{call2}"

@@ -21,16 +21,12 @@
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 ## [0.26.4-Beta] - 2025-08-04
 ### Changed
-# - Standardized the report header to use a two-line title.
+# - Standardized the report header to use a two-line title with proper formatting.
 # - The 'On-Time' column is now correctly hidden if the contest has no
 #   defined operating time limits.
 ## [0.26.3-Beta] - 2025-08-04
 ### Changed
 # - Standardized the report header to use a two-line title.
-## [0.26.2-Beta] - 2025-08-03
-### Added
-# - The report now includes a new 'On-Time' column to display the calculated
-#   operating time for each log.
 from typing import List
 import os
 from ..contest_log import ContestLog
@@ -48,11 +44,6 @@ class Report(ContestReport):
     def generate(self, output_path: str, **kwargs) -> str:
         """
         Generates the report content, saves it to a file, and returns a summary.
-
-        Args:
-            output_path (str): The directory where any output files should be saved.
-            **kwargs:
-                - include_dupes (bool): If True, dupes are included. Defaults to False.
         """
         include_dupes = kwargs.get('include_dupes', False)
         
@@ -93,23 +84,34 @@ class Report(ContestReport):
                 if key in col_widths:
                     col_widths[key] = max(col_widths.get(key, 0), len(str(value)))
         
-        header_str = "  ".join([f"{h:<{col_widths[h]}}" for h in headers])
-        separator = "-" * len(header_str)
+        table_header = "  ".join([f"{h:<{col_widths[h]}}" for h in headers])
+        table_width = len(table_header)
+        separator = "-" * table_width
         
         first_log = self.logs[0]
         contest_name = first_log.get_metadata().get('ContestName', 'UnknownContest')
         year = first_log.get_processed_data()['Date'].iloc[0].split('-')[0] if not first_log.get_processed_data().empty else "----"
-        subtitle = f"{year} {contest_name} - {', '.join(all_calls)}"
-
-        report_lines = [
-            f"--- {self.report_name} ---".center(len(header_str)),
-            subtitle.center(len(header_str)),
+        
+        title1 = f"--- {self.report_name} ---"
+        title2 = f"{year} {contest_name} - {', '.join(all_calls)}"
+        
+        report_lines = []
+        if len(title1) > table_width or len(title2) > table_width:
+             header_width = max(len(title1), len(title2))
+             report_lines.append(f"{title1.ljust(header_width)}")
+             report_lines.append(f"{title2.center(header_width)}")
+        else:
+             header_width = table_width
+             report_lines.append(title1.center(header_width))
+             report_lines.append(title2.center(header_width))
+        
+        report_lines.extend([
             "",
             "Note: Does Not Include Dupes" if not include_dupes else "Note: Includes Dupes",
             "",
-            header_str,
+            table_header,
             separator
-        ]
+        ])
 
         for row in report_data:
             data_parts = [f"{str(row.get(h, 'N/A')):<{col_widths[h]}}" for h in headers]

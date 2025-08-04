@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-04
-# Version: 0.28.28-Beta
+# Version: 0.28.29-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,18 +20,16 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
-## [0.28.28-Beta] - 2025-08-04
+## [0.28.29-Beta] - 2025-08-04
+### Changed
+# - Standardized report to have a two-line title followed by a blank line.
+# - Reworked table generation to ensure column alignment is always correct.
+# - The redundant per-band summary is now correctly hidden for single-band contests.
+## [0.28.28-Beta] - 2025-08-03
 ### Changed
 # - Added a second, descriptive title line to the report header.
 # - Fixed column alignment by creating a single, unified table structure that
 #   includes the On-Time column in the main header.
-## [0.28.27-Beta] - 2025-08-03
-### Changed
-# - Added a main title to the report.
-# - The diagnostic section is now context-aware and no longer shows incorrect
-#   "WPX Prefix" reports for non-WPX contests.
-# - For single-band contests, the report now omits the redundant per-band
-#   breakdown and only shows the TOTAL section.
 from typing import List, Set
 import pandas as pd
 import os
@@ -83,18 +81,28 @@ class Report(ContestReport):
 
         # --- Assemble Final Report ---
         header_parts = [f"{name:<{col_widths[name]}}" if name == 'Callsign' else f"{name:>{col_widths[name]}}" for name in col_order if col_widths.get(name, 0) > 0]
-        header = "  ".join(header_parts)
-        separator = "-" * len(header)
+        table_header = "  ".join(header_parts)
+        table_width = len(table_header)
+        separator = "-" * table_width
         
         contest_name = first_log.get_metadata().get('ContestName', 'UnknownContest')
         year = first_log.get_processed_data()['Date'].iloc[0].split('-')[0] if not first_log.get_processed_data().empty else "----"
-        subtitle = f"{year} {contest_name} - {', '.join(all_calls)}"
-
+        
+        title1 = f"--- {self.report_name} ---"
+        title2 = f"{year} {contest_name} - {', '.join(all_calls)}"
+        
+        header_width = max(table_width, len(title1), len(title2))
+        
         report_lines = []
-        report_lines.append(f"--- {self.report_name} ---".center(len(header)))
-        report_lines.append(subtitle.center(len(header)))
+        if len(title1) > table_width or len(title2) > table_width:
+             report_lines.append(f"{title1.ljust(header_width)}")
+             report_lines.append(f"{title2.center(header_width)}")
+        else:
+             report_lines.append(title1.center(header_width))
+             report_lines.append(title2.center(header_width))
+
         report_lines.append("")
-        report_lines.append(header)
+        report_lines.append(table_header)
         report_lines.append(separator)
         
         # --- Generate and add Per-Band Data ---
@@ -113,13 +121,13 @@ class Report(ContestReport):
         for summary in total_summaries:
             report_lines.append(self._format_row(summary, col_order, col_widths))
 
-        report_lines.append("=" * len(header))
+        report_lines.append("=" * table_width)
         report_lines.append("") # Add blank line before scores
         for summary in total_summaries:
             callsign = summary['Callsign']
             score = summary['FinalScore']
             score_text = f"TOTAL SCORE ({callsign}) : {score:,.0f}"
-            justified_score_line = score_text.rjust(len(header))
+            justified_score_line = score_text.rjust(table_width)
             report_lines.append(justified_score_line)
 
         self._add_diagnostic_sections(report_lines, contest_def)

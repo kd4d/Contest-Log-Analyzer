@@ -5,7 +5,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-04
-# Version: 0.28.21-Beta
+# Version: 0.28.22-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,15 +19,18 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.28.22-Beta] - 2025-08-04
+### Changed
+# - Standardized the report header to use a two-line title with proper formatting.
+### Fixed
+# - Redundant 'Hourly Total' column is now omitted for single-band contests.
+# - Corrected the logic to properly calculate the hourly total for single-band
+#   contests, fixing a bug that caused the report to show all zeros.
 ## [0.28.21-Beta] - 2025-08-04
 ### Changed
 # - Standardized the report header to use a two-line title.
 ### Fixed
 # - Redundant 'Hourly Total' column is now omitted for single-band contests.
-## [0.28.20-Beta] - 2025-08-03
-### Changed
-# - The report now uses the dynamic `valid_bands` list from the contest
-#   definition instead of a hardcoded list.
 from typing import List
 import pandas as pd
 import os
@@ -65,7 +68,6 @@ class Report(ContestReport):
         bands = contest_def.valid_bands
         is_single_band = len(bands) == 1
         
-        # --- Formatting ---
         prefix_width = 11
         band_width = 6
         hourly_width = 8
@@ -83,21 +85,30 @@ class Report(ContestReport):
             header2 += f"{'Total':>{hourly_width}}"
         header2 += f"{'Total':>{cum_width}}"
 
+        table_width = len(header1)
         separator = " " * prefix_width + "-" * (len(header2) - prefix_width)
         
         contest_name = first_log.get_metadata().get('ContestName', 'UnknownContest')
         year = first_log.get_processed_data()['Date'].iloc[0].split('-')[0] if not first_log.get_processed_data().empty else "----"
-        subtitle = f"{year} {contest_name} - {', '.join(all_calls)}"
+        
+        title1 = f"--- {self.report_name} ---"
+        title2 = f"{year} {contest_name} - {', '.join(all_calls)}"
         
         report_lines = []
-        report_lines.append(f"--- {self.report_name} ---".center(len(header1)))
-        report_lines.append(subtitle.center(len(header1)))
+        if len(title1) > table_width or len(title2) > table_width:
+             header_width = max(len(title1), len(title2))
+             report_lines.append(f"{title1.ljust(header_width)}")
+             report_lines.append(f"{title2.center(header_width)}")
+        else:
+             header_width = table_width
+             report_lines.append(title1.center(header_width))
+             report_lines.append(title2.center(header_width))
         report_lines.append("")
+        
         report_lines.append(header1)
         report_lines.append(header2)
         report_lines.append(separator)
 
-        # --- Data Aggregation ---
         processed_data = {}
         cumulative_totals = {call: 0 for call in all_calls}
 
@@ -131,7 +142,6 @@ class Report(ContestReport):
 
             processed_data[callsign] = rate_data
 
-        # --- Report Body ---
         for timestamp in master_time_index:
             hour_str = timestamp.strftime('%H%M')
             report_lines.append(hour_str)
@@ -142,7 +152,12 @@ class Report(ContestReport):
                 
                 if log_data is not None and timestamp in log_data.index:
                     row = log_data.loc[timestamp]
-                    hourly_total = row[bands].sum()
+                    
+                    if is_single_band:
+                        hourly_total = row[bands].sum()
+                    else:
+                        hourly_total = row['Hourly Total']
+                        
                     cumulative_totals[callsign] += hourly_total
                     
                     line_parts = [f"  {callsign:<7}: "]
@@ -150,7 +165,7 @@ class Report(ContestReport):
                         line_parts.append(f"{row.get(band, 0):>{band_width}}")
                     line = "".join(line_parts)
                     if not is_single_band:
-                        line += f"{row['Hourly Total']:>{hourly_width}}"
+                        line += f"{hourly_total:>{hourly_width}}"
                     line += f"{cumulative_totals[callsign]:>{cum_width}}"
                 else:
                     line_parts = [f"  {callsign:<7}: "]
@@ -163,7 +178,6 @@ class Report(ContestReport):
                 
                 report_lines.append(line)
         
-        # --- Totals Section ---
         report_lines.append(separator)
         report_lines.append("TOTALS")
         for callsign in all_calls:

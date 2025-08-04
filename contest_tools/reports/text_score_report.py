@@ -23,12 +23,12 @@
 ## [0.28.27-Beta] - 2025-08-04
 ### Changed
 # - Standardized the report header to use a two-line title.
+# - The redundant per-band breakdown is now correctly hidden for single-band contests.
 ## [0.28.26-Beta] - 2025-08-03
 ### Changed
 # - Added a main title to the report.
 # - Report now uses the dynamic `valid_bands` list from the contest definition.
 # - Diagnostic section is now context-aware for multipliers.
-# - For single-band contests, the redundant per-band breakdown is now hidden.
 from typing import List, Dict, Set
 import pandas as pd
 import os
@@ -136,7 +136,7 @@ class Report(ContestReport):
                 
                 for i, m_col in enumerate(mult_cols):
                     if m_col in band_df_valid_mults.columns:
-                        band_summary[mult_names[i]] = band_df_valid_mults[band_df_valid_mults[m_col] != 'Unknown'][m_col].nunique()
+                        band_summary[mult_names[i]] = band_df_valid_mults[band_df_valid_mults[m_col].notna()][m_col].nunique()
                 
                 band_summary['AVG'] = (band_summary['Points'] / band_summary['QSOs']) if band_summary['QSOs'] > 0 else 0
                 summary_data.append(band_summary)
@@ -166,7 +166,7 @@ class Report(ContestReport):
                     continue
 
                 if totaling_method == 'once_per_contest':
-                    unique_mults = df_net_valid_mults[df_net_valid_mults[mult_col] != 'Unknown'][mult_col].nunique()
+                    unique_mults = df_net_valid_mults[df_net_valid_mults[mult_col].notna()][mult_col].nunique()
                     total_summary[mult_name] = unique_mults
                     total_multiplier_count += unique_mults
                 else: # Default to sum_by_band
@@ -189,14 +189,23 @@ class Report(ContestReport):
             
             header_parts = [f"{name:>{col_widths[name]}}" for name in col_order]
             header = "  ".join(header_parts)
-            separator = "-" * len(header)
+            table_width = len(header)
+            separator = "-" * table_width
+            
+            title1 = f"--- {self.report_name} ---"
+            title2 = f"{year} {contest_name} - {callsign}"
             
             report_lines = []
-            subtitle = f"{year} {contest_name} - {callsign}"
-            report_lines.append(f"--- {self.report_name} ---".center(len(header)))
-            report_lines.append(subtitle.center(len(header)))
+            if len(title1) > table_width or len(title2) > table_width:
+                 header_width = max(len(title1), len(title2))
+                 report_lines.append(f"{title1.ljust(header_width)}")
+                 report_lines.append(f"{title2.center(header_width)}")
+            else:
+                 header_width = table_width
+                 report_lines.append(title1.center(header_width))
+                 report_lines.append(title2.center(header_width))
+            
             report_lines.append("")
-
             report_lines.append(f"Contest           : {contest_name}")
             report_lines.append(f"Callsign          : {callsign}")
             on_time_str = metadata.get('OperatingTime')
@@ -228,8 +237,10 @@ class Report(ContestReport):
             ])
             report_lines.append("  ".join(total_parts))
             
-            report_lines.append("=" * len(header))
-            report_lines.append(f"                TOTAL SCORE : {final_score:,.0f}")
+            report_lines.append("=" * table_width)
+            score_text = f"TOTAL SCORE : {final_score:,.0f}"
+            report_lines.append(score_text.rjust(table_width))
+
 
             self._add_diagnostic_sections(report_lines, contest_def)
 
