@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-04
-# Version: 0.26.3-Beta
+# Version: 0.26.4-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,14 +20,14 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.26.4-Beta] - 2025-08-04
+### Changed
+# - Simplified the report to work with pre-aligned dataframes, removing
+#   all internal time-alignment logic to align with the new architecture.
 ## [0.26.3-Beta] - 2025-08-04
 ### Changed
 # - Simplified the report to work with pre-aligned dataframes, removing
 #   all internal time-alignment logic to fix the "all zeros" bug.
-## [0.26.2-Beta] - 2025-08-03
-### Changed
-# - The report now uses the dynamic `valid_bands` list from the contest
-#   definition instead of a hardcoded list.
 from typing import List
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -59,11 +59,9 @@ class Report(ContestReport):
         if df.empty:
             return pd.DataFrame(columns=['Run', 'S&P+Unknown'])
 
-        # Group by hour and then by Run/S&P status
         df_cleaned = df.dropna(subset=['Datetime', 'Run', value_column])
         rate_data = df_cleaned.groupby([df_cleaned['Datetime'].dt.floor('h'), 'Run'])[value_column].agg(agg_func).unstack(fill_value=0)
 
-        # Ensure all columns exist
         for col in ['Run', 'S&P', 'Unknown']:
             if col not in rate_data.columns:
                 rate_data[col] = 0
