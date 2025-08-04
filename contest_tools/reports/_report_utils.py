@@ -1,12 +1,12 @@
-# Contest Log Analyzer/contest_tools/reports/plot_cumulative_difference.py
+# Contest Log Analyzer/contest_tools/reports/_report_utils.py
 #
-# Purpose: A plot report that generates a cumulative difference graph,
-#          comparing two logs.
+# Purpose: A utility module containing shared helper functions used by various
+#          report generation scripts.
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-04
-# Version: 0.26.4-Beta
+# Version: 0.28.4-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,161 +20,149 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
-## [0.26.4-Beta] - 2025-08-04
-### Fixed
-# - The report no longer generates redundant, per-band plots for single-band contests.
-## [0.26.3-Beta] - 2025-08-04
-### Changed
-# - Simplified the report to work with pre-aligned dataframes, removing
-#   all internal time-alignment logic to align with the new architecture.
-from typing import List
+## [0.28.4-Beta] - 2025-08-04
+### Removed
+# - Removed the `AliasLookup` class. It has been moved to the new, more
+#   appropriate `_core_utils.py` module to resolve a circular dependency.
+## [0.28.3-Beta] - 2025-08-04
+### Added
+# - Added a generic `AliasLookup` class to centralize the parsing of
+#   multiplier alias files, eliminating duplicate code.
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import os
+from matplotlib.gridspec import GridSpec
+import numpy as np
 
-from ..contest_log import ContestLog
-from .report_interface import ContestReport
+def _create_pie_chart_subplot(fig, gs, df, title, radius, is_not_to_scale=False):
+    """
+    Creates a single pie chart subplot with a title, data table, and proportional radius.
+    """
+    nested_gs = GridSpec(2, 1, subplot_spec=gs, height_ratios=[0.7, 0.3])
+    ax_pie = fig.add_subplot(nested_gs[0])
+    ax_table = fig.add_subplot(nested_gs[1])
 
-class Report(ContestReport):
-    """
-    Generates a three-subplot plot showing the cumulative difference in
-    QSOs or Points between two logs.
-    """
-    report_id: str = "cumulative_difference_plots"
-    report_name: str = "Cumulative Difference Plots"
-    report_type: str = "plot"
-    supports_pairwise = True
+
+    ax_pie.set_title(title, fontsize=16, fontweight='bold')
     
-    def _prepare_data_for_plot(self, log: ContestLog, value_column: str, agg_func: str, band_filter: str) -> pd.DataFrame:
-        """
-        Prepares a single log's data for plotting by grouping and aggregating.
-        """
+    if df.empty or 'QSOPoints' not in df.columns or df['QSOPoints'].sum() == 0:
+        ax_pie.text(0.5, 0.5, "No Data", ha='center', va='center', fontsize=14)
+        ax_pie.axis('off')
+        ax_table.axis('off')
+        return
+
+    point_counts = df['QSOPoints'].value_counts().sort_index(ascending=False)
+    
+    colors = sns.color_palette("viridis", len(point_counts))
+    wedges, texts, autotexts = ax_pie.pie(
+        point_counts,
+        labels=[f"{idx} pts" for idx in point_counts.index],
+        autopct='%1.1f%%',
+        startangle=90,
+        colors=colors,
+        radius=radius,
+        pctdistance=0.85
+    )
+
+    plt.setp(autotexts, size=10, weight="bold", color="white")
+    ax_pie.axis('equal')
+
+    if is_not_to_scale:
+        ax_pie.text(0, -radius - 0.2, "(not to scale)", ha='center', va='center', fontsize=10, style='italic')
+
+    # --- Table ---
+    ax_table.axis('off')
+    total_points = df['QSOPoints'].sum()
+    total_qsos = len(df)
+    avg_points = total_points / total_qsos if total_qsos > 0 else 0
+    
+    table_data = [
+        ["Total QSOs", f"{total_qsos:,}"],
+        ["Total Points", f"{total_points:,}"],
+        ["Avg Points/QSO", f"{avg_points:.2f}"]
+    ]
+    table = ax_table.table(cellText=table_data, colLabels=None, cellLoc='center', loc='center')
+    table.auto_set_font_size(False)
+    table.set_fontsize(12)
+    table.scale(1, 1.5)
+
+def _create_cumulative_rate_plot(logs, output_path, band_filter, metric_name, value_column, agg_func, report_id):
+    """
+    Shared helper function to create a cumulative QSO or Point rate plot.
+    """
+    fig, ax = plt.subplots(figsize=(12, 8))
+    sns.set_theme(style="whitegrid")
+
+    all_calls = []
+    summary_data = []
+
+    for log in logs:
+        call = log.get_metadata().get('MyCall', 'Unknown')
+        all_calls.append(call)
         df = log.get_processed_data()[log.get_processed_data()['Dupe'] == False]
-        
+
         if band_filter != "All":
             df = df[df['Band'] == band_filter]
-
-        if df.empty:
-            return pd.DataFrame(columns=['Run', 'S&P+Unknown'])
-
-        df_cleaned = df.dropna(subset=['Datetime', 'Run', value_column])
-        rate_data = df_cleaned.groupby([df_cleaned['Datetime'].dt.floor('h'), 'Run'])[value_column].agg(agg_func).unstack(fill_value=0)
-
-        for col in ['Run', 'S&P', 'Unknown']:
-            if col not in rate_data.columns:
-                rate_data[col] = 0
         
-        rate_data['S&P+Unknown'] = rate_data['S&P'] + rate_data['Unknown']
+        if df.empty or value_column not in df.columns:
+            continue
         
-        return rate_data[['Run', 'S&P+Unknown']]
-
-
-    def _generate_single_plot(self, output_path: str, band_filter: str, metric: str):
-        """
-        Helper function to generate a single cumulative difference plot.
-        """
-        log1, log2 = self.logs[0], self.logs[1]
-        call1 = log1.get_metadata().get('MyCall', 'Log1')
-        call2 = log2.get_metadata().get('MyCall', 'Log2')
-
-        value_column = 'QSOPoints' if metric == 'points' else 'Call'
-        agg_func = 'sum' if metric == 'points' else 'count'
+        df_cleaned = df.dropna(subset=['Datetime', value_column])
         
-        data1 = self._prepare_data_for_plot(log1, value_column, agg_func, band_filter)
-        data2 = self._prepare_data_for_plot(log2, value_column, agg_func, band_filter)
+        hourly_rate = df_cleaned.groupby(df_cleaned['Datetime'].dt.floor('h'))[value_column].agg(agg_func)
+        cumulative_rate = hourly_rate.cumsum()
         
-        master_index = data1.index.union(data2.index)
+        if not hourly_rate.empty:
+            full_timeline = pd.date_range(start=hourly_rate.index.min(), end=hourly_rate.index.max(), freq='h')
+            cumulative_rate = cumulative_rate.reindex(full_timeline, method='pad').fillna(0)
         
-        data1 = data1.reindex(master_index, fill_value=0)
-        data2 = data2.reindex(master_index, fill_value=0)
+        ax.plot(cumulative_rate.index, cumulative_rate.values, marker='o', linestyle='-', markersize=4, label=call)
 
-        if data1.empty and data2.empty:
-            print(f"  - Skipping {band_filter} difference plot: no data.")
-            return None
+        # Correctly calculate the total for the inset table
+        if metric_name == "Points":
+            total_value = df[value_column].sum()
+        else:
+            total_value = len(df)
 
-        # --- Calculate Cumulative Differences ---
-        run_diff = (data1['Run'].cumsum() - data2['Run'].cumsum())
-        sp_unk_diff = (data1['S&P+Unknown'].cumsum() - data2['S&P+Unknown'].cumsum())
-        overall_diff = run_diff + sp_unk_diff
+        summary_data.append([
+            call,
+            f"{total_value:,}",
+            f"{(df['Run'] == 'Run').sum():,}",
+            f"{(df['Run'] == 'S&P').sum():,}",
+            f"{(df['Run'] == 'Unknown').sum():,}"
+        ])
 
-        # --- Plotting ---
-        sns.set_theme(style="whitegrid")
-        fig = plt.figure(figsize=(12, 9))
-        gs = fig.add_gridspec(5, 1)
+    contest_name = logs[0].get_metadata().get('ContestName', '')
+    year = logs[0].get_processed_data()['Date'].dropna().iloc[0].split('-')[0] if not logs[0].get_processed_data().empty and not logs[0].get_processed_data()['Date'].dropna().empty else "----"
+    band_text = "All Bands" if band_filter == "All" else f"{band_filter.replace('M', '')} Meters"
+    
+    ax.set_title(f"{year} {contest_name} - Cumulative {metric_name} ({band_text})", fontsize=16, fontweight='bold')
+    ax.set_xlabel("Contest Time")
+    ax.set_ylabel(f"Cumulative {metric_name}")
+    ax.legend(loc='upper left')
+    ax.grid(True, which='both', linestyle='--')
+    
+    # --- Inset Summary Table ---
+    if summary_data:
+        col_labels = ["Call", f"Total {metric_name}", "Run", "S&P", "Unk"]
+        table = ax.table(cellText=summary_data, colLabels=col_labels, loc='lower right', cellLoc='center', colLoc='center')
+        table.auto_set_font_size(False)
+        table.set_fontsize(10)
+        table.scale(0.7, 1.2)
+        table.set_zorder(10)
         
-        ax1 = fig.add_subplot(gs[0:3, 0])
-        ax2 = fig.add_subplot(gs[3, 0], sharex=ax1)
-        ax3 = fig.add_subplot(gs[4, 0], sharex=ax1)
+        # Make the table opaque
+        for key, cell in table.get_celld().items():
+            cell.set_facecolor('white')
 
-        ax1.plot(overall_diff.index, overall_diff, marker='o', markersize=4)
-        ax2.plot(run_diff.index, run_diff, marker='o', markersize=4, color='green')
-        ax3.plot(sp_unk_diff.index, sp_unk_diff, marker='o', markersize=4, color='purple')
 
-        # --- Formatting ---
-        contest_name = log1.get_metadata().get('ContestName', '')
-        year = log1.get_processed_data()['Date'].dropna().iloc[0].split('-')[0] if not log1.get_processed_data().empty else "----"
-        metric_name = "Points" if metric == 'points' else "QSOs"
-        band_text = "All Bands" if band_filter == "All" else f"{band_filter.replace('M', '')} Meters"
-        
-        main_title = f"{year} {contest_name} - Cumulative {metric_name} Difference\n{band_text}"
-        sub_title = f"{call1} minus {call2}"
-        
-        fig.suptitle(main_title, fontsize=16, fontweight='bold')
-        ax1.set_title(sub_title, fontsize=12)
-
-        ax1.set_ylabel(f"Overall Diff ({metric_name})")
-        ax2.set_ylabel(f"Run Diff")
-        ax3.set_ylabel(f"S&P+Unk Diff")
-        ax3.set_xlabel("Contest Time")
-
-        for ax in [ax1, ax2, ax3]:
-            ax.grid(True, which='both', linestyle='--')
-            ax.axhline(0, color='black', linewidth=0.8, linestyle='-')
-        
-        plt.setp(ax1.get_xticklabels(), visible=False)
-        plt.setp(ax2.get_xticklabels(), visible=False)
-        fig.tight_layout(rect=[0, 0.03, 1, 0.93])
-
-        # --- Save File ---
-        os.makedirs(output_path, exist_ok=True)
-        filename_band = band_filter.lower().replace('m', '')
-        filename = f"diff_{metric}_{filename_band}_{call1}_vs_{call2}.png"
-        filepath = os.path.join(output_path, filename)
-        fig.savefig(filepath)
-        plt.close(fig)
-
-        return filepath
-
-    def generate(self, output_path: str, **kwargs) -> str:
-        """
-        Orchestrates the generation of all cumulative difference plots.
-        """
-        if len(self.logs) != 2:
-            return "Error: The Cumulative Difference Plot report requires exactly two logs."
-
-        metric = kwargs.get('metric', 'qsos')
-        
-        bands = self.logs[0].contest_definition.valid_bands
-        is_single_band = len(bands) == 1
-        bands_to_plot = ['All'] if is_single_band else ['All'] + bands
-        
-        created_files = []
-        
-        for band in bands_to_plot:
-            try:
-                save_path = os.path.join(output_path, band) if band != "All" else output_path
-                filepath = self._generate_single_plot(
-                    output_path=save_path,
-                    band_filter=band,
-                    metric=metric
-                )
-                if filepath:
-                    created_files.append(filepath)
-            except Exception as e:
-                print(f"  - Failed to generate difference plot for {band}: {e}")
-
-        if not created_files:
-            return f"No difference plots were generated for metric '{metric}'."
-
-        return f"Cumulative difference plots for {metric} saved to:\n" + "\n".join([f"  - {fp}" for fp in created_files])
+    fig.tight_layout()
+    os.makedirs(output_path, exist_ok=True)
+    
+    filename_band = band_filter.lower().replace('m', '')
+    filename = f"{report_id}_{filename_band}_plot.png"
+    filepath = os.path.join(output_path, filename)
+    fig.savefig(filepath)
+    plt.close(fig)
+    return filepath

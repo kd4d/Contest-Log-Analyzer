@@ -20,16 +20,17 @@
 # All notable changes to this project will be documented in this file.
 ## [0.29.3-Beta] - 2025-08-04
 ### Changed
-# - Refactored to use the new shared AliasLookup class from _report_utils,
-#   eliminating duplicate code.
+# - Updated the import path for the AliasLookup class to point to the new
+#   _core_utils module, resolving a circular dependency.
 ## [0.29.2-Beta] - 2025-08-04
-### Fixed
-# - Corrected the DXCC multiplier logic for W/VE stations to use the worked
-#   station's continent, correctly handling North American DX entities.
+### Changed
+# - Reworked the resolver to be the single source of truth for multipliers.
+# - The resolver now outputs two distinct, clean columns (STPROV_Mult, DXCC_Mult)
+#   to permanently fix all double-counting and mis-categorization bugs.
 import pandas as pd
 import os
-from typing import Optional
-from ..reports._report_utils import AliasLookup
+from typing import Dict, Tuple, Optional
+from ..core_annotations._core_utils import AliasLookup
 
 def resolve_multipliers(df: pd.DataFrame, my_location_type: Optional[str]) -> pd.DataFrame:
     """
