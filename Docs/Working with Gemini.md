@@ -2,7 +2,7 @@ Filename: "Docs/Working with Gemini.md"
 
 # Project Workflow Guide
 
-**Version: 0.28.18-Beta**
+**Version: 0.28.20-Beta**
 **Date: 2025-08-04**
 
 This document outlines the standard operating procedures for the collaborative development of the Contest Log Analyzer. **The primary audience for this document is the Gemini AI agent.**
@@ -33,7 +33,7 @@ When the AI provides updated files, it must follow these rules to ensure data in
 
 ## 3. Versioning
 
-1.  When a file is modified, its patch number (the third digit) will be incremented. For example, a change to a `0.28.17-Beta` file will result in version `0.28.18-Beta` for that file.
+1.  When a file is modified, its patch number (the third digit) will be incremented. For example, a change to a `0.28.19-Beta` file will result in version `0.28.20-Beta` for that file.
 2.  Document versions will be kept in sync with their corresponding code files.
 3.  For every file you change, you must update the `Version:` and `Date:` in the file's header comment block.
 
@@ -89,3 +89,25 @@ When a single logical task requires modifying multiple files, this protocol ensu
 While project files may be provided to the AI in a single bundle, the AI cannot return a large bundle in a single response due to platform size limitations.
 
 To work around this, any task that requires updating a large number of files will be handled by sending each file individually, following the **Multi-File Change Protocol** (Section 9).
+---
+
+## 11. Context Checkpoint Protocol
+
+If the AI appears to have lost context, is recycling old responses, or is not following the established protocols, the user can reset the AI's focus by issuing a **Context Checkpoint**.
+
+1.  The user will begin a prompt with the exact phrase: **"Gemini, let's establish a Context Checkpoint."**
+2.  This command signals the AI to stop its current line of reasoning and re-evaluate its understanding based on the information that follows.
+3.  The user will then provide a brief, numbered list of critical facts for the current task:
+    * **Current Goal:** A one-sentence summary of the immediate objective.
+    * **Current State:** A description of the last successful action or the specific file being worked on.
+    * **Key Rule:** The most important rule, bug, or constraint for the current task.
+---
+
+## 12. Technical Debt Cleanup Protocol
+
+When an extended period of incremental bug-fixing results in convoluted or inconsistent code, we will pause new feature development to conduct a **Technical Debt Cleanup Sprint**.
+
+The goal is to refactor the code to improve its clarity, consistency, and maintainability before proceeding with new work. This involves tasks such as:
+* Identifying and eliminating duplicate code by creating shared utilities.
+* Unifying inconsistent logic (e.g., standardizing how all time-series reports handle data).
+* Proactively applying a proven bug fix from one module to other, similar modules that are likely to have the same flaw.

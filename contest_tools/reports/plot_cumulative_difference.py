@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-03
-# Version: 0.26.2-Beta
+# Date: 2025-08-04
+# Version: 0.26.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,34 +20,14 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.26.3-Beta] - 2025-08-04
+### Changed
+# - Simplified the report to work with pre-aligned dataframes, removing
+#   all internal time-alignment logic to fix the "all zeros" bug.
 ## [0.26.2-Beta] - 2025-08-03
 ### Changed
 # - The report now uses the dynamic `valid_bands` list from the contest
 #   definition instead of a hardcoded list.
-## [0.26.1-Beta] - 2025-08-02
-### Fixed
-# - Converted report_id, report_name, and report_type from @property methods
-#   to simple class attributes to fix a bug in the report generation loop.
-## [0.25.0-Beta] - 2025-08-01
-### Changed
-# - The report now uses the pre-aligned master time index to display the
-#   entire contest period.
-## [0.22.0-Beta] - 2025-07-31
-### Changed
-# - Implemented the boolean support properties, correctly identifying this
-#   report as 'pairwise'.
-## [0.15.0-Beta] - 2025-07-25
-### Changed
-# - Rewrote the report to use the new 'align_logs_by_time' shared helper
-#   function, which corrects data alignment issues and simplifies the code.
-## [0.14.0-Beta] - 2025-07-22
-# - Initial release of the Cumulative Difference Plot report.
-# - The bottom subplot now displays the cumulative difference for "S&P + Unknown"
-#   QSOs/Points combined.
-# - Added the band name as a second line to the main title of each plot.
-### Fixed
-# - Corrected a critical bug in the data aggregation logic that was causing
-#   the difference plots to show incorrect values.
 from typing import List
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -56,7 +36,6 @@ import os
 
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from ._report_utils import align_logs_by_time # Import the new helper
 
 class Report(ContestReport):
     """
@@ -68,7 +47,33 @@ class Report(ContestReport):
     report_type: str = "plot"
     supports_pairwise = True
     
-    def _generate_single_plot(self, output_path: str, band_filter: str, metric: str, master_index: pd.DatetimeIndex):
+    def _prepare_data_for_plot(self, log: ContestLog, value_column: str, agg_func: str, band_filter: str) -> pd.DataFrame:
+        """
+        Prepares a single log's data for plotting by grouping and aggregating.
+        """
+        df = log.get_processed_data()[log.get_processed_data()['Dupe'] == False]
+        
+        if band_filter != "All":
+            df = df[df['Band'] == band_filter]
+
+        if df.empty:
+            return pd.DataFrame(columns=['Run', 'S&P+Unknown'])
+
+        # Group by hour and then by Run/S&P status
+        df_cleaned = df.dropna(subset=['Datetime', 'Run', value_column])
+        rate_data = df_cleaned.groupby([df_cleaned['Datetime'].dt.floor('h'), 'Run'])[value_column].agg(agg_func).unstack(fill_value=0)
+
+        # Ensure all columns exist
+        for col in ['Run', 'S&P', 'Unknown']:
+            if col not in rate_data.columns:
+                rate_data[col] = 0
+        
+        rate_data['S&P+Unknown'] = rate_data['S&P'] + rate_data['Unknown']
+        
+        return rate_data[['Run', 'S&P+Unknown']]
+
+
+    def _generate_single_plot(self, output_path: str, band_filter: str, metric: str):
         """
         Helper function to generate a single cumulative difference plot.
         """
@@ -79,26 +84,21 @@ class Report(ContestReport):
         value_column = 'QSOPoints' if metric == 'points' else 'Call'
         agg_func = 'sum' if metric == 'points' else 'count'
         
-        # --- Data Preparation using the shared helper ---
-        aligned_data = align_logs_by_time(
-            logs=self.logs,
-            value_column=value_column,
-            agg_func=agg_func,
-            master_index=master_index,
-            band_filter=band_filter,
-            time_unit='1h'
-        )
+        data1 = self._prepare_data_for_plot(log1, value_column, agg_func, band_filter)
+        data2 = self._prepare_data_for_plot(log2, value_column, agg_func, band_filter)
+        
+        master_index = data1.index.union(data2.index)
+        
+        data1 = data1.reindex(master_index, fill_value=0)
+        data2 = data2.reindex(master_index, fill_value=0)
 
-        if len(aligned_data) < 2:
-                print(f"  - Skipping {band_filter} difference plot: one or both logs have no QSOs on this band.")
-                return None
-                
-        pt1_aligned = aligned_data[call1]
-        pt2_aligned = aligned_data[call2]
+        if data1.empty and data2.empty:
+            print(f"  - Skipping {band_filter} difference plot: no data.")
+            return None
 
         # --- Calculate Cumulative Differences ---
-        run_diff = (pt1_aligned['Run'].cumsum() - pt2_aligned['Run'].cumsum())
-        sp_unk_diff = (pt1_aligned['S&P+Unknown'].cumsum() - pt2_aligned['S&P+Unknown'].cumsum())
+        run_diff = (data1['Run'].cumsum() - data2['Run'].cumsum())
+        sp_unk_diff = (data1['S&P+Unknown'].cumsum() - data2['S&P+Unknown'].cumsum())
         overall_diff = run_diff + sp_unk_diff
 
         # --- Plotting ---
@@ -116,7 +116,7 @@ class Report(ContestReport):
 
         # --- Formatting ---
         contest_name = log1.get_metadata().get('ContestName', '')
-        year = log1.get_processed_data()['Date'].iloc[0].split('-')[0]
+        year = log1.get_processed_data()['Date'].dropna().iloc[0].split('-')[0] if not log1.get_processed_data().empty else "----"
         metric_name = "Points" if metric == 'points' else "QSOs"
         band_text = "All Bands" if band_filter == "All" else f"{band_filter.replace('M', '')} Meters"
         
@@ -156,11 +156,6 @@ class Report(ContestReport):
         if len(self.logs) != 2:
             return "Error: The Cumulative Difference Plot report requires exactly two logs."
 
-        log_manager = getattr(self.logs[0], '_log_manager_ref', None)
-        if not log_manager or log_manager.master_time_index is None:
-            return "Error: Master time index not available for plot report."
-        master_index = log_manager.master_time_index
-
         metric = kwargs.get('metric', 'qsos')
         bands_to_plot = ['All'] + self.logs[0].contest_definition.valid_bands
         created_files = []
@@ -171,8 +166,7 @@ class Report(ContestReport):
                 filepath = self._generate_single_plot(
                     output_path=save_path,
                     band_filter=band,
-                    metric=metric,
-                    master_index=master_index
+                    metric=metric
                 )
                 if filepath:
                     created_files.append(filepath)

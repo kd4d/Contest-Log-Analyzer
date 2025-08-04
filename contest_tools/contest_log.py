@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-04
-# Version: 0.28.7-Beta
+# Version: 0.28.8-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,15 +21,16 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.28.8-Beta] - 2025-08-04
+### Fixed
+# - The multiplier processing logic now correctly copies the multiplier's
+#   full name from a resolver's custom `_Name` column (e.g., `DXCC_MultName`)
+#   into the generic name column (e.g., `Mult2Name`) used by reports.
 ## [0.28.7-Beta] - 2025-08-04
 ### Fixed
 # - The logic to determine a station's location type (W/VE or DX) for
 #   asymmetric contests now correctly runs for any contest, not just ARRL DX.
 #   This fixes multiplier and on-time calculation failures for CQ-160.
-## [0.28.6-Beta] - 2025-08-04
-### Changed
-# - Removed the contest-specific patch for `source: "dxcc"` multipliers. This
-#   logic is now correctly handled by contest-specific resolver modules.
 from typing import List
 import pandas as pd
 from datetime import datetime
@@ -195,7 +196,6 @@ class ContestLog:
         return f"{on_time_str} of {max_hours}:00 allowed"
         
     def _determine_own_location_type(self):
-        # Check if any multiplier rule is asymmetric
         is_asymmetric = any(rule.get('applies_to') for rule in self.contest_definition.multiplier_rules)
         
         if is_asymmetric:
@@ -260,37 +260,20 @@ class ContestLog:
                 
                 if not dest_col: continue
 
-                if source == 'dxcc':
-                    self.qsos_df[dest_col] = self.qsos_df['DXCCPfx']
-                    if dest_name_col:
-                        self.qsos_df[dest_name_col] = self.qsos_df['DXCCName']
-                
-                elif source == 'wae_dxcc':
-                    self.qsos_df[dest_col] = self.qsos_df['WAEPfx'].where(self.qsos_df['WAEPfx'].notna() & (self.qsos_df['WAEPfx'] != ''), self.qsos_df['DXCCPfx'])
-                    if dest_name_col:
-                        self.qsos_df[dest_name_col] = self.qsos_df['WAEName'].where(self.qsos_df['WAEName'].notna() & (self.qsos_df['WAEName'] != ''), self.qsos_df['DXCCName'])
-
-                elif 'source_column' in rule:
+                if 'source_column' in rule:
                     source_col = rule.get('source_column')
                     if source_col in self.qsos_df.columns:
                         self.qsos_df[dest_col] = self.qsos_df[source_col]
+                        
+                        # New logic: Auto-detect and copy the corresponding _Name column
+                        if dest_name_col:
+                            source_name_col = f"{source_col}Name"
+                            if source_name_col in self.qsos_df.columns:
+                                self.qsos_df[dest_name_col] = self.qsos_df[source_name_col]
+                            else:
+                                print(f"Warning: Name column '{source_name_col}' not found for source '{source_col}'.")
                     else:
                         print(f"Warning: Source column '{source_col}' not found for multiplier '{rule.get('name')}'.")
-                
-                elif source == 'calculation_module':
-                    module_name = rule.get('module_name')
-                    function_name = rule.get('function_name')
-                    if not module_name or not function_name:
-                        print(f"Warning: 'module_name' or 'function_name' not specified for multiplier '{rule.get('name')}'.")
-                        continue
-                    try:
-                        calc_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{module_name}")
-                        calc_function = getattr(calc_module, function_name)
-                        self.qsos_df[dest_col] = calc_function(self.qsos_df)
-                        print(f"Successfully calculated '{rule.get('name')}' multipliers.")
-                    except (ImportError, AttributeError) as e:
-                        print(f"Warning: Could not load or run calculation module for multiplier '{rule.get('name')}': {e}")
-
 
         # --- Scoring Calculation ---
         my_call = self.metadata.get('MyCall')

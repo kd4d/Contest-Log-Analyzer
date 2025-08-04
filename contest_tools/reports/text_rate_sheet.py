@@ -5,7 +5,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-04
-# Version: 0.28.21-Beta
+# Version: 0.28.22-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,20 +19,20 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.28.22-Beta] - 2025-08-04
+### Changed
+# - Simplified the report to work with pre-aligned dataframes, removing
+#   all internal time-alignment logic to fix the "all zeros" bug.
 ## [0.28.21-Beta] - 2025-08-04
 ### Changed
 # - Standardized the report header to use a two-line title with proper formatting.
 ### Fixed
 # - Redundant 'Hourly Total' column is now omitted for single-band contests.
-## [0.28.20-Beta] - 2025-08-04
-### Changed
-# - Standardized the report header to use a two-line title.
 from typing import List
 import pandas as pd
 import os
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from ._report_utils import align_logs_by_time
 
 class Report(ContestReport):
     """
@@ -50,16 +50,6 @@ class Report(ContestReport):
         include_dupes = kwargs.get('include_dupes', False)
         final_report_messages = []
 
-        if not self.logs:
-            return "No logs to process."
-            
-        log_manager = getattr(self.logs[0], '_log_manager_ref', None)
-        if not log_manager or log_manager.master_time_index is None:
-            print("Warning: Master time index not available. Rate sheet may be incomplete.")
-            master_time_index = pd.DatetimeIndex([])
-        else:
-            master_time_index = log_manager.master_time_index
-
         for log in self.logs:
             metadata = log.get_metadata()
             df_full = log.get_processed_data()
@@ -69,12 +59,12 @@ class Report(ContestReport):
                 print(f"Skipping rate sheet for {callsign}: No valid QSOs to report.")
                 continue
 
-            if not include_dupes and 'Dupe' in df_full.columns:
+            if not include_dupes:
                 df = df_full[df_full['Dupe'] == False].copy()
             else:
                 df = df_full.copy()
 
-            year = df['Date'].iloc[0].split('-')[0] if not df.empty else "UnknownYear"
+            year = df['Date'].dropna().iloc[0].split('-')[0] if not df['Date'].dropna().empty else "UnknownYear"
             contest_name = metadata.get('ContestName', 'UnknownContest')
             bands = log.contest_definition.valid_bands
             is_single_band = len(bands) == 1
@@ -99,12 +89,11 @@ class Report(ContestReport):
             title2 = f"{year} {contest_name} - {callsign}"
 
             report_lines = []
+            header_width = max(table_width, len(title1), len(title2))
             if len(title1) > table_width or len(title2) > table_width:
-                 header_width = max(len(title1), len(title2))
                  report_lines.append(f"{title1.ljust(header_width)}")
                  report_lines.append(f"{title2.center(header_width)}")
             else:
-                 header_width = table_width
                  report_lines.append(title1.center(header_width))
                  report_lines.append(title2.center(header_width))
             report_lines.append("")
@@ -113,17 +102,10 @@ class Report(ContestReport):
             report_lines.append(header2)
             report_lines.append(separator)
 
-            if df.empty:
-                rate_data = pd.DataFrame(0, index=master_time_index, columns=bands)
-            else:
-                df['Datetime'] = pd.to_datetime(df['Datetime'], utc=True)
-                rate_data = df.pivot_table(index=df['Datetime'].dt.floor('h'), 
-                                           columns='Band', 
-                                           aggfunc='size', 
-                                           fill_value=0)
-
-            rate_data = rate_data.reindex(master_time_index, fill_value=0)
-
+            # --- Data Aggregation ---
+            df_cleaned = df.dropna(subset=['Datetime', 'Band', 'Call'])
+            rate_data = df_cleaned.groupby([df_cleaned['Datetime'].dt.floor('h'), 'Band']).size().unstack(fill_value=0)
+            
             for band in bands:
                 if band not in rate_data.columns:
                     rate_data[band] = 0

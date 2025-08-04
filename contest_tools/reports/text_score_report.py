@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-04
-# Version: 0.28.27-Beta
+# Version: 0.28.28-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,15 +20,14 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.28.28-Beta] - 2025-08-04
+### Fixed
+# - Corrected a hardcoded bug that caused DXCC multipliers to be ignored
+#   in the final score calculation.
 ## [0.28.27-Beta] - 2025-08-04
 ### Changed
 # - Standardized the report header to use a two-line title.
 # - The redundant per-band breakdown is now correctly hidden for single-band contests.
-## [0.28.26-Beta] - 2025-08-03
-### Changed
-# - Added a main title to the report.
-# - Report now uses the dynamic `valid_bands` list from the contest definition.
-# - Diagnostic section is now context-aware for multipliers.
 from typing import List, Dict, Set
 import pandas as pd
 import os
@@ -196,12 +195,11 @@ class Report(ContestReport):
             title2 = f"{year} {contest_name} - {callsign}"
             
             report_lines = []
+            header_width = max(table_width, len(title1), len(title2))
             if len(title1) > table_width or len(title2) > table_width:
-                 header_width = max(len(title1), len(title2))
                  report_lines.append(f"{title1.ljust(header_width)}")
                  report_lines.append(f"{title2.center(header_width)}")
             else:
-                 header_width = table_width
                  report_lines.append(title1.center(header_width))
                  report_lines.append(title2.center(header_width))
             

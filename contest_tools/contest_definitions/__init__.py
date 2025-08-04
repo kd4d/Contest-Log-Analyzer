@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-03
-# Version: 0.26.2-Beta
+# Date: 2025-08-04
+# Version: 0.26.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,54 +21,15 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.26.3-Beta] - 2025-08-04
+### Added
+# - Added the missing `operating_time_rules` property to the class to
+#   correctly load on-time rules from the JSON definitions.
 ## [0.26.2-Beta] - 2025-08-03
 ### Changed
 # - Reworked the `from_json` method to support three-layer inheritance: a specific
 #   definition (e.g., `naqp_rtty.json`) can now inherit from a generic
 #   definition (e.g., `naqp.json`), which inherits from the common fields.
-## [0.26.1-Beta] - 2025-08-03
-### Added
-# - Added a `valid_bands` property to allow contest definitions to specify
-#   which bands are active for a given contest, with a default for standard HF.
-## [0.26.0-Beta] - 2025-08-02
-### Added
-# - Added 'multiplier_report_scope' property to control report generation.
-# - The 'multiplier_rules' property now supports 'include_missed_summary' and
-#   'alias_file' keys for enhanced score reporting.
-## [0.25.0-Beta] - 2025-08-01
-### Added
-# - Added 'contest_period' property to support fixed contest start and end times.
-## [0.24.0-Beta] - 2025-08-01
-### Added
-# - Added 'dupe_check_scope' and 'custom_multiplier_resolver' properties
-#   to support contest-specific dupe rules and multiplier logic.
-## [0.23.5-Beta] - 2025-08-01
-### Fixed
-# - Added the missing 'mults_from_zero_point_qsos' property to the class.
-## [0.23.4-Beta] - 2025-08-01
-### Added
-# - Added a 'mults_from_zero_point_qsos' property to support contest-specific
-#   scoring rules.
-## [0.22.0-Beta] - 2025-07-31
-### Added
-# - Added an 'excluded_reports' property to allow contest definitions to
-#   specify reports that should not be run.
-## [0.21.0-Beta] - 2025-07-28
-### Removed
-# - Removed the 'country_file_name' property as contest-specific country
-#   files are no longer used.
-## [0.15.0-Beta] - 2025-07-25
-# - Standardized version for final review. No functional changes.
-## [0.13.0-Beta] - 2025-07-22
-### Changed
-# - Added a 'multiplier_rules' property to read the list of multipliers
-#   (e.g., Countries, Zones) from the JSON definition.
-# - Added a 'country_file_name' property to read the contest-specific
-#   country file (e.g., 'cqww.cty') from the JSON definition.
-## [0.10.0-Beta] - 2025-07-21
-# - Initial release of the ContestDefinition class.
-# - Implemented logic to find specific (e.g., cq_wpx_cw.json) or generic
-#   (e.g., cq_wpx.json) contest definition files.
 import json
 import os
 import copy
@@ -102,12 +63,10 @@ class ContestDefinition:
     def from_json(cls, contest_name: str) -> 'ContestDefinition':
         current_dir = os.path.dirname(os.path.abspath(__file__))
         
-        # --- Layer 1: Load the common base for all contests ---
         common_file_path = os.path.join(current_dir, COMMON_CABRILLO_FIELDS_FILE)
         with open(common_file_path, 'r', encoding='utf-8') as f:
             merged_data = json.load(f)
 
-        # --- Calculate paths for generic and specific definitions ---
         base_contest_name = contest_name.rsplit('-', 1)[0].lower().replace('-', '_')
         specific_contest_name = contest_name.lower().replace('-', '_')
         
@@ -116,14 +75,12 @@ class ContestDefinition:
 
         found_a_file = False
 
-        # --- Layer 2: Load the generic contest definition if it exists ---
         if os.path.exists(generic_file_path):
             with open(generic_file_path, 'r', encoding='utf-8') as f:
                 generic_data = json.load(f)
             merged_data = cls._deep_merge_dicts(merged_data, generic_data)
             found_a_file = True
 
-        # --- Layer 3: Load the specific definition if it exists ---
         if os.path.exists(specific_file_path):
             with open(specific_file_path, 'r', encoding='utf-8') as f:
                 specific_data = json.load(f)
@@ -141,10 +98,13 @@ class ContestDefinition:
 
     @property
     def valid_bands(self) -> List[str]:
-        # Defaults to the standard HF bands if not specified in the JSON
         return self._data.get('valid_bands', [
             '160M', '80M', '40M', '20M', '15M', '10M'
         ])
+
+    @property
+    def operating_time_rules(self) -> Optional[Dict[str, int]]:
+        return self._data.get('operating_time_rules')
 
     @property
     def multiplier_rules(self) -> List[Dict[str, Any]]:
@@ -156,12 +116,10 @@ class ContestDefinition:
         
     @property
     def mults_from_zero_point_qsos(self) -> bool:
-        # Defaults to True for backward compatibility with older JSON files
         return self._data.get('mults_from_zero_point_qsos', True)
 
     @property
     def dupe_check_scope(self) -> str:
-        # Defaults to 'per_band' for standard dupe checking
         return self._data.get('dupe_check_scope', 'per_band')
 
     @property
@@ -174,7 +132,6 @@ class ContestDefinition:
 
     @property
     def multiplier_report_scope(self) -> str:
-        # Defaults to 'per_band' for standard multiplier reports
         return self._data.get('multiplier_report_scope', 'per_band')
 
     @property

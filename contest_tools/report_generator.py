@@ -8,7 +8,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-04
-# Version: 0.28.13-Beta
+# Version: 0.28.15-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,20 +22,14 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
-## [0.28.13-Beta] - 2025-08-04
+## [0.28.15-Beta] - 2025-08-04
 ### Fixed
-# - The logic for auto-generating multiplier reports for asymmetric contests
-#   now correctly includes universal multipliers (those with no 'applies_to' flag).
-## [0.28.12-Beta] - 2025-08-03
-### Added
-# - Implemented logic to honor the `excluded_reports` list from contest
-#   definition files, preventing inapplicable reports from being generated.
-#
-## [0.26.0-Beta] - 2025-08-02
-### Added
-# - Initial release of the ReportGenerator class.
-# - Refactored the complex report generation loop from main_cli.py into this
-#   class to improve separation of concerns and prepare for future UI integration.
+# - The main report generation loop now correctly skips multiplier reports,
+#   fixing the "'mult_name' argument is required" error.
+## [0.28.14-Beta] - 2025-08-04
+### Fixed
+# - Corrected the auto-generation logic to correctly handle reports that
+#   support both single and multi-log modes (e.g., multiplier_summary).
 import os
 import itertools
 from .reports import AVAILABLE_REPORTS
@@ -60,7 +54,7 @@ class ReportGenerator:
         first_log = self.logs[0]
         contest_name = first_log.get_metadata().get('ContestName', 'UnknownContest').replace(' ', '_')
         
-        first_qso_date = first_log.get_processed_data()['Date'].iloc[0] if not first_log.get_processed_data().empty else None
+        first_qso_date = first_log.get_processed_data()['Date'].dropna().iloc[0] if not first_log.get_processed_data().empty and not first_log.get_processed_data()['Date'].dropna().empty else None
         year = first_qso_date.split('-')[0] if first_qso_date else "UnknownYear"
 
         self.base_output_dir = os.path.join(output_base_dir, year, contest_name)
@@ -101,7 +95,9 @@ class ReportGenerator:
             else: output_path = self.base_output_dir
 
             # --- Auto-generate reports for each multiplier type if needed ---
-            if r_id in ['missed_multipliers', 'multiplier_summary', 'multipliers_by_hour'] and 'mult_name' not in report_kwargs:
+            is_multiplier_report = r_id in ['missed_multipliers', 'multiplier_summary', 'multipliers_by_hour']
+            
+            if is_multiplier_report and not report_kwargs.get('mult_name'):
                 print(f"\nAuto-generating '{ReportClass.report_name}' for all available multiplier types...")
                 
                 first_log = self.logs[0]
@@ -124,15 +120,17 @@ class ReportGenerator:
                         current_kwargs = report_kwargs.copy()
                         current_kwargs['mult_name'] = mult_name
                         
-                        # Handle single vs multi-log reports correctly
+                        # Handle single-log reports
                         if ReportClass.supports_single:
                             for log in self.logs:
                                 instance = ReportClass([log])
                                 result = instance.generate(output_path=output_path, **current_kwargs)
                                 print(result)
-                        elif (ReportClass.supports_multi or ReportClass.supports_pairwise):
+                        
+                        # Handle multi-log and pairwise reports
+                        if (ReportClass.supports_multi or ReportClass.supports_pairwise):
                             if len(self.logs) < 2:
-                                print(f"    - Skipping: {ReportClass.report_name} requires at least two logs.")
+                                print(f"    - Skipping comparative version: Requires at least two logs.")
                                 continue
                             
                             instance = ReportClass(self.logs)
@@ -141,6 +139,10 @@ class ReportGenerator:
             
             # --- Handle report generation based on comparison mode ---
             else:
+                # Explicitly skip multiplier reports in this generic section
+                if is_multiplier_report:
+                    continue
+
                 print(f"\nGenerating report: '{ReportClass.report_name}'...")
                 
                 if ReportClass.supports_multi and len(self.logs) >= 2:

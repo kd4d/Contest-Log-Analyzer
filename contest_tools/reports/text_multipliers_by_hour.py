@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-04
-# Version: 0.26.7-Beta
+# Version: 0.26.11-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,16 +18,14 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
 # All notable changes to this project will be documented in this file.
-# The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
-# and this project aims to adhere to Semantic Versioning (https://semver.org/).
-## [0.26.7-Beta] - 2025-08-04
-### Changed
-# - Standardized the report header to use a two-line title.
+## [0.26.11-Beta] - 2025-08-04
 ### Fixed
-# - Redundant 'Total' column is now omitted for single-band contests.
-## [0.26.6-Beta] - 2025-08-03
-### Changed
-# - The report now uses the dynamic `valid_bands` list from the contest definition.
+# - Corrected a KeyError that occurred when processing hours with no QSOs
+#   by adding a check for an empty dataframe.
+## [0.26.10-Beta] - 2025-08-04
+### Added
+# - Added a temporary diagnostic print statement to debug the time-series
+#   filtering logic.
 from typing import List, Dict, Set
 import pandas as pd
 import os
@@ -62,9 +60,8 @@ class Report(ContestReport):
             df_full = log.get_processed_data()
             callsign = metadata.get('MyCall', 'UnknownCall')
             contest_name = metadata.get('ContestName', 'UnknownContest')
-            year = df_full['Date'].iloc[0].split('-')[0] if not df_full.empty else "----"
+            year = df_full['Date'].dropna().iloc[0].split('-')[0] if not df_full['Date'].dropna().empty else "----"
             
-            # --- Find the correct multiplier column and totaling method ---
             mult_rule = None
             for rule in log.contest_definition.multiplier_rules:
                 if rule.get('name', '').lower() == mult_name.lower():
@@ -72,7 +69,7 @@ class Report(ContestReport):
                     break
             
             if not mult_rule or 'value_column' not in mult_rule:
-                msg = f"Skipping report for {callsign}: Multiplier '{mult_name}' not found in contest definition."
+                msg = f"Skipping report for {callsign}: Multiplier '{mult_name}' not found."
                 print(msg)
                 final_report_messages.append(msg)
                 continue
@@ -80,19 +77,18 @@ class Report(ContestReport):
             mult_column = mult_rule['value_column']
             totaling_method = mult_rule.get('totaling_method', 'sum_by_band')
 
-            # --- Data Preparation ---
             df = df_full[df_full['Dupe'] == False].copy()
-            if df.empty or mult_column not in df.columns:
+            if df.empty or mult_column not in df.columns or df[mult_column].isna().all():
                 msg = f"Skipping report for {callsign}: No valid '{mult_name}' data to report."
                 print(msg)
                 final_report_messages.append(msg)
                 continue
             
-            df = df[df[mult_column] != 'Unknown']
-            df.dropna(subset=[mult_column], inplace=True)
-            df['HourDT'] = pd.to_datetime(df['Datetime'], utc=True).dt.floor('h')
+            df = df[df[mult_column].notna()]
+            df['Datetime'] = pd.to_datetime(df['Datetime'], utc=True)
+            
+            hourly_groups = {hour: group for hour, group in df.groupby(pd.Grouper(key='Datetime', freq='h'))}
 
-            # --- Calculation of New Multipliers per Hour ---
             bands = log.contest_definition.valid_bands
             is_single_band = len(bands) == 1
             worked_mults_by_band: Dict[str, Set] = {band: set() for band in bands}
@@ -100,21 +96,25 @@ class Report(ContestReport):
             hourly_data = []
 
             for timestamp in master_time_index:
-                hour_df = df[df['HourDT'] == timestamp]
+                hour_df = hourly_groups.get(timestamp, pd.DataFrame())
                 
                 hourly_results = {'Timestamp': timestamp}
                 hourly_total = 0
                 
                 for band in bands:
-                    band_df = hour_df[hour_df['Band'] == band]
-                    current_hour_mults = set(band_df[mult_column].unique())
+                    band_df = hour_df[hour_df['Band'] == band] if not hour_df.empty else pd.DataFrame()
                     
-                    if totaling_method == 'once_per_log' or totaling_method == 'once_per_contest':
+                    if band_df.empty:
+                        current_hour_mults = set()
+                    else:
+                        current_hour_mults = set(band_df[mult_column].unique())
+                    
+                    if totaling_method == 'once_per_contest':
                         new_mults = current_hour_mults - worked_mults_overall
-                        worked_mults_overall.update(new_mults)
+                        worked_mults_overall.update(current_hour_mults)
                     else: # Default to sum_by_band
                         new_mults = current_hour_mults - worked_mults_by_band[band]
-                        worked_mults_by_band[band].update(new_mults)
+                        worked_mults_by_band[band].update(current_hour_mults)
                     
                     hourly_results[band] = len(new_mults)
                     hourly_total += len(new_mults)
@@ -123,17 +123,24 @@ class Report(ContestReport):
                     hourly_results['Total'] = hourly_total
                 hourly_data.append(hourly_results)
 
-            # --- Format the Report ---
             header1_parts = [f"{b.replace('M',''):>9}" for b in bands]
             if not is_single_band:
                 header1_parts.append(f"{'Total':>9}")
             header1 = f"{'Date':<12}{'Hr':>4}" + "".join(header1_parts)
-            separator = "-" * len(header1)
+            table_width = len(header1)
+            separator = "-" * table_width
             
-            subtitle = f"{year} {contest_name} - {callsign} ({mult_name})"
+            title1 = f"--- {self.report_name} ---"
+            title2 = f"{year} {contest_name} - {callsign} ({mult_name})"
+            
             report_lines = []
-            report_lines.append(f"--- {self.report_name} ---".center(len(header1)))
-            report_lines.append(subtitle.center(len(header1)))
+            header_width = max(table_width, len(title1), len(title2))
+            if len(title1) > table_width or len(title2) > table_width:
+                report_lines.append(f"{title1.ljust(header_width)}")
+                report_lines.append(f"{title2.center(header_width)}")
+            else:
+                report_lines.append(title1.center(header_width))
+                report_lines.append(title2.center(header_width))
             report_lines.append("")
             
             report_lines.append(header1)
@@ -161,7 +168,6 @@ class Report(ContestReport):
                 total_line += f"{total_row['Total']:>9}"
             report_lines.append(total_line)
 
-            # --- Save the Report File ---
             report_content = "\n".join(report_lines)
             os.makedirs(output_path, exist_ok=True)
             filename = f"{self.report_id}_{mult_name.lower()}_{callsign}.txt"

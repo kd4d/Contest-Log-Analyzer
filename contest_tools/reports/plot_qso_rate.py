@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-03
-# Version: 0.28.2-Beta
+# Date: 2025-08-04
+# Version: 0.28.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,6 +20,10 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.28.3-Beta] - 2025-08-04
+### Changed
+# - Simplified the report to work with pre-aligned dataframes, removing
+#   all internal time-alignment logic to fix the "all zeros" bug.
 ## [0.28.2-Beta] - 2025-08-03
 ### Changed
 # - The report now uses the dynamic `valid_bands` list from the contest
@@ -29,10 +33,6 @@
 # - Refactored to use the new _create_cumulative_rate_plot shared helper
 #   function from _report_utils, reducing code duplication.
 # - The inset summary table is now opaque to cover grid lines.
-## [0.26.1-Beta] - 2025-08-02
-### Fixed
-# - Converted report_id, report_name, and report_type from @property methods
-#   to simple class attributes to fix a bug in the report generation loop.
 from typing import List
 import os
 import pandas as pd
@@ -55,11 +55,6 @@ class Report(ContestReport):
         Orchestrates the generation of all QSO rate plots by calling the
         shared helper function.
         """
-        log_manager = getattr(self.logs[0], '_log_manager_ref', None)
-        if not log_manager or log_manager.master_time_index is None:
-            return "Error: Master time index not available for plot report."
-        master_index = log_manager.master_time_index
-
         bands_to_plot = ['All'] + self.logs[0].contest_definition.valid_bands
         created_files = []
         
@@ -69,7 +64,6 @@ class Report(ContestReport):
                 filepath = _create_cumulative_rate_plot(
                     logs=self.logs,
                     output_path=save_path,
-                    master_index=master_index,
                     band_filter=band,
                     metric_name="QSOs",
                     value_column='Call',

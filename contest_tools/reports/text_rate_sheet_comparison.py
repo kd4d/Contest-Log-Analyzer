@@ -21,14 +21,9 @@
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 ## [0.28.22-Beta] - 2025-08-04
 ### Changed
+# - Simplified the report to work with pre-aligned dataframes, removing
+#   all internal time-alignment logic to fix the "all zeros" bug.
 # - Standardized the report header to use a two-line title with proper formatting.
-### Fixed
-# - Redundant 'Hourly Total' column is now omitted for single-band contests.
-# - Corrected the logic to properly calculate the hourly total for single-band
-#   contests, fixing a bug that caused the report to show all zeros.
-## [0.28.21-Beta] - 2025-08-04
-### Changed
-# - Standardized the report header to use a two-line title.
 ### Fixed
 # - Redundant 'Hourly Total' column is now omitted for single-band contests.
 from typing import List
@@ -56,18 +51,13 @@ class Report(ContestReport):
         if len(self.logs) < 2:
             return "Error: The Comparative Rate Sheet report requires at least two logs."
             
-        log_manager = getattr(self.logs[0], '_log_manager_ref', None)
-        if not log_manager or log_manager.master_time_index is None:
-            return "Error: Master time index not available for rate sheet report."
-            
-        master_time_index = log_manager.master_time_index
-
         all_calls = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])
         first_log = self.logs[0]
         contest_def = first_log.contest_definition
         bands = contest_def.valid_bands
         is_single_band = len(bands) == 1
         
+        # --- Formatting ---
         prefix_width = 11
         band_width = 6
         hourly_width = 8
@@ -89,18 +79,17 @@ class Report(ContestReport):
         separator = " " * prefix_width + "-" * (len(header2) - prefix_width)
         
         contest_name = first_log.get_metadata().get('ContestName', 'UnknownContest')
-        year = first_log.get_processed_data()['Date'].iloc[0].split('-')[0] if not first_log.get_processed_data().empty else "----"
+        year = first_log.get_processed_data()['Date'].dropna().iloc[0].split('-')[0] if not first_log.get_processed_data().empty else "----"
         
         title1 = f"--- {self.report_name} ---"
         title2 = f"{year} {contest_name} - {', '.join(all_calls)}"
         
         report_lines = []
+        header_width = max(table_width, len(title1), len(title2))
         if len(title1) > table_width or len(title2) > table_width:
-             header_width = max(len(title1), len(title2))
              report_lines.append(f"{title1.ljust(header_width)}")
              report_lines.append(f"{title2.center(header_width)}")
         else:
-             header_width = table_width
              report_lines.append(title1.center(header_width))
              report_lines.append(title2.center(header_width))
         report_lines.append("")
@@ -109,6 +98,7 @@ class Report(ContestReport):
         report_lines.append(header2)
         report_lines.append(separator)
 
+        # --- Data Aggregation ---
         processed_data = {}
         cumulative_totals = {call: 0 for call in all_calls}
 
@@ -116,20 +106,12 @@ class Report(ContestReport):
             callsign = log.get_metadata().get('MyCall', 'Unknown')
             df_full = log.get_processed_data()
 
-            if not include_dupes and 'Dupe' in df_full.columns:
+            if not include_dupes:
                 df = df_full[df_full['Dupe'] == False].copy()
             else:
                 df = df_full.copy()
             
-            if df.empty:
-                rate_data = pd.DataFrame(0, index=master_time_index, columns=bands)
-            else:
-                df['Datetime'] = pd.to_datetime(df['Datetime'], utc=True)
-                rate_data = df.pivot_table(index=df['Datetime'].dt.floor('h'), 
-                                           columns='Band', 
-                                           aggfunc='size', 
-                                           fill_value=0)
-                rate_data = rate_data.reindex(master_time_index, fill_value=0)
+            rate_data = df.groupby([df['Datetime'].dt.floor('h'), 'Band']).size().unstack(fill_value=0)
 
             for band in bands:
                 if band not in rate_data.columns:
@@ -142,7 +124,10 @@ class Report(ContestReport):
 
             processed_data[callsign] = rate_data
 
-        for timestamp in master_time_index:
+        # --- Report Body ---
+        master_time_index = self.logs[0].get_processed_data()['Datetime'].dt.floor('h').dropna().unique()
+
+        for timestamp in sorted(master_time_index):
             hour_str = timestamp.strftime('%H%M')
             report_lines.append(hour_str)
 
@@ -178,6 +163,7 @@ class Report(ContestReport):
                 
                 report_lines.append(line)
         
+        # --- Totals Section ---
         report_lines.append(separator)
         report_lines.append("TOTALS")
         for callsign in all_calls:
