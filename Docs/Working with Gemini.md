@@ -2,12 +2,21 @@ Filename: "Docs/Working with Gemini.md"
 
 # Project Workflow Guide
 
-**Version: 0.28.20-Beta**
+**Version: 0.28.21-Beta**
 **Date: 2025-08-04**
 
 This document outlines the standard operating procedures for the collaborative development of the Contest Log Analyzer. **The primary audience for this document is the Gemini AI agent.**
 
 **Its core purpose is to serve as a persistent set of rules and context.** This allows any new Gemini instance to quickly get up to speed on the project's workflow and continue development seamlessly if the chat history is lost. Adhering to this workflow ensures consistency and prevents data loss.
+---
+
+### Guiding Principles
+
+1.  **Trust the User's Diagnostics.** When the user reports a bug, their description of the symptoms (e.g., "the multipliers are too high," "the report is all zeros") should be treated as the ground truth. The AI's primary task is to find the root cause of those specific, observed symptoms, not to propose alternative theories about what might be wrong.
+
+2.  **Debug "A Priori" When Stuck.** If an initial bug fix fails, do not simply try to patch the failed fix. Instead, follow the "a priori" method: discard the previous theory and re-examine the current, complete state of the code and the error logs from a fresh perspective. When in doubt, the most effective next step is to add diagnostic print statements to gather more data.
+
+3.  **Prefer Logic in Code, Not Data.** The project's design philosophy is to keep the `.json` definition files as simple, declarative maps. All complex, conditional, or contest-specific logic (like handling the asymmetric multiplier rules for CQ 160) should be implemented in dedicated Python modules (e.g., `cq_160_multiplier_resolver.py`). This makes the system more robust and easier to maintain.
 ---
 
 ## 1. Project File Input
@@ -33,7 +42,7 @@ When the AI provides updated files, it must follow these rules to ensure data in
 
 ## 3. Versioning
 
-1.  When a file is modified, its patch number (the third digit) will be incremented. For example, a change to a `0.28.19-Beta` file will result in version `0.28.20-Beta` for that file.
+1.  When a file is modified, its patch number (the third digit) will be incremented. For example, a change to a `0.28.20-Beta` file will result in version `0.28.21-Beta` for that file.
 2.  Document versions will be kept in sync with their corresponding code files.
 3.  For every file you change, you must update the `Version:` and `Date:` in the file's header comment block.
 
@@ -86,9 +95,9 @@ When a single logical task requires modifying multiple files, this protocol ensu
 
 ## 10. Protocol for Large File Sets
 
-While project files may be provided to the AI in a single bundle, the AI cannot return a large bundle in a single response due to platform size limitations.
-
-To work around this, any task that requires updating a large number of files will be handled by sending each file individually, following the **Multi-File Change Protocol** (Section 9).
+1.  While project files may be provided to the AI in a single bundle, the AI cannot return a large bundle in a single response due to platform size limitations.
+2.  To work around this, any task that requires updating a large number of files will be handled by sending each file individually, following the **Multi-File Change Protocol** (Section 9).
+3.  The agreed-upon safe size for a project bundle is less than **37 kilobytes**.
 ---
 
 ## 11. Context Checkpoint Protocol
