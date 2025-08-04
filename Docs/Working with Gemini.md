@@ -2,8 +2,8 @@ Filename: "Docs/Working with Gemini.md"
 
 # Project Workflow Guide
 
-**Version: 0.28.17-Beta**
-**Date: 2025-08-03**
+**Version: 0.28.18-Beta**
+**Date: 2025-08-04**
 
 This document outlines the standard operating procedures for the collaborative development of the Contest Log Analyzer. **The primary audience for this document is the Gemini AI agent.**
 
@@ -33,7 +33,7 @@ When the AI provides updated files, it must follow these rules to ensure data in
 
 ## 3. Versioning
 
-1.  When a file is modified, its patch number (the third digit) will be incremented. For example, a change to a `0.28.16-Beta` file will result in version `0.28.17-Beta` for that file.
+1.  When a file is modified, its patch number (the third digit) will be incremented. For example, a change to a `0.28.17-Beta` file will result in version `0.28.18-Beta` for that file.
 2.  Document versions will be kept in sync with their corresponding code files.
 3.  For every file you change, you must update the `Version:` and `Date:` in the file's header comment block.
 
@@ -80,7 +80,8 @@ When a single logical task requires modifying multiple files, this protocol ensu
 2.  **Sequential Delivery:** The AI will provide the first updated file. The response will end with a clear statement, such as: "Please confirm when you are ready for the next file."
 3.  **Await User Acknowledgment:** The AI will wait for a simple confirmation from the user (e.g., 'OK', 'Ready', 'next') before sending the next file.
 4.  **Iteration:** The AI will then provide the next file in the sequence, repeating this turn-by-turn process until all declared files have been delivered.
-5.  **Completion:** After sending the final file, the AI will state that the multi-file update is complete.
+5.  **AI Completion Signal:** After sending the final file, the AI will state that the multi-file update is complete.
+6.  **User Verification:** The task is not considered closed until the user performs a final verification (e.g., running a test or a checksum comparison) and confirms success.
 ---
 
 ## 10. Protocol for Large File Sets

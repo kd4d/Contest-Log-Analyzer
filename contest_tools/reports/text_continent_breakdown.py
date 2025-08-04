@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-03
-# Version: 0.28.26-Beta
+# Date: 2025-08-04
+# Version: 0.28.27-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,25 +20,13 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.28.27-Beta] - 2025-08-04
+### Changed
+# - Standardized the report header to use a two-line title.
 ## [0.28.26-Beta] - 2025-08-03
 ### Changed
 # - The report now uses the dynamic `valid_bands` list from the contest
 #   definition instead of a hardcoded list.
-## [0.28.25-Beta] - 2025-08-03
-### Changed
-# - Rewrote the report format to display continent data in a 3x2 grid
-#   instead of a single vertical column for a more compact view.
-#
-## [0.28.21-Beta] - 2025-08-03
-### Added
-# - Added a diagnostic section to the end of the report that lists all
-#   callsigns with an 'Unknown' continent.
-#
-## [0.28.20-Beta] - 2025-08-03
-### Changed
-# - Consolidated the report from multiple, per-band files into a single,
-#   comprehensive file that groups the breakdown by continent, then by band.
-#
 from typing import List
 import pandas as pd
 import os
@@ -65,6 +53,9 @@ class Report(ContestReport):
             metadata = log.get_metadata()
             df_full = log.get_processed_data()
             callsign = metadata.get('MyCall', 'UnknownCall')
+            contest_name = metadata.get('ContestName', 'UnknownContest')
+            year = df_full['Date'].iloc[0].split('-')[0] if not df_full.empty else "----"
+
 
             if not include_dupes and 'Dupe' in df_full.columns:
                 df = df_full[df_full['Dupe'] == False].copy()
@@ -91,14 +82,16 @@ class Report(ContestReport):
                 fill_value=0
             )
 
-            header = f"--- Continent Breakdown for {callsign} ---"
-            report_lines = [header]
+            col_width = 35
+            table_width = col_width * 3
+            subtitle = f"{year} {contest_name} - {callsign}"
+            report_lines = []
+            report_lines.append(f"--- {self.report_name} ---".center(table_width))
+            report_lines.append(subtitle.center(table_width))
+            report_lines.append("")
 
             # --- Grid Formatting Logic ---
-            # 1. Pre-format the data for each continent into a list of strings
             formatted_data = {}
-            col_width = 35  # Define a fixed width for each column in the grid
-            
             for cont_name in sorted(continent_map.values()):
                 if cont_name in pivot.index.get_level_values('ContinentName'):
                     continent_lines = []
@@ -112,17 +105,15 @@ class Report(ContestReport):
                                 continent_lines.append(line)
                     formatted_data[cont_name] = continent_lines
 
-            # 2. Define the grid layout
             grid_layout = [
                 ["North America", "South America", "Europe"],
                 ["Asia", "Africa", "Oceania"]
             ]
             
-            # 3. Build the grid output line by line
             for grid_row in grid_layout:
                 row_continent_data = [formatted_data.get(c, []) for c in grid_row]
                 
-                if not any(row_continent_data): # Skip empty rows of continents
+                if not any(row_continent_data):
                     continue
 
                 header_line = "".join([f"{name:^{col_width}}" for name in grid_row])

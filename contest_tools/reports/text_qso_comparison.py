@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-03
-# Version: 0.26.2-Beta
+# Date: 2025-08-04
+# Version: 0.26.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,20 +19,13 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.26.3-Beta] - 2025-08-04
+### Changed
+# - Standardized the report header to use a two-line title.
 ## [0.26.2-Beta] - 2025-08-03
 ### Changed
 # - The report now uses the dynamic `valid_bands` list from the contest
 #   definition instead of a hardcoded list.
-## [0.26.1-Beta] - 2025-08-02
-### Fixed
-# - Converted report_id, report_name, and report_type from @property methods
-#   to simple class attributes to fix a bug in the report generation loop.
-## [0.22.0-Beta] - 2025-07-31
-### Changed
-# - Implemented the boolean support properties, correctly identifying this
-#   report as 'pairwise'.
-## [0.15.0-Beta] - 2025-07-25
-# - Standardized version for final review. No functional changes.
 from typing import List, Dict, Any, Set
 import pandas as pd
 import os
@@ -64,41 +57,36 @@ class Report(ContestReport):
         call1 = log1.get_metadata().get('MyCall', 'Log1')
         call2 = log2.get_metadata().get('MyCall', 'Log2')
 
+        # --- Define Table Format ---
+        headers1 = ["", "Total", "Run", "S&P", "Unk", "Unique", "Unique", "Unique", "Unique", "Common"]
+        headers2 = ["Callsign", "", "", "", "", "", "Run", "S&P", "Unk", ""]
+        col_widths = [12, 8, 8, 8, 8, 8, 8, 8, 8, 8]
+        header1_str = "".join([f"{h:>{w}}" for h, w in zip(headers1, col_widths)])
+        header2_str = "".join([f"{h:>{w}}" for h, w in zip(headers2, col_widths)])
+        table_width = len(header1_str)
+        
         # --- Dynamic Header Generation ---
         contest_name = log1.get_metadata().get('ContestName', 'UnknownContest')
-        first_qso_date = log1.get_processed_data()['Date'].iloc[0]
-        year = first_qso_date.split('-')[0] if first_qso_date else "UnknownYear"
+        year = log1.get_processed_data()['Date'].iloc[0].split('-')[0] if not log1.get_processed_data().empty else "----"
+        subtitle = f"{year} {contest_name} - {call1} vs {call2}"
         
-        title_text = f"{year} {contest_name} QSO Comparison"
-        
-        report_lines = []
+        final_report_lines = [
+            f"--- {self.report_name} ---".center(table_width),
+            subtitle.center(table_width),
+            ""
+        ]
 
         bands = self.logs[0].contest_definition.valid_bands + ['All Bands']
         
         df1_full = log1.get_processed_data()[log1.get_processed_data()['Dupe'] == False]
         df2_full = log2.get_processed_data()[log2.get_processed_data()['Dupe'] == False]
 
-        # --- Define Table Format ---
-        headers1 = ["", "Total", "Run", "S&P", "Unk", "Unique", "Unique", "Unique", "Unique", "Common"]
-        headers2 = ["Callsign", "", "", "", "", "", "Run", "S&P", "Unk", ""]
-        col_widths = [12, 8, 8, 8, 8, 8, 8, 8, 8, 8]
-
-        header1_str = "".join([f"{h:>{w}}" for h, w in zip(headers1, col_widths)])
-        header2_str = "".join([f"{h:>{w}}" for h, w in zip(headers2, col_widths)])
-        table_width = len(header1_str)
-        
-        final_report_lines = [
-            f"- {title_text} -".center(table_width),
-            "-" * table_width,
-            ""
-        ]
-
         for band in bands:
             band_header_text = f"{band.replace('M', '')} Meter QSOs" if band != "All Bands" else "All Band QSOs"
-            report_lines.append(band_header_text.center(table_width))
-            report_lines.append(header1_str)
-            report_lines.append(header2_str)
-            report_lines.append("-" * table_width)
+            final_report_lines.append(band_header_text.center(table_width))
+            final_report_lines.append(header1_str)
+            final_report_lines.append(header2_str)
+            final_report_lines.append("-" * table_width)
             
             if band == 'All Bands':
                 df1_band = df1_full
@@ -115,24 +103,20 @@ class Report(ContestReport):
                 common_calls_set = calls_current_set.intersection(calls_other_set)
                 unique_to_current_set = calls_current_set.difference(calls_other_set)
 
-                # --- Total QSO metrics ---
                 total_qsos = len(df_current)
                 run_total = (df_current['Run'] == 'Run').sum()
                 sp_total = (df_current['Run'] == 'S&P').sum()
                 unknown_total = (df_current['Run'] == 'Unknown').sum()
 
-                # --- Unique QSO metrics ---
                 df_unique = df_current[df_current['Call'].isin(unique_to_current_set)]
                 unique_qsos_total = len(df_unique)
                 run_unique = (df_unique['Run'] == 'Run').sum()
                 sp_unique = (df_unique['Run'] == 'S&P').sum()
                 unknown_unique = (df_unique['Run'] == 'Unknown').sum()
 
-                # --- Common QSO metrics ---
                 df_common = df_current[df_current['Call'].isin(common_calls_set)]
                 common_qsos_total = len(df_common)
                 
-                # --- Format and Append Row ---
                 row_str = (
                     f"{call:<{col_widths[0]}}"
                     f"{total_qsos:>{col_widths[1]}}"
@@ -145,11 +129,10 @@ class Report(ContestReport):
                     f"{unknown_unique:>{col_widths[8]}}"
                     f"{common_qsos_total:>{col_widths[9]}}"
                 )
-                report_lines.append(row_str)
-            report_lines.append("")
+                final_report_lines.append(row_str)
+            final_report_lines.append("")
 
         # --- Final Assembly and Save ---
-        final_report_lines.extend(report_lines)
         report_content = "\n".join(final_report_lines)
         os.makedirs(output_path, exist_ok=True)
         

@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-03
-# Version: 0.28.19-Beta
+# Date: 2025-08-04
+# Version: 0.28.20-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,31 +19,15 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.28.20-Beta] - 2025-08-04
+### Changed
+# - Standardized the report header to use a two-line title.
+### Fixed
+# - Redundant 'Hourly Total' column is now omitted for single-band contests.
 ## [0.28.19-Beta] - 2025-08-03
 ### Changed
 # - The report now uses the dynamic `valid_bands` list from the contest
 #   definition instead of a hardcoded list.
-## [0.28.18-Beta] - 2025-08-03
-### Added
-# - Added a "Total" row to the bottom of the rate table to show the
-#   total QSO count for each individual band.
-#
-## [0.26.1-Beta] - 2025-08-02
-### Fixed
-# - Converted report_id, report_name, and report_type from @property methods
-#   to simple class attributes to fix a bug in the report generation loop.
-## [0.26.6-Beta] - 2025-08-02
-### Fixed
-# - Corrected a timezone mismatch by ensuring the QSO 'Datetime' column is
-#   converted to UTC before creating the pivot table for alignment.
-## [0.25.0-Beta] - 2025-08-01
-### Changed
-# - The report now uses the pre-aligned master time index to display the
-#   entire contest period, correctly showing gaps in operating time.
-## [0.22.0-Beta] - 2025-07-31
-### Changed
-# - Implemented the boolean support properties, correctly identifying this
-#   report as 'single'.
 from typing import List
 import pandas as pd
 import os
@@ -56,7 +40,7 @@ class Report(ContestReport):
     Generates a detailed hourly rate sheet for each log.
     """
     report_id: str = "rate_sheet"
-    report_name: str = "Rate Sheet"
+    report_name: str = "Hourly Rate Sheet"
     report_type: str = "text"
     supports_single = True
     
@@ -93,29 +77,33 @@ class Report(ContestReport):
 
             year = df['Date'].iloc[0].split('-')[0] if not df.empty else "UnknownYear"
             contest_name = metadata.get('ContestName', 'UnknownContest')
-
-            report_lines = []
-            report_lines.append(f"{year} {contest_name}")
-            report_lines.append("")
-            report_lines.append(f"CONTEST: {metadata.get('ContestName', '')}")
-            report_lines.append(f"CALLSIGN: {callsign}")
-            report_lines.append(f"CATEGORY-OPERATOR: {metadata.get('CategoryOperator', '')}")
-            report_lines.append(f"CATEGORY-TRANSMITTER: {metadata.get('CategoryTransmitter', '')}")
-            report_lines.append(f"OPERATORS: {metadata.get('Operators', '')}") 
-            report_lines.append("")
-            report_lines.append("---------------- Q S O   R a t e   S u m m a r y -----------------")
-            
             bands = log.contest_definition.valid_bands
-            
+            is_single_band = len(bands) == 1
+
+            # --- Formatting ---
             header1_parts = [f"{'Hour':<5}"] + [f"{b.replace('M',''):>5}" for b in bands]
-            header1 = " ".join(header1_parts) + f" {'Hourly':>7} {'Cumulative':>11}"
-            header2 = f"{'':<5}" + "".join([f"{'':>6}" for _ in bands]) + f" {'Total':>7} {'Total':>11}"
+            header1 = " ".join(header1_parts)
+            if not is_single_band:
+                header1 += f" {'Hourly':>7}"
+            header1 += f" {'Cumulative':>11}"
             
+            header2_parts = [f"{'':<5}"] + [f"{'':>5}" for _ in bands]
+            header2 = " ".join(header2_parts)
+            if not is_single_band:
+                header2 += f" {'Total':>7}"
+            header2 += f" {'Total':>11}"
+            
+            separator = "-" * len(header1)
+            subtitle = f"{year} {contest_name} - {callsign}"
+            
+            report_lines = []
+            report_lines.append(f"--- {self.report_name} ---".center(len(header1)))
+            report_lines.append(subtitle.center(len(header1)))
+            report_lines.append("")
             report_lines.append(header1)
             report_lines.append(header2)
-            separator = "-" * len(header1)
             report_lines.append(separator)
-            
+
             if df.empty:
                 rate_data = pd.DataFrame(0, index=master_time_index, columns=bands)
             else:
@@ -133,8 +121,9 @@ class Report(ContestReport):
             
             rate_data = rate_data[bands].fillna(0).astype(int)
 
-            rate_data['Hourly Total'] = rate_data.sum(axis=1)
-            rate_data['Cumulative Total'] = rate_data['Hourly Total'].cumsum()
+            if not is_single_band:
+                rate_data['Hourly Total'] = rate_data.sum(axis=1)
+            rate_data['Cumulative Total'] = rate_data[bands].sum(axis=1).cumsum()
 
             for timestamp, row in rate_data.iterrows():
                 hour_str = timestamp.strftime('%H%M')
@@ -143,8 +132,9 @@ class Report(ContestReport):
                     line_parts.append(f"{row.get(band, 0):>5}")
                 
                 line = " ".join(line_parts)
-                line += f" {row['Hourly Total']:>7} "
-                line += f"{row['Cumulative Total']:>11}"
+                if not is_single_band:
+                    line += f" {row['Hourly Total']:>7} "
+                line += f" {row['Cumulative Total']:>11}"
                 report_lines.append(line)
 
             report_lines.append(separator)
@@ -153,7 +143,8 @@ class Report(ContestReport):
             for band in bands:
                 total_line_parts.append(f"{rate_data[band].sum():>5}")
             total_line = " ".join(total_line_parts)
-            total_line += f" {rate_data['Hourly Total'].sum():>7}"
+            if not is_single_band:
+                total_line += f" {rate_data['Hourly Total'].sum():>7}"
             report_lines.append(total_line)
             report_lines.append("")
 

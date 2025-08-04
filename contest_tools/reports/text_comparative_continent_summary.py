@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-03
-# Version: 0.28.17-Beta
+# Date: 2025-08-04
+# Version: 0.28.18-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,36 +20,17 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.28.18-Beta] - 2025-08-04
+### Changed
+# - Report now uses the standard two-line title.
+### Fixed
+# - Redundant 'Total' column is now omitted for single-band contests.
 ## [0.28.17-Beta] - 2025-08-03
 ### Changed
 # - The report now uses the dynamic `valid_bands` list from the contest
-#   definition instead of a hardcoded list of bands.
+#   definition instead of a hardcoded list.
 # - The diagnostic section is now context-aware and includes a report
 #   for callsigns with an Unknown Continent.
-## [0.28.16-Beta] - 2025-08-03
-### Changed
-# - The diagnostic section for unknown multipliers is now data-driven and
-#   uses the multiplier name from the contest definition instead of a
-#   hardcoded label.
-## [0.28.15-Beta] - 2025-08-03
-### Added
-# - Added new diagnostic sections to the end of the report for callsigns
-#   with Unknown DXCC and WPX prefixes.
-#
-## [0.26.1-Beta] - 2025-08-02
-### Fixed
-# - Converted report_id, report_name, and report_type from @property methods
-#   to simple class attributes to fix a bug in the report generation loop.
-## [0.22.2-Beta] - 2025-07-31
-### Changed
-# - Implemented the boolean support properties, correctly identifying this
-#   report as 'multi' mode.
-## [0.22.1-Beta] - 2025-07-30
-### Changed
-# - Added a blank line between each continent's data block to improve
-#   readability.
-## [0.22.0-Beta] - 2025-07-30
-# - Initial release of the Comparative Continent Summary report.
 from typing import List
 import pandas as pd
 import os
@@ -101,6 +82,7 @@ class Report(ContestReport):
             'AS': 'Asia', 'AF': 'Africa', 'OC': 'Oceania', 'Unknown': 'Unknown'
         }
         bands = contest_def.valid_bands
+        is_single_band = len(bands) == 1
         all_calls = sorted(combined_df['MyCall'].unique())
 
         combined_df['ContinentName'] = combined_df['Continent'].map(continent_map).fillna('Unknown')
@@ -116,13 +98,24 @@ class Report(ContestReport):
             if band not in pivot.columns:
                 pivot[band] = 0
         pivot = pivot[bands]
-        pivot['Total'] = pivot.sum(axis=1)
+        
+        if not is_single_band:
+            pivot['Total'] = pivot.sum(axis=1)
 
         # --- Formatting ---
-        header = f"{'':<17}" + "".join([f"{b.replace('M',''):>7}" for b in bands]) + f"{'Total':>7}"
+        header_parts = [f"{b.replace('M',''):>7}" for b in bands]
+        if not is_single_band:
+            header_parts.append(f"{'Total':>7}")
+        header = f"{'':<17}" + "".join(header_parts)
         separator = "-" * len(header)
         
+        contest_name = first_log.get_metadata().get('ContestName', 'UnknownContest')
+        year = first_log.get_processed_data()['Date'].iloc[0].split('-')[0] if not first_log.get_processed_data().empty else "----"
+        subtitle = f"{year} {contest_name} - {', '.join(all_calls)}"
+
         report_lines = [f"--- {self.report_name} ---".center(len(header))]
+        report_lines.append(subtitle.center(len(header)))
+        report_lines.append("")
         report_lines.append(header)
         report_lines.append(separator)
 
@@ -136,7 +129,8 @@ class Report(ContestReport):
                         line = f"  {call:<15}"
                         for band in bands:
                             line += f"{row.get(band, 0):>7}"
-                        line += f"{row.get('Total', 0):>7}"
+                        if not is_single_band:
+                            line += f"{row.get('Total', 0):>7}"
                         report_lines.append(line)
                 report_lines.append("")
 
@@ -148,7 +142,9 @@ class Report(ContestReport):
             if band not in total_pivot.columns:
                 total_pivot[band] = 0
         total_pivot = total_pivot[bands]
-        total_pivot['Total'] = total_pivot.sum(axis=1)
+        
+        if not is_single_band:
+            total_pivot['Total'] = total_pivot.sum(axis=1)
 
         for call in all_calls:
                 if call in total_pivot.index:
@@ -156,10 +152,10 @@ class Report(ContestReport):
                     line = f"  {call:<15}"
                     for band in bands:
                         line += f"{row.get(band, 0):>7}"
-                    line += f"{row.get('Total', 0):>7}"
+                    if not is_single_band:
+                        line += f"{row.get('Total', 0):>7}"
                     report_lines.append(line)
         
-        # --- Diagnostic Sections ---
         self._add_diagnostic_sections(report_lines, contest_def)
 
         # --- Save the Report File ---

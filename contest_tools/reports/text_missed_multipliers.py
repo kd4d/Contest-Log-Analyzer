@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-03
-# Version: 0.26.2-Beta
+# Date: 2025-08-04
+# Version: 0.26.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,14 +20,15 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.26.3-Beta] - 2025-08-04
+### Changed
+# - Standardized the report header to use a two-line title.
+### Fixed
+# - The redundant 'All Bands Summary' is now omitted for single-band contests.
 ## [0.26.2-Beta] - 2025-08-03
 ### Changed
 # - The report now uses the dynamic `valid_bands` list from the contest definition.
 # - The diagnostic section header is now dynamic based on the multiplier name.
-## [0.26.1-Beta] - 2025-08-02
-### Fixed
-# - Converted report_id, report_name, and report_type from @property methods
-#   to simple class attributes to fix a bug in the report generation loop.
 from typing import List, Dict, Any, Set
 import pandas as pd
 import numpy as np
@@ -41,7 +42,7 @@ class Report(ContestReport):
     station on each band, highlighting missed opportunities.
     """
     report_id: str = "missed_multipliers"
-    report_name: str = "Missed Multipliers"
+    report_name: str = "Missed Multipliers Report"
     report_type: str = "text"
     supports_single = False
     supports_multi = True
@@ -90,7 +91,6 @@ class Report(ContestReport):
 
         all_calls = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])
         
-        # --- Dynamic Column Width and Headers ---
         col_width = 14
         if mult_name.lower() == 'zones':
             col_width = 11
@@ -107,8 +107,6 @@ class Report(ContestReport):
             
         first_col_width = 27 if name_column else 9
 
-
-        # --- Dynamic Header Generation ---
         metadata = first_log.get_metadata()
         contest_name = metadata.get('ContestName', 'UnknownContest')
         first_qso_date = first_log.get_processed_data()['Date'].iloc[0]
@@ -118,15 +116,15 @@ class Report(ContestReport):
         header_line_for_width = f"{first_col_header:<{first_col_width}} | {' | '.join(header_cells)}"
         table_width = len(header_line_for_width)
         
-        title_text = f"{year} {contest_name} Missed {mult_name}"
-        centered_title = f"- {title_text} -".center(table_width)
-        separator_line = "-" * len(centered_title)
-
-        report_lines = [separator_line, centered_title, separator_line, ""]
+        subtitle = f"{year} {contest_name} - {', '.join(all_calls)}"
+        report_lines = []
+        report_lines.append(f"--- {self.report_name}: {mult_name} ---".center(table_width))
+        report_lines.append(subtitle.center(table_width))
+        report_lines.append("")
 
         bands = first_log.contest_definition.valid_bands
+        is_single_band = len(bands) == 1
         
-        # --- Initialize accumulators for the "All Bands Summary" ---
         all_bands_worked_sum = {call: 0 for call in all_calls}
         all_bands_missed_sum = {call: 0 for call in all_calls}
         overall_prefix_to_name_map = {}
@@ -166,8 +164,6 @@ class Report(ContestReport):
                         continue
                     
                     df_band = df[df['Band'] == band].copy()
-                    
-                    # --- Filter out "Unknown" multipliers ---
                     df_band = df_band[df_band[mult_column] != 'Unknown']
                     
                     if df_band.empty:
@@ -264,43 +260,41 @@ class Report(ContestReport):
                 report_lines.append(delta_line)
                 report_lines.append("")
 
-                # --- Accumulate totals for the final summary ---
                 for call in all_calls:
                     all_bands_worked_sum[call] += total_counts[call]
                     all_bands_missed_sum[call] += union_count - total_counts[call]
 
-        # --- All Bands Summary ---
-        report_lines.append(f"     All Bands Summary".center(table_width))
-        
-        all_header_cells = [f"{call:^{col_width}}" for call in all_calls]
-        all_header = f"{first_col_header:<{first_col_width}} | {' | '.join(all_header_cells)}"
-        report_lines.append(all_header)
+        if not is_single_band:
+            report_lines.append(f"     All Bands Summary".center(table_width))
+            
+            all_header_cells = [f"{call:^{col_width}}" for call in all_calls]
+            all_header = f"{first_col_header:<{first_col_width}} | {' | '.join(all_header_cells)}"
+            report_lines.append(all_header)
 
-        all_separator_cells = [f"{'---':^{col_width}}" for _ in all_calls]
-        all_separator = f"{'':<{first_col_width}} | {' | '.join(all_separator_cells)}"
-        report_lines.append(all_separator)
+            all_separator_cells = [f"{'---':^{col_width}}" for _ in all_calls]
+            all_separator = f"{'':<{first_col_width}} | {' | '.join(all_separator_cells)}"
+            report_lines.append(all_separator)
 
-        max_mults_all = max(all_bands_worked_sum.values()) if all_bands_worked_sum else 0
+            max_mults_all = max(all_bands_worked_sum.values()) if all_bands_worked_sum else 0
 
-        all_worked_cells = [f"{all_bands_worked_sum[call]:>{col_width}}" for call in all_calls]
-        all_worked_line = f"{'Worked:':<{first_col_width}} | {' | '.join(all_worked_cells)}"
-        
-        all_missed_cells = [f"{all_bands_missed_sum[call]:>{col_width}}" for call in all_calls]
-        all_missed_line = f"{'Missed:':<{first_col_width}} | {' | '.join(all_missed_cells)}"
+            all_worked_cells = [f"{all_bands_worked_sum[call]:>{col_width}}" for call in all_calls]
+            all_worked_line = f"{'Worked:':<{first_col_width}} | {' | '.join(all_worked_cells)}"
+            
+            all_missed_cells = [f"{all_bands_missed_sum[call]:>{col_width}}" for call in all_calls]
+            all_missed_line = f"{'Missed:':<{first_col_width}} | {' | '.join(all_missed_cells)}"
 
-        all_delta_cells = []
-        for call in all_calls:
-            delta = all_bands_worked_sum[call] - max_mults_all
-            delta_str = str(delta) if delta != 0 else ""
-            all_delta_cells.append(f"{delta_str:>{col_width}}")
-        all_delta_line = f"{'Delta:':<{first_col_width}} | {' | '.join(all_delta_cells)}"
+            all_delta_cells = []
+            for call in all_calls:
+                delta = all_bands_worked_sum[call] - max_mults_all
+                delta_str = str(delta) if delta != 0 else ""
+                all_delta_cells.append(f"{delta_str:>{col_width}}")
+            all_delta_line = f"{'Delta:':<{first_col_width}} | {' | '.join(all_delta_cells)}"
 
-        report_lines.append(all_worked_line)
-        report_lines.append(all_missed_line)
-        report_lines.append(all_delta_line)
-        report_lines.append("")
+            report_lines.append(all_worked_line)
+            report_lines.append(all_missed_line)
+            report_lines.append(all_delta_line)
+            report_lines.append("")
 
-        # --- Add Diagnostic List for Unknown Calls ---
         if all_unknown_calls:
             report_lines.append("\n" + "-" * 30)
             report_lines.append(f"Callsigns with 'Unknown' {mult_name}:")
@@ -314,12 +308,10 @@ class Report(ContestReport):
                 line_calls = sorted_unknowns[i:i+num_cols]
                 report_lines.append("  ".join([f"{call:<{col_width}}" for call in line_calls]))
 
-        # --- Save the Report File ---
         report_content = "\n".join(report_lines)
         os.makedirs(output_path, exist_ok=True)
         
         filename_calls = '_vs_'.join(sorted(all_calls))
-        # --- FIX: Sanitize mult_name for the filename ---
         safe_mult_name = mult_name.lower().replace('/', '_')
         filename = f"{self.report_id}_{safe_mult_name}_{filename_calls}.txt"
         filepath = os.path.join(output_path, filename)

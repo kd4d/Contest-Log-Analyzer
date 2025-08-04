@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-03
-# Version: 0.26.2-Beta
+# Date: 2025-08-04
+# Version: 0.26.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,28 +20,15 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.26.3-Beta] - 2025-08-04
+### Changed
+# - Standardized the report header to use a two-line title.
+### Fixed
+# - Redundant 'Total' column is now omitted for single-band contests.
 ## [0.26.2-Beta] - 2025-08-03
 ### Changed
 # - The report now uses the dynamic `valid_bands` list from the contest
 #   definition instead of a hardcoded list.
-## [0.26.1-Beta] - 2025-08-02
-### Fixed
-# - Converted report_id, report_name, and report_type from @property methods
-#   to simple class attributes to fix a bug in the report generation loop.
-## [0.22.0-Beta] - 2025-07-31
-### Changed
-# - Implemented the boolean support properties, correctly identifying this
-#   report as 'single'.
-# - The report now correctly generates a separate output file for each log
-#   provided, ensuring consistency with other single-log summary reports.
-## [0.21.4-Beta] - 2025-07-28
-### Added
-# - The report now includes a diagnostic list at the end, showing all unique
-#   callsigns that resulted in an "Unknown" continent classification.
-## [0.16.0-Beta] - 2025-07-26
-### Fixed
-# - Corrected the logic to handle two-letter continent abbreviations (e.g., 'NA')
-#   from the CTY.DAT file, allowing the report to generate correctly.
 from typing import List
 import pandas as pd
 import os
@@ -68,6 +55,8 @@ class Report(ContestReport):
             metadata = log.get_metadata()
             df_full = log.get_processed_data()
             callsign = metadata.get('MyCall', 'UnknownCall')
+            contest_name = metadata.get('ContestName', 'UnknownContest')
+            year = df_full['Date'].iloc[0].split('-')[0] if not df_full.empty else "----"
 
             # --- Data Preparation ---
             if not include_dupes and 'Dupe' in df_full.columns:
@@ -87,6 +76,7 @@ class Report(ContestReport):
                 'AS': 'Asia', 'AF': 'Africa', 'OC': 'Oceania', 'Unknown': 'Unknown'
             }
             bands = log.contest_definition.valid_bands
+            is_single_band = len(bands) == 1
 
             # --- Collect Unknown Calls for Diagnostics ---
             unknown_continent_df = df[df['Continent'].isin(['Unknown', None, ''])]
@@ -106,13 +96,22 @@ class Report(ContestReport):
                 if band not in pivot.columns:
                     pivot[band] = 0
             pivot = pivot[bands]
-            pivot['Total'] = pivot.sum(axis=1)
+
+            if not is_single_band:
+                pivot['Total'] = pivot.sum(axis=1)
 
             # --- Formatting ---
-            header = f"{'Continent':<17}" + "".join([f"{b.replace('M',''):>7}" for b in bands]) + f"{'Total':>7}"
+            header_parts = [f"{b.replace('M',''):>7}" for b in bands]
+            if not is_single_band:
+                header_parts.append(f"{'Total':>7}")
+            header = f"{'Continent':<17}" + "".join(header_parts)
             separator = "-" * len(header)
             
-            report_lines = [f"--- {self.report_name} for {callsign} ---".center(len(header))]
+            subtitle = f"{year} {contest_name} - {callsign}"
+            report_lines = []
+            report_lines.append(f"--- {self.report_name} ---".center(len(header)))
+            report_lines.append(subtitle.center(len(header)))
+            report_lines.append("")
             report_lines.append(header)
             report_lines.append(separator)
 
@@ -122,7 +121,8 @@ class Report(ContestReport):
                     line = f"{cont_name:<17}"
                     for band in bands:
                         line += f"{row.get(band, 0):>7}"
-                    line += f"{row.get('Total', 0):>7}"
+                    if not is_single_band:
+                        line += f"{row.get('Total', 0):>7}"
                     report_lines.append(line)
 
             report_lines.append(separator)
@@ -130,7 +130,8 @@ class Report(ContestReport):
             total_line = f"{'Total':<17}"
             for band in bands:
                 total_line += f"{pivot[band].sum():>7}"
-            total_line += f"{pivot['Total'].sum():>7}"
+            if not is_single_band:
+                total_line += f"{pivot['Total'].sum():>7}"
             report_lines.append(total_line)
             
             # --- Add Diagnostic List for Unknown Calls ---
@@ -145,7 +146,6 @@ class Report(ContestReport):
                 for i in range(0, len(unique_unknown_calls), num_cols):
                     line_calls = unique_unknown_calls[i:i+num_cols]
                     report_lines.append("  ".join([f"{call:<{col_width}}" for call in line_calls]))
-
 
             # --- Save the Report File ---
             report_content = "\n".join(report_lines)

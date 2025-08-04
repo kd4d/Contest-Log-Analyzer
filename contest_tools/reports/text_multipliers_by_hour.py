@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-03
-# Version: 0.26.6-Beta
+# Date: 2025-08-04
+# Version: 0.26.7-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,37 +20,14 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.26.7-Beta] - 2025-08-04
+### Changed
+# - Standardized the report header to use a two-line title.
+### Fixed
+# - Redundant 'Total' column is now omitted for single-band contests.
 ## [0.26.6-Beta] - 2025-08-03
 ### Changed
 # - The report now uses the dynamic `valid_bands` list from the contest definition.
-## [0.26.5-Beta] - 2025-08-02
-### Fixed
-# - Corrected the logic for calculating new multipliers when the totaling
-#   method is 'once_per_log' to use the correct set of previously
-#   worked multipliers.
-### Removed
-# - Removed temporary diagnostic print statements.
-## [0.26.4-Beta] - 2025-08-02
-### Added
-# - Added temporary diagnostic print statements to debug multiplier calculation.
-## [0.25.0-Beta] - 2025-08-01
-### Changed
-# - The report now uses the pre-aligned master time index to display the
-#   entire contest period, correctly showing gaps in operating time.
-## [0.22.6-Beta] - 2025-07-31
-### Changed
-# - The report now uses the 'totaling_method' from the contest definition
-#   to correctly calculate new multipliers for contests like WPX.
-## [0.22.5-Beta] - 2025-07-31
-### Changed
-# - Implemented the boolean support properties, correctly identifying this
-#   report as 'single' mode.
-## [0.21.2-Beta] - 2025-07-28
-### Fixed
-# - The report now correctly filters out and ignores "Unknown" multipliers,
-#   ensuring its totals are consistent with other reports.
-## [0.21.0-Beta] - 2025-07-28
-# - Initial release of the Multipliers by Hour report.
 from typing import List, Dict, Set
 import pandas as pd
 import os
@@ -85,6 +62,7 @@ class Report(ContestReport):
             df_full = log.get_processed_data()
             callsign = metadata.get('MyCall', 'UnknownCall')
             contest_name = metadata.get('ContestName', 'UnknownContest')
+            year = df_full['Date'].iloc[0].split('-')[0] if not df_full.empty else "----"
             
             # --- Find the correct multiplier column and totaling method ---
             mult_rule = None
@@ -116,6 +94,7 @@ class Report(ContestReport):
 
             # --- Calculation of New Multipliers per Hour ---
             bands = log.contest_definition.valid_bands
+            is_single_band = len(bands) == 1
             worked_mults_by_band: Dict[str, Set] = {band: set() for band in bands}
             worked_mults_overall: Set = set()
             hourly_data = []
@@ -140,40 +119,46 @@ class Report(ContestReport):
                     hourly_results[band] = len(new_mults)
                     hourly_total += len(new_mults)
                 
-                hourly_results['Total'] = hourly_total
+                if not is_single_band:
+                    hourly_results['Total'] = hourly_total
                 hourly_data.append(hourly_results)
 
             # --- Format the Report ---
-            report_lines = []
-            report_lines.append(f"{callsign}")
-            report_lines.append(f"{contest_name} - {mult_name} by Hour")
-            report_lines.append("")
-
-            header1 = f"{'Date':<12}{'Hr':>4}" + "".join([f"{b.replace('M',''):>9}" for b in bands]) + f"{'Total':>9}"
-            header2 = f"{'':<12}{'':>4}" + "".join([f"{'':>9}" for b in bands]) + f"{'':>9}"
+            header1_parts = [f"{b.replace('M',''):>9}" for b in bands]
+            if not is_single_band:
+                header1_parts.append(f"{'Total':>9}")
+            header1 = f"{'Date':<12}{'Hr':>4}" + "".join(header1_parts)
             separator = "-" * len(header1)
             
+            subtitle = f"{year} {contest_name} - {callsign} ({mult_name})"
+            report_lines = []
+            report_lines.append(f"--- {self.report_name} ---".center(len(header1)))
+            report_lines.append(subtitle.center(len(header1)))
+            report_lines.append("")
+            
             report_lines.append(header1)
-            report_lines.append(header2)
             report_lines.append(separator)
 
             total_row = {band: 0 for band in bands}
-            total_row['Total'] = 0
+            if not is_single_band:
+                total_row['Total'] = 0
 
             for row_data in hourly_data:
                 line = f"{row_data['Timestamp'].strftime('%Y-%m-%d'):<12}{row_data['Timestamp'].strftime('%H%M'):>4}"
                 for band in bands:
                     line += f"{row_data[band]:>9}"
                     total_row[band] += row_data[band]
-                line += f"{row_data['Total']:>9}"
-                total_row['Total'] += row_data['Total']
+                if not is_single_band:
+                    line += f"{row_data['Total']:>9}"
+                    total_row['Total'] += row_data['Total']
                 report_lines.append(line)
 
             report_lines.append(separator)
             total_line = f"{'Total':<12}{'':>4}"
             for band in bands:
                 total_line += f"{total_row[band]:>9}"
-            total_line += f"{total_row['Total']:>9}"
+            if not is_single_band:
+                total_line += f"{total_row['Total']:>9}"
             report_lines.append(total_line)
 
             # --- Save the Report File ---

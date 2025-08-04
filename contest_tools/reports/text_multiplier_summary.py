@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-03
-# Version: 0.26.2-Beta
+# Date: 2025-08-04
+# Version: 0.26.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,21 +20,15 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.26.3-Beta] - 2025-08-04
+### Changed
+# - Standardized the report header to use a two-line title.
+### Fixed
+# - Redundant 'Total' column is now omitted for single-band contests.
 ## [0.26.2-Beta] - 2025-08-03
 ### Changed
 # - The report now uses the dynamic `valid_bands` list from the contest
 #   definition instead of a hardcoded list.
-## [0.26.1-Beta] - 2025-08-02
-### Fixed
-# - Converted report_id, report_name, and report_type from @property methods
-#   to simple class attributes to fix a bug in the report generation loop.
-## [0.24.2-Beta] - 2025-08-01
-### Changed
-# - Set supports_single to False to prevent the report from running on a single log.
-## [0.22.4-Beta] - 2025-07-31
-### Changed
-# - Implemented the boolean support properties, correctly identifying this
-#   report as supporting both 'multi' and 'pairwise' modes.
 from typing import List
 import pandas as pd
 import os
@@ -106,6 +100,7 @@ class Report(ContestReport):
         
         # --- Report Generation ---
         bands = first_log.contest_definition.valid_bands
+        is_single_band = len(bands) == 1
         all_calls = sorted(main_df['MyCall'].unique())
         
         pivot = main_df.pivot_table(
@@ -120,7 +115,9 @@ class Report(ContestReport):
         for band in bands:
             if band not in pivot.columns: pivot[band] = 0
         pivot = pivot[bands]
-        pivot['Total'] = pivot.sum(axis=1)
+        
+        if not is_single_band:
+            pivot['Total'] = pivot.sum(axis=1)
 
         # --- Formatting ---
         if mult_name.lower() == 'countries':
@@ -128,10 +125,20 @@ class Report(ContestReport):
         else:
             first_col_header = mult_name[:-1] if mult_name.lower().endswith('s') else mult_name
             
-        header = f"{first_col_header:<25}" + "".join([f"{b.replace('M',''):>7}" for b in bands]) + f"{'Total':>7}"
+        header_parts = [f"{b.replace('M',''):>7}" for b in bands]
+        if not is_single_band:
+            header_parts.append(f"{'Total':>7}")
+        header = f"{first_col_header:<25}" + "".join(header_parts)
         separator = "-" * len(header)
         
-        report_lines = [f"-------------------- {mult_name} S u m m a r y -------------------".center(len(header))]
+        contest_name = first_log.get_metadata().get('ContestName', 'UnknownContest')
+        year = first_log.get_processed_data()['Date'].iloc[0].split('-')[0] if not first_log.get_processed_data().empty else "----"
+        subtitle = f"{year} {contest_name} - {', '.join(all_calls)}"
+        
+        report_lines = []
+        report_lines.append(f"--- {self.report_name}: {mult_name} ---".center(len(header)))
+        report_lines.append(subtitle.center(len(header)))
+        report_lines.append("")
         report_lines.append(header)
         report_lines.append(separator)
 
@@ -153,7 +160,8 @@ class Report(ContestReport):
                     row = mult_data.loc[call]
                     line = f"  {call:<21}"
                     for band in bands: line += f"{row.get(band, 0):>7}"
-                    line += f"{row.get('Total', 0):>7}"
+                    if not is_single_band:
+                        line += f"{row.get('Total', 0):>7}"
                     report_lines.append(line)
 
         # --- Footer ---
@@ -166,7 +174,8 @@ class Report(ContestReport):
                     row = total_pivot.loc[call]
                     line = f"  {call:<21}"
                     for band in bands: line += f"{row.get(band, 0):>7}"
-                    line += f"{row.get('Total', 0):>7}"
+                    if not is_single_band:
+                        line += f"{row.get('Total', 0):>7}"
                     report_lines.append(line)
 
         # --- Add Unknown Total Line ---
@@ -176,14 +185,17 @@ class Report(ContestReport):
             for band in bands:
                 if band not in unknown_pivot.columns: unknown_pivot[band] = 0
             unknown_pivot = unknown_pivot[bands]
-            unknown_pivot['Total'] = unknown_pivot.sum(axis=1)
+            
+            if not is_single_band:
+                unknown_pivot['Total'] = unknown_pivot.sum(axis=1)
 
             for call in all_calls:
                 if call in unknown_pivot.index:
                     row = unknown_pivot.loc[call]
                     line = f"  {call:<21}"
                     for band in bands: line += f"{row.get(band, 0):>7}"
-                    line += f"{row.get('Total', 0):>7}"
+                    if not is_single_band:
+                        line += f"{row.get('Total', 0):>7}"
                     report_lines.append(line)
         
         # --- Add Diagnostic List for Unknown Calls ---
