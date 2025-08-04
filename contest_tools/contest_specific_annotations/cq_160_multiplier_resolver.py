@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-03
-# Version: 0.29.0-Beta
+# Date: 2025-08-04
+# Version: 0.29.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,10 +18,15 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
 # All notable changes to this project will be documented in this file.
-## [0.29.0-Beta] - 2025-08-03
-### Added
-# - Initial release of the CQ 160 multiplier resolver module.
-
+## [0.29.3-Beta] - 2025-08-04
+### Fixed
+# - The resolver now correctly checks for and uses WAE prefixes for DXCC
+#   multipliers, per the official CQ 160 contest rules.
+## [0.29.2-Beta] - 2025-08-04
+### Changed
+# - Reworked the resolver to be the single source of truth for multipliers.
+# - The resolver now outputs two distinct, clean columns (STPROV_Mult, DXCC_Mult)
+#   to permanently fix all double-counting and mis-categorization bugs.
 import pandas as pd
 import os
 import re
@@ -74,7 +79,7 @@ class CQ160MultiplierLookup:
         If the value is already a valid multiplier, it's returned directly.
         """
         if not isinstance(value, str):
-            return "Unknown"
+            return pd.NA
             
         value_upper = value.upper()
         if value_upper in self._valid_mults:
@@ -83,42 +88,51 @@ class CQ160MultiplierLookup:
         if value_upper in self._lookup:
             return self._lookup[value_upper][0]
 
-        return "Unknown"
+        return pd.NA
 
 def resolve_multipliers(df: pd.DataFrame, my_location_type: Optional[str]) -> pd.DataFrame:
     """
-    Resolves the final multiplier for CQ 160 contest QSOs based on asymmetric rules.
+    Resolves multipliers for CQ 160, creating two separate columns for the two
+    distinct multiplier types to prevent double-counting.
     """
     if df.empty:
-        df['FinalMultiplier'] = "Unknown"
+        df['STPROV_Mult'] = pd.NA
+        df['DXCC_Mult'] = pd.NA
         return df
 
     data_dir = os.environ.get('CONTEST_DATA_DIR').strip().strip('"').strip("'")
     alias_lookup = CQ160MultiplierLookup(data_dir)
     
-    def determine_mult(row):
-        # All stations can work US States and Canadian Provinces.
-        # These come from the received exchange ('RcvdLocation').
+    stprov_mults = []
+    dxcc_mults = []
+
+    for index, row in df.iterrows():
+        stprov_val = pd.NA
+        dxcc_val = pd.NA
+
+        # Logic for all stations: check for State/Province multiplier first.
         location = row.get('RcvdLocation', '')
         st_prov_mult = alias_lookup.get_multiplier(location)
         
-        if st_prov_mult != "Unknown":
-            return st_prov_mult
-        
-        # Only W/VE stations can work DXCC countries as multipliers.
-        # If the logger is W/VE and the ST/PROV lookup failed, the multiplier
-        # is the worked station's DXCC prefix.
-        if my_location_type == "W/VE":
-            # Check if the worked station is DX
-            worked_entity_name = row.get('DXCCName', 'Unknown')
-            is_worked_station_dx = worked_entity_name not in ["United States", "Canada"]
-            
-            if is_worked_station_dx:
-                return row.get('DXCCPfx', 'Unknown')
+        if pd.notna(st_prov_mult):
+            stprov_val = st_prov_mult
+        else:
+            # If it's not a State/Province, it might be a DXCC multiplier.
+            # This is only valid for W/VE stations.
+            if my_location_type == "W/VE":
+                worked_entity = row.get('DXCCName', '')
+                if worked_entity not in ["United States", "Canada"]:
+                    # Per CQ rules, check for a WAE prefix first, then fall back to DXCC.
+                    wae_pfx = row.get('WAEPfx')
+                    if pd.notna(wae_pfx) and wae_pfx != '':
+                         dxcc_val = wae_pfx
+                    else:
+                         dxcc_val = row.get('DXCCPfx', pd.NA)
 
-        # If the logger is DX, they do not get DXCC multipliers.
-        # If the ST/PROV lookup failed, there is no multiplier for this QSO.
-        return "Unknown"
+        stprov_mults.append(stprov_val)
+        dxcc_mults.append(dxcc_val)
 
-    df['FinalMultiplier'] = df.apply(determine_mult, axis=1)
+    df['STPROV_Mult'] = stprov_mults
+    df['DXCC_Mult'] = dxcc_mults
+    
     return df

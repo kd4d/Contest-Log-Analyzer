@@ -7,8 +7,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-03
-# Version: 0.28.12-Beta
+# Date: 2025-08-04
+# Version: 0.28.13-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -22,6 +22,10 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.28.13-Beta] - 2025-08-04
+### Fixed
+# - The logic for auto-generating multiplier reports for asymmetric contests
+#   now correctly includes universal multipliers (those with no 'applies_to' flag).
 ## [0.28.12-Beta] - 2025-08-03
 ### Added
 # - Implemented logic to honor the `excluded_reports` list from contest
@@ -56,7 +60,7 @@ class ReportGenerator:
         first_log = self.logs[0]
         contest_name = first_log.get_metadata().get('ContestName', 'UnknownContest').replace(' ', '_')
         
-        first_qso_date = first_log.get_processed_data()['Date'].iloc[0]
+        first_qso_date = first_log.get_processed_data()['Date'].iloc[0] if not first_log.get_processed_data().empty else None
         year = first_qso_date.split('-')[0] if first_qso_date else "UnknownYear"
 
         self.base_output_dir = os.path.join(output_base_dir, year, contest_name)
@@ -83,7 +87,6 @@ class ReportGenerator:
 
         # --- This entire block is the logic moved from main_cli.py ---
         for r_id, ReportClass in reports_to_run:
-            # --- FIX: Check if the report is excluded by the contest definition ---
             first_log = self.logs[0]
             excluded = first_log.contest_definition.excluded_reports
             if r_id in excluded:
@@ -108,7 +111,8 @@ class ReportGenerator:
                 applicable_rules = []
                 if log_location_type: # This is an asymmetric contest
                     for rule in all_rules:
-                        if rule.get('applies_to') == log_location_type:
+                        applies_to = rule.get('applies_to')
+                        if applies_to is None or applies_to == log_location_type:
                             applicable_rules.append(rule)
                 else: # This is a standard contest
                     applicable_rules = all_rules

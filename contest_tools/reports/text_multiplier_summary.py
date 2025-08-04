@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-04
-# Version: 0.26.3-Beta
+# Version: 0.26.4-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,15 +20,15 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.26.4-Beta] - 2025-08-04
+### Fixed
+# - The diagnostic section for unknown multipliers now correctly filters out
+#   DX stations.
 ## [0.26.3-Beta] - 2025-08-04
 ### Changed
 # - Standardized the report header to use a two-line title.
 ### Fixed
 # - Redundant 'Total' column is now omitted for single-band contests.
-## [0.26.2-Beta] - 2025-08-03
-### Changed
-# - The report now uses the dynamic `valid_bands` list from the contest
-#   definition instead of a hardcoded list.
 from typing import List
 import pandas as pd
 import os
@@ -56,7 +56,6 @@ class Report(ContestReport):
         if not mult_name:
             return "Error: 'mult_name' argument is required for the Multiplier Summary report."
         
-        # --- Find the correct multiplier column ---
         first_log = self.logs[0]
         mult_rule = None
         for rule in first_log.contest_definition.multiplier_rules:
@@ -70,7 +69,6 @@ class Report(ContestReport):
         mult_column = mult_rule['value_column']
         name_column = mult_rule.get('name_column')
 
-        # --- Data Preparation ---
         all_dfs = []
         for log in self.logs:
             df_full = log.get_processed_data()
@@ -92,13 +90,13 @@ class Report(ContestReport):
         
         combined_df.dropna(subset=[mult_column], inplace=True)
 
-        # --- Separate Unknowns and Prepare Main Data ---
         unknown_df = combined_df[combined_df[mult_column] == 'Unknown']
+        # Filter for only W/VE stations that have an unknown multiplier
+        w_ve_unknown_df = unknown_df[unknown_df['DXCCName'].isin(['United States', 'Canada'])]
+        unique_unknown_calls = sorted(w_ve_unknown_df['Call'].unique())
+        
         main_df = combined_df[combined_df[mult_column] != 'Unknown']
         
-        unique_unknown_calls = sorted(unknown_df['Call'].unique())
-        
-        # --- Report Generation ---
         bands = first_log.contest_definition.valid_bands
         is_single_band = len(bands) == 1
         all_calls = sorted(main_df['MyCall'].unique())
@@ -119,7 +117,6 @@ class Report(ContestReport):
         if not is_single_band:
             pivot['Total'] = pivot.sum(axis=1)
 
-        # --- Formatting ---
         if mult_name.lower() == 'countries':
             first_col_header = 'Country'
         else:
@@ -164,7 +161,6 @@ class Report(ContestReport):
                         line += f"{row.get('Total', 0):>7}"
                     report_lines.append(line)
 
-        # --- Footer ---
         report_lines.append(separator)
         report_lines.append(f"{'Total':<25}")
         
@@ -178,7 +174,6 @@ class Report(ContestReport):
                         line += f"{row.get('Total', 0):>7}"
                     report_lines.append(line)
 
-        # --- Add Unknown Total Line ---
         if not unknown_df.empty:
             report_lines.append(f"{'Unknown Total':<25}")
             unknown_pivot = unknown_df.pivot_table(index='MyCall', columns='Band', aggfunc='size', fill_value=0)
@@ -198,7 +193,6 @@ class Report(ContestReport):
                         line += f"{row.get('Total', 0):>7}"
                     report_lines.append(line)
         
-        # --- Add Diagnostic List for Unknown Calls ---
         if unique_unknown_calls:
             report_lines.append("\n" + "-" * 30)
             report_lines.append(f"Callsigns with unknown {first_col_header}:")
@@ -211,7 +205,6 @@ class Report(ContestReport):
                 line_calls = unique_unknown_calls[i:i+num_cols]
                 report_lines.append("  ".join([f"{call:<{col_width}}" for call in line_calls]))
 
-        # --- Save the Report File ---
         report_content = "\n".join(report_lines)
         os.makedirs(output_path, exist_ok=True)
         

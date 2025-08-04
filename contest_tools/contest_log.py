@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-04
-# Version: 0.28.5-Beta
+# Version: 0.28.6-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,18 +21,16 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.28.6-Beta] - 2025-08-04
+### Changed
+# - Removed the contest-specific patch for `source: "dxcc"` multipliers. This
+#   logic is now correctly handled by contest-specific resolver modules.
 ## [0.28.5-Beta] - 2025-08-04
 ### Changed
 # - The `dxcc` multiplier source logic now correctly excludes contacts with
 #   the USA and Canada to prevent "double multipliers".
 # - The logic also inherently prevents a station from getting their own
 #   country as a DXCC multiplier.
-## [0.28.4-Beta] - 2025-08-03
-### Added
-# - A new method, `_calculate_operating_time`, to calculate on-time based on
-#   rules from the contest definition (min_off_time, max_hours).
-# - The calculated on-time is now determined and stored in the log's metadata
-#   after all other annotations are applied.
 from typing import List
 import pandas as pd
 from datetime import datetime
@@ -260,16 +258,9 @@ class ContestLog:
                 if not dest_col: continue
 
                 if source == 'dxcc':
-                    # --- New logic to exclude W/VE from DXCC multipliers ---
-                    temp_mult_col = self.qsos_df['DXCCPfx'].copy()
-                    is_w_ve_qso = self.qsos_df['DXCCName'].isin(['United States', 'Canada'])
-                    temp_mult_col[is_w_ve_qso] = pd.NA
-                    self.qsos_df[dest_col] = temp_mult_col
-                    
+                    self.qsos_df[dest_col] = self.qsos_df['DXCCPfx']
                     if dest_name_col:
-                        temp_name_col = self.qsos_df['DXCCName'].copy()
-                        temp_name_col[is_w_ve_qso] = pd.NA
-                        self.qsos_df[dest_name_col] = temp_name_col
+                        self.qsos_df[dest_name_col] = self.qsos_df['DXCCName']
                 
                 elif source == 'wae_dxcc':
                     self.qsos_df[dest_col] = self.qsos_df['WAEPfx'].where(self.qsos_df['WAEPfx'].notna() & (self.qsos_df['WAEPfx'] != ''), self.qsos_df['DXCCPfx'])
