@@ -19,9 +19,9 @@
 # --- Revision History ---
 # All notable changes to this project will be documented in this file.
 ## [0.29.3-Beta] - 2025-08-04
-### Fixed
-# - The resolver now correctly checks for and uses WAE prefixes for DXCC
-#   multipliers, per the official CQ 160 contest rules.
+### Changed
+# - The resolver now correctly creates a `DXCC_MultName` column to pass the
+#   full entity name to the reports, fixing the missing name bug.
 ## [0.29.2-Beta] - 2025-08-04
 ### Changed
 # - Reworked the resolver to be the single source of truth for multipliers.
@@ -32,8 +32,6 @@ import os
 import re
 from typing import Dict, Tuple, Optional
 
-# TODO: This class is a candidate for refactoring into a shared utility
-# in a future update to avoid code duplication.
 class CQ160MultiplierLookup:
     """Parses and provides lookups for the CQ160mults.dat file."""
     
@@ -73,31 +71,33 @@ class CQ160MultiplierLookup:
         except Exception as e:
             print(f"Error reading multiplier alias file {self.filepath}: {e}")
 
-    def get_multiplier(self, value: str) -> str:
+    def get_multiplier(self, value: str) -> Tuple[Optional[str], Optional[str]]:
         """
-        Looks up an alias and returns the official multiplier abbreviation.
-        If the value is already a valid multiplier, it's returned directly.
+        Looks up an alias and returns the official multiplier abbreviation and full name.
         """
         if not isinstance(value, str):
-            return pd.NA
+            return pd.NA, pd.NA
             
         value_upper = value.upper()
-        if value_upper in self._valid_mults:
-            return value_upper
-        
         if value_upper in self._lookup:
-            return self._lookup[value_upper][0]
+            return self._lookup[value_upper]
+        
+        # Fallback for values that are already official abbreviations
+        for abbr, (official_abbr, full_name) in self._lookup.items():
+            if value_upper == official_abbr:
+                return official_abbr, full_name
 
-        return pd.NA
+        return pd.NA, pd.NA
 
 def resolve_multipliers(df: pd.DataFrame, my_location_type: Optional[str]) -> pd.DataFrame:
     """
-    Resolves multipliers for CQ 160, creating two separate columns for the two
-    distinct multiplier types to prevent double-counting.
+    Resolves multipliers for CQ 160, creating separate columns for the two
+    distinct multiplier types and their corresponding names.
     """
     if df.empty:
         df['STPROV_Mult'] = pd.NA
         df['DXCC_Mult'] = pd.NA
+        df['DXCC_MultName'] = pd.NA
         return df
 
     data_dir = os.environ.get('CONTEST_DATA_DIR').strip().strip('"').strip("'")
@@ -105,34 +105,36 @@ def resolve_multipliers(df: pd.DataFrame, my_location_type: Optional[str]) -> pd
     
     stprov_mults = []
     dxcc_mults = []
+    dxcc_mult_names = []
 
     for index, row in df.iterrows():
         stprov_val = pd.NA
         dxcc_val = pd.NA
+        dxcc_name_val = pd.NA
 
-        # Logic for all stations: check for State/Province multiplier first.
         location = row.get('RcvdLocation', '')
-        st_prov_mult = alias_lookup.get_multiplier(location)
+        st_prov_mult, st_prov_name = alias_lookup.get_multiplier(location)
         
         if pd.notna(st_prov_mult):
             stprov_val = st_prov_mult
         else:
-            # If it's not a State/Province, it might be a DXCC multiplier.
-            # This is only valid for W/VE stations.
             if my_location_type == "W/VE":
                 worked_entity = row.get('DXCCName', '')
                 if worked_entity not in ["United States", "Canada"]:
-                    # Per CQ rules, check for a WAE prefix first, then fall back to DXCC.
                     wae_pfx = row.get('WAEPfx')
                     if pd.notna(wae_pfx) and wae_pfx != '':
                          dxcc_val = wae_pfx
+                         dxcc_name_val = row.get('WAEName', '')
                     else:
                          dxcc_val = row.get('DXCCPfx', pd.NA)
+                         dxcc_name_val = row.get('DXCCName', pd.NA)
 
         stprov_mults.append(stprov_val)
         dxcc_mults.append(dxcc_val)
+        dxcc_mult_names.append(dxcc_name_val)
 
     df['STPROV_Mult'] = stprov_mults
     df['DXCC_Mult'] = dxcc_mults
+    df['DXCC_MultName'] = dxcc_mult_names
     
     return df

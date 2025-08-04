@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-04
-# Version: 0.26.4-Beta
+# Version: 0.26.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,15 +20,14 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.26.5-Beta] - 2025-08-04
+### Fixed
+# - Corrected a bug that caused the report to fail for single logs by
+#   enabling single-log support and adding the correct processing logic.
 ## [0.26.4-Beta] - 2025-08-04
 ### Fixed
 # - The diagnostic section for unknown multipliers now correctly filters out
 #   DX stations.
-## [0.26.3-Beta] - 2025-08-04
-### Changed
-# - Standardized the report header to use a two-line title.
-### Fixed
-# - Redundant 'Total' column is now omitted for single-band contests.
 from typing import List
 import pandas as pd
 import os
@@ -42,7 +41,7 @@ class Report(ContestReport):
     report_id: str = "multiplier_summary"
     report_name: str = "Multiplier Summary"
     report_type: str = "text"
-    supports_single = False
+    supports_single = True
     supports_multi = True
     supports_pairwise = True
     
@@ -50,56 +49,63 @@ class Report(ContestReport):
         """
         Generates the report content.
         """
-        include_dupes = kwargs.get('include_dupes', False)
         mult_name = kwargs.get('mult_name')
-
         if not mult_name:
             return "Error: 'mult_name' argument is required for the Multiplier Summary report."
+
+        # --- Single-Log Mode ---
+        if len(self.logs) == 1:
+            log = self.logs[0]
+            df = log.get_processed_data()[log.get_processed_data()['Dupe'] == False]
+            all_calls = [log.get_metadata().get('MyCall', 'Unknown')]
+            return self._generate_report_for_logs(
+                dfs=[df],
+                all_calls=all_calls,
+                mult_name=mult_name,
+                output_path=output_path,
+                contest_def=log.contest_definition
+            )
         
-        first_log = self.logs[0]
-        mult_rule = None
-        for rule in first_log.contest_definition.multiplier_rules:
-            if rule.get('name', '').lower() == mult_name.lower():
-                mult_rule = rule
-                break
-        
+        # --- Multi-Log (Comparative) Mode ---
+        else:
+            all_dfs = []
+            all_calls = []
+            for log in self.logs:
+                df = log.get_processed_data()[log.get_processed_data()['Dupe'] == False].copy()
+                df['MyCall'] = log.get_metadata().get('MyCall', 'Unknown')
+                all_calls.append(df['MyCall'].iloc[0])
+                all_dfs.append(df)
+
+            return self._generate_report_for_logs(
+                dfs=all_dfs,
+                all_calls=sorted(all_calls),
+                mult_name=mult_name,
+                output_path=output_path,
+                contest_def=self.logs[0].contest_definition
+            )
+
+    def _generate_report_for_logs(self, dfs, all_calls, mult_name, output_path, contest_def):
+        mult_rule = next((r for r in contest_def.multiplier_rules if r.get('name', '').lower() == mult_name.lower()), None)
         if not mult_rule or 'value_column' not in mult_rule:
-            return f"Error: Multiplier type '{mult_name}' not found in definition for {first_log.contest_definition.contest_name}."
-        
+            return f"Error: Multiplier type '{mult_name}' not found in definition."
+
         mult_column = mult_rule['value_column']
         name_column = mult_rule.get('name_column')
-
-        all_dfs = []
-        for log in self.logs:
-            df_full = log.get_processed_data()
-            if not include_dupes and 'Dupe' in df_full.columns:
-                df = df_full[df_full['Dupe'] == False].copy()
-            else:
-                df = df_full.copy()
-            
-            df['MyCall'] = log.get_metadata().get('MyCall', 'Unknown')
-            all_dfs.append(df)
-
-        if not all_dfs:
-            return "No data available to generate report."
         
-        combined_df = pd.concat(all_dfs, ignore_index=True)
-        
+        combined_df = pd.concat(dfs, ignore_index=True)
         if combined_df.empty or mult_column not in combined_df.columns:
             return f"No '{mult_name}' multiplier data to report."
         
         combined_df.dropna(subset=[mult_column], inplace=True)
-
-        unknown_df = combined_df[combined_df[mult_column] == 'Unknown']
-        # Filter for only W/VE stations that have an unknown multiplier
+        
+        unknown_df = combined_df[combined_df[mult_column].isna()]
         w_ve_unknown_df = unknown_df[unknown_df['DXCCName'].isin(['United States', 'Canada'])]
         unique_unknown_calls = sorted(w_ve_unknown_df['Call'].unique())
         
-        main_df = combined_df[combined_df[mult_column] != 'Unknown']
+        main_df = combined_df[combined_df[mult_column].notna()]
         
-        bands = first_log.contest_definition.valid_bands
+        bands = contest_def.valid_bands
         is_single_band = len(bands) == 1
-        all_calls = sorted(main_df['MyCall'].unique())
         
         pivot = main_df.pivot_table(
             index=[mult_column, 'MyCall'], columns='Band', aggfunc='size', fill_value=0
@@ -117,26 +123,31 @@ class Report(ContestReport):
         if not is_single_band:
             pivot['Total'] = pivot.sum(axis=1)
 
-        if mult_name.lower() == 'countries':
-            first_col_header = 'Country'
-        else:
-            first_col_header = mult_name[:-1] if mult_name.lower().endswith('s') else mult_name
+        first_col_header = mult_name[:-1] if mult_name.lower().endswith('s') else mult_name
             
         header_parts = [f"{b.replace('M',''):>7}" for b in bands]
         if not is_single_band:
             header_parts.append(f"{'Total':>7}")
-        header = f"{first_col_header:<25}" + "".join(header_parts)
-        separator = "-" * len(header)
+        table_header = f"{first_col_header:<25}" + "".join(header_parts)
+        table_width = len(table_header)
+        separator = "-" * table_width
         
-        contest_name = first_log.get_metadata().get('ContestName', 'UnknownContest')
-        year = first_log.get_processed_data()['Date'].iloc[0].split('-')[0] if not first_log.get_processed_data().empty else "----"
-        subtitle = f"{year} {contest_name} - {', '.join(all_calls)}"
+        year = dfs[0]['Date'].iloc[0].split('-')[0] if not dfs[0].empty else "----"
+        
+        title1 = f"--- {self.report_name}: {mult_name} ---"
+        title2 = f"{year} {contest_def.contest_name} - {', '.join(all_calls)}"
         
         report_lines = []
-        report_lines.append(f"--- {self.report_name}: {mult_name} ---".center(len(header)))
-        report_lines.append(subtitle.center(len(header)))
+        if len(title1) > table_width or len(title2) > table_width:
+             header_width = max(len(title1), len(title2))
+             report_lines.append(f"{title1.ljust(header_width)}")
+             report_lines.append(f"{title2.center(header_width)}")
+        else:
+             header_width = table_width
+             report_lines.append(title1.center(header_width))
+             report_lines.append(title2.center(header_width))
         report_lines.append("")
-        report_lines.append(header)
+        report_lines.append(table_header)
         report_lines.append(separator)
 
         sorted_mults = sorted(pivot.index.get_level_values(0).unique())
@@ -199,7 +210,7 @@ class Report(ContestReport):
             report_lines.append("-" * 30)
             
             col_width = 12
-            num_cols = max(1, len(header) // (col_width + 2))
+            num_cols = max(1, table_width // (col_width + 2))
             
             for i in range(0, len(unique_unknown_calls), num_cols):
                 line_calls = unique_unknown_calls[i:i+num_cols]

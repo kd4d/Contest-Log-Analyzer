@@ -1,6 +1,6 @@
 {
   "_filename": "contest_tools/contest_definitions/cq_160.json",
-  "_version": "0.29.2-Beta",
+  "_version": "0.29.3-Beta",
   "_date": "2025-08-04",
   "contest_name": "CQ-160",
   "dupe_check_scope": "per_band",
@@ -46,7 +46,7 @@
       "name": "DXCC",
       "source_column": "DXCC_Mult",
       "value_column": "Mult2",
-      "name_column": "Mult2Name",
+      "name_column": "DXCC_MultName",
       "totaling_method": "once_per_contest"
     }
   ],
@@ -59,6 +59,6 @@
     "Band", "Date", "Hour", "Dupe",
     "DXCCName", "DXCCPfx", "CQZone", "ITUZone", "Continent", "WAEName", "WAEPfx", "Lat", "Lon", "Tzone",
     "Run", "QSOPoints",
-    "Mult1", "Mult1Name", "Mult2", "Mult2Name", "STPROV_Mult", "DXCC_Mult"
+    "Mult1", "Mult1Name", "Mult2", "Mult2Name", "STPROV_Mult", "DXCC_Mult", "DXCC_MultName"
   ]
 }
