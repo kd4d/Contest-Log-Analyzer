@@ -21,13 +21,12 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 ## [0.26.4-Beta] - 2025-08-04
-### Changed
-# - Simplified the report to work with pre-aligned dataframes, removing
-#   all internal time-alignment logic to align with the new architecture.
+### Fixed
+# - The report no longer generates redundant, per-band plots for single-band contests.
 ## [0.26.3-Beta] - 2025-08-04
 ### Changed
 # - Simplified the report to work with pre-aligned dataframes, removing
-#   all internal time-alignment logic to fix the "all zeros" bug.
+#   all internal time-alignment logic to align with the new architecture.
 from typing import List
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -155,7 +154,11 @@ class Report(ContestReport):
             return "Error: The Cumulative Difference Plot report requires exactly two logs."
 
         metric = kwargs.get('metric', 'qsos')
-        bands_to_plot = ['All'] + self.logs[0].contest_definition.valid_bands
+        
+        bands = self.logs[0].contest_definition.valid_bands
+        is_single_band = len(bands) == 1
+        bands_to_plot = ['All'] if is_single_band else ['All'] + bands
+        
         created_files = []
         
         for band in bands_to_plot:
