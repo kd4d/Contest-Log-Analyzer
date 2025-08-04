@@ -5,7 +5,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-04
-# Version: 0.26.3-Beta
+# Version: 0.26.4-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,6 +19,9 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.26.4-Beta] - 2025-08-04
+### Fixed
+# - The redundant 'All Band QSOs' section is now omitted for single-band contests.
 ## [0.26.3-Beta] - 2025-08-04
 ### Changed
 # - Standardized the report header to use a two-line title.
@@ -26,7 +29,7 @@
 ### Changed
 # - The report now uses the dynamic `valid_bands` list from the contest
 #   definition instead of a hardcoded list.
-from typing import List, Dict, Any, Set
+from typing import List
 import pandas as pd
 import os
 from ..contest_log import ContestLog
@@ -57,7 +60,6 @@ class Report(ContestReport):
         call1 = log1.get_metadata().get('MyCall', 'Log1')
         call2 = log2.get_metadata().get('MyCall', 'Log2')
 
-        # --- Define Table Format ---
         headers1 = ["", "Total", "Run", "S&P", "Unk", "Unique", "Unique", "Unique", "Unique", "Common"]
         headers2 = ["Callsign", "", "", "", "", "", "Run", "S&P", "Unk", ""]
         col_widths = [12, 8, 8, 8, 8, 8, 8, 8, 8, 8]
@@ -65,7 +67,6 @@ class Report(ContestReport):
         header2_str = "".join([f"{h:>{w}}" for h, w in zip(headers2, col_widths)])
         table_width = len(header1_str)
         
-        # --- Dynamic Header Generation ---
         contest_name = log1.get_metadata().get('ContestName', 'UnknownContest')
         year = log1.get_processed_data()['Date'].iloc[0].split('-')[0] if not log1.get_processed_data().empty else "----"
         subtitle = f"{year} {contest_name} - {call1} vs {call2}"
@@ -76,12 +77,16 @@ class Report(ContestReport):
             ""
         ]
 
-        bands = self.logs[0].contest_definition.valid_bands + ['All Bands']
+        bands = self.logs[0].contest_definition.valid_bands
+        is_single_band = len(bands) == 1
+        
+        # Add "All Bands" section only if it's a multi-band contest
+        bands_to_report = bands if is_single_band else bands + ['All Bands']
         
         df1_full = log1.get_processed_data()[log1.get_processed_data()['Dupe'] == False]
         df2_full = log2.get_processed_data()[log2.get_processed_data()['Dupe'] == False]
 
-        for band in bands:
+        for band in bands_to_report:
             band_header_text = f"{band.replace('M', '')} Meter QSOs" if band != "All Bands" else "All Band QSOs"
             final_report_lines.append(band_header_text.center(table_width))
             final_report_lines.append(header1_str)
@@ -95,7 +100,6 @@ class Report(ContestReport):
                 df1_band = df1_full[df1_full['Band'] == band]
                 df2_band = df2_full[df2_full['Band'] == band]
 
-            # --- Calculate Metrics for both logs ---
             for call, df_current, df_other in [(call1, df1_band, df2_band), (call2, df2_band, df1_band)]:
                 calls_current_set = set(df_current['Call'].unique())
                 calls_other_set = set(df_other['Call'].unique())
@@ -132,7 +136,6 @@ class Report(ContestReport):
                 final_report_lines.append(row_str)
             final_report_lines.append("")
 
-        # --- Final Assembly and Save ---
         report_content = "\n".join(final_report_lines)
         os.makedirs(output_path, exist_ok=True)
         

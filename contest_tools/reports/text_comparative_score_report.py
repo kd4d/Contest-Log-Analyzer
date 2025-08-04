@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-04
-# Version: 0.28.29-Beta
+# Version: 0.28.28-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,15 +20,18 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
-## [0.28.29-Beta] - 2025-08-04
-### Changed
-# - Standardized report to have a two-line title followed by a blank line.
-# - Reworked table generation to ensure column alignment is always correct.
-## [0.28.28-Beta] - 2025-08-03
+## [0.28.28-Beta] - 2025-08-04
 ### Changed
 # - Added a second, descriptive title line to the report header.
 # - Fixed column alignment by creating a single, unified table structure that
 #   includes the On-Time column in the main header.
+## [0.28.27-Beta] - 2025-08-03
+### Changed
+# - Added a main title to the report.
+# - The diagnostic section is now context-aware and no longer shows incorrect
+#   "WPX Prefix" reports for non-WPX contests.
+# - For single-band contests, the report now omits the redundant per-band
+#   breakdown and only shows the TOTAL section.
 from typing import List, Set
 import pandas as pd
 import os
@@ -66,9 +69,9 @@ class Report(ContestReport):
         col_widths = {key: len(str(key)) for key in col_order}
         col_widths['Callsign'] = max([len(call) for call in all_calls] + [len('Callsign')])
         
-        has_on_time = any(s.get('OperatingTime') and s.get('OperatingTime') != 'N/A' for s in total_summaries)
+        has_on_time = any(s.get('On-Time') and s.get('On-Time') != 'N/A' for s in total_summaries)
         if has_on_time:
-             col_widths['On-Time'] = max(len('On-Time'), max(len(s.get('OperatingTime', '')) for s in total_summaries))
+             col_widths['On-Time'] = max(len('On-Time'), max(len(s.get('On-Time', '')) for s in total_summaries))
         else:
             col_widths['On-Time'] = 0 # Hide column if no on-time data
 
@@ -90,7 +93,7 @@ class Report(ContestReport):
         report_lines = []
         report_lines.append(f"--- {self.report_name} ---".center(len(header)))
         report_lines.append(subtitle.center(len(header)))
-        report_lines.append("") # Blank line after titles
+        report_lines.append("")
         report_lines.append(header)
         report_lines.append(separator)
         
@@ -111,7 +114,7 @@ class Report(ContestReport):
             report_lines.append(self._format_row(summary, col_order, col_widths))
 
         report_lines.append("=" * len(header))
-        report_lines.append("")
+        report_lines.append("") # Add blank line before scores
         for summary in total_summaries:
             callsign = summary['Callsign']
             score = summary['FinalScore']
@@ -163,7 +166,7 @@ class Report(ContestReport):
         
         for i, m_col in enumerate(mult_cols):
             if m_col in band_df_valid_mults.columns:
-                band_summary[mult_names[i]] = band_df_valid_mults[band_df_valid_mults[m_col] != 'Unknown'][m_col].nunique()
+                band_summary[mult_names[i]] = band_df_valid_mults[band_df_valid_mults[m_col].notna()][m_col].nunique()
         
         band_summary['AVG'] = (band_summary['Points'] / band_summary['QSOs']) if band_summary['QSOs'] > 0 else 0
         return band_summary
@@ -190,11 +193,11 @@ class Report(ContestReport):
                 continue
 
             if totaling_method == 'once_per_contest':
-                unique_mults = df_valid_mults[df_valid_mults[mult_col] != 'Unknown'][mult_col].nunique()
+                unique_mults = df_valid_mults[df_valid_mults[mult_col].notna()][mult_col].nunique()
                 total_summary[mult_name] = unique_mults
                 total_multiplier_count += unique_mults
             else: # Default to sum_by_band
-                band_mults = df_valid_mults[df_valid_mults[mult_col] != 'Unknown'].groupby('Band')['Mult1'].nunique()
+                band_mults = df_valid_mults[df_valid_mults[mult_col].notna()].groupby('Band')[mult_col].nunique()
                 total_summary[mult_name] = band_mults.sum()
                 total_multiplier_count += total_summary[mult_name]
 

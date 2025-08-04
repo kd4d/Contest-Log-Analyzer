@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-04
-# Version: 0.28.6-Beta
+# Version: 0.28.7-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -21,16 +21,15 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.28.7-Beta] - 2025-08-04
+### Fixed
+# - The logic to determine a station's location type (W/VE or DX) for
+#   asymmetric contests now correctly runs for any contest, not just ARRL DX.
+#   This fixes multiplier and on-time calculation failures for CQ-160.
 ## [0.28.6-Beta] - 2025-08-04
 ### Changed
 # - Removed the contest-specific patch for `source: "dxcc"` multipliers. This
 #   logic is now correctly handled by contest-specific resolver modules.
-## [0.28.5-Beta] - 2025-08-04
-### Changed
-# - The `dxcc` multiplier source logic now correctly excludes contacts with
-#   the USA and Canada to prevent "double multipliers".
-# - The logic also inherently prevents a station from getting their own
-#   country as a DXCC multiplier.
 from typing import List
 import pandas as pd
 from datetime import datetime
@@ -196,14 +195,18 @@ class ContestLog:
         return f"{on_time_str} of {max_hours}:00 allowed"
         
     def _determine_own_location_type(self):
-        my_call = self.metadata.get('MyCall')
-        if my_call:
-            data_dir = os.environ.get('CONTEST_DATA_DIR').strip().strip('"').strip("'")
-            cty_dat_path = os.path.join(data_dir, 'cty.dat')
-            cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)
-            info = cty_lookup.get_cty(my_call)
-            self._my_location_type = "W/VE" if info.name in ["United States", "Canada"] else "DX"
-            print(f"Logger location type determined as: {self._my_location_type}")
+        # Check if any multiplier rule is asymmetric
+        is_asymmetric = any(rule.get('applies_to') for rule in self.contest_definition.multiplier_rules)
+        
+        if is_asymmetric:
+            my_call = self.metadata.get('MyCall')
+            if my_call:
+                data_dir = os.environ.get('CONTEST_DATA_DIR').strip().strip('"').strip("'")
+                cty_dat_path = os.path.join(data_dir, 'cty.dat')
+                cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)
+                info = cty_lookup.get_cty(my_call)
+                self._my_location_type = "W/VE" if info.name in ["United States", "Canada"] else "DX"
+                print(f"Logger location type determined as: {self._my_location_type}")
 
     def apply_annotations(self):
         if self.qsos_df.empty:

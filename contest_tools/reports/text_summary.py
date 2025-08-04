@@ -5,7 +5,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-04
-# Version: 0.26.3-Beta
+# Version: 0.26.4-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,6 +19,11 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.26.4-Beta] - 2025-08-04
+### Changed
+# - Standardized the report header to use a two-line title.
+# - The 'On-Time' column is now correctly hidden if the contest has no
+#   defined operating time limits.
 ## [0.26.3-Beta] - 2025-08-04
 ### Changed
 # - Standardized the report header to use a two-line title.
@@ -26,10 +31,6 @@
 ### Added
 # - The report now includes a new 'On-Time' column to display the calculated
 #   operating time for each log.
-## [0.26.1-Beta] - 2025-08-02
-### Fixed
-# - Converted report_id, report_name, and report_type from @property methods
-#   to simple class attributes to fix a bug in the report generation loop.
 from typing import List
 import os
 from ..contest_log import ContestLog
@@ -70,7 +71,7 @@ class Report(ContestReport):
             
             log_summary = {
                 'Callsign': callsign,
-                'On-Time': log.get_metadata().get('OperatingTime', 'N/A'),
+                'On-Time': log.get_metadata().get('OperatingTime'),
                 'Total QSOs': len(df),
                 'Dupes': df_full['Dupe'].sum(),
                 'Run': (df['Run'] == 'Run').sum() if 'Run' in df.columns else 0,
@@ -81,6 +82,10 @@ class Report(ContestReport):
 
         # --- Formatting ---
         headers = ["Callsign", "On-Time", "Total QSOs", "Dupes", "Run", "S&P", "Unknown"]
+        has_on_time = any(row.get('On-Time') for row in report_data)
+        if not has_on_time:
+            headers.remove('On-Time')
+            
         col_widths = {h: len(h) for h in headers}
 
         for row in report_data:
@@ -88,12 +93,6 @@ class Report(ContestReport):
                 if key in col_widths:
                     col_widths[key] = max(col_widths.get(key, 0), len(str(value)))
         
-        if any(row.get('On-Time') and row.get('On-Time') != 'N/A' for row in report_data):
-            col_widths['On-Time'] = max(col_widths.get('On-Time', 7), len("HH:MM of HH:MM allowed"))
-        else:
-            headers.remove('On-Time')
-
-
         header_str = "  ".join([f"{h:<{col_widths[h]}}" for h in headers])
         separator = "-" * len(header_str)
         
