@@ -5,7 +5,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-05
-# Version: 0.30.0-Beta
+# Version: 0.30.12-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,9 +16,17 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.30.12-Beta] - 2025-08-05
+### Fixed
+# - Standardized the output filename generation for consistency.
+## [0.30.8-Beta] - 2025-08-05
+### Fixed
+# - Corrected a TypeError.
+## [0.30.1-Beta] - 2025-08-05
+### Fixed
+# - Changed import from 'ReportInterface' to 'ContestReport'.
 ## [0.30.0-Beta] - 2025-08-05
 # - Initial release of Version 0.30.0-Beta.
-# - Standardized all project files to a common baseline version.
 from .report_interface import ContestReport
 from ._report_utils import get_valid_dataframe, create_output_directory
 import matplotlib.pyplot as plt
@@ -32,7 +40,7 @@ class Report(ContestReport):
     report_name = "Cumulative Point Rate Plot"
     report_type = "plot"
     supports_single = True
-    supports_pairwise = False # Superseded by 'supports_multi'
+    supports_pairwise = False
     supports_multi = True
 
     def generate(self, output_path: str, **kwargs) -> str:
@@ -55,7 +63,6 @@ class Report(ContestReport):
                 
             df = df.set_index('Datetime')
             
-            # Use master time index for alignment
             master_time_index = log._log_manager_ref.master_time_index
             if master_time_index is None:
                 return f"Skipping '{self.report_name}': Master time index not available."
@@ -91,7 +98,8 @@ class Report(ContestReport):
         
         plt.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.2)
         
-        output_filename = os.path.join(output_path, f"{self.report_id}_{'_'.join(all_calls)}.png")
+        filename_calls = '_'.join(all_calls)
+        output_filename = os.path.join(output_path, f"{self.report_id}_{filename_calls}.png")
         try:
             plt.savefig(output_filename, dpi=150)
             plt.close(fig)
@@ -100,5 +108,3 @@ class Report(ContestReport):
             logging.error(f"Error saving plot: {e}")
             plt.close(fig)
             return f"Error generating report '{self.report_name}'"
-
-

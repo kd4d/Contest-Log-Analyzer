@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-05
-# Version: 0.30.0-Beta
+# Version: 0.30.4-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,13 +17,20 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.30.4-Beta] - 2025-08-05
+### Fixed
+# - Corrected an AttributeError by ensuring that the `axes` object is always
+#   an array, even when only one subplot is created.
+## [0.30.3-Beta] - 2025-08-05
+### Fixed
+# - Corrected the key for sorting bands to prevent a ValueError.
 ## [0.30.0-Beta] - 2025-08-05
 # - Initial release of Version 0.30.0-Beta.
-# - Standardized all project files to a common baseline version.
 from .report_interface import ContestReport
 from ._report_utils import get_valid_dataframe, create_output_directory
 import matplotlib.pyplot as plt
 import pandas as pd
+import numpy as np
 import os
 import logging
 from ..contest_log import ContestLog
@@ -53,8 +60,9 @@ class Report(ContestReport):
         if df['QSOPoints'].sum() == 0:
             return f"Skipping '{self.report_name}': No QSO points found in log for {callsign}."
 
-        bands = sorted(df['Band'].unique(), key=ContestLog._HF_BANDS.index)
-        
+        canonical_band_order = [band[1] for band in ContestLog._HF_BANDS]
+        bands = sorted(df['Band'].unique(), key=lambda b: canonical_band_order.index(b) if b in canonical_band_order else -1)
+
         # Determine grid size
         num_bands = len(bands)
         if num_bands <= 3:
@@ -68,7 +76,11 @@ class Report(ContestReport):
             figsize = (18, 15)
 
         fig, axes = plt.subplots(nrows, ncols, figsize=figsize)
-        axes = axes.flatten() # Flatten to 1D array for easy iteration
+        
+        # --- FIX: Ensure axes is always an array to prevent AttributeError ---
+        if num_bands == 1:
+            axes = np.array([axes])
+        axes = axes.flatten()
 
         fig.suptitle(f'QSO Point Contribution for {callsign}', fontsize=16, y=1.0)
 

@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-05
-# Version: 0.30.0-Beta
+# Version: 0.30.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,9 +18,13 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.30.5-Beta] - 2025-08-05
+### Fixed
+# - Corrected the filtering logic to handle the string-based 'Run' column
+#   ('Run', 'S&P', 'Unknown') instead of the old boolean values, which was
+#   causing a KeyError.
 ## [0.30.0-Beta] - 2025-08-05
 # - Initial release of Version 0.30.0-Beta.
-# - Standardized all project files to a common baseline version.
 from .report_interface import ContestReport
 from ._report_utils import get_valid_dataframe, create_output_directory
 import matplotlib.pyplot as plt
@@ -55,7 +59,6 @@ class Report(ContestReport):
         if df1.empty or df2.empty:
             return f"Skipping '{self.report_name}': At least one log has no valid QSOs."
             
-        # Use the master time index from the log manager
         master_time_index = log1._log_manager_ref.master_time_index
         if master_time_index is None:
             return f"Skipping '{self.report_name}': Master time index not available."
@@ -64,12 +67,12 @@ class Report(ContestReport):
         rate1 = self._prepare_rate_data(df1, master_time_index, metric)
         rate2 = self._prepare_rate_data(df2, master_time_index, metric)
 
-        # Calculate differences
+        # --- FIX: Correct filtering for string-based 'Run' column ---
         diff = rate1 - rate2
-        diff_run = self._prepare_rate_data(df1[df1['Run']], master_time_index, metric) - \
-                   self._prepare_rate_data(df2[df2['Run']], master_time_index, metric)
-        diff_sp = self._prepare_rate_data(df1[~df1['Run']], master_time_index, metric) - \
-                  self._prepare_rate_data(df2[~df2['Run']], master_time_index, metric)
+        diff_run = self._prepare_rate_data(df1[df1['Run'] == 'Run'], master_time_index, metric) - \
+                   self._prepare_rate_data(df2[df2['Run'] == 'Run'], master_time_index, metric)
+        diff_sp = self._prepare_rate_data(df1[df1['Run'] != 'Run'], master_time_index, metric) - \
+                  self._prepare_rate_data(df2[df2['Run'] != 'Run'], master_time_index, metric)
                   
         # Plotting
         fig, axes = plt.subplots(3, 1, figsize=(12, 10), sharex=True)
@@ -99,7 +102,7 @@ class Report(ContestReport):
             
     def _prepare_rate_data(self, df, index, metric):
         col = 'QSOPoints' if metric == 'points' else 'Band' # Use 'Band' for QSO count
-        if col not in df.columns:
+        if df.empty or col not in df.columns:
             return pd.Series(0, index=index)
             
         rate = df.resample('h')[col].count() if metric == 'qsos' else df.resample('h')[col].sum()

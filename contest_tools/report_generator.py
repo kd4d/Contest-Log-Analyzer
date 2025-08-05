@@ -161,5 +161,3 @@ class ReportGenerator:
                         instance = ReportClass([log])
                         result = instance.generate(output_path=output_path, **report_kwargs)
                         logging.info(result)
-
-Please confirm when you are ready for the next file/bundle.

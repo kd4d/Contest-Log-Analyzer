@@ -1,12 +1,11 @@
 # Contest Log Analyzer/contest_tools/reports/plot_qso_rate.py
 #
-# Purpose: Generates a plot showing the QSO rate (QSOs per hour) for
-#          multiple logs.
+# Purpose: Generates a plot showing the cumulative QSO rate for one or more logs.
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-04
-# Version: 0.30.4-Beta
+# Date: 2025-08-05
+# Version: 0.30.12-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,49 +16,97 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.30.4-Beta] - 2025-08-04
-### Changed
-# - Reverted plotting functions from Plotly back to Matplotlib and Seaborn.
-import pandas as pd
+## [0.30.12-Beta] - 2025-08-05
+### Fixed
+# - Standardized the output filename generation for consistency.
+## [0.30.8-Beta] - 2025-08-05
+### Fixed
+# - Corrected a TypeError.
+## [0.30.1-Beta] - 2025-08-05
+### Fixed
+# - Changed import from 'ReportInterface' to 'ContestReport'.
+## [0.30.0-Beta] - 2025-08-05
+# - Initial release of Version 0.30.0-Beta.
+from .report_interface import ContestReport
+from ._report_utils import get_valid_dataframe, create_output_directory
 import matplotlib.pyplot as plt
-from .report_interface import ReportInterface
+import matplotlib.dates as mdates
+import pandas as pd
+import os
+import logging
 
-class QsoRatePlots(ReportInterface):
-    report_name = "QSO Rate Comparison Plots"
+class Report(ContestReport):
     report_id = "qso_rate_plots"
-    report_type = 'plot'
-
-    supports_single = False
-    supports_multi = True
+    report_name = "Cumulative QSO Rate Plot"
+    report_type = "plot"
+    supports_single = True
     supports_pairwise = False
+    supports_multi = True
 
     def generate(self, output_path: str, **kwargs) -> str:
-        if not self.logs:
-            return "No logs available to generate QSO rate plots."
-
-        fig, ax = plt.subplots(figsize=(10, 6))
+        create_output_directory(output_path)
+        include_dupes = kwargs.get('include_dupes', False)
+        
+        fig, ax = plt.subplots(figsize=(12, 8))
+        
+        all_calls = []
+        table_data = []
 
         for log in self.logs:
-            my_call = log.get_metadata().get('MyCall', 'UnknownCall')
-            df = log.get_processed_data()
-            df_no_dupes = df[df['Dupe'] == False]
+            callsign = log.get_metadata().get('MyCall', 'Unknown')
+            all_calls.append(callsign)
+            df = get_valid_dataframe(log, include_dupes)
+
+            if df.empty:
+                logging.warning(f"Skipping {callsign} in '{self.report_name}': No QSO data available.")
+                continue
+                
+            df = df.set_index('Datetime')
+
+            master_time_index = log._log_manager_ref.master_time_index
+            if master_time_index is None:
+                return f"Skipping '{self.report_name}': Master time index not available."
+
+            qso_rate = df.resample('h')['Band'].count().reindex(master_time_index, fill_value=0)
+            cumulative_qsos = qso_rate.cumsum()
             
-            qso_rate = df_no_dupes.set_index('Datetime')['Call'].resample('H').count()
-            
-            ax.plot(qso_rate.index, qso_rate.values, marker='o', linestyle='-', label=my_call)
+            ax.plot(cumulative_qsos.index, cumulative_qsos, label=callsign, marker='o', markersize=2, linestyle='-')
 
-        ax.set_title('QSO Rate Comparison (QSOs per Hour)')
-        ax.set_xlabel('Contest Time')
-        ax.set_ylabel('QSOs per Hour')
-        ax.legend()
-        ax.grid(True)
+            total_qsos = len(df)
+            run_qsos = (df['Run'] == 'Run').sum()
+            sp_qsos = total_qsos - run_qsos
+            run_pct = (run_qsos / total_qsos * 100) if total_qsos > 0 else 0
+            sp_pct = (sp_qsos / total_qsos * 100) if total_qsos > 0 else 0
+            table_data.append([callsign, f'{total_qsos:,.0f}', f'{run_qsos:,.0f} ({run_pct:.1f}%)', f'{sp_qsos:,.0f} ({sp_pct:.1f}%)'])
+
+        if not table_data:
+            plt.close(fig)
+            return f"Skipping '{self.report_name}': No logs had sufficient data to plot."
+
+        # Formatting the plot
+        ax.set_title(f'Cumulative QSO Rate: {", ".join(all_calls)}', fontsize=16)
+        ax.set_xlabel('Contest Time (UTC)')
+        ax.set_ylabel('Cumulative QSOs')
+        ax.grid(True, which='both', linestyle='--', linewidth=0.5)
+        ax.legend(loc='upper left')
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d %H:%M'))
+        plt.xticks(rotation=45)
+
+        # Adding summary table
+        col_labels = ['Callsign', 'Total QSOs', 'Run QSOs', 'S&P QSOs']
+        the_table = plt.table(cellText=table_data, colLabels=col_labels, loc='bottom', bbox=[0, -0.25, 1, 0.15])
+        the_table.auto_set_font_size(False)
+        the_table.set_fontsize(10)
         
-        plt.tight_layout()
-
-        all_calls = sorted([log.get_metadata().get('MyCall', f'Log{i+1}') for i, log in enumerate(self.logs)])
-        combo_id = '_vs_'.join(all_calls)
-
-        filename = f"{self.report_id}_all_plot.png"
-        filepath = self._save_figure(fig, output_path, filename)
+        plt.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.2)
         
-        return f"QSO rate plots saved to:\n  - {filepath}"
+        filename_calls = '_'.join(all_calls)
+        output_filename = os.path.join(output_path, f"{self.report_id}_{filename_calls}.png")
+        try:
+            plt.savefig(output_filename, dpi=150)
+            plt.close(fig)
+            return f"'{self.report_name}' saved to {output_filename}"
+        except Exception as e:
+            logging.error(f"Error saving plot: {e}")
+            plt.close(fig)
+            return f"Error generating report '{self.report_name}'"

@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-05
-# Version: 0.30.0-Beta
+# Version: 0.30.14-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,9 +17,22 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.30.14-Beta] - 2025-08-05
+### Fixed
+# - Corrected title generation to use a two-line format.
+# - Fixed table centering by removing the `bbox` argument.
+# - Removed logic that generated a redundant "All Bands" chart for single-band contests.
+## [0.30.13-Beta] - 2025-08-05
+### Fixed
+# - Corrected report_id and filename generation.
+## [0.30.2-Beta] - 2025-08-05
+### Fixed
+# - Corrected method for creating the summary table.
+## [0.30.1-Beta] - 2025-08-05
+### Fixed
+# - Corrected a TypeError.
 ## [0.30.0-Beta] - 2025-08-05
 # - Initial release of Version 0.30.0-Beta.
-# - Standardized all project files to a common baseline version.
 from .report_interface import ContestReport
 from ._report_utils import get_valid_dataframe, create_output_directory
 import matplotlib.pyplot as plt
@@ -58,12 +71,19 @@ class Report(ContestReport):
         if df1['QSOPoints'].sum() == 0 and df2['QSOPoints'].sum() == 0:
             return f"Skipping '{self.report_name}': No QSO points found in either log."
 
-        fig, axes = plt.subplots(1, 2, figsize=(16, 7))
-        fig.suptitle(f'QSO Point Contribution: {call1} vs {call2}', fontsize=16)
+        fig, axes = plt.subplots(1, 2, figsize=(16, 8))
+        
+        # --- Create Two-Line Title ---
+        year = df1['Date'].iloc[0].split('-')[0] if not df1.empty else "----"
+        contest_name = log1.get_metadata().get('ContestName', '')
+        event_id = log1.get_metadata().get('EventID', '')
+        
+        title_line1 = f"{event_id} {year} {contest_name}"
+        title_line2 = f"QSO Point Contribution: {call1} vs {call2}"
+        fig.suptitle(f"{title_line1}\n{title_line2}", fontsize=16)
 
         # --- Process and Plot for Log 1 ---
         point_counts1 = df1['QSOPoints'].value_counts().sort_index()
-        total_qsos1 = point_counts1.sum()
         point_labels1 = [f'{idx}-pt\n({val:,.0f} QSOs)' for idx, val in point_counts1.items()]
         
         wedges1, texts1, autotexts1 = axes[0].pie(
@@ -75,7 +95,6 @@ class Report(ContestReport):
 
         # --- Process and Plot for Log 2 ---
         point_counts2 = df2['QSOPoints'].value_counts().sort_index()
-        total_qsos2 = point_counts2.sum()
         point_labels2 = [f'{idx}-pt\n({val:,.0f} QSOs)' for idx, val in point_counts2.items()]
         
         wedges2, texts2, autotexts2 = axes[1].pie(
@@ -90,7 +109,9 @@ class Report(ContestReport):
         summary_data2 = self._prepare_summary_data(point_counts2, df2["QSOPoints"].sum())
         
         table_data = []
-        all_point_levels = sorted(list(set(summary_data1.keys()) | set(summary_data2.keys()) - {'TOTAL', 'AVG'}))
+        
+        all_keys = set(summary_data1.keys()) | set(summary_data2.keys())
+        all_point_levels = sorted([k for k in all_keys if isinstance(k, (int, float))])
 
         for level in all_point_levels:
             row = [f'{level}-PT QSOs', f'{summary_data1.get(level, 0):,.0f}', f'{summary_data2.get(level, 0):,.0f}']
@@ -100,26 +121,24 @@ class Report(ContestReport):
         table_data.append(['TOTAL QSOs', f'{summary_data1.get("TOTAL", 0):,.0f}', f'{summary_data2.get("TOTAL", 0):,.0f}'])
         table_data.append(['AVG PTS/QSO', f'{summary_data1.get("AVG", 0.0):.2f}', f'{summary_data2.get("AVG", 0.0):.2f}'])
         
-        table = fig.table(
+        # --- FIX: Remove bbox for automatic centering ---
+        table = plt.table(
             cellText=table_data,
             colLabels=['Metric', call1, call2],
             loc='bottom',
-            cellLoc='center',
-            bbox=[0.1, -0.2, 0.8, 0.25]
+            cellLoc='center'
         )
         table.auto_set_font_size(False)
         table.set_fontsize(10)
-        table.scale(1, 1.5)
+        table.scale(1.5, 1.5)
 
         # --- Final Adjustments and Save ---
-        plt.tight_layout(rect=[0, 0, 1, 0.96])
-        plt.subplots_adjust(bottom=0.2)
+        fig.tight_layout(pad=3.0)
         
-        output_filename = os.path.join(output_path, f"{self.report_id}_{call1}_{call2}.png")
+        output_filename = os.path.join(output_path, f"{self.report_id}_{call1}_vs_{call2}.png")
         try:
             plt.savefig(output_filename, bbox_inches='tight', dpi=150)
             plt.close(fig)
-            logging.info(f"Successfully generated '{self.report_name}' and saved to {output_filename}")
             return f"'{self.report_name}' saved to {output_filename}"
         except Exception as e:
             logging.error(f"Error saving chart: {e}")
