@@ -1,9 +1,14 @@
-Filename: "Docs/InstallationGuide.md"
-
 # Installation Guide - Contest Log Analyzer
 
-**Version: 0.26.7-Beta**
-**Date: 2025-08-03**
+**Version: 0.30.0-Beta**
+**Date: 2025-08-05**
+
+---
+### --- Revision History ---
+## [0.30.0-Beta] - 2025-08-05
+# - Initial release of Version 0.30.0-Beta.
+# - Standardized all project files to a common baseline version.
+---
 
 This guide provides step-by-step instructions to set up the Contest Log Analyzer on your system. The process involves installing a Python distribution, setting up a dedicated environment, installing the required libraries, and configuring the necessary data files.
 ---
@@ -12,7 +17,7 @@ This guide provides step-by-step instructions to set up the Contest Log Analyzer
 
 Before you begin, you will need to have **Git** installed on your system to download the project's source code. Open your command prompt or terminal, navigate to the directory where you want to store the project, and run the following command:
 
-    git clone [https://github.com/kd4d/Contest-Log-Analyzer.git](https://github.com/kd4d/Contest-Log-Analyzer.git) "Cont-Log-Analyzer"
+    git clone https://github.com/kd4d/Contest-Log-Analyzer.git "Contest-Log-Analyzer"
     cd "Contest-Log-Analyzer"
 ---
 ### Step 2: Create and Activate a Conda Environment
@@ -31,15 +36,15 @@ Once the environment is activated, install the required libraries.
 ---
 ### Step 4: Set Up the Environment Variable
 
-The program requires the `CONTEST_DATA_DIR` environment variable to be set to the location of your data directory. This tells the analyzer where to find files like `cty.dat`.
+The program requires the `CONTEST_LOGS_REPORTS` environment variable to be set to the root directory containing your `Logs`, `data`, and `reports` subdirectories.
 
 * **Windows (Temporary, for the current command prompt session):**
 
-    set CONTEST_DATA_DIR="C:\path\to\your\Contest-Log-Analyzer\data"
+    set CONTEST_LOGS_REPORTS="C:\path\to\your\Contest-Log-Analyzer"
 
 * **macOS/Linux (Temporary, for the current terminal session):**
 
-    export CONTEST_DATA_DIR="/path/to/your/Contest-Log-Analyzer/data"
+    export CONTEST_LOGS_REPORTS="/path/to/your/Contest-Log-Analyzer"
 ---
 ### Step 5: Download Required Data Files
 

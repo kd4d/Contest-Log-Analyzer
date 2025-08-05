@@ -1,7 +1,7 @@
 {
   "_filename": "contest_tools/contest_definitions/naqp.json",
-  "_version": "0.29.5-Beta",
-  "_date": "2025-08-04",
+  "_version": "0.30.0-Beta",
+  "_date": "2025-08-05",
   "contest_name": "NAQP",
   "dupe_check_scope": "per_band",
   "custom_multiplier_resolver": "naqp_multiplier_resolver",

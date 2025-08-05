@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-04
-# Version: 0.29.5-Beta
+# Date: 2025-08-05
+# Version: 0.30.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,26 +18,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-# All notable changes to this project will be documented in this file.
-## [0.29.5-Beta] - 2025-08-04
-### Changed
-# - Replaced all `print` statements with calls to the new logging framework.
-## [0.28.5-Beta] - 2025-08-02
-### Changed
-# - Refactored the column merging logic to be fully dynamic. It now iterates
-#   through the columns of the CTY lookup results instead of using a
-#   hardcoded list, preventing future scalability issues.
-#
-## [0.28.4-Beta] - 2025-08-02
-### Fixed
-# - Updated the hardcoded `cty_columns` list to include the new `portableid`
-#   field, ensuring it is correctly merged into the main dataframe after lookup.
-#
-## [0.27.0-Beta] - 2025-08-02
-### Fixed
-# - Corrected the instantiation of the CtyLookup class to align with the
-#   refactored get_cty.py module, removing the unexpected 'wae' keyword
-#   argument that was causing a TypeError.
+## [0.30.0-Beta] - 2025-08-05
+# - Initial release of Version 0.30.0-Beta.
+# - Standardized all project files to a common baseline version.
 import pandas as pd
 import os
 import logging

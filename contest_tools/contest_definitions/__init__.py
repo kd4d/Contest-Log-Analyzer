@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-04
-# Version: 0.29.5-Beta
+# Date: 2025-08-05
+# Version: 0.30.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,20 +18,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-# All notable changes to this project will be documented in this file.
-## [0.29.5-Beta] - 2025-08-04
-### Added
-# - Added the missing `contest_specific_event_id_resolver` property to
-#   the class to support the new event ID resolver system.
-## [0.26.3-Beta] - 2025-08-04
-### Added
-# - Added the missing `operating_time_rules` property to the class to
-#   correctly load on-time rules from the JSON definitions.
-## [0.26.2-Beta] - 2025-08-03
-### Changed
-# - Reworked the `from_json` method to support three-layer inheritance: a specific
-#   definition (e.g., `naqp_rtty.json`) can now inherit from a generic
-#   definition (e.g., `naqp.json`), which inherits from the common fields.
+## [0.30.0-Beta] - 2025-08-05
+# - Initial release of Version 0.30.0-Beta.
+# - Standardized all project files to a common baseline version.
 import json
 import os
 import copy

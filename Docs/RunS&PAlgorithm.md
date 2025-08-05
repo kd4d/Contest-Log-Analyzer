@@ -1,9 +1,14 @@
-Filename: "Docs/RunS&PAlgorithm.md"
-
 # Run/S&P/Unknown Classification Algorithm
 
-**Version: 0.26.3-Beta**
-**Date: 2025-08-03**
+**Version: 0.30.0-Beta**
+**Date: 2025-08-05**
+
+---
+### --- Revision History ---
+## [0.30.0-Beta] - 2025-08-05
+# - Initial release of Version 0.30.0-Beta.
+# - Standardized all project files to a common baseline version.
+---
 
 The purpose of this algorithm is to analyze a contest log and infer the operator's activity for each contact, classifying it as one of three types: **Run**, **Search & Pounce (S&P)**, or **Unknown**. The analysis is performed independently for each operating "stream"—a unique combination of a band and mode (e.g., 20M CW is one stream, 40M SSB is another). The algorithm uses a two-pass approach.
 ---

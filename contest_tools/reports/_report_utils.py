@@ -1,12 +1,12 @@
 # Contest Log Analyzer/contest_tools/reports/_report_utils.py
 #
-# Purpose: A utility module containing shared helper functions used by various
-#          report generation scripts.
+# Purpose: A utility module for helper functions and classes that are shared
+#          across multiple report generator modules.
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-04
-# Version: 0.30.4-Beta
+# Date: 2025-08-05
+# Version: 0.30.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,64 +17,93 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.30.4-Beta] - 2025-08-04
-### Changed
-# - Reverted plotting functions from Plotly back to Matplotlib and Seaborn.
-# - Removed Plotly-specific saving logic from the ReportInterface.
+## [0.30.0-Beta] - 2025-08-05
+# - Initial release of Version 0.30.0-Beta.
+# - Standardized all project files to a common baseline version.
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
+from ..contest_log import ContestLog
+from typing import List, Dict, Tuple, Set, Optional
 import os
-from typing import Optional, List
+import re
 
-def create_report_string(header: List[str], body: str, footer: List[str]) -> str:
-    """Combines header, body, and footer into a single formatted string."""
-    return "\n".join(header) + "\n\n" + body + "\n\n" + "\n".join(footer)
+class AliasLookup:
+    """
+    Parses a standard multiplier alias file (e.g., NAQPmults.dat, SweepstakesSections.dat)
+    and provides a lookup method to resolve aliases to their official abbreviation and full name.
+    This class is intended for use by report generators.
+    """
+    _instances: Dict[str, 'AliasLookup'] = {}
 
-def get_default_band_summary(df: pd.DataFrame, valid_bands: List[str]) -> pd.DataFrame:
-    """Creates a default band summary DataFrame with QSOs, Dupes, and Points."""
-    df_no_dupes = df[df['Dupe'] == False]
-    
-    qso_counts = df_no_dupes['Band'].value_counts()
-    dupe_counts = df[df['Dupe'] == True]['Band'].value_counts()
-    point_counts = df_no_dupes.groupby('Band')['QSOPoints'].sum()
+    def __new__(cls, alias_filename: str):
+        if alias_filename not in cls._instances:
+            instance = super(AliasLookup, cls).__new__(cls)
+            instance._initialized = False
+            cls._instances[alias_filename] = instance
+        return cls._instances[alias_filename]
 
-    summary = pd.DataFrame(index=valid_bands)
-    summary['QSOs'] = qso_counts
-    summary['Dupes'] = dupe_counts
-    summary['Points'] = point_counts
-    summary.fillna(0, inplace=True)
-    summary = summary.astype(int)
-    
-    return summary
-
-def format_qso_summary(summary_df: pd.DataFrame, column_order: List[str]) -> str:
-    """Formats a QSO summary DataFrame into a fixed-width string table."""
-    summary_df_copy = summary_df.copy()
-    
-    total_row = summary_df_copy.sum(numeric_only=True)
-    total_row['AVG'] = (total_row['Points'] / total_row['QSOs']) if total_row['QSOs'] > 0 else 0
-    total_row.name = "TOTAL"
-    
-    # Append the total row
-    summary_df_copy = pd.concat([summary_df_copy, pd.DataFrame(total_row).T])
-    
-    # Ensure all columns exist, fill missing with 0
-    for col in column_order:
-        if col not in summary_df_copy.columns:
-            summary_df_copy[col] = 0
+    def __init__(self, alias_filename: str):
+        if self._initialized:
+            return
             
-    summary_df_copy = summary_df_copy[column_order].fillna(0)
-    
-    # Convert appropriate columns to int for formatting
-    int_cols = [col for col in summary_df_copy.columns if col != 'AVG']
-    summary_df_copy[int_cols] = summary_df_copy[int_cols].astype(int)
-    
-    return summary_df_copy.to_string(formatters={'AVG': '{:,.2f}'.format})
+        data_dir = os.environ.get('CONTEST_DATA_DIR', '').strip().strip('"').strip("'")
+        self.filepath = os.path.join(data_dir, alias_filename)
+        self._lookup: Dict[str, Tuple[str, str]] = {}
+        self._valid_mults: Set[str] = set()
+        self._parse_file()
+        self._initialized = True
 
-def get_multiplier_source_column(log, mult_name: str) -> Optional[str]:
-    """Finds the source column for a given multiplier name."""
-    for rule in log.contest_definition.multiplier_rules:
-        if rule.get('name', '').lower() == mult_name.lower():
-            return rule.get('source_column')
-    return None
+    def _parse_file(self):
+        try:
+            with open(self.filepath, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith('#'):
+                        continue
+                    
+                    parts = line.split(':')
+                    if len(parts) != 2:
+                        continue
+                        
+                    aliases_part, official_part = parts[0], parts[1]
+                    aliases = [alias.strip().upper() for alias in aliases_part.split(',')]
+                    
+                    match = re.match(r'([A-Z0-9]{1,4})\s+\((.*)\)', official_part.strip())
+                    if not match:
+                        continue
+                    
+                    official_abbr = match.group(1).upper()
+                    full_name = match.group(2)
+                    
+                    self._valid_mults.add(official_abbr)
+                    self._lookup[official_abbr] = (official_abbr, full_name) # Map official to itself
+                    for alias in aliases:
+                        self._lookup[alias] = (official_abbr, full_name)
+        except FileNotFoundError:
+            print(f"Warning: Multiplier alias file not found at {self.filepath}.")
+        except Exception as e:
+            print(f"Error reading multiplier alias file {self.filepath}: {e}")
+
+    def get_multiplier_info(self, value: str) -> Tuple[Optional[str], Optional[str]]:
+        """
+        Looks up a multiplier value (alias or official) and returns the
+        official abbreviation and full name.
+        """
+        if not isinstance(value, str):
+            return pd.NA, pd.NA
+            
+        return self._lookup.get(value.upper(), (pd.NA, pd.NA))
+
+def get_valid_dataframe(log: ContestLog, include_dupes: bool = False) -> pd.DataFrame:
+    """
+    Returns the processed DataFrame from a ContestLog, optionally filtering out dupes.
+    """
+    df = log.get_processed_data()
+    if not include_dupes:
+        return df[df['Dupe'] == False].copy()
+    return df.copy()
+
+def create_output_directory(path: str):
+    """
+    Ensures that the specified output directory exists.
+    """
+    os.makedirs(path, exist_ok=True)

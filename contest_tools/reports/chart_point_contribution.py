@@ -1,12 +1,12 @@
 # Contest Log Analyzer/contest_tools/reports/chart_point_contribution.py
 #
-# Purpose: Generates a stacked bar chart showing the point contribution
-#          of each continent for a multi-log comparison.
+# Purpose: Generates a comparative report with side-by-side pie charts and tables
+#          showing the breakdown of QSO points for two logs.
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-04
-# Version: 0.30.4-Beta
+# Date: 2025-08-05
+# Version: 0.30.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,61 +17,118 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.30.4-Beta] - 2025-08-04
-### Changed
-# - Reverted chart generation from Plotly back to Matplotlib/Seaborn.
-import pandas as pd
+## [0.30.0-Beta] - 2025-08-05
+# - Initial release of Version 0.30.0-Beta.
+# - Standardized all project files to a common baseline version.
+from .report_interface import ContestReport
+from ._report_utils import get_valid_dataframe, create_output_directory
 import matplotlib.pyplot as plt
-import seaborn as sns
-from .report_interface import ReportInterface
+import pandas as pd
+import os
+import logging
 
-class PointContributionChart(ReportInterface):
-    report_name = "Point Contribution Breakdown"
+class Report(ContestReport):
+    """
+    Generates a comparative report with side-by-side pie charts showing QSO point contributions.
+    """
     report_id = "chart_point_contribution"
-    report_type = 'chart'
-
+    report_name = "Point Contribution Breakdown (Comparative)"
+    report_type = "chart"
     supports_single = False
-    supports_multi = True
-    supports_pairwise = False
+    supports_pairwise = True
+    supports_multi = False
 
     def generate(self, output_path: str, **kwargs) -> str:
-        if not self.logs or len(self.logs) < 2:
-            return "This report requires at least two logs for comparison."
-
-        all_calls = [log.get_metadata().get('MyCall', f'Log {i+1}') for i, log in enumerate(self.logs)]
+        """
+        Generates the pie charts and tables.
+        """
+        create_output_directory(output_path)
+        include_dupes = kwargs.get('include_dupes', False)
         
-        continent_points = {call: {} for call in all_calls}
-        continents = set()
+        if len(self.logs) != 2:
+            return f"Report '{self.report_name}' requires exactly two logs for comparison. Skipping."
 
-        for i, log in enumerate(self.logs):
-            df = log.get_processed_data()
-            df_no_dupes = df[df['Dupe'] == False]
-            
-            points_by_cont = df_no_dupes.groupby('Continent')['QSOPoints'].sum().to_dict()
-            call = all_calls[i]
-            
-            for cont, points in points_by_cont.items():
-                continent_points[call][cont] = points
-                continents.add(cont)
+        log1, log2 = self.logs[0], self.logs[1]
+        call1 = log1.get_metadata().get('MyCall', 'Log1')
+        call2 = log2.get_metadata().get('MyCall', 'Log2')
         
-        sorted_continents = sorted(list(continents))
+        df1 = get_valid_dataframe(log1, include_dupes)
+        df2 = get_valid_dataframe(log2, include_dupes)
 
-        df_plot = pd.DataFrame(continent_points).fillna(0).T
-        df_plot = df_plot[sorted_continents]
+        if df1['QSOPoints'].sum() == 0 and df2['QSOPoints'].sum() == 0:
+            return f"Skipping '{self.report_name}': No QSO points found in either log."
 
-        fig, ax = plt.subplots(figsize=(10, 6))
-        df_plot.plot(kind='bar', stacked=True, ax=ax)
+        fig, axes = plt.subplots(1, 2, figsize=(16, 7))
+        fig.suptitle(f'QSO Point Contribution: {call1} vs {call2}', fontsize=16)
 
-        ax.set_title('Point Contribution by Continent', fontsize=16)
-        ax.set_xlabel('Callsign')
-        ax.set_ylabel('Total Points')
-        ax.tick_params(axis='x', rotation=0)
-        ax.legend(title='Continent')
+        # --- Process and Plot for Log 1 ---
+        point_counts1 = df1['QSOPoints'].value_counts().sort_index()
+        total_qsos1 = point_counts1.sum()
+        point_labels1 = [f'{idx}-pt\n({val:,.0f} QSOs)' for idx, val in point_counts1.items()]
         
-        plt.tight_layout()
-        
-        combo_id = '_vs_'.join(sorted(all_calls))
-        filename = f"{self.report_id}_all bands_{combo_id}.png"
-        filepath = self._save_figure(fig, output_path, filename)
+        wedges1, texts1, autotexts1 = axes[0].pie(
+            point_counts1, labels=point_labels1, autopct=lambda p: f'{p:.1f}%',
+            startangle=90, textprops={'fontsize': 10}, wedgeprops={'edgecolor': 'white'}
+        )
+        axes[0].set_title(f'{call1}\nTotal Points: {df1["QSOPoints"].sum():,.0f}', fontsize=12)
+        plt.setp(autotexts1, size=10, weight="bold", color="white")
 
-        return f"Point Contribution charts saved to:\n  - {filepath}"
+        # --- Process and Plot for Log 2 ---
+        point_counts2 = df2['QSOPoints'].value_counts().sort_index()
+        total_qsos2 = point_counts2.sum()
+        point_labels2 = [f'{idx}-pt\n({val:,.0f} QSOs)' for idx, val in point_counts2.items()]
+        
+        wedges2, texts2, autotexts2 = axes[1].pie(
+            point_counts2, labels=point_labels2, autopct=lambda p: f'{p:.1f}%',
+            startangle=90, textprops={'fontsize': 10}, wedgeprops={'edgecolor': 'white'}
+        )
+        axes[1].set_title(f'{call2}\nTotal Points: {df2["QSOPoints"].sum():,.0f}', fontsize=12)
+        plt.setp(autotexts2, size=10, weight="bold", color="white")
+        
+        # --- Create Summary Table ---
+        summary_data1 = self._prepare_summary_data(point_counts1, df1["QSOPoints"].sum())
+        summary_data2 = self._prepare_summary_data(point_counts2, df2["QSOPoints"].sum())
+        
+        table_data = []
+        all_point_levels = sorted(list(set(summary_data1.keys()) | set(summary_data2.keys()) - {'TOTAL', 'AVG'}))
+
+        for level in all_point_levels:
+            row = [f'{level}-PT QSOs', f'{summary_data1.get(level, 0):,.0f}', f'{summary_data2.get(level, 0):,.0f}']
+            table_data.append(row)
+        
+        table_data.append(['-'*15, '-'*15, '-'*15])
+        table_data.append(['TOTAL QSOs', f'{summary_data1.get("TOTAL", 0):,.0f}', f'{summary_data2.get("TOTAL", 0):,.0f}'])
+        table_data.append(['AVG PTS/QSO', f'{summary_data1.get("AVG", 0.0):.2f}', f'{summary_data2.get("AVG", 0.0):.2f}'])
+        
+        table = fig.table(
+            cellText=table_data,
+            colLabels=['Metric', call1, call2],
+            loc='bottom',
+            cellLoc='center',
+            bbox=[0.1, -0.2, 0.8, 0.25]
+        )
+        table.auto_set_font_size(False)
+        table.set_fontsize(10)
+        table.scale(1, 1.5)
+
+        # --- Final Adjustments and Save ---
+        plt.tight_layout(rect=[0, 0, 1, 0.96])
+        plt.subplots_adjust(bottom=0.2)
+        
+        output_filename = os.path.join(output_path, f"{self.report_id}_{call1}_{call2}.png")
+        try:
+            plt.savefig(output_filename, bbox_inches='tight', dpi=150)
+            plt.close(fig)
+            logging.info(f"Successfully generated '{self.report_name}' and saved to {output_filename}")
+            return f"'{self.report_name}' saved to {output_filename}"
+        except Exception as e:
+            logging.error(f"Error saving chart: {e}")
+            plt.close(fig)
+            return f"Error generating report '{self.report_name}'"
+
+    def _prepare_summary_data(self, point_counts, total_points):
+        data = {level: count for level, count in point_counts.items()}
+        total_qsos = point_counts.sum()
+        data['TOTAL'] = total_qsos
+        data['AVG'] = total_points / total_qsos if total_qsos > 0 else 0
+        return data

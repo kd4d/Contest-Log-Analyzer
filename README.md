@@ -1,9 +1,7 @@
-Filename: "README.md"
-
 # Contest Log Analyzer
 
-**Version: 0.26.3-Beta**
-**Date: 2025-08-03**
+**Version: 0.30.0-Beta**
+**Date: 2025-08-05**
 
 A Python-based tool for in-depth analysis and comparison of amateur radio contest logs. This application processes standard Cabrillo files to generate detailed reports, charts, and visualizations, providing deep insights into operator strategy and performance.
 ---
@@ -43,14 +41,14 @@ Update the base packages and then install the required libraries.
 
 #### 4. Set Up Environment Variable
 
-The program requires the `CONTEST_DATA_DIR` environment variable to be set to the location of your data directory.
+The program requires the `CONTEST_LOGS_REPORTS` environment variable to be set to the root directory containing your `Logs`, `data`, and `reports` subdirectories.
 * **Windows (Temporary):**
     
-        set CONTEST_DATA_DIR="C:\path\to\your\Contest-Log-Analyzer\data"
+        set CONTEST_LOGS_REPORTS="C:\path\to\your\Contest-Log-Analyzer"
     
 * **macOS/Linux (Temporary):**
 
-        export CONTEST_DATA_DIR="/path/to/your/Contest-Log-Analyzer/data"
+        export CONTEST_LOGS_REPORTS="/path/to/your/Contest-Log-Analyzer"
 
 #### 5. Download Data Files
 
@@ -85,7 +83,7 @@ The analyzer is run from the command line using `main_cli.py`.
 ---
 ## Available Reports
 
-All generated files are saved to a structured directory under `reports_output/YYYY/CONTEST_NAME/`.
+All generated files are saved to a structured directory under `reports/YYYY/CONTEST_NAME/`.
 
 #### **Text Reports (`text/`)**
 

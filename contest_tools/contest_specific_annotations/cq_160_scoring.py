@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-04
-# Version: 0.29.5-Beta
+# Date: 2025-08-05
+# Version: 0.30.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,73 +16,50 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-# All notable changes to this project will be documented in this file.
-## [0.29.5-Beta] - 2025-08-04
-### Changed
-# - Replaced all `print` statements with calls to the new logging framework.
-## [0.29.0-Beta] - 2025-08-03
-### Added
-# - Initial release of the CQ 160 contest scoring module.
-
+## [0.30.0-Beta] - 2025-08-05
+# - Initial release of Version 0.30.0-Beta.
+# - Standardized all project files to a common baseline version.
 import pandas as pd
 from typing import Dict, Any
-import logging
 
-def _calculate_single_qso_points(row: pd.Series, my_dxcc_pfx: str, my_continent: str) -> int:
-    """
-    Calculates the point value for a single QSO based on CQ 160 rules.
-    This is an internal helper function designed to be used with df.apply().
-    """
-    # Rule: Dupes are always 0 points.
-    if row['Dupe']:
-        return 0
-
-    # If essential data is missing, QSO is worth 0 points.
-    if pd.isna(row['DXCCPfx']) or pd.isna(row['Continent']):
-        logging.warning(f"Scoring failed for QSO with {row['Call']} at {row['Datetime']}. Missing DXCC or Continent info. Assigning 0 points.")
-        return 0
-        
-    # Rule: Maritime Mobile contacts count 5 points.
-    if isinstance(row['Call'], str) and row['Call'].endswith('/MM'):
-        return 5
-
-    # Rule: Contacts with stations in own country are worth 2 points.
-    if row['DXCCPfx'] == my_dxcc_pfx:
-        return 2
-
-    # Rule: Contacts with other countries on same continent are worth 5 points.
-    if row['Continent'] == my_continent and row['DXCCPfx'] != my_dxcc_pfx:
-        return 5
-
-    # Rule: Contacts with other continents are worth 10 points.
-    if row['Continent'] != my_continent:
-        return 10
-    
-    # Fallback case, should not be reached with valid data.
-    return 0
+_DX_POINTS = {
+    "inter-continental": 10, # Between continents
+    "intra-continental": 5,  # Within same continent, but different country
+    "own-country": 2         # Within same country
+}
 
 def calculate_points(df: pd.DataFrame, my_call_info: Dict[str, Any]) -> pd.Series:
     """
     Calculates QSO points for an entire DataFrame based on CQ 160 rules.
-
-    Args:
-        df (pd.DataFrame): The DataFrame of QSOs to be scored.
-        my_call_info (Dict[str, Any]): A dictionary containing the logger's
-                                       own location info ('DXCCPfx' and 'Continent').
-
-    Returns:
-        pd.Series: A Pandas Series containing the calculated points for each QSO.
     """
-    my_dxcc_pfx = my_call_info.get('DXCCPfx')
+    if df.empty or 'Dupe' not in df.columns:
+        return pd.Series(0, index=df.index)
+
+    # Dupes are always 0 points.
+    dupe_mask = df['Dupe'] == True
+    
+    # QSOs with my own station are always 0 points.
+    my_call = my_call_info.get('MyCall', '')
+    my_call_mask = df['Call'] == my_call
+
+    # Get my own location info
     my_continent = my_call_info.get('Continent')
+    my_dxcc_name = my_call_info.get('DXCCName')
+    if not my_continent or not my_dxcc_name:
+        raise ValueError("Logger's Continent and DXCC Name must be provided.")
 
-    if not my_dxcc_pfx or not my_continent:
-        raise ValueError("Logger's own DXCC Prefix and Continent must be provided for scoring.")
+    # Apply rules based on worked station's location
+    inter_cont_mask = df['Continent'] != my_continent
+    intra_cont_mask = (df['Continent'] == my_continent) & (df['DXCCName'] != my_dxcc_name)
+    own_country_mask = df['DXCCName'] == my_dxcc_name
+    
+    # Calculate points
+    points = pd.Series(0, index=df.index)
+    points[inter_cont_mask] = _DX_POINTS['inter-continental']
+    points[intra_cont_mask] = _DX_POINTS['intra-continental']
+    points[own_country_mask] = _DX_POINTS['own-country']
 
-    # Apply the scoring logic to each row of the DataFrame.
-    return df.apply(
-        _calculate_single_qso_points, 
-        axis=1, 
-        my_dxcc_pfx=my_dxcc_pfx, 
-        my_continent=my_continent
-    )
+    # Set points for dupes and self-contacts to zero
+    points[dupe_mask | my_call_mask] = 0
+
+    return points

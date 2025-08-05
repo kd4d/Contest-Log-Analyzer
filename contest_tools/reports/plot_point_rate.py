@@ -1,12 +1,11 @@
 # Contest Log Analyzer/contest_tools/reports/plot_point_rate.py
 #
-# Purpose: Generates a plot showing the point rate (points per hour)
-#          for multiple logs.
+# Purpose: Generates a plot showing the cumulative point rate for one or more logs.
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-04
-# Version: 0.30.4-Beta
+# Date: 2025-08-05
+# Version: 0.30.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,49 +16,89 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.30.4-Beta] - 2025-08-04
-### Changed
-# - Reverted plotting functions from Plotly back to Matplotlib and Seaborn.
-import pandas as pd
+## [0.30.0-Beta] - 2025-08-05
+# - Initial release of Version 0.30.0-Beta.
+# - Standardized all project files to a common baseline version.
+from .report_interface import ContestReport
+from ._report_utils import get_valid_dataframe, create_output_directory
 import matplotlib.pyplot as plt
-from .report_interface import ReportInterface
+import matplotlib.dates as mdates
+import pandas as pd
+import os
+import logging
 
-class PointRatePlots(ReportInterface):
-    report_name = "Point Rate Comparison Plots"
+class Report(ContestReport):
     report_id = "point_rate_plots"
-    report_type = 'plot'
-
-    supports_single = False
+    report_name = "Cumulative Point Rate Plot"
+    report_type = "plot"
+    supports_single = True
+    supports_pairwise = False # Superseded by 'supports_multi'
     supports_multi = True
-    supports_pairwise = False
 
     def generate(self, output_path: str, **kwargs) -> str:
-        if not self.logs:
-            return "No logs available to generate point rate plots."
-
-        fig, ax = plt.subplots(figsize=(10, 6))
+        create_output_directory(output_path)
+        include_dupes = kwargs.get('include_dupes', False)
         
+        fig, ax = plt.subplots(figsize=(12, 8))
+        
+        all_calls = []
+        table_data = []
+
         for log in self.logs:
-            my_call = log.get_metadata().get('MyCall', 'UnknownCall')
-            df = log.get_processed_data()
-            df_no_dupes = df[df['Dupe'] == False]
+            callsign = log.get_metadata().get('MyCall', 'Unknown')
+            all_calls.append(callsign)
+            df = get_valid_dataframe(log, include_dupes)
+
+            if df.empty or 'QSOPoints' not in df.columns or df['QSOPoints'].sum() == 0:
+                logging.warning(f"Skipping {callsign} in '{self.report_name}': No point data available.")
+                continue
+                
+            df = df.set_index('Datetime')
             
-            point_rate = df_no_dupes.set_index('Datetime')['QSOPoints'].resample('H').sum()
+            # Use master time index for alignment
+            master_time_index = log._log_manager_ref.master_time_index
+            if master_time_index is None:
+                return f"Skipping '{self.report_name}': Master time index not available."
+
+            point_rate = df.resample('h')['QSOPoints'].sum().reindex(master_time_index, fill_value=0)
+            cumulative_points = point_rate.cumsum()
             
-            ax.plot(point_rate.index, point_rate.values, marker='o', linestyle='-', label=my_call)
+            ax.plot(cumulative_points.index, cumulative_points, label=callsign, marker='o', markersize=2, linestyle='-')
+            
+            total_points = df['QSOPoints'].sum()
+            total_qsos = len(df)
+            avg_ppq = total_points / total_qsos if total_qsos > 0 else 0
+            table_data.append([callsign, f'{total_points:,.0f}', f'{total_qsos:,.0f}', f'{avg_ppq:.2f}'])
 
-        ax.set_title('Point Rate Comparison (Points per Hour)')
-        ax.set_xlabel('Contest Time')
-        ax.set_ylabel('Points per Hour')
-        ax.legend()
-        ax.grid(True)
+        if not table_data:
+            plt.close(fig)
+            return f"Skipping '{self.report_name}': No logs had sufficient data to plot."
+
+        # Formatting the plot
+        ax.set_title(f'Cumulative Point Rate: {", ".join(all_calls)}', fontsize=16)
+        ax.set_xlabel('Contest Time (UTC)')
+        ax.set_ylabel('Cumulative Points')
+        ax.grid(True, which='both', linestyle='--', linewidth=0.5)
+        ax.legend(loc='upper left')
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d %H:%M'))
+        plt.xticks(rotation=45)
+
+        # Adding summary table
+        col_labels = ['Callsign', 'Total Points', 'Total QSOs', 'Avg Pts/QSO']
+        the_table = plt.table(cellText=table_data, colLabels=col_labels, loc='bottom', bbox=[0, -0.25, 1, 0.15])
+        the_table.auto_set_font_size(False)
+        the_table.set_fontsize(10)
         
-        plt.tight_layout()
+        plt.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.2)
         
-        all_calls = sorted([log.get_metadata().get('MyCall', f'Log{i+1}') for i, log in enumerate(self.logs)])
-        combo_id = '_vs_'.join(all_calls)
+        output_filename = os.path.join(output_path, f"{self.report_id}_{'_'.join(all_calls)}.png")
+        try:
+            plt.savefig(output_filename, dpi=150)
+            plt.close(fig)
+            return f"'{self.report_name}' saved to {output_filename}"
+        except Exception as e:
+            logging.error(f"Error saving plot: {e}")
+            plt.close(fig)
+            return f"Error generating report '{self.report_name}'"
 
-        filename = f"{self.report_id}_all_plot.png"
-        filepath = self._save_figure(fig, output_path, filename)
 
-        return f"Point rate plots saved to:\n  - {filepath}"

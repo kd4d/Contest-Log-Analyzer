@@ -1,11 +1,13 @@
-Filename: "Docs/CallsignLookupAlgorithm.md"
-
 # Callsign Lookup Algorithm Specification
 
-**Version: 0.28.9-Beta**
-**Date: 2025-08-03**
+**Version: 0.30.0-Beta**
+**Date: 2025-08-05**
 
-This document describes the algorithm implemented in `get_cty.py` for determining an amateur radio callsign's DXCC entity and other geographical data based on the `CTY.DAT` file.
+---
+### --- Revision History ---
+## [0.30.0-Beta] - 2025-08-05
+# - Initial release of Version 0.30.0-Beta.
+# - Standardized all project files to a common baseline version.
 ---
 
 ## 1. Core Purpose
