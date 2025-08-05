@@ -7,8 +7,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-04
-# Version: 0.29.5-Beta
+# Date: 2025-08-05
+# Version: 0.29.6-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,6 +20,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
 # All notable changes to this project will be documented in this file.
+## [0.29.6-Beta] - 2025-08-05
+### Fixed
+# - Moved the processed CSV export logic from `load_log` to `finalize_loading`
+#   to ensure the correct, combined callsign subdirectory is used for the path.
 ## [0.29.5-Beta] - 2025-08-04
 ### Changed
 # - Replaced all `print` statements with calls to the new logging framework.
@@ -68,19 +72,6 @@ class LogManager:
             
             self.logs.append(log)
             
-            # The processed CSV is now saved in the main reports directory, not next to the log
-            root_dir = os.environ.get('CONTEST_LOGS_REPORTS').strip().strip('"').strip("'")
-            year = log.get_processed_data()['Date'].iloc[0].split('-')[0]
-            event_id = self._get_event_id(log)
-            
-            output_dir = os.path.join(root_dir, 'reports', year, contest_name, event_id)
-            os.makedirs(output_dir, exist_ok=True)
-            
-            base_filename = os.path.splitext(os.path.basename(cabrillo_filepath))[0]
-            output_filename = f"{base_filename}_processed.csv"
-            output_filepath = os.path.join(output_dir, output_filename)
-            log.export_to_csv(output_filepath)
-
             logging.info(f"Successfully loaded and processed log for {log.get_metadata().get('MyCall', 'Unknown')}.")
 
         except Exception as e:
@@ -89,11 +80,39 @@ class LogManager:
     def finalize_loading(self):
         """
         Should be called after all logs are loaded to perform final,
-        cross-log processing steps like creating the master time index.
+        cross-log processing steps like creating the master time index and
+        saving the processed data files.
         """
         if not self.logs:
             return
+
+        # --- Create Master Time Index First ---
         self._create_master_time_index()
+
+        # --- Save Processed CSVs to the Correct, Final Directory ---
+        if not self.logs:
+            return
+            
+        root_dir = os.environ.get('CONTEST_LOGS_REPORTS').strip().strip('"').strip("'")
+        first_log = self.logs[0]
+        contest_name = first_log.get_metadata().get('ContestName', 'UnknownContest').replace(' ', '_')
+        
+        df_first_log = first_log.get_processed_data()
+        year = df_first_log['Date'].dropna().iloc[0].split('-')[0] if not df_first_log.empty and not df_first_log['Date'].dropna().empty else "UnknownYear"
+
+        event_id = self._get_event_id(first_log)
+        all_calls = sorted([log.get_metadata().get('MyCall', f'Log{i+1}') for i, log in enumerate(self.logs)])
+        callsign_combo_id = '_'.join(all_calls)
+
+        output_dir = os.path.join(root_dir, 'reports', year, contest_name, event_id, callsign_combo_id)
+        os.makedirs(output_dir, exist_ok=True)
+            
+        for log in self.logs:
+            base_filename = os.path.splitext(os.path.basename(log.filepath))[0]
+            output_filename = f"{base_filename}_processed.csv"
+            output_filepath = os.path.join(output_dir, output_filename)
+            log.export_to_csv(output_filepath)
+
 
     def _get_event_id(self, log: ContestLog) -> str:
         """
