@@ -1,12 +1,12 @@
 # Contest Log Analyzer/contest_tools/contest_specific_annotations/naqp_multiplier_resolver.py
 #
 # Purpose: Provides contest-specific logic to resolve NAQP multipliers
-#          (States/Provinces/NA DXCC) from the log exchange.
+#          (States/Provinces and North American DXCC entities).
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-04
-# Version: 0.29.5-Beta
+# Date: 2025-08-05
+# Version: 0.30.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,64 +17,58 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-# All notable changes to this project will be documented in this file.
-## [0.29.5-Beta] - 2025-08-04
-### Changed
-# - Renamed the DXCC multiplier column to `NADXCC_Mult` for clarity and
-#   accuracy, as NAQP only allows North American DXCC entities as multipliers.
-## [0.29.1-Beta] - 2025-08-04
-### Changed
-# - Rewrote resolver to use the shared AliasLookup class and create two
-#   distinct, clean output columns (STPROV_Mult, DXCC_Mult) to fix the
-#   double-counting bug.
-## [0.29.0-Beta] - 2025-08-03
-### Added
-# - Initial release of the NAQP multiplier resolver module.
+## [0.30.0-Beta] - 2025-08-05
+# - Initial release of Version 0.30.0-Beta.
+# - Standardized all project files to a common baseline version.
 import pandas as pd
 import os
-from typing import Optional
 from ..core_annotations._core_utils import AliasLookup
+from typing import Optional
 
 def resolve_multipliers(df: pd.DataFrame, my_location_type: Optional[str]) -> pd.DataFrame:
     """
-    Resolves multipliers for NAQP, creating separate columns for State/Province
-    and other North American DXCC entities to prevent double-counting.
+    Resolves multipliers for the NAQP contest.
+    - Differentiates between US/VE State/Province multipliers and other North American DXCC multipliers.
     """
-    if df.empty or 'RcvdLocation' not in df.columns:
-        df['STPROV_Mult'] = pd.NA
-        df['NADXCC_Mult'] = pd.NA
-        df['NADXCC_MultName'] = pd.NA
+    if df.empty:
         return df
 
-    data_dir = os.environ.get('CONTEST_DATA_DIR').strip().strip('"').strip("'")
+    # Initialize output columns
+    df['STPROV_Mult'] = pd.NA
+    df['NADXCC_Mult'] = pd.NA
+    df['NADXCC_MultName'] = pd.NA
+
+    data_dir = os.environ.get('CONTEST_DATA_DIR', '').strip().strip('"').strip("'")
     alias_lookup = AliasLookup(data_dir, 'NAQPmults.dat')
-    
-    stprov_mults = []
-    nadxcc_mults = []
-    nadxcc_mult_names = []
 
-    for index, row in df.iterrows():
-        stprov_val = pd.NA
-        nadxcc_val = pd.NA
-        nadxcc_name_val = pd.NA
+    # All stations can work all other North American stations.
+    # The multiplier type depends on the location of the *worked* station.
+
+    def get_mults(row):
+        stprov_mult = pd.NA
+        nadxcc_mult = pd.NA
+        nadxcc_mult_name = pd.NA
+
+        # We only care about QSOs where the worked station is in North America.
+        # The 'WAEName' field from cty.dat is used to identify North American entities.
+        if row.get('WAEName') != 'North America':
+            return stprov_mult, nadxcc_mult, nadxcc_mult_name
+
+        # For stations inside the US/Canada, the multiplier is the State or Province.
+        if row.get('DXCCName') in ["United States", "Canada"]:
+            location = row.get('RcvdLocation', '')
+            mult_abbr, _ = alias_lookup.get_multiplier(location)
+            stprov_mult = mult_abbr
         
-        location = row.get('RcvdLocation', '')
-        st_prov_mult, st_prov_name = alias_lookup.get_multiplier(location)
-        
-        if pd.notna(st_prov_mult):
-            stprov_val = st_prov_mult
+        # For other North American stations, the multiplier is their DXCC entity.
         else:
-            continent = row.get('Continent')
-            if continent == 'NA':
-                nadxcc_val = row.get('DXCCPfx', pd.NA)
-                nadxcc_name_val = row.get('DXCCName', pd.NA)
+            nadxcc_mult = row.get('DXCCName')
+            nadxcc_mult_name = row.get('DXCCName')
+            
+        return stprov_mult, nadxcc_mult, nadxcc_mult_name
 
-        stprov_mults.append(stprov_val)
-        nadxcc_mults.append(nadxcc_val)
-        nadxcc_mult_names.append(nadxcc_name_val)
-
-    df['STPROV_Mult'] = stprov_mults
-    df['NADXCC_Mult'] = nadxcc_mults
-    df['NADXCC_MultName'] = nadxcc_mult_names
+    # Apply the logic to each row
+    mult_results = df.apply(get_mults, axis=1, result_type='expand')
+    df[['STPROV_Mult', 'NADXCC_Mult', 'NADXCC_MultName']] = mult_results
     
     return df

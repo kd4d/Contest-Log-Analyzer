@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-07-25
-# Version: 0.15.0-Beta
+# Date: 2025-08-05
+# Version: 0.30.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -15,22 +15,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 # --- Revision History ---
-# All notable changes to this project will be documented in this file.
-# The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
-# and this project aims to adhere to Semantic Versioning (https://semver.org/).
-
-## [0.15.0-Beta] - 2025-07-25
-# - Standardized version for final review. No functional changes.
-
-## [0.12.1-Beta] - 2025-07-21
-### Fixed
-# - Removed internal imports to resolve a circular dependency issue. The
-#   ContestLog class will now dynamically load scoring modules.
-
-## [0.12.0-Beta] - 2025-07-21
-# - Initial release of the contest_specific_annotations package.
+## [0.30.0-Beta] - 2025-08-05
+# - Initial release of Version 0.30.0-Beta.
+# - Standardized all project files to a common baseline version.
 
 # This file can be left empty. Its presence is what defines
 # this directory as a Python package.

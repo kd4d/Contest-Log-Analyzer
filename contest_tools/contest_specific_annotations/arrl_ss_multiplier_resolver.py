@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-01
-# Version: 0.24.5-Beta
+# Date: 2025-08-05
+# Version: 0.30.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,29 +16,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 # --- Revision History ---
-# All notable changes to this project will be documented in this file.
-# The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
-# and this project aims to adhere to Semantic Versioning (https://semver.org/).
-
-## [0.24.5-Beta] - 2025-08-01
-### Removed
-# - Removed temporary diagnostic print statements.
-
-## [0.24.4-Beta] - 2025-08-01
-### Added
-# - Added temporary diagnostic print statements to debug section file parsing.
-
-## [0.24.3-Beta] - 2025-08-01
-### Fixed
-# - Corrected the regular expression used to parse the SweepstakesSections.dat
-#   file, which was preventing any sections from being loaded.
-
-## [0.24.0-Beta] - 2025-08-01
-### Added
-# - Initial release of the ARRL Sweepstakes multiplier resolver module.
-
+## [0.30.0-Beta] - 2025-08-05
+# - Initial release of Version 0.30.0-Beta.
+# - Standardized all project files to a common baseline version.
 import pandas as pd
 import os
 import re

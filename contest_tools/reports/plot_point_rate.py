@@ -1,12 +1,11 @@
 # Contest Log Analyzer/contest_tools/reports/plot_point_rate.py
 #
-# Purpose: A plot report that generates a point rate graph for all bands
-#          and for each individual band by calling a shared utility.
+# Purpose: Generates a plot showing the cumulative point rate for one or more logs.
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-04
-# Version: 0.28.4-Beta
+# Date: 2025-08-05
+# Version: 0.30.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,61 +16,89 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-# All notable changes to this project will be documented in this file.
-# The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
-# and this project aims to adhere to Semantic Versioning (https://semver.org/).
-## [0.28.4-Beta] - 2025-08-04
-### Fixed
-# - The report no longer generates redundant, per-band plots for single-band contests.
-## [0.28.3-Beta] - 2025-08-04
-### Changed
-# - Simplified the report to work with pre-aligned dataframes, removing
-#   all internal time-alignment logic to fix the "all zeros" bug.
-from typing import List
-import os
-import pandas as pd
-from ..contest_log import ContestLog
+## [0.30.0-Beta] - 2025-08-05
+# - Initial release of Version 0.30.0-Beta.
+# - Standardized all project files to a common baseline version.
 from .report_interface import ContestReport
-from ._report_utils import _create_cumulative_rate_plot
+from ._report_utils import get_valid_dataframe, create_output_directory
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+import pandas as pd
+import os
+import logging
 
 class Report(ContestReport):
-    """
-    Generates a series of plots comparing cumulative points: one for all bands
-    combined, and one for each individual contest band.
-    """
-    report_id: str = "point_rate_plots"
-    report_name: str = "Point Rate Comparison Plots"
-    report_type: str = "plot"
+    report_id = "point_rate_plots"
+    report_name = "Cumulative Point Rate Plot"
+    report_type = "plot"
+    supports_single = True
+    supports_pairwise = False # Superseded by 'supports_multi'
     supports_multi = True
-    
-    def generate(self, output_path: str, **kwargs) -> str:
-        """
-        Orchestrates the generation of all point rate plots by calling the
-        shared helper function.
-        """
-        bands = self.logs[0].contest_definition.valid_bands
-        is_single_band = len(bands) == 1
-        bands_to_plot = ['All'] if is_single_band else ['All'] + bands
-        
-        created_files = []
-        
-        for band in bands_to_plot:
-            try:
-                save_path = os.path.join(output_path, band) if band != "All" else output_path
-                filepath = _create_cumulative_rate_plot(
-                    logs=self.logs,
-                    output_path=save_path,
-                    band_filter=band,
-                    metric_name="Points",
-                    value_column='QSOPoints',
-                    agg_func='sum',
-                    report_id=self.report_id
-                )
-                if filepath:
-                    created_files.append(filepath)
-            except Exception as e:
-                print(f"  - Failed to generate point rate plot for {band}: {e}")
 
-        if not created_files:
-            return "No point rate plots were generated."
-        return "Point rate plots saved to:\n" + "\n".join([f"  - {fp}" for fp in created_files])
+    def generate(self, output_path: str, **kwargs) -> str:
+        create_output_directory(output_path)
+        include_dupes = kwargs.get('include_dupes', False)
+        
+        fig, ax = plt.subplots(figsize=(12, 8))
+        
+        all_calls = []
+        table_data = []
+
+        for log in self.logs:
+            callsign = log.get_metadata().get('MyCall', 'Unknown')
+            all_calls.append(callsign)
+            df = get_valid_dataframe(log, include_dupes)
+
+            if df.empty or 'QSOPoints' not in df.columns or df['QSOPoints'].sum() == 0:
+                logging.warning(f"Skipping {callsign} in '{self.report_name}': No point data available.")
+                continue
+                
+            df = df.set_index('Datetime')
+            
+            # Use master time index for alignment
+            master_time_index = log._log_manager_ref.master_time_index
+            if master_time_index is None:
+                return f"Skipping '{self.report_name}': Master time index not available."
+
+            point_rate = df.resample('h')['QSOPoints'].sum().reindex(master_time_index, fill_value=0)
+            cumulative_points = point_rate.cumsum()
+            
+            ax.plot(cumulative_points.index, cumulative_points, label=callsign, marker='o', markersize=2, linestyle='-')
+            
+            total_points = df['QSOPoints'].sum()
+            total_qsos = len(df)
+            avg_ppq = total_points / total_qsos if total_qsos > 0 else 0
+            table_data.append([callsign, f'{total_points:,.0f}', f'{total_qsos:,.0f}', f'{avg_ppq:.2f}'])
+
+        if not table_data:
+            plt.close(fig)
+            return f"Skipping '{self.report_name}': No logs had sufficient data to plot."
+
+        # Formatting the plot
+        ax.set_title(f'Cumulative Point Rate: {", ".join(all_calls)}', fontsize=16)
+        ax.set_xlabel('Contest Time (UTC)')
+        ax.set_ylabel('Cumulative Points')
+        ax.grid(True, which='both', linestyle='--', linewidth=0.5)
+        ax.legend(loc='upper left')
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%m-%d %H:%M'))
+        plt.xticks(rotation=45)
+
+        # Adding summary table
+        col_labels = ['Callsign', 'Total Points', 'Total QSOs', 'Avg Pts/QSO']
+        the_table = plt.table(cellText=table_data, colLabels=col_labels, loc='bottom', bbox=[0, -0.25, 1, 0.15])
+        the_table.auto_set_font_size(False)
+        the_table.set_fontsize(10)
+        
+        plt.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.2)
+        
+        output_filename = os.path.join(output_path, f"{self.report_id}_{'_'.join(all_calls)}.png")
+        try:
+            plt.savefig(output_filename, dpi=150)
+            plt.close(fig)
+            return f"'{self.report_name}' saved to {output_filename}"
+        except Exception as e:
+            logging.error(f"Error saving plot: {e}")
+            plt.close(fig)
+            return f"Error generating report '{self.report_name}'"
+
+This is the final bundle. The multi-file update is now complete.

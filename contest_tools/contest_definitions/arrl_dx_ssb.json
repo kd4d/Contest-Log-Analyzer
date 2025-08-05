@@ -1,5 +1,7 @@
 {
   "_filename": "contest_tools/contest_definitions/arrl_dx_ssb.json",
+  "_version": "0.30.0-Beta",
+  "_date": "2025-08-05",
   "contest_name": "ARRL-DX-SSB",
   "mults_from_zero_point_qsos": false,
   "custom_multiplier_resolver": "arrl_dx_multiplier_resolver",

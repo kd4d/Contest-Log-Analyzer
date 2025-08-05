@@ -1,11 +1,11 @@
 # Contest Log Analyzer/contest_tools/contest_specific_annotations/cq_ww_scoring.py
 #
-# Purpose: Provides contest-specific scoring logic for the CQ WW contest.
+# Purpose: Provides contest-specific scoring logic for the CQ WW DX contest.
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-04
-# Version: 0.29.5-Beta
+# Date: 2025-08-05
+# Version: 0.30.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,79 +16,72 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-# All notable changes to this project will be documented in this file.
-## [0.29.5-Beta] - 2025-08-04
-### Changed
-# - Replaced all `print` statements with calls to the new logging framework.
-## [0.21.0-Beta] - 2025-07-29
-### Changed
-# - Updated scoring logic to correctly handle Maritime Mobile (/MM) stations
-#   and stations with an "Unknown" country multiplier, per the official
-#   CQ WW contest rules.
+## [0.30.0-Beta] - 2025-08-05
+# - Initial release of Version 0.30.0-Beta.
+# - Standardized all project files to a common baseline version.
 import pandas as pd
 from typing import Dict, Any
-import logging
 
-def _calculate_single_qso_points(row: pd.Series, my_dxcc_pfx: str, my_continent: str) -> int:
+def _calculate_single_qso_points(row: pd.Series, my_continent: str, my_dxcc_name: str) -> int:
     """
     Calculates the point value for a single QSO based on CQ WW rules.
-    This is an internal helper function designed to be used with df.apply().
     """
-    # Rule: Dupes are always 0 points.
+    # Rule: Dupes and contacts with own station are always 0 points.
     if row['Dupe']:
         return 0
+
+    worked_continent = row.get('Continent')
+    worked_dxcc_name = row.get('DXCCName')
+
+    # Rule: Contacts between stations on different continents are worth 3 points.
+    if worked_continent and worked_continent != my_continent:
+        return 3
+
+    # Rule: Contacts between stations on the same continent but in different countries are 1 point.
+    if worked_continent and worked_continent == my_continent and worked_dxcc_name != my_dxcc_name:
+        return 1
+
+    # Rule: Contacts between stations in the same country are worth 0 points.
+    if worked_dxcc_name == my_dxcc_name:
+        return 0
         
-    # Rule: Maritime Mobile stations are worth 5 points.
-    if isinstance(row['Call'], str) and row['Call'].endswith('/MM'):
-        return 5
+    # Rule: Contacts between stations in North America are worth 2 points.
+    # This is a special case that overrides the 1-point same-continent rule.
+    # The 'WAEName' column from cty.dat will contain 'North America' for these stations.
+    my_wae_name = row.get('MyWAEName') # This should be added to the row from my_call_info
+    worked_wae_name = row.get('WAEName')
+    if my_wae_name == 'North America' and worked_wae_name == 'North America':
+        return 2
 
-    # If essential data is missing (and not /MM), QSO is worth 0 points.
-    if pd.isna(row['DXCCPfx']) or pd.isna(row['Continent']) or row['DXCCPfx'] == 'Unknown':
-        logging.warning(f"Scoring failed for QSO with {row['Call']} at {row['Datetime']}. Missing DXCC or Continent info. Assigning 0 points.")
-        return 0
-
-    # Rule: Contacts between stations in the same country have zero (0) QSO point value.
-    if row['DXCCPfx'] == my_dxcc_pfx:
-        return 0
-
-    # Rule: Contacts between stations on different continents.
-    if row['Continent'] != my_continent:
-        return 3 # Points are the same for high and low bands in this case
-
-    # Rule: Contacts between stations on the same continent but in different countries.
-    if row['Continent'] == my_continent and row['DXCCPfx'] != my_dxcc_pfx:
-        # Special rule for North American stations.
-        if my_continent == 'NA':
-            return 2
-        # Standard rule for all other continents.
-        else:
-            return 1
-    
-    # Fallback case, should not be reached with valid data.
+    # Fallback case, should not be reached often
     return 0
 
 def calculate_points(df: pd.DataFrame, my_call_info: Dict[str, Any]) -> pd.Series:
     """
-    Calculates QSO points for an entire DataFrame based on CQ WW rules.
+    Calculates QSO points for an entire DataFrame based on CQ WW DX rules.
 
     Args:
         df (pd.DataFrame): The DataFrame of QSOs to be scored.
         my_call_info (Dict[str, Any]): A dictionary containing the logger's
-                                       own location info ('DXCCPfx' and 'Continent').
+                                       own location info ('Continent', 'DXCCName', 'WAEName').
 
     Returns:
         pd.Series: A Pandas Series containing the calculated points for each QSO.
     """
-    my_dxcc_pfx = my_call_info.get('DXCCPfx')
     my_continent = my_call_info.get('Continent')
+    my_dxcc_name = my_call_info.get('DXCCName')
+    
+    if not my_continent or not my_dxcc_name:
+        raise ValueError("Logger's Continent and DXCC Name must be provided.")
+        
+    # Add my own WAE name to each row for the scoring function to use.
+    # This is slightly inefficient but makes the per-row logic cleaner.
+    df_temp = df.copy()
+    df_temp['MyWAEName'] = my_call_info.get('WAEName')
 
-    if not my_dxcc_pfx or not my_continent:
-        raise ValueError("Logger's own DXCC Prefix and Continent must be provided for scoring.")
-
-    # Apply the scoring logic to each row of the DataFrame.
-    return df.apply(
-        _calculate_single_qso_points, 
-        axis=1, 
-        my_dxcc_pfx=my_dxcc_pfx, 
-        my_continent=my_continent
+    return df_temp.apply(
+        _calculate_single_qso_points,
+        axis=1,
+        my_continent=my_continent,
+        my_dxcc_name=my_dxcc_name
     )

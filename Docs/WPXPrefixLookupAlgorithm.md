@@ -1,16 +1,18 @@
-Filename: "Docs/WPXPrefixLookupAlgorithm.md"
-
 # WPX Prefix Lookup Algorithm Specification
 
-**Version: 0.28.3-Beta**
-**Date: 2025-08-03**
+**Version: 0.30.0-Beta**
+**Date: 2025-08-05**
 
-This document describes the algorithm implemented in `cq_wpx_prefix.py` for determining an amateur radio callsign's official CQ WPX Contest prefix. It relies on pre-processed information provided by the `get_cty.py` lookup script to resolve ambiguities.
+---
+### --- Revision History ---
+## [0.30.0-Beta] - 2025-08-05
+# - Initial release of Version 0.30.0-Beta.
+# - Standardized all project files to a common baseline version.
 ---
 
 ## 1. Core Purpose
 
-The script's purpose is to implement the specific and complex rules of the CQ WPX Contest to derive the correct prefix from a given callsign.
+The script's purpose is to implement the specific and complex rules of the CQ WPX Contest to derive the correct prefix from a given callsign. It relies on pre-processed information provided by the `get_cty.py` lookup script to resolve ambiguities.
 
 ---
 ## 2. Required Inputs

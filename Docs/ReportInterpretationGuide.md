@@ -1,9 +1,14 @@
-Filename: "Docs/ReportInterpretationGuide.md"
-
 # Report Interpretation Guide
 
-**Version: 0.26.4-Beta**
-**Date: 2025-08-03**
+**Version: 0.30.0-Beta**
+**Date: 2025-08-05**
+
+---
+### --- Revision History ---
+## [0.30.0-Beta] - 2025-08-05
+# - Initial release of Version 0.30.0-Beta.
+# - Standardized all project files to a common baseline version.
+---
 
 ## 1. Introduction
 

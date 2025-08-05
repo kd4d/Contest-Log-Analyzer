@@ -1,5 +1,7 @@
 {
   "_filename": "contest_tools/contest_definitions/arrl_ss_ssb.json",
+  "_version": "0.30.0-Beta",
+  "_date": "2025-08-05",
   "contest_name": "ARRL-SS-SSB",
   "dupe_check_scope": "all_bands",
   "custom_multiplier_resolver": "arrl_ss_multiplier_resolver",

@@ -1,4 +1,14 @@
-## Technical Debt Cleanup Plan
+# Technical Debt Cleanup Plan
+
+**Version: 0.30.0-Beta**
+**Date: 2025-08-05**
+
+---
+### --- Revision History ---
+## [0.30.0-Beta] - 2025-08-05
+# - Initial release of Version 0.30.0-Beta.
+# - Standardized all project files to a common baseline version.
+---
 
 ### 1. Create a Shared Alias Parser
 * **What:** I will create a single, generic `AliasLookup` class and move it into the shared **`_report_utils.py`** module. The multiplier resolver modules (like `cq_160_multiplier_resolver.py`) will be simplified to use this shared utility.

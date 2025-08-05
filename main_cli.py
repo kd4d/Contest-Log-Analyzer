@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-04
-# Version: 0.29.5-Beta
+# Date: 2025-08-05
+# Version: 0.30.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,20 +18,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-# All notable changes to this project will be documented in this file.
-## [0.29.5-Beta] - 2025-08-04
-### Added
-# - Added a '--verbose' flag to enable detailed status reporting.
-# - Integrated the new centralized logging framework.
-### Changed
-# - Replaced all `print` statements with calls to the appropriate logger
-#   (e.g., logger.info, logger.error).
-## [0.29.4-Beta] - 2025-08-04
-### Fixed
-# - The script now strips quotes from the CONTEST_LOGS_REPORTS environment
-#   variable to prevent path errors on Windows.
-# - The script now correctly constructs the full path to log files, assuming
-#   the provided paths are relative to the 'Logs' subdirectory.
+## [0.30.0-Beta] - 2025-08-05
+# - Initial release of Version 0.30.0-Beta.
+# - Standardized all project files to a common baseline version.
 import sys
 import os
 import argparse

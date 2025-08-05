@@ -1,12 +1,12 @@
 # Contest Log Analyzer/contest_tools/contest_specific_annotations/cq_wpx_prefix.py
 #
-# Purpose: Provides a contest-specific function to determine the WPX prefix
-#          for a given callsign according to the CQ WPX contest rules.
+# Purpose: Provides contest-specific logic for calculating WPX (Worked All Prefixes)
+#          contest multipliers from callsigns. It uses pre-processed CTY data.
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-04
-# Version: 0.29.5-Beta
+# Date: 2025-08-05
+# Version: 0.30.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,138 +17,102 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-# All notable changes to this project will be documented in this file.
-## [0.29.5-Beta] - 2025-08-04
-### Changed
-# - Replaced all `print` statements with calls to the new logging framework.
-## [0.28.13-Beta] - 2025-08-03
-### Added
-# - Added a final validation check to set any calculated prefix that is a
-#   single digit to "Unknown".
-### Fixed
-# - Corrected the logic for the `call/digit` portable case to simply and
-#   reliably identify the root callsign, fixing the bug with IZ5TJD/7.
-#
-## [0.28.6-Beta] - 2025-08-02
-### Fixed
-# - Refined the non-portable override rule to only apply when the DXCCPfx
-#   is *longer* than the default "up-to-the-last-digit" prefix. This
-#   correctly resolves ambiguity between special and standard prefixes.
-#
+## [0.30.0-Beta] - 2025-08-05
+# - Initial release of Version 0.30.0-Beta.
+# - Standardized all project files to a common baseline version.
 import pandas as pd
 import re
-import logging
+from typing import List, Any
+
+# Define suffixes to be stripped from callsigns before processing
+SUFFIXES_TO_STRIP = ['/QRP', '/P', '/M', '/B']
 
 def _clean_callsign(call: str) -> str:
     """
-    Strips common non-prefix suffixes and cleans the callsign for analysis.
-    This logic is intentionally kept separate from get_cty.py.
+    Cleans a callsign by removing common suffixes and parts after a hyphen.
     """
-    if not isinstance(call, str) or not call:
+    if not isinstance(call, str):
         return ""
     
-    call = call.upper().strip()
-    call = call.partition('-')[0]
+    call_upper = call.upper()
     
-    suffixes_to_strip = ['/P', '/M', '/A', '/E', '/J', '/B', '/QRP']
-    for suffix in suffixes_to_strip:
-        if call.endswith(suffix):
-            call = call[:-len(suffix)]
-            break
-    return call
+    # Strip specific suffixes first
+    for suffix in SUFFIXES_TO_STRIP:
+        if call_upper.endswith(suffix):
+            call_upper = call_upper[:-len(suffix)]
+            break # Stop after the first match
+            
+    # Strip anything after a hyphen
+    return call_upper.split('-')[0].strip()
 
-def _get_prefix_for_non_portable(call: str, dxc_pfx: str) -> str:
+def _get_prefix(row: pd.Series) -> str:
     """
-    Determines the WPX prefix for a standard, non-portable callsign using
-    the refined two-step logic.
+    Derives the WPX prefix for a single QSO (row) based on a strict ruleset.
     """
-    # First, determine the default prefix ("everything up to last digit").
-    default_prefix = "Unknown"
-    match = re.search(r'\d(?!.*\d)', call)
-    if match:
-        last_digit_index = match.start()
-        default_prefix = call[:last_digit_index + 1]
-    else:
-        # No number fallback rule.
-        if len(call) >= 2:
-            default_prefix = call[:2] + '0'
-
-    # Next, apply the override rule. It only triggers if the DXCCPfx is a
-    # more specific (longer) prefix than the default.
-    if (dxc_pfx and dxc_pfx != "Unknown" and
-        call.startswith(dxc_pfx) and
-        len(dxc_pfx) > len(default_prefix)):
-        return dxc_pfx
+    call = row.get('Call', '')
+    dxcc_pfx = row.get('DXCCPfx', 'Unknown')
+    portable_id = row.get('portableid', '')
     
-    return default_prefix
-
-def _get_wpx_prefix_from_row(row: pd.Series) -> str:
-    """
-    Main logic to determine a WPX prefix from a full DataFrame row.
-    """
-    raw_call = row.get('Call')
-    dxc_pfx = row.get('DXCCPfx')
-    portable_id = row.get('portableid')
-    prefix_result = "Unknown" # Default value
-
-    if not raw_call:
+    # Rule 1: Highest priority for Maritime Mobile
+    if call.endswith('/MM'):
         return "Unknown"
 
-    # WPX Rule: Maritime mobile does not count as a prefix. This is the highest priority.
-    if raw_call.upper().strip().endswith('/MM'):
-        return "Unknown"
+    cleaned_call = _clean_callsign(call)
 
-    cleaned_call = _clean_callsign(raw_call)
-
-    # --- Portable Call Logic ---
+    # --- Portable Call Processing ---
     if portable_id:
-        if dxc_pfx == "Unknown":
-            prefix_result = "Unknown"
-        # Rule: call/digit (e.g., WN5N/7 -> WN7)
-        elif len(portable_id) == 1 and portable_id.isdigit():
-            parts = cleaned_call.split('/')
-            # The root call is the part that is NOT the single-digit portableid.
-            root_call = parts[0] if len(parts) > 1 and parts[1] == portable_id else parts[-1]
-            
-            root_prefix = _get_prefix_for_non_portable(root_call, dxc_pfx)
-            
-            match = re.search(r'\d(?!.*\d)', root_prefix)
+        if dxcc_pfx == "Unknown":
+            return "Unknown"
+        
+        # Rule: "call/digit" (e.g., WN5N/7)
+        if len(portable_id) == 1 and portable_id.isdigit():
+            # Find the root call by removing the portable part from the original call
+            root_call_part = call.split('/')[0]
+            # Find the prefix of the root call
+            match = re.match(r'([A-Z]+[0-9]+)', root_call_part)
             if match:
-                last_digit_index = match.start()
-                prefix_result = root_prefix[:last_digit_index] + portable_id
-            else:
-                prefix_result = root_prefix + portable_id
-        # Rule: call/letters (e.g., LX/KD4D -> LX0)
-        elif portable_id.isalpha():
-            prefix_result = portable_id + '0'
-        # Rule: call/prefix (e.g., VP2V/KD4D -> VP2V)
-        else:
-            prefix_result = portable_id
-    # --- Non-Portable Call Logic ---
-    else:
-        prefix_result = _get_prefix_for_non_portable(cleaned_call, dxc_pfx)
+                root_prefix = match.group(1)
+                # Replace the digit in the root prefix with the portable digit
+                return root_prefix[:-1] + portable_id
 
-    # Final validation: a single digit is not a valid prefix.
-    if len(prefix_result) == 1 and prefix_result.isdigit():
+        # Rule: "letters-only" (e.g., LX/KD4D)
+        if portable_id.isalpha():
+            return portable_id + '0'
+        
+        # Default portable rule (e.g., VP2V/KD4D)
+        return portable_id
+
+    # --- Non-Portable Call Processing ---
+    # Default prefix calculation: all chars up to and including the last digit
+    match = re.match(r'(.*\d)', cleaned_call)
+    if match:
+        default_prefix = match.group(1)
+    # Handle calls with no numbers (e.g., RAEM)
+    else:
+        default_prefix = cleaned_call[:2] + '0' if len(cleaned_call) >= 2 else "Unknown"
+
+    # DXCCPfx Override Rule: Use the CTY.DAT prefix if it is more specific
+    if cleaned_call.startswith(dxcc_pfx) and len(dxcc_pfx) > len(default_prefix):
+        return dxcc_pfx
+        
+    # Final validation: a single digit is not a valid prefix
+    if len(default_prefix) == 1 and default_prefix.isdigit():
         return "Unknown"
-    
-    return prefix_result
+
+    return default_prefix
 
 def calculate_wpx_prefixes(df: pd.DataFrame) -> pd.Series:
     """
-    Calculates the WPX prefix for every QSO in a DataFrame.
+    Calculates the WPX prefix for each QSO in a DataFrame.
 
     Args:
         df (pd.DataFrame): The DataFrame of QSOs. Must contain 'Call', 'DXCCPfx',
                            and 'portableid' columns.
-
+                           
     Returns:
-        pd.Series: A Pandas Series containing the calculated WPX prefix for each QSO.
+        pd.Series: A Series containing the calculated WPX prefix for each QSO.
     """
-    required_cols = ['Call', 'DXCCPfx', 'portableid']
-    for col in required_cols:
-        if col not in df.columns:
-            logging.error(f"Input DataFrame for WPX prefix calculation must contain a '{col}' column. Returning Unknowns.")
-            return pd.Series("Unknown", index=df.index)
-
-    return df.apply(_get_wpx_prefix_from_row, axis=1)
+    if df.empty:
+        return pd.Series(dtype=str)
+        
+    return df.apply(_get_prefix, axis=1)

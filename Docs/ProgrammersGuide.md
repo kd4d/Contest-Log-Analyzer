@@ -1,9 +1,14 @@
-Filename: "Docs/ProgrammersGuide.md"
-
 # Contest Log Analyzer - Programmer's Guide
 
-**Version: 0.26.3-Beta**
-**Date: 2025-08-03**
+**Version: 0.30.0-Beta**
+**Date: 2025-08-05**
+
+---
+### --- Revision History ---
+## [0.30.0-Beta] - 2025-08-05
+# - Initial release of Version 0.30.0-Beta.
+# - Standardized all project files to a common baseline version.
+---
 
 ## 1. Introduction
 
@@ -26,7 +31,7 @@ The project is designed to be highly modular, separating data, processing, and p
     * `reports/`: The "plug-and-play" reporting system. Each Python file in this directory is a self-contained report generator that is automatically discovered by the program.
 * `Logs/` (Recommended User Directory)
     * This directory is the recommended location for storing your raw Cabrillo log files, organized by year and contest.
-* `reports_output/` (Generated Directory)
+* `reports/` (Generated Directory)
     * This directory is automatically created by the program to store all generated reports and charts.
 ---
 

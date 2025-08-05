@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-03
-# Version: 0.24.9-Beta
+# Date: 2025-08-05
+# Version: 0.30.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,33 +18,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-# All notable changes to this project will be documented in this file.
-# The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
-# and this project aims to adhere to Semantic Versioning (https://semver.org/).
-## [0.24.9-Beta] - 2025-08-03
-### Changed
-# - Reworked `_parse_qso_line` to handle a list of regex rules for a single
-#   contest, enabling support for complex, asymmetric exchanges.
-## [0.24.8-Beta] - 2025-08-01
-### Fixed
-# - The 'Datetime' column is now correctly created as timezone-aware (UTC) to
-#   prevent alignment issues with the master time index in reports.
-## [0.24.7-Beta] - 2025-08-01
-### Added
-# - Added temporary diagnostic print statements to debug QSO line parsing failures.
-## [0.22.0-Beta] - 2025-07-31
-### Changed
-# - The exchange parsing logic is now more robust. It iterates through all
-#   available parsing rules in the contest definition and uses the first one
-#   that successfully matches the QSO line, making it resilient to minor
-#   variations in the CONTEST header.
-## [0.15.0-Beta] - 2025-07-25
-# - Standardized version for final review. No functional changes.
-## [0.9.0-Beta] - 2025-07-18
-# - Initial Beta release of `cabrillo_parser.py`.
-# - Implemented `parse_cabrillo_file` function for Cabrillo ingestion.
-# - Handles parsing of Cabrillo header lines and standard QSO fields.
-# - Integrates with `ContestDefinition` to dynamically parse contest-specific exchange fields.
+## [0.30.0-Beta] - 2025-08-05
+# - Initial release of Version 0.30.0-Beta.
+# - Standardized all project files to a common baseline version.
 import re
 import pandas as pd
 from typing import Dict, Any, List, Tuple, Optional

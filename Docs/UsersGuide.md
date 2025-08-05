@@ -1,9 +1,15 @@
-Filename: "Docs/UsersGuide.md"
-
+--- FILE: Docs/UsersGuide.md ---
 # Contest Log Analyzer - User Guide
 
-**Version: 0.26.3-Beta**
-**Date: 2025-08-03**
+**Version: 0.30.0-Beta**
+**Date: 2025-08-05**
+
+---
+### --- Revision History ---
+## [0.30.0-Beta] - 2025-08-05
+# - Initial release of Version 0.30.0-Beta.
+# - Standardized all project files to a common baseline version.
+---
 
 ## 1. Introduction: What is the Contest Log Analyzer?
 The Contest Log Analyzer is a powerful command-line tool designed for amateur radio contesters who want to perform deep, data-driven analysis of their operating performance. It goes beyond the simple score summary provided by most logging software, allowing you to:
@@ -26,7 +32,7 @@ Before running the analyzer, you will need a few files:
     * `cty.dat`: Required for all contests.
     * `ARRLDXmults.dat`: Required for the ARRL DX contest.
     * `SweepstakesSections.dat`: Required for ARRL Sweepstakes.
-* **An Environment Variable**: You must tell the program where to find your data files by setting an environment variable named `CONTEST_DATA_DIR`. This variable should point to your `data` directory.
+* **An Environment Variable**: You must tell the program where to find your data files by setting an environment variable named `CONTEST_LOGS_REPORTS`. This variable should point to the root directory that contains your `Logs`, `data`, and `reports` subdirectories.
 
 ---
 
@@ -59,3 +65,45 @@ The program is run from your command prompt or terminal using `main_cli.py`.
 * **Generate a Missed Multipliers report for CQ WW Zones:**
 
     python main_cli.py --report missed_multipliers --mult-name Zones Logs/2024/cq-ww-cw/k3lr.log Logs/2024/cq-ww-cw/kc1xx.log
+---
+
+## 4. Supported Contests
+
+The analyzer uses the `CONTEST:` field in your Cabrillo file header to automatically apply the correct rules. The following contests are currently supported:
+
+* ARRL DX (CW & SSB)
+* ARRL Sweepstakes (CW & SSB)
+* CQ 160-Meter (CW & SSB)
+* CQ WPX (CW & SSB)
+* CQ World Wide DX (CW & SSB)
+* North American QSO Party (NAQP) (CW & SSB)
+
+---
+
+## 5. Available Reports
+
+Use the `Report ID` with the `--report` command-line option.
+
+#### **Chart Reports (`charts/`)**
+* `chart_point_contribution`: Point Contribution Breakdown (Comparative)
+* `chart_point_contribution_single`: Point Contribution Breakdown (Single Log)
+* `plot_qso_breakdown_chart`: QSO Breakdown by Run/S&P
+
+#### **Plot Reports (`plots/`)**
+* `cumulative_difference_plots`: Cumulative Difference Plot
+* `point_rate_plots`: Cumulative Point Rate Plot
+* `qso_rate_plots`: Cumulative QSO Rate Plot
+
+#### **Text Reports (`text/`)**
+* `comparative_continent_summary`: Comparative Continent Summary
+* `comparative_score_report`: Comparative Score Report
+* `continent_breakdown`: Continent Breakdown by Run/S&P
+* `continent_summary`: Continent Summary
+* `missed_multipliers`: Missed Multipliers
+* `multiplier_summary`: Multiplier Summary
+* `multipliers_by_hour`: Multipliers by Hour
+* `qso_comparison`: QSO Comparison Summary
+* `rate_sheet`: Rate Sheet (per hour)
+* `rate_sheet_comparison`: Rate Sheet Comparison
+* `score_report`: Score Report
+* `summary`: QSO Summary by Run/S&P
