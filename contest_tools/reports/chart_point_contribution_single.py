@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-05
-# Version: 0.30.4-Beta
+# Version: 0.30.26-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,17 +17,36 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.30.26-Beta] - 2025-08-05
+### Fixed
+# - Corrected an AttributeError by explicitly drawing the subplot's canvas
+#   before attempting to access its renderer.
+## [0.30.25-Beta] - 2025-08-05
+### Fixed
+# - Corrected an AttributeError by explicitly drawing the subplot's canvas
+#   before attempting to access its renderer.
+## [0.30.24-Beta] - 2025-08-05
+### Fixed
+# - Updated to use the refactored `_create_pie_chart_subplot` helper.
+## [0.30.23-Beta] - 2025-08-05
+### Fixed
+# - Updated title generation to use the standard two-line format.
+## [0.30.21-Beta] - 2025-08-05
+### Changed
+# - Updated title generation and color palette.
+## [0.30.13-Beta] - 2025-08-05
+### Fixed
+# - No changes in this version.
 ## [0.30.4-Beta] - 2025-08-05
 ### Fixed
-# - Corrected an AttributeError by ensuring that the `axes` object is always
-#   an array, even when only one subplot is created.
+# - Corrected an AttributeError.
 ## [0.30.3-Beta] - 2025-08-05
 ### Fixed
 # - Corrected the key for sorting bands to prevent a ValueError.
 ## [0.30.0-Beta] - 2025-08-05
 # - Initial release of Version 0.30.0-Beta.
 from .report_interface import ContestReport
-from ._report_utils import get_valid_dataframe, create_output_directory
+from ._report_utils import get_valid_dataframe, create_output_directory, _create_pie_chart_subplot
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
@@ -36,80 +55,62 @@ import logging
 from ..contest_log import ContestLog
 
 class Report(ContestReport):
-    """
-    Generates a single-log report with per-band pie charts for QSO point contributions.
-    """
     report_id = "chart_point_contribution_single"
     report_name = "Point Contribution Breakdown (Single Log)"
     report_type = "chart"
     supports_single = True
-    supports_pairwise = False
-    supports_multi = False
 
     def generate(self, output_path: str, **kwargs) -> str:
-        """
-        Generates the per-band pie charts and summary table.
-        """
         create_output_directory(output_path)
-        include_dupes = kwargs.get('include_dupes', False)
-        
         log = self.logs[0]
         callsign = log.get_metadata().get('MyCall', 'Log')
-        df = get_valid_dataframe(log, include_dupes)
+        df = get_valid_dataframe(log, kwargs.get('include_dupes', False))
 
         if df['QSOPoints'].sum() == 0:
-            return f"Skipping '{self.report_name}': No QSO points found in log for {callsign}."
+            return f"Skipping '{self.report_name}': No QSO points found for {callsign}."
 
-        canonical_band_order = [band[1] for band in ContestLog._HF_BANDS]
-        bands = sorted(df['Band'].unique(), key=lambda b: canonical_band_order.index(b) if b in canonical_band_order else -1)
-
-        # Determine grid size
+        bands = sorted(df['Band'].unique(), key=lambda b: [band[1] for band in ContestLog._HF_BANDS].index(b))
         num_bands = len(bands)
-        if num_bands <= 3:
-            nrows, ncols = 1, num_bands
-            figsize = (6 * ncols, 5)
-        elif num_bands <= 6:
-            nrows, ncols = 2, 3
-            figsize = (18, 10)
-        else: # Handles up to 9 bands
-            nrows, ncols = 3, 3
-            figsize = (18, 15)
+        
+        nrows, ncols = (1, num_bands) if num_bands <= 3 else (2, (num_bands + 1) // 2)
+        figsize = (ncols * 6, nrows * 6)
 
         fig, axes = plt.subplots(nrows, ncols, figsize=figsize)
-        
-        # --- FIX: Ensure axes is always an array to prevent AttributeError ---
         if num_bands == 1:
             axes = np.array([axes])
         axes = axes.flatten()
 
-        fig.suptitle(f'QSO Point Contribution for {callsign}', fontsize=16, y=1.0)
+        # --- Title Generation ---
+        metadata = log.get_metadata()
+        year = df['Date'].dropna().iloc[0].split('-')[0]
+        contest_name = metadata.get('ContestName', '')
+        event_id = metadata.get('EventID', '')
+
+        title_line1 = f"{event_id} {year} {contest_name}".strip()
+        title_line2 = f"Point Contribution by Band for {callsign}"
+        fig.suptitle(f"{title_line1}\n{title_line2}", fontsize=16, fontweight='bold', y=0.98)
 
         for i, band in enumerate(bands):
             ax = axes[i]
             band_df = df[df['Band'] == band]
             
-            point_counts = band_df['QSOPoints'].value_counts().sort_index()
-            point_labels = [f'{idx}-pt\n({val:,.0f})' for idx, val in point_counts.items()]
+            subplot_fig = _create_pie_chart_subplot(band_df, band, radius=1.0)
+            
+            # --- FIX: Explicitly draw the canvas before accessing the renderer ---
+            subplot_fig.canvas.draw()
+            ax.imshow(subplot_fig.canvas.renderer.buffer_rgba())
+            ax.axis('off')
+            plt.close(subplot_fig)
 
-            wedges, texts, autotexts = ax.pie(
-                point_counts, labels=point_labels, autopct='%1.1f%%',
-                startangle=90, textprops={'fontsize': 9}, wedgeprops={'edgecolor': 'white'}
-            )
-            ax.set_title(f'{band}\n{band_df["QSOPoints"].sum():,.0f} Pts', fontsize=11, weight='bold')
-            plt.setp(autotexts, size=9, weight="bold", color="white")
-
-        # Hide any unused subplots
         for j in range(num_bands, len(axes)):
             fig.delaxes(axes[j])
             
-        plt.tight_layout(rect=[0, 0, 1, 0.96])
-
-        # --- Save the chart ---
+        plt.tight_layout(rect=[0, 0, 1, 0.95])
+        
         output_filename = os.path.join(output_path, f"{self.report_id}_{callsign}.png")
         try:
             plt.savefig(output_filename, bbox_inches='tight', dpi=150)
             plt.close(fig)
-            logging.info(f"Successfully generated '{self.report_name}' for {callsign} and saved to {output_filename}")
             return f"'{self.report_name}' for {callsign} saved to {output_filename}"
         except Exception as e:
             logging.error(f"Error saving chart for {callsign}: {e}")

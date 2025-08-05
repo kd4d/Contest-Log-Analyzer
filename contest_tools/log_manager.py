@@ -8,7 +8,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-05
-# Version: 0.30.14-Beta
+# Version: 0.30.24-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,10 +19,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.30.24-Beta] - 2025-08-05
+# - No functional changes. Synchronizing version numbers.
 ## [0.30.14-Beta] - 2025-08-05
 ### Changed
-# - The `finalize_loading` method now adds the calculated `event_id` to each
-#   log's metadata dictionary, making it available to all reports.
+# - Added `event_id` to each log's metadata.
 ## [0.30.0-Beta] - 2025-08-05
 # - Initial release of Version 0.30.0-Beta.
 import pandas as pd
@@ -87,7 +88,6 @@ class LogManager:
         year = df_first_log['Date'].dropna().iloc[0].split('-')[0] if not df_first_log.empty and not df_first_log['Date'].dropna().empty else "UnknownYear"
 
         event_id = self._get_event_id(first_log)
-        # Add the event_id to each log's metadata so reports can use it
         for log in self.logs:
             log.metadata['EventID'] = event_id
         

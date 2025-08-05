@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-05
-# Version: 0.30.0-Beta
+# Version: 0.30.24-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,9 +18,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.30.24-Beta] - 2025-08-05
+# - No functional changes. Synchronizing version numbers.
 ## [0.30.0-Beta] - 2025-08-05
 # - Initial release of Version 0.30.0-Beta.
-# - Standardized all project files to a common baseline version.
 import sys
 import os
 import argparse
@@ -62,14 +63,12 @@ def print_usage_guide():
 def main():
     """Main function to parse arguments and run the analyzer."""
     
-    # --- Custom Argument Parser ---
     class CustomArgumentParser(argparse.ArgumentParser):
         def error(self, message):
             handle_error("ARGUMENT ERROR", message, "Please check your command-line arguments against the usage guide below.")
 
     parser = CustomArgumentParser(description="Contest Log Analyzer", add_help=False)
     
-    # --- Define Arguments ---
     parser.add_argument('log_filepaths', nargs='*', help="Relative paths to Cabrillo log files under the 'Logs' directory.")
     parser.add_argument('--report', '-r', dest='report_id', help="The ID of the report to generate, or 'all'.")
     parser.add_argument('--verbose', action='store_true', help="Enable verbose status reporting.")
@@ -77,13 +76,10 @@ def main():
     parser.add_argument('--mult-name', dest='mult_name', help="Specify the multiplier name for relevant reports.")
     parser.add_argument('--metric', dest='metric', choices=['qsos', 'points'], default='qsos', help="Metric for difference plots.")
     
-    # --- Parse Known and Unknown Args ---
     args, unknown = parser.parse_known_args()
 
-    # --- Setup Logging ---
     setup_logging(args.verbose)
 
-    # --- Environment and Path Setup ---
     raw_root_dir = os.environ.get('CONTEST_LOGS_REPORTS')
     if not raw_root_dir:
         handle_error(
@@ -107,7 +103,6 @@ def main():
     reports_dir = os.path.join(root_dir, 'reports')
     logs_dir = os.path.join(root_dir, 'Logs')
 
-    # --- Argument Validation ---
     if unknown:
         handle_error("ARGUMENT ERROR", f"Unrecognized arguments: {' '.join(unknown)}", "Please check your spelling and refer to the usage guide.")
 
@@ -125,7 +120,6 @@ def main():
     if args.report_id.lower() != 'all' and args.report_id not in AVAILABLE_REPORTS:
         handle_error("ARGUMENT ERROR", f"The report ID '{args.report_id}' was not found.", "Please choose a valid Report ID from the 'Available Reports' list below.")
         
-    # --- Main Application Logic ---
     logging.info("\n--- Contest Log Analyzer ---")
     log_manager = LogManager()
     

@@ -1,12 +1,12 @@
 # Contest Log Analyzer/contest_tools/reports/chart_point_contribution.py
 #
-# Purpose: Generates a comparative report with side-by-side pie charts and tables
-#          showing the breakdown of QSO points for two logs.
+# Purpose: A chart report that generates a breakdown of total points by QSO
+#          point value, presented as a series of pie charts.
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-05
-# Version: 0.30.14-Beta
+# Version: 0.30.26-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,137 +17,126 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.30.14-Beta] - 2025-08-05
+## [0.30.26-Beta] - 2025-08-05
 ### Fixed
-# - Corrected title generation to use a two-line format.
-# - Fixed table centering by removing the `bbox` argument.
-# - Removed logic that generated a redundant "All Bands" chart for single-band contests.
-## [0.30.13-Beta] - 2025-08-05
+# - Corrected an AttributeError by explicitly drawing the subplot's canvas
+#   before attempting to access its renderer.
+## [0.30.24-Beta] - 2025-08-05
+### Changed
+# - Updated to use the refactored `_create_pie_chart_subplot` helper.
+## [0.30.22-Beta] - 2025-08-05
 ### Fixed
-# - Corrected report_id and filename generation.
-## [0.30.2-Beta] - 2025-08-05
-### Fixed
-# - Corrected method for creating the summary table.
-## [0.30.1-Beta] - 2025-08-05
-### Fixed
-# - Corrected a TypeError.
+# - Corrected filename and title generation for single-band contests.
+## [0.30.21-Beta] - 2025-08-05
+### Changed
+# - Updated title generation and color palette.
+## [0.30.18-Beta] - 2025-08-05
+### Changed
+# - Restored original multi-file (per-band) report generation behavior.
 ## [0.30.0-Beta] - 2025-08-05
 # - Initial release of Version 0.30.0-Beta.
-from .report_interface import ContestReport
-from ._report_utils import get_valid_dataframe, create_output_directory
-import matplotlib.pyplot as plt
+from typing import List
 import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
 import os
-import logging
+import numpy as np
+import re
+from ..contest_log import ContestLog
+from .report_interface import ContestReport
+from ._report_utils import _create_pie_chart_subplot, create_output_directory, get_valid_dataframe
 
 class Report(ContestReport):
-    """
-    Generates a comparative report with side-by-side pie charts showing QSO point contributions.
-    """
-    report_id = "chart_point_contribution"
-    report_name = "Point Contribution Breakdown (Comparative)"
-    report_type = "chart"
-    supports_single = False
-    supports_pairwise = True
-    supports_multi = False
+    report_id: str = "chart_point_contribution"
+    report_name: str = "Point Contribution Breakdown"
+    report_type: str = "chart"
+    supports_multi = True
+    MAX_LOGS_TO_COMPARE = 3
 
     def generate(self, output_path: str, **kwargs) -> str:
-        """
-        Generates the pie charts and tables.
-        """
+        if len(self.logs) > self.MAX_LOGS_TO_COMPARE:
+            return f"Error: This report supports a maximum of {self.MAX_LOGS_TO_COMPARE} logs."
+        
+        valid_bands = self.logs[0].contest_definition.valid_bands
+        is_single_band = len(valid_bands) == 1
+        
+        bands_to_plot = valid_bands if is_single_band else ['All Bands'] + sorted(
+            valid_bands,
+            key=lambda b: [band[1] for band in ContestLog._HF_BANDS].index(b)
+        )
+        
+        created_files = []
+
+        for band in bands_to_plot:
+            try:
+                save_path = output_path
+                if not is_single_band and band != 'All Bands':
+                    save_path = os.path.join(output_path, band)
+
+                filepath = self._create_plot_for_band(band, save_path)
+                if filepath:
+                    created_files.append(filepath)
+            except Exception as e:
+                created_files.append(f"Failed to generate chart for {band}: {e}")
+        
+        if not created_files:
+            return "No Point Contribution charts were generated."
+            
+        return "Point Contribution charts saved to:\n" + "\n".join([f"  - {fp}" for fp in created_files])
+
+    def _create_plot_for_band(self, band: str, output_path: str) -> str:
+        num_logs = len(self.logs)
+        fig, axes = plt.subplots(1, num_logs, figsize=(num_logs * 7, 8))
+        if num_logs == 1:
+            axes = [axes]
+        axes = np.array(axes).flatten()
+
+        band_log_points = [
+            (get_valid_dataframe(log)['QSOPoints'].sum() if band == 'All Bands' 
+             else get_valid_dataframe(log)[get_valid_dataframe(log)['Band'] == band]['QSOPoints'].sum())
+            for log in self.logs
+        ]
+        max_band_points = max(band_log_points) if band_log_points else 1
+
+        for i, log in enumerate(self.logs):
+            ax = axes[i]
+            df = get_valid_dataframe(log)
+            band_df = df if band == 'All Bands' else df[df['Band'] == band]
+
+            point_ratio = (band_log_points[i] / max_band_points) if max_band_points > 0 else 0
+            
+            is_not_to_scale = 0 < point_ratio < 0.05
+            radius = 1.25 * np.sqrt(0.05 if is_not_to_scale else point_ratio)
+
+            subplot_fig = _create_pie_chart_subplot(band_df, log.get_metadata().get('MyCall', f'Log {i+1}'), radius, is_not_to_scale)
+            
+            # --- FIX: Explicitly draw the canvas before accessing the renderer ---
+            subplot_fig.canvas.draw()
+            ax.imshow(subplot_fig.canvas.renderer.buffer_rgba())
+            ax.axis('off')
+            plt.close(subplot_fig)
+
+        # --- Title and Filename ---
+        metadata = self.logs[0].get_metadata()
+        year = get_valid_dataframe(self.logs[0])['Date'].dropna().iloc[0].split('-')[0]
+        contest_name = metadata.get('ContestName', '')
+        event_id = metadata.get('EventID', '')
+        all_calls = sorted([log.get_metadata().get('MyCall', f'Log{i+1}') for i, log in enumerate(self.logs)])
+        callsign_str = '_vs_'.join(all_calls)
+        is_single_band = len(self.logs[0].contest_definition.valid_bands) == 1
+        band_title = self.logs[0].contest_definition.valid_bands[0].replace('M', ' Meters') if is_single_band else band.replace('M', ' Meters')
+        
+        title_line1 = f"{event_id} {year} {contest_name}".strip()
+        title_line2 = f"{self.report_name} - {band_title} ({callsign_str})"
+        fig.suptitle(f"{title_line1}\n{title_line2}", fontsize=22, fontweight='bold')
+        
+        fig.tight_layout(rect=[0, 0, 1, 0.95])
+        
         create_output_directory(output_path)
-        include_dupes = kwargs.get('include_dupes', False)
-        
-        if len(self.logs) != 2:
-            return f"Report '{self.report_name}' requires exactly two logs for comparison. Skipping."
+        filename_band = self.logs[0].contest_definition.valid_bands[0].lower() if is_single_band else band.lower().replace('m','').replace(' ', '_')
+        filename = f"{self.report_id}_{filename_band}_{callsign_str}.png"
+        filepath = os.path.join(output_path, filename)
+        fig.savefig(filepath, bbox_inches='tight')
+        plt.close(fig)
 
-        log1, log2 = self.logs[0], self.logs[1]
-        call1 = log1.get_metadata().get('MyCall', 'Log1')
-        call2 = log2.get_metadata().get('MyCall', 'Log2')
-        
-        df1 = get_valid_dataframe(log1, include_dupes)
-        df2 = get_valid_dataframe(log2, include_dupes)
-
-        if df1['QSOPoints'].sum() == 0 and df2['QSOPoints'].sum() == 0:
-            return f"Skipping '{self.report_name}': No QSO points found in either log."
-
-        fig, axes = plt.subplots(1, 2, figsize=(16, 8))
-        
-        # --- Create Two-Line Title ---
-        year = df1['Date'].iloc[0].split('-')[0] if not df1.empty else "----"
-        contest_name = log1.get_metadata().get('ContestName', '')
-        event_id = log1.get_metadata().get('EventID', '')
-        
-        title_line1 = f"{event_id} {year} {contest_name}"
-        title_line2 = f"QSO Point Contribution: {call1} vs {call2}"
-        fig.suptitle(f"{title_line1}\n{title_line2}", fontsize=16)
-
-        # --- Process and Plot for Log 1 ---
-        point_counts1 = df1['QSOPoints'].value_counts().sort_index()
-        point_labels1 = [f'{idx}-pt\n({val:,.0f} QSOs)' for idx, val in point_counts1.items()]
-        
-        wedges1, texts1, autotexts1 = axes[0].pie(
-            point_counts1, labels=point_labels1, autopct=lambda p: f'{p:.1f}%',
-            startangle=90, textprops={'fontsize': 10}, wedgeprops={'edgecolor': 'white'}
-        )
-        axes[0].set_title(f'{call1}\nTotal Points: {df1["QSOPoints"].sum():,.0f}', fontsize=12)
-        plt.setp(autotexts1, size=10, weight="bold", color="white")
-
-        # --- Process and Plot for Log 2 ---
-        point_counts2 = df2['QSOPoints'].value_counts().sort_index()
-        point_labels2 = [f'{idx}-pt\n({val:,.0f} QSOs)' for idx, val in point_counts2.items()]
-        
-        wedges2, texts2, autotexts2 = axes[1].pie(
-            point_counts2, labels=point_labels2, autopct=lambda p: f'{p:.1f}%',
-            startangle=90, textprops={'fontsize': 10}, wedgeprops={'edgecolor': 'white'}
-        )
-        axes[1].set_title(f'{call2}\nTotal Points: {df2["QSOPoints"].sum():,.0f}', fontsize=12)
-        plt.setp(autotexts2, size=10, weight="bold", color="white")
-        
-        # --- Create Summary Table ---
-        summary_data1 = self._prepare_summary_data(point_counts1, df1["QSOPoints"].sum())
-        summary_data2 = self._prepare_summary_data(point_counts2, df2["QSOPoints"].sum())
-        
-        table_data = []
-        
-        all_keys = set(summary_data1.keys()) | set(summary_data2.keys())
-        all_point_levels = sorted([k for k in all_keys if isinstance(k, (int, float))])
-
-        for level in all_point_levels:
-            row = [f'{level}-PT QSOs', f'{summary_data1.get(level, 0):,.0f}', f'{summary_data2.get(level, 0):,.0f}']
-            table_data.append(row)
-        
-        table_data.append(['-'*15, '-'*15, '-'*15])
-        table_data.append(['TOTAL QSOs', f'{summary_data1.get("TOTAL", 0):,.0f}', f'{summary_data2.get("TOTAL", 0):,.0f}'])
-        table_data.append(['AVG PTS/QSO', f'{summary_data1.get("AVG", 0.0):.2f}', f'{summary_data2.get("AVG", 0.0):.2f}'])
-        
-        # --- FIX: Remove bbox for automatic centering ---
-        table = plt.table(
-            cellText=table_data,
-            colLabels=['Metric', call1, call2],
-            loc='bottom',
-            cellLoc='center'
-        )
-        table.auto_set_font_size(False)
-        table.set_fontsize(10)
-        table.scale(1.5, 1.5)
-
-        # --- Final Adjustments and Save ---
-        fig.tight_layout(pad=3.0)
-        
-        output_filename = os.path.join(output_path, f"{self.report_id}_{call1}_vs_{call2}.png")
-        try:
-            plt.savefig(output_filename, bbox_inches='tight', dpi=150)
-            plt.close(fig)
-            return f"'{self.report_name}' saved to {output_filename}"
-        except Exception as e:
-            logging.error(f"Error saving chart: {e}")
-            plt.close(fig)
-            return f"Error generating report '{self.report_name}'"
-
-    def _prepare_summary_data(self, point_counts, total_points):
-        data = {level: count for level, count in point_counts.items()}
-        total_qsos = point_counts.sum()
-        data['TOTAL'] = total_qsos
-        data['AVG'] = total_points / total_qsos if total_qsos > 0 else 0
-        return data
+        return filepath

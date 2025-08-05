@@ -101,7 +101,7 @@ class Report(ContestReport):
         report_lines.append(f"{call2:<9} {len(df2):>8} {len(unique_to_2):>8} {len(common_calls):>8} | Unique:  {get_run_sp(unique_to_2)}")
         
         # Save to file
-        output_filename = os.path.join(output_path, f"{self.report_id}_{call1}_{call2}.txt")
+        output_filename = os.path.join(output_path, f"{self.report_id}_{call1}_vs_{call2}.txt")
         try:
             with open(output_filename, 'w') as f:
                 f.write("\n".join(report_lines))
