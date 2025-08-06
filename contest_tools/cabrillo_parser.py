@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-05
-# Version: 0.30.0-Beta
+# Date: 2025-08-06
+# Version: 0.30.31-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.30.31-Beta] - 2025-08-06
+### Changed
+# - Added a line to the main parsing loop to replace non-breaking spaces
+#   with regular spaces, increasing parsing robustness.
 ## [0.30.0-Beta] - 2025-08-05
 # - Initial release of Version 0.30.0-Beta.
 # - Standardized all project files to a common baseline version.
@@ -68,7 +72,8 @@ def parse_cabrillo_file(filepath: str, contest_definition: ContestDefinition) ->
     in_header = True
     
     for i, line in enumerate(lines):
-        line = line.strip()
+        # Replace non-breaking spaces and strip whitespace
+        line = line.replace('\u00a0', ' ').strip()
 
         if not line: # Skip blank lines
             continue

@@ -1,8 +1,8 @@
 {
-  "_filename": "contest_tools/contest_definitions/cq_wpx_cw.json",
-  "_version": "0.30.0-Beta",
-  "_date": "2025-08-05",
-  "contest_name": "CQ-WPX-CW",
+  "_filename": "contest_tools/contest_definitions/cq_ww_cw.json",
+  "_version": "0.30.32-Beta",
+  "_date": "2025-08-06",
+  "contest_name": "CQ-WW-CW",
   "mults_from_zero_point_qsos": true,
   "contest_period": {
     "start_day": "Saturday",
@@ -10,25 +10,23 @@
     "end_day": "Sunday",
     "end_time": "23:59:59 UTC"
   },
-  "multiplier_report_scope": "all_bands",
   "exchange_parsing_rules": {
-    "CQ-WPX-CW": {
-      "regex": "(\\d{3})\\s+(\\d{1,5})\\s+([A-Z0-9/]+)\\s+(\\d{3})\\s+(\\d{1,5})(?:\\s+(\\d))?",
-      "groups": ["SentRST", "SentNR", "Call", "RST", "NR", "Transmitter"]
+    "CQ-WW-CW": {
+      "regex": "(\\d{3})\\s+(\\d{1,2})\\s+([A-Z0-9/]+)\\s+(\\d{3})\\s+(\\d{1,2})(?:\\s+(\\d))?",
+      "groups": ["SentRST", "SentZone", "Call", "RST", "Zone", "Transmitter"]
     }
   },
   "multiplier_rules": [
     {
-      "name": "Prefixes",
-      "source": "calculation_module",
-      "module_name": "cq_wpx_prefix",
-      "function_name": "calculate_wpx_prefixes",
+      "name": "Countries",
+      "source": "wae_dxcc",
       "value_column": "Mult1",
-      "totaling_method": "once_per_log"
+      "name_column": "Mult1Name"
+    },
+    {
+      "name": "Zones",
+      "source_column": "Zone",
+      "value_column": "Mult2"
     }
-  ],
-  "excluded_reports": [
-    "missed_multipliers",
-    "multiplier_summary"
   ]
 }
