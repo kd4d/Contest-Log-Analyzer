@@ -2,6 +2,5 @@
 *.doc*
 *.csv
 *.xls*
-*.log
 *.png
 __pycache__/
