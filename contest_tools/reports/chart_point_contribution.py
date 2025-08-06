@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-05
-# Version: 0.30.26-Beta
+# Version: 0.30.30-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,21 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.30.30-Beta] - 2025-08-05
+### Fixed
+# - Corrected an unterminated f-string literal syntax error.
+# - Removed incompatible fig.tight_layout() call to prevent UserWarning.
+## [0.30.29-Beta] - 2025-08-05
+### Fixed
+# - Removed incompatible fig.tight_layout() call to prevent UserWarning.
+## [0.30.28-Beta] - 2025-08-05
+### Fixed
+# - Corrected a TypeError in the ChartComponent by removing the faulty
+#   GridSpecFrom helper and using subgridspec directly.
+## [0.30.27-Beta] - 2025-08-05
+### Changed
+# - Refactored to use the new ChartComponent factory for improved layout
+#   robustness and consistency.
 ## [0.30.26-Beta] - 2025-08-05
 ### Fixed
 # - Corrected an AttributeError by explicitly drawing the subplot's canvas
@@ -38,13 +53,13 @@
 from typing import List
 import pandas as pd
 import matplotlib.pyplot as plt
-from matplotlib.figure import Figure
+from matplotlib.gridspec import GridSpec
 import os
 import numpy as np
 import re
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from ._report_utils import _create_pie_chart_subplot, create_output_directory, get_valid_dataframe
+from ._report_utils import ChartComponent, create_output_directory, get_valid_dataframe
 
 class Report(ContestReport):
     report_id: str = "chart_point_contribution"
@@ -81,15 +96,12 @@ class Report(ContestReport):
         
         if not created_files:
             return "No Point Contribution charts were generated."
-            
         return "Point Contribution charts saved to:\n" + "\n".join([f"  - {fp}" for fp in created_files])
 
     def _create_plot_for_band(self, band: str, output_path: str) -> str:
         num_logs = len(self.logs)
-        fig, axes = plt.subplots(1, num_logs, figsize=(num_logs * 7, 8))
-        if num_logs == 1:
-            axes = [axes]
-        axes = np.array(axes).flatten()
+        fig = plt.figure(figsize=(num_logs * 7, 8))
+        gs = GridSpec(1, num_logs, figure=fig)
 
         band_log_points = [
             (get_valid_dataframe(log)['QSOPoints'].sum() if band == 'All Bands' 
@@ -99,7 +111,6 @@ class Report(ContestReport):
         max_band_points = max(band_log_points) if band_log_points else 1
 
         for i, log in enumerate(self.logs):
-            ax = axes[i]
             df = get_valid_dataframe(log)
             band_df = df if band == 'All Bands' else df[df['Band'] == band]
 
@@ -108,13 +119,13 @@ class Report(ContestReport):
             is_not_to_scale = 0 < point_ratio < 0.05
             radius = 1.25 * np.sqrt(0.05 if is_not_to_scale else point_ratio)
 
-            subplot_fig = _create_pie_chart_subplot(band_df, log.get_metadata().get('MyCall', f'Log {i+1}'), radius, is_not_to_scale)
-            
-            # --- FIX: Explicitly draw the canvas before accessing the renderer ---
-            subplot_fig.canvas.draw()
-            ax.imshow(subplot_fig.canvas.renderer.buffer_rgba())
-            ax.axis('off')
-            plt.close(subplot_fig)
+            component = ChartComponent(
+                df=band_df, 
+                title=log.get_metadata().get('MyCall', f'Log {i+1}'), 
+                radius=radius, 
+                is_not_to_scale=is_not_to_scale
+            )
+            component.draw_on(fig, gs[i])
 
         # --- Title and Filename ---
         metadata = self.logs[0].get_metadata()
@@ -129,8 +140,6 @@ class Report(ContestReport):
         title_line1 = f"{event_id} {year} {contest_name}".strip()
         title_line2 = f"{self.report_name} - {band_title} ({callsign_str})"
         fig.suptitle(f"{title_line1}\n{title_line2}", fontsize=22, fontweight='bold')
-        
-        fig.tight_layout(rect=[0, 0, 1, 0.95])
         
         create_output_directory(output_path)
         filename_band = self.logs[0].contest_definition.valid_bands[0].lower() if is_single_band else band.lower().replace('m','').replace(' ', '_')

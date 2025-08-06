@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-05
-# Version: 0.30.25-Beta
+# Version: 0.30.27-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,14 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.30.27-Beta] - 2025-08-05
+### Fixed
+# - Corrected a TypeError in the ChartComponent by removing the faulty
+#   GridSpecFrom helper and using subgridspec directly.
+## [0.30.26-Beta] - 2025-08-05
+### Changed
+# - Replaced _create_pie_chart_subplot with a ChartComponent class to
+#   encapsulate layout logic and improve robustness.
 ## [0.30.25-Beta] - 2025-08-05
 ### Changed
 # - Rewrote `_create_pie_chart_subplot` to be a component factory that
@@ -46,6 +54,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import os
 from matplotlib.figure import Figure
+from matplotlib.gridspec import GridSpec
 import numpy as np
 from ..contest_log import ContestLog
 
@@ -64,60 +73,70 @@ def get_valid_dataframe(log: ContestLog, include_dupes: bool = False) -> pd.Data
         return df[df['Dupe'] == False].copy()
     return df.copy()
 
-def _create_pie_chart_subplot(df, title, radius, is_not_to_scale=False) -> Figure:
+class ChartComponent:
     """
-    Creates and returns a complete, self-contained Figure object for a single pie chart subplot.
+    A factory class to create a self-contained chart component consisting of
+    a title, a pie chart, an optional text annotation, and a data table.
     """
-    fig = Figure(figsize=(7, 8))
-    ax = fig.add_subplot(111)
-    
-    ax.set_title(title, fontsize=16, fontweight='bold')
-    ax.axis('off')
+    def __init__(self, df: pd.DataFrame, title: str, radius: float, is_not_to_scale: bool = False):
+        self.df = df
+        self.title = title
+        self.radius = radius
+        self.is_not_to_scale = is_not_to_scale
 
-    if df.empty or 'QSOPoints' not in df.columns or df['QSOPoints'].sum() == 0:
-        ax.text(0.5, 0.5, "No Data", ha='center', va='center', fontsize=14, transform=ax.transAxes)
-        return fig
+    def draw_on(self, fig: Figure, spec_loc):
+        """
+        Draws the complete component onto a specified GridSpec location within a figure.
+        """
+        # Create a nested GridSpec for the component's internal layout
+        sub_gs = spec_loc.subgridspec(nrows=3, ncols=1, height_ratios=[0.15, 0.6, 0.25], hspace=0.3)
 
-    point_counts = df['QSOPoints'].value_counts().sort_index(ascending=False)
-    
-    colors = sns.color_palette("bright", len(point_counts))
-    wedges, texts, autotexts = ax.pie(
-        point_counts,
-        labels=[f"{idx} pts" for idx in point_counts.index],
-        autopct='%1.1f%%',
-        startangle=90,
-        colors=colors,
-        radius=radius,
-        pctdistance=0.85,
-        center=(0.5, 0.55) # Adjusted center for better vertical alignment
-    )
+        # --- Title ---
+        ax_title = fig.add_subplot(sub_gs[0, 0])
+        ax_title.text(0.5, 0.5, self.title, ha='center', va='center', fontsize=16, fontweight='bold')
+        ax_title.axis('off')
 
-    plt.setp(autotexts, size=10, weight="bold", color="white")
+        # --- Pie Chart ---
+        ax_pie = fig.add_subplot(sub_gs[1, 0])
+        if self.df.empty or 'QSOPoints' not in self.df.columns or self.df['QSOPoints'].sum() == 0:
+            ax_pie.text(0.5, 0.5, "No Data", ha='center', va='center', fontsize=14)
+            ax_pie.axis('off')
+        else:
+            point_counts = self.df['QSOPoints'].value_counts().sort_index(ascending=False)
+            colors = sns.color_palette("bright", len(point_counts))
+            wedges, texts, autotexts = ax_pie.pie(
+                point_counts,
+                labels=[f"{idx} pts" for idx in point_counts.index],
+                autopct='%1.1f%%',
+                startangle=90,
+                colors=colors,
+                radius=self.radius,
+                pctdistance=0.85
+            )
+            plt.setp(autotexts, size=10, weight="bold", color="white")
+            if self.is_not_to_scale:
+                ax_pie.text(0.5, -0.1, "(not to scale)", ha='center', va='center', fontsize=10, style='italic', transform=ax_pie.transAxes)
 
-    if is_not_to_scale:
-        ax.text(0.5, 0.55 - radius - 0.1, "(not to scale)", ha='center', va='center', fontsize=10, style='italic', transform=ax.transAxes)
+        ax_pie.axis('off')
 
-    total_points = df['QSOPoints'].sum()
-    total_qsos = len(df)
-    avg_points = total_points / total_qsos if total_qsos > 0 else 0
-    
-    table_data = [
-        ["Total QSOs", f"{total_qsos:,}"],
-        ["Total Points", f"{total_points:,}"],
-        ["Avg Points/QSO", f"{avg_points:.2f}"]
-    ]
-    table = ax.table(
-        cellText=table_data, 
-        colLabels=None, 
-        cellLoc='center', 
-        loc='bottom',
-        bbox=[0.1, 0.05, 0.8, 0.2]
-    )
-    table.auto_set_font_size(False)
-    table.set_fontsize(12)
-    table.scale(1, 1.5)
-
-    return fig
+        # --- Table ---
+        ax_table = fig.add_subplot(sub_gs[2, 0])
+        ax_table.axis('off')
+        if not self.df.empty and 'QSOPoints' in self.df.columns:
+            total_points = self.df['QSOPoints'].sum()
+            total_qsos = len(self.df)
+            avg_points = total_points / total_qsos if total_qsos > 0 else 0
+            table_data = [
+                ["Total QSOs", f"{total_qsos:,}"],
+                ["Total Points", f"{total_points:,}"],
+                ["Avg Points/QSO", f"{avg_points:.2f}"]
+            ]
+            table = ax_table.table(
+                cellText=table_data, colLabels=None, cellLoc='center', loc='center'
+            )
+            table.auto_set_font_size(False)
+            table.set_fontsize(12)
+            table.scale(1, 1.5)
 
 def _create_cumulative_rate_plot(logs, output_path, band_filter, metric_name, value_column, agg_func, report_id):
     fig, ax = plt.subplots(figsize=(12, 8))

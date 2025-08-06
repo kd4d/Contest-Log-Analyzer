@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-05
-# Version: 0.30.26-Beta
+# Version: 0.30.30-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,13 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.30.30-Beta] - 2025-08-05
+### Fixed
+# - Removed incompatible plt.tight_layout() call to prevent UserWarning.
+## [0.30.27-Beta] - 2025-08-05
+### Changed
+# - Refactored to use the new ChartComponent factory.
+# - Added 'All Bands' summary chart for multi-band contests.
 ## [0.30.26-Beta] - 2025-08-05
 ### Fixed
 # - Corrected an AttributeError by explicitly drawing the subplot's canvas
@@ -46,8 +53,9 @@
 ## [0.30.0-Beta] - 2025-08-05
 # - Initial release of Version 0.30.0-Beta.
 from .report_interface import ContestReport
-from ._report_utils import get_valid_dataframe, create_output_directory, _create_pie_chart_subplot
+from ._report_utils import get_valid_dataframe, create_output_directory, ChartComponent
 import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
 import pandas as pd
 import numpy as np
 import os
@@ -66,19 +74,27 @@ class Report(ContestReport):
         callsign = log.get_metadata().get('MyCall', 'Log')
         df = get_valid_dataframe(log, kwargs.get('include_dupes', False))
 
-        if df['QSOPoints'].sum() == 0:
+        if df.empty or 'QSOPoints' not in df.columns or df['QSOPoints'].sum() == 0:
             return f"Skipping '{self.report_name}': No QSO points found for {callsign}."
 
-        bands = sorted(df['Band'].unique(), key=lambda b: [band[1] for band in ContestLog._HF_BANDS].index(b))
-        num_bands = len(bands)
+        # --- Band Selection Logic ---
+        valid_bands_from_def = log.contest_definition.valid_bands
+        is_single_band = len(valid_bands_from_def) == 1
         
-        nrows, ncols = (1, num_bands) if num_bands <= 3 else (2, (num_bands + 1) // 2)
-        figsize = (ncols * 6, nrows * 6)
+        bands_in_log = sorted(df['Band'].unique(), key=lambda b: [band[1] for band in ContestLog._HF_BANDS].index(b))
 
-        fig, axes = plt.subplots(nrows, ncols, figsize=figsize)
-        if num_bands == 1:
-            axes = np.array([axes])
-        axes = axes.flatten()
+        if is_single_band:
+            bands_to_plot = bands_in_log
+        else:
+            bands_to_plot = ['All Bands'] + bands_in_log
+
+        num_charts = len(bands_to_plot)
+        
+        # --- Layout Logic ---
+        nrows, ncols = (1, num_charts) if num_charts <= 4 else (2, (num_charts + 1) // 2)
+        figsize = (ncols * 6, nrows * 7)
+        fig = plt.figure(figsize=figsize)
+        gs = GridSpec(nrows, ncols, figure=fig, wspace=0.3, hspace=0.3)
 
         # --- Title Generation ---
         metadata = log.get_metadata()
@@ -90,22 +106,13 @@ class Report(ContestReport):
         title_line2 = f"Point Contribution by Band for {callsign}"
         fig.suptitle(f"{title_line1}\n{title_line2}", fontsize=16, fontweight='bold', y=0.98)
 
-        for i, band in enumerate(bands):
-            ax = axes[i]
-            band_df = df[df['Band'] == band]
+        # --- Plotting Loop ---
+        for i, band in enumerate(bands_to_plot):
+            band_df = df if band == 'All Bands' else df[df['Band'] == band]
+            chart_title = band if band == 'All Bands' else f"{band.replace('M','')} Meters"
             
-            subplot_fig = _create_pie_chart_subplot(band_df, band, radius=1.0)
-            
-            # --- FIX: Explicitly draw the canvas before accessing the renderer ---
-            subplot_fig.canvas.draw()
-            ax.imshow(subplot_fig.canvas.renderer.buffer_rgba())
-            ax.axis('off')
-            plt.close(subplot_fig)
-
-        for j in range(num_bands, len(axes)):
-            fig.delaxes(axes[j])
-            
-        plt.tight_layout(rect=[0, 0, 1, 0.95])
+            component = ChartComponent(df=band_df, title=chart_title, radius=1.0)
+            component.draw_on(fig, gs[i])
         
         output_filename = os.path.join(output_path, f"{self.report_id}_{callsign}.png")
         try:

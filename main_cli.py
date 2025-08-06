@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-05
-# Version: 0.30.24-Beta
+# Version: 0.30.29-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.30.29-Beta] - 2025-08-05
+### Changed
+# - Updated the usage guide to include new report category options (chart, text, plot).
 ## [0.30.24-Beta] - 2025-08-05
 # - No functional changes. Synchronizing version numbers.
 ## [0.30.0-Beta] - 2025-08-05
@@ -45,7 +48,7 @@ def handle_error(error_type: str, problem: str, solution: str, path: str = ""):
 
 def print_usage_guide():
     """Prints the command-line usage guide."""
-    print("\nUsage: python main_cli.py --report <ReportID|all> <LogFilePath1> [<LogFile2>...] [options]")
+    print("\nUsage: python main_cli.py --report <ReportID|all|chart|text|plot> <LogFilePath1> [<LogFile2>...] [options]")
     print("\nNote: The CONTEST_LOGS_REPORTS environment variable must be set to the root directory")
     print("      containing your 'Logs', 'data', and 'reports' subdirectories.")
     print("\nOptions:")
@@ -117,7 +120,8 @@ def main():
     if not args.report_id:
         handle_error("ARGUMENT ERROR", "The --report argument is required.", "Please specify which report to generate (e.g., --report summary).")
 
-    if args.report_id.lower() != 'all' and args.report_id not in AVAILABLE_REPORTS:
+    report_id_lower = args.report_id.lower()
+    if report_id_lower not in ['all', 'chart', 'text', 'plot'] and args.report_id not in AVAILABLE_REPORTS:
         handle_error("ARGUMENT ERROR", f"The report ID '{args.report_id}' was not found.", "Please choose a valid Report ID from the 'Available Reports' list below.")
         
     logging.info("\n--- Contest Log Analyzer ---")
