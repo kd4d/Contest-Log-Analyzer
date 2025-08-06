@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-06
-# Version: 0.30.34-Beta
+# Version: 0.30.35-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.30.35-Beta] - 2025-08-06
+### Fixed
+# - Corrected the "wae_dxcc" multiplier logic to properly separate the
+#   prefix (e.g., OH0) from the full name (e.g., Aland Islands).
 ## [0.30.34-Beta] - 2025-08-06
 ### Fixed
 # - Added logic to correctly process "wae_dxcc" multiplier source type,
@@ -267,15 +271,18 @@ class ContestLog:
                                 logging.warning(f"Name column '{source_name_col}' not found for source '{source_col}'.")
                     else:
                         logging.warning(f"Source column '{source_col}' not found for multiplier '{rule.get('name')}'.")
-                
+
                 elif rule.get('source') == 'wae_dxcc':
-                    # Prioritize WAEName, then fall back to DXCCName for the multiplier value
                     wae_mask = self.qsos_df['WAEName'].notna() & (self.qsos_df['WAEName'] != '')
-                    self.qsos_df.loc[wae_mask, dest_col] = self.qsos_df.loc[wae_mask, 'WAEName']
-                    self.qsos_df.loc[~wae_mask, dest_col] = self.qsos_df.loc[~wae_mask, 'DXCCName']
                     
+                    # Populate the value column (the prefix, e.g., 'OH0')
+                    self.qsos_df.loc[wae_mask, dest_col] = self.qsos_df.loc[wae_mask, 'WAEPfx']
+                    self.qsos_df.loc[~wae_mask, dest_col] = self.qsos_df.loc[~wae_mask, 'DXCCPfx']
+                    
+                    # Populate the name column (the full name, e.g., 'Aland Islands')
                     if dest_name_col:
-                        self.qsos_df[dest_name_col] = self.qsos_df[dest_col]
+                        self.qsos_df.loc[wae_mask, dest_name_col] = self.qsos_df.loc[wae_mask, 'WAEName']
+                        self.qsos_df.loc[~wae_mask, dest_name_col] = self.qsos_df.loc[~wae_mask, 'DXCCName']
 
         # --- Scoring Calculation ---
         my_call = self.metadata.get('MyCall')

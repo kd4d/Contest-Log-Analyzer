@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-04
-# Version: 0.26.5-Beta
+# Date: 2025-08-06
+# Version: 0.30.36-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,17 +17,15 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-# All notable changes to this project will be documented in this file.
-# The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
-# and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.30.36-Beta] - 2025-08-06
+### Changed
+# - Aligned formatting with Missed Multipliers report.
+# - First column header is now dynamically set based on the multiplier rule.
+# - First column width is now calculated dynamically to fit the content.
 ## [0.26.5-Beta] - 2025-08-04
 ### Fixed
 # - Corrected a bug that caused the report to fail for single logs by
 #   enabling single-log support and adding the correct processing logic.
-## [0.26.4-Beta] - 2025-08-04
-### Fixed
-# - The diagnostic section for unknown multipliers now correctly filters out
-#   DX stations.
 from typing import List
 import pandas as pd
 import os
@@ -51,7 +49,7 @@ class Report(ContestReport):
         """
         mult_name = kwargs.get('mult_name')
         if not mult_name:
-            return "Error: 'mult_name' argument is required for the Multiplier Summary report."
+            return f"Error: 'mult_name' argument is required for the '{self.report_name}' report."
 
         # --- Single-Log Mode ---
         if len(self.logs) == 1:
@@ -123,12 +121,28 @@ class Report(ContestReport):
         if not is_single_band:
             pivot['Total'] = pivot.sum(axis=1)
 
-        first_col_header = mult_name[:-1] if mult_name.lower().endswith('s') else mult_name
+        # --- Dynamic First Column Header & Width ---
+        if mult_name.lower() == 'countries':
+            source_type = mult_rule.get('source', 'dxcc').upper()
+            first_col_header = source_type
+        else:
+            first_col_header = mult_name[:-1] if mult_name.lower().endswith('s') else mult_name
+        
+        sorted_mults = sorted(pivot.index.get_level_values(0).unique())
+        max_len = len(first_col_header)
+        for mult in sorted_mults:
+            if name_column:
+                full_name = name_map.get(mult, '')
+                display_string = f"{mult} ({full_name})" if pd.notna(full_name) and full_name != '' else str(mult)
+                max_len = max(max_len, len(display_string))
+            else:
+                max_len = max(max_len, len(str(mult)))
+        first_col_width = max_len
             
         header_parts = [f"{b.replace('M',''):>7}" for b in bands]
         if not is_single_band:
             header_parts.append(f"{'Total':>7}")
-        table_header = f"{first_col_header:<25}" + "".join(header_parts)
+        table_header = f"{first_col_header:<{first_col_width}}" + "".join(header_parts)
         table_width = len(table_header)
         separator = "-" * table_width
         
@@ -138,55 +152,52 @@ class Report(ContestReport):
         title2 = f"{year} {contest_def.contest_name} - {', '.join(all_calls)}"
         
         report_lines = []
+        header_width = max(table_width, len(title1), len(title2))
         if len(title1) > table_width or len(title2) > table_width:
-             header_width = max(len(title1), len(title2))
              report_lines.append(f"{title1.ljust(header_width)}")
              report_lines.append(f"{title2.center(header_width)}")
         else:
-             header_width = table_width
              report_lines.append(title1.center(header_width))
              report_lines.append(title2.center(header_width))
         report_lines.append("")
         report_lines.append(table_header)
         report_lines.append(separator)
 
-        sorted_mults = sorted(pivot.index.get_level_values(0).unique())
-
         for mult in sorted_mults:
             mult_display = str(mult)
             if name_column:
                 mult_full_name = name_map.get(mult, '')
-                if pd.isna(mult_full_name): clean_name = ''
-                else: clean_name = str(mult_full_name).split(';')[0].strip()
-                mult_display = f"{mult} ({clean_name})"
+                if pd.notna(mult_full_name) and mult_full_name != '': 
+                    clean_name = str(mult_full_name).split(';')[0].strip()
+                    mult_display = f"{mult} ({clean_name})"
 
-            report_lines.append(f"{mult_display:<25}")
+            report_lines.append(f"{mult_display:<{first_col_width}}")
             
             mult_data = pivot.loc[mult]
             for call in all_calls:
                 if call in mult_data.index:
                     row = mult_data.loc[call]
-                    line = f"  {call:<21}"
+                    line = f"  {'':<{first_col_width-2}}"
                     for band in bands: line += f"{row.get(band, 0):>7}"
                     if not is_single_band:
                         line += f"{row.get('Total', 0):>7}"
                     report_lines.append(line)
 
         report_lines.append(separator)
-        report_lines.append(f"{'Total':<25}")
+        report_lines.append(f"{'Total':<{first_col_width}}")
         
         total_pivot = pivot.groupby(level='MyCall').sum()
         for call in all_calls:
                 if call in total_pivot.index:
                     row = total_pivot.loc[call]
-                    line = f"  {call:<21}"
+                    line = f"  {'':<{first_col_width-2}}"
                     for band in bands: line += f"{row.get(band, 0):>7}"
                     if not is_single_band:
                         line += f"{row.get('Total', 0):>7}"
                     report_lines.append(line)
 
         if not unknown_df.empty:
-            report_lines.append(f"{'Unknown Total':<25}")
+            report_lines.append(f"{'Unknown Total':<{first_col_width}}")
             unknown_pivot = unknown_df.pivot_table(index='MyCall', columns='Band', aggfunc='size', fill_value=0)
             for band in bands:
                 if band not in unknown_pivot.columns: unknown_pivot[band] = 0
@@ -198,7 +209,7 @@ class Report(ContestReport):
             for call in all_calls:
                 if call in unknown_pivot.index:
                     row = unknown_pivot.loc[call]
-                    line = f"  {call:<21}"
+                    line = f"  {'':<{first_col_width-2}}"
                     for band in bands: line += f"{row.get(band, 0):>7}"
                     if not is_single_band:
                         line += f"{row.get('Total', 0):>7}"
