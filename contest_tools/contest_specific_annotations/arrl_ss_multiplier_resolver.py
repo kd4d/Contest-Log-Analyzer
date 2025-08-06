@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-05
-# Version: 0.30.0-Beta
+# Date: 2025-08-06
+# Version: 0.30.40-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,9 +17,12 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.30.40-Beta] - 2025-08-06
+### Fixed
+# - Updated all references to the old CONTEST_DATA_DIR environment variable
+#   to use the correct CONTEST_LOGS_REPORTS variable.
 ## [0.30.0-Beta] - 2025-08-05
 # - Initial release of Version 0.30.0-Beta.
-# - Standardized all project files to a common baseline version.
 import pandas as pd
 import os
 import re
@@ -67,7 +70,6 @@ class SectionAliasLookup:
     def get_section(self, value: str) -> str:
         """
         Looks up an alias and returns the official section abbreviation.
-        If the value is already a valid section, it's returned directly.
         """
         if not isinstance(value, str):
             return "Unknown"
@@ -84,13 +86,13 @@ class SectionAliasLookup:
 def resolve_multipliers(df: pd.DataFrame, my_location_type: Optional[str]) -> pd.DataFrame:
     """
     Resolves the final Section multiplier for ARRL Sweepstakes QSOs.
-    The multiplier is always taken from the received exchange.
     """
     if df.empty or 'RcvdSection' not in df.columns:
         df['FinalMultiplier'] = "Unknown"
         return df
 
-    data_dir = os.environ.get('CONTEST_DATA_DIR').strip().strip('"').strip("'")
+    root_dir = os.environ.get('CONTEST_LOGS_REPORTS').strip().strip('"').strip("'")
+    data_dir = os.path.join(root_dir, 'data')
     alias_lookup = SectionAliasLookup(data_dir)
     
     df['FinalMultiplier'] = df['RcvdSection'].apply(alias_lookup.get_section)

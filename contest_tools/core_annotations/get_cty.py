@@ -2,13 +2,12 @@
 #
 # Purpose: Provides the CtyLookup class for determining DXCC/WAE entities,
 #          zones, and other geographical data from amateur radio callsigns
-#          based on the CTY.DAT file. This is a refactored version based
-#          on the detailed algorithm specification.
+#          based on the CTY.DAT file.
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-04
-# Version: 0.29.5-Beta
+# Date: 2025-08-06
+# Version: 0.30.40-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,26 +18,13 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-# All notable changes to this project will be documented in this file.
+## [0.30.40-Beta] - 2025-08-06
+### Fixed
+# - Updated all references to the old CONTEST_DATA_DIR environment variable
+#   to use the correct CONTEST_LOGS_REPORTS variable.
 ## [0.29.5-Beta] - 2025-08-04
 ### Changed
 # - Replaced all `print` statements with calls to the new logging framework.
-## [0.28.8-Beta] - 2025-08-03
-### Added
-# - Added `portableid` field to CtyInfo and FullCtyInfo tuples.
-# - Inserted a new "ends in a digit" heuristic to resolve ambiguous portable calls.
-### Changed
-# - The "Final Fallback" heuristic has been removed. Ambiguous portable calls
-#   that are not resolved by other heuristics now correctly return "Unknown".
-# - All return statements in the portable handler now populate the `portableid`.
-### Fixed
-# - Added a high-priority check to invalidate `digit/call` portable formats.
-#
-## [0.27.1-Beta] - 2025-08-02
-### Fixed
-# - Corrected a bug in the get_cty_DXCC_WAE merge logic where the CtyInfo
-#   tuple was being unpacked into variables in the wrong order. The logic
-#   now unpacks by field name to prevent column shifts in the output.
 from typing import List, Dict, Optional, Tuple
 import re
 from collections import namedtuple
@@ -46,6 +32,7 @@ import sys
 import os
 import argparse
 import logging
+from Utils.logger_config import setup_logging
 
 class CtyLookup:
     """
@@ -54,12 +41,10 @@ class CtyLookup:
     based on the CTY.DAT file, following a precise, ordered algorithm.
     """
 
-    # --- Data Structures ---
     CtyInfo = namedtuple('CtyInfo', 'name CQZone ITUZone Continent Lat Lon Tzone DXCC portableid')
     FullCtyInfo = namedtuple('FullCtyInfo', 'DXCCName DXCCPfx CQZone ITUZone Continent Lat Lon Tzone WAEName WAEPfx portableid')
     UNKNOWN_ENTITY = CtyInfo("Unknown", "Unknown", "Unknown", "Unknown", "0.0", "0.0", "0.0", "Unknown", "")
 
-    # --- US/Canada Structural Patterns for Portable Logic ---
     _US_PATTERN = re.compile(r'^(A[A-L]|K|N|W)[A-Z]?[0-9]')
     _CA_PATTERN = re.compile(r'^(C[F-Z]|V[A-G]|V[O-Y]|X[J-O])[0-9]')
 
@@ -239,15 +224,12 @@ class CtyLookup:
         parts = call.split('/')
         p1, p2 = parts[0], parts[-1]
 
-        # High-priority check for invalid digit/call format.
         if len(p1) == 1 and p1.isdigit() and len(p2) > 1 and not p2.isdigit():
             return self.UNKNOWN_ENTITY
         
         def determine_portable_id(part1, part2, chosen_part):
-            """Final check to assign correct portableid for call/digit formats."""
             if len(part2) == 1 and part2.isdigit():
                 return part2
-            # The invalid check catches digit/call, so this case is safe.
             return chosen_part
 
         def is_valid_prefix(p):
@@ -255,7 +237,6 @@ class CtyLookup:
             if wae and p in self.waeprefixes: return True
             return False
 
-        # 4a. Unambiguous Prefix Rule
         p1_is_pfx, p2_is_pfx = is_valid_prefix(p1), is_valid_prefix(p2)
         if p1_is_pfx and not p2_is_pfx:
             pid = determine_portable_id(p1, p2, p1)
@@ -264,7 +245,6 @@ class CtyLookup:
             pid = determine_portable_id(p1, p2, p2)
             return self._get_prefix_entity(p2, wae)._replace(portableid=pid)
 
-        # 4b. "Strip the Digit" Heuristic
         p1s = p1[:-1] if len(p1) > 1 and p1[-1].isdigit() and not p1[-2].isdigit() else None
         p2s = p2[:-1] if len(p2) > 1 and p2[-1].isdigit() and not p2[-2].isdigit() else None
         if p1s or p2s:
@@ -277,14 +257,12 @@ class CtyLookup:
                 pid = determine_portable_id(p1, p2, p2)
                 return self._get_prefix_entity(p2s, wae)._replace(portableid=pid)
 
-        # 4c. US/Canada Heuristic
         if len(p2) == 1 and p2.isdigit() and (self._US_PATTERN.match(p1) or self._CA_PATTERN.match(p1)):
             cty_info = self._find_longest_prefix(p1, wae)
             if cty_info:
                 return cty_info._replace(portableid=p2)
             return self.UNKNOWN_ENTITY
 
-        # 4d. New "Ends in a Digit" Heuristic
         p1_ends_digit = p1[-1].isdigit()
         p2_ends_digit = p2[-1].isdigit()
         if p1_ends_digit and not p2_ends_digit:
@@ -294,8 +272,6 @@ class CtyLookup:
             cty_info = self._find_longest_prefix(p2, wae)
             if cty_info: return cty_info._replace(portableid=p2)
 
-        # 4e. Final Action: No Fallback Guessing
-        # If the call is still ambiguous, it will fall through and be returned as Unknown.
         return None
 
     def _find_longest_prefix(self, call: str, wae: bool) -> Optional[CtyInfo]:
@@ -314,29 +290,21 @@ class CtyLookup:
         if (entity := self.dxccprefixes.get(prefix)): return entity
         return None
 
-# --- Standalone Execution for Testing ---
-def _run_lookup(cty: CtyLookup, call: str):
-    res = cty.get_cty_DXCC_WAE(call)
-    logging.info(f"\n> {call}\n  Comprehensive: DXCC Name: {res.DXCCName:<20}, DXCC Pfx: {res.DXCCPfx:<10}\n"
-          f"                   WAE Name:  {res.WAEName:<20}, WAE Pfx:  {res.WAEPfx:<10}\n"
-          f"                   Zones: CQ {res.CQZone}, ITU {res.ITUZone}, Cont: {res.Continent}\n"
-          f"                   Portable ID: {res.portableid}")
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="CTY.DAT lookup tool.")
     parser.add_argument('callsign_file', nargs='?', default=None,
                         help="Optional path to a file containing callsigns to look up, one per line.")
     args = parser.parse_args()
 
-    # Setup basic logging for standalone execution
     setup_logging(verbose=True)
 
-    data_dir = os.environ.get('CONTEST_DATA_DIR')
-    if not data_dir:
-        logging.critical("CONTEST_DATA_DIR environment variable not set.")
+    root_dir = os.environ.get('CONTEST_LOGS_REPORTS')
+    if not root_dir:
+        logging.critical("CONTEST_LOGS_REPORTS environment variable not set.")
         sys.exit(1)
     
-    cty_path = os.path.join(data_dir.strip().strip('"').strip("'"), 'cty.dat')
+    data_dir = os.path.join(root_dir.strip().strip('"').strip("'"), 'data')
+    cty_path = os.path.join(data_dir, 'cty.dat')
 
     if not os.path.exists(cty_path):
         logging.critical(f"The file '{cty_path}' could not be found.")

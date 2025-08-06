@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-05
-# Version: 0.30.0-Beta
+# Date: 2025-08-06
+# Version: 0.30.40-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,9 +17,12 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.30.40-Beta] - 2025-08-06
+### Fixed
+# - Updated all references to the old CONTEST_DATA_DIR environment variable
+#   to use the correct CONTEST_LOGS_REPORTS variable.
 ## [0.30.0-Beta] - 2025-08-05
 # - Initial release of Version 0.30.0-Beta.
-# - Standardized all project files to a common baseline version.
 import pandas as pd
 import os
 import re
@@ -51,7 +54,6 @@ class AliasLookup:
                     
                     match = re.match(r'([A-Z]{2})\s+\((.*)\)', official_part.strip())
                     if not match:
-                        # Handle cases with no aliases
                         match_no_alias = re.match(r'([A-Z]{2})\s+\((.*)\)', aliases_part.strip())
                         if match_no_alias:
                             official_abbr = match_no_alias.group(1).upper()
@@ -72,7 +74,6 @@ class AliasLookup:
     def get_multiplier(self, value: str) -> str:
         """
         Looks up an alias and returns the official 2-letter multiplier.
-        If the value is already a valid multiplier, it's returned directly.
         """
         if not isinstance(value, str):
             return "Unknown"
@@ -81,7 +82,6 @@ class AliasLookup:
         if value_upper in self._valid_mults:
             return value_upper
         
-        # Check prefixes for callsigns
         temp = value_upper
         while len(temp) > 0:
             if temp in self._lookup:
@@ -97,27 +97,19 @@ def resolve_multipliers(df: pd.DataFrame, my_location_type: str) -> pd.DataFrame
     if df.empty:
         return df
 
-    data_dir = os.environ.get('CONTEST_DATA_DIR').strip().strip('"').strip("'")
+    root_dir = os.environ.get('CONTEST_LOGS_REPORTS').strip().strip('"').strip("'")
+    data_dir = os.path.join(root_dir, 'data')
     alias_lookup = AliasLookup(data_dir)
     
-    # Determine which column holds the multiplier info based on logger's location
     if my_location_type == "W/VE":
-        # I am a W/VE, so the multiplier is the DXCC of the station I worked.
-        # This is already handled by the core annotations. No action needed here.
         df['FinalMultiplier'] = df['DXCCPfx']
         return df
     
     elif my_location_type == "DX":
-        # I am DX, so the multiplier is the State/Prov of the W/VE station I worked.
-        # This comes from the received exchange ('RcvdLocation').
-        # However, we must also check the callsign for an alias if the location is invalid.
-        
         def determine_mult(row):
             location = row.get('RcvdLocation', '')
-            # Try the location from the exchange first
             mult = alias_lookup.get_multiplier(location)
             
-            # If the exchange didn't yield a valid mult, try the callsign
             if mult == "Unknown":
                 return alias_lookup.get_multiplier(row.get('Call', ''))
             return mult

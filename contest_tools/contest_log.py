@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-06
-# Version: 0.30.35-Beta
+# Version: 0.30.40-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,16 +18,14 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.30.40-Beta] - 2025-08-06
+### Fixed
+# - Updated all references to the old CONTEST_DATA_DIR environment variable
+#   to use the correct CONTEST_LOGS_REPORTS variable.
 ## [0.30.35-Beta] - 2025-08-06
 ### Fixed
 # - Corrected the "wae_dxcc" multiplier logic to properly separate the
 #   prefix (e.g., OH0) from the full name (e.g., Aland Islands).
-## [0.30.34-Beta] - 2025-08-06
-### Fixed
-# - Added logic to correctly process "wae_dxcc" multiplier source type,
-#   fixing a bug where Countries multipliers were not calculated for CQ-WW.
-## [0.30.0-Beta] - 2025-08-05
-# - Initial release of Version 0.30.0-Beta.
 from typing import List
 import pandas as pd
 from datetime import datetime
@@ -200,7 +198,8 @@ class ContestLog:
         if is_asymmetric:
             my_call = self.metadata.get('MyCall')
             if my_call:
-                data_dir = os.environ.get('CONTEST_DATA_DIR').strip().strip('"').strip("'")
+                root_dir = os.environ.get('CONTEST_LOGS_REPORTS').strip().strip('"').strip("'")
+                data_dir = os.path.join(root_dir, 'data')
                 cty_dat_path = os.path.join(data_dir, 'cty.dat')
                 cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)
                 info = cty_lookup.get_cty(my_call)
@@ -275,11 +274,9 @@ class ContestLog:
                 elif rule.get('source') == 'wae_dxcc':
                     wae_mask = self.qsos_df['WAEName'].notna() & (self.qsos_df['WAEName'] != '')
                     
-                    # Populate the value column (the prefix, e.g., 'OH0')
                     self.qsos_df.loc[wae_mask, dest_col] = self.qsos_df.loc[wae_mask, 'WAEPfx']
                     self.qsos_df.loc[~wae_mask, dest_col] = self.qsos_df.loc[~wae_mask, 'DXCCPfx']
                     
-                    # Populate the name column (the full name, e.g., 'Aland Islands')
                     if dest_name_col:
                         self.qsos_df.loc[wae_mask, dest_name_col] = self.qsos_df.loc[wae_mask, 'WAEName']
                         self.qsos_df.loc[~wae_mask, dest_name_col] = self.qsos_df.loc[~wae_mask, 'DXCCName']
@@ -292,7 +289,8 @@ class ContestLog:
             return
             
         try:
-            data_dir = os.environ.get('CONTEST_DATA_DIR').strip().strip('"').strip("'")
+            root_dir = os.environ.get('CONTEST_LOGS_REPORTS').strip().strip('"').strip("'")
+            data_dir = os.path.join(root_dir, 'data')
             cty_dat_path = os.path.join(data_dir, 'cty.dat')
             cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)
             my_call_info = cty_lookup.get_cty_DXCC_WAE(my_call)._asdict()

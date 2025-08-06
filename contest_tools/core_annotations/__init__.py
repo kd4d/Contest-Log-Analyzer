@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-05
-# Version: 0.30.0-Beta
+# Date: 2025-08-06
+# Version: 0.30.40-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,9 +18,12 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.30.40-Beta] - 2025-08-06
+### Fixed
+# - Updated all references to the old CONTEST_DATA_DIR environment variable
+#   to use the correct CONTEST_LOGS_REPORTS variable.
 ## [0.30.0-Beta] - 2025-08-05
 # - Initial release of Version 0.30.0-Beta.
-# - Standardized all project files to a common baseline version.
 import pandas as pd
 import os
 import logging
@@ -32,14 +35,7 @@ from .run_s_p import process_contest_log_for_run_s_p
 
 def process_dataframe_for_cty_data(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Applies universal DXCC and WAE lookup to a DataFrame of QSO records
-    using the main cty.dat file specified by the CONTEST_DATA_DIR environment variable.
-
-    Args:
-        df (pd.DataFrame): The input DataFrame, expected to have a 'Call' column.
-
-    Returns:
-        pd.DataFrame: The DataFrame with universal DXCC/WAE/Zone columns added/updated.
+    Applies universal DXCC and WAE lookup to a DataFrame of QSO records.
     """
     if df.empty:
         return df
@@ -47,11 +43,12 @@ def process_dataframe_for_cty_data(df: pd.DataFrame) -> pd.DataFrame:
     if 'Call' not in df.columns:
         raise KeyError("DataFrame must contain a 'Call' column for CTY data lookup.")
 
-    data_dir = os.environ.get('CONTEST_DATA_DIR')
-    if not data_dir:
-        raise ValueError("Environment variable CONTEST_DATA_DIR is not set.")
+    root_dir = os.environ.get('CONTEST_LOGS_REPORTS')
+    if not root_dir:
+        raise ValueError("Environment variable CONTEST_LOGS_REPORTS is not set.")
     
-    cty_dat_file_path = os.path.join(data_dir.strip().strip('"').strip("'"), 'cty.dat')
+    data_dir = os.path.join(root_dir.strip().strip('"').strip("'"), 'data')
+    cty_dat_file_path = os.path.join(data_dir, 'cty.dat')
     logging.info(f"Using country file for universal annotations: {cty_dat_file_path}")
 
     processed_df = df.copy()
@@ -69,8 +66,6 @@ def process_dataframe_for_cty_data(df: pd.DataFrame) -> pd.DataFrame:
 
     temp_df = pd.DataFrame(temp_results, index=processed_df.index)
 
-    # --- FIX: Dynamically merge all columns from the CTY lookup result ---
-    # This prevents bugs if new fields are added to the CtyInfo tuple in the future.
     for col in temp_df.columns:
         processed_df[col] = temp_df[col]
 

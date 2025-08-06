@@ -1,11 +1,15 @@
 --- FILE: Docs/Working with Gemini.md ---
 # Project Workflow Guide
 
-**Version: 0.30.32-Beta**
+**Version: 0.30.33-Beta**
 **Date: 2025-08-06**
 
 ---
 ### --- Revision History ---
+## [0.30.33-Beta] - 2025-08-06
+### Added
+# - Added a new Guiding Principle: "Clarify Ambiguity Before Acting" to
+#   prevent work based on misinterpreted requests.
 ## [0.30.32-Beta] - 2025-08-06
 ### Changed
 # - Restructured Section 4 into a more robust "Synchronization Protocols"
@@ -14,10 +18,6 @@
 # - Updated Section 1 to prioritize single file transfers over bundles due
 #   to persistent parsing and synchronization issues with the bundle format.
 # - Added "Why" context to several rules to improve comprehension for a new AI instance.
-## [0.30.31-Beta] - 2025-08-05
-### Changed
-# - Added protocol for handling non-breaking spaces during checksum
-#   verification and in all AI-generated file outputs.
 ---
 
 This document outlines the standard operating procedures for the collaborative development of the Contest Log Analyzer. **The primary audience for this document is the Gemini AI agent.**
@@ -27,9 +27,10 @@ This document outlines the standard operating procedures for the collaborative d
 
 ### Guiding Principles
 
-1.  **Trust the User's Diagnostics.** When the user reports a bug, their description of the symptoms (e.g., "the multipliers are too high," "the report is all zeros") should be treated as the ground truth. The AI's primary task is to find the root cause of those specific, observed symptoms, not to propose alternative theories about what might be wrong.
-2.  **Analyze the Full Traceback.** When a traceback is provided, analyze the *entire call stack* to find the root cause. An error in a low-level utility module (e.g., `_report_utils.py`) can manifest as import errors in many higher-level files, but only the root cause should be addressed.
-3.  **Prefer Logic in Code, Not Data.** The project's design philosophy is to keep the `.json` definition files as simple, declarative maps. All complex, conditional, or contest-specific logic should be implemented in dedicated Python modules (e.g., `cq_160_multiplier_resolver.py`). This makes the system more robust and easier to maintain.
+1.  **Clarify Ambiguity Before Acting.** If a user's request is visually complex (e.g., report formatting) or functionally ambiguous (e.g., "add debugging prints"), the AI will first paraphrase its understanding of the goal and ask for confirmation *before* writing code. This prevents wasted effort on incorrect interpretations.
+2.  **Trust the User's Diagnostics.** When the user reports a bug, their description of the symptoms (e.g., "the multipliers are too high," "the report is all zeros") should be treated as the ground truth. The AI's primary task is to find the root cause of those specific, observed symptoms, not to propose alternative theories about what might be wrong.
+3.  **Analyze the Full Traceback.** When a traceback is provided, analyze the *entire call stack* to find the root cause. An error in a low-level utility module (e.g., `_report_utils.py`) can manifest as import errors in many higher-level files, but only the root cause should be addressed.
+4.  **Prefer Logic in Code, Not Data.** The project's design philosophy is to keep the `.json` definition files as simple, declarative maps. All complex, conditional, or contest-specific logic should be implemented in dedicated Python modules (e.g., `cq_160_multiplier_resolver.py`). This makes the system more robust and easier to maintain.
 ---
 
 ## 1. Project File Input
