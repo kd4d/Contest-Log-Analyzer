@@ -1,6 +1,6 @@
 {
   "_filename": "contest_tools/contest_definitions/cq_ww_ssb.json",
-  "_version": "0.30.32-Beta",
+  "_version": "0.30.33-Beta",
   "_date": "2025-08-06",
   "contest_name": "CQ-WW-SSB",
   "mults_from_zero_point_qsos": true,
@@ -11,10 +11,12 @@
     "end_time": "23:59:59 UTC"
   },
   "exchange_parsing_rules": {
-    "CQ-WW-SSB": {
-      "regex": "(\\d{2})\\s+(\\d{1,2})\\s+([A-Z0-9/]+)\\s+(\\d{2})\\s+(\\d{1,2})(?:\\s+(\\d))?",
-      "groups": ["SentRS", "SentZone", "Call", "RS", "Zone", "Transmitter"]
-    }
+    "CQ-WW-SSB": [
+      {
+        "regex": "(\\d{2})\\s+(\\d{1,2})\\s+([A-Z0-9/]+)\\s+(\\d{2})\\s+(\\d{1,2})(?:\\s+(\\d))?",
+        "groups": ["SentRS", "SentZone", "Call", "RS", "Zone", "Transmitter"]
+      }
+    ]
   },
   "multiplier_rules": [
     {

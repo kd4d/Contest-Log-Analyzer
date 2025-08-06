@@ -1,7 +1,7 @@
 {
   "_filename": "contest_tools/contest_definitions/cq_ww_cw.json",
-  "_version": "0.30.0-Beta",
-  "_date": "2025-08-05",
+  "_version": "0.30.33-Beta",
+  "_date": "2025-08-06",
   "contest_name": "CQ-WW-CW",
   "mults_from_zero_point_qsos": true,
   "contest_period": {
@@ -11,10 +11,12 @@
     "end_time": "23:59:59 UTC"
   },
   "exchange_parsing_rules": {
-    "CQ-WW-DX-CW": {
-      "regex": "(\\d{3})\\s+(\\d{1,2})\\s+([A-Z0-9/]+)\\s+(\\d{3})\\s+(\\d{1,2})(?:\\s+(\\d))?",
-      "groups": ["SentRST", "SentZone", "Call", "RST", "Zone", "Transmitter"]
-    }
+    "CQ-WW-CW": [
+      {
+        "regex": "(\\d{3})\\s+(\\d{1,2})\\s+([A-Z0-9/]+)\\s+(\\d{3})\\s+(\\d{1,2})(?:\\s+(\\d))?",
+        "groups": ["SentRST", "SentZone", "Call", "RST", "Zone", "Transmitter"]
+      }
+    ]
   },
   "multiplier_rules": [
     {

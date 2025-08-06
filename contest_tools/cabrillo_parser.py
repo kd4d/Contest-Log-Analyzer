@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-06
-# Version: 0.30.31-Beta
+# Version: 0.30.34-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,13 +18,19 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.30.34-Beta] - 2025-08-06
+### Changed
+# - Removed diagnostic print statements from _parse_qso_line.
+## [0.30.33-Beta] - 2025-08-06
+### Added
+# - Added diagnostic print statements to _parse_qso_line to debug
+#   persistent parsing failures.
 ## [0.30.31-Beta] - 2025-08-06
 ### Changed
 # - Added a line to the main parsing loop to replace non-breaking spaces
 #   with regular spaces, increasing parsing robustness.
 ## [0.30.0-Beta] - 2025-08-05
 # - Initial release of Version 0.30.0-Beta.
-# - Standardized all project files to a common baseline version.
 import re
 import pandas as pd
 from typing import Dict, Any, List, Tuple, Optional
@@ -37,24 +43,6 @@ from .contest_definitions import ContestDefinition # Relative import within cont
 def parse_cabrillo_file(filepath: str, contest_definition: ContestDefinition) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """
     Parses a Cabrillo log file into a Pandas DataFrame of QSOs and extracts header metadata.
-    The parsing is guided by a ContestDefinition object, allowing for flexible handling
-    of contest-specific header fields and QSO exchange formats.
-
-    Args:
-        filepath (str): The path to the Cabrillo log file.
-        contest_definition (ContestDefinition): An instance of ContestDefinition
-                                                containing rules for the contest.
-
-    Returns:
-        Tuple[pd.DataFrame, Dict[str, Any]]: A tuple containing:
-            - pd.DataFrame: A DataFrame where each row is a QSO, with standardized columns
-                            and contest-specific exchange fields.
-            - Dict[str, Any]: A dictionary containing log header metadata.
-
-    Raises:
-        FileNotFoundError: If the specified Cabrillo file does not exist.
-        ValueError: If the Cabrillo file has an invalid format (e.g., missing START-OF-LOG,
-                    missing CONTEST/CALLSIGN, malformed QSO lines, unsupported contest).
     """
     log_metadata: Dict[str, Any] = {}
     qso_records: List[Dict[str, Any]] = []
@@ -106,7 +94,6 @@ def parse_cabrillo_file(filepath: str, contest_definition: ContestDefinition) ->
     if 'MyCall' not in log_metadata or 'ContestName' not in log_metadata:
         raise ValueError(f"Required header fields (CALLSIGN:, CONTEST:) not found in {filepath}")
     
-    # Construct DataFrame from the list of QSO dictionaries
     df = pd.DataFrame(qso_records)
 
     return df, log_metadata
@@ -133,20 +120,16 @@ def _parse_qso_line(
 
     exchange_rest = qso_final_dict.pop('ExchangeRest', '').strip()
 
-    # --- New Robust Parsing Logic ---
-    # Look up the rules for the specific contest identified in the header.
     contest_name = log_metadata.get('ContestName')
     rules_for_contest = contest_definition.exchange_parsing_rules.get(contest_name)
     
     if not rules_for_contest:
-        # Fallback for contests that might use a generic name (e.g., NAQP-CW using NAQP rules)
         base_contest_name = contest_name.rsplit('-', 1)[0]
         rules_for_contest = contest_definition.exchange_parsing_rules.get(base_contest_name)
 
     if not rules_for_contest:
-        return None # No parsing rule found for this contest
+        return None 
 
-    # Ensure rules are in a list to handle both single-rule and multi-rule contests
     if not isinstance(rules_for_contest, list):
         rules_for_contest = [rules_for_contest]
 
@@ -165,10 +148,10 @@ def _parse_qso_line(
                 except IndexError:
                     qso_final_dict[group_name] = pd.NA
             parsed_successfully = True
-            break # Stop after the first successful match
+            break 
             
     if not parsed_successfully:
-        return None # None of the rules for this contest matched the line
+        return None 
 
     for cabrillo_tag, df_key in contest_definition.header_field_map.items():
         if df_key in log_metadata:

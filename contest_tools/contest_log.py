@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-05
-# Version: 0.30.0-Beta
+# Date: 2025-08-06
+# Version: 0.30.34-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,9 +18,12 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.30.34-Beta] - 2025-08-06
+### Fixed
+# - Added logic to correctly process "wae_dxcc" multiplier source type,
+#   fixing a bug where Countries multipliers were not calculated for CQ-WW.
 ## [0.30.0-Beta] - 2025-08-05
 # - Initial release of Version 0.30.0-Beta.
-# - Standardized all project files to a common baseline version.
 from typing import List
 import pandas as pd
 from datetime import datetime
@@ -74,6 +77,7 @@ class ContestLog:
         self.dupe_sets: Dict[str, Set[Tuple[str, str]]] = {}
         self.filepath = cabrillo_filepath
         self._my_location_type: Optional[str] = None # W/VE or DX
+        self._log_manager_ref = None
 
         try:
             self.contest_definition = ContestDefinition.from_json(contest_name)
@@ -263,6 +267,15 @@ class ContestLog:
                                 logging.warning(f"Name column '{source_name_col}' not found for source '{source_col}'.")
                     else:
                         logging.warning(f"Source column '{source_col}' not found for multiplier '{rule.get('name')}'.")
+                
+                elif rule.get('source') == 'wae_dxcc':
+                    # Prioritize WAEName, then fall back to DXCCName for the multiplier value
+                    wae_mask = self.qsos_df['WAEName'].notna() & (self.qsos_df['WAEName'] != '')
+                    self.qsos_df.loc[wae_mask, dest_col] = self.qsos_df.loc[wae_mask, 'WAEName']
+                    self.qsos_df.loc[~wae_mask, dest_col] = self.qsos_df.loc[~wae_mask, 'DXCCName']
+                    
+                    if dest_name_col:
+                        self.qsos_df[dest_name_col] = self.qsos_df[dest_col]
 
         # --- Scoring Calculation ---
         my_call = self.metadata.get('MyCall')
@@ -276,6 +289,7 @@ class ContestLog:
             cty_dat_path = os.path.join(data_dir, 'cty.dat')
             cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)
             my_call_info = cty_lookup.get_cty_DXCC_WAE(my_call)._asdict()
+            my_call_info['MyCall'] = my_call
         except Exception as e:
             logging.warning(f"Could not determine own location for scoring due to CTY error: {e}")
             self.qsos_df['QSOPoints'] = 0

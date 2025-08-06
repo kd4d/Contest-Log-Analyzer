@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-04
-# Version: 0.26.11-Beta
+# Date: 2025-08-06
+# Version: 0.30.34-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,15 +17,14 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-# All notable changes to this project will be documented in this file.
+## [0.30.34-Beta] - 2025-08-06
+### Changed
+# - Updated diagnostic error message to include the report name for clarity.
+# - Removed a redundant print statement.
 ## [0.26.11-Beta] - 2025-08-04
 ### Fixed
 # - Corrected a KeyError that occurred when processing hours with no QSOs
 #   by adding a check for an empty dataframe.
-## [0.26.10-Beta] - 2025-08-04
-### Added
-# - Added a temporary diagnostic print statement to debug the time-series
-#   filtering logic.
 from typing import List, Dict, Set
 import pandas as pd
 import os
@@ -47,12 +46,14 @@ class Report(ContestReport):
         """
         mult_name = kwargs.get('mult_name')
         if not mult_name:
-            return "Error: 'mult_name' argument is required for the Multipliers by Hour report."
+            return f"Error: 'mult_name' argument is required for the '{self.report_name}' report."
+        
         final_report_messages = []
         
         log_manager = getattr(self.logs[0], '_log_manager_ref', None)
         if not log_manager or log_manager.master_time_index is None:
-            return "Error: Master time index not available for report."
+            return f"Error: Master time index not available for '{self.report_name}' report."
+        
         master_time_index = log_manager.master_time_index
 
         for log in self.logs:
@@ -69,8 +70,7 @@ class Report(ContestReport):
                     break
             
             if not mult_rule or 'value_column' not in mult_rule:
-                msg = f"Skipping report for {callsign}: Multiplier '{mult_name}' not found."
-                print(msg)
+                msg = f"Skipping report '{self.report_name}' for {callsign}: Multiplier '{mult_name}' not found."
                 final_report_messages.append(msg)
                 continue
 
@@ -79,8 +79,7 @@ class Report(ContestReport):
 
             df = df_full[df_full['Dupe'] == False].copy()
             if df.empty or mult_column not in df.columns or df[mult_column].isna().all():
-                msg = f"Skipping report for {callsign}: No valid '{mult_name}' data to report."
-                print(msg)
+                msg = f"Skipping report '{self.report_name}' for {callsign}: No valid '{mult_name}' data to report."
                 final_report_messages.append(msg)
                 continue
             
