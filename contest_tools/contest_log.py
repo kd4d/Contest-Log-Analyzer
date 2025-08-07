@@ -6,7 +6,7 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-06
+# Date: 2025-08-07
 # Version: 0.30.40-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
@@ -18,14 +18,19 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.30.40-Beta] - 2025-08-06
+## [0.30.40-Beta] - 2025-08-07
 ### Fixed
-# - Updated all references to the old CONTEST_DATA_DIR environment variable
-#   to use the correct CONTEST_LOGS_REPORTS variable.
-## [0.30.35-Beta] - 2025-08-06
+# - Corrected a TypeError by localizing the QSO timestamps to UTC upon
+#   creation, ensuring compatibility with the master time index.
+## [0.30.34-Beta] - 2025-08-07
 ### Fixed
-# - Corrected the "wae_dxcc" multiplier logic to properly separate the
-#   prefix (e.g., OH0) from the full name (e.g., Aland Islands).
+# - Corrected a pandas FutureWarning by only applying fillna to object-type
+#   columns before exporting to CSV.
+## [0.30.1-Beta] - 2025-08-05
+### Fixed
+# - Corrected a SyntaxError caused by an incomplete statement in the __init__ method.
+## [0.30.0-Beta] - 2025-08-05
+# - Initial release of Version 0.30.0-Beta.
 from typing import List
 import pandas as pd
 from datetime import datetime
@@ -79,7 +84,6 @@ class ContestLog:
         self.dupe_sets: Dict[str, Set[Tuple[str, str]]] = {}
         self.filepath = cabrillo_filepath
         self._my_location_type: Optional[str] = None # W/VE or DX
-        self._log_manager_ref = None
 
         try:
             self.contest_definition = ContestDefinition.from_json(contest_name)
@@ -100,11 +104,14 @@ class ContestLog:
             return
 
         raw_df['Frequency'] = pd.to_numeric(raw_df.get('FrequencyRaw'), errors='coerce')
+        
+        # --- FIX: Localize timestamps to UTC upon creation ---
         raw_df['Datetime'] = pd.to_datetime(
             raw_df.get('DateRaw', '') + ' ' + raw_df.get('TimeRaw', ''),
             format='%Y-%m-%d %H%M',
             errors='coerce'
-        )
+        ).dt.tz_localize('UTC')
+
         raw_df.dropna(subset=['Frequency', 'Datetime'], inplace=True)
 
         if raw_df.empty:
@@ -198,8 +205,7 @@ class ContestLog:
         if is_asymmetric:
             my_call = self.metadata.get('MyCall')
             if my_call:
-                root_dir = os.environ.get('CONTEST_LOGS_REPORTS').strip().strip('"').strip("'")
-                data_dir = os.path.join(root_dir, 'data')
+                data_dir = os.environ.get('CONTEST_DATA_DIR').strip().strip('"').strip("'")
                 cty_dat_path = os.path.join(data_dir, 'cty.dat')
                 cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)
                 info = cty_lookup.get_cty(my_call)
@@ -226,7 +232,7 @@ class ContestLog:
             logging.error(f"Error during Universal DXCC/Zone lookup: {e}. Skipping.")
         
         self.apply_contest_specific_annotations()
-        
+    
         try:
             self.metadata['OperatingTime'] = self._calculate_operating_time()
         except Exception as e:
@@ -271,16 +277,6 @@ class ContestLog:
                     else:
                         logging.warning(f"Source column '{source_col}' not found for multiplier '{rule.get('name')}'.")
 
-                elif rule.get('source') == 'wae_dxcc':
-                    wae_mask = self.qsos_df['WAEName'].notna() & (self.qsos_df['WAEName'] != '')
-                    
-                    self.qsos_df.loc[wae_mask, dest_col] = self.qsos_df.loc[wae_mask, 'WAEPfx']
-                    self.qsos_df.loc[~wae_mask, dest_col] = self.qsos_df.loc[~wae_mask, 'DXCCPfx']
-                    
-                    if dest_name_col:
-                        self.qsos_df.loc[wae_mask, dest_name_col] = self.qsos_df.loc[wae_mask, 'WAEName']
-                        self.qsos_df.loc[~wae_mask, dest_name_col] = self.qsos_df.loc[~wae_mask, 'DXCCName']
-
         # --- Scoring Calculation ---
         my_call = self.metadata.get('MyCall')
         if not my_call:
@@ -289,12 +285,10 @@ class ContestLog:
             return
             
         try:
-            root_dir = os.environ.get('CONTEST_LOGS_REPORTS').strip().strip('"').strip("'")
-            data_dir = os.path.join(root_dir, 'data')
+            data_dir = os.environ.get('CONTEST_DATA_DIR').strip().strip('"').strip("'")
             cty_dat_path = os.path.join(data_dir, 'cty.dat')
             cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)
             my_call_info = cty_lookup.get_cty_DXCC_WAE(my_call)._asdict()
-            my_call_info['MyCall'] = my_call
         except Exception as e:
             logging.warning(f"Could not determine own location for scoring due to CTY error: {e}")
             self.qsos_df['QSOPoints'] = 0
@@ -333,13 +327,11 @@ class ContestLog:
             if 'Datetime' in df_for_output.columns:
                 df_for_output['Datetime'] = df_for_output['Datetime'].dt.strftime('%Y-%m-%d %H:%M:%S')
 
+            # --- FIX: Only fill NA for object columns to avoid FutureWarning ---
+            for col in df_for_output.select_dtypes(include=['object']).columns:
+                df_for_output[col] = df_for_output[col].fillna('')
+
             df_for_output = df_for_output.reindex(columns=self.contest_definition.default_qso_columns)
-
-            for col in df_for_output.columns:
-                if pd.api.types.is_integer_dtype(df_for_output[col]) and isinstance(df_for_output[col].dtype, pd.Int64Dtype):
-                    df_for_output[col] = df_for_output[col].astype(object)
-
-            df_for_output.fillna('', inplace=True)
 
             df_for_output.to_csv(output_filepath, index=False)
             logging.info(f"Processed log saved to: {output_filepath}")

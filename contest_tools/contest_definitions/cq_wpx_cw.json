@@ -1,32 +1,17 @@
 {
-  "_filename": "contest_tools/contest_definitions/cq_ww_cw.json",
-  "_version": "0.30.32-Beta",
-  "_date": "2025-08-06",
-  "contest_name": "CQ-WW-CW",
-  "mults_from_zero_point_qsos": true,
-  "contest_period": {
-    "start_day": "Saturday",
-    "start_time": "00:00:00 UTC",
-    "end_day": "Sunday",
-    "end_time": "23:59:59 UTC"
-  },
-  "exchange_parsing_rules": {
-    "CQ-WW-CW": {
-      "regex": "(\\d{3})\\s+(\\d{1,2})\\s+([A-Z0-9/]+)\\s+(\\d{3})\\s+(\\d{1,2})(?:\\s+(\\d))?",
-      "groups": ["SentRST", "SentZone", "Call", "RST", "Zone", "Transmitter"]
-    }
-  },
-  "multiplier_rules": [
-    {
-      "name": "Countries",
-      "source": "wae_dxcc",
-      "value_column": "Mult1",
-      "name_column": "Mult1Name"
+    "name": "CQ-WPX-CW",
+    "dupe_check_scope": "per_band",
+    "qso_common_fields_regex": "QSO:\\s+(\\d{4,5})\\s+CW\\s+(\\d{4}-\\d{2}-\\d{2})\\s+(\\d{4})\\s+([A-Z0-9/]+)\\s+(.*)",
+    "qso_common_field_names": ["FrequencyRaw", "DateRaw", "TimeRaw", "MyCallRaw", "ExchangeRest"],
+    "exchange_parsing_rules": {
+        "CQ-WPX-CW": {
+            "regex": "^(\\d{2,3})\\s+(\\d+)\\s+([A-Z0-9/]+)\\s+(\\d{2,3})\\s+(\\d+)(?:\\s+(\\d))?$",
+            "groups": ["SentRST", "SentNR", "Call", "RST", "NR", "Transmitter"]
+        }
     },
-    {
-      "name": "Zones",
-      "source_column": "Zone",
-      "value_column": "Mult2"
-    }
-  ]
+    "multiplier_rules": [{"name": "Prefixes", "value_column": "Prefix_Mult", "name_column": "Prefix_MultName"}],
+    "custom_multiplier_resolver": "cq_wpx_prefix",
+    "operating_time_rules": {"min_off_time_minutes": 60, "single_op_max_hours": 36, "multi_op_max_hours": 48},
+    "valid_bands": ["160M", "80M", "40M", "20M", "15M", "10M"],
+    "excluded_reports": ["missed_multipliers", "multiplier_summary", "multipliers_by_hour"]
 }

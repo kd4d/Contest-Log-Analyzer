@@ -1,11 +1,14 @@
 --- FILE: Docs/Working with Gemini.md ---
 # Project Workflow Guide
 
-**Version: 0.30.30-Beta**
+**Version: 0.30.31-Beta**
 **Date: 2025-08-07**
 
 ---
 ### --- Revision History ---
+## [0.30.31-Beta] - 2025-08-07
+# - Added Section 14, the "Definitive State Reconciliation Protocol," to
+#   mandate a full project review for certain trigger commands.
 ## [0.30.30-Beta] - 2025-08-07
 # - Synchronized documentation with the current code base and our
 #   established protocols.
@@ -183,3 +186,19 @@ All generated report files must adhere to a standardized naming convention to en
     * `missed_multipliers_dxcc_KD4D_vs_N0NI.txt`
     * `cumulative_difference_plots_points_all_K1LZ_vs_K3LR.png`
     * `qso_rate_plots_K1LZ_K3LR_KC1XX.png`
+
+---
+
+## 14. Definitive State Reconciliation Protocol
+
+Certain user commands are designated as **Reconciliation Triggers**. These commands signal that the project's state may be uncertain and require a mandatory, full review of all files before any other action is taken.
+
+1.  **Trigger Commands**: This protocol must be executed whenever the user requests a:
+    * `checksum comparison`
+    * `consolidated update` or `full project bundle`
+    * `diff` on any file
+
+2.  **Mandatory Reconciliation Process**: Upon receiving a trigger command, the AI must perform the following steps in sequence before generating a response:
+    1.  **Re-establish Definitive State**: Execute the **File State Algorithm** (as defined in Section 4.3) from scratch, using only the content of the current chat history to build the definitive list of all project files. All previously cached or remembered file states must be discarded.
+    2.  **Full File Review**: Once the definitive state is established, the AI must review the content of **every single file** in that state to ensure its response is based on the complete and correct context of the entire project.
+    3.  **Proceed with Task**: Only after completing the reconciliation may the AI proceed with the original user request (e.g., performing the checksum comparison or generating the bundle).

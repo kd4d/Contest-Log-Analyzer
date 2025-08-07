@@ -1,65 +1,24 @@
 {
-  "_filename": "contest_tools/contest_definitions/cq_160.json",
-  "_version": "0.30.0-Beta",
-  "_date": "2025-08-05",
-  "contest_name": "CQ-160",
-  "dupe_check_scope": "per_band",
-  "valid_bands": [
-    "160M"
-  ],
-  "custom_multiplier_resolver": "cq_160_multiplier_resolver",
-  "operating_time_rules": {
-    "min_off_time_minutes": 30,
-    "single_op_max_hours": 30,
-    "multi_op_max_hours": 40
-  },
-  "exchange_parsing_rules": {
-    "CQ-160-CW": [
-      {
-        "regex": "(\\d{3})\\s+([A-Z]{2,3})\\s+([A-Z0-9/]+)\\s+(\\d{3})\\s+([A-Z]{2,3})(?:\\s+(\\d))?",
-        "groups": ["SentRST", "SentLocation", "Call", "RST", "RcvdLocation", "Transmitter"]
-      },
-      {
-        "regex": "(\\d{3})\\s+([A-Z]{2,3})\\s+([A-Z0-9/]+)\\s+(\\d{3})\\s+(\\d+)(?:\\s+(\\d))?",
-        "groups": ["SentRST", "SentLocation", "Call", "RST", "RcvdZone", "Transmitter"]
-      }
-    ],
-    "CQ-160-SSB": [
-      {
-        "regex": "(\\d{2})\\s+([A-Z]{2,3})\\s+([A-Z0-9/]+)\\s+(\\d{2})\\s+([A-Z]{2,3})(?:\\s+(\\d))?",
-        "groups": ["SentRS", "SentLocation", "Call", "RS", "RcvdLocation", "Transmitter"]
-      },
-      {
-        "regex": "(\\d{2})\\s+([A-Z]{2,3})\\s+([A-Z0-9/]+)\\s+(\\d{2})\\s+(\\d+)(?:\\s+(\\d))?",
-        "groups": ["SentRS", "SentLocation", "Call", "RS", "RcvdZone", "Transmitter"]
-      }
-    ]
-  },
-  "multiplier_rules": [
-    {
-      "name": "STPROV",
-      "source_column": "STPROV_Mult",
-      "value_column": "Mult1",
-      "totaling_method": "once_per_contest"
+    "name": "CQ-160",
+    "dupe_check_scope": "per_band",
+    "qso_common_fields_regex": "QSO:\\s+(\\d{4,5})\\s+(?:CW|PH)\\s+(\\d{4}-\\d{2}-\\d{2})\\s+(\\d{4})\\s+([A-Z0-9/]+)\\s+(.*)",
+    "qso_common_field_names": ["FrequencyRaw", "DateRaw", "TimeRaw", "MyCallRaw", "ExchangeRest"],
+    "exchange_parsing_rules": {
+        "CQ-160-CW": {
+            "regex": "^(\\d{2,3})\\s+([A-Z]{2,4})\\s+([A-Z0-9/]+)\\s+(\\d{2,3})\\s+([A-Z]{2,4})(?:\\s+(\\d))?$",
+            "groups": ["SentRST", "SentQTH", "Call", "RST", "Exch", "Transmitter"]
+        },
+        "CQ-160-SSB": {
+            "regex": "^(\\d{2})\\s+([A-Z]{2,4})\\s+([A-Z0-9/]+)\\s+(\\d{2})\\s+([A-Z]{2,4})(?:\\s+(\\d))?$",
+            "groups": ["SentRST", "SentQTH", "Call", "RST", "Exch", "Transmitter"]
+        }
     },
-    {
-      "name": "DXCC",
-      "applies_to": "W/VE",
-      "source_column": "DXCC_Mult",
-      "value_column": "Mult2",
-      "name_column": "DXCC_MultName",
-      "totaling_method": "once_per_contest"
-    }
-  ],
-  "default_qso_columns": [
-    "ContestName", "CategoryOverlay", "CategoryOperator", "CategoryTransmitter", "MyCall",
-    "Frequency", "Mode", "Datetime",
-    "RST", "RS", "SentLocation", "SentZone",
-    "Call",
-    "RcvdLocation", "RcvdZone", "Transmitter",
-    "Band", "Date", "Hour", "Dupe",
-    "DXCCName", "DXCCPfx", "CQZone", "ITUZone", "Continent", "WAEName", "WAEPfx", "Lat", "Lon", "Tzone",
-    "Run", "QSOPoints",
-    "Mult1", "Mult1Name", "Mult2", "Mult2Name", "STPROV_Mult", "DXCC_Mult", "DXCC_MultName"
-  ]
+    "multiplier_rules": [
+        {"name": "States/Provinces", "value_column": "STPROV_Mult", "name_column": "STPROV_MultName", "source_column": "Exch"},
+        {"name": "DXCC", "value_column": "DXCC_Mult", "name_column": "DXCC_MultName", "source_column": "DXCC"}
+    ],
+    "custom_multiplier_resolver": "cq_160_multiplier_resolver",
+    "operating_time_rules": null,
+    "valid_bands": ["160M"],
+    "excluded_reports": []
 }

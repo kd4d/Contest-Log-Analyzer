@@ -1,52 +1,26 @@
 {
-  "_filename": "contest_tools/contest_definitions/arrl_dx_cw.json",
-  "_version": "0.30.0-Beta",
-  "_date": "2025-08-05",
-  "contest_name": "ARRL-DX-CW",
-  "mults_from_zero_point_qsos": false,
-  "custom_multiplier_resolver": "arrl_dx_multiplier_resolver",
-  "multiplier_report_scope": "per_band",
-  "excluded_reports": [
-    "point_rate_plots"
-  ],
-  "exchange_parsing_rules": {
-    "ARRL-DX-CW-WVE": {
-      "regex": "(\\d{3})\\s+([A-Z]{2})\\s+([A-Z0-9/]+)\\s+(\\d{3})\\s+([A-Z0-9]+)(?:\\s+(\\d))?",
-      "groups": ["SentRST", "SentLocation", "Call", "RST", "RcvdPower", "Transmitter"]
+    "name": "ARRL-DX-CW",
+    "dupe_check_scope": "per_band",
+    "qso_common_fields_regex": "QSO:\\s+(\\d{4,5})\\s+CW\\s+(\\d{4}-\\d{2}-\\d{2})\\s+(\\d{4})\\s+([A-Z0-9/]+)\\s+(.*)",
+    "qso_common_field_names": ["FrequencyRaw", "DateRaw", "TimeRaw", "MyCallRaw", "ExchangeRest"],
+    "exchange_parsing_rules": {
+        "ARRL-DX-CW": [
+            {
+                "regex": "^(\\d{2,3})\\s+([A-Z]{2,4})\\s+([A-Z0-9/]+)\\s+(\\d{2,3})\\s+(\\w+)(?:\\s+(\\d))?$",
+                "groups": ["SentRST", "Exch", "Call", "RST", "Power", "Transmitter"]
+            },
+            {
+                "regex": "^(\\d{2,3})\\s+(\\w+)\\s+([A-Z0-9/]+)\\s+(\\d{2,3})\\s+([A-Z]{2,4})(?:\\s+(\\d))?$",
+                "groups": ["SentRST", "Power", "Call", "RST", "Exch", "Transmitter"]
+            }
+        ]
     },
-    "ARRL-DX-CW-DX": {
-      "regex": "(\\d{3})\\s+([A-Z0-9]+)\\s+([A-Z0-9/]+)\\s+(\\d{3})\\s+([A-Z]{2})(?:\\s+(\\d))?",
-      "groups": ["SentRST", "SentPower", "Call", "RST", "RcvdLocation", "Transmitter"]
-    }
-  },
-  "multiplier_rules": [
-    {
-      "name": "DXCC",
-      "applies_to": "W/VE",
-      "source": "dxcc",
-      "value_column": "Mult1",
-      "name_column": "Mult1Name",
-      "totaling_method": "sum_by_band"
-    },
-    {
-      "name": "STPROV",
-      "applies_to": "DX",
-      "source_column": "FinalMultiplier",
-      "value_column": "Mult1",
-      "totaling_method": "sum_by_band",
-      "include_missed_summary": true,
-      "alias_file": "ARRLDXmults.dat"
-    }
-  ],
-  "default_qso_columns": [
-    "ContestName", "CategoryOverlay", "CategoryOperator", "CategoryTransmitter", "MyCall",
-    "Frequency", "Mode", "Datetime", 
-    "SentRST", "SentLocation", "SentPower",
-    "Call", 
-    "RST", "RcvdLocation", "RcvdPower", "Transmitter",
-    "Band", "Date", "Hour", "Dupe",
-    "DXCCName", "DXCCPfx", "CQZone", "ITUZone", "Continent", "WAEName", "WAEPfx", "Lat", "Lon", "Tzone",
-    "Run", "QSOPoints",
-    "Mult1", "Mult1Name", "FinalMultiplier"
-  ]
+    "multiplier_rules": [
+        {"name": "DXCC", "value_column": "DXCC_Mult", "name_column": "DXCC_MultName", "source_column": "DXCC", "applies_to": "W/VE"},
+        {"name": "States/Provinces", "value_column": "STPROV_Mult", "name_column": "STPROV_MultName", "source_column": "Exch", "applies_to": "DX"}
+    ],
+    "custom_multiplier_resolver": "arrl_dx_multiplier_resolver",
+    "operating_time_rules": {"min_off_time_minutes": 30, "single_op_max_hours": 48, "multi_op_max_hours": 48},
+    "valid_bands": ["160M", "80M", "40M", "20M", "15M", "10M"],
+    "excluded_reports": []
 }

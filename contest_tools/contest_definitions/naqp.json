@@ -1,45 +1,22 @@
 {
-  "_filename": "contest_tools/contest_definitions/naqp.json",
-  "_version": "0.30.0-Beta",
-  "_date": "2025-08-05",
-  "contest_name": "NAQP",
-  "dupe_check_scope": "per_band",
-  "custom_multiplier_resolver": "naqp_multiplier_resolver",
-  "contest_specific_event_id_resolver": "naqp_event_id_resolver",
-  "exchange_parsing_rules": {
-    "NAQP-CW": {
-      "regex": "([A-Z]+)\\s+([A-Z0-9/]+)(?:\\s+(\\d))?",
-      "groups": ["RcvdName", "RcvdLocation", "Transmitter"]
+    "name": "NAQP",
+    "dupe_check_scope": "per_band",
+    "qso_common_fields_regex": "QSO:\\s+(\\d{4,5})\\s+(?:CW|PH|RY)\\s+(\\d{4}-\\d{2}-\\d{2})\\s+(\\d{4})\\s+([A-Z0-9/]+)\\s+(.*)",
+    "qso_common_field_names": ["FrequencyRaw", "DateRaw", "TimeRaw", "MyCallRaw", "ExchangeRest"],
+    "exchange_parsing_rules": {
+        "NAQP-CW": {
+            "regex": "^(\\w+)\\s+(\\w+)\\s+([A-Z0-9/]+)\\s+(\\w+)\\s+(\\w+)(?:\\s+(\\d))?$",
+            "groups": ["SentName", "SentQTH", "Call", "Name", "Exch", "Transmitter"]
+        },
+        "NAQP-SSB": {
+            "regex": "^(\\w+)\\s+(\\w+)\\s+([A-Z0-9/]+)\\s+(\\w+)\\s+(\\w+)(?:\\s+(\\d))?$",
+            "groups": ["SentName", "SentQTH", "Call", "Name", "Exch", "Transmitter"]
+        }
     },
-    "NAQP-SSB": {
-      "regex": "([A-Z]+)\\s+([A-Z0-9/]+)(?:\\s+(\\d))?",
-      "groups": ["RcvdName", "RcvdLocation", "Transmitter"]
-    }
-  },
-  "multiplier_rules": [
-    {
-      "name": "STPROV",
-      "source_column": "STPROV_Mult",
-      "value_column": "Mult1",
-      "totaling_method": "sum_by_band"
-    },
-    {
-      "name": "DXCC",
-      "source_column": "NADXCC_Mult",
-      "value_column": "Mult2",
-      "name_column": "NADXCC_MultName",
-      "totaling_method": "sum_by_band"
-    }
-  ],
-  "default_qso_columns": [
-    "ContestName", "CategoryOverlay", "CategoryOperator", "CategoryTransmitter", "MyCall",
-    "Frequency", "Mode", "Datetime",
-    "RST", "RS", "SentName", "SentLocation",
-    "Call",
-    "RcvdName", "RcvdLocation", "Transmitter",
-    "Band", "Date", "Hour", "Dupe",
-    "DXCCName", "DXCCPfx", "CQZone", "ITUZone", "Continent", "WAEName", "WAEPfx", "Lat", "Lon", "Tzone",
-    "Run", "QSOPoints",
-    "Mult1", "Mult1Name", "Mult2", "Mult2Name", "STPROV_Mult", "NADXCC_Mult", "NADXCC_MultName"
-  ]
+    "multiplier_rules": [{"name": "States/Provinces/Countries", "value_column": "STPROV_Mult", "name_column": "STPROV_MultName", "source_column": "Exch"}],
+    "custom_multiplier_resolver": "naqp_multiplier_resolver",
+    "contest_specific_event_id_resolver": "naqp_event_id_resolver",
+    "operating_time_rules": {"min_off_time_minutes": 30, "single_op_max_hours": 10, "multi_op_max_hours": 12},
+    "valid_bands": ["160M", "80M", "40M", "20M", "15M", "10M"],
+    "excluded_reports": []
 }

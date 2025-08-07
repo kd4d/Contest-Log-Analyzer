@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-05
-# Version: 0.30.30-Beta
+# Date: 2025-08-07
+# Version: 0.30.37-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,40 +17,17 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.30.37-Beta] - 2025-08-07
+### Fixed
+# - Corrected a NameError by adding the missing import for 'Optional'
+#   from the typing library.
 ## [0.30.30-Beta] - 2025-08-05
 ### Fixed
 # - Corrected an unterminated f-string literal syntax error.
 # - Removed incompatible fig.tight_layout() call to prevent UserWarning.
-## [0.30.29-Beta] - 2025-08-05
-### Fixed
-# - Removed incompatible fig.tight_layout() call to prevent UserWarning.
-## [0.30.28-Beta] - 2025-08-05
-### Fixed
-# - Corrected a TypeError in the ChartComponent by removing the faulty
-#   GridSpecFrom helper and using subgridspec directly.
-## [0.30.27-Beta] - 2025-08-05
-### Changed
-# - Refactored to use the new ChartComponent factory for improved layout
-#   robustness and consistency.
-## [0.30.26-Beta] - 2025-08-05
-### Fixed
-# - Corrected an AttributeError by explicitly drawing the subplot's canvas
-#   before attempting to access its renderer.
-## [0.30.24-Beta] - 2025-08-05
-### Changed
-# - Updated to use the refactored `_create_pie_chart_subplot` helper.
-## [0.30.22-Beta] - 2025-08-05
-### Fixed
-# - Corrected filename and title generation for single-band contests.
-## [0.30.21-Beta] - 2025-08-05
-### Changed
-# - Updated title generation and color palette.
-## [0.30.18-Beta] - 2025-08-05
-### Changed
-# - Restored original multi-file (per-band) report generation behavior.
 ## [0.30.0-Beta] - 2025-08-05
 # - Initial release of Version 0.30.0-Beta.
-from typing import List
+from typing import List, Optional
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
@@ -96,6 +73,7 @@ class Report(ContestReport):
         
         if not created_files:
             return "No Point Contribution charts were generated."
+            
         return "Point Contribution charts saved to:\n" + "\n".join([f"  - {fp}" for fp in created_files])
 
     def _create_plot_for_band(self, band: str, output_path: str) -> str:

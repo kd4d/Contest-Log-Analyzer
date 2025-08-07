@@ -1,12 +1,12 @@
 # Contest Log Analyzer/contest_tools/reports/plot_qso_rate.py
 #
-# Purpose: A plot report that generates a QSO rate graph for all bands
-#          and for each individual band by calling a shared utility.
+# Purpose: A plot report that generates a cumulative QSO rate chart for one
+#          or more logs over time.
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-05
-# Version: 0.30.20-Beta
+# Date: 2025-08-07
+# Version: 0.30.37-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,60 +17,50 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.30.20-Beta] - 2025-08-05
+## [0.30.37-Beta] - 2025-08-07
 ### Fixed
-# - No functional changes, but inherits fix from _report_utils to prevent
-#   a timezone-related TypeError.
-## [0.30.16-Beta] - 2025-08-05
-### Changed
-# - Refactored to use the restored `_create_cumulative_rate_plot` helper.
+# - Corrected a NameError by adding the missing import for 'Optional'
+#   from the typing library.
+## [0.30.36-Beta] - 2025-08-07
+### Fixed
+# - Corrected an ImportError by updating the script to use the new
+#   `_prepare_time_series_data` helper function.
 ## [0.30.0-Beta] - 2025-08-05
 # - Initial release of Version 0.30.0-Beta.
-from typing import List
-import os
-import pandas as pd
-from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from ._report_utils import _create_cumulative_rate_plot
+from ._report_utils import get_valid_dataframe, create_output_directory, _prepare_time_series_data, _create_time_series_figure
+import matplotlib.pyplot as plt
+import os
+from typing import Optional
 
 class Report(ContestReport):
-    """
-    Generates a series of plots comparing QSO rates: one for all bands
-    combined, and one for each individual contest band.
-    """
-    report_id: str = "qso_rate_plots"
-    report_name: str = "QSO Rate Comparison Plots"
-    report_type: str = "plot"
+    report_id = "qso_rate"
+    report_name = "QSO Rate"
+    report_type = "plot"
     supports_multi = True
-    
-    def generate(self, output_path: str, **kwargs) -> str:
-        """
-        Orchestrates the generation of all QSO rate plots by calling the
-        shared helper function.
-        """
-        bands = self.logs[0].contest_definition.valid_bands
-        is_single_band = len(bands) == 1
-        bands_to_plot = ['All'] if is_single_band else ['All'] + bands
-        
-        created_files = []
-        
-        for band in bands_to_plot:
-            try:
-                save_path = os.path.join(output_path, band) if band != "All" else output_path
-                filepath = _create_cumulative_rate_plot(
-                    logs=self.logs,
-                    output_path=save_path,
-                    band_filter=band,
-                    metric_name="QSOs",
-                    value_column='Call',
-                    agg_func='count',
-                    report_id=self.report_id
-                )
-                if filepath:
-                    created_files.append(filepath)
-            except Exception as e:
-                print(f"  - Failed to generate QSO rate plot for {band}: {e}")
 
-        if not created_files:
-            return "No QSO rate plots were generated."
-        return "QSO rate plots saved to:\n" + "\n".join([f"  - {fp}" for fp in created_files])
+    def generate(self, output_path: str, **kwargs) -> str:
+        fig, ax = _create_time_series_figure(self.logs[0], self.report_name)
+        
+        all_calls = []
+        for log in self.logs:
+            callsign = log.get_metadata().get('MyCall', 'Log')
+            all_calls.append(callsign)
+            df_ts, _ = _prepare_time_series_data(log, None, 'qsos')
+            ax.plot(df_ts.index, df_ts, label=callsign)
+
+        ax.set_ylabel("Cumulative QSOs")
+        ax.legend(loc='upper left')
+        
+        callsign_str = '_'.join(sorted(all_calls))
+        filename = f"{self.report_id}_{callsign_str}.png"
+        filepath = os.path.join(output_path, filename)
+        
+        try:
+            create_output_directory(output_path)
+            plt.savefig(filepath, bbox_inches='tight')
+            plt.close(fig)
+            return f"'{self.report_name}' for {callsign_str} saved to {filepath}"
+        except Exception as e:
+            plt.close(fig)
+            return f"Error generating report '{self.report_name}' for {callsign_str}: {e}"

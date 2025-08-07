@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-06
-# Version: 0.30.34-Beta
+# Date: 2025-08-07
+# Version: 0.30.33-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,23 +18,19 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.30.34-Beta] - 2025-08-06
-### Changed
-# - Removed diagnostic print statements from _parse_qso_line.
-## [0.30.33-Beta] - 2025-08-06
+## [0.30.33-Beta] - 2025-08-07
 ### Added
-# - Added diagnostic print statements to _parse_qso_line to debug
-#   persistent parsing failures.
-## [0.30.31-Beta] - 2025-08-06
-### Changed
-# - Added a line to the main parsing loop to replace non-breaking spaces
-#   with regular spaces, increasing parsing robustness.
+# - Added a diagnostic warning to log any unrecognized header lines.
+## [0.30.32-Beta] - 2025-08-07
+### Added
+# - Added a diagnostic warning to log malformed QSO lines that fail to parse.
 ## [0.30.0-Beta] - 2025-08-05
 # - Initial release of Version 0.30.0-Beta.
 import re
 import pandas as pd
 from typing import Dict, Any, List, Tuple, Optional
 import os
+import logging
 
 # Import the ContestDefinition class from the definitions package
 from .contest_definitions import ContestDefinition # Relative import within contest_tools
@@ -47,8 +43,6 @@ def parse_cabrillo_file(filepath: str, contest_definition: ContestDefinition) ->
     log_metadata: Dict[str, Any] = {}
     qso_records: List[Dict[str, Any]] = []
     
-    actual_contest_name: Optional[str] = None
-
     try:
         with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
             lines = f.readlines()
@@ -60,10 +54,9 @@ def parse_cabrillo_file(filepath: str, contest_definition: ContestDefinition) ->
     in_header = True
     
     for i, line in enumerate(lines):
-        # Replace non-breaking spaces and strip whitespace
-        line = line.replace('\u00a0', ' ').strip()
+        line = line.strip()
 
-        if not line: # Skip blank lines
+        if not line:
             continue
 
         if line.startswith('START-OF-LOG:'):
@@ -80,14 +73,17 @@ def parse_cabrillo_file(filepath: str, contest_definition: ContestDefinition) ->
             continue 
 
         if in_header:
+            parsed_header = False
             for cabrillo_tag, df_key in contest_definition.header_field_map.items():
                 if line.startswith(f"{cabrillo_tag}:"):
                     value = line[len(f"{cabrillo_tag}:"):].strip()
                     log_metadata[df_key] = value
-                    if cabrillo_tag == 'CONTEST':
-                        actual_contest_name = value
-                    break 
-    
+                    parsed_header = True
+                    break
+            
+            if not parsed_header:
+                logging.warning(f"Unrecognized header line found: {line}")
+
     if not qso_records:
         raise ValueError(f"No valid QSO lines found in Cabrillo file: {filepath}")
     
@@ -111,6 +107,7 @@ def _parse_qso_line(
 
     common_match = re.match(contest_definition.qso_common_fields_regex, line)
     if not common_match:
+        logging.warning(f"Malformed QSO line found (common fields regex failed): {line}")
         return None 
 
     qso_dict_common_parsed = dict(zip(contest_definition.qso_common_field_names, common_match.groups()))
@@ -128,7 +125,8 @@ def _parse_qso_line(
         rules_for_contest = contest_definition.exchange_parsing_rules.get(base_contest_name)
 
     if not rules_for_contest:
-        return None 
+        logging.warning(f"No exchange parsing rules found for contest '{contest_name}'. Malformed line: {line}")
+        return None
 
     if not isinstance(rules_for_contest, list):
         rules_for_contest = [rules_for_contest]
@@ -148,10 +146,11 @@ def _parse_qso_line(
                 except IndexError:
                     qso_final_dict[group_name] = pd.NA
             parsed_successfully = True
-            break 
+            break
             
     if not parsed_successfully:
-        return None 
+        logging.warning(f"Malformed QSO line found (exchange regex failed): {line}")
+        return None
 
     for cabrillo_tag, df_key in contest_definition.header_field_map.items():
         if df_key in log_metadata:
