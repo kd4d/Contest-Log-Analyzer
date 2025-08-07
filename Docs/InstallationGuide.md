@@ -1,17 +1,16 @@
---- FILE: Docs/InstallationGuide.md ---
 # Installation Guide - Contest Log Analyzer
 
 **Version: 0.30.30-Beta**
-**Date: 2025-08-05**
+**Date: 2025-08-07**
 
 ---
 ### --- Revision History ---
-## [0.30.30-Beta] - 2025-08-05
+## [0.30.30-Beta] - 2025-08-07
+# - Synchronized documentation with the current code base.
 # - Updated environment variable from CONTEST_DATA_DIR to CONTEST_LOGS_REPORTS.
 # - Added Git workflow instructions for developers and beta testers.
 ## [0.30.0-Beta] - 2025-08-05
 # - Initial release of Version 0.30.0-Beta.
-# - Standardized all project files to a common baseline version.
 ---
 
 This project uses a two-branch Git workflow to separate ongoing development from stable beta releases.
