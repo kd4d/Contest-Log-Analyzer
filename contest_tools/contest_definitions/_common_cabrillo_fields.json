@@ -35,5 +35,9 @@
         "DXCC_Mult", "DXCC_MultName", "WAE_Mult", "WAE_MultName",
         "Zone_Mult", "Zone_MultName", "STPROV_Mult", "STPROV_MultName",
         "Prefix_Mult", "Prefix_MultName"
-    ]
+    ],
+    "metrics_map": {
+        "qsos": null,
+        "points": "QSOPoints"
+    }
 }

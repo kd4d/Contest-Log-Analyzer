@@ -12,6 +12,8 @@
     "multiplier_rules": [{"name": "Prefixes", "value_column": "Prefix_Mult", "name_column": "Prefix_MultName"}],
     "custom_multiplier_resolver": "cq_wpx_prefix",
     "operating_time_rules": {"min_off_time_minutes": 60, "single_op_max_hours": 36, "multi_op_max_hours": 48},
+    "mults_from_zero_point_qsos": true,
+    "multiplier_report_scope": "per_contest",
     "valid_bands": ["160M", "80M", "40M", "20M", "15M", "10M"],
     "excluded_reports": ["missed_multipliers", "multiplier_summary", "multipliers_by_hour"]
 }

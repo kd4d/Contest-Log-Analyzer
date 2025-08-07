@@ -19,6 +19,8 @@
     ],
     "custom_multiplier_resolver": "cq_160_multiplier_resolver",
     "operating_time_rules": null,
+    "mults_from_zero_point_qsos": false,
+    "multiplier_report_scope": "per_band",
     "valid_bands": ["160M"],
     "excluded_reports": []
 }

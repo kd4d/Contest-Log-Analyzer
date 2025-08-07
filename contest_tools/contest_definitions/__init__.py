@@ -1,13 +1,13 @@
 # Contest Log Analyzer/contest_tools/contest_definitions/__init__.py
 #
-# Purpose: Defines the ContestDefinition class, responsible for loading and managing
-#          contest-specific rules and mappings from JSON files. It handles merging
-#          common Cabrillo field definitions with contest-specific overrides.
+# Purpose: Defines the ContestDefinition class, which serves as an in-memory
+#          representation of a contest's rules and parameters, loaded from
+#          a JSON definition file.
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-05
-# Version: 0.30.0-Beta
+# Date: 2025-08-07
+# Version: 0.30.52-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,144 +18,67 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.30.0-Beta] - 2025-08-05
-# - Initial release of Version 0.30.0-Beta.
-# - Standardized all project files to a common baseline version.
+## [0.30.52-Beta] - 2025-08-07
+### Fixed
+# - Corrected an AttributeError by adding the 'multiplier_report_scope'
+#   attribute to the ContestDefinition class.
+## [0.30.50-Beta] - 2025-08-07
+### Fixed
+# - Corrected an AttributeError by adding the 'mults_from_zero_point_qsos'
+#   attribute to the ContestDefinition class.
+## [0.30.48-Beta] - 2025-08-07
+### Fixed
+# - Corrected an AttributeError by ensuring the 'metrics_map' is loaded
+#   from the JSON definition file into the ContestDefinition object.
+#---
 import json
 import os
-import copy
-from typing import Dict, Any, Optional, List
-
-# --- Constants ---
-# Name of the common Cabrillo fields JSON file
-COMMON_CABRILLO_FIELDS_FILE = '_common_cabrillo_fields.json'
+from typing import Dict, Any, List
 
 class ContestDefinition:
     """
-    Manages and provides access to contest-specific rules and data mappings
-    loaded from JSON configuration files. Handles merging common definitions
-    with contest-specific overrides.
+    Represents the definition of a contest, loaded from a JSON file.
     """
-
     def __init__(self, data: Dict[str, Any]):
-        self._data = data
+        self.name: str = data.get('name')
+        self.dupe_check_scope: str = data.get('dupe_check_scope')
+        self.qso_common_fields_regex: str = data.get('qso_common_fields_regex')
+        self.qso_common_field_names: List[str] = data.get('qso_common_field_names')
+        self.exchange_parsing_rules: Dict[str, Any] = data.get('exchange_parsing_rules')
+        self.multiplier_rules: List[Dict[str, Any]] = data.get('multiplier_rules', [])
+        self.custom_multiplier_resolver: str = data.get('custom_multiplier_resolver')
+        self.operating_time_rules: Dict[str, Any] = data.get('operating_time_rules')
+        self.valid_bands: List[str] = data.get('valid_bands', [])
+        self.excluded_reports: List[str] = data.get('excluded_reports', [])
+        self.contest_specific_event_id_resolver: str = data.get('contest_specific_event_id_resolver')
+        self.mults_from_zero_point_qsos: bool = data.get('mults_from_zero_point_qsos', False)
+        self.multiplier_report_scope: str = data.get('multiplier_report_scope', 'per_band')
 
-    @classmethod
-    def _deep_merge_dicts(cls, base: Dict, new: Dict) -> Dict:
-        base = copy.deepcopy(base)
-        for key, value in new.items():
-            if key in base and isinstance(base[key], dict) and isinstance(value, dict):
-                base[key] = cls._deep_merge_dicts(base[key], value)
-            else:
-                base[key] = value
-        return base
+        # --- Load common fields and metrics map ---
+        common_fields_path = os.path.join(os.path.dirname(__file__), '_common_cabrillo_fields.json')
+        with open(common_fields_path, 'r') as f:
+            common_data = json.load(f)
+        self.header_field_map: Dict[str, str] = common_data.get('header_field_map', {})
+        self.default_qso_columns: List[str] = common_data.get('default_qso_columns', [])
+        self.metrics_map: Dict[str, str] = common_data.get('metrics_map', {})
 
     @classmethod
     def from_json(cls, contest_name: str) -> 'ContestDefinition':
-        current_dir = os.path.dirname(os.path.abspath(__file__))
+        """
+        Loads a contest definition from a JSON file based on the contest name.
+        """
+        filename = f"{contest_name.lower().replace('-', '_')}.json"
+        filepath = os.path.join(os.path.dirname(__file__), filename)
         
-        common_file_path = os.path.join(current_dir, COMMON_CABRILLO_FIELDS_FILE)
-        with open(common_file_path, 'r', encoding='utf-8') as f:
-            merged_data = json.load(f)
+        if not os.path.exists(filepath):
+            base_contest_name = contest_name.rsplit('-', 1)[0]
+            filename = f"{base_contest_name.lower().replace('-', '_')}.json"
+            filepath = os.path.join(os.path.dirname(__file__), filename)
 
-        base_contest_name = contest_name.rsplit('-', 1)[0].lower().replace('-', '_')
-        specific_contest_name = contest_name.lower().replace('-', '_')
-        
-        generic_file_path = os.path.join(current_dir, f"{base_contest_name}.json")
-        specific_file_path = os.path.join(current_dir, f"{specific_contest_name}.json")
-
-        found_a_file = False
-
-        if os.path.exists(generic_file_path):
-            with open(generic_file_path, 'r', encoding='utf-8') as f:
-                generic_data = json.load(f)
-            merged_data = cls._deep_merge_dicts(merged_data, generic_data)
-            found_a_file = True
-
-        if os.path.exists(specific_file_path):
-            with open(specific_file_path, 'r', encoding='utf-8') as f:
-                specific_data = json.load(f)
-            merged_data = cls._deep_merge_dicts(merged_data, specific_data)
-            found_a_file = True
-        
-        if not found_a_file:
-            raise FileNotFoundError(f"No definition file found for '{contest_name}' (tried {specific_file_path} and {generic_file_path})")
-
-        return cls(merged_data)
-
-    @property
-    def contest_name(self) -> str:
-        return self._data.get('contest_name', 'Unknown Contest')
-
-    @property
-    def valid_bands(self) -> List[str]:
-        return self._data.get('valid_bands', [
-            '160M', '80M', '40M', '20M', '15M', '10M'
-        ])
-
-    @property
-    def operating_time_rules(self) -> Optional[Dict[str, int]]:
-        return self._data.get('operating_time_rules')
-        
-    @property
-    def contest_specific_event_id_resolver(self) -> Optional[str]:
-        return self._data.get('contest_specific_event_id_resolver')
-
-    @property
-    def multiplier_rules(self) -> List[Dict[str, Any]]:
-        return self._data.get('multiplier_rules', [])
-
-    @property
-    def excluded_reports(self) -> List[str]:
-        return self._data.get('excluded_reports', [])
-        
-    @property
-    def mults_from_zero_point_qsos(self) -> bool:
-        return self._data.get('mults_from_zero_point_qsos', True)
-
-    @property
-    def dupe_check_scope(self) -> str:
-        return self._data.get('dupe_check_scope', 'per_band')
-
-    @property
-    def custom_multiplier_resolver(self) -> Optional[str]:
-        return self._data.get('custom_multiplier_resolver')
-
-    @property
-    def contest_period(self) -> Optional[Dict[str, str]]:
-        return self._data.get('contest_period')
-
-    @property
-    def multiplier_report_scope(self) -> str:
-        return self._data.get('multiplier_report_scope', 'per_band')
-
-    @property
-    def cabrillo_version(self) -> str:
-        return self._data.get('cabrillo_version', 'Unknown')
-
-    @property
-    def header_field_map(self) -> Dict[str, str]:
-        return self._data.get('header_field_map', {})
-
-    @property
-    def qso_common_fields_regex(self) -> str:
-        return self._data.get('qso_common_fields_regex', '')
-
-    @property
-    def qso_common_field_names(self) -> list[str]:
-        return self._data.get('qso_common_field_names', [])
-
-    @property
-    def exchange_parsing_rules(self) -> Dict[str, Dict[str, Any]]:
-        return self._data.get('exchange_parsing_rules', {})
-
-    @property
-    def default_qso_columns(self) -> list[str]:
-        return self._data.get('default_qso_columns', [])
-
-    @property
-    def scoring_rules(self) -> Dict[str, Any]:
-        return self._data.get('scoring_rules', {})
-
-    def get_exchange_parse_info(self, cabrillo_contest_name: str) -> Optional[Dict[str, Any]]:
-        return self.exchange_parsing_rules.get(cabrillo_contest_name)
+        if not os.path.exists(filepath):
+            raise FileNotFoundError(f"Contest definition file not found for: {contest_name}")
+            
+        with open(filepath, 'r') as f:
+            data = json.load(f)
+            
+        return cls(data)

@@ -21,6 +21,8 @@
     ],
     "custom_multiplier_resolver": "arrl_dx_multiplier_resolver",
     "operating_time_rules": {"min_off_time_minutes": 30, "single_op_max_hours": 48, "multi_op_max_hours": 48},
+    "mults_from_zero_point_qsos": false,
+    "multiplier_report_scope": "per_band",
     "valid_bands": ["160M", "80M", "40M", "20M", "15M", "10M"],
     "excluded_reports": []
 }
