@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-07
-# Version: 0.30.33-Beta
+# Version: 0.30.57-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.30.57-Beta] - 2025-08-07
+### Changed
+# - Modified the parser to only warn once for each unique unrecognized
+#   header tag per file.
 ## [0.30.33-Beta] - 2025-08-07
 ### Added
 # - Added a diagnostic warning to log any unrecognized header lines.
@@ -26,6 +30,7 @@
 # - Added a diagnostic warning to log malformed QSO lines that fail to parse.
 ## [0.30.0-Beta] - 2025-08-05
 # - Initial release of Version 0.30.0-Beta.
+# ---
 import re
 import pandas as pd
 from typing import Dict, Any, List, Tuple, Optional
@@ -52,6 +57,7 @@ def parse_cabrillo_file(filepath: str, contest_definition: ContestDefinition) ->
         raise ValueError(f"Error reading Cabrillo file {filepath}: {e}")
 
     in_header = True
+    warned_tags = set()
     
     for i, line in enumerate(lines):
         line = line.strip()
@@ -82,7 +88,10 @@ def parse_cabrillo_file(filepath: str, contest_definition: ContestDefinition) ->
                     break
             
             if not parsed_header:
-                logging.warning(f"Unrecognized header line found: {line}")
+                tag = line.split(':', 1)[0]
+                if tag not in warned_tags:
+                    logging.warning(f"Unrecognized header tag found: {tag}")
+                    warned_tags.add(tag)
 
     if not qso_records:
         raise ValueError(f"No valid QSO lines found in Cabrillo file: {filepath}")

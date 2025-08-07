@@ -4,18 +4,30 @@
     "qso_common_fields_regex": "QSO:\\s+(\\d{4,5})\\s+(?:CW|PH)\\s+(\\d{4}-\\d{2}-\\d{2})\\s+(\\d{4})\\s+([A-Z0-9/]+)\\s+(.*)",
     "qso_common_field_names": ["FrequencyRaw", "DateRaw", "TimeRaw", "MyCallRaw", "ExchangeRest"],
     "exchange_parsing_rules": {
-        "CQ-160-CW": {
-            "regex": "^(\\d{2,3})\\s+([A-Z]{2,4})\\s+([A-Z0-9/]+)\\s+(\\d{2,3})\\s+([A-Z]{2,4})(?:\\s+(\\d))?$",
-            "groups": ["SentRST", "SentQTH", "Call", "RST", "Exch", "Transmitter"]
-        },
-        "CQ-160-SSB": {
-            "regex": "^(\\d{2})\\s+([A-Z]{2,4})\\s+([A-Z0-9/]+)\\s+(\\d{2})\\s+([A-Z]{2,4})(?:\\s+(\\d))?$",
-            "groups": ["SentRST", "SentQTH", "Call", "RST", "Exch", "Transmitter"]
-        }
+        "CQ-160-CW": [
+            {
+                "regex": "^(\\d{2,3})\\s+([A-Z]{2,4})\\s+([A-Z0-9/]+)\\s+(\\d{2,3})\\s+([A-Z]{2,4})(?:\\s+(\\d))?$",
+                "groups": ["SentRST", "SentQTH", "Call", "RST", "Exch", "Transmitter"]
+            },
+            {
+                "regex": "^(\\d{2,3})\\s+([A-Z]{2,4})\\s+([A-Z0-9/]+)\\s+(\\d{2,3})\\s+(\\d+)(?:\\s+(\\d))?$",
+                "groups": ["SentRST", "SentQTH", "Call", "RST", "Exch", "Transmitter"]
+            }
+        ],
+        "CQ-160-SSB": [
+            {
+                "regex": "^(\\d{2})\\s+([A-Z]{2,4})\\s+([A-Z0-9/]+)\\s+(\\d{2})\\s+([A-Z]{2,4})(?:\\s+(\\d))?$",
+                "groups": ["SentRST", "SentQTH", "Call", "RST", "Exch", "Transmitter"]
+            },
+            {
+                "regex": "^(\\d{2})\\s+([A-Z]{2,4})\\s+([A-Z0-9/]+)\\s+(\\d{2})\\s+(\\d+)(?:\\s+(\\d))?$",
+                "groups": ["SentRST", "SentQTH", "Call", "RST", "Exch", "Transmitter"]
+            }
+        ]
     },
     "multiplier_rules": [
-        {"name": "States/Provinces", "value_column": "STPROV_Mult", "name_column": "STPROV_MultName", "source_column": "Exch"},
-        {"name": "DXCC", "value_column": "DXCC_Mult", "name_column": "DXCC_MultName", "source_column": "DXCC"}
+        {"name": "States/Provinces", "value_column": "STPROV_Mult", "name_column": "STPROV_MultName"},
+        {"name": "Countries", "value_column": "DXCC_Mult", "name_column": "DXCC_MultName"}
     ],
     "custom_multiplier_resolver": "cq_160_multiplier_resolver",
     "operating_time_rules": null,

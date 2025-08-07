@@ -18,13 +18,14 @@
         "NAME": "Name",
         "CREATED-BY": "CreatedBy",
         "HQ-CATEGORY": "HQCategory",
-        "HQ-GRID-LOCATOR": "HQGridLocator"
+        "HQ-GRID-LOCATOR": "HQGridLocator",
+        "SOAPBOX": "Soapbox"
     },
     "default_qso_columns": [
         "MyCall", "ContestName", "CategoryOperator", "CategoryAssisted", "CategoryBand",
         "CategoryMode", "CategoryPower", "CategoryStation", "CategoryTransmitter", 
         "CategoryOverlay", "Operators", "Club", "Location", "GridLocator", 
-        "ClaimedScore", "Name", "CreatedBy", "HQCategory", "HQGridLocator",
+        "ClaimedScore", "Name", "CreatedBy", "HQCategory", "HQGridLocator", "Soapbox",
         "Frequency", "Band", "Mode", 
         "Date", "Time", "Datetime", "Hour",
         "MyCallRaw", "Call", "SentRST", "RST",

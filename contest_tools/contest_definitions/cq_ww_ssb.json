@@ -16,9 +16,10 @@
         ]
     },
     "multiplier_rules": [
-        {"name": "Zones", "value_column": "Zone_Mult", "name_column": "Zone_MultName", "source_column": "Exch"},
-        {"name": "Countries", "value_column": "DXCC_Mult", "name_column": "DXCC_MultName", "source_column": "DXCC"}
+        {"name": "Zones", "value_column": "Zone_Mult", "name_column": "Zone_MultName"},
+        {"name": "Countries", "value_column": "DXCC_Mult", "name_column": "DXCC_MultName"}
     ],
+    "custom_multiplier_resolver": "cq_ww_multiplier_resolver",
     "operating_time_rules": {"min_off_time_minutes": 60, "single_op_max_hours": 48, "multi_op_max_hours": 48},
     "mults_from_zero_point_qsos": false,
     "multiplier_report_scope": "per_band",

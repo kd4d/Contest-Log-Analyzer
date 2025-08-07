@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-07
-# Version: 0.30.52-Beta
+# Version: 0.30.55-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,7 +18,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.30.52-Beta] - 2025-08-07
+## [0.30.55-Beta] - 2025-08-07
 ### Fixed
 # - Corrected an AttributeError by adding the 'multiplier_report_scope'
 #   attribute to the ContestDefinition class.
@@ -30,7 +30,7 @@
 ### Fixed
 # - Corrected an AttributeError by ensuring the 'metrics_map' is loaded
 #   from the JSON definition file into the ContestDefinition object.
-#---
+# ---
 import json
 import os
 from typing import Dict, Any, List

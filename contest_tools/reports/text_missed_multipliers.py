@@ -1,12 +1,12 @@
 # Contest Log Analyzer/contest_tools/reports/text_missed_multipliers.py
 #
-# Purpose: A data-driven text report that generates a comparative "missed multipliers"
-#          summary for any multiplier type defined in a contest's JSON file.
+# Purpose: A text report that generates a list of multipliers that were
+#          missed by each station in a pairwise comparison.
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-06
-# Version: 0.30.37-Beta
+# Date: 2025-08-07
+# Version: 0.30.65-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,247 +17,105 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.30.37-Beta] - 2025-08-06
+## [0.30.65-Beta] - 2025-08-07
 ### Fixed
-# - Adjusted dynamic column width calculation to set a minimum width based
-#   on summary labels (e.g., "Worked:"), fixing alignment for short mult names.
-## [0.30.36-Beta] - 2025-08-06
-### Changed
-# - Reverted the two-line multiplier format.
-# - First column is now correctly formatted as "Prefix (Country Name)".
-# - First column header is now dynamically set based on the multiplier rule.
-# - First column width is now calculated dynamically to fit the content.
-from typing import List, Dict, Any, Set
-import pandas as pd
-import numpy as np
-import os
-from ..contest_log import ContestLog
+# - Corrected a FileNotFoundError by using the new `_sanitize_filename_part`
+#   helper function.
+## [0.30.55-Beta] - 2025-08-07
+### Fixed
+# - Corrected an AttributeError by using the correct 'name' attribute of
+#   the ContestDefinition object.
+# ---
 from .report_interface import ContestReport
+from ._report_utils import get_valid_dataframe, create_output_directory, _sanitize_filename_part
+import pandas as pd
+from typing import List, Dict
+import os
 
 class Report(ContestReport):
-    """
-    Generates a comparative report showing a specific multiplier worked by each
-    station on each band, highlighting missed opportunities.
-    """
-    report_id: str = "missed_multipliers"
-    report_name: str = "Missed Multipliers Report"
-    report_type: str = "text"
-    supports_single = False
-    supports_multi = True
+    report_id = "text_missed_multipliers"
+    report_name = "Missed Multipliers"
+    report_type = "text"
     supports_pairwise = True
-    
-    def _get_run_sp_status(self, series: pd.Series) -> str:
-        """Determines if a multiplier was worked via Run, S&P, Unknown, or a combination."""
-        modes = set(series.unique())
-        
-        has_run = "Run" in modes
-        has_sp = "S&P" in modes
-
-        if has_run and has_sp:
-            return "Both"
-        elif has_run:
-            return "Run"
-        elif has_sp:
-            return "S&P"
-        elif "Unknown" in modes:
-            return "Unk"
-        return ""
 
     def generate(self, output_path: str, **kwargs) -> str:
-        """
-        Generates the report content.
-        """
         mult_name = kwargs.get('mult_name')
-
         if not mult_name:
-            return f"Error: 'mult_name' argument is required for the '{self.report_name}' report."
+            return "Skipping 'Missed Multipliers': Multiplier name not specified."
 
-        first_log = self.logs[0]
-        first_log_def = first_log.contest_definition
-        mult_rule = next((r for r in first_log_def.multiplier_rules if r.get('name', '').lower() == mult_name.lower()), None)
-        
-        if not mult_rule or 'value_column' not in mult_rule:
-            return f"Error: Multiplier type '{mult_name}' not found in definition for {first_log_def.contest_name}."
+        log1, log2 = self.logs[0], self.logs[1]
+        call1 = log1.get_metadata().get('MyCall', 'Log1')
+        call2 = log2.get_metadata().get('MyCall', 'Log2')
+        first_log_def = log1.contest_definition
 
-        mult_column = mult_rule['value_column']
-        name_column = mult_rule.get('name_column')
+        mult_rule = next((rule for rule in first_log_def.multiplier_rules if rule['name'] == mult_name), None)
+        if not mult_rule:
+            return f"Skipping 'Missed Multipliers': Multiplier rule '{mult_name}' not found."
+
         report_scope = first_log_def.multiplier_report_scope
-
-        all_calls = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])
         
-        col_width = 14
+        df1 = get_valid_dataframe(log1)
+        df2 = get_valid_dataframe(log2)
+
+        if report_scope == 'per_contest':
+            missed_by_log1, missed_by_log2 = self._get_missed_mults(df1, df2, mult_rule)
+            report_lines = self._format_report(missed_by_log1, missed_by_log2, call1, call2, mult_rule)
+        else: # per_band
+            all_bands = sorted(pd.concat([df1['Band'], df2['Band']]).unique())
+            report_lines = []
+            for band in all_bands:
+                df1_band = df1[df1['Band'] == band]
+                df2_band = df2[df2['Band'] == band]
+                missed_by_log1, missed_by_log2 = self._get_missed_mults(df1_band, df2_band, mult_rule)
+                
+                if missed_by_log1 or missed_by_log2:
+                    report_lines.append(f"\n--- {band} ---")
+                    report_lines.extend(self._format_report(missed_by_log1, missed_by_log2, call1, call2, mult_rule))
+
+        # --- Title ---
+        year = df1['Date'].dropna().iloc[0].split('-')[0]
+        title1 = f"Missed Multiplier Report for {mult_name}"
+        title2 = f"{year} {first_log_def.name} - {call1} vs {call2}"
+        report_lines.insert(0, f"{title1}\n{title2}\n{'=' * len(title2)}")
         
-        # --- Dynamic First Column Header ---
-        if mult_name.lower() == 'countries':
-            source_type = mult_rule.get('source', 'dxcc').upper()
-            first_col_header = source_type
-        elif mult_name.lower() == 'prefixes':
-            first_col_header = 'Prefix'
-        else:
-            first_col_header = mult_name[:-1] if mult_name.lower().endswith('s') else mult_name
-            first_col_header = first_col_header.capitalize()
-            
-        metadata = first_log.get_metadata()
-        contest_name = metadata.get('ContestName', 'UnknownContest')
-        first_qso_date = first_log.get_processed_data()['Date'].iloc[0] if not first_log.get_processed_data().empty else "----"
-        year = first_qso_date.split('-')[0]
-        
-        title1 = f"--- {self.report_name}: {mult_name} ---"
-        title2 = f"{year} {contest_name} - {', '.join(all_calls)}"
-        
-        report_lines = []
-
-        bands = first_log.contest_definition.valid_bands
-        
-        overall_prefix_to_name_map = {}
-        all_unknown_calls = set()
-
-        for log in self.logs:
-            df_full = log.get_processed_data()
-            df = df_full[df_full['Dupe'] == False].copy()
-            if df.empty or mult_column not in df.columns:
-                continue
-            
-            unknown_df = df[df[mult_column] == 'Unknown']
-            w_ve_unknown_df = unknown_df[unknown_df['DXCCName'].isin(['United States', 'Canada'])]
-            all_unknown_calls.update(w_ve_unknown_df['Call'].unique())
-            
-            if name_column and name_column in df.columns:
-                name_map_df = df[[mult_column, name_column]].dropna().drop_duplicates()
-                for _, row in name_map_df.iterrows():
-                    overall_prefix_to_name_map[row[mult_column]] = row[name_column]
-
-        if report_scope == 'per_band':
-            for band in bands:
-                band_header_text = f"\n{band.replace('M', '')} Meters Missed Multipliers"
-                
-                band_data: Dict[str, pd.DataFrame] = {}
-                mult_sets: Dict[str, Set[str]] = {call: set() for call in all_calls}
-                prefix_to_name_map = {}
-
-                for log in self.logs:
-                    callsign = log.get_metadata().get('MyCall', 'Unknown')
-                    df_full = log.get_processed_data()
-                    df = df_full[df_full['Dupe'] == False].copy()
-                    
-                    if df.empty or mult_column not in df.columns:
-                        continue
-                    
-                    df_band = df[df['Band'] == band].copy()
-                    df_band = df_band[df_band[mult_column].notna()]
-                    
-                    if df_band.empty:
-                        continue
-                    
-                    if name_column and name_column in df_band.columns:
-                        name_map_df = df_band[[mult_column, name_column]].dropna().drop_duplicates()
-                        for _, row in name_map_df.iterrows():
-                            prefix_to_name_map[row[mult_column]] = row[name_column]
-
-                    agg_data = df_band.groupby(mult_column).agg(
-                        QSO_Count=('Call', 'size'),
-                        Run_SP_Status=('Run', self._get_run_sp_status)
-                    )
-                    
-                    band_data[callsign] = agg_data
-                    mult_sets[callsign].update(agg_data.index)
-
-                union_of_all_mults = set.union(*mult_sets.values())
-                
-                missed_mults_on_band = set()
-                for call in all_calls:
-                    missed_mults_on_band.update(union_of_all_mults.difference(mult_sets[call]))
-
-                # --- Dynamic Column Width Calculation ---
-                max_len = len("Worked:") 
-                max_len = max(max_len, len(first_col_header))
-                for mult in union_of_all_mults:
-                    if name_column:
-                        full_name = prefix_to_name_map.get(mult, overall_prefix_to_name_map.get(mult, ''))
-                        display_string = f"{mult} ({full_name})" if pd.notna(full_name) and full_name != '' else str(mult)
-                        max_len = max(max_len, len(display_string))
-                    else:
-                        max_len = max(max_len, len(str(mult)))
-                first_col_width = max_len
-
-                header_cells = [f"{call:^{col_width}}" for call in all_calls]
-                table_header = f"{first_col_header:<{first_col_width}} | {' | '.join(header_cells)}"
-                table_width = len(table_header)
-
-                if not report_lines:
-                    header_width = max(table_width, len(title1), len(title2))
-                    if len(title1) > table_width or len(title2) > table_width:
-                         report_lines.append(f"{title1.ljust(header_width)}")
-                         report_lines.append(f"{title2.center(header_width)}")
-                    else:
-                         report_lines.append(title1.center(header_width))
-                         report_lines.append(title2.center(header_width))
-
-                report_lines.append(band_header_text.center(table_width))
-
-                if not union_of_all_mults:
-                    report_lines.append(f"     (No multipliers on this band for any log)".center(table_width))
-                    continue
-
-                report_lines.append(table_header)
-
-                if not missed_mults_on_band:
-                    report_lines.append(f"     (No missed {mult_name} on this band)".center(table_width))
-                else:
-                    for mult in sorted(list(missed_mults_on_band)):
-                        cell_parts = []
-                        for call in all_calls:
-                            if call in band_data and mult in band_data[call].index:
-                                qso_count = band_data[call].loc[mult, 'QSO_Count']
-                                run_sp = band_data[call].loc[mult, 'Run_SP_Status']
-                                text_part = f"({run_sp})"
-                                num_part = str(qso_count)
-                                padding = " " * (col_width - len(text_part) - len(num_part))
-                                cell_content = f"{text_part}{padding}{num_part}"
-                            else:
-                                cell_content = f"{'0':>{col_width}}"
-                            cell_parts.append(cell_content)
-                        
-                        display_mult = str(mult)
-                        if name_column:
-                            mult_full_name = prefix_to_name_map.get(mult, overall_prefix_to_name_map.get(mult, ''))
-                            if pd.notna(mult_full_name) and mult_full_name != '':
-                                clean_name = str(mult_full_name).split(';')[0].strip()
-                                display_mult = f"{mult} ({clean_name})"
-
-                        row_str = f"{display_mult:<{first_col_width}} | {' | '.join(cell_parts)}"
-                        report_lines.append(row_str)
-
-                separator_cells = [f"{'---':^{col_width}}" for _ in all_calls]
-                separator = f"{'':<{first_col_width}} | {' | '.join(separator_cells)}"
-                report_lines.append(separator)
-                
-                total_counts = {call: len(mult_sets[call]) for call in all_calls}
-                union_count = len(union_of_all_mults)
-                max_mults = max(total_counts.values()) if total_counts else 0
-
-                worked_cells = [f"{total_counts[call]:>{col_width}}" for call in all_calls]
-                worked_line = f"{'Worked:':<{first_col_width}} | {' | '.join(worked_cells)}"
-                
-                missed_cells = [f"{union_count - total_counts[call]:>{col_width}}" for call in all_calls]
-                missed_line = f"{'Missed:':<{first_col_width}} | {' | '.join(missed_cells)}"
-                
-                delta_cells = [f"{str(total_counts[call] - max_mults) if total_counts[call] - max_mults != 0 else '':>{col_width}}" for call in all_calls]
-                delta_line = f"{'Delta:':<{first_col_width}} | {' | '.join(delta_cells)}"
-                
-                report_lines.append(worked_line)
-                report_lines.append(missed_line)
-                report_lines.append(delta_line)
-
-        report_content = "\n".join(report_lines)
-        os.makedirs(output_path, exist_ok=True)
-        
-        filename_calls = '_vs_'.join(sorted(all_calls))
-        safe_mult_name = mult_name.lower().replace('/', '_')
-        filename = f"{self.report_id}_{safe_mult_name}_{filename_calls}.txt"
+        # --- Save to File ---
+        callsign_str = f"{call1}_vs_{call2}"
+        filename_mult_name = _sanitize_filename_part(mult_name)
+        filename = f"{self.report_id}_{filename_mult_name}_{callsign_str}.txt"
         filepath = os.path.join(output_path, filename)
+
+        try:
+            create_output_directory(output_path)
+            with open(filepath, 'w') as f:
+                f.write("\n".join(report_lines))
+            return f"'{self.report_name}' for {mult_name} ({callsign_str}) saved to {filepath}"
+        except Exception as e:
+            return f"Error generating report '{self.report_name}' for {mult_name}: {e}"
+
+    def _get_missed_mults(self, df1, df2, mult_rule):
+        mult_col = mult_rule['value_column']
+        name_col = mult_rule.get('name_column')
         
-        with open(filepath, 'w', encoding='utf-8') as f:
-            f.write(report_content)
+        mults1 = set(df1[mult_col].dropna().unique())
+        mults2 = set(df2[mult_col].dropna().unique())
+
+        missed_by_1 = mults2 - mults1
+        missed_by_2 = mults1 - mults2
         
-        return f"Text report saved to: {filepath}"
+        if name_col:
+            name_map = pd.concat([df1[[mult_col, name_col]], df2[[mult_col, name_col]]]).drop_duplicates().set_index(mult_col)[name_col].to_dict()
+            missed_by_1_named = sorted([name_map.get(m, m) for m in missed_by_1])
+            missed_by_2_named = sorted([name_map.get(m, m) for m in missed_by_2])
+            return missed_by_1_named, missed_by_2_named
+        else:
+            return sorted(list(missed_by_1)), sorted(list(missed_by_2))
+
+    def _format_report(self, missed_by_1, missed_by_2, call1, call2, mult_rule):
+        lines = []
+        if missed_by_1:
+            lines.append(f"\nMultipliers worked by {call2} but missed by {call1}:")
+            lines.append(", ".join(map(str, missed_by_1)))
+        if missed_by_2:
+            lines.append(f"\nMultipliers worked by {call1} but missed by {call2}:")
+            lines.append(", ".join(map(str, missed_by_2)))
+        return lines

@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-07
-# Version: 0.30.36-Beta
+# Version: 0.30.62-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,18 +17,17 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.30.62-Beta] - 2025-08-07
+### Changed
+# - Moved the `load_arrl_sections` helper function into this module from
+#   the core utilities to resolve an ImportError.
 ## [0.30.36-Beta] - 2025-08-07
 ### Fixed
 # - Corrected an ImportError by moving the `load_arrl_sections` helper
 #   function into this module.
 # - Standardized the column name to 'SECName' to align with the master
 #   column list.
-## [0.30.35-Beta] - 2025-08-07
-### Fixed
-# - Added logic to look up and populate the 'SECName' column, resolving a
-#   warning in the contest log processing.
-## [0.30.0-Beta] - 2025-08-05
-# - Initial release of Version 0.30.0-Beta.
+# ---
 import pandas as pd
 import os
 

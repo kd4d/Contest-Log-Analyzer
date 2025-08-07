@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-07
-# Version: 0.30.40-Beta
+# Version: 0.30.60-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,19 +18,19 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.30.40-Beta] - 2025-08-07
+## [0.30.60-Beta] - 2025-08-07
+### Changed
+# - Refactored multiplier logic to be handled exclusively by contest-specific
+#   resolver modules, resolving all 'column not found' warnings.
+## [0.30.59-Beta] - 2025-08-07
+### Added
+# - Added a diagnostic print to log the DataFrame columns before
+#   multiplier processing to debug a recurring warning.
+## [0.30.58-Beta] - 2025-08-07
 ### Fixed
-# - Corrected a TypeError by localizing the QSO timestamps to UTC upon
-#   creation, ensuring compatibility with the master time index.
-## [0.30.34-Beta] - 2025-08-07
-### Fixed
-# - Corrected a pandas FutureWarning by only applying fillna to object-type
-#   columns before exporting to CSV.
-## [0.30.1-Beta] - 2025-08-05
-### Fixed
-# - Corrected a SyntaxError caused by an incomplete statement in the __init__ method.
-## [0.30.0-Beta] - 2025-08-05
-# - Initial release of Version 0.30.0-Beta.
+# - Corrected the multiplier-handling logic to gracefully handle both
+#   simple and complex multipliers.
+# ---
 from typing import List
 import pandas as pd
 from datetime import datetime
@@ -105,7 +105,6 @@ class ContestLog:
 
         raw_df['Frequency'] = pd.to_numeric(raw_df.get('FrequencyRaw'), errors='coerce')
         
-        # --- FIX: Localize timestamps to UTC upon creation ---
         raw_df['Datetime'] = pd.to_datetime(
             raw_df.get('DateRaw', '') + ' ' + raw_df.get('TimeRaw', ''),
             format='%Y-%m-%d %H%M',
@@ -250,33 +249,6 @@ class ContestLog:
             except Exception as e:
                 logging.warning(f"Could not run '{resolver_name}' multiplier resolver: {e}")
 
-        multiplier_rules = self.contest_definition.multiplier_rules
-        if multiplier_rules:
-            logging.info("Calculating contest multipliers...")
-            for rule in multiplier_rules:
-                applies_to = rule.get('applies_to')
-                if applies_to and self._my_location_type and applies_to != self._my_location_type:
-                    continue
-
-                dest_col = rule.get('value_column')
-                dest_name_col = rule.get('name_column')
-                
-                if not dest_col: continue
-
-                if 'source_column' in rule:
-                    source_col = rule.get('source_column')
-                    if source_col in self.qsos_df.columns:
-                        self.qsos_df[dest_col] = self.qsos_df[source_col]
-                        
-                        if dest_name_col:
-                            source_name_col = f"{source_col}Name"
-                            if source_name_col in self.qsos_df.columns:
-                                self.qsos_df[dest_name_col] = self.qsos_df[source_name_col]
-                            else:
-                                logging.warning(f"Name column '{source_name_col}' not found for source '{source_col}'.")
-                    else:
-                        logging.warning(f"Source column '{source_col}' not found for multiplier '{rule.get('name')}'.")
-
         # --- Scoring Calculation ---
         my_call = self.metadata.get('MyCall')
         if not my_call:
@@ -327,7 +299,6 @@ class ContestLog:
             if 'Datetime' in df_for_output.columns:
                 df_for_output['Datetime'] = df_for_output['Datetime'].dt.strftime('%Y-%m-%d %H:%M:%S')
 
-            # --- FIX: Only fill NA for object columns to avoid FutureWarning ---
             for col in df_for_output.select_dtypes(include=['object']).columns:
                 df_for_output[col] = df_for_output[col].fillna('')
 

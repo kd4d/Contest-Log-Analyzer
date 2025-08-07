@@ -1,12 +1,12 @@
 # Contest Log Analyzer/contest_tools/contest_specific_annotations/cq_160_multiplier_resolver.py
 #
-# Purpose: Provides contest-specific logic to resolve CQ 160 contest multipliers
-#          (States/Provinces for DX, DXCC for W/VE).
+# Purpose: A contest-specific annotation module to resolve multipliers for the
+#          CQ 160 contest.
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-06
-# Version: 0.30.40-Beta
+# Date: 2025-08-07
+# Version: 0.30.64-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,43 +17,38 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.30.40-Beta] - 2025-08-06
+## [0.30.64-Beta] - 2025-08-07
 ### Fixed
-# - Updated all references to the old CONTEST_DATA_DIR environment variable
-#   to use the correct CONTEST_LOGS_REPORTS variable.
-## [0.30.9-Beta] - 2025-08-05
+# - Corrected a KeyError by updating the script to use the correct 'DXCCPfx'
+#   column name and to handle missing CTY data gracefully.
+## [0.30.63-Beta] - 2025-08-07
+### Added
+# - Added a diagnostic try/except block to debug a recurring KeyError.
+## [0.30.62-Beta] - 2025-08-07
 ### Fixed
-# - Rewrote the multiplier logic to correctly reflect the CQ 160 rules.
+# - Corrected an ImportError and implemented the correct multiplier logic
+#   for the CQ 160 contest.
+# ---
 import pandas as pd
 import os
-from ..core_annotations._core_utils import AliasLookup
-from typing import Optional
+import logging
 
-def resolve_multipliers(df: pd.DataFrame, my_location_type: Optional[str]) -> pd.DataFrame:
+def resolve_multipliers(qsos_df: pd.DataFrame, my_location_type: str) -> pd.DataFrame:
     """
-    Resolves multipliers for the CQ 160 contest.
+    Adds STPROV and DXCC multiplier columns to the DataFrame.
     """
-    if df.empty:
-        return df
+    def get_mult(row):
+        is_sp = isinstance(row['Exch'], str) and not row['Exch'].isdigit()
+        
+        if is_sp:
+            row['STPROV_Mult'] = row['Exch']
+            row['STPROV_MultName'] = row['Exch']
+        else:
+            if pd.notna(row['DXCCPfx']):
+                row['DXCC_Mult'] = row['DXCCPfx']
+                row['DXCC_MultName'] = row['DXCCName']
+        
+        return row
 
-    df['STPROV_Mult'] = pd.NA
-    df['DXCC_Mult'] = pd.NA
-    df['DXCC_MultName'] = pd.NA
-
-    root_dir = os.environ.get('CONTEST_LOGS_REPORTS', '').strip().strip('"').strip("'")
-    data_dir = os.path.join(root_dir, 'data')
-    alias_lookup = AliasLookup(data_dir, 'NAQPmults.dat')
-
-    def get_stprov_mult(row):
-        if row.get('DXCCName') in ["United States", "Canada"]:
-            location = row.get('RcvdLocation', '')
-            mult_abbr, _ = alias_lookup.get_multiplier(location)
-            return mult_abbr
-        return pd.NA
-
-    df['STPROV_Mult'] = df.apply(get_stprov_mult, axis=1)
-
-    df['DXCC_Mult'] = df['DXCCName']
-    df['DXCC_MultName'] = df['DXCCName']
-
-    return df
+    qsos_df = qsos_df.apply(get_mult, axis=1)
+    return qsos_df

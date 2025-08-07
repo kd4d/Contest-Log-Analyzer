@@ -1,7 +1,7 @@
-# Contest Log Analyzer/contest_tools/contest_specific_annotations/arrl_dx_multiplier_resolver.py
+# Contest Log Analyzer/contest_tools/contest_specific_annotations/cq_ww_multiplier_resolver.py
 #
 # Purpose: A contest-specific annotation module to resolve multipliers for the
-#          ARRL DX contest.
+#          CQ WW contest.
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -21,20 +21,23 @@
 ### Fixed
 # - Corrected a KeyError by updating the script to use the correct 'DXCCPfx'
 #   column name from the CTY lookup.
-## [0.30.0-Beta] - 2025-08-05
-# - Initial release of Version 0.30.0-Beta.
+## [0.30.60-Beta] - 2025-08-07
+# - Initial release of the CQ WW multiplier resolver.
 # ---
 import pandas as pd
 
 def resolve_multipliers(qsos_df: pd.DataFrame, my_location_type: str) -> pd.DataFrame:
     """
-    Adds DXCC and State/Province multiplier columns based on the operator's location.
+    Adds Zone and DXCC multiplier columns to the DataFrame.
     """
-    if my_location_type == "W/VE":
+    # --- Zone Multiplier (Simple) ---
+    qsos_df['Zone_Mult'] = qsos_df['Exch']
+    qsos_df['Zone_MultName'] = qsos_df['Exch']
+    
+    # --- DXCC Multiplier (Complex) ---
+    if 'DXCCPfx' in qsos_df.columns:
         qsos_df['DXCC_Mult'] = qsos_df['DXCCPfx']
-        qsos_df['DXCC_MultName'] = qsos_df['DXCCName']
-    elif my_location_type == "DX":
-        qsos_df['STPROV_Mult'] = qsos_df['Exch']
-        qsos_df['STPROV_MultName'] = qsos_df['Exch']
-        
+        if 'DXCCName' in qsos_df.columns:
+            qsos_df['DXCC_MultName'] = qsos_df['DXCCName']
+
     return qsos_df

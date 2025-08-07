@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-07
-# Version: 0.30.46-Beta
+# Version: 0.30.65-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,24 +17,21 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.30.46-Beta] - 2025-08-07
+## [0.30.65-Beta] - 2025-08-07
+### Added
+# - Added a `_sanitize_filename_part` helper function to prevent
+#   FileNotFoundError exceptions from special characters in filenames.
+## [0.30.47-Beta] - 2025-08-07
 ### Fixed
-# - Corrected a SyntaxError by removing non-standard whitespace characters
-#   that were causing the Python parser to fail.
-## [0.30.45-Beta] - 2025-08-07
-### Fixed
-# - Corrected a SyntaxError by refactoring the time-series preparation
-#   function to remove a nested helper.
-## [0.30.44-Beta] - 2025-08-07
-### Changed
-# - Implemented a JSON-based metric mapping to resolve the 'points'
-#   KeyError.
-
+# - Recreated the file from scratch to eliminate any invisible characters
+#   or encoding issues that were causing a persistent SyntaxError.
+# ---
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 import os
 import numpy as np
+import re
 from typing import Optional
 from ..contest_log import ContestLog
 
@@ -47,28 +44,32 @@ def create_output_directory(path: str):
     """Creates the output directory if it doesn't exist."""
     os.makedirs(path, exist_ok=True)
 
+def _sanitize_filename_part(part: str) -> str:
+    """Sanitizes a string to be used as part of a filename."""
+    return re.sub(r'[\s/\\:]+', '_', part.lower())
+
 def _prepare_time_series_data(log1: ContestLog, log2: Optional[ContestLog], metric: str) -> tuple:
     """Prepares time-series data for one or two logs."""
     metrics_map = log1.contest_definition.metrics_map
     metric_col = metrics_map.get(metric)
-
-    # --- Process first log ---
-    df1 = get_valid_dataframe(log1).copy()
-    if metric_col is None: # Row count metric like 'qsos'
-        df1_ts = pd.Series(1, index=df1['Datetime']).cumsum()
-    else:
-        df1_ts = df1.set_index('Datetime')[metric_col].cumsum()
-    df1_ts = df1_ts.groupby(df1_ts.index).last()
     
-    # --- Process second log if it exists ---
-    df2_ts = None
-    if log2:
-        df2 = get_valid_dataframe(log2).copy()
-        if metric_col is None:
-            df2_ts = pd.Series(1, index=df2['Datetime']).cumsum()
+    all_ts = []
+    for log in [log1, log2]:
+        if log is None:
+            all_ts.append(None)
+            continue
+            
+        df = get_valid_dataframe(log).copy()
+        
+        if metric_col is None: # Row count metric like 'qsos'
+            ts = pd.Series(1, index=df['Datetime']).cumsum()
         else:
-            df2_ts = df2.set_index('Datetime')[metric_col].cumsum()
-        df2_ts = df2_ts.groupby(df2_ts.index).last()
+            ts = df.set_index('Datetime')[metric_col].cumsum()
+        
+        processed_ts = ts.groupby(ts.index).last()
+        all_ts.append(processed_ts)
+
+    df1_ts, df2_ts = all_ts
 
     # --- Reindex against master timeline ---
     master_index = log1._log_manager_ref.master_time_index
