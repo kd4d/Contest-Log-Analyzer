@@ -1,13 +1,14 @@
 # Developer Guide - Contest Log Analyzer
 
-**Version: 0.30.42-Beta**
+**Version: 0.31.1-Beta**
 **Date: 2025-08-07**
 
 ---
 ### --- Revision History ---
-## [0.30.42-Beta] - 2025-08-07
-# - Created the initial version of the Developer Guide.
-# - Added advanced Git branch management workflows.
+## [0.31.1-Beta] - 2025-08-07
+# - Reviewed and synchronized documentation with the v0.31.x codebase.
+## [0.31.0-Beta] - 2025-08-07
+# - Initial release of Version 0.31.0-Beta.
 ---
 
 This guide outlines the development and release workflow for the Contest Log Analyzer.

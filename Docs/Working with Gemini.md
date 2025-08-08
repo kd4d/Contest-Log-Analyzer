@@ -1,26 +1,18 @@
 --- FILE: Docs/Working with Gemini.md ---
 # Project Workflow Guide
 
-**Version: 0.30.67-Beta**
+**Version: 0.31.1-Beta**
 **Date: 2025-08-07**
 
 ---
 ### --- Revision History ---
-## [0.30.67-Beta] - 2025-08-07
-### Added
-# - Added a new Guiding Principle and updated the Code Modification Protocol
-#   to strictly forbid any unrequested changes to the source code.
-## [0.30.66-Beta] - 2025-08-07
-### Added
-# - Added "Assume Bugs are Systemic" to the Guiding Principles to
-#   formalize the requirement for project-wide bug reviews.
-## [0.30.31-Beta] - 2025-08-07
-### Added
-# - Added Section 14, the "Definitive State Reconciliation Protocol," to
-#   mandate a full project review for certain trigger commands.
-## [0.30.30-Beta] - 2025-08-07
-# - Synchronized documentation with the current code base and our
-#   established protocols.
+## [0.31.1-Beta] - 2025-08-07
+### Changed
+# - Formalized the "Explicit State-Transition Protocol" in Section 9 to
+#   ensure reliable execution of multi-step tasks by making the user
+#   the controller of the sequence.
+## [0.31.0-Beta] - 2025-08-07
+# - Initial release of Version 0.31.0-Beta.
 # ---
 
 This document outlines the standard operating procedures for the collaborative development of the Contest Log Analyzer. **The primary audience for this document is the Gemini AI agent.**
@@ -51,14 +43,15 @@ The bundle uses a simple text header to separate each file:
 
 ## 2. AI Output Format
 
-When the AI provides updated files, it must follow these rules to ensure data integrity and prevent reformatting by the chat interface.
+When the AI provides updated files, it must follow these rules to ensure data integrity.
 
 1.  **Single File or Bundle Per Response**: Only one file or one project bundle will be delivered in a single response.
 2.  **Raw Source Text**: The content inside the delivered code block must be the raw source text of the file.
 3.  **Code File Delivery**: For code files (e.g., `.py`, `.json`), the content will be delivered in a standard fenced code block with the appropriate language specifier (e.g., ` ```python ... ``` `).
-4.  **Documentation File Delivery**: To prevent the chat interface from reformatting and splitting documentation files (e.g., `.md`) or bundles, a specific protocol is required:
-    * The AI's **entire response** will consist of a single fenced code block using the `Plaintext` language specifier (e.g., ` ```text ... ``` `). No conversational text will precede or follow this block.
-    * Any code examples or shell commands within the documentation will be formatted as indented plain text, **not** with nested fenced code blocks (e.g., ` ```bash`). This is critical to ensure the file is delivered as one unbroken block.
+4.  **Bundled File Delivery**: When delivering a bundle, the response will follow a three-part structure:
+    * A status update on its own line (e.g., "Here is bundle 1 of 3.").
+    * A single fenced code block using the `Plaintext` language specifier (` ```text ... ``` `) containing the bundle content.
+    * A confirmation request on its own line after the code block (e.g., "Please confirm when you are ready for the next file/bundle.").
 
 ---
 
@@ -122,17 +115,36 @@ This rule is strict and will not be altered based on conversational context. If 
 
 ---
 
-## 9. Protocol for Multi-File and Bundled Delivery
+## 9. Explicit State-Transition Protocol for Multi-File Delivery
 
-When a single logical task requires modifying multiple files, this protocol ensures changes are delivered sequentially and clearly.
+To ensure reliable execution of multi-step tasks, this protocol makes the user the definitive controller of the sequence. It eliminates reliance on the AI's internal state tracking, which has proven to be a point of failure.
 
-1.  **Declaration:** At the beginning of the chat, the AI will first state its intent to modify multiple items, list all the files that will be affected, and state the **total number of files or bundles** that will be sent (e.g., "This is file 1 of 3" or "This is bundle 1 of 2").
-2.  **Bundling Strategy:** The AI will prioritize sending **fewer, larger bundles**, packing as many files as possible into each one while staying under our established **37 kilobyte** (37,000 byte) limit.
-3.  **Sequential Delivery:** At the beginning of each subsequent response, the AI will provide a status update (e.g., "This is file 2 of 3."). The AI will then provide the file or bundle. The response will end with a clear statement, such as: "Please confirm when you are ready for the next file/bundle."
-4.  **Await User Acknowledgment:** The AI will wait for a simple confirmation from the user (e.g., 'OK', 'Ready', 'next') before sending the next file or bundle.
-5.  **Iteration:** The AI will then provide the next item in the sequence, repeating this turn-by-turn process until all declared files have been delivered.
-6.  **AI Completion Signal:** After sending the final file or bundle, the AI will state that the multi-file update is complete.
-7.  **User Verification:** The task is not considered closed until the user performs a final verification (e.g., running a test or a checksum comparison) and confirms success.
+1.  **AI Declaration:** At the beginning of a task, the AI will state its intent and declare the total number of bundles to be sent.
+2.  **Bundling Strategy:** The AI will prioritize sending **fewer, larger bundles** to minimize processing overhead on the user's end. It will pack as many files as possible into each one while staying under our established **37 kilobyte** (37,000 byte) limit.
+3.  **State-Driven Sequence:** The process then follows a strict, turn-by-turn sequence.
+    * **User Prompt:** The user drives the process by sending a prompt that contains the last successfully completed step. The AI will provide the exact text for this prompt in its previous response.
+        
+            Example: "The last bundle you successfully received was Part 1 of 7. Please send the next bundle."
+
+    * **AI Response:** The AI's response must follow a four-part structure:
+        1.  **Acknowledge State:** The AI first confirms its understanding of the current state.
+            
+                Example: "Acknowledged. The last bundle sent was 1 of 7."
+
+        2.  **Declare State Transition:** The AI then declares the specific action it is about to take.
+            
+                Example: "I will now prepare and send bundle 2 of 7."
+
+        3.  **Execute Action:** The AI provides the fenced code block containing the bundle.
+        4.  **Provide Next Prompt:** After the code block, the AI provides a pre-formatted block containing the exact text for the user's next prompt.
+
+                Example:
+                Please copy and paste the following prompt to continue:
+                ```
+                The last bundle you successfully received was Part 2 of 7. Please send the next bundle.
+                ```
+
+4.  **Completion:** After sending the final bundle, the AI will state that the task is complete instead of providing a "next prompt" block.
 ---
 
 ## 10. Context Checkpoint Protocol

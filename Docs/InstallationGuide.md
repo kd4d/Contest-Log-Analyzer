@@ -1,18 +1,14 @@
 # Installation Guide - Contest Log Analyzer
 
-**Version: 0.30.42-Beta**
+**Version: 0.31.1-Beta**
 **Date: 2025-08-07**
 
 ---
 ### --- Revision History ---
-## [0.30.42-Beta] - 2025-08-07
-# - Removed the Developer Guide section to create a separate, dedicated
-#   document for developers.
-## [0.30.30-Beta] - 2025-08-07
-# - Synchronized documentation with the current code base.
-# - Added Git workflow instructions for developers and beta testers.
-## [0.30.0-Beta] - 2025-08-05
-# - Initial release of Version 0.30.0-Beta.
+## [0.31.1-Beta] - 2025-08-07
+# - Reviewed and synchronized documentation with the v0.31.x codebase.
+## [0.31.0-Beta] - 2025-08-07
+# - Initial release of Version 0.31.0-Beta.
 ---
 
 This guide will help you install the latest stable beta release of the Contest Log Analyzer.
@@ -34,7 +30,6 @@ This project uses `conda` for environment and package management. It is highly r
 ### Step 3: Install Dependencies
 
 Once the environment is activated, install the required libraries using the following commands.
-
     conda update --all -y
     conda install pandas matplotlib seaborn -y
 
