@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-08
-# Version: 0.31.12-Beta
+# Version: 0.31.15-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,18 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.31.15-Beta] - 2025-08-08
+### Fixed
+# - Implemented `constrained_layout=True` to automatically and robustly
+#   handle title and subplot spacing, resolving all overlap issues.
+## [0.31.14-Beta] - 2025-08-08
+### Fixed
+# - Removed conflicting hspace and wspace arguments from GridSpec to allow
+#   subplots_adjust to correctly manage title spacing.
+## [0.31.13-Beta] - 2025-08-08
+### Fixed
+# - Removed `bbox_inches='tight'` from savefig command to allow
+#   `subplots_adjust` to correctly manage title spacing.
 ## [0.31.12-Beta] - 2025-08-08
 ### Fixed
 # - Corrected layout logic for a horizontal arrangement that also fixes
@@ -108,8 +120,8 @@ class Report(ContestReport):
         ncols = num_logs
         figsize = (ncols * 7, nrows * 8) # Landscape format
 
-        fig = plt.figure(figsize=figsize)
-        gs = GridSpec(nrows, ncols, figure=fig, hspace=0.5, wspace=0.3)
+        fig = plt.figure(figsize=figsize, constrained_layout=True)
+        gs = GridSpec(nrows, ncols, figure=fig)
 
         band_log_points = [
             (get_valid_dataframe(log)['QSOPoints'].sum() if band == 'All Bands' 
@@ -147,16 +159,13 @@ class Report(ContestReport):
         
         title_line1 = f"{event_id} {year} {contest_name}".strip()
         title_line2 = f"{self.report_name} - {band_title} ({callsign_str})"
-        fig.suptitle(f"{title_line1}\n{title_line2}", fontsize=22, fontweight='bold', y=0.98)
+        fig.suptitle(f"{title_line1}\n{title_line2}", fontsize=22, fontweight='bold')
         
-        # Adjust layout to prevent title overlap
-        plt.subplots_adjust(top=0.85)
-
         create_output_directory(output_path)
         filename_band = self.logs[0].contest_definition.valid_bands[0].lower() if is_single_band else band.lower().replace('m','').replace(' ', '_')
         filename = f"{self.report_id}_{filename_band}_{callsign_str}.png"
         filepath = os.path.join(output_path, filename)
-        fig.savefig(filepath, bbox_inches='tight')
+        fig.savefig(filepath)
         plt.close(fig)
 
         return filepath
