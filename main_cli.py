@@ -25,6 +25,7 @@
 # - No functional changes. Synchronizing version numbers.
 ## [0.30.0-Beta] - 2025-08-05
 # - Initial release of Version 0.30.0-Beta.
+
 import sys
 import os
 import argparse
