@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-08
-# Version: 0.31.16-Beta
+# Version: 0.31.17-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.31.17-Beta] - 2025-08-08
+### Changed
+# - Implemented area scaling for per-band charts, with a 15% minimum
+#   size and a "Not to scale" annotation for readability.
 ## [0.31.16-Beta] - 2025-08-08
 ### Fixed
 # - Implemented `constrained_layout=True` to automatically and robustly
@@ -73,14 +77,23 @@ class Report(ContestReport):
         title_line2 = f"Point Contribution by Band for {callsign}"
         fig.suptitle(f"{title_line1}\n{title_line2}", fontsize=16, fontweight='bold')
 
+        band_points = {band: df[df['Band'] == band]['QSOPoints'].sum() for band in bands}
+        max_band_points = max(band_points.values()) if band_points else 1
+
         for i, band in enumerate(bands):
             band_df = df[df['Band'] == band]
             
+            point_ratio = (band_points[band] / max_band_points) if max_band_points > 0 else 0
+            
+            is_not_to_scale = 0 < point_ratio < 0.15
+            radius_ratio = 0.15 if is_not_to_scale else point_ratio
+            radius = 1.0 * np.sqrt(radius_ratio)
+
             component = DonutChartComponent(
                 df=band_df, 
                 title=band, 
-                radius=1.0, 
-                is_not_to_scale=False
+                radius=radius, 
+                is_not_to_scale=is_not_to_scale
             )
             component.draw_on(fig, gs[i])
             

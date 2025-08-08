@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-07
-# Version: 0.31.4-Beta
+# Date: 2025-08-08
+# Version: 0.31.18-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,13 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.31.18-Beta] - 2025-08-08
+### Changed
+# - Removed percentage labels from donut charts for a cleaner appearance.
+## [0.31.17-Beta] - 2025-08-08
+### Changed
+# - Renamed ChartComponent to DonutChartComponent and added logic to handle
+#   dynamic radius scaling and "Not to scale" annotations.
 ## [0.31.4-Beta] - 2025-08-07
 ### Changed
 # - Renamed ChartComponent to DonutChartComponent for clarity.
@@ -118,17 +125,16 @@ class DonutChartComponent:
         
         colors = plt.cm.viridis(np.linspace(0.2, 0.8, len(point_counts)))
 
-        wedges, texts, autotexts = ax_pie.pie(
-            sizes, labels=labels, autopct='%1.1f%%', startangle=140, 
-            radius=self.radius, colors=colors, pctdistance=0.85, 
+        wedges, texts = ax_pie.pie(
+            sizes, labels=labels, autopct=None, startangle=140, 
+            radius=self.radius, colors=colors, 
             wedgeprops=dict(width=0.4, edgecolor='w')
         )
-        plt.setp(autotexts, size=10, weight="bold", color="white")
         
         ax_pie.set_title(self.title, fontsize=14, fontweight='bold', pad=20)
 
         if self.is_not_to_scale:
-            ax_pie.text(0, 0, "Not to Scale", ha='center', va='center', fontsize=12, color='red', alpha=0.7)
+            ax_pie.text(0, -self.radius - 0.3, "*Not to scale", ha='center', va='center', fontsize=10, color='red', alpha=0.7)
 
         table_data = [
             ["Total QSOs", f"{len(self.df)}"],
