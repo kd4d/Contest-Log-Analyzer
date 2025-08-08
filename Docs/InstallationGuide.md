@@ -1,12 +1,10 @@
 # Installation Guide - Contest Log Analyzer
 
-**Version: 0.31.1-Beta**
+**Version: 0.31.0-Beta**
 **Date: 2025-08-07**
 
 ---
 ### --- Revision History ---
-## [0.31.1-Beta] - 2025-08-07
-# - Reviewed and synchronized documentation with the v0.31.x codebase.
 ## [0.31.0-Beta] - 2025-08-07
 # - Initial release of Version 0.31.0-Beta.
 ---

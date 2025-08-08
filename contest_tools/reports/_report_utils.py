@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-07
-# Version: 0.30.65-Beta
+# Version: 0.31.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,15 +17,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.30.65-Beta] - 2025-08-07
-### Added
-# - Added a `_sanitize_filename_part` helper function to prevent
-#   FileNotFoundError exceptions from special characters in filenames.
-## [0.30.47-Beta] - 2025-08-07
-### Fixed
-# - Recreated the file from scratch to eliminate any invisible characters
-#   or encoding issues that were causing a persistent SyntaxError.
-# ---
+## [0.31.0-Beta] - 2025-08-07
+# - Initial release of Version 0.31.0-Beta.
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec

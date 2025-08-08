@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-07
-# Version: 0.30.60-Beta
+# Version: 0.31.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,19 +18,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.30.60-Beta] - 2025-08-07
-### Changed
-# - Refactored multiplier logic to be handled exclusively by contest-specific
-#   resolver modules, resolving all 'column not found' warnings.
-## [0.30.59-Beta] - 2025-08-07
-### Added
-# - Added a diagnostic print to log the DataFrame columns before
-#   multiplier processing to debug a recurring warning.
-## [0.30.58-Beta] - 2025-08-07
-### Fixed
-# - Corrected the multiplier-handling logic to gracefully handle both
-#   simple and complex multipliers.
-# ---
+## [0.31.0-Beta] - 2025-08-07
+# - Initial release of Version 0.31.0-Beta.
 from typing import List
 import pandas as pd
 from datetime import datetime

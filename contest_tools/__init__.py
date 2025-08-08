@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-05
-# Version: 0.30.0-Beta
+# Date: 2025-08-07
+# Version: 0.31.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,9 +16,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.30.0-Beta] - 2025-08-05
-# - Initial release of Version 0.30.0-Beta.
-# - Standardized all project files to a common baseline version.
+## [0.31.0-Beta] - 2025-08-07
+# - Initial release of Version 0.31.0-Beta.
 
 # This file can be left empty. Its presence is what defines
 # 'contest_tools' as a Python package, allowing for relative imports

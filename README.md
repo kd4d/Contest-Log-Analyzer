@@ -1,30 +1,28 @@
 # Contest Log Analyzer
 
-**Version: 0.31.1-Beta**
+**Version: 0.31.0-Beta**
 **Date: 2025-08-07**
 
 A Python-based tool for in-depth analysis and comparison of amateur radio contest logs. This application processes standard Cabrillo files to generate detailed reports, charts, and visualizations, providing deep insights into operator strategy and performance.
 ---
 ### --- Revision History ---
-## [0.31.1-Beta] - 2025-08-07
-# - Reviewed and synchronized documentation with the v0.31.x codebase.
 ## [0.31.0-Beta] - 2025-08-07
 # - Initial release of Version 0.31.0-Beta.
 ---
 ## Key Features
 
-* [cite_start]**Data-Driven Architecture**: Uses simple JSON files to define the rules, scoring, and exchange formats for each contest, making the tool highly extensible. [cite: 2121]
-* [cite_start]**Run/S&P Heuristics**: A sophisticated, multi-pass heuristic analyzes QSO timing and frequency to classify each contact as "Run," "Search & Pounce," or "Unknown," providing a clear picture of operating strategy. [cite: 2296]
-* [cite_start]**Unique vs. Common QSO Analysis**: The analyzer precisely identifies "unique" QSOs (worked by only one of two logs) and "common" QSOs (worked by both), breaking them down by Run/S&P status to reveal strategic advantages. [cite: 2398]
-* [cite_start]**Cumulative Difference Plots**: Goes beyond traditional rate graphs by presenting QSO and Point rate data in "Cumulative Difference Plots," which visualize performance trends and momentum shifts much more clearly. [cite: 2413]
-* [cite_start]**Annotated CSV Output**: Generates detailed, "annotated" CSV files from the processed logs, perfect for loading into Excel or other tools for custom analysis and prototyping. [cite: 2042]
-* [cite_start]**Contest-Specific Scoring**: A modular system calculates QSO points based on the official rules for supported contests (ARRL-DX, ARRL-SS, CQ-WPX, CQ-WW). [cite: 2143]
-* [cite_start]**Dynamic Reporting Engine**: A flexible, "plug-and-play" system for generating a wide variety of text, plot, and chart-based reports. [cite: 2336]
+* **Data-Driven Architecture**: Uses simple JSON files to define the rules, scoring, and exchange formats for each contest, making the tool highly extensible.
+* **Run/S&P Heuristics**: A sophisticated, multi-pass heuristic analyzes QSO timing and frequency to classify each contact as "Run," "Search & Pounce," or "Unknown," providing a clear picture of operating strategy.
+* **Unique vs. Common QSO Analysis**: The analyzer precisely identifies "unique" QSOs (worked by only one of two logs) and "common" QSOs (worked by both), breaking them down by Run/S&P status to reveal strategic advantages.
+* **Cumulative Difference Plots**: Goes beyond traditional rate graphs by presenting QSO and Point rate data in "Cumulative Difference Plots," which visualize performance trends and momentum shifts much more clearly.
+* **Annotated CSV Output**: Generates detailed, "annotated" CSV files from the processed logs, perfect for loading into Excel or other tools for custom analysis and prototyping.
+* **Contest-Specific Scoring**: A modular system calculates QSO points based on the official rules for supported contests (ARRL-DX, ARRL-SS, CQ-WPX, CQ-WW).
+* **Dynamic Reporting Engine**: A flexible, "plug-and-play" system for generating a wide variety of text, plot, and chart-based reports.
 
 ---
 ## Usage
 
-[cite_start]The analyzer is run from the command line using `main_cli.py`. [cite: 2]
+The analyzer is run from the command line using `main_cli.py`.
 
 #### **Basic Syntax**
 
@@ -47,7 +45,7 @@ A Python-based tool for in-depth analysis and comparison of amateur radio contes
 ---
 ## Available Reports
 
-[cite_start]All generated files are saved to a structured directory under `reports/YYYY/CONTEST_NAME/`. [cite: 2]
+All generated files are saved to a structured directory under `reports/YYYY/CONTEST_NAME/`.
 
 #### **Text Reports (`text/`)**
 
@@ -71,10 +69,10 @@ A Python-based tool for in-depth analysis and comparison of amateur radio contes
 
 #### **Charts (`charts/`)**
 
-* [cite_start]`qso_breakdown_chart`: Stacked bar chart comparing unique QSO counts for two logs. [cite: 3]
-* [cite_start]`point_contribution`: Side-by-side pie charts comparing point sources. [cite: 3]
-* [cite_start]`point_contribution_single`: Per-band pie charts showing point sources for one log. [cite: 3]
+* `qso_breakdown_chart`: Stacked bar chart comparing unique QSO counts for two logs.
+* `point_contribution`: Side-by-side pie charts comparing point sources.
+* `point_contribution_single`: Per-band pie charts showing point sources for one log.
 ---
 ## License
 
-[cite_start]This project is licensed under the **Mozilla Public License, v. 2.0**. [cite: 3]
+This project is licensed under the **Mozilla Public License, v. 2.0**.

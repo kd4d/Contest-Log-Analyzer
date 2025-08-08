@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-07
-# Version: 0.30.62-Beta
+# Version: 0.31.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,13 +17,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.30.62-Beta] - 2025-08-07
-### Changed
-# - Removed the ARRL-specific `load_arrl_sections` helper function to
-#   resolve an ImportError.
-## [0.30.0-Beta] - 2025-08-05
-# - Initial release of Version 0.30.0-Beta.
-# ---
+## [0.31.0-Beta] - 2025-08-07
+# - Initial release of Version 0.31.0-Beta.
 import pandas as pd
 
 def is_dx(cty_data):

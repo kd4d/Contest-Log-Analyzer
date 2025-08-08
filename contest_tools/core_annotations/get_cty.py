@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-06
-# Version: 0.30.40-Beta
+# Date: 2025-08-07
+# Version: 0.31.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,13 +18,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.30.40-Beta] - 2025-08-06
-### Fixed
-# - Updated all references to the old CONTEST_DATA_DIR environment variable
-#   to use the correct CONTEST_LOGS_REPORTS variable.
-## [0.29.5-Beta] - 2025-08-04
-### Changed
-# - Replaced all `print` statements with calls to the new logging framework.
+## [0.31.0-Beta] - 2025-08-07
+# - Initial release of Version 0.31.0-Beta.
 from typing import List, Dict, Optional, Tuple
 import re
 from collections import namedtuple
