@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-07
-# Version: 0.31.7-Beta
+# Date: 2025-08-08
+# Version: 0.31.9-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,14 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.31.9-Beta] - 2025-08-08
+### Fixed
+# - Adjusted subplot layout to prevent the main title from overlapping
+#   with the individual chart components.
+## [0.31.8-Beta] - 2025-08-07
+### Changed
+# - Reinstated and corrected the adaptive grid logic to produce a properly
+#   spaced, horizontal (landscape) layout for comparative charts.
 ## [0.31.7-Beta] - 2025-08-07
 ### Changed
 # - Modified layout logic to produce a horizontal (landscape) arrangement
@@ -88,8 +96,8 @@ class Report(ContestReport):
         num_logs = len(self.logs)
         
         # --- Dynamic Layout ---
-        nrows = 1
-        ncols = num_logs
+        ncols = num_logs if num_logs <= 3 else 3
+        nrows = (num_logs + ncols - 1) // ncols
         figsize = (ncols * 7, nrows * 8) # Landscape format
 
         fig = plt.figure(figsize=figsize)
@@ -133,6 +141,9 @@ class Report(ContestReport):
         title_line2 = f"{self.report_name} - {band_title} ({callsign_str})"
         fig.suptitle(f"{title_line1}\n{title_line2}", fontsize=22, fontweight='bold', y=0.98)
         
+        # Adjust layout to prevent title overlap
+        plt.subplots_adjust(top=0.85)
+
         create_output_directory(output_path)
         filename_band = self.logs[0].contest_definition.valid_bands[0].lower() if is_single_band else band.lower().replace('m','').replace(' ', '_')
         filename = f"{self.report_id}_{filename_band}_{callsign_str}.png"
