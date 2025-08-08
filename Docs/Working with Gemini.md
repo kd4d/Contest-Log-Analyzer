@@ -1,28 +1,27 @@
 --- FILE: Docs/Working with Gemini.md ---
 # Project Workflow Guide
 
-**Version: 0.30.31-Beta**
+**Version: 0.30.67-Beta**
 **Date: 2025-08-07**
 
 ---
 ### --- Revision History ---
+## [0.30.67-Beta] - 2025-08-07
+### Added
+# - Added a new Guiding Principle and updated the Code Modification Protocol
+#   to strictly forbid any unrequested changes to the source code.
+## [0.30.66-Beta] - 2025-08-07
+### Added
+# - Added "Assume Bugs are Systemic" to the Guiding Principles to
+#   formalize the requirement for project-wide bug reviews.
 ## [0.30.31-Beta] - 2025-08-07
+### Added
 # - Added Section 14, the "Definitive State Reconciliation Protocol," to
 #   mandate a full project review for certain trigger commands.
 ## [0.30.30-Beta] - 2025-08-07
 # - Synchronized documentation with the current code base and our
 #   established protocols.
-## [0.30.11-Beta] - 2025-08-05
-# - Updated protocol to use 'Plaintext' as the code block specifier for
-#   all documentation and bundle files, per user feedback.
-# - Clarified the multi-part delivery protocol to distinguish between
-#   sending a sequence of single files versus a sequence of bundles.
-## [0.30.10-Beta] - 2025-08-05
-# - Added Section 4.3 to formally define the "File State Algorithm" for
-#   determining the definitive version of all project files.
-# - Amended Section 8 to clarify that all AI communication is to be
-#   treated as "technical writing," prioritizing precision over conversational style.
----
+# ---
 
 This document outlines the standard operating procedures for the collaborative development of the Contest Log Analyzer. **The primary audience for this document is the Gemini AI agent.**
 
@@ -31,11 +30,15 @@ This document outlines the standard operating procedures for the collaborative d
 
 ### Guiding Principles
 
-1.  **Trust the User's Diagnostics.** When the user reports a bug, their description of the symptoms (e.g., "the multipliers are too high," "the report is all zeros") should be treated as the ground truth. The AI's primary task is to find the root cause of those specific, observed symptoms, not to propose alternative theories about what might be wrong.
+1.  **Trust the User's Diagnostics.** When the user reports a bug, their description of the symptoms (e.g., "the multipliers are too high," "the report is all zeros") should be treated as the ground truth. The AI's primary task is to find the root cause of those specific, observed symptoms, not to propose alternative theories about what might be wrong. If the AI cannot find the root cause, the AI can then ask the user questions.
 
 2.  **Debug "A Priori" When Stuck.** If an initial bug fix fails, do not simply try to patch the failed fix. Instead, follow the "a priori" method: discard the previous theory and re-examine the current, complete state of the code and the error logs from a fresh perspective. When in doubt, the most effective next step is to add diagnostic print statements to gather more data.
 
 3.  **Prefer Logic in Code, Not Data.** The project's design philosophy is to keep the `.json` definition files as simple, declarative maps. All complex, conditional, or contest-specific logic should be implemented in dedicated Python modules (e.g., `cq_160_multiplier_resolver.py`). This makes the system more robust and easier to maintain.
+
+4.  **Assume Bugs are Systemic.** When a bug is identified in one module (e.g., a report or a resolver), the default assumption is that the same flaw exists in all other similar modules. The AI's primary directive is to perform a global search for that specific bug pattern across the entire project and fix all instances at once, rather than treating the initial report as an isolated incident.
+
+5.  **No Unrequested Changes.** The AI will only implement changes explicitly requested by the user. All suggestions for refactoring, library changes, or stylistic updates must be proposed and approved by the user before implementation. Any changes not directly related to the user's request are strictly forbidden.
 ---
 
 ## 1. Project File Input
@@ -90,8 +93,9 @@ When the AI provides updated files, it must follow these rules to ensure data in
 
 ## 6. Code Modification Protocol
 
-1.  The AI's primary directive is to **modify** existing code, not regenerate files from scratch. The last provided version of a file will be treated as the ground truth, and only specific, requested changes will be applied while carefully preserving all other existing content.
-2.  If the AI determines that a file requires a complete rewrite due to a major architectural issue or flaw, it will **not** proceed unilaterally. It will first propose the rewrite and request permission to proceed.
+1.  **Strictly Adhere to Requested Changes**: The AI's primary directive is to implement only the changes explicitly requested by the user. Unsolicited changes, such as updating a plotting library (e.g., from Matplotlib to Plotly) or changing a chart's visual style (e.g., from a pie chart to a donut chart), are strictly forbidden.
+2.  **Modify, Don't Regenerate**: The last provided version of a file will be treated as the ground truth. Only specific, requested changes will be applied, preserving all other existing content.
+3.  **Propose, Don't Impose**: If the AI identifies a potential improvement, a necessary refactor, or determines that a file requires a major rewrite, it will **not** proceed unilaterally. It will first propose the change and request permission before taking any action.
 
 ---
 
