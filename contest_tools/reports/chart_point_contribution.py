@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-08
-# Version: 0.31.9-Beta
+# Version: 0.31.12-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,14 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.31.12-Beta] - 2025-08-08
+### Fixed
+# - Corrected layout logic for a horizontal arrangement that also fixes
+#   the title overlap issue.
+## [0.31.11-Beta] - 2025-08-08
+### Fixed
+# - Corrected layout logic to arrange comparative charts vertically,
+#   resolving title overlap issues.
 ## [0.31.9-Beta] - 2025-08-08
 ### Fixed
 # - Adjusted subplot layout to prevent the main title from overlapping
@@ -96,8 +104,8 @@ class Report(ContestReport):
         num_logs = len(self.logs)
         
         # --- Dynamic Layout ---
-        ncols = num_logs if num_logs <= 3 else 3
-        nrows = (num_logs + ncols - 1) // ncols
+        nrows = 1
+        ncols = num_logs
         figsize = (ncols * 7, nrows * 8) # Landscape format
 
         fig = plt.figure(figsize=figsize)
