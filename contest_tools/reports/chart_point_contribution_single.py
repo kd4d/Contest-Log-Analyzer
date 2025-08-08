@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-07
-# Version: 0.31.4-Beta
+# Date: 2025-08-08
+# Version: 0.31.16-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.31.16-Beta] - 2025-08-08
+### Fixed
+# - Implemented `constrained_layout=True` to automatically and robustly
+#   handle title and subplot spacing, fixing the systemic layout bug.
 ## [0.31.4-Beta] - 2025-08-07
 ### Changed
 # - Updated script to use the new DonutChartComponent helper class.
@@ -56,8 +60,8 @@ class Report(ContestReport):
         nrows = (num_bands + ncols - 1) // ncols
         figsize = (ncols * 6, nrows * 7)
 
-        fig = plt.figure(figsize=figsize)
-        gs = GridSpec(nrows, ncols, figure=fig, hspace=0.5, wspace=0.3)
+        fig = plt.figure(figsize=figsize, constrained_layout=True)
+        gs = GridSpec(nrows, ncols, figure=fig)
 
         # --- Title Generation ---
         metadata = log.get_metadata()
@@ -67,7 +71,7 @@ class Report(ContestReport):
 
         title_line1 = f"{event_id} {year} {contest_name}".strip()
         title_line2 = f"Point Contribution by Band for {callsign}"
-        fig.suptitle(f"{title_line1}\n{title_line2}", fontsize=16, fontweight='bold', y=0.98)
+        fig.suptitle(f"{title_line1}\n{title_line2}", fontsize=16, fontweight='bold')
 
         for i, band in enumerate(bands):
             band_df = df[df['Band'] == band]
@@ -82,7 +86,7 @@ class Report(ContestReport):
             
         output_filename = os.path.join(output_path, f"{self.report_id}_{callsign}.png")
         try:
-            plt.savefig(output_filename, bbox_inches='tight', dpi=150)
+            plt.savefig(output_filename, dpi=150)
             plt.close(fig)
             return f"'{self.report_name}' for {callsign} saved to {output_filename}"
         except Exception as e:
