@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-07
-# Version: 0.31.0-Beta
+# Version: 0.31.4-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.31.4-Beta] - 2025-08-07
+### Changed
+# - Renamed ChartComponent to DonutChartComponent for clarity.
 ## [0.31.0-Beta] - 2025-08-07
 # - Initial release of Version 0.31.0-Beta.
 import pandas as pd
@@ -91,8 +94,8 @@ def _create_time_series_figure(log: ContestLog, report_name: str) -> tuple:
     
     return fig, ax
 
-class ChartComponent:
-    """A factory class to create and draw a standardized pie chart component."""
+class DonutChartComponent:
+    """A factory class to create and draw a standardized donut chart component."""
     
     def __init__(self, df: pd.DataFrame, title: str, radius: float, is_not_to_scale: bool):
         self.df = df
@@ -101,7 +104,7 @@ class ChartComponent:
         self.is_not_to_scale = is_not_to_scale
 
     def draw_on(self, fig, gridspec):
-        subgrid = gridspec.subgridspec(2, 1, height_ratios=[3, 1])
+        subgrid = gridspec.subgridspec(2, 1, height_ratios=[3, 1], hspace=0.3)
         
         ax_pie = fig.add_subplot(subgrid[0])
         ax_table = fig.add_subplot(subgrid[1])
@@ -122,7 +125,7 @@ class ChartComponent:
         )
         plt.setp(autotexts, size=10, weight="bold", color="white")
         
-        ax_pie.set_title(self.title, fontsize=14, fontweight='bold')
+        ax_pie.set_title(self.title, fontsize=14, fontweight='bold', pad=20)
 
         if self.is_not_to_scale:
             ax_pie.text(0, 0, "Not to Scale", ha='center', va='center', fontsize=12, color='red', alpha=0.7)

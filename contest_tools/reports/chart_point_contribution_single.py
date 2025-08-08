@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-07
-# Version: 0.30.37-Beta
+# Version: 0.31.4-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,18 +17,13 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.30.37-Beta] - 2025-08-07
-### Fixed
-# - Corrected a NameError by adding the missing import for 'Optional'
-#   from the typing library.
-## [0.30.30-Beta] - 2025-08-05
-### Fixed
-# - Corrected an unterminated f-string literal syntax error.
-# - Removed incompatible fig.tight_layout() call to prevent UserWarning.
-## [0.30.0-Beta] - 2025-08-05
-# - Initial release of Version 0.30.0-Beta.
+## [0.31.4-Beta] - 2025-08-07
+### Changed
+# - Updated script to use the new DonutChartComponent helper class.
+## [0.31.0-Beta] - 2025-08-07
+# - Initial release of Version 0.31.0-Beta.
 from .report_interface import ContestReport
-from ._report_utils import get_valid_dataframe, create_output_directory, ChartComponent
+from ._report_utils import get_valid_dataframe, create_output_directory, DonutChartComponent
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 import pandas as pd
@@ -56,11 +51,13 @@ class Report(ContestReport):
         bands = sorted(df['Band'].unique(), key=lambda b: [band[1] for band in ContestLog._HF_BANDS].index(b))
         num_bands = len(bands)
         
-        nrows, ncols = (1, num_bands) if num_bands <= 3 else (2, (num_bands + 1) // 2)
-        figsize = (ncols * 6, nrows * 6)
+        # --- Dynamic Layout ---
+        ncols = num_bands if num_bands <= 3 else 3
+        nrows = (num_bands + ncols - 1) // ncols
+        figsize = (ncols * 6, nrows * 7)
 
         fig = plt.figure(figsize=figsize)
-        gs = GridSpec(nrows, ncols, figure=fig)
+        gs = GridSpec(nrows, ncols, figure=fig, hspace=0.5, wspace=0.3)
 
         # --- Title Generation ---
         metadata = log.get_metadata()
@@ -75,7 +72,7 @@ class Report(ContestReport):
         for i, band in enumerate(bands):
             band_df = df[df['Band'] == band]
             
-            component = ChartComponent(
+            component = DonutChartComponent(
                 df=band_df, 
                 title=band, 
                 radius=1.0, 

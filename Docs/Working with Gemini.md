@@ -1,11 +1,20 @@
 --- FILE: Docs/Working with Gemini.md ---
 # Project Workflow Guide
 
-**Version: 0.31.1-Beta**
+**Version: 0.31.3-Beta**
 **Date: 2025-08-07**
 
 ---
 ### --- Revision History ---
+## [0.31.3-Beta] - 2025-08-07
+### Changed
+# - Added a new Guiding Principle and updated the Checksum Protocol to
+#   mandate a full, uncached re-computation for every technical request
+#   to prevent errors from conversational assumptions.
+## [0.31.2-Beta] - 2025-08-07
+### Added
+# - Added a new Guiding Principle to enforce strict adherence to all
+#   technical protocols.
 ## [0.31.1-Beta] - 2025-08-07
 ### Changed
 # - Formalized the "Explicit State-Transition Protocol" in Section 9 to
@@ -22,15 +31,19 @@ This document outlines the standard operating procedures for the collaborative d
 
 ### Guiding Principles
 
-1.  **Trust the User's Diagnostics.** When the user reports a bug, their description of the symptoms (e.g., "the multipliers are too high," "the report is all zeros") should be treated as the ground truth. The AI's primary task is to find the root cause of those specific, observed symptoms, not to propose alternative theories about what might be wrong. If the AI cannot find the root cause, the AI can then ask the user questions.
+1.  **Technical Diligence Over Conversational Assumptions.** Technical tasks, particularly checksum comparisons, are not conversations. Similar-looking prompts do not imply similar answers. Each technical request must be treated as a unique, atomic operation. The AI must execute a full re-computation from the current project state for every request, ignoring any previous results or cached data.
 
-2.  **Debug "A Priori" When Stuck.** If an initial bug fix fails, do not simply try to patch the failed fix. Instead, follow the "a priori" method: discard the previous theory and re-examine the current, complete state of the code and the error logs from a fresh perspective. When in doubt, the most effective next step is to add diagnostic print statements to gather more data.
+2.  **Protocol Adherence is Paramount.** All protocols, especially technical ones like line-ending conversion for checksums (Protocol 4.1), must be followed with absolute precision. Failure to do so invalidates the results and undermines the development process. There is no room for deviation.
 
-3.  **Prefer Logic in Code, Not Data.** The project's design philosophy is to keep the `.json` definition files as simple, declarative maps. All complex, conditional, or contest-specific logic should be implemented in dedicated Python modules (e.g., `cq_160_multiplier_resolver.py`). This makes the system more robust and easier to maintain.
+3.  **Trust the User's Diagnostics.** When the user reports a bug, their description of the symptoms (e.g., "the multipliers are too high," "the report is all zeros") should be treated as the ground truth. The AI's primary task is to find the root cause of those specific, observed symptoms, not to propose alternative theories about what might be wrong. If the AI cannot find the root cause, the AI can then ask the user questions.
 
-4.  **Assume Bugs are Systemic.** When a bug is identified in one module (e.g., a report or a resolver), the default assumption is that the same flaw exists in all other similar modules. The AI's primary directive is to perform a global search for that specific bug pattern across the entire project and fix all instances at once, rather than treating the initial report as an isolated incident.
+4.  **Debug "A Priori" When Stuck.** If an initial bug fix fails, do not simply try to patch the failed fix. Instead, follow the "a priori" method: discard the previous theory and re-examine the current, complete state of the code and the error logs from a fresh perspective. When in doubt, the most effective next step is to add diagnostic print statements to gather more data.
 
-5.  **No Unrequested Changes.** The AI will only implement changes explicitly requested by the user. All suggestions for refactoring, library changes, or stylistic updates must be proposed and approved by the user before implementation. Any changes not directly related to the user's request are strictly forbidden.
+5.  **Prefer Logic in Code, Not Data.** The project's design philosophy is to keep the `.json` definition files as simple, declarative maps. All complex, conditional, or contest-specific logic should be implemented in dedicated Python modules (e.g., `cq_160_multiplier_resolver.py`). This makes the system more robust and easier to maintain.
+
+6.  **Assume Bugs are Systemic.** When a bug is identified in one module (e.g., a report or a resolver), the default assumption is that the same flaw exists in all other similar modules. The AI's primary directive is to perform a global search for that specific bug pattern across the entire project and fix all instances at once, rather than treating the initial report as an isolated incident.
+
+7.  **No Unrequested Changes.** The AI will only implement changes explicitly requested by the user. All suggestions for refactoring, library changes, or stylistic updates must be proposed and approved by the user before implementation. Any changes not directly related to the user's request are strictly forbidden.
 ---
 
 ## 1. Project File Input
@@ -65,14 +78,14 @@ When the AI provides updated files, it must follow these rules to ensure data in
 
 ## 4. File and Checksum Verification
 
-1.  The user's file system uses Windows CRLF (`\r\n`) line endings. The AI's output can use standard LF (`\n`). The AI must be aware of this difference when comparing checksums.
-2.  When a checksum verification is requested, the AI will provide a concise report. It will either state that **all checksums agree** or it will provide a list of the **specific files that show a mismatch**. The full table of checksums will not be displayed.
-3.  **File State Algorithm:** Before any file modification or checksum comparison, the AI must first establish the definitive "most recent, correct state" of all project files by executing the following algorithm:
-    1.  Start with an empty list of definitive files.
-    2.  Working backward from the most recent chat message, examine each turn.
-    3.  If a turn contains a file or a bundle of files, iterate through them. For each file, if its path is not already in the definitive list, add the file's path and its full content from that turn to the list.
-    4.  Continue this process until the initial project and documentation bundles are reached. Add any remaining, not-yet-seen files from those initial bundles to the list.
-    The resulting list is the single source of truth for all subsequent operations.
+1.  **Line Endings:** The user's file system uses Windows CRLF (`\r\n`). The AI must correctly handle this conversion when calculating checksums to compare against the user's provided values.
+2.  **Concise Reporting:** The AI will either state that **all checksums agree** or will list the **specific files that show a mismatch**.
+3.  **File State Algorithm:** The AI must first establish the definitive "most recent, correct state" of all project files by working backward through the chat history. This definitive state is the sole basis for all subsequent operations.
+4.  **Mandatory Re-computation Protocol:** Every request for a checksum comparison is a **cache-invalidation event**. The AI must:
+    * Discard all previously calculated or remembered checksums.
+    * Re-establish the definitive state of all files from scratch.
+    * Re-compute the SHA-256 hash for every single file in the current state.
+    * Perform a literal, digit-for-digit comparison against only the checksum values provided in the user's current prompt.
 
 ---
 

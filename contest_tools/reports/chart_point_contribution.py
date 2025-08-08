@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-07
-# Version: 0.30.37-Beta
+# Version: 0.31.7-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,16 +17,24 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.30.37-Beta] - 2025-08-07
+## [0.31.7-Beta] - 2025-08-07
+### Changed
+# - Modified layout logic to produce a horizontal (landscape) arrangement
+#   for comparative charts.
+## [0.31.6-Beta] - 2025-08-07
 ### Fixed
-# - Corrected a NameError by adding the missing import for 'Optional'
-#   from the typing library.
-## [0.30.30-Beta] - 2025-08-05
+# - Corrected the grid layout logic to ensure a balanced, vertical
+#   layout for comparative charts with 2 or 3 logs.
+## [0.31.5-Beta] - 2025-08-07
 ### Fixed
-# - Corrected an unterminated f-string literal syntax error.
-# - Removed incompatible fig.tight_layout() call to prevent UserWarning.
-## [0.30.0-Beta] - 2025-08-05
-# - Initial release of Version 0.30.0-Beta.
+# - Corrected the dynamic layout logic to ensure proper spacing and
+#   proportions for comparative charts.
+## [0.31.4-Beta] - 2025-08-07
+### Changed
+# - Updated script to use the new DonutChartComponent helper class and
+#   implemented an adaptive grid layout.
+## [0.31.0-Beta] - 2025-08-07
+# - Initial release of Version 0.31.0-Beta.
 from typing import List, Optional
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -36,7 +44,7 @@ import numpy as np
 import re
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from ._report_utils import ChartComponent, create_output_directory, get_valid_dataframe
+from ._report_utils import DonutChartComponent, create_output_directory, get_valid_dataframe
 
 class Report(ContestReport):
     report_id: str = "chart_point_contribution"
@@ -78,8 +86,14 @@ class Report(ContestReport):
 
     def _create_plot_for_band(self, band: str, output_path: str) -> str:
         num_logs = len(self.logs)
-        fig = plt.figure(figsize=(num_logs * 7, 8))
-        gs = GridSpec(1, num_logs, figure=fig)
+        
+        # --- Dynamic Layout ---
+        nrows = 1
+        ncols = num_logs
+        figsize = (ncols * 7, nrows * 8) # Landscape format
+
+        fig = plt.figure(figsize=figsize)
+        gs = GridSpec(nrows, ncols, figure=fig, hspace=0.5, wspace=0.3)
 
         band_log_points = [
             (get_valid_dataframe(log)['QSOPoints'].sum() if band == 'All Bands' 
@@ -97,7 +111,7 @@ class Report(ContestReport):
             is_not_to_scale = 0 < point_ratio < 0.05
             radius = 1.25 * np.sqrt(0.05 if is_not_to_scale else point_ratio)
 
-            component = ChartComponent(
+            component = DonutChartComponent(
                 df=band_df, 
                 title=log.get_metadata().get('MyCall', f'Log {i+1}'), 
                 radius=radius, 
@@ -117,7 +131,7 @@ class Report(ContestReport):
         
         title_line1 = f"{event_id} {year} {contest_name}".strip()
         title_line2 = f"{self.report_name} - {band_title} ({callsign_str})"
-        fig.suptitle(f"{title_line1}\n{title_line2}", fontsize=22, fontweight='bold')
+        fig.suptitle(f"{title_line1}\n{title_line2}", fontsize=22, fontweight='bold', y=0.98)
         
         create_output_directory(output_path)
         filename_band = self.logs[0].contest_definition.valid_bands[0].lower() if is_single_band else band.lower().replace('m','').replace(' ', '_')
