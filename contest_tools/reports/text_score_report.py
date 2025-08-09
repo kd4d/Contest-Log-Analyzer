@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-04
-# Version: 0.28.28-Beta
+# Date: 2025-08-09
+# Version: 0.31.21-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,9 +17,13 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-# All notable changes to this project will be documented in this file.
-# The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
-# and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.31.21-Beta] - 2025-08-09
+### Fixed
+# - Modified multiplier counting logic to explicitly exclude "Unknown" values.
+## [0.31.20-Beta] - 2025-08-08
+### Fixed
+# - Modified multiplier counting logic to explicitly exclude "Unknown" values
+#   from per-band and total calculations.
 ## [0.28.28-Beta] - 2025-08-04
 ### Fixed
 # - Corrected a hardcoded bug that caused DXCC multipliers to be ignored
@@ -135,7 +139,9 @@ class Report(ContestReport):
                 
                 for i, m_col in enumerate(mult_cols):
                     if m_col in band_df_valid_mults.columns:
-                        band_summary[mult_names[i]] = band_df_valid_mults[band_df_valid_mults[m_col].notna()][m_col].nunique()
+                        band_summary[mult_names[i]] = band_df_valid_mults[
+                            (band_df_valid_mults[m_col].notna()) & (band_df_valid_mults[m_col] != 'Unknown')
+                        ][m_col].nunique()
                 
                 band_summary['AVG'] = (band_summary['Points'] / band_summary['QSOs']) if band_summary['QSOs'] > 0 else 0
                 summary_data.append(band_summary)
@@ -165,7 +171,9 @@ class Report(ContestReport):
                     continue
 
                 if totaling_method == 'once_per_contest':
-                    unique_mults = df_net_valid_mults[df_net_valid_mults[mult_col].notna()][mult_col].nunique()
+                    unique_mults = df_net_valid_mults[
+                        (df_net_valid_mults[mult_col].notna()) & (df_net_valid_mults[mult_col] != 'Unknown')
+                    ][mult_col].nunique()
                     total_summary[mult_name] = unique_mults
                     total_multiplier_count += unique_mults
                 else: # Default to sum_by_band
@@ -208,7 +216,7 @@ class Report(ContestReport):
             report_lines.append(f"Callsign          : {callsign}")
             on_time_str = metadata.get('OperatingTime')
             if on_time_str:
-                report_lines.append(f"Operating Time    : {on_time_str}")
+                 report_lines.append(f"Operating Time    : {on_time_str}")
             report_lines.append("")
             
             report_lines.append(header)

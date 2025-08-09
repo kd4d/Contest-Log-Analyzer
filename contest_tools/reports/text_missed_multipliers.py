@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-06
-# Version: 0.30.37-Beta
+# Date: 2025-08-09
+# Version: 0.31.22-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,13 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.31.22-Beta] - 2025-08-09
+### Changed
+# - Re-enabled "Unknown" multipliers by removing the exclusion filter to
+#   treat them as a valid category for comparison.
+## [0.31.21-Beta] - 2025-08-09
+### Fixed
+# - Added a filter to exclude "Unknown" multipliers from the main report data.
 ## [0.30.37-Beta] - 2025-08-06
 ### Fixed
 # - Adjusted dynamic column width calculation to set a minimum width based

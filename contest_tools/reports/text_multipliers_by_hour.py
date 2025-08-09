@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-06
-# Version: 0.30.34-Beta
+# Date: 2025-08-09
+# Version: 0.31.21-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.31.21-Beta] - 2025-08-09
+### Fixed
+# - Added a filter to exclude "Unknown" multipliers from the report data.
 ## [0.30.34-Beta] - 2025-08-06
 ### Changed
 # - Updated diagnostic error message to include the report name for clarity.
@@ -47,13 +50,12 @@ class Report(ContestReport):
         mult_name = kwargs.get('mult_name')
         if not mult_name:
             return f"Error: 'mult_name' argument is required for the '{self.report_name}' report."
-        
+
         final_report_messages = []
         
         log_manager = getattr(self.logs[0], '_log_manager_ref', None)
         if not log_manager or log_manager.master_time_index is None:
             return f"Error: Master time index not available for '{self.report_name}' report."
-        
         master_time_index = log_manager.master_time_index
 
         for log in self.logs:
@@ -78,6 +80,11 @@ class Report(ContestReport):
             totaling_method = mult_rule.get('totaling_method', 'sum_by_band')
 
             df = df_full[df_full['Dupe'] == False].copy()
+
+            # --- FILTER FOR UNKNOWN ---
+            if mult_column in df.columns:
+                df = df[df[mult_column] != 'Unknown']
+
             if df.empty or mult_column not in df.columns or df[mult_column].isna().all():
                 msg = f"Skipping report '{self.report_name}' for {callsign}: No valid '{mult_name}' data to report."
                 final_report_messages.append(msg)
