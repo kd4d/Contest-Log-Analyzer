@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-06
-# Version: 0.30.36-Beta
+# Date: 2025-08-09
+# Version: 0.31.23-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,11 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.30.36-Beta] - 2025-08-06
-### Changed
-# - Aligned formatting with Missed Multipliers report.
-# - First column header is now dynamically set based on the multiplier rule.
-# - First column width is now calculated dynamically to fit the content.
+## [0.31.23-Beta] - 2025-08-09
+### Fixed
+# - Corrected the diagnostic section to properly find and list all
+#   callsigns with "Unknown" multipliers.
 ## [0.26.5-Beta] - 2025-08-04
 ### Fixed
 # - Corrected a bug that caused the report to fail for single logs by
@@ -94,12 +93,6 @@ class Report(ContestReport):
         if combined_df.empty or mult_column not in combined_df.columns:
             return f"No '{mult_name}' multiplier data to report."
         
-        combined_df.dropna(subset=[mult_column], inplace=True)
-        
-        unknown_df = combined_df[combined_df[mult_column].isna()]
-        w_ve_unknown_df = unknown_df[unknown_df['DXCCName'].isin(['United States', 'Canada'])]
-        unique_unknown_calls = sorted(w_ve_unknown_df['Call'].unique())
-        
         main_df = combined_df[combined_df[mult_column].notna()]
         
         bands = contest_def.valid_bands
@@ -138,7 +131,7 @@ class Report(ContestReport):
             else:
                 max_len = max(max_len, len(str(mult)))
         first_col_width = max_len
-            
+        
         header_parts = [f"{b.replace('M',''):>7}" for b in bands]
         if not is_single_band:
             header_parts.append(f"{'Total':>7}")
@@ -196,24 +189,9 @@ class Report(ContestReport):
                         line += f"{row.get('Total', 0):>7}"
                     report_lines.append(line)
 
-        if not unknown_df.empty:
-            report_lines.append(f"{'Unknown Total':<{first_col_width}}")
-            unknown_pivot = unknown_df.pivot_table(index='MyCall', columns='Band', aggfunc='size', fill_value=0)
-            for band in bands:
-                if band not in unknown_pivot.columns: unknown_pivot[band] = 0
-            unknown_pivot = unknown_pivot[bands]
-            
-            if not is_single_band:
-                unknown_pivot['Total'] = unknown_pivot.sum(axis=1)
-
-            for call in all_calls:
-                if call in unknown_pivot.index:
-                    row = unknown_pivot.loc[call]
-                    line = f"  {'':<{first_col_width-2}}"
-                    for band in bands: line += f"{row.get(band, 0):>7}"
-                    if not is_single_band:
-                        line += f"{row.get('Total', 0):>7}"
-                    report_lines.append(line)
+        # --- Diagnostic Section for "Unknown" Multipliers ---
+        unknown_df = combined_df[combined_df[mult_column] == 'Unknown']
+        unique_unknown_calls = sorted(unknown_df['Call'].unique())
         
         if unique_unknown_calls:
             report_lines.append("\n" + "-" * 30)
