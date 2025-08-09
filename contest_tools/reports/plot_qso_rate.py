@@ -1,12 +1,12 @@
 # Contest Log Analyzer/contest_tools/reports/plot_qso_rate.py
 #
 # Purpose: A plot report that generates a QSO rate graph for all bands
-#          and for each individual band by calling a shared utility.
+#          and for each individual band.
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-05
-# Version: 0.30.20-Beta
+# Date: 2025-08-08
+# Version: 0.31.19-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.31.19-Beta] - 2025-08-08
+### Fixed
+# - Refactored report to be self-contained after the removal of the
+#   `_create_cumulative_rate_plot` helper, resolving an ImportError.
 ## [0.30.20-Beta] - 2025-08-05
 ### Fixed
 # - No functional changes, but inherits fix from _report_utils to prevent
@@ -29,9 +33,11 @@
 from typing import List
 import os
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from ._report_utils import _create_cumulative_rate_plot
+from ._report_utils import create_output_directory, get_valid_dataframe
 
 class Report(ContestReport):
     """
@@ -45,8 +51,7 @@ class Report(ContestReport):
     
     def generate(self, output_path: str, **kwargs) -> str:
         """
-        Orchestrates the generation of all QSO rate plots by calling the
-        shared helper function.
+        Orchestrates the generation of all QSO rate plots.
         """
         bands = self.logs[0].contest_definition.valid_bands
         is_single_band = len(bands) == 1
@@ -57,14 +62,9 @@ class Report(ContestReport):
         for band in bands_to_plot:
             try:
                 save_path = os.path.join(output_path, band) if band != "All" else output_path
-                filepath = _create_cumulative_rate_plot(
-                    logs=self.logs,
+                filepath = self._create_plot(
                     output_path=save_path,
                     band_filter=band,
-                    metric_name="QSOs",
-                    value_column='Call',
-                    agg_func='count',
-                    report_id=self.report_id
                 )
                 if filepath:
                     created_files.append(filepath)
@@ -73,4 +73,88 @@ class Report(ContestReport):
 
         if not created_files:
             return "No QSO rate plots were generated."
+            
         return "QSO rate plots saved to:\n" + "\n".join([f"  - {fp}" for fp in created_files])
+
+    def _create_plot(self, output_path: str, band_filter: str) -> str:
+        fig, ax = plt.subplots(figsize=(12, 8))
+        sns.set_theme(style="whitegrid")
+
+        all_calls = []
+        summary_data = []
+        
+        value_column = 'Call'
+        agg_func = 'count'
+        metric_name = "QSOs"
+
+        for log in self.logs:
+            call = log.get_metadata().get('MyCall', 'Unknown')
+            all_calls.append(call)
+            df = get_valid_dataframe(log)
+
+            if band_filter != "All":
+                df = df[df['Band'] == band_filter]
+            
+            if df.empty:
+                continue
+            
+            df_cleaned = df.dropna(subset=['Datetime', value_column]).set_index('Datetime')
+            df_cleaned.index = df_cleaned.index.tz_localize('UTC')
+            
+            hourly_rate = df_cleaned.resample('h')[value_column].agg(agg_func)
+            cumulative_rate = hourly_rate.cumsum()
+            
+            master_time_index = log._log_manager_ref.master_time_index
+            if master_time_index is not None:
+                cumulative_rate = cumulative_rate.reindex(master_time_index, method='pad').fillna(0)
+            
+            ax.plot(cumulative_rate.index, cumulative_rate.values, marker='o', linestyle='-', markersize=4, label=call)
+            
+            total_value = len(df)
+
+            summary_data.append([
+                call,
+                f"{total_value:,}",
+                f"{(df['Run'] == 'Run').sum():,}",
+                f"{(df['Run'] == 'S&P').sum():,}",
+                f"{(df['Run'] == 'Unknown').sum():,}"
+            ])
+
+        metadata = self.logs[0].get_metadata()
+        year = get_valid_dataframe(self.logs[0])['Date'].dropna().iloc[0].split('-')[0] if not get_valid_dataframe(self.logs[0]).empty and not get_valid_dataframe(self.logs[0])['Date'].dropna().empty else "----"
+        contest_name = metadata.get('ContestName', '')
+        event_id = metadata.get('EventID', '')
+        
+        is_single_band = len(self.logs[0].contest_definition.valid_bands) == 1
+        band_text = self.logs[0].contest_definition.valid_bands[0].replace('M', ' Meters') if is_single_band else band_filter.replace('M', ' Meters')
+        
+        title_line1 = f"{event_id} {year} {contest_name}".strip()
+        title_line2 = f"Cumulative {metric_name} ({band_text})"
+        
+        ax.set_title(f"{title_line1}\n{title_line2}", fontsize=16, fontweight='bold')
+        ax.set_xlabel("Contest Time")
+        ax.set_ylabel(f"Cumulative {metric_name}")
+        ax.legend(loc='upper left')
+        ax.grid(True, which='both', linestyle='--')
+        
+        if summary_data:
+            col_labels = ["Call", f"Total {metric_name}", "Run", "S&P", "Unk"]
+            table = ax.table(cellText=summary_data, colLabels=col_labels, loc='lower right', cellLoc='center', colLoc='center')
+            table.auto_set_font_size(False)
+            table.set_fontsize(10)
+            table.scale(0.7, 1.2)
+            table.set_zorder(10)
+            
+            for key, cell in table.get_celld().items():
+                cell.set_facecolor('white')
+
+        fig.tight_layout()
+        create_output_directory(output_path)
+        
+        filename_band = self.logs[0].contest_definition.valid_bands[0].lower() if is_single_band else band_filter.lower().replace('m', '')
+        filename_calls = '_vs_'.join(sorted(all_calls))
+        filename = f"{self.report_id}_{filename_band}_{filename_calls}.png"
+        filepath = os.path.join(output_path, filename)
+        fig.savefig(filepath)
+        plt.close(fig)
+        return filepath

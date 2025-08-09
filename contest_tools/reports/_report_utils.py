@@ -1,12 +1,12 @@
 # Contest Log Analyzer/contest_tools/reports/_report_utils.py
 #
-# Purpose: A utility module containing shared helper functions used by various
-#          report generation scripts.
+# Purpose: A utility module providing shared helper functions for the
+#          reporting engine.
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-05
-# Version: 0.30.27-Beta
+# Date: 2025-08-08
+# Version: 0.31.18-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,205 +17,131 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.30.27-Beta] - 2025-08-05
-### Fixed
-# - Corrected a TypeError in the ChartComponent by removing the faulty
-#   GridSpecFrom helper and using subgridspec directly.
-## [0.30.26-Beta] - 2025-08-05
+## [0.31.18-Beta] - 2025-08-08
 ### Changed
-# - Replaced _create_pie_chart_subplot with a ChartComponent class to
-#   encapsulate layout logic and improve robustness.
-## [0.30.25-Beta] - 2025-08-05
+# - Removed percentage labels from donut charts for a cleaner appearance.
+## [0.31.17-Beta] - 2025-08-08
 ### Changed
-# - Rewrote `_create_pie_chart_subplot` to be a component factory that
-#   returns a complete Figure object, fixing all layout and centering issues.
-## [0.30.24-Beta] - 2025-08-05
-### Fixed
-# - Replaced GridSpec with a more flexible layout.
-## [0.30.22-Beta] - 2025-08-05
-### Fixed
-# - Corrected filename and title generation for single-band contests.
-## [0.30.21-Beta] - 2025-08-05
+# - Renamed ChartComponent to DonutChartComponent and added logic to handle
+#   dynamic radius scaling and "Not to scale" annotations.
+## [0.31.4-Beta] - 2025-08-07
 ### Changed
-# - Changed the pie chart color palette to "bright".
-## [0.30.20-Beta] - 2025-08-05
-### Fixed
-# - Restored the `get_valid_dataframe` helper function.
-## [0.30.19-Beta] - 2025-08-05
-### Fixed
-# - Restored the `create_output_directory` function.
-## [0.30.15-Beta] - 2025-08-05
-### Changed
-# - Restored shared helper functions for plotting.
-## [0.30.0-Beta] - 2025-08-05
-# - Initial release of Version 0.30.0-Beta.
+# - Renamed ChartComponent to DonutChartComponent for clarity.
+## [0.31.0-Beta] - 2025-08-07
+# - Initial release of Version 0.31.0-Beta.
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
-import os
-from matplotlib.figure import Figure
 from matplotlib.gridspec import GridSpec
+import os
 import numpy as np
+import re
+from typing import Optional
 from ..contest_log import ContestLog
 
+def get_valid_dataframe(log: ContestLog, include_dupes: bool = False) -> pd.DataFrame:
+    """Returns the log's DataFrame, excluding dupes unless specified."""
+    df = log.get_processed_data()
+    return df if include_dupes else df[df['Dupe'] == False]
+
 def create_output_directory(path: str):
-    """
-    Ensures that the specified output directory exists.
-    """
+    """Creates the output directory if it doesn't exist."""
     os.makedirs(path, exist_ok=True)
 
-def get_valid_dataframe(log: ContestLog, include_dupes: bool = False) -> pd.DataFrame:
-    """
-    Returns the processed DataFrame from a ContestLog, optionally filtering out dupes.
-    """
-    df = log.get_processed_data()
-    if not include_dupes:
-        return df[df['Dupe'] == False].copy()
-    return df.copy()
+def _sanitize_filename_part(part: str) -> str:
+    """Sanitizes a string to be used as part of a filename."""
+    return re.sub(r'[\s/\\:]+', '_', part.lower())
 
-class ChartComponent:
-    """
-    A factory class to create a self-contained chart component consisting of
-    a title, a pie chart, an optional text annotation, and a data table.
-    """
-    def __init__(self, df: pd.DataFrame, title: str, radius: float, is_not_to_scale: bool = False):
+def _prepare_time_series_data(log1: ContestLog, log2: Optional[ContestLog], metric: str) -> tuple:
+    """Prepares time-series data for one or two logs."""
+    metrics_map = log1.contest_definition.metrics_map
+    metric_col = metrics_map.get(metric)
+    
+    all_ts = []
+    for log in [log1, log2]:
+        if log is None:
+            all_ts.append(None)
+            continue
+            
+        df = get_valid_dataframe(log).copy()
+        
+        if metric_col is None: # Row count metric like 'qsos'
+            ts = pd.Series(1, index=df['Datetime']).cumsum()
+        else:
+            ts = df.set_index('Datetime')[metric_col].cumsum()
+        
+        processed_ts = ts.groupby(ts.index).last()
+        all_ts.append(processed_ts)
+
+    df1_ts, df2_ts = all_ts
+
+    # --- Reindex against master timeline ---
+    master_index = log1._log_manager_ref.master_time_index
+    if master_index is not None:
+        df1_ts = df1_ts.reindex(master_index, method='ffill').fillna(0)
+        if df2_ts is not None:
+            df2_ts = df2_ts.reindex(master_index, method='ffill').fillna(0)
+            
+    return df1_ts, df2_ts
+
+def _create_time_series_figure(log: ContestLog, report_name: str) -> tuple:
+    """Creates a standard figure and axes for time-series plots."""
+    fig, ax = plt.subplots(figsize=(12, 7))
+    
+    metadata = log.get_metadata()
+    year = get_valid_dataframe(log)['Date'].dropna().iloc[0].split('-')[0]
+    contest_name = metadata.get('ContestName', '')
+    event_id = metadata.get('EventID', '')
+    
+    title_line1 = f"{event_id} {year} {contest_name}".strip()
+    title_line2 = f"{report_name}"
+    fig.suptitle(f"{title_line1}\n{title_line2}", fontsize=16, fontweight='bold')
+    
+    ax.set_xlabel("Contest Time")
+    ax.grid(True, which='both', linestyle='--', linewidth=0.5)
+    
+    return fig, ax
+
+class DonutChartComponent:
+    """A factory class to create and draw a standardized donut chart component."""
+    
+    def __init__(self, df: pd.DataFrame, title: str, radius: float, is_not_to_scale: bool):
         self.df = df
         self.title = title
         self.radius = radius
         self.is_not_to_scale = is_not_to_scale
 
-    def draw_on(self, fig: Figure, spec_loc):
-        """
-        Draws the complete component onto a specified GridSpec location within a figure.
-        """
-        # Create a nested GridSpec for the component's internal layout
-        sub_gs = spec_loc.subgridspec(nrows=3, ncols=1, height_ratios=[0.15, 0.6, 0.25], hspace=0.3)
-
-        # --- Title ---
-        ax_title = fig.add_subplot(sub_gs[0, 0])
-        ax_title.text(0.5, 0.5, self.title, ha='center', va='center', fontsize=16, fontweight='bold')
-        ax_title.axis('off')
-
-        # --- Pie Chart ---
-        ax_pie = fig.add_subplot(sub_gs[1, 0])
-        if self.df.empty or 'QSOPoints' not in self.df.columns or self.df['QSOPoints'].sum() == 0:
-            ax_pie.text(0.5, 0.5, "No Data", ha='center', va='center', fontsize=14)
-            ax_pie.axis('off')
-        else:
-            point_counts = self.df['QSOPoints'].value_counts().sort_index(ascending=False)
-            colors = sns.color_palette("bright", len(point_counts))
-            wedges, texts, autotexts = ax_pie.pie(
-                point_counts,
-                labels=[f"{idx} pts" for idx in point_counts.index],
-                autopct='%1.1f%%',
-                startangle=90,
-                colors=colors,
-                radius=self.radius,
-                pctdistance=0.85
-            )
-            plt.setp(autotexts, size=10, weight="bold", color="white")
-            if self.is_not_to_scale:
-                ax_pie.text(0.5, -0.1, "(not to scale)", ha='center', va='center', fontsize=10, style='italic', transform=ax_pie.transAxes)
-
-        ax_pie.axis('off')
-
-        # --- Table ---
-        ax_table = fig.add_subplot(sub_gs[2, 0])
+    def draw_on(self, fig, gridspec):
+        subgrid = gridspec.subgridspec(2, 1, height_ratios=[3, 1], hspace=0.3)
+        
+        ax_pie = fig.add_subplot(subgrid[0])
+        ax_table = fig.add_subplot(subgrid[1])
         ax_table.axis('off')
-        if not self.df.empty and 'QSOPoints' in self.df.columns:
-            total_points = self.df['QSOPoints'].sum()
-            total_qsos = len(self.df)
-            avg_points = total_points / total_qsos if total_qsos > 0 else 0
-            table_data = [
-                ["Total QSOs", f"{total_qsos:,}"],
-                ["Total Points", f"{total_points:,}"],
-                ["Avg Points/QSO", f"{avg_points:.2f}"]
-            ]
-            table = ax_table.table(
-                cellText=table_data, colLabels=None, cellLoc='center', loc='center'
-            )
-            table.auto_set_font_size(False)
-            table.set_fontsize(12)
-            table.scale(1, 1.5)
 
-def _create_cumulative_rate_plot(logs, output_path, band_filter, metric_name, value_column, agg_func, report_id):
-    fig, ax = plt.subplots(figsize=(12, 8))
-    sns.set_theme(style="whitegrid")
-
-    all_calls = []
-    summary_data = []
-
-    for log in logs:
-        call = log.get_metadata().get('MyCall', 'Unknown')
-        all_calls.append(call)
-        df = get_valid_dataframe(log)
-
-        if band_filter != "All":
-            df = df[df['Band'] == band_filter]
+        point_counts = self.df['QSOPoints'].value_counts()
+        total_points = self.df['QSOPoints'].sum()
         
-        if df.empty or value_column not in df.columns:
-            continue
+        labels = [f'{val} Pts' for val in point_counts.index]
+        sizes = point_counts.values
         
-        df_cleaned = df.dropna(subset=['Datetime', value_column]).set_index('Datetime')
-        df_cleaned.index = df_cleaned.index.tz_localize('UTC')
-        
-        hourly_rate = df_cleaned.resample('h')[value_column].agg(agg_func)
-        cumulative_rate = hourly_rate.cumsum()
-        
-        master_time_index = log._log_manager_ref.master_time_index
-        if master_time_index is not None:
-            cumulative_rate = cumulative_rate.reindex(master_time_index, method='pad').fillna(0)
-        
-        ax.plot(cumulative_rate.index, cumulative_rate.values, marker='o', linestyle='-', markersize=4, label=call)
+        colors = plt.cm.viridis(np.linspace(0.2, 0.8, len(point_counts)))
 
-        if metric_name == "Points":
-            total_value = df[value_column].sum()
-        else:
-            total_value = len(df)
+        wedges, texts = ax_pie.pie(
+            sizes, labels=labels, autopct=None, startangle=140, 
+            radius=self.radius, colors=colors, 
+            wedgeprops=dict(width=0.4, edgecolor='w')
+        )
+        
+        ax_pie.set_title(self.title, fontsize=14, fontweight='bold', pad=20)
 
-        summary_data.append([
-            call,
-            f"{total_value:,}",
-            f"{(df['Run'] == 'Run').sum():,}",
-            f"{(df['Run'] == 'S&P').sum():,}",
-            f"{(df['Run'] == 'Unknown').sum():,}"
-        ])
+        if self.is_not_to_scale:
+            ax_pie.text(0, -self.radius - 0.3, "*Not to scale", ha='center', va='center', fontsize=10, color='red', alpha=0.7)
 
-    metadata = logs[0].get_metadata()
-    year = get_valid_dataframe(logs[0])['Date'].dropna().iloc[0].split('-')[0] if not get_valid_dataframe(logs[0]).empty and not get_valid_dataframe(logs[0])['Date'].dropna().empty else "----"
-    contest_name = metadata.get('ContestName', '')
-    event_id = metadata.get('EventID', '')
-    
-    is_single_band = len(logs[0].contest_definition.valid_bands) == 1
-    band_text = logs[0].contest_definition.valid_bands[0].replace('M', ' Meters') if is_single_band else band_filter.replace('M', ' Meters')
-    
-    title_line1 = f"{event_id} {year} {contest_name}".strip()
-    title_line2 = f"Cumulative {metric_name} ({band_text})"
-    
-    ax.set_title(f"{title_line1}\n{title_line2}", fontsize=16, fontweight='bold')
-    ax.set_xlabel("Contest Time")
-    ax.set_ylabel(f"Cumulative {metric_name}")
-    ax.legend(loc='upper left')
-    ax.grid(True, which='both', linestyle='--')
-    
-    if summary_data:
-        col_labels = ["Call", f"Total {metric_name}", "Run", "S&P", "Unk"]
-        table = ax.table(cellText=summary_data, colLabels=col_labels, loc='lower right', cellLoc='center', colLoc='center')
+        table_data = [
+            ["Total QSOs", f"{len(self.df)}"],
+            ["Total Points", f"{total_points}"],
+            ["Avg Pts/QSO", f"{total_points / len(self.df):.2f}" if len(self.df) > 0 else "0.00"]
+        ]
+        table = ax_table.table(cellText=table_data, colWidths=[0.4, 0.2], loc='center', cellLoc='center')
         table.auto_set_font_size(False)
-        table.set_fontsize(10)
-        table.scale(0.7, 1.2)
-        table.set_zorder(10)
-        
-        for key, cell in table.get_celld().items():
-            cell.set_facecolor('white')
-
-    fig.tight_layout()
-    create_output_directory(output_path)
-    
-    filename_band = logs[0].contest_definition.valid_bands[0].lower() if is_single_band else band_filter.lower().replace('m', '')
-    filename_calls = '_vs_'.join(sorted(all_calls))
-    filename = f"{report_id}_{filename_band}_{filename_calls}.png"
-    filepath = os.path.join(output_path, filename)
-    fig.savefig(filepath)
-    plt.close(fig)
-    return filepath
+        table.set_fontsize(12)
+        table.scale(1.2, 1.2)

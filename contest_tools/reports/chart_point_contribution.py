@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-05
-# Version: 0.30.30-Beta
+# Date: 2025-08-08
+# Version: 0.31.17-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,39 +17,60 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.30.30-Beta] - 2025-08-05
-### Fixed
-# - Corrected an unterminated f-string literal syntax error.
-# - Removed incompatible fig.tight_layout() call to prevent UserWarning.
-## [0.30.29-Beta] - 2025-08-05
-### Fixed
-# - Removed incompatible fig.tight_layout() call to prevent UserWarning.
-## [0.30.28-Beta] - 2025-08-05
-### Fixed
-# - Corrected a TypeError in the ChartComponent by removing the faulty
-#   GridSpecFrom helper and using subgridspec directly.
-## [0.30.27-Beta] - 2025-08-05
+## [0.31.17-Beta] - 2025-08-08
 ### Changed
-# - Refactored to use the new ChartComponent factory for improved layout
-#   robustness and consistency.
-## [0.30.26-Beta] - 2025-08-05
+# - Implemented area scaling for comparative charts, with a 15% minimum
+#   size and a "Not to scale" annotation for readability.
+## [0.31.16-Beta] - 2025-08-08
 ### Fixed
-# - Corrected an AttributeError by explicitly drawing the subplot's canvas
-#   before attempting to access its renderer.
-## [0.30.24-Beta] - 2025-08-05
-### Changed
-# - Updated to use the refactored `_create_pie_chart_subplot` helper.
-## [0.30.22-Beta] - 2025-08-05
+# - Implemented `constrained_layout=True` to automatically and robustly
+#   handle title and subplot spacing, fixing the systemic layout bug.
+## [0.31.15-Beta] - 2025-08-08
 ### Fixed
-# - Corrected filename and title generation for single-band contests.
-## [0.30.21-Beta] - 2025-08-05
+# - Implemented `constrained_layout=True` to automatically and robustly
+#   handle title and subplot spacing, resolving all overlap issues.
+## [0.31.14-Beta] - 2025-08-08
+### Fixed
+# - Removed conflicting hspace and wspace arguments from GridSpec to allow
+#   subplots_adjust to correctly manage title spacing.
+## [0.31.13-Beta] - 2025-08-08
+### Fixed
+# - Removed `bbox_inches='tight'` from savefig command to allow
+#   `subplots_adjust` to correctly manage title spacing.
+## [0.31.12-Beta] - 2025-08-08
+### Fixed
+# - Corrected layout logic for a horizontal arrangement that also fixes
+#   the title overlap issue.
+## [0.31.11-Beta] - 2025-08-08
+### Fixed
+# - Corrected layout logic to arrange comparative charts vertically,
+#   resolving title overlap issues.
+## [0.31.9-Beta] - 2025-08-08
+### Fixed
+# - Adjusted subplot layout to prevent the main title from overlapping
+#   with the individual chart components.
+## [0.31.8-Beta] - 2025-08-07
 ### Changed
-# - Updated title generation and color palette.
-## [0.30.18-Beta] - 2025-08-05
+# - Reinstated and corrected the adaptive grid logic to produce a properly
+#   spaced, horizontal (landscape) layout for comparative charts.
+## [0.31.7-Beta] - 2025-08-07
 ### Changed
-# - Restored original multi-file (per-band) report generation behavior.
-## [0.30.0-Beta] - 2025-08-05
-# - Initial release of Version 0.30.0-Beta.
+# - Modified layout logic to produce a horizontal (landscape) arrangement
+#   for comparative charts.
+## [0.31.6-Beta] - 2025-08-07
+### Fixed
+# - Corrected the grid layout logic to ensure a balanced, vertical
+#   layout for comparative charts with 2 or 3 logs.
+## [0.31.5-Beta] - 2025-08-07
+### Fixed
+# - Corrected the dynamic layout logic to ensure proper spacing and
+#   proportions for comparative charts.
+## [0.31.4-Beta] - 2025-08-07
+### Changed
+# - Updated script to use the new DonutChartComponent helper class and
+#   implemented an adaptive grid layout.
+## [0.31.0-Beta] - 2025-08-07
+# - Initial release of Version 0.31.0-Beta.
 from typing import List
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -59,7 +80,7 @@ import numpy as np
 import re
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from ._report_utils import ChartComponent, create_output_directory, get_valid_dataframe
+from ._report_utils import DonutChartComponent, create_output_directory, get_valid_dataframe
 
 class Report(ContestReport):
     report_id: str = "chart_point_contribution"
@@ -96,12 +117,19 @@ class Report(ContestReport):
         
         if not created_files:
             return "No Point Contribution charts were generated."
+            
         return "Point Contribution charts saved to:\n" + "\n".join([f"  - {fp}" for fp in created_files])
 
     def _create_plot_for_band(self, band: str, output_path: str) -> str:
         num_logs = len(self.logs)
-        fig = plt.figure(figsize=(num_logs * 7, 8))
-        gs = GridSpec(1, num_logs, figure=fig)
+        
+        # --- Dynamic Layout ---
+        nrows = 1
+        ncols = num_logs
+        figsize = (ncols * 7, nrows * 8) # Landscape format
+
+        fig = plt.figure(figsize=figsize, constrained_layout=True)
+        gs = GridSpec(nrows, ncols, figure=fig)
 
         band_log_points = [
             (get_valid_dataframe(log)['QSOPoints'].sum() if band == 'All Bands' 
@@ -116,10 +144,11 @@ class Report(ContestReport):
 
             point_ratio = (band_log_points[i] / max_band_points) if max_band_points > 0 else 0
             
-            is_not_to_scale = 0 < point_ratio < 0.05
-            radius = 1.25 * np.sqrt(0.05 if is_not_to_scale else point_ratio)
+            is_not_to_scale = 0 < point_ratio < 0.15
+            radius_ratio = 0.15 if is_not_to_scale else point_ratio
+            radius = 1.0 * np.sqrt(radius_ratio)
 
-            component = ChartComponent(
+            component = DonutChartComponent(
                 df=band_df, 
                 title=log.get_metadata().get('MyCall', f'Log {i+1}'), 
                 radius=radius, 
@@ -145,7 +174,7 @@ class Report(ContestReport):
         filename_band = self.logs[0].contest_definition.valid_bands[0].lower() if is_single_band else band.lower().replace('m','').replace(' ', '_')
         filename = f"{self.report_id}_{filename_band}_{callsign_str}.png"
         filepath = os.path.join(output_path, filename)
-        fig.savefig(filepath, bbox_inches='tight')
+        fig.savefig(filepath)
         plt.close(fig)
 
         return filepath
