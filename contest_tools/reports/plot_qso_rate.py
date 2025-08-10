@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-10
-# Version: 0.31.25-Beta
+# Version: 0.31.26-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.31.26-Beta] - 2025-08-10
+### Changed
+# - Improved robustness by adding a check for empty plots and logging an
+#   info message instead of saving a blank file.
 ## [0.31.25-Beta] - 2025-08-10
 ### Fixed
 # - Added a conditional check to prevent a UserWarning when creating a
@@ -39,6 +43,7 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import logging
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
 from ._report_utils import create_output_directory, get_valid_dataframe
@@ -154,6 +159,12 @@ class Report(ContestReport):
             
             for key, cell in table.get_celld().items():
                 cell.set_facecolor('white')
+        
+        # Check if any data was actually plotted before saving
+        if not ax.get_lines():
+            logging.info(f"Skipping {metric_name} plot for {band_filter}: No data available for any log on this band.")
+            plt.close(fig)
+            return None
 
         fig.tight_layout()
         create_output_directory(output_path)

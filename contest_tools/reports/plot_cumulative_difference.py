@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-10
-# Version: 0.31.26-Beta
+# Version: 0.31.31-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,26 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.31.31-Beta] - 2025-08-10
+### Fixed
+# - Refactored time-series logic to calculate cumulative sum before
+#   reindexing, fixing phantom rate changes during inactive hours.
+## [0.31.30-Beta] - 2025-08-10
+### Fixed
+# - Corrected logic to properly skip generating empty plots for bands with
+#   no QSO data.
+## [0.31.29-Beta] - 2025-08-10
+### Fixed
+# - Corrected a TypeError by creating a correctly-indexed placeholder for
+#   logs with no data on a given band.
+## [0.31.28-Beta] - 2025-08-10
+### Fixed
+# - Resolved a TypeError by localizing naive datetimes to UTC before
+#   comparing them with the timezone-aware master time index.
+## [0.31.27-Beta] - 2025-08-10
+### Fixed
+# - Corrected time-series logic to use the master time index and
+#   forward-filling to ensure all hours of the contest are displayed.
 ## [0.31.26-Beta] - 2025-08-10
 ### Changed
 # - Replaced print statement with logging.info for "no data" messages.
@@ -55,15 +75,20 @@ class Report(ContestReport):
     
     def _prepare_data_for_plot(self, log: ContestLog, value_column: str, agg_func: str, band_filter: str) -> pd.DataFrame:
         """
-        Prepares a single log's data for plotting by grouping and aggregating.
+        Prepares a single log's data for plotting by grouping, aggregating,
+        and aligning to the master time index.
         """
         df = get_valid_dataframe(log)
         
         if band_filter != "All":
             df = df[df['Band'] == band_filter]
 
+        master_time_index = log._log_manager_ref.master_time_index
+
         if df.empty:
-            return pd.DataFrame(columns=['Run', 'S&P+Unknown'])
+            empty_data = {'Run': 0, 'S&P+Unknown': 0}
+            cumulative_data = pd.DataFrame(empty_data, index=master_time_index)
+            return cumulative_data
 
         df_cleaned = df.dropna(subset=['Datetime', 'Run', value_column])
         rate_data = df_cleaned.groupby([df_cleaned['Datetime'].dt.floor('h'), 'Run'])[value_column].agg(agg_func).unstack(fill_value=0)
@@ -74,7 +99,15 @@ class Report(ContestReport):
         
         rate_data['S&P+Unknown'] = rate_data['S&P'] + rate_data['Unknown']
         
-        return rate_data[['Run', 'S&P+Unknown']]
+        if not rate_data.empty:
+            rate_data.index = rate_data.index.tz_localize('UTC')
+        
+        cumulative_data = rate_data.cumsum()
+            
+        if master_time_index is not None:
+            cumulative_data = cumulative_data.reindex(master_time_index, method='pad').fillna(0)
+            
+        return cumulative_data[['Run', 'S&P+Unknown']]
 
 
     def _generate_single_plot(self, output_path: str, band_filter: str, metric: str):
@@ -90,24 +123,22 @@ class Report(ContestReport):
         
         data1 = self._prepare_data_for_plot(log1, value_column, agg_func, band_filter)
         data2 = self._prepare_data_for_plot(log2, value_column, agg_func, band_filter)
-        
-        master_index = data1.index.union(data2.index)
-        
-        data1 = data1.reindex(master_index, fill_value=0)
-        data2 = data2.reindex(master_index, fill_value=0)
 
-        if data1.empty and data2.empty:
-            logging.info(f"Skipping {band_filter} difference plot: no data.")
-            return None
-
-        # --- Calculate Cumulative Differences ---
-        run_diff = (data1['Run'].cumsum() - data2['Run'].cumsum())
-        sp_unk_diff = (data1['S&P+Unknown'].cumsum() - data2['S&P+Unknown'].cumsum())
+        # --- Calculate Differences from Cumulative Data ---
+        run_diff = data1['Run'] - data2['Run']
+        sp_unk_diff = data1['S&P+Unknown'] - data2['S&P+Unknown']
         overall_diff = run_diff + sp_unk_diff
 
         # --- Plotting ---
         sns.set_theme(style="whitegrid")
         fig = plt.figure(figsize=(12, 9))
+        
+        # Check if there is any actual difference to plot
+        if overall_diff.abs().sum() == 0:
+            logging.info(f"Skipping {band_filter} difference plot: no data available for this band.")
+            plt.close(fig)
+            return None
+
         gs = fig.add_gridspec(5, 1)
         
         ax1 = fig.add_subplot(gs[0:3, 0])
