@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-05
-# Version: 0.30.22-Beta
+# Date: 2025-08-10
+# Version: 0.31.26-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.31.26-Beta] - 2025-08-10
+### Changed
+# - Replaced print statement with logging.info for "no data" messages.
 ## [0.30.22-Beta] - 2025-08-05
 ### Fixed
 # - Corrected filename and title generation logic to properly handle
@@ -34,6 +37,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import os
+import logging
 
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
@@ -93,7 +97,7 @@ class Report(ContestReport):
         data2 = data2.reindex(master_index, fill_value=0)
 
         if data1.empty and data2.empty:
-            print(f"  - Skipping {band_filter} difference plot: no data.")
+            logging.info(f"Skipping {band_filter} difference plot: no data.")
             return None
 
         # --- Calculate Cumulative Differences ---

@@ -1,7 +1,7 @@
 {
   "_filename": "contest_tools/contest_definitions/arrl_ss_cw.json",
-  "_version": "0.30.0-Beta",
-  "_date": "2025-08-05",
+  "_version": "0.31.24-Beta",
+  "_date": "2025-08-10",
   "contest_name": "ARRL-SS-CW",
   "dupe_check_scope": "all_bands",
   "custom_multiplier_resolver": "arrl_ss_multiplier_resolver",
@@ -19,14 +19,38 @@
     "continent_summary"
   ],
   "exchange_parsing_rules": {
-    "ARRL-SS-CW-11-FIELD": {
-      "regex": "(\\d+)\\s+([A-Z])\\s+([A-Z0-9/]+)\\s+(\\d{2})\\s+([A-Z]{2,3})\\s+([A-Z0-9/]+)\\s+(\\d+)\\s+([A-Z])\\s+([A-Z0-9/]+)\\s+(\\d{2})\\s+([A-Z]{2,3})",
-      "groups": ["SentNR", "SentPrecedence", "SentCall", "SentCheck", "SentSection", "Call", "RcvdNR", "RcvdPrecedence", "RcvdCall", "RcvdCheck", "RcvdSection"]
-    },
-    "ARRL-SS-CW-9-FIELD": {
-      "regex": "(\\d+)\\s+([A-Z])\\s+(\\d{2})\\s+([A-Z]{2,3})\\s+([A-Z0-9/]+)\\s+(\\d+)\\s+([A-Z])\\s+(\\d{2})\\s+([A-Z]{2,3})",
-      "groups": ["SentNR", "SentPrecedence", "SentCheck", "SentSection", "Call", "RcvdNR", "RcvdPrecedence", "RcvdCheck", "RcvdSection"]
-    }
+    "ARRL-SS-CW": [
+      {
+        "regex": "(\\d+)\\s+([A-Z])\\s+([A-Z0-9/]+)\\s+(\\d{2})\\s+([A-Z]{2,3})\\s+([A-Z0-9/]+)\\s+(\\d+)\\s+([A-Z])\\s+([A-Z0-9/]+)\\s+(\\d{2})\\s+([A-Z]{2,3})",
+        "groups": [
+          "SentNR",
+          "SentPrecedence",
+          "SentCall",
+          "SentCheck",
+          "SentSection",
+          "Call",
+          "RcvdNR",
+          "RcvdPrecedence",
+          "RcvdCall",
+          "RcvdCheck",
+          "RcvdSection"
+        ]
+      },
+      {
+        "regex": "(\\d+)\\s+([A-Z])\\s+(\\d{2})\\s+([A-Z]{2,3})\\s+([A-Z0-9/]+)\\s+(\\d+)\\s+([A-Z])\\s+(\\d{2})\\s+([A-Z]{2,3})",
+        "groups": [
+          "SentNR",
+          "SentPrecedence",
+          "SentCheck",
+          "SentSection",
+          "Call",
+          "RcvdNR",
+          "RcvdPrecedence",
+          "RcvdCheck",
+          "RcvdSection"
+        ]
+      }
+    ]
   },
   "multiplier_rules": [
     {
@@ -39,14 +63,43 @@
     }
   ],
   "default_qso_columns": [
-    "ContestName", "CategoryOverlay", "CategoryOperator", "CategoryTransmitter", "MyCall",
-    "Frequency", "Mode", "Datetime", 
-    "SentNR", "SentPrecedence", "SentCall", "SentCheck", "SentSection",
-    "Call", 
-    "RcvdNR", "RcvdPrecedence", "RcvdCall", "RcvdCheck", "RcvdSection",
-    "Band", "Date", "Hour", "Dupe",
-    "DXCCName", "DXCCPfx", "CQZone", "ITUZone", "Continent", "WAEName", "WAEPfx", "Lat", "Lon", "Tzone",
-    "Run", "QSOPoints",
-    "Mult1", "Mult1Name", "FinalMultiplier"
+    "ContestName",
+    "CategoryOverlay",
+    "CategoryOperator",
+    "CategoryTransmitter",
+    "MyCall",
+    "Frequency",
+    "Mode",
+    "Datetime",
+    "SentNR",
+    "SentPrecedence",
+    "SentCall",
+    "SentCheck",
+    "SentSection",
+    "Call",
+    "RcvdNR",
+    "RcvdPrecedence",
+    "RcvdCall",
+    "RcvdCheck",
+    "RcvdSection",
+    "Band",
+    "Date",
+    "Hour",
+    "Dupe",
+    "DXCCName",
+    "DXCCPfx",
+    "CQZone",
+    "ITUZone",
+    "Continent",
+    "WAEName",
+    "WAEPfx",
+    "Lat",
+    "Lon",
+    "Tzone",
+    "Run",
+    "QSOPoints",
+    "Mult1",
+    "Mult1Name",
+    "FinalMultiplier"
   ]
 }

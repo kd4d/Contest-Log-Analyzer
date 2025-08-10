@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-08
-# Version: 0.31.19-Beta
+# Date: 2025-08-10
+# Version: 0.31.25-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.31.25-Beta] - 2025-08-10
+### Fixed
+# - Added a conditional check to prevent a UserWarning when creating a
+#   legend for an empty plot.
 ## [0.31.19-Beta] - 2025-08-08
 ### Fixed
 # - Refactored report to be self-contained after the removal of the
@@ -135,7 +139,10 @@ class Report(ContestReport):
         ax.set_title(f"{title_line1}\n{title_line2}", fontsize=16, fontweight='bold')
         ax.set_xlabel("Contest Time")
         ax.set_ylabel(f"Cumulative {metric_name}")
-        ax.legend(loc='upper left')
+        
+        if ax.get_lines():
+            ax.legend(loc='upper left')
+            
         ax.grid(True, which='both', linestyle='--')
         
         if summary_data:
