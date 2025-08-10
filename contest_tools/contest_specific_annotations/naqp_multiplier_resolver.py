@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-06
-# Version: 0.30.40-Beta
+# Date: 2025-08-10
+# Version: 0.31.43-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.31.43-Beta] - 2025-08-10
+### Changed
+# - Refactored logic to use the 'Continent' field ('NA') instead of
+#   'WAEName' for identifying North American stations.
 ## [0.30.40-Beta] - 2025-08-06
 ### Fixed
 # - Updated all references to the old CONTEST_DATA_DIR environment variable
@@ -48,7 +52,7 @@ def resolve_multipliers(df: pd.DataFrame, my_location_type: Optional[str]) -> pd
         nadxcc_mult = pd.NA
         nadxcc_mult_name = pd.NA
 
-        if row.get('WAEName') != 'North America':
+        if row.get('Continent') != 'NA':
             return stprov_mult, nadxcc_mult, nadxcc_mult_name
 
         if row.get('DXCCName') in ["United States", "Canada"]:

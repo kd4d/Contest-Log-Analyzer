@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-05
-# Version: 0.30.0-Beta
+# Date: 2025-08-10
+# Version: 0.31.43-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,6 +16,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.31.43-Beta] - 2025-08-10
+### Changed
+# - Refactored scoring logic to use the 'Continent' field ('NA') instead
+#   of 'WAEName' for the North America 2-point rule.
 ## [0.30.0-Beta] - 2025-08-05
 # - Initial release of Version 0.30.0-Beta.
 # - Standardized all project files to a common baseline version.
@@ -33,6 +37,11 @@ def _calculate_single_qso_points(row: pd.Series, my_continent: str, my_dxcc_name
     worked_continent = row.get('Continent')
     worked_dxcc_name = row.get('DXCCName')
 
+    # Rule: Contacts between stations in North America are worth 2 points.
+    # This is a special case that overrides other same-continent rules.
+    if my_continent == 'NA' and worked_continent == 'NA':
+        return 2
+
     # Rule: Contacts between stations on different continents are worth 3 points.
     if worked_continent and worked_continent != my_continent:
         return 3
@@ -45,14 +54,6 @@ def _calculate_single_qso_points(row: pd.Series, my_continent: str, my_dxcc_name
     if worked_dxcc_name == my_dxcc_name:
         return 0
         
-    # Rule: Contacts between stations in North America are worth 2 points.
-    # This is a special case that overrides the 1-point same-continent rule.
-    # The 'WAEName' column from cty.dat will contain 'North America' for these stations.
-    my_wae_name = row.get('MyWAEName') # This should be added to the row from my_call_info
-    worked_wae_name = row.get('WAEName')
-    if my_wae_name == 'North America' and worked_wae_name == 'North America':
-        return 2
-
     # Fallback case, should not be reached often
     return 0
 
@@ -63,7 +64,7 @@ def calculate_points(df: pd.DataFrame, my_call_info: Dict[str, Any]) -> pd.Serie
     Args:
         df (pd.DataFrame): The DataFrame of QSOs to be scored.
         my_call_info (Dict[str, Any]): A dictionary containing the logger's
-                                       own location info ('Continent', 'DXCCName', 'WAEName').
+                                       own location info ('Continent', 'DXCCName').
 
     Returns:
         pd.Series: A Pandas Series containing the calculated points for each QSO.
@@ -74,12 +75,7 @@ def calculate_points(df: pd.DataFrame, my_call_info: Dict[str, Any]) -> pd.Serie
     if not my_continent or not my_dxcc_name:
         raise ValueError("Logger's Continent and DXCC Name must be provided.")
         
-    # Add my own WAE name to each row for the scoring function to use.
-    # This is slightly inefficient but makes the per-row logic cleaner.
-    df_temp = df.copy()
-    df_temp['MyWAEName'] = my_call_info.get('WAEName')
-
-    return df_temp.apply(
+    return df.apply(
         _calculate_single_qso_points,
         axis=1,
         my_continent=my_continent,

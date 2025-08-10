@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-06
-# Version: 0.30.40-Beta
+# Date: 2025-08-10
+# Version: 0.31.46-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.31.46-Beta] - 2025-08-10
+### Added
+# - Added logic to handle multipliers sourced from a "calculation_module",
+#   fixing WPX multiplier processing.
 ## [0.30.40-Beta] - 2025-08-06
 ### Fixed
 # - Updated all references to the old CONTEST_DATA_DIR environment variable
@@ -280,6 +284,20 @@ class ContestLog:
                     if dest_name_col:
                         self.qsos_df.loc[wae_mask, dest_name_col] = self.qsos_df.loc[wae_mask, 'WAEName']
                         self.qsos_df.loc[~wae_mask, dest_name_col] = self.qsos_df.loc[~wae_mask, 'DXCCName']
+                
+                elif rule.get('source') == 'calculation_module':
+                    try:
+                        module_name = rule['module_name']
+                        function_name = rule['function_name']
+                        
+                        module = importlib.import_module(f"contest_tools.contest_specific_annotations.{module_name}")
+                        calculation_func = getattr(module, function_name)
+                        
+                        self.qsos_df[dest_col] = calculation_func(self.qsos_df)
+                        logging.info(f"Successfully applied '{function_name}' from '{module_name}'.")
+                    except (ImportError, AttributeError, KeyError) as e:
+                        logging.warning(f"Could not run calculation module for rule '{rule.get('name')}': {e}")
+
 
         # --- Scoring Calculation ---
         my_call = self.metadata.get('MyCall')

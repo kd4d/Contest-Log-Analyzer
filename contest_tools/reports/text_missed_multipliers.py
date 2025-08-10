@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-09
-# Version: 0.31.22-Beta
+# Date: 2025-08-10
+# Version: 0.31.44-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,13 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.31.44-Beta] - 2025-08-10
+### Changed
+# - Modified main report logic to exclude "Unknown" multipliers from the
+#   comparative analysis.
+### Added
+# - Added a diagnostic section to list all callsigns associated with an
+#   "Unknown" multiplier.
 ## [0.31.22-Beta] - 2025-08-09
 ### Changed
 # - Re-enabled "Unknown" multipliers by removing the exclusion filter to
@@ -117,17 +124,12 @@ class Report(ContestReport):
         bands = first_log.contest_definition.valid_bands
         
         overall_prefix_to_name_map = {}
-        all_unknown_calls = set()
 
         for log in self.logs:
             df_full = log.get_processed_data()
             df = df_full[df_full['Dupe'] == False].copy()
             if df.empty or mult_column not in df.columns:
                 continue
-            
-            unknown_df = df[df[mult_column] == 'Unknown']
-            w_ve_unknown_df = unknown_df[unknown_df['DXCCName'].isin(['United States', 'Canada'])]
-            all_unknown_calls.update(w_ve_unknown_df['Call'].unique())
             
             if name_column and name_column in df.columns:
                 name_map_df = df[[mult_column, name_column]].dropna().drop_duplicates()
@@ -151,6 +153,9 @@ class Report(ContestReport):
                         continue
                     
                     df_band = df[df['Band'] == band].copy()
+                    
+                    # --- Exclude "Unknown" from main analysis ---
+                    df_band = df_band[df_band[mult_column] != 'Unknown']
                     df_band = df_band[df_band[mult_column].notna()]
                     
                     if df_band.empty:
@@ -255,6 +260,26 @@ class Report(ContestReport):
                 report_lines.append(worked_line)
                 report_lines.append(missed_line)
                 report_lines.append(delta_line)
+        
+        # --- Add Diagnostic List for Unknown Multipliers ---
+        combined_df = pd.concat([log.get_processed_data() for log in self.logs])
+        if not combined_df.empty and mult_column in combined_df.columns:
+            unknown_mult_df = combined_df[combined_df[mult_column] == 'Unknown']
+            unknown_calls = sorted(list(unknown_mult_df['Call'].unique()))
+            
+            if unknown_calls:
+                # Use table_width from the last band processed for alignment
+                table_width = len(table_header) if 'table_header' in locals() else 80
+                report_lines.append("\n" + "-" * 40)
+                report_lines.append(f"Callsigns with Unknown {first_col_header}:")
+                report_lines.append("-" * 40)
+                
+                col_width = 12
+                num_cols = max(1, table_width // (col_width + 2))
+                
+                for i in range(0, len(unknown_calls), num_cols):
+                    line_calls = unknown_calls[i:i+num_cols]
+                    report_lines.append("  ".join([f"{call:<{col_width}}" for call in line_calls]))
 
         report_content = "\n".join(report_lines)
         os.makedirs(output_path, exist_ok=True)

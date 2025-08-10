@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-10
-# Version: 0.31.41-Beta
+# Version: 0.31.45-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.31.45-Beta] - 2025-08-10
+### Changed
+# - Removed temporary debugging log statements from the _parse_qso_line method.
 ## [0.31.41-Beta] - 2025-08-10
 ### Added
 # - Added a WARNING-level log message to report when X-QSO lines are found
@@ -139,12 +142,10 @@ def _parse_qso_line(
     """
     Internal helper to parse a single QSO line from a Cabrillo log.
     """
-    logging.info(f"--- PARSING LINE: {line}")
     qso_final_dict = {col: pd.NA for col in contest_definition.default_qso_columns}
 
     common_match = re.match(contest_definition.qso_common_fields_regex, line)
     if not common_match:
-        logging.info("  - PARSE FAILED: Common fields regex did not match.")
         return None 
 
     qso_dict_common_parsed = dict(zip(contest_definition.qso_common_field_names, common_match.groups()))
@@ -153,20 +154,14 @@ def _parse_qso_line(
         qso_final_dict[key] = val.strip() if isinstance(val, str) else val
 
     exchange_rest = qso_final_dict.pop('ExchangeRest', '').strip()
-    logging.info(f"  - Extracted ExchangeRest: '{exchange_rest}'")
-    hex_string = exchange_rest.encode('utf-8').hex(' ')
-    logging.info(f"  - ExchangeRest HEX: {hex_string}")
 
     contest_name = log_metadata.get('ContestName')
     rules_for_contest = contest_definition.exchange_parsing_rules.get(contest_name)
-    logging.info(f"  - Contest Name for Lookup: '{contest_name}'")
     
     if not rules_for_contest:
         base_contest_name = contest_name.rsplit('-', 1)[0]
-        logging.info(f"  - No rules found. Trying base name: '{base_contest_name}'")
         rules_for_contest = contest_definition.exchange_parsing_rules.get(base_contest_name)
 
-    logging.info(f"  - Rules found: {'Yes' if rules_for_contest else 'No'}")
     if not rules_for_contest:
         return None 
 
@@ -177,9 +172,7 @@ def _parse_qso_line(
     for i, rule_info in enumerate(rules_for_contest):
         exchange_regex = rule_info['regex']
         exchange_groups = rule_info['groups']
-        logging.info(f"    - Attempting Rule #{i+1} with regex: {exchange_regex}")
         exchange_match = re.match(exchange_regex, exchange_rest)
-        logging.info(f"    - Match Result: {'Success' if exchange_match else 'Failure'}")
         
         if exchange_match:
             for i, group_name in enumerate(exchange_groups):
@@ -193,12 +186,10 @@ def _parse_qso_line(
             break 
             
     if not parsed_successfully:
-        logging.info("  - PARSE FAILED: No exchange rule matched. Returning None.")
         return None 
 
     for cabrillo_tag, df_key in contest_definition.header_field_map.items():
         if df_key in log_metadata:
             qso_final_dict[df_key] = log_metadata[df_key]
 
-    logging.info(f"  - PARSE SUCCESS: Returning dictionary.")
     return qso_final_dict
