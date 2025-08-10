@@ -1,12 +1,11 @@
 # Contest Log Analyzer/contest_tools/contest_specific_annotations/cq_wpx_prefix.py
 #
-# Purpose: Provides contest-specific logic for calculating WPX (Worked All Prefixes)
-#          contest multipliers from callsigns. It uses pre-processed CTY data.
+# Purpose: Provides contest-specific logic to resolve WPX prefix multipliers.
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-05
-# Version: 0.30.0-Beta
+# Date: 2025-08-10
+# Version: 0.31.51-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,102 +16,89 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.31.51-Beta] - 2025-08-10
+### Changed
+# - Rewrote prefix calculation to identify the first time each prefix is
+#   worked on each band, per user specification.
+## [0.31.50-Beta] - 2025-08-10
+### Fixed
+# - Corrected the _get_prefix helper function to precisely implement the
+#   algorithm from WPXPrefixLookupAlgorithm.md, including the special
+#   Letter-Digit-Letter (LDL) case.
+## [0.31.49-Beta] - 2025-08-10
+### Changed
+# - Rewrote prefix calculation logic to be stateful, identifying only the
+#   first time each prefix is worked in the log.
 ## [0.30.0-Beta] - 2025-08-05
 # - Initial release of Version 0.30.0-Beta.
 # - Standardized all project files to a common baseline version.
 import pandas as pd
 import re
-from typing import List, Any
+from typing import Optional
 
-# Define suffixes to be stripped from callsigns before processing
-SUFFIXES_TO_STRIP = ['/QRP', '/P', '/M', '/B']
-
-def _clean_callsign(call: str) -> str:
+def _get_prefix(call: str) -> Optional[str]:
     """
-    Cleans a callsign by removing common suffixes and parts after a hyphen.
+    Extracts the WPX prefix from a given callsign.
+    Follows the rules outlined in WPXPrefixLookupAlgorithm.md.
     """
-    if not isinstance(call, str):
-        return ""
-    
-    call_upper = call.upper()
-    
-    # Strip specific suffixes first
-    for suffix in SUFFIXES_TO_STRIP:
-        if call_upper.endswith(suffix):
-            call_upper = call_upper[:-len(suffix)]
-            break # Stop after the first match
-            
-    # Strip anything after a hyphen
-    return call_upper.split('-')[0].strip()
+    if not call or pd.isna(call):
+        return None
 
-def _get_prefix(row: pd.Series) -> str:
-    """
-    Derives the WPX prefix for a single QSO (row) based on a strict ruleset.
-    """
-    call = row.get('Call', '')
-    dxcc_pfx = row.get('DXCCPfx', 'Unknown')
-    portable_id = row.get('portableid', '')
-    
-    # Rule 1: Highest priority for Maritime Mobile
-    if call.endswith('/MM'):
-        return "Unknown"
+    # Step 1: Remove Portable Indicators
+    call = re.split(r'/[AMP]{1,2}$', call)[0]
 
-    cleaned_call = _clean_callsign(call)
+    # Step 2: Determine the standard prefix (initial letter/digit/letter block)
+    # This pattern captures the first group of letters, first group of digits,
+    # and the immediately following group of letters.
+    match = re.match(r'([A-Z]+)(\d+)([A-Z]*)', call)
+    if not match:
+        return None
 
-    # --- Portable Call Processing ---
-    if portable_id:
-        if dxcc_pfx == "Unknown":
-            return "Unknown"
-        
-        # Rule: "call/digit" (e.g., WN5N/7)
-        if len(portable_id) == 1 and portable_id.isdigit():
-            # Find the root call by removing the portable part from the original call
-            root_call_part = call.split('/')[0]
-            # Find the prefix of the root call
-            match = re.match(r'([A-Z]+[0-9]+)', root_call_part)
-            if match:
-                root_prefix = match.group(1)
-                # Replace the digit in the root prefix with the portable digit
-                return root_prefix[:-1] + portable_id
+    standard_prefix = "".join(match.groups())
 
-        # Rule: "letters-only" (e.g., LX/KD4D)
-        if portable_id.isalpha():
-            return portable_id + '0'
-        
-        # Default portable rule (e.g., VP2V/KD4D)
-        return portable_id
-
-    # --- Non-Portable Call Processing ---
-    # Default prefix calculation: all chars up to and including the last digit
-    match = re.match(r'(.*\d)', cleaned_call)
-    if match:
-        default_prefix = match.group(1)
-    # Handle calls with no numbers (e.g., RAEM)
+    # Step 3: Apply the special Letter-Digit-Letter (LDL) case.
+    # Check if the standard prefix matches the LDL pattern (e.g., K3M, N8S).
+    ldl_match = re.match(r'^[A-Z]\d[A-Z]$', standard_prefix)
+    if ldl_match:
+        # If it's an LDL prefix, the final prefix is the Letter-Digit part.
+        return standard_prefix[:-1]
     else:
-        default_prefix = cleaned_call[:2] + '0' if len(cleaned_call) >= 2 else "Unknown"
-
-    # DXCCPfx Override Rule: Use the CTY.DAT prefix if it is more specific
-    if cleaned_call.startswith(dxcc_pfx) and len(dxcc_pfx) > len(default_prefix):
-        return dxcc_pfx
-        
-    # Final validation: a single digit is not a valid prefix
-    if len(default_prefix) == 1 and default_prefix.isdigit():
-        return "Unknown"
-
-    return default_prefix
+        # Otherwise, the standard prefix is the final prefix.
+        return standard_prefix
 
 def calculate_wpx_prefixes(df: pd.DataFrame) -> pd.Series:
     """
-    Calculates the WPX prefix for each QSO in a DataFrame.
-
-    Args:
-        df (pd.DataFrame): The DataFrame of QSOs. Must contain 'Call', 'DXCCPfx',
-                           and 'portableid' columns.
-                           
-    Returns:
-        pd.Series: A Series containing the calculated WPX prefix for each QSO.
+    Calculates the WPX prefix for each QSO, returning a sparse Series that
+    contains the prefix only for the first time it was worked on each band.
     """
-    if df.empty:
-        return pd.Series(dtype=str)
+    if 'Call' not in df.columns or 'Datetime' not in df.columns or 'Band' not in df.columns:
+        return pd.Series([None] * len(df), index=df.index, dtype=object)
+
+    # Create a temporary DataFrame to calculate prefixes for all QSOs first
+    df_temp = df[['Datetime', 'Call', 'Band']].copy()
+    df_temp['Prefix'] = df_temp['Call'].apply(_get_prefix)
+    
+    # Sort by time to process QSOs chronologically
+    df_temp.sort_values(by='Datetime', inplace=True)
+    
+    seen_prefix_band_combos = set()
+    results_dict = {}
+
+    for index, row in df_temp.iterrows():
+        prefix = row.get('Prefix')
+        band = row.get('Band')
         
-    return df.apply(_get_prefix, axis=1)
+        if pd.notna(prefix) and pd.notna(band):
+            combo = (prefix, band)
+            if combo not in seen_prefix_band_combos:
+                seen_prefix_band_combos.add(combo)
+                results_dict[index] = prefix # Store prefix for this "first on band" QSO
+            else:
+                results_dict[index] = None # Subsequent QSOs for this combo get None
+        else:
+            results_dict[index] = None
+
+    # Reconstruct the Series in the original DataFrame's order
+    final_series = pd.Series(results_dict, index=df.index)
+    
+    return final_series
