@@ -7,8 +7,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-05
-# Version: 0.30.24-Beta
+# Date: 2025-08-10
+# Version: 0.31.32-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,6 +19,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.31.32-Beta] - 2025-08-10
+### Added
+# - Added a warning to detect and report if logs from different
+#   months/years are loaded in the same session.
 ## [0.30.24-Beta] - 2025-08-05
 # - No functional changes. Synchronizing version numbers.
 ## [0.30.14-Beta] - 2025-08-05
@@ -74,6 +78,23 @@ class LogManager:
         """
         if not self.logs:
             return
+
+        # Check if all logs are from the same month and year
+        if len(self.logs) > 1:
+            log_dates = {}
+            for log in self.logs:
+                callsign = log.get_metadata().get('MyCall', 'Unknown')
+                df = log.get_processed_data()
+                if not df.empty and 'Date' in df.columns and not df['Date'].dropna().empty:
+                    first_qso_date = df['Date'].dropna().iloc[0]
+                    year_month = '-'.join(first_qso_date.split('-')[:2]) # Extracts 'YYYY-MM'
+                    log_dates[callsign] = year_month
+            
+            unique_dates = set(log_dates.values())
+            if len(unique_dates) > 1:
+                logging.warning("Logs appear to be from different contest periods.")
+                for call, date_str in sorted(log_dates.items()):
+                    logging.warning(f"  - {call:<12}: {date_str}")
 
         self._create_master_time_index()
 
