@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-05
-# Version: 0.30.0-Beta
+# Date: 2025-08-10
+# Version: 0.31.33-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,10 +18,12 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.31.33-Beta] - 2025-08-10
+### Fixed
+# - Removed extraneous conversational text that was causing a SyntaxError.
 ## [0.30.0-Beta] - 2025-08-05
 # - Initial release of Version 0.30.0-Beta.
 # - Standardized all project files to a common baseline version.
-
 from datetime import datetime
 
 def resolve_event_id(qso_datetime: datetime) -> str:
@@ -41,5 +43,3 @@ def resolve_event_id(qso_datetime: datetime) -> str:
         
     # Return the uppercase, three-letter month abbreviation (e.g., JAN, FEB, AUG)
     return qso_datetime.strftime('%b').upper()
-
-Please confirm when you are ready for the next file/bundle.

@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-06
-# Version: 0.30.34-Beta
+# Date: 2025-08-10
+# Version: 0.31.41-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,26 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.31.41-Beta] - 2025-08-10
+### Added
+# - Added a WARNING-level log message to report when X-QSO lines are found
+#   and ignored in a log file.
+## [0.31.40-Beta] - 2025-08-10
+### Changed
+# - Implemented case-insensitive parsing for QSO lines by converting them
+#   to uppercase during the data cleanup stage.
+## [0.31.37-Beta] - 2025-08-10
+### Changed
+# - Synchronizing to current project version to resolve environmental
+#   file mismatch issues.
+## [0.31.36-Beta] - 2025-08-10
+### Added
+# - Added a hexadecimal dump of the exchange string to the debug logs to
+#   conclusively identify problematic characters.
+## [0.31.35-Beta] - 2025-08-10
+### Added
+# - Added detailed INFO-level logging statements to the _parse_qso_line
+#   method to assist with debugging parsing failures.
 ## [0.30.34-Beta] - 2025-08-06
 ### Changed
 # - Removed diagnostic print statements from _parse_qso_line.
@@ -35,6 +55,7 @@ import re
 import pandas as pd
 from typing import Dict, Any, List, Tuple, Optional
 import os
+import logging
 
 # Import the ContestDefinition class from the definitions package
 from .contest_definitions import ContestDefinition # Relative import within contest_tools
@@ -60,29 +81,41 @@ def parse_cabrillo_file(filepath: str, contest_definition: ContestDefinition) ->
     in_header = True
     
     for i, line in enumerate(lines):
-        # Replace non-breaking spaces and strip whitespace
-        line = line.replace('\u00a0', ' ').strip()
+        # Clean the line of nbsp and leading/trailing whitespace
+        cleaned_line = line.replace('\u00a0', ' ').strip()
+        
+        # Create a temporary uppercase version for a case-insensitive check
+        temp_upper_line = cleaned_line.upper()
+        
+        # Check if it's a QSO line. If so, use the uppercase version for all parsing.
+        if temp_upper_line.startswith('QSO:') or temp_upper_line.startswith('QSO-X:'):
+            line_to_process = temp_upper_line
+        else:
+            line_to_process = cleaned_line
 
-        if not line: # Skip blank lines
+        if not line_to_process: # Skip blank lines
             continue
 
-        if line.startswith('START-OF-LOG:'):
+        if line_to_process.startswith('START-OF-LOG:'):
             if i != 0:
                 raise ValueError(f"Cabrillo format error: START-OF-LOG: must be the first line. (Line {i+1})")
             continue
-        elif line.startswith('END-OF-LOG:'):
+        elif line_to_process.startswith('END-OF-LOG:'):
             break
-        elif line.startswith('QSO:'):
+        elif line_to_process.startswith('X-QSO:'):
+            logging.warning(f"Ignoring X-QSO line in {os.path.basename(filepath)}: {cleaned_line}")
+            continue
+        elif line_to_process.startswith('QSO:'):
             in_header = False
-            qso_data = _parse_qso_line(line, contest_definition, log_metadata)
+            qso_data = _parse_qso_line(line_to_process, contest_definition, log_metadata)
             if qso_data:
                 qso_records.append(qso_data)
             continue 
 
         if in_header:
             for cabrillo_tag, df_key in contest_definition.header_field_map.items():
-                if line.startswith(f"{cabrillo_tag}:"):
-                    value = line[len(f"{cabrillo_tag}:"):].strip()
+                if line_to_process.startswith(f"{cabrillo_tag}:"):
+                    value = line_to_process[len(f"{cabrillo_tag}:"):].strip()
                     log_metadata[df_key] = value
                     if cabrillo_tag == 'CONTEST':
                         actual_contest_name = value
@@ -106,11 +139,12 @@ def _parse_qso_line(
     """
     Internal helper to parse a single QSO line from a Cabrillo log.
     """
-    
+    logging.info(f"--- PARSING LINE: {line}")
     qso_final_dict = {col: pd.NA for col in contest_definition.default_qso_columns}
 
     common_match = re.match(contest_definition.qso_common_fields_regex, line)
     if not common_match:
+        logging.info("  - PARSE FAILED: Common fields regex did not match.")
         return None 
 
     qso_dict_common_parsed = dict(zip(contest_definition.qso_common_field_names, common_match.groups()))
@@ -119,14 +153,20 @@ def _parse_qso_line(
         qso_final_dict[key] = val.strip() if isinstance(val, str) else val
 
     exchange_rest = qso_final_dict.pop('ExchangeRest', '').strip()
+    logging.info(f"  - Extracted ExchangeRest: '{exchange_rest}'")
+    hex_string = exchange_rest.encode('utf-8').hex(' ')
+    logging.info(f"  - ExchangeRest HEX: {hex_string}")
 
     contest_name = log_metadata.get('ContestName')
     rules_for_contest = contest_definition.exchange_parsing_rules.get(contest_name)
+    logging.info(f"  - Contest Name for Lookup: '{contest_name}'")
     
     if not rules_for_contest:
         base_contest_name = contest_name.rsplit('-', 1)[0]
+        logging.info(f"  - No rules found. Trying base name: '{base_contest_name}'")
         rules_for_contest = contest_definition.exchange_parsing_rules.get(base_contest_name)
 
+    logging.info(f"  - Rules found: {'Yes' if rules_for_contest else 'No'}")
     if not rules_for_contest:
         return None 
 
@@ -134,10 +174,12 @@ def _parse_qso_line(
         rules_for_contest = [rules_for_contest]
 
     parsed_successfully = False
-    for rule_info in rules_for_contest:
+    for i, rule_info in enumerate(rules_for_contest):
         exchange_regex = rule_info['regex']
         exchange_groups = rule_info['groups']
+        logging.info(f"    - Attempting Rule #{i+1} with regex: {exchange_regex}")
         exchange_match = re.match(exchange_regex, exchange_rest)
+        logging.info(f"    - Match Result: {'Success' if exchange_match else 'Failure'}")
         
         if exchange_match:
             for i, group_name in enumerate(exchange_groups):
@@ -151,10 +193,12 @@ def _parse_qso_line(
             break 
             
     if not parsed_successfully:
+        logging.info("  - PARSE FAILED: No exchange rule matched. Returning None.")
         return None 
 
     for cabrillo_tag, df_key in contest_definition.header_field_map.items():
         if df_key in log_metadata:
             qso_final_dict[df_key] = log_metadata[df_key]
 
+    logging.info(f"  - PARSE SUCCESS: Returning dictionary.")
     return qso_final_dict
