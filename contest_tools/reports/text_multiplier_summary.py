@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-09
-# Version: 0.31.23-Beta
+# Date: 2025-08-11
+# Version: 0.31.25-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,14 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.31.25-Beta] - 2025-08-11
+### Fixed
+# - Corrected the first column width calculation to account for indented
+#   callsign labels, fixing the table alignment.
+## [0.31.24-Beta] - 2025-08-11
+### Changed
+# - Updated report formatting to be indented and labeled with callsigns,
+#   matching the style of the comparative rate sheet.
 ## [0.31.23-Beta] - 2025-08-09
 ### Fixed
 # - Corrected the diagnostic section to properly find and list all
@@ -122,15 +130,23 @@ class Report(ContestReport):
             first_col_header = mult_name[:-1] if mult_name.lower().endswith('s') else mult_name
         
         sorted_mults = sorted(pivot.index.get_level_values(0).unique())
-        max_len = len(first_col_header)
+        
+        # Calculate max width needed for multipliers
+        max_mult_len = len(first_col_header)
         for mult in sorted_mults:
             if name_column:
                 full_name = name_map.get(mult, '')
                 display_string = f"{mult} ({full_name})" if pd.notna(full_name) and full_name != '' else str(mult)
-                max_len = max(max_len, len(display_string))
+                max_mult_len = max(max_mult_len, len(display_string))
             else:
-                max_len = max(max_len, len(str(mult)))
-        first_col_width = max_len
+                max_mult_len = max(max_mult_len, len(str(mult)))
+        
+        # Calculate max width needed for indented callsigns
+        max_call_len = 0
+        if len(all_calls) > 1:
+            max_call_len = max(len(f"  {call}: ") for call in all_calls)
+
+        first_col_width = max(max_mult_len, max_call_len)
         
         header_parts = [f"{b.replace('M',''):>7}" for b in bands]
         if not is_single_band:
@@ -170,7 +186,7 @@ class Report(ContestReport):
             for call in all_calls:
                 if call in mult_data.index:
                     row = mult_data.loc[call]
-                    line = f"  {'':<{first_col_width-2}}"
+                    line = f"  {call}:".ljust(first_col_width)
                     for band in bands: line += f"{row.get(band, 0):>7}"
                     if not is_single_band:
                         line += f"{row.get('Total', 0):>7}"
@@ -183,7 +199,7 @@ class Report(ContestReport):
         for call in all_calls:
                 if call in total_pivot.index:
                     row = total_pivot.loc[call]
-                    line = f"  {'':<{first_col_width-2}}"
+                    line = f"  {call}:".ljust(first_col_width)
                     for band in bands: line += f"{row.get(band, 0):>7}"
                     if not is_single_band:
                         line += f"{row.get('Total', 0):>7}"
