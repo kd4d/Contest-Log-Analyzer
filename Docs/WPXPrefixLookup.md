@@ -1,10 +1,14 @@
 # WPX Prefix Lookup Specification
 
-**Version: 1.1.0-Beta**
+**Version: 1.2.0-Beta**
 **Date: 2025-08-11**
 
 ---
 ### --- Revision History ---
+## [1.2.0-Beta] - 2025-08-11
+### Changed
+# - Updated the description of the `calculate_wpx_prefixes` function to
+#   reflect the correct "once per contest" logic.
 ## [1.1.0-Beta] - 2025-08-11
 ### Changed
 # - Updated the algorithm and implementation sections to match the
@@ -47,26 +51,25 @@ This section describes how the algorithm and the higher-level "first-worked" log
 ### 3.1. Overview
 The full process involves two stages, handled by two separate functions within the `cq_wpx_prefix.py` module:
 * A low-level helper function (`_get_prefix`) that implements the hierarchical algorithm from Section 2.
-* A high-level orchestrator function (`calculate_wpx_prefixes`) that uses this helper to implement the stateful "first-worked on each band" logic.
+* A high-level orchestrator function (`calculate_wpx_prefixes`) that uses this helper to implement the stateful "first-worked per contest" logic.
 
-### 3.2. Core Logic (`cq_wpx_prefix.py`)
-
+--- FILE: Docs/WPXPrefixLookup.md.part2 ---
 #### `_get_prefix(call)` function
 This helper function is the direct, line-by-line implementation of the hierarchical algorithm described in Section 2. It accepts a single callsign string and returns the final, calculated prefix string, correctly handling all special cases.
 
 #### `calculate_wpx_prefixes(df)` function
-This is the main function called by the log processing engine. It implements the "first-worked on each band" logic. Its process is as follows:
+This is the main function called by the log processing engine. It implements the "first-worked per contest" logic. Its process is as follows:
 1.  It takes the full, unprocessed QSO DataFrame as input.
 2.  It sorts the DataFrame chronologically by the `Datetime` of each QSO.
 3.  It then iterates through the sorted QSOs, calling the `_get_prefix` helper for each one.
-4.  It maintains a "seen" set of `(prefix, band)` combinations. If a QSO's prefix-band combination is not yet in the set, it is considered a "first" for that band. The prefix is recorded for that QSO, and the combination is added to the "seen" set.
-5.  For all subsequent QSOs of the same prefix on the same band, a null value is recorded.
-6.  The function returns a sparse pandas Series, aligned to the original DataFrame's index, containing prefixes only for the QSOs that were the first on each band.
+4.  It maintains a "seen" set of only the `prefix` strings. If a QSO's prefix is not yet in the set, it is considered a "first" for the entire contest. The prefix is recorded for that QSO, and the prefix is added to the "seen" set.
+5.  For all subsequent QSOs with the same prefix, a null value is recorded.
+6.  The function returns a sparse pandas Series, aligned to the original DataFrame's index, containing prefixes only for the QSOs that were the first in the entire contest.
 
 ### 3.3. Data Flow and Orchestration
 
 #### `contest_log.py`
-This script is the central orchestrator for all log processing. Its `apply_contest_specific_annotations` method reads the `multiplier_rules` from the relevant `.json` file. When it encounters a rule with `"source": "calculation_module"`, it uses the `module_name` and `function_name` from the rule to dynamically import and execute the correct function (e.g., `calculate_wpx_prefixes`). The sparse Series returned by this function is then assigned to the final multiplier column (e.g., `Mult1`) in the main DataFrame.
+This script is the central orchestrator for all log processing. Its `apply_contest_specific_annotations` method reads the `multiplier_rules` from the relevant `.json` file. When it encounters a rule with `"source": "calculation_module"`, it uses the `module_name` and `function_name` from the rule to dynamically import and execute the correct function (e.g., `calculate_w_prefixes`). The sparse Series returned by this function is then assigned to the final multiplier column (e.g., `Mult1`) in the main DataFrame.
 
 #### `get_cty.py`
 This utility is fundamental to the overall log processing pipeline, as it provides the essential geographic data for each QSO (e.g., `DXCCName`, `Continent`). However, for the specific task of calculating a WPX prefix, its data is **not** used as a direct input. The prefix is derived solely from the callsign string itself, as defined by the algorithm in Section 2.

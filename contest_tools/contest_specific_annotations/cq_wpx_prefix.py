@@ -5,7 +5,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-11
-# Version: 0.31.53-Beta
+# Version: 0.31.54-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,6 +16,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.31.54-Beta] - 2025-08-11
+### Changed
+# - Simplified multiplier logic to count prefixes once per contest instead
+#   of once per band, per user instruction.
 ## [0.31.53-Beta] - 2025-08-11
 ### Fixed
 # - Corrected the _get_prefix helper function to handle all known callsign
@@ -82,32 +86,30 @@ def _get_prefix(call: str) -> Optional[str]:
 def calculate_wpx_prefixes(df: pd.DataFrame) -> pd.Series:
     """
     Calculates the WPX prefix for each QSO, returning a sparse Series that
-    contains the prefix only for the first time it was worked on each band.
+    contains the prefix only for the first time it was worked in the contest.
     """
-    if 'Call' not in df.columns or 'Datetime' not in df.columns or 'Band' not in df.columns:
+    if 'Call' not in df.columns or 'Datetime' not in df.columns:
         return pd.Series([None] * len(df), index=df.index, dtype=object)
 
     # Create a temporary DataFrame to calculate prefixes for all QSOs first
-    df_temp = df[['Datetime', 'Call', 'Band']].copy()
+    df_temp = df[['Datetime', 'Call']].copy()
     df_temp['Prefix'] = df_temp['Call'].apply(_get_prefix)
     
     # Sort by time to process QSOs chronologically
     df_temp.sort_values(by='Datetime', inplace=True)
     
-    seen_prefix_band_combos = set()
+    seen_prefixes = set()
     results_dict = {}
 
     for index, row in df_temp.iterrows():
         prefix = row.get('Prefix')
-        band = row.get('Band')
         
-        if pd.notna(prefix) and pd.notna(band):
-            combo = (prefix, band)
-            if combo not in seen_prefix_band_combos:
-                seen_prefix_band_combos.add(combo)
-                results_dict[index] = prefix # Store prefix for this "first on band" QSO
+        if pd.notna(prefix):
+            if prefix not in seen_prefixes:
+                seen_prefixes.add(prefix)
+                results_dict[index] = prefix # Store prefix for this "first ever" QSO
             else:
-                results_dict[index] = None # Subsequent QSOs for this combo get None
+                results_dict[index] = None # Subsequent QSOs for this prefix get None
         else:
             results_dict[index] = None
 
