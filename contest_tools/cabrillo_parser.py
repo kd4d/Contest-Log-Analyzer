@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-10
-# Version: 0.31.45-Beta
+# Date: 2025-08-11
+# Version: 0.31.55-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.31.55-Beta] - 2025-08-11
+### Changed
+# - Consolidated X-QSO warnings to a single message per log file.
 ## [0.31.45-Beta] - 2025-08-10
 ### Changed
 # - Removed temporary debugging log statements from the _parse_qso_line method.
@@ -72,6 +75,7 @@ def parse_cabrillo_file(filepath: str, contest_definition: ContestDefinition) ->
     qso_records: List[Dict[str, Any]] = []
     
     actual_contest_name: Optional[str] = None
+    x_qso_warning_issued = False
 
     try:
         with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
@@ -106,7 +110,9 @@ def parse_cabrillo_file(filepath: str, contest_definition: ContestDefinition) ->
         elif line_to_process.startswith('END-OF-LOG:'):
             break
         elif line_to_process.startswith('X-QSO:'):
-            logging.warning(f"Ignoring X-QSO line in {os.path.basename(filepath)}: {cleaned_line}")
+            if not x_qso_warning_issued:
+                logging.warning(f"Ignoring X-QSO line(s) in {os.path.basename(filepath)}")
+                x_qso_warning_issued = True
             continue
         elif line_to_process.startswith('QSO:'):
             in_header = False
