@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-10
-# Version: 0.31.51-Beta
+# Date: 2025-08-11
+# Version: 0.31.53-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,6 +16,14 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.31.53-Beta] - 2025-08-11
+### Fixed
+# - Corrected the _get_prefix helper function to handle all known callsign
+#   formats, including prefix-style portables, as per the working example.
+## [0.31.52-Beta] - 2025-08-10
+### Fixed
+# - Rewrote _get_prefix function to precisely follow the 3-step logic in
+#   WPXPrefixLookupAlgorithm.md.
 ## [0.31.51-Beta] - 2025-08-10
 ### Changed
 # - Rewrote prefix calculation to identify the first time each prefix is
@@ -38,26 +46,31 @@ from typing import Optional
 
 def _get_prefix(call: str) -> Optional[str]:
     """
-    Extracts the WPX prefix from a given callsign.
-    Follows the rules outlined in WPXPrefixLookupAlgorithm.md.
+    Extracts the WPX prefix from a given callsign, handling special cases.
     """
     if not call or pd.isna(call):
         return None
 
-    # Step 1: Remove Portable Indicators
-    call = re.split(r'/[AMP]{1,2}$', call)[0]
+    # Handle special prefix/call format first (e.g., PA/F6ABC -> PA0)
+    if '/' in call and not call.endswith(('/P', '/M', '/AM', '/MM')):
+        parts = call.split('/')
+        prefix_part = parts[0]
+        # Check if the part before the slash has no digits
+        if not any(char.isdigit() for char in prefix_part):
+            return prefix_part + '0'
+        # If it has digits (e.g., IT9/call), fall through to standard logic
 
+    # Step 1: Remove standard portable indicators
+    call_no_portable = re.split(r'/[AMP]{1,2}$', call)[0]
+    
     # Step 2: Determine the standard prefix (initial letter/digit/letter block)
-    # This pattern captures the first group of letters, first group of digits,
-    # and the immediately following group of letters.
-    match = re.match(r'([A-Z]+)(\d+)([A-Z]*)', call)
+    match = re.match(r'([A-Z]+)(\d+)([A-Z]*)', call_no_portable)
     if not match:
         return None
 
     standard_prefix = "".join(match.groups())
 
     # Step 3: Apply the special Letter-Digit-Letter (LDL) case.
-    # Check if the standard prefix matches the LDL pattern (e.g., K3M, N8S).
     ldl_match = re.match(r'^[A-Z]\d[A-Z]$', standard_prefix)
     if ldl_match:
         # If it's an LDL prefix, the final prefix is the Letter-Digit part.
