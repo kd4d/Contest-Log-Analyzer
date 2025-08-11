@@ -1,139 +1,101 @@
-# Installation Guide - Contest Log Analyzer
+# Contest Log Analyzer - Installation Guide
 
-**Version: 0.30.30-Beta**
-**Date: 2025-08-07**
+**Version: 1.1.0-Beta**
+**Date: 2025-08-10**
 
 ---
 ### --- Revision History ---
-## [0.30.30-Beta] - 2025-08-07
-# - Synchronized documentation with the current code base.
-# - Updated environment variable from CONTEST_DATA_DIR to CONTEST_LOGS_REPORTS.
-# - Added Git workflow instructions for developers and beta testers.
-## [0.30.0-Beta] - 2025-08-05
-# - Initial release of Version 0.30.0-Beta.
----
+## [1.1.0-Beta] - 2025-08-10
+### Changed
+# - Overhauled the installation process to use Git and Conda/Miniforge for
+#   a more robust developer setup.
+## [1.0.0-Beta] - 2025-08-10
+### Added
+# - Initial release of the Installation Guide.
+# ---
 
-This project uses a two-branch Git workflow to separate ongoing development from stable beta releases.
-
-* `main` branch: Contains the latest stable version for beta testers.
-* `develop` branch: Used for all new coding and features, which may be unstable.
-
-This guide is divided into two sections: one for **Beta Testers** to install and update the software, and one for the **Developer** to manage the workflow.
+## Introduction
+This document provides instructions for setting up the Contest Log Analyzer application and its dependencies on a local computer. Following these steps will ensure that the application can find the necessary data files and has a place to write its output reports.
 
 ---
+## 1. Prerequisites
+Before you begin, ensure you have the following software installed on your system:
+* **Git:** For cloning the source code repository.
+* **Miniforge (or Conda):** This is the recommended way to install Python and manage the project's libraries in an isolated environment. Miniforge is a minimal installer for the Conda package manager.
+
 ---
-
-## Instructions for Beta Testers
-
-These instructions will help you install the latest stable beta release of the Contest Log Analyzer.
+## 2. Installation Steps
 
 ### Step 1: Clone the Repository
+Open a terminal or command prompt, navigate to the directory where you want to store the project, and clone the remote Git repository.
 
-Before you begin, you will need to have **Git** installed on your system to download the project's source code. Open your command prompt or terminal, navigate to the directory where you want to store the project, and run the following command to download the software:
+```
+git clone [https://github.com/user/Contest-Log-Analyzer.git](https://github.com/user/Contest-Log-Analyzer.git)
+cd Contest-Log-Analyzer
+```
+This will create the project directory (`Contest-Log-Analyzer`) on your local machine.
 
-    git clone https://github.com/kd4d/Contest-Log-Analyzer.git "Contest-Log-Analyzer"
-    cd "Contest-Log-Analyzer"
+### Step 2: Create and Activate the Conda Environment
+It is a best practice to create an isolated environment for the project's dependencies. This prevents conflicts with other Python projects on your system.
 
-### Step 2: Create and Activate a Conda Environment
+```
+# Create an environment named "cla" with Python 3.11
+conda create --name cla python=3.11
 
-This project uses `conda` for environment and package management. It is highly recommended to create a dedicated environment to avoid conflicts with other Python projects.
+# Activate the new environment
+conda activate cla
+```
 
-    conda create --name contest-analyzer python=3.11 -y
-    conda activate contest-analyzer
+### Step 3: Install Python Libraries
+With the `cla` environment active, install the required Python libraries using `pip`.
 
-### Step 3: Install Dependencies
+```
+pip install pandas matplotlib seaborn
+```
 
-Once the environment is activated, install the required libraries using the following commands.
+### Step 4: Set Up the Data and Reports Directory
+The application requires a specific directory structure for its operation. You must create a main directory that will contain your log files, required data files, and the output reports. This directory can be anywhere on your system, but it is recommended to place it outside of the source code directory.
 
-    conda update --all -y
-    conda install pandas matplotlib seaborn -y
+For example, create a main folder `C:\Users\devnu\Desktop\CLA_Data`. Inside this folder, you must create the following subdirectories:
 
-### Step 4: Set Up the Environment Variable
+```
+CLA_Data/
+|
++-- data/
+|
++-- logs/
+|
++-- reports/
+```
 
-The program requires the `CONTEST_LOGS_REPORTS` environment variable to be set to the root directory containing your `Logs`, `data`, and `reports` subdirectories.
+### Step 5: Set the Environment Variable
+You must set a system environment variable named **`CONTEST_LOGS_REPORTS`** that points to the main data directory you created in the previous step.
 
-* **Windows (Temporary, for the current command prompt session):**
+**For Windows:**
+1.  Open the Start Menu and search for "Edit the system environment variables."
+2.  In the System Properties window, click the "Environment Variables..." button.
+3.  In the "User variables" section, click "New...".
+4.  For "Variable name," enter: `CONTEST_LOGS_REPORTS`
+5.  For "Variable value," enter the full path to your main directory (e.g., `C:\Users\devnu\Desktop\CLA_Data`).
+6.  Click OK to close all windows. You must **restart** your terminal or command prompt for the change to take effect.
 
-        set CONTEST_LOGS_REPORTS="C:\path\to\your\Contest-Log-Analyzer"
+### Step 6: Obtain and Place Data Files
+The analyzer relies on several external data files. Download the following files and place them inside the **`data/`** subdirectory you created in Step 4.
 
-* **macOS/Linux (Temporary, for the current terminal session):**
-
-        export CONTEST_LOGS_REPORTS="/path/to/your/Contest-Log-Analyzer"
-
-### Step 5: Download Required Data Files
-
-Create a `data` directory inside your `Contest-Log-Analyzer` project folder if it doesn't exist. Place the necessary data files in this directory.
-
-* **Required for all contests:** `cty.dat` (available from [country-files.com](http://www.country-files.com/cty/cty.dat))
-* **Required for ARRL DX:** `ARRLDXmults.dat`
-* **Required for ARRL SS:** `SweepstakesSections.dat`
-
-### Step 6: Updating to a New Version
-
-When a new stable version is announced, navigate to your project directory in your terminal or command prompt and run this single command:
-
-    git pull
-
-This will download and apply all the updates for the latest beta release.
+* **`cty.dat`**: The master country file. A standard version can be obtained from the [AD1C Country Files website](http://www.country-files.com/cty-dat-roto-zip-and-other-files-for-download/).
+* **`NAQPmults.dat`**: The alias file for North American QSO Party multipliers.
+* **`SweepstakesSections.dat`**: The alias file for ARRL Sweepstakes sections.
 
 ---
----
+## 3. Running the Analyzer
+To verify the installation, run the program from the project's source code directory. Ensure your `cla` conda environment is active.
 
-## Developer Guide
+```
+# Make sure your conda environment is active
+conda activate cla
 
-This section outlines the development and release workflow.
+# Run the script from the main project directory
+(cla) C:\Users\devnu\Desktop\Contest-Log-Analyzer>python main_cli.py --report score_report ..\CLA_Data\logs\2025\NAQP-CW\aug\k3aj.log
+```
 
-### One-Time Setup: Creating the `develop` Branch
-
-If you haven't already, create the `develop` branch from the `main` branch. This will be your primary branch for all new work.
-
-    # From your repository's root directory
-    git checkout -b develop
-    git push -u origin develop
-
-### Standard Development Workflow
-
-All new features, bug fixes, and other code changes should be committed to the `develop` branch.
-
-1.  **Ensure you are on the `develop` branch:**
-
-        git checkout develop
-
-2.  **Do your work:** Modify, add, and delete files as needed.
-3.  **Commit your changes:**
-
-        # Add your changes to the staging area
-        git add .
-        
-        # Commit the changes with a descriptive message
-        git commit -m "A brief description of the work you did"
-        
-        # Push your commits to the remote develop branch
-        git push origin develop
-
-### Publishing a New Beta Release to Testers
-
-When the code in the `develop` branch is stable, tested, and ready for a beta release, you merge it into the `main` branch. This makes it available to your testers.
-
-1.  **Update the Revision History:** Before merging, update the `Revision History` section at the top of this `InstallationGuide.md` file with the new version number and changes.
-2.  **Switch to the `main` branch:**
-
-        git checkout main
-
-3.  **Ensure `main` is up-to-date:**
-
-        git pull origin main
-
-4.  **Merge `develop` into `main`:** This brings all the stable, new code into the release branch.
-
-        git merge develop
-
-5.  **Push the `main` branch:** This publishes the new release.
-
-        git push origin main
-
-6.  **Switch back to `develop` to continue working:**
-
-        git checkout develop
-
-After this process, you can inform your beta testers that a new version is available. They can then run `git pull` to get the changes.
+If the installation is successful, you will see an output message indicating that the report was saved, and you will find a new `.txt` file in your `CLA_Data\reports` subdirectory.
