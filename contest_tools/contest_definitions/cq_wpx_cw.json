@@ -13,10 +13,13 @@
   "multiplier_report_scope": "all_bands",
   "exchange_parsing_rules": {
     "CQ-WPX-CW": {
-      "regex": "(\\d{3})\\s+(\\d+)(?:\\s+(\\d))?",
+      "regex": "(\\d{3})\\s+(\\d+)\\s+([A-Z0-9/]+)\\s+(\\d{3})\\s+(\\d+)(?:\\s+(\\d))?",
       "groups": [
         "SentRST",
         "SentNR",
+        "Call",
+        "RST",
+        "NR",
         "Transmitter"
       ]
     }
