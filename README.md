@@ -1,7 +1,7 @@
 # Contest Log Analyzer
 
-**Version: 0.30.30-Beta**
-**Date: 2025-08-07**
+**Version: 0.31.0-Beta**
+**Date: 2025-08-11**
 
 A Python-based tool for in-depth analysis and comparison of amateur radio contest logs. This application processes standard Cabrillo files to generate detailed reports, charts, and visualizations, providing deep insights into operator strategy and performance.
 ---
@@ -22,7 +22,7 @@ The analyzer is run from the command line using `main_cli.py`.
 
 #### **Basic Syntax**
 
-    python main_cli.py --report <ReportID|all> <LogFile1> [<LogFile2>...] [options]
+    python main_cli.py --report <ReportID|all|chart|text|plot> <LogFile1> [<LogFile2>...] [options]
 
 #### **Examples**
 
@@ -43,31 +43,29 @@ The analyzer is run from the command line using `main_cli.py`.
 
 All generated files are saved to a structured directory under `reports/YYYY/CONTEST_NAME/`.
 
+#### **Chart Reports (`charts/`)**
+* `chart_point_contribution`: Point Contribution Breakdown (Comparative)
+* `chart_point_contribution_single`: Point Contribution Breakdown (Single Log)
+* `qso_breakdown_chart`: QSO Breakdown by Run/S&P
+
+#### **Plot Reports (`plots/`)**
+* `cumulative_difference_plots`: Cumulative Difference Plot
+* `point_rate_plots`: Cumulative Point Rate Plot
+* `qso_rate_plots`: Cumulative QSO Rate Plot
+
 #### **Text Reports (`text/`)**
-
-* `summary`: High-level overview of QSO counts (Run, S&P, Unknown).
-* `score_report`: Comprehensive score breakdown by band for a single log.
-* `rate_sheet`: Detailed hourly QSO rates per band for a single log.
-* `rate_sheet_comparison`: Side-by-side hourly rate comparison for multiple logs.
-* `qso_comparison`: Detailed pairwise breakdown of Total, Unique, and Common QSOs.
-* `missed_multipliers`: Comparative report showing multipliers missed by each station.
-* `multiplier_summary`: Detailed breakdown of QSOs per multiplier.
-* `multipliers_by_hour`: Shows new multipliers worked each hour of the contest.
-* `continent_summary`: Total QSOs per continent for a single log.
-* `comparative_continent_summary`: Side-by-side comparison of QSOs per continent.
-* `continent_breakdown`: Detailed QSOs per continent broken down by Run/S&P status.
-
-#### **Plots (`plots/`)**
-
-* `qso_rate`: Cumulative QSO rate line graphs.
-* `point_rate`: Cumulative point rate line graphs.
-* `cumulative_difference`: Plot showing the running QSO or Point difference between two logs.
-
-#### **Charts (`charts/`)**
-
-* `qso_breakdown_chart`: Stacked bar chart comparing unique QSO counts for two logs.
-* `point_contribution`: Side-by-side pie charts comparing point sources.
-* `point_contribution_single`: Per-band pie charts showing point sources for one log.
+* `comparative_continent_summary`: Comparative Continent Summary
+* `comparative_score_report`: Comparative Score Report
+* `continent_breakdown`: Continent Breakdown by Run/S&P
+* `continent_summary`: Continent Summary
+* `missed_multipliers`: Missed Multipliers
+* `multiplier_summary`: Multiplier Summary
+* `multipliers_by_hour`: Multipliers by Hour
+* `qso_comparison`: QSO Comparison Summary
+* `rate_sheet`: Rate Sheet (per hour)
+* `rate_sheet_comparison`: Rate Sheet Comparison
+* `score_report`: Score Report
+* `summary`: QSO Summary by Run/S&P
 ---
 ## License
 

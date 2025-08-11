@@ -1,10 +1,15 @@
 # Project Workflow Guide
 
-**Version: 0.32.3-Beta**
-**Date: 2025-08-10**
+**Version: 0.32.4-Beta**
+**Date: 2025-08-11**
 
 ---
 ### --- Revision History ---
+## [0.32.4-Beta] - 2025-08-11
+### Changed
+# - Softened the "Debug 'A Priori' When Stuck" protocol (6.2) to make
+#   adding detailed logging a step to "consider" rather than a mandatory
+#   first action.
 ## [0.32.3-Beta] - 2025-08-10
 ### Changed
 # - Updated the Explicit State-Transition Protocol (4.3) to require a
@@ -133,7 +138,7 @@ These protocols are for troubleshooting, error handling, and non-standard situat
 6.1. **Mutual State Verification.** Both the user and the AI can lose context. If an instruction from the user appears to contradict the established state or our immediate goals, the AI should pause and ask for clarification before proceeding.
     1.  **File State Request.** If a state mismatch is suspected as the root cause of an error, the AI is authorized to request a copy of the relevant file(s) from the user to establish a definitive ground truth.
 
-6.2. **Debug "A Priori" When Stuck.** If an initial bug fix fails or the cause of an error is not immediately obvious, the first diagnostic step is to add detailed logging (e.g., `logging.info()` statements, hexadecimal dumps) to the failing code path. The goal is to isolate the smallest piece of failing logic and observe the program's actual runtime state. Only if this direct inspection does not reveal the error should the investigation widen to consider other causes like incorrect configuration files or environmental issues.
+6.2. **Debug "A Priori" When Stuck.** If an initial bug fix fails or the cause of an error is not immediately obvious, the first diagnostic step to consider is to add detailed logging (e.g., `logging.info()` statements, hexadecimal dumps) to the failing code path. The goal is to isolate the smallest piece of failing logic and observe the program's actual runtime state. Only if this direct inspection does not reveal the error should the investigation widen to consider other causes like incorrect configuration files or environmental issues.
 
 6.3. **Error Analysis Protocol.** When an error in the AI's process is identified, the AI must provide a clear and concise analysis.
     1.  **Acknowledge the Error:** State clearly that a mistake was made.
