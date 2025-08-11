@@ -5,7 +5,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-11
-# Version: 0.31.54-Beta
+# Version: 0.31.57-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,6 +16,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.31.57-Beta] - 2025-08-11
+### Changed
+# - Providing the definitive, correct version of the file to resolve
+#   environmental state mismatch issues.
 ## [0.31.54-Beta] - 2025-08-11
 ### Changed
 # - Simplified multiplier logic to count prefixes once per contest instead
