@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-10
-# Version: 0.31.44-Beta
+# Date: 2025-08-11
+# Version: 0.31.45-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,14 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.31.45-Beta] - 2025-08-11
+### Fixed
+# - Corrected column width calculation to be global instead of per-band,
+#   ensuring consistent table alignment throughout the report.
+## [0.31.44-Beta] - 2025-08-11
+### Fixed
+# - Corrected the first column width calculation to account for summary
+#   labels, fixing the table alignment.
 ## [0.31.44-Beta] - 2025-08-10
 ### Changed
 # - Modified main report logic to exclude "Unknown" multipliers from the
@@ -120,21 +128,26 @@ class Report(ContestReport):
         title2 = f"{year} {contest_name} - {', '.join(all_calls)}"
         
         report_lines = []
-
         bands = first_log.contest_definition.valid_bands
         
-        overall_prefix_to_name_map = {}
+        # --- Global Column Width Calculation ---
+        max_mult_len = len(first_col_header)
+        summary_label_width = len("Missed:")
+        
+        combined_df = pd.concat([log.get_processed_data() for log in self.logs])
+        if not combined_df.empty and mult_column in combined_df.columns:
+            all_mults = combined_df[mult_column].dropna().unique()
+            if name_column and name_column in combined_df.columns:
+                name_map_df = combined_df[[mult_column, name_column]].dropna().drop_duplicates()
+                name_map = name_map_df.set_index(mult_column)[name_column].to_dict()
+                for mult in all_mults:
+                    full_name = name_map.get(mult, '')
+                    display_string = f"{mult} ({full_name})" if pd.notna(full_name) and full_name != '' else str(mult)
+                    max_mult_len = max(max_mult_len, len(display_string))
+            else:
+                max_mult_len = max(max_mult_len, max(len(str(m)) for m in all_mults if pd.notna(m)))
 
-        for log in self.logs:
-            df_full = log.get_processed_data()
-            df = df_full[df_full['Dupe'] == False].copy()
-            if df.empty or mult_column not in df.columns:
-                continue
-            
-            if name_column and name_column in df.columns:
-                name_map_df = df[[mult_column, name_column]].dropna().drop_duplicates()
-                for _, row in name_map_df.iterrows():
-                    overall_prefix_to_name_map[row[mult_column]] = row[name_column]
+        first_col_width = max(max_mult_len, summary_label_width)
 
         if report_scope == 'per_band':
             for band in bands:
@@ -154,7 +167,6 @@ class Report(ContestReport):
                     
                     df_band = df[df['Band'] == band].copy()
                     
-                    # --- Exclude "Unknown" from main analysis ---
                     df_band = df_band[df_band[mult_column] != 'Unknown']
                     df_band = df_band[df_band[mult_column].notna()]
                     
@@ -179,18 +191,6 @@ class Report(ContestReport):
                 missed_mults_on_band = set()
                 for call in all_calls:
                     missed_mults_on_band.update(union_of_all_mults.difference(mult_sets[call]))
-
-                # --- Dynamic Column Width Calculation ---
-                max_len = len("Worked:") 
-                max_len = max(max_len, len(first_col_header))
-                for mult in union_of_all_mults:
-                    if name_column:
-                        full_name = prefix_to_name_map.get(mult, overall_prefix_to_name_map.get(mult, ''))
-                        display_string = f"{mult} ({full_name})" if pd.notna(full_name) and full_name != '' else str(mult)
-                        max_len = max(max_len, len(display_string))
-                    else:
-                        max_len = max(max_len, len(str(mult)))
-                first_col_width = max_len
 
                 header_cells = [f"{call:^{col_width}}" for call in all_calls]
                 table_header = f"{first_col_header:<{first_col_width}} | {' | '.join(header_cells)}"
@@ -232,7 +232,7 @@ class Report(ContestReport):
                         
                         display_mult = str(mult)
                         if name_column:
-                            mult_full_name = prefix_to_name_map.get(mult, overall_prefix_to_name_map.get(mult, ''))
+                            mult_full_name = prefix_to_name_map.get(mult, name_map.get(mult, ''))
                             if pd.notna(mult_full_name) and mult_full_name != '':
                                 clean_name = str(mult_full_name).split(';')[0].strip()
                                 display_mult = f"{mult} ({clean_name})"
@@ -262,13 +262,11 @@ class Report(ContestReport):
                 report_lines.append(delta_line)
         
         # --- Add Diagnostic List for Unknown Multipliers ---
-        combined_df = pd.concat([log.get_processed_data() for log in self.logs])
         if not combined_df.empty and mult_column in combined_df.columns:
             unknown_mult_df = combined_df[combined_df[mult_column] == 'Unknown']
             unknown_calls = sorted(list(unknown_mult_df['Call'].unique()))
             
             if unknown_calls:
-                # Use table_width from the last band processed for alignment
                 table_width = len(table_header) if 'table_header' in locals() else 80
                 report_lines.append("\n" + "-" * 40)
                 report_lines.append(f"Callsigns with Unknown {first_col_header}:")
