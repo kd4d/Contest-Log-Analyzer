@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-06
-# Version: 0.30.40-Beta
+# Date: 2025-08-11
+# Version: 0.30.42-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,14 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.30.42-Beta] - 2025-08-11
+### Fixed
+# - Added a special check to the longest prefix match logic to prevent
+#   non-Guantanamo Bay KG4 callsigns from being incorrectly identified.
+## [0.30.41-Beta] - 2025-08-11
+### Fixed
+# - Added a new heuristic to _handle_portable_call to correctly identify
+#   the portable ID for DX stations using the callsign/digit format.
 ## [0.30.40-Beta] - 2025-08-06
 ### Fixed
 # - Updated all references to the old CONTEST_DATA_DIR environment variable
@@ -262,6 +270,10 @@ class CtyLookup:
             if cty_info:
                 return cty_info._replace(portableid=p2)
             return self.UNKNOWN_ENTITY
+        elif len(p2) == 1 and p2.isdigit():
+            cty_info = self._find_longest_prefix(p1, wae)
+            if cty_info:
+                return cty_info._replace(portableid=p2)
 
         p1_ends_digit = p1[-1].isdigit()
         p2_ends_digit = p2[-1].isdigit()
@@ -279,6 +291,10 @@ class CtyLookup:
         temp = call
         while len(temp) > 0:
             if (entity := self._get_prefix_entity(temp, wae)):
+                # Special check for ambiguous KG4 prefix
+                if entity.DXCC == 'KG4' and not re.fullmatch(r'KG4[A-Z]{2}', call):
+                    temp = temp[:-1]
+                    continue
                 return entity
             temp = temp[:-1]
         return None
