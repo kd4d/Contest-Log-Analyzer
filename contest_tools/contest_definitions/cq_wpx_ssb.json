@@ -1,7 +1,7 @@
 {
   "_filename": "contest_tools/contest_definitions/cq_wpx_ssb.json",
-  "_version": "0.30.0-Beta",
-  "_date": "2025-08-05",
+  "_version": "0.31.56-Beta",
+  "_date": "2025-08-11",
   "contest_name": "CQ-WPX-SSB",
   "mults_from_zero_point_qsos": true,
   "contest_period": {
@@ -13,8 +13,12 @@
   "multiplier_report_scope": "all_bands",
   "exchange_parsing_rules": {
     "CQ-WPX-SSB": {
-      "regex": "(\\d{2})\\s+(\\d{1,5})\\s+([A-Z0-9/]+)\\s+(\\d{2})\\s+(\\d{1,5})(?:\\s+(\\d))?",
-      "groups": ["SentRS", "SentNR", "Call", "RS", "NR", "Transmitter"]
+      "regex": "(\\d{2})\\s+(\\d+)(?:\\s+(\\d))?",
+      "groups": [
+        "SentRS",
+        "SentNR",
+        "Transmitter"
+      ]
     }
   },
   "multiplier_rules": [

@@ -1,7 +1,7 @@
 {
   "_filename": "contest_tools/contest_definitions/cq_wpx_cw.json",
-  "_version": "0.30.33-Beta",
-  "_date": "2025-08-08",
+  "_version": "0.31.56-Beta",
+  "_date": "2025-08-11",
   "contest_name": "CQ-WPX-CW",
   "mults_from_zero_point_qsos": true,
   "contest_period": {
@@ -13,13 +13,10 @@
   "multiplier_report_scope": "all_bands",
   "exchange_parsing_rules": {
     "CQ-WPX-CW": {
-      "regex": "(\\d{3})\\s+(\\d{1,5})\\s+([A-Z0-9/]+)\\s+(\\d{3})\\s+(\\d{1,5})(?:\\s+(\\d))?",
+      "regex": "(\\d{3})\\s+(\\d+)(?:\\s+(\\d))?",
       "groups": [
         "SentRST",
         "SentNR",
-        "Call",
-        "RST",
-        "NR",
         "Transmitter"
       ]
     }
