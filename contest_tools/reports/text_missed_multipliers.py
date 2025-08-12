@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-12
-# Version: 0.32.0-Beta
+# Version: 0.32.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,11 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 # --- Revision History ---
+## [0.32.5-Beta] - 2025-08-12
+### Changed
+# - Modified the generate method to accept a `mode_filter` argument and
+#   filter the dataframe by mode, enabling per-mode analysis.
+# - Updated the report title and filename to include the mode.
 ## [0.32.0-Beta] - 2025-08-12
 ### Fixed
 # - Added a protective check to prevent a ValueError when processing a
@@ -97,6 +102,7 @@ class Report(ContestReport):
         Generates the report content.
         """
         mult_name = kwargs.get('mult_name')
+        mode_filter = kwargs.get('mode_filter')
 
         if not mult_name:
             return f"Error: 'mult_name' argument is required for the '{self.report_name}' report."
@@ -131,19 +137,33 @@ class Report(ContestReport):
         first_qso_date = first_log.get_processed_data()['Date'].iloc[0] if not first_log.get_processed_data().empty else "----"
         year = first_qso_date.split('-')[0]
         
-        title1 = f"--- {self.report_name}: {mult_name} ---"
+        mode_title_str = f" ({mode_filter})" if mode_filter else ""
+        title1 = f"--- {self.report_name}: {mult_name}{mode_title_str} ---"
         title2 = f"{year} {contest_name} - {', '.join(all_calls)}"
         
         report_lines = []
         bands = first_log.contest_definition.valid_bands
         
+        # --- Filter dataframes by mode if specified ---
+        logs_to_process = []
+        if mode_filter:
+            for log in self.logs:
+                # Create a temporary shallow copy of the log object
+                temp_log = log
+                # Get the original dataframe
+                original_df = temp_log.get_processed_data()
+                # Create a filtered copy and assign it to the temp object's dataframe
+                temp_log.qsos_df = original_df[original_df['Mode'] == mode_filter].copy()
+                logs_to_process.append(temp_log)
+        else:
+            logs_to_process = self.logs
+        
         # --- Global Column Width Calculation ---
         max_mult_len = len(first_col_header)
         summary_label_width = len("Missed:")
         
-        combined_df = pd.concat([log.get_processed_data() for log in self.logs])
+        combined_df = pd.concat([log.get_processed_data() for log in logs_to_process])
         
-        # --- FIX: Check if there are any multipliers of this type before proceeding ---
         if mult_column not in combined_df.columns:
             logging.info(f"Skipping '{self.report_name}' for '{mult_name}': Multiplier column '{mult_column}' not found in logs.")
             return f"Report '{self.report_name}' for '{mult_name}' skipped as no data was found."
@@ -151,9 +171,8 @@ class Report(ContestReport):
         all_mults = combined_df[mult_column].dropna().unique()
         
         if all_mults.size == 0:
-            logging.info(f"Skipping '{self.report_name}' for '{mult_name}': No multipliers of this type found in logs.")
-            return f"Report '{self.report_name}' for '{mult_name}' skipped as no data was found."
-        # --- END FIX ---
+            logging.info(f"Skipping '{self.report_name}' for '{mult_name}{mode_title_str}': No multipliers of this type found in logs.")
+            return f"Report '{self.report_name}' for '{mult_name}{mode_title_str}' skipped as no data was found."
         
         name_map = {}
         if name_column and name_column in combined_df.columns:
@@ -176,7 +195,7 @@ class Report(ContestReport):
                 mult_sets: Dict[str, Set[str]] = {call: set() for call in all_calls}
                 prefix_to_name_map = {}
 
-                for log in self.logs:
+                for log in logs_to_process:
                     callsign = log.get_metadata().get('MyCall', 'Unknown')
                     df_full = log.get_processed_data()
                     df = df_full[df_full['Dupe'] == False].copy()
@@ -295,7 +314,7 @@ class Report(ContestReport):
                 num_cols = max(1, table_width // (col_width + 2))
                 
                 for i in range(0, len(unknown_calls), num_cols):
-                    line_calls = unknown_calls[i:i+num_cols]
+                    line_calls = unknown_calls[i:i+5]
                     report_lines.append("  ".join([f"{call:<{col_width}}" for call in line_calls]))
 
         report_content = "\n".join(report_lines)
@@ -303,7 +322,8 @@ class Report(ContestReport):
         
         filename_calls = '_vs_'.join(sorted(all_calls))
         safe_mult_name = mult_name.lower().replace('/', '_')
-        filename = f"{self.report_id}_{safe_mult_name}_{filename_calls}.txt"
+        mode_suffix = f"_{mode_filter.lower()}" if mode_filter else ""
+        filename = f"{self.report_id}_{safe_mult_name}{mode_suffix}_{filename_calls}.txt"
         filepath = os.path.join(output_path, filename)
         
         with open(filepath, 'w', encoding='utf-8') as f:

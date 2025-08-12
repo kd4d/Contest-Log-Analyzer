@@ -7,8 +7,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-05
-# Version: 0.30.29-Beta
+# Date: 2025-08-12
+# Version: 0.32.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,17 +18,24 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
 # --- Revision History ---
+## [0.32.5-Beta] - 2025-08-12
+### Changed
+# - Modified run_reports to be "mode-aware", allowing it to run certain
+#   reports on a per-mode basis if defined in the contest's JSON.
 ## [0.30.29-Beta] - 2025-08-05
 ### Added
 # - Logic to run all reports of a specific type (chart, text, plot).
 ## [0.30.0-Beta] - 2025-08-05
 # - Initial release of Version 0.30.0-Beta.
 # - Standardized all project files to a common baseline version.
+
 import os
 import itertools
 import importlib
 import logging
+import pandas as pd
 from .reports import AVAILABLE_REPORTS
 
 class ReportGenerator:
@@ -116,20 +123,46 @@ class ReportGenerator:
 
             is_multiplier_report = r_id in ['missed_multipliers', 'multiplier_summary', 'multipliers_by_hour']
             
+            # --- Per-Mode Multiplier Report Logic ---
+            multiplier_scope = first_log.contest_definition.multiplier_report_scope
+            if is_multiplier_report and multiplier_scope == 'per_mode':
+                modes = pd.concat([log.get_processed_data()['Mode'] for log in self.logs]).dropna().unique()
+                logging.info(f"\nAuto-generating '{ReportClass.report_name}' for all available multiplier types, per mode...")
+
+                for mode in modes:
+                    logging.info(f"--- Analyzing Mode: {mode} ---")
+                    current_kwargs = report_kwargs.copy()
+                    current_kwargs['mode_filter'] = mode
+                    
+                    log_location_type = first_log._my_location_type
+                    all_rules = first_log.contest_definition.multiplier_rules
+                    applicable_rules = [r for r in all_rules if r.get('applies_to') is None or r.get('applies_to') == log_location_type]
+
+                    for mult_rule in applicable_rules:
+                        mult_name = mult_rule.get('name')
+                        if mult_name:
+                            logging.info(f"  - Generating for: {mult_name}")
+                            current_kwargs['mult_name'] = mult_name
+                            
+                            if ReportClass.supports_single:
+                                for log in self.logs:
+                                    instance = ReportClass([log])
+                                    result = instance.generate(output_path=output_path, **current_kwargs)
+                                    logging.info(result)
+                            
+                            if (ReportClass.supports_multi or ReportClass.supports_pairwise) and len(self.logs) >= 2:
+                                instance = ReportClass(self.logs)
+                                result = instance.generate(output_path=output_path, **current_kwargs)
+                                logging.info(result)
+                continue # End of per-mode logic for this report
+
+            # --- Standard Report Logic ---
             if is_multiplier_report and not report_kwargs.get('mult_name'):
                 logging.info(f"\nAuto-generating '{ReportClass.report_name}' for all available multiplier types...")
                 
                 log_location_type = first_log._my_location_type
                 all_rules = first_log.contest_definition.multiplier_rules
-                
-                applicable_rules = []
-                if log_location_type:
-                    for rule in all_rules:
-                        applies_to = rule.get('applies_to')
-                        if applies_to is None or applies_to == log_location_type:
-                            applicable_rules.append(rule)
-                else:
-                    applicable_rules = all_rules
+                applicable_rules = [r for r in all_rules if r.get('applies_to') is None or r.get('applies_to') == log_location_type]
 
                 for mult_rule in applicable_rules:
                     mult_name = mult_rule.get('name')
