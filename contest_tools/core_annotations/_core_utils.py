@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-05
-# Version: 0.30.0-Beta
+# Date: 2025-08-12
+# Version: 0.32.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,15 +16,23 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
 # --- Revision History ---
+## [0.32.1-Beta] - 2025-08-12
+### Changed
+# - Enhanced AliasLookup to be section-aware, parsing categories like
+#   "US States" from comments in the .dat file.
+### Added
+# - Added a `get_category` method to the AliasLookup class.
 ## [0.30.0-Beta] - 2025-08-05
 # - Initial release of Version 0.30.0-Beta.
 # - Standardized all project files to a common baseline version.
+
 import pandas as pd
 import os
 import re
 import logging
-from typing import Dict, Tuple, Optional
+from typing import Dict, Tuple, Optional, Set
 
 class AliasLookup:
     """
@@ -34,14 +42,28 @@ class AliasLookup:
     def __init__(self, data_dir_path: str, alias_filename: str):
         self.filepath = os.path.join(data_dir_path, alias_filename)
         self._lookup: Dict[str, Tuple[str, str]] = {}
-        self._valid_mults: set = set()
+        self._valid_mults: Set[str] = set()
+        self.sections: Dict[str, Set[str]] = {}
+        self.multiplier_to_category: Dict[str, str] = {}
         self._parse_file()
 
     def _parse_file(self):
+        current_section = "Default"
+        section_pattern = re.compile(r'#\s*---\s*(.*?)\s*---')
+
         try:
             with open(self.filepath, 'r', encoding='utf-8') as f:
                 for line in f:
                     line = line.strip()
+                    
+                    # Check for section header
+                    header_match = section_pattern.match(line)
+                    if header_match:
+                        current_section = header_match.group(1).strip()
+                        if current_section not in self.sections:
+                            self.sections[current_section] = set()
+                        continue
+
                     if not line or line.startswith('#'):
                         continue
                     
@@ -60,8 +82,12 @@ class AliasLookup:
                     full_name = match.group(2)
                     
                     self._valid_mults.add(official_abbr)
+                    self.sections.setdefault(current_section, set()).add(official_abbr)
+                    self.multiplier_to_category[official_abbr] = current_section
+
                     for alias in aliases:
                         self._lookup[alias] = (official_abbr, full_name)
+
         except FileNotFoundError:
             logging.warning(f"Multiplier alias file not found at {self.filepath}. Alias lookup will be disabled.")
         except Exception as e:
@@ -85,3 +111,9 @@ class AliasLookup:
                     return official_abbr, full_name
 
         return pd.NA, pd.NA
+
+    def get_category(self, multiplier: str) -> Optional[str]:
+        """
+        Returns the section category for a given official multiplier abbreviation.
+        """
+        return self.multiplier_to_category.get(multiplier)

@@ -1,6 +1,6 @@
 # Contest Log Analyzer/contest_tools/contest_specific_annotations/arrl_10_multiplier_resolver.py
 #
-# Version: 0.32.0-Beta
+# Version: 0.32.1-Beta
 # Date: 2025-08-12
 #
 # Purpose: Provides contest-specific logic to resolve ARRL 10 Meter contest
@@ -16,6 +16,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 # --- Revision History ---
+## [0.32.1-Beta] - 2025-08-12
+### Changed
+# - Rewrote resolver logic to use the new section-aware AliasLookup class.
+#   This fixes the multiplier categorization bug (e.g., "BAJA CALIFORNIA").
 ## [0.32.0-Beta] - 2025-08-12
 ### Added
 # - Initial release of the custom multiplier resolver for the ARRL 10 Meter contest.
@@ -64,14 +68,14 @@ def _resolve_row(row: pd.Series, alias_lookup: AliasLookup, rules: Dict) -> pd.S
     if pd.notna(rcvd_itu):
         mult_itu = f"ITU {rcvd_itu}"
     elif pd.notna(rcvd_location):
-        mult_abbr, mult_full_name = alias_lookup.get_multiplier(rcvd_location)
+        mult_abbr, _ = alias_lookup.get_multiplier(rcvd_location)
         if pd.notna(mult_abbr):
-            # Categorize based on the full name from the alias file
-            if any(k in mult_full_name.upper() for k in ['ALABAMA', 'ALASKA', 'ARIZONA', 'ARKANSAS', 'CALIFORNIA', 'COLORADO', 'CONNECTICUT', 'DISTRICT OF COLUMBIA', 'DELAWARE', 'FLORIDA', 'GEORGIA', 'HAWAII', 'IDAHO', 'ILLINOIS', 'INDIANA', 'IOWA', 'KANSAS', 'KENTUCKY', 'LOUISIANA', 'MAINE', 'MARYLAND', 'MASSACHUSETTS', 'MICHIGAN', 'MINNESOTA', 'MISSISSIPPI', 'MISSOURI', 'MONTANA', 'NEBRASKA', 'NEVADA', 'NEW HAMPSHIRE', 'NEW JERSEY', 'NEW MEXICO', 'NEW YORK', 'NORTH CAROLINA', 'NORTH DAKOTA', 'OHIO', 'OKLAHOMA', 'OREGON', 'PENNSYLVANIA', 'RHODE ISLAND', 'SOUTH CAROLINA', 'SOUTH DAKOTA', 'TENNESSEE', 'TEXAS', 'UTAH', 'VERMONT', 'VIRGINIA', 'WASHINGTON', 'WEST VIRGINIA', 'WISCONSIN', 'WYOMING']):
+            category = alias_lookup.get_category(mult_abbr)
+            if category == "US States":
                 mult_state = mult_abbr
-            elif any(k in mult_full_name.upper() for k in ['ALBERTA', 'BRITISH COLUMBIA', 'LABRADOR', 'MANITOBA', 'NEW BRUNSWICK', 'NEWFOUNDLAND', 'NOVA SCOTIA', 'NORTHWEST TERRITORIES', 'NUNAVUT', 'ONTARIO', 'PRINCE EDWARD ISLAND', 'QUEBEC', 'SASKATCHEWAN', 'YUKON']):
+            elif category == "Canadian Provinces":
                 mult_ve = mult_abbr
-            else: # Must be a Mexican State
+            elif category == "Mexican States":
                 mult_xe = mult_abbr
     else: # Fallback to DXCC
         if worked_dxcc != 'Unknown':
@@ -87,7 +91,7 @@ def resolve_multipliers(df: pd.DataFrame, my_call_info: Dict[str, Any]) -> pd.Da
     if df.empty:
         return df
 
-    # Initialize alias lookup
+    # Initialize section-aware alias lookup
     root_dir = os.environ.get('CONTEST_LOGS_REPORTS', '').strip().strip('"').strip("'")
     data_dir = os.path.join(root_dir, 'data')
     alias_lookup = AliasLookup(data_dir, 'arrl_10_mults.dat')

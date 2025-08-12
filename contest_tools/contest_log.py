@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-12
-# Version: 0.32.1-Beta
+# Version: 0.32.4-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,6 +19,18 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 # --- Revision History ---
+## [0.32.4-Beta] - 2025-08-12
+### Fixed
+# - Replaced the fillna() loop with the native `na_rep` parameter in the
+#   to_csv() call to prevent all future downcasting warnings.
+## [0.32.3-Beta] - 2025-08-12
+### Fixed
+# - Refactored the fillna() operation in export_to_csv to use .loc and avoid
+#   a FutureWarning related to downcasting.
+## [0.32.2-Beta] - 2025-08-12
+### Fixed
+# - Refactored the fillna() operation in export_to_csv to avoid a chained
+#   assignment FutureWarning from Pandas.
 ## [0.32.1-Beta] - 2025-08-12
 ### Fixed
 # - Replaced the blanket fillna('') in the export_to_csv method with a
@@ -380,11 +392,9 @@ class ContestLog:
                 if pd.api.types.is_integer_dtype(df_for_output[col]) and isinstance(df_for_output[col].dtype, pd.Int64Dtype):
                     df_for_output[col] = df_for_output[col].astype(object)
 
-            # Selectively fill NA only on object (string) columns to avoid dtype errors
-            for col in df_for_output.select_dtypes(include=['object']).columns:
-                df_for_output[col].fillna('', inplace=True)
-
-            df_for_output.to_csv(output_filepath, index=False)
+            # Use the na_rep parameter to handle missing values directly in the CSV output
+            df_for_output.to_csv(output_filepath, index=False, na_rep='')
+            
             logging.info(f"Processed log saved to: {output_filepath}")
         except Exception as e:
             logging.error(f"Error exporting log to CSV '{output_filepath}': {e}")
