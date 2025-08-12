@@ -53,7 +53,6 @@ The full process involves two stages, handled by two separate functions within t
 * A low-level helper function (`_get_prefix`) that implements the hierarchical algorithm from Section 2.
 * A high-level orchestrator function (`calculate_wpx_prefixes`) that uses this helper to implement the stateful "first-worked per contest" logic.
 
---- FILE: Docs/WPXPrefixLookup.md.part2 ---
 #### `_get_prefix(call)` function
 This helper function is the direct, line-by-line implementation of the hierarchical algorithm described in Section 2. It accepts a single callsign string and returns the final, calculated prefix string, correctly handling all special cases.
 

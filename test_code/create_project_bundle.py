@@ -24,6 +24,11 @@
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 
+## [0.32.0-Beta] - 2025-08-11
+### Changed
+# Modified the script bundle .md files when the optional --txt argument is 
+# provided to avoid .txt files from reports.
+
 ## [0.26.2-Beta] - 2025-08-02
 ### Changed
 # - Modified the script to start its file search from the current working
@@ -94,15 +99,15 @@ if __name__ == '__main__':
     parser.add_argument(
         "--txt",
         action="store_true",
-        help="Bundle documentation files (.md, .txt) instead of code files (.py, .json)."
+        help="Bundle documentation files (.md) instead of code files (.py, .json)."
     )
     args = parser.parse_args()
 
     # --- Determine which files to bundle ---
     if args.txt:
-        extensions_to_bundle = ('.md', '.txt')
+        extensions_to_bundle = ('.md')
         output_filename = 'documentation_bundle.txt'
-        print("Bundling documentation files (.md, .txt)...")
+        print("Bundling documentation files (.md)...")
     else:
         extensions_to_bundle = ('.py', '.json')
         output_filename = 'project_bundle.txt'

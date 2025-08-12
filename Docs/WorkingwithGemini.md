@@ -1,10 +1,20 @@
 # Project Workflow Guide
 
-**Version: 0.32.5-Beta**
-**Date: 2025-08-11**
+**Version: 0.32.7-Beta**
+**Date: 2025-08-12**
 
 ---
 ### --- Revision History ---
+## [0.32.7-Beta] - 2025-08-12
+### Added
+# - Added the "Definitive State Initialization" protocol (1.4) as a
+#   "hard reset" mechanism for the project state.
+## [0.32.6-Beta] - 2025-08-12
+### Changed
+# - Redefined the trigger for the "Definitive State Reconciliation
+#   Protocol" (1.2) to be any request to update a project file.
+# - Removed "checksum comparison" and "full project bundle" as
+#   triggers.
 ## [0.32.5-Beta] - 2025-08-11
 ### Added
 # - Added the formal "Document Review and Synchronization Protocol"
@@ -62,7 +72,7 @@ These are the step-by-step procedures for common, day-to-day development tasks.
 
 1.1. **Onboarding Protocol.** The first action for any AI agent upon starting a session is to read this document in its entirety, acknowledge it, and ask any clarifying questions. This ensures full alignment with the established workflow from the outset.
 
-1.2. **Definitive State Reconciliation Protocol.** Reconciliation Triggers (e.g., `checksum comparison`, `full project bundle`) require a mandatory, full review of all files before any other action is taken. The AI must:
+1.2. **Definitive State Reconciliation Protocol.** This protocol is triggered by **any request to update a project file.** Its purpose is to ensure any update action begins from the most recent version of the file. The AI must:
     1.  **Re-establish Definitive State** by working backward through the chat history to find the most recent, correct version of all project files.
     2.  **Review Every File** in the definitive state.
     3.  **Proceed with the Task**.
@@ -71,7 +81,15 @@ These are the step-by-step procedures for common, day-to-day development tasks.
     1.  The user begins with the exact phrase: **"Gemini, let's establish a Context Checkpoint."**
     2.  The user provides a brief, numbered list of critical facts (Current Goal, Current State, Key Rule).
 
-1.4. **Document Review and Synchronization Protocol.** This protocol is used to methodically review and update all project documentation (`.md` files) to ensure it remains synchronized with the code baseline.
+1.4. **Definitive State Initialization Protocol.** This protocol serves as a "hard reset" of the project state and can be initiated by either the user or the AI. It is the most powerful recovery tool and should be used when a `Context Checkpoint` is insufficient or when the user needs to establish a new baseline from offline files.
+    1.  **Initiation:** The user or AI requests a "Definitive State Initialization."
+    2.  **Agreement:** The other party agrees to proceed.
+    3.  **File Upload:** The user creates and uploads new, complete `project_bundle.txt` and `documentation_bundle.txt` files.
+    4.  **State Purge:** The AI discards its current understanding of the project state, including all cached file versions from the chat history.
+    5.  **Re-Initialization:** The AI establishes a new definitive state based *only* on the contents of the newly uploaded bundles.
+    6.  **Verification and Acknowledgment:** The AI acknowledges the new state is established and provides a complete list of all files extracted from the bundles to verify the reset was successful.
+
+1.5. **Document Review and Synchronization Protocol.** This protocol is used to methodically review and update all project documentation (`.md` files) to ensure it remains synchronized with the code baseline.
     1.  **Initiate Protocol and List Documents:** The AI will state that the protocol is beginning and will provide a complete list of all documents to be reviewed (`Readme.md` and all `.md` files in the `Docs` directory).
     2.  **Begin Sequential Review:** The AI will then loop through the list, processing one document at a time using the following steps:
         * **Step A: Identify and Request.** State which document is next and ask for permission to proceed.
@@ -157,7 +175,7 @@ These protocols are for troubleshooting, error handling, and non-standard situat
 6.3. **Error Analysis Protocol.** When an error in the AI's process is identified, the AI must provide a clear and concise analysis.
     1.  **Acknowledge the Error:** State clearly that a mistake was made.
     2.  **Identify the Root Cause:** Explain the specific flaw in the internal process or logic that led to the error.
-    3.  **Propose a Corrective Action:** Describe the specific, procedural change that will be implemented to prevent the error from recurring.
+    .  **Propose a Corrective Action:** Describe the specific, procedural change that will be implemented to prevent the error from recurring.
 
 ### 7. Miscellaneous Protocols
 
