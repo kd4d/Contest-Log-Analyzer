@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-10
-# Version: 0.31.46-Beta
+# Date: 2025-08-12
+# Version: 0.32.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,7 +17,16 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
 # --- Revision History ---
+## [0.32.1-Beta] - 2025-08-12
+### Fixed
+# - Replaced the blanket fillna('') in the export_to_csv method with a
+#   selective fillna on only object-type columns to prevent a FutureWarning.
+## [0.32.0-Beta] - 2025-08-12
+### Added
+# - Added a "hook" to the _ingest_cabrillo_data method to allow for an
+#   optional, contest-specific custom parser module.
 ## [0.31.46-Beta] - 2025-08-10
 ### Added
 # - Added logic to handle multipliers sourced from a "calculation_module",
@@ -30,6 +39,7 @@
 ### Fixed
 # - Corrected the "wae_dxcc" multiplier logic to properly separate the
 #   prefix (e.g., OH0) from the full name (e.g., Aland Islands).
+
 from typing import List
 import pandas as pd
 from datetime import datetime
@@ -96,7 +106,20 @@ class ContestLog:
 
 
     def _ingest_cabrillo_data(self, cabrillo_filepath: str):
-        raw_df, metadata = parse_cabrillo_file(cabrillo_filepath, self.contest_definition)
+        # --- Check for a custom, contest-specific parser ---
+        custom_parser_name = self.contest_definition.custom_parser_module
+        if custom_parser_name:
+            try:
+                parser_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{custom_parser_name}")
+                raw_df, metadata = parser_module.parse_log(cabrillo_filepath, self.contest_definition)
+                logging.info(f"Using custom parser module: '{custom_parser_name}'")
+            except Exception as e:
+                logging.error(f"Could not run custom parser '{custom_parser_name}': {e}. Halting.")
+                raise
+        else:
+            # --- Fallback to the default generic parser ---
+            raw_df, metadata = parse_cabrillo_file(cabrillo_filepath, self.contest_definition)
+        
         self.metadata.update(metadata)
 
         if raw_df.empty:
@@ -357,7 +380,9 @@ class ContestLog:
                 if pd.api.types.is_integer_dtype(df_for_output[col]) and isinstance(df_for_output[col].dtype, pd.Int64Dtype):
                     df_for_output[col] = df_for_output[col].astype(object)
 
-            df_for_output.fillna('', inplace=True)
+            # Selectively fill NA only on object (string) columns to avoid dtype errors
+            for col in df_for_output.select_dtypes(include=['object']).columns:
+                df_for_output[col].fillna('', inplace=True)
 
             df_for_output.to_csv(output_filepath, index=False)
             logging.info(f"Processed log saved to: {output_filepath}")
