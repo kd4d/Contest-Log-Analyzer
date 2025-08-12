@@ -1,10 +1,15 @@
 # Project Workflow Guide
 
-**Version: 0.32.7-Beta**
+**Version: 0.33.0-Beta**
 **Date: 2025-08-12**
 
 ---
 ### --- Revision History ---
+## [0.33.0-Beta] - 2025-08-12
+### Changed
+# - Overhauled the versioning protocol (3.4) to use an atomic,
+#   minor-version-bump strategy. All files in a single logical
+#   update now receive the same version number.
 ## [0.32.7-Beta] - 2025-08-12
 ### Added
 # - Added the "Definitive State Initialization" protocol (1.4) as a
@@ -130,10 +135,11 @@ These are the step-by-step procedures for common, day-to-day development tasks.
     2.  **Concise Reporting:** The AI will either state that **all checksums agree** or will list the **specific files that show a mismatch**.
     3.  **Mandatory Re-computation Protocol:** Every request for a checksum comparison is a **cache-invalidation event**. The AI must discard all previously calculated checksums, re-establish the definitive state, re-compute the hash for every file, and perform a literal comparison.
 
-3.4. **Versioning.**
-    1.  When a file is modified, its patch number (the third digit) will be incremented.
-    2.  Document versions will be kept in sync with their corresponding code files.
-    3.  For every file changed, the AI must update the `Version:` and `Date:` in the file's header.
+3.4. **Versioning Protocol.**
+    1.  **Minor Version Bumps:** Major changes, new features, or significant refactoring will be marked by incrementing the minor version number (the second digit, e.g., `0.32.x` -> `0.33.0`).
+    2.  **Atomic Versioning:** All files (code, documentation, etc.) modified as part of a single, logical update will receive the **same, identical version number**.
+    3.  **Patch Increments:** Subsequent logical updates will increment the patch number (the third digit, e.g., `0.33.0` -> `0.33.1`).
+    4.  **Header Updates:** For every file changed, the AI must update the `Version:` and `Date:` in the file's header and add an entry to its revision history.
 
 3.5. **File Naming Convention Protocol.** All generated report files must adhere to the standardized naming convention: `<report_id>_<details>_<callsigns>.<ext>`.
 
