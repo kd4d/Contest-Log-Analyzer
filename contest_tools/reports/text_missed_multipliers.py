@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-11
-# Version: 0.31.45-Beta
+# Date: 2025-08-12
+# Version: 0.32.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,7 +16,12 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
 # --- Revision History ---
+## [0.32.0-Beta] - 2025-08-12
+### Fixed
+# - Added a protective check to prevent a ValueError when processing a
+#   multiplier type that has no QSOs in the logs.
 ## [0.31.45-Beta] - 2025-08-11
 ### Fixed
 # - Corrected column width calculation to be global instead of per-band,
@@ -49,10 +54,12 @@
 # - First column is now correctly formatted as "Prefix (Country Name)".
 # - First column header is now dynamically set based on the multiplier rule.
 # - First column width is now calculated dynamically to fit the content.
+
 from typing import List, Dict, Any, Set
 import pandas as pd
 import numpy as np
 import os
+import logging
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
 
@@ -135,17 +142,29 @@ class Report(ContestReport):
         summary_label_width = len("Missed:")
         
         combined_df = pd.concat([log.get_processed_data() for log in self.logs])
-        if not combined_df.empty and mult_column in combined_df.columns:
-            all_mults = combined_df[mult_column].dropna().unique()
-            if name_column and name_column in combined_df.columns:
-                name_map_df = combined_df[[mult_column, name_column]].dropna().drop_duplicates()
-                name_map = name_map_df.set_index(mult_column)[name_column].to_dict()
-                for mult in all_mults:
-                    full_name = name_map.get(mult, '')
-                    display_string = f"{mult} ({full_name})" if pd.notna(full_name) and full_name != '' else str(mult)
-                    max_mult_len = max(max_mult_len, len(display_string))
-            else:
-                max_mult_len = max(max_mult_len, max(len(str(m)) for m in all_mults if pd.notna(m)))
+        
+        # --- FIX: Check if there are any multipliers of this type before proceeding ---
+        if mult_column not in combined_df.columns:
+            logging.info(f"Skipping '{self.report_name}' for '{mult_name}': Multiplier column '{mult_column}' not found in logs.")
+            return f"Report '{self.report_name}' for '{mult_name}' skipped as no data was found."
+
+        all_mults = combined_df[mult_column].dropna().unique()
+        
+        if all_mults.size == 0:
+            logging.info(f"Skipping '{self.report_name}' for '{mult_name}': No multipliers of this type found in logs.")
+            return f"Report '{self.report_name}' for '{mult_name}' skipped as no data was found."
+        # --- END FIX ---
+        
+        name_map = {}
+        if name_column and name_column in combined_df.columns:
+            name_map_df = combined_df[[mult_column, name_column]].dropna().drop_duplicates()
+            name_map = name_map_df.set_index(mult_column)[name_column].to_dict()
+            for mult in all_mults:
+                full_name = name_map.get(mult, '')
+                display_string = f"{mult} ({full_name})" if pd.notna(full_name) and full_name != '' else str(mult)
+                max_mult_len = max(max_mult_len, len(display_string))
+        else:
+            max_mult_len = max(max_mult_len, max(len(str(m)) for m in all_mults if pd.notna(m)))
 
         first_col_width = max(max_mult_len, summary_label_width)
 
@@ -199,11 +218,11 @@ class Report(ContestReport):
                 if not report_lines:
                     header_width = max(table_width, len(title1), len(title2))
                     if len(title1) > table_width or len(title2) > table_width:
-                         report_lines.append(f"{title1.ljust(header_width)}")
-                         report_lines.append(f"{title2.center(header_width)}")
+                        report_lines.append(f"{title1.ljust(header_width)}")
+                        report_lines.append(f"{title2.center(header_width)}")
                     else:
-                         report_lines.append(title1.center(header_width))
-                         report_lines.append(title2.center(header_width))
+                        report_lines.append(title1.center(header_width))
+                        report_lines.append(title2.center(header_width))
 
                 report_lines.append(band_header_text.center(table_width))
 

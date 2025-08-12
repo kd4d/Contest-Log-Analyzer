@@ -1,6 +1,6 @@
 # Contest Log Analyzer/contest_tools/contest_specific_annotations/arrl_10_multiplier_resolver.py
 #
-# Version: 0.33.0-Beta
+# Version: 0.33.1-Beta
 # Date: 2025-08-12
 #
 # Purpose: Provides contest-specific logic to resolve ARRL 10 Meter contest
@@ -16,6 +16,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 # --- Revision History ---
+## [0.33.1-Beta] - 2025-08-12
+### Fixed
+# - Corrected script to read from the 'RcvdExchangeFull' column instead of
+#   non-existent columns, fixing an 'AttributeError' on pd.NA values.
 ## [0.33.0-Beta] - 2025-08-12
 ### Added
 # - Initial release for the ARRL 10 Meter contest.
@@ -33,7 +37,7 @@ def _resolve_row(row: pd.Series, alias_lookup: AliasLookup) -> pd.Series:
     mult_state, mult_ve, mult_xe, mult_dxcc, mult_itu = pd.NA, pd.NA, pd.NA, pd.NA, pd.NA
     
     worked_dxcc = row.get('DXCCName', 'Unknown')
-    rcvd_exchange = row.get('RcvdLocation', str(row.get('RcvdSerial', ''))).strip()
+    rcvd_exchange = row.get('RcvdExchangeFull', '').strip()
 
     # 1. Check for Maritime Mobile
     if row.get('Call', '').endswith('/MM'):

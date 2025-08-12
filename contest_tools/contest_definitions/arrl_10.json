@@ -1,6 +1,6 @@
 {
   "_filename": "contest_tools/contest_definitions/arrl_10.json",
-  "_version": "0.33.0-Beta",
+  "_version": "0.33.1-Beta",
   "_date": "2025-08-12",
   "contest_name": "ARRL-10",
   "valid_bands": [
@@ -20,27 +20,27 @@
   "multiplier_rules": [
     {
       "name": "States",
-      "source_column": "Mult_State",
+      "value_column": "Mult_State",
       "totaling_method": "once_per_mode"
     },
     {
       "name": "Provinces",
-      "source_column": "Mult_VE",
+      "value_column": "Mult_VE",
       "totaling_method": "once_per_mode"
     },
     {
       "name": "Mexican States",
-      "source_column": "Mult_XE",
+      "value_column": "Mult_XE",
       "totaling_method": "once_per_mode"
     },
     {
       "name": "DXCC",
-      "source_column": "Mult_DXCC",
+      "value_column": "Mult_DXCC",
       "totaling_method": "once_per_mode"
     },
     {
       "name": "ITU Regions",
-      "source_column": "Mult_ITU",
+      "value_column": "Mult_ITU",
       "totaling_method": "once_per_mode"
     }
   ],
