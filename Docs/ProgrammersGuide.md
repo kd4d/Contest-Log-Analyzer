@@ -1,10 +1,14 @@
 # Contest Log Analyzer - Programmer's Guide
 
-**Version: 1.0.0-Beta**
-**Date: 2025-08-10**
+**Version: 1.0.1-Beta**
+**Date: 2025-08-11**
 
 ---
 ### --- Revision History ---
+## [1.0.1-Beta] - 2025-08-11
+### Changed
+# - Updated CLI arguments, contest-specific module descriptions, and the
+#   report interface to be fully consistent with the current codebase.
 ## [1.0.0-Beta] - 2025-08-10
 ### Added
 # - Initial release of the Programmer's Guide.
@@ -28,6 +32,8 @@ This script is the main entry point for running the analyzer.
     * `log_files`: A list of one or more log files to process.
     * `--report`: Specifies which reports to run. This can be a single `report_id`, a comma-separated list of IDs, or the keyword `all`.
     * `--verbose`: Enables `INFO`-level debug logging.
+    * `--include-dupes`: An optional flag to include duplicate QSOs in report calculations.
+    * `--mult-name`: An optional argument to specify which multiplier to use for multiplier-specific reports (e.g., 'Countries').
 * **Report Discovery:** The script dynamically discovers all available reports by inspecting the `contest_tools.reports` package. Any valid report class in this package is automatically made available as a command-line option.
 
 ### Logging System (`Utils/logger_config.py`)
@@ -56,7 +62,7 @@ All reports must be created as `.py` files in the `contest_tools/reports/` direc
 | `supports_multi` | `bool` | `True` if the report can be run on multiple logs (non-comparative). |
 | `supports_pairwise` | `bool` | `True` if the report compares exactly two logs. |
 
-4.  The class must implement a `generate(self, output_path: str, **kwargs) -> str` method. This method contains the core logic of the report and returns a status message.
+4.  The class must implement a `generate(self, output_path: str, **kwargs) -> str` method. This method contains the core logic of the report and must accept `**kwargs` to handle optional arguments.
 
 ### Dynamic Discovery
 As long as a report file is in the `contest_tools/reports` directory and its class is named `Report`, the `__init__.py` in that directory will find and register it automatically.
@@ -105,9 +111,9 @@ The primary way to add a contest is by creating a new `.json` file in the `conte
 | `dupe_check_scope` | Determines if dupes are checked `per_band` or across `all_bands`. | `"per_band"` |
 | `exchange_parsing_rules` | An object containing regex patterns to parse the exchange portion of a QSO line. | `{ "NAQP-CW": [ { "regex": "...", "groups": [...] } ] }` |
 | `multiplier_rules` | A list of objects defining the contest's multipliers. | `[ { "name": "Zones", "source_column": "CQZone", "value_column": "Mult1" } ]` |
-| `custom_multiplier_resolver` | *Optional.* Specifies a custom Python module to run for complex multiplier logic. | `"naqp_multiplier_resolver"` |
+| `custom_multiplier_resolver` | *Optional.* Specifies a module to run for complex multiplier logic (e.g., NAQP). | `"naqp_multiplier_resolver"` |
 | `contest_specific_event_id_resolver` | *Optional.* Specifies a module to create a unique event ID for contests that run multiple times a year. | `"naqp_event_id_resolver"` |
-| `scoring_module` | *Implied.* The system looks for a `[contest_name]_scoring.py` file to calculate points. | N/A (Convention-based) |
+| `scoring_module` | *Implied.* The system looks for a `[contest_name]_scoring.py` file with a `calculate_points` function. | N/A (Convention-based) |
 
 ### Basic Guide: Creating a New Contest Definition
 
@@ -143,11 +149,11 @@ The primary way to add a contest is by creating a new `.json` file in the `conte
 ```
 
 ### Advanced Guide: Extending Core Logic
-If a contest requires logic that cannot be defined in JSON, you can extend the Python code. The most common way is to use a `calculation_module` for multipliers.
+If a contest requires logic that cannot be defined in JSON, you can extend the Python code. Create a new Python file in `contest_tools/contest_specific_annotations/` for any of the following modules.
 
-1.  Create a new Python file in `contest_tools/contest_specific_annotations/` (e.g., `my_contest_logic.py`).
-2.  In that file, create a function that accepts a pandas DataFrame as input and returns a pandas Series as output. This function will contain your complex logic.
-3.  In your `my_contest.json` file, define a multiplier rule with `"source": "calculation_module"`.
-4.  Add the `module_name` (e.g., `"my_contest_logic"`) and `function_name` keys to the rule.
+* **Custom Multiplier Resolver:** Create a file (e.g., `my_contest_resolver.py`) containing a `resolve_multipliers` function. In the `.json` file, set the `custom_multiplier_resolver` key to the module name (e.g., `"my_contest_resolver"`).
+* **Event ID Resolver:** Create a file (e.g., `my_contest_event_resolver.py`) with a `resolve_event_id` function. Set the `contest_specific_event_id_resolver` key in the JSON.
+* **Scoring Module:** Create a file named `my_contest_cw_scoring.py` containing a `calculate_points` function. The system will find this by convention.
+* **Multiplier Calculation Module:** Create a file (e.g., `my_contest_mult_calc.py`) with a function that returns a pandas Series. In the JSON `multiplier_rules`, set `"source": "calculation_module"` and add the `module_name` and `function_name` keys.
 
-The `contest_log.py` script will see this rule, use the `importlib` library to dynamically load your module, execute your function, and assign the returned Series to the specified multiplier column.
+The `contest_log.py` script will see these rules, use the `importlib` library to dynamically load your module, execute your function, and integrate the results.

@@ -1,10 +1,14 @@
 # Project Workflow Guide
 
-**Version: 0.32.4-Beta**
+**Version: 0.32.5-Beta**
 **Date: 2025-08-11**
 
 ---
 ### --- Revision History ---
+## [0.32.5-Beta] - 2025-08-11
+### Added
+# - Added the formal "Document Review and Synchronization Protocol"
+#   to the Standard Operating Protocols (Section 1).
 ## [0.32.4-Beta] - 2025-08-11
 ### Changed
 # - Softened the "Debug 'A Priori' When Stuck" protocol (6.2) to make
@@ -67,6 +71,17 @@ These are the step-by-step procedures for common, day-to-day development tasks.
     1.  The user begins with the exact phrase: **"Gemini, let's establish a Context Checkpoint."**
     2.  The user provides a brief, numbered list of critical facts (Current Goal, Current State, Key Rule).
 
+1.4. **Document Review and Synchronization Protocol.** This protocol is used to methodically review and update all project documentation (`.md` files) to ensure it remains synchronized with the code baseline.
+    1.  **Initiate Protocol and List Documents:** The AI will state that the protocol is beginning and will provide a complete list of all documents to be reviewed (`Readme.md` and all `.md` files in the `Docs` directory).
+    2.  **Begin Sequential Review:** The AI will then loop through the list, processing one document at a time using the following steps:
+        * **Step A: Identify and Request.** State which document is next and ask for permission to proceed.
+        * **Step B: Analyze.** Upon approval, perform a full "a priori" review of the document against the current code baseline and provide an analysis of any discrepancies.
+        * **Step C: Propose Plan.** Ask if the user wants an implementation plan to update the document.
+        * **Step D: Provide Plan.** Upon approval, provide a detailed, surgical implementation plan for the necessary changes.
+        * **Step E: Request to Proceed.** Ask for explicit permission to generate the updated document.
+        * **Step F: Deliver Update.** Upon approval, perform a **Pre-Flight Check**, explicitly state that the check is complete, and then deliver the updated document.
+    3.  **Completion:** After the final document has been processed, the AI will state that the protocol is complete.
+
 ### 2. Task Execution Workflow
 
 2.1. **Decomposition of Complexity.** Complex or multi-faceted requests must be broken down into smaller, sequential steps. If the user provides a task that is not atomic, the AI's first action is to propose a step-by-step plan. This process ensures **demonstrated understanding** of the full scope of the request, improves **reliability** by focusing on one discrete action at a time, and is the primary mechanism for **error prevention**.
@@ -127,7 +142,6 @@ These are the step-by-step procedures for common, day-to-day development tasks.
 5.2. When researching contest rules, the AI will prioritize finding and citing the **official rules from the sponsoring organization**.
 
 5.3. Each contest's ruleset is to be treated as entirely unique. Logic from one contest must **never** be assumed to apply to another.
-
 ---
 ## Part III: Special Case & Recovery Protocols
 
