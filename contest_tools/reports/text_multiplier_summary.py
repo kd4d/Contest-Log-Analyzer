@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-11
-# Version: 0.31.25-Beta
+# Date: 2025-08-12
+# Version: 0.32.9-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,7 +16,18 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
 # --- Revision History ---
+## [0.32.9-Beta] - 2025-08-12
+### Fixed
+# - Refactored the generate method to work on copies of the data, preventing
+#   the permanent modification of the original ContestLog objects and fixing
+#   the data corruption bug for per-mode reports.
+## [0.32.6-Beta] - 2025-08-12
+### Changed
+# - Modified the generate method to accept a `mode_filter` argument and
+#   filter the dataframe by mode, enabling per-mode analysis.
+# - Updated the report title and filename to include the mode.
 ## [0.31.25-Beta] - 2025-08-11
 ### Fixed
 # - Corrected the first column width calculation to account for indented
@@ -33,6 +44,7 @@
 ### Fixed
 # - Corrected a bug that caused the report to fail for single logs by
 #   enabling single-log support and adding the correct processing logic.
+
 from typing import List
 import pandas as pd
 import os
@@ -55,52 +67,73 @@ class Report(ContestReport):
         Generates the report content.
         """
         mult_name = kwargs.get('mult_name')
+        mode_filter = kwargs.get('mode_filter')
+
         if not mult_name:
             return f"Error: 'mult_name' argument is required for the '{self.report_name}' report."
 
+        # --- Create a list of filtered dataframes to process ---
+        # This approach avoids modifying the original ContestLog objects.
+        log_data_to_process = []
+        for log in self.logs:
+            df = log.get_processed_data()
+            if mode_filter:
+                filtered_df = df[df['Mode'] == mode_filter].copy()
+            else:
+                filtered_df = df.copy()
+            log_data_to_process.append({'df': filtered_df, 'meta': log.get_metadata()})
+
         # --- Single-Log Mode ---
-        if len(self.logs) == 1:
-            log = self.logs[0]
-            df = log.get_processed_data()[log.get_processed_data()['Dupe'] == False]
-            all_calls = [log.get_metadata().get('MyCall', 'Unknown')]
+        if len(log_data_to_process) == 1:
+            log_data = log_data_to_process[0]
+            df = log_data['df'][log_data['df']['Dupe'] == False]
+            all_calls = [log_data['meta'].get('MyCall', 'Unknown')]
             return self._generate_report_for_logs(
                 dfs=[df],
                 all_calls=all_calls,
                 mult_name=mult_name,
+                mode_filter=mode_filter,
                 output_path=output_path,
-                contest_def=log.contest_definition
+                contest_def=self.logs[0].contest_definition
             )
         
         # --- Multi-Log (Comparative) Mode ---
         else:
             all_dfs = []
             all_calls = []
-            for log in self.logs:
-                df = log.get_processed_data()[log.get_processed_data()['Dupe'] == False].copy()
-                df['MyCall'] = log.get_metadata().get('MyCall', 'Unknown')
-                all_calls.append(df['MyCall'].iloc[0])
-                all_dfs.append(df)
+            for log_data in log_data_to_process:
+                df = log_data['df'][log_data['df']['Dupe'] == False].copy()
+                if not df.empty:
+                    my_call = log_data['meta'].get('MyCall', 'Unknown')
+                    df['MyCall'] = my_call
+                    all_calls.append(my_call)
+                    all_dfs.append(df)
 
             return self._generate_report_for_logs(
                 dfs=all_dfs,
                 all_calls=sorted(all_calls),
                 mult_name=mult_name,
+                mode_filter=mode_filter,
                 output_path=output_path,
                 contest_def=self.logs[0].contest_definition
             )
 
-    def _generate_report_for_logs(self, dfs, all_calls, mult_name, output_path, contest_def):
+    def _generate_report_for_logs(self, dfs, all_calls, mult_name, mode_filter, output_path, contest_def):
+        if not dfs:
+            mode_str = f" on mode '{mode_filter}'" if mode_filter else ""
+            return f"Report '{self.report_name}' for '{mult_name}'{mode_str} skipped as no data was found."
+
         mult_rule = next((r for r in contest_def.multiplier_rules if r.get('name', '').lower() == mult_name.lower()), None)
         if not mult_rule or 'value_column' not in mult_rule:
             return f"Error: Multiplier type '{mult_name}' not found in definition."
-
+        
         mult_column = mult_rule['value_column']
         name_column = mult_rule.get('name_column')
         
         combined_df = pd.concat(dfs, ignore_index=True)
         if combined_df.empty or mult_column not in combined_df.columns:
-            return f"No '{mult_name}' multiplier data to report."
-        
+            return f"No '{mult_name}' multiplier data to report for mode '{mode_filter}'."
+            
         main_df = combined_df[combined_df[mult_column].notna()]
         
         bands = contest_def.valid_bands
@@ -131,17 +164,16 @@ class Report(ContestReport):
         
         sorted_mults = sorted(pivot.index.get_level_values(0).unique())
         
-        # Calculate max width needed for multipliers
         max_mult_len = len(first_col_header)
-        for mult in sorted_mults:
-            if name_column:
-                full_name = name_map.get(mult, '')
-                display_string = f"{mult} ({full_name})" if pd.notna(full_name) and full_name != '' else str(mult)
-                max_mult_len = max(max_mult_len, len(display_string))
-            else:
-                max_mult_len = max(max_mult_len, len(str(mult)))
+        if sorted_mults:
+            for mult in sorted_mults:
+                if name_column:
+                    full_name = name_map.get(mult, '')
+                    display_string = f"{mult} ({full_name})" if pd.notna(full_name) and full_name != '' else str(mult)
+                    max_mult_len = max(max_mult_len, len(display_string))
+                else:
+                    max_mult_len = max(max_mult_len, len(str(mult)))
         
-        # Calculate max width needed for indented callsigns
         max_call_len = 0
         if len(all_calls) > 1:
             max_call_len = max(len(f"  {call}: ") for call in all_calls)
@@ -157,7 +189,8 @@ class Report(ContestReport):
         
         year = dfs[0]['Date'].iloc[0].split('-')[0] if not dfs[0].empty else "----"
         
-        title1 = f"--- {self.report_name}: {mult_name} ---"
+        mode_title_str = f" ({mode_filter})" if mode_filter else ""
+        title1 = f"--- {self.report_name}: {mult_name}{mode_title_str} ---"
         title2 = f"{year} {contest_def.contest_name} - {', '.join(all_calls)}"
         
         report_lines = []
@@ -225,7 +258,8 @@ class Report(ContestReport):
         os.makedirs(output_path, exist_ok=True)
         
         filename_calls = '_vs_'.join(sorted(all_calls))
-        filename = f"{self.report_id}_{mult_name.lower()}_{filename_calls}.txt"
+        mode_suffix = f"_{mode_filter.lower()}" if mode_filter else ""
+        filename = f"{self.report_id}_{mult_name.lower()}{mode_suffix}_{filename_calls}.txt"
         filepath = os.path.join(output_path, filename)
         
         with open(filepath, 'w', encoding='utf-8') as f:

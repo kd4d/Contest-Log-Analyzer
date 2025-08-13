@@ -1,6 +1,6 @@
 # Contest Log Analyzer/contest_tools/contest_specific_annotations/arrl_10_multiplier_resolver.py
 #
-# Version: 0.32.1-Beta
+# Version: 0.32.13-Beta
 # Date: 2025-08-12
 #
 # Purpose: Provides contest-specific logic to resolve ARRL 10 Meter contest
@@ -16,6 +16,11 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 # --- Revision History ---
+## [0.32.13-Beta] - 2025-08-12
+### Fixed
+# - Removed the destructive "once per mode" filtering logic. The resolver's
+#   job is to identify the multiplier for every QSO, not to null them out
+#   for scoring, which is handled by the score reports.
 ## [0.32.1-Beta] - 2025-08-12
 ### Changed
 # - Rewrote resolver logic to use the new section-aware AliasLookup class.
@@ -106,29 +111,4 @@ def resolve_multipliers(df: pd.DataFrame, my_call_info: Dict[str, Any]) -> pd.Da
     
     df[parsed_cols + mult_cols] = df.apply(_resolve_row, axis=1, alias_lookup=alias_lookup, rules=rules)
 
-    # --- Step 2: Apply "once per mode" logic ---
-    df_sorted = df.sort_values(by='Datetime')
-    
-    worked_cw = set()
-    worked_ph = set()
-
-    for col in mult_cols:
-        # Process CW QSOs
-        cw_mask = (df_sorted['Mode'] == 'CW') & (df_sorted[col].notna())
-        for idx, row in df_sorted[cw_mask].iterrows():
-            mult_tuple = (col, row[col])
-            if mult_tuple in worked_cw:
-                df.loc[idx, col] = pd.NA  # Invalidate subsequent contacts
-            else:
-                worked_cw.add(mult_tuple)
-
-        # Process Phone QSOs
-        ph_mask = ((df_sorted['Mode'] == 'PH') | (df_sorted['Mode'] == 'SSB')) & (df_sorted[col].notna())
-        for idx, row in df_sorted[ph_mask].iterrows():
-            mult_tuple = (col, row[col])
-            if mult_tuple in worked_ph:
-                df.loc[idx, col] = pd.NA  # Invalidate subsequent contacts
-            else:
-                worked_ph.add(mult_tuple)
-                
     return df

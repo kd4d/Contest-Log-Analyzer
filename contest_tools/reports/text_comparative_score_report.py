@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-09
-# Version: 0.31.21-Beta
+# Date: 2025-08-12
+# Version: 0.32.12-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,7 +16,16 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
 # --- Revision History ---
+## [0.32.12-Beta] - 2025-08-12
+### Fixed
+# - Added the missing `Tuple` to the `typing` import to resolve a NameError.
+## [0.32.11-Beta] - 2025-08-12
+### Changed
+# - Refactored data aggregation to be mode-aware, grouping by both Band and Mode.
+# - Added logic to _calculate_totals to correctly handle the "once_per_mode"
+#   multiplier totaling method.
 ## [0.31.21-Beta] - 2025-08-09
 ### Fixed
 # - Modified multiplier counting logic to explicitly exclude "Unknown" values.
@@ -29,7 +38,8 @@
 # - Standardized report to have a two-line title followed by a blank line.
 # - Reworked table generation to ensure column alignment is always correct.
 # - The redundant per-band summary is now correctly hidden for single-band contests.
-from typing import List, Set
+
+from typing import List, Set, Dict, Tuple
 import pandas as pd
 import os
 from ..contest_log import ContestLog
@@ -54,29 +64,27 @@ class Report(ContestReport):
         first_log = self.logs[0]
         contest_def = first_log.contest_definition
 
-        multiplier_rules = contest_def.multiplier_rules
-        mult_names = [rule['name'] for rule in multiplier_rules]
-        mult_cols = [rule['value_column'] for rule in multiplier_rules]
+        total_summaries = [self._calculate_totals(log) for log in self.logs]
+        
+        # --- Formatting ---
+        mult_names = [rule['name'] for rule in contest_def.multiplier_rules]
+        col_order = ['Callsign', 'On-Time', 'QSOs'] + mult_names + ['Points', 'AVG']
 
-        col_order = ['Callsign', 'On-Time', 'QSOs'] + mult_names + ['Dupes', 'Points', 'AVG']
-
-        total_summaries = [self._calculate_totals(log, mult_cols, mult_names) for log in self.logs]
         col_widths = {key: len(str(key)) for key in col_order}
         col_widths['Callsign'] = max([len(call) for call in all_calls] + [len('Callsign')])
         
-        has_on_time = any(s.get('On-Time') and s.get('On-Time') != 'N/A' for s in total_summaries)
-        if has_on_time:
-             col_widths['On-Time'] = max(len('On-Time'), max(len(s.get('On-Time', '')) for s in total_summaries))
-        else:
-            col_widths['On-Time'] = 0
+        has_on_time = any(s[0].get('On-Time') and s[0].get('On-Time') != 'N/A' for s in total_summaries)
+        if not has_on_time:
+            col_order.remove('On-Time')
+            del col_widths['On-Time']
 
-        for summary in total_summaries:
+        for summary, _ in total_summaries:
              for key, value in summary.items():
                 if key in col_widths:
                     val_len = len(f"{value:.2f}") if isinstance(value, float) else len(str(value))
                     col_widths[key] = max(col_widths.get(key, 0), val_len)
 
-        header_parts = [f"{name:<{col_widths[name]}}" if name == 'Callsign' else f"{name:>{col_widths[name]}}" for name in col_order if col_widths.get(name, 0) > 0]
+        header_parts = [f"{name:<{col_widths[name]}}" if name == 'Callsign' else f"{name:>{col_widths[name]}}" for name in col_order]
         table_header = "  ".join(header_parts)
         table_width = len(table_header)
         separator = "-" * table_width
@@ -89,41 +97,48 @@ class Report(ContestReport):
         
         report_lines = []
         header_width = max(table_width, len(title1), len(title2))
-        if len(title1) > table_width or len(title2) > table_width:
-            report_lines.append(f"{title1.ljust(header_width)}")
-            report_lines.append(f"{title2.center(header_width)}")
-        else:
-            report_lines.append(title1.center(header_width))
-            report_lines.append(title2.center(header_width))
+        report_lines.append(title1.center(header_width))
+        report_lines.append(title2.center(header_width))
         report_lines.append("")
         
         report_lines.append(table_header)
         report_lines.append(separator)
         
-        bands = contest_def.valid_bands
-        bands_with_data = [band for band in bands if any(not log.get_processed_data()[log.get_processed_data()['Band'] == band].empty for log in self.logs)]
-        
-        if len(bands_with_data) > 1:
-            for band in bands_with_data:
-                report_lines.append(f"\n--- {band.replace('M', '')} Meters ---")
-                for log in self.logs:
-                    band_summary = self._calculate_band_summary(log, band, mult_cols, mult_names)
-                    report_lines.append(self._format_row(band_summary, col_order, col_widths))
+        # --- Data Aggregation by Band and Mode ---
+        band_mode_summaries = {}
+        for log in self.logs:
+            call = log.get_metadata().get('MyCall', 'Unknown')
+            df_net = log.get_processed_data()[log.get_processed_data()['Dupe'] == False]
+            if not df_net.empty:
+                grouped = df_net.groupby(['Band', 'Mode'])
+                for (band, mode), group_df in grouped:
+                    key = (band, mode)
+                    if key not in band_mode_summaries:
+                        band_mode_summaries[key] = []
+                    
+                    summary = self._calculate_band_mode_summary(group_df, call, contest_def.multiplier_rules)
+                    band_mode_summaries[key].append(summary)
+
+        # --- Report Generation ---
+        canonical_band_order = [band[1] for band in ContestLog._HF_BANDS]
+        sorted_keys = sorted(band_mode_summaries.keys(), key=lambda x: (canonical_band_order.index(x[0]), x[1]))
+
+        for key in sorted_keys:
+            band, mode = key
+            report_lines.append(f"\n--- {band} {mode} ---")
+            for summary in band_mode_summaries[key]:
+                report_lines.append(self._format_row(summary, col_order, col_widths))
 
         report_lines.append("\n--- TOTAL ---")
-        for summary in total_summaries:
+        for summary, _ in total_summaries:
             report_lines.append(self._format_row(summary, col_order, col_widths))
 
         report_lines.append("=" * table_width)
         report_lines.append("")
-        for summary in total_summaries:
+        for summary, score in total_summaries:
             callsign = summary['Callsign']
-            score = summary['FinalScore']
             score_text = f"TOTAL SCORE ({callsign}) : {score:,.0f}"
-            justified_score_line = score_text.rjust(table_width)
-            report_lines.append(justified_score_line)
-
-        self._add_diagnostic_sections(report_lines, contest_def)
+            report_lines.append(score_text.rjust(table_width))
 
         report_content = "\n".join(report_lines)
         os.makedirs(output_path, exist_ok=True)
@@ -139,9 +154,6 @@ class Report(ContestReport):
     def _format_row(self, data: dict, col_order: list, col_widths: dict) -> str:
         parts = []
         for name in col_order:
-            if col_widths.get(name, 0) == 0:
-                continue
-            
             align = "<" if name == 'Callsign' else ">"
             val = data.get(name, ' ')
             width = col_widths.get(name, len(str(val)))
@@ -153,93 +165,58 @@ class Report(ContestReport):
             parts.append(formatted_val)
         return "  ".join(parts)
 
-    def _calculate_band_summary(self, log: ContestLog, band: str, mult_cols: List[str], mult_names: List[str]) -> dict:
-        df_full = log.get_processed_data()
-        band_df_full = df_full[df_full['Band'] == band]
-        band_df_net = band_df_full[band_df_full['Dupe'] == False]
-        band_df_valid_mults = band_df_net[band_df_net['QSOPoints'] > 0] if not log.contest_definition.mults_from_zero_point_qsos else band_df_net
-
-        band_summary = {'Callsign': log.get_metadata().get('MyCall', 'Unknown')}
-        band_summary['QSOs'] = len(band_df_net)
-        band_summary['Dupes'] = len(band_df_full) - len(band_df_net)
-        band_summary['Points'] = band_df_net['QSOPoints'].sum()
+    def _calculate_band_mode_summary(self, df_band_mode: pd.DataFrame, callsign: str, multiplier_rules: List) -> dict:
+        summary = {'Callsign': callsign}
+        summary['QSOs'] = len(df_band_mode)
+        summary['Points'] = df_band_mode['QSOPoints'].sum()
         
-        for i, m_col in enumerate(mult_cols):
-            if m_col in band_df_valid_mults.columns:
-                band_summary[mult_names[i]] = band_df_valid_mults[
-                    (band_df_valid_mults[m_col].notna()) & (band_df_valid_mults[m_col] != 'Unknown')
-                ][m_col].nunique()
+        for rule in multiplier_rules:
+            m_col = rule['value_column']
+            m_name = rule['name']
+            if m_col in df_band_mode.columns:
+                summary[m_name] = df_band_mode[m_col].nunique()
         
-        band_summary['AVG'] = (band_summary['Points'] / band_summary['QSOs']) if band_summary['QSOs'] > 0 else 0
-        return band_summary
+        summary['AVG'] = (summary['Points'] / summary['QSOs']) if summary['QSOs'] > 0 else 0
+        return summary
 
-    def _calculate_totals(self, log: ContestLog, mult_cols: List[str], mult_names: List[str]) -> dict:
+    def _calculate_totals(self, log: ContestLog) -> Tuple[Dict, int]:
         df_full = log.get_processed_data()
         df_net = df_full[df_full['Dupe'] == False]
-        df_valid_mults = df_net[df_net['QSOPoints'] > 0] if not log.contest_definition.mults_from_zero_point_qsos else df_net
+        contest_def = log.contest_definition
+        multiplier_rules = contest_def.multiplier_rules
+        mult_names = [rule['name'] for rule in multiplier_rules]
 
         total_summary = {'Callsign': log.get_metadata().get('MyCall', 'Unknown')}
         total_summary['On-Time'] = log.get_metadata().get('OperatingTime')
         total_summary['QSOs'] = len(df_net)
-        total_summary['Dupes'] = df_full['Dupe'].sum()
         total_summary['Points'] = df_net['QSOPoints'].sum()
 
         total_multiplier_count = 0
-        for i, rule in enumerate(log.contest_definition.multiplier_rules):
+        for i, rule in enumerate(multiplier_rules):
             mult_name = mult_names[i]
-            mult_col = mult_cols[i]
+            mult_col = rule['value_column']
             totaling_method = rule.get('totaling_method', 'sum_by_band')
-            
-            if mult_col not in df_valid_mults.columns:
+
+            if mult_col not in df_net.columns:
                 total_summary[mult_name] = 0
                 continue
 
-            if totaling_method == 'once_per_contest':
-                unique_mults = df_valid_mults[
-                    (df_valid_mults[mult_col].notna()) & (df_valid_mults[mult_col] != 'Unknown')
-                ][mult_col].nunique()
+            df_valid_mults = df_net[df_net[mult_col].notna()]
+
+            if totaling_method == 'once_per_mode':
+                mode_mults = df_valid_mults.groupby('Mode')[mult_col].nunique()
+                total_summary[mult_name] = mode_mults.sum()
+                total_multiplier_count += mode_mults.sum()
+            elif totaling_method == 'once_per_log':
+                unique_mults = df_valid_mults[mult_col].nunique()
                 total_summary[mult_name] = unique_mults
                 total_multiplier_count += unique_mults
             else: # Default to sum_by_band
-                band_mults = df_valid_mults[
-                    (df_valid_mults[mult_col].notna()) & (df_valid_mults[mult_col] != 'Unknown')
-                ].groupby('Band')[mult_col].nunique()
+                band_mults = df_valid_mults.groupby('Band')[mult_col].nunique()
                 total_summary[mult_name] = band_mults.sum()
-                total_multiplier_count += total_summary[mult_name]
+                total_multiplier_count += band_mults.sum()
 
         total_summary['AVG'] = (total_summary['Points'] / total_summary['QSOs']) if total_summary['QSOs'] > 0 else 0
-        total_summary['FinalScore'] = total_summary['Points'] * total_multiplier_count
-        return total_summary
-
-    def _add_diagnostic_sections(self, report_lines: List[str], contest_def: ContestDefinition):
-        combined_df = pd.concat([log.get_processed_data() for log in self.logs])
-        if combined_df.empty:
-            return
-
-        unknown_dxcc_df = combined_df[combined_df['DXCCPfx'] == 'Unknown']
-        unknown_dxcc_calls = sorted(list(unknown_dxcc_df['Call'].unique()))
-        if unknown_dxcc_calls:
-            report_lines.append("\n" + "-" * 40)
-            report_lines.append("Callsigns with Unknown DXCC Prefix:")
-            report_lines.append("-" * 40)
-            col_width = 12
-            for i in range(0, len(unknown_dxcc_calls), 5):
-                line_calls = unknown_dxcc_calls[i:i+5]
-                report_lines.append("  ".join([f"{call:<{col_width}}" for call in line_calls]))
-
-        if 'CQ-WPX' in contest_def.contest_name:
-            rule = next((r for r in contest_def.multiplier_rules if r.get('name') == 'Prefixes'), None)
-            if rule:
-                col = rule.get('value_column')
-                if col and col in combined_df.columns:
-                    unknown_mult_df = combined_df[combined_df[col] == 'Unknown']
-                    unknown_calls = sorted(list(unknown_mult_df['Call'].unique()))
-                    
-                    if unknown_calls:
-                        report_lines.append("\n" + "-" * 40)
-                        report_lines.append(f"Callsigns with Unknown {rule['name']} ({col}):")
-                        report_lines.append("-" * 40)
-                        col_width = 12
-                        for i in range(0, len(unknown_calls), 5):
-                            line_calls = unknown_calls[i:i+5]
-                            report_lines.append("  ".join([f"{call:<{col_width}}" for call in line_calls]))
+        final_score = total_summary['Points'] * total_multiplier_count
+        
+        return total_summary, final_score

@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-12
-# Version: 0.32.5-Beta
+# Version: 0.32.10-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,15 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 # --- Revision History ---
+## [0.32.10-Beta] - 2025-08-12
+### Fixed
+# - Corrected the report_scope check to include 'per_mode', fixing the
+#   blank report bug for the ARRL 10 Meter contest.
+## [0.32.9-Beta] - 2025-08-12
+### Fixed
+# - Refactored the generate method to work on copies of the data, preventing
+#   the permanent modification of the original ContestLog objects and fixing
+#   the data corruption bug for per-mode reports.
 ## [0.32.5-Beta] - 2025-08-12
 ### Changed
 # - Modified the generate method to accept a `mode_filter` argument and
@@ -122,6 +131,17 @@ class Report(ContestReport):
         
         col_width = 14
         
+        # --- Create a list of dictionaries containing filtered data to process ---
+        # This approach avoids modifying the original ContestLog objects.
+        log_data_to_process = []
+        for log in self.logs:
+            df = log.get_processed_data()
+            if mode_filter:
+                filtered_df = df[df['Mode'] == mode_filter].copy()
+            else:
+                filtered_df = df.copy()
+            log_data_to_process.append({'df': filtered_df, 'meta': log.get_metadata()})
+        
         # --- Dynamic First Column Header ---
         if mult_name.lower() == 'countries':
             source_type = mult_rule.get('source', 'dxcc').upper()
@@ -144,25 +164,11 @@ class Report(ContestReport):
         report_lines = []
         bands = first_log.contest_definition.valid_bands
         
-        # --- Filter dataframes by mode if specified ---
-        logs_to_process = []
-        if mode_filter:
-            for log in self.logs:
-                # Create a temporary shallow copy of the log object
-                temp_log = log
-                # Get the original dataframe
-                original_df = temp_log.get_processed_data()
-                # Create a filtered copy and assign it to the temp object's dataframe
-                temp_log.qsos_df = original_df[original_df['Mode'] == mode_filter].copy()
-                logs_to_process.append(temp_log)
-        else:
-            logs_to_process = self.logs
-        
         # --- Global Column Width Calculation ---
         max_mult_len = len(first_col_header)
         summary_label_width = len("Missed:")
         
-        combined_df = pd.concat([log.get_processed_data() for log in logs_to_process])
+        combined_df = pd.concat([log_data['df'] for log_data in log_data_to_process])
         
         if mult_column not in combined_df.columns:
             logging.info(f"Skipping '{self.report_name}' for '{mult_name}': Multiplier column '{mult_column}' not found in logs.")
@@ -183,11 +189,12 @@ class Report(ContestReport):
                 display_string = f"{mult} ({full_name})" if pd.notna(full_name) and full_name != '' else str(mult)
                 max_mult_len = max(max_mult_len, len(display_string))
         else:
-            max_mult_len = max(max_mult_len, max(len(str(m)) for m in all_mults if pd.notna(m)))
+            if all_mults.size > 0:
+                max_mult_len = max(max_mult_len, max(len(str(m)) for m in all_mults if pd.notna(m)))
 
         first_col_width = max(max_mult_len, summary_label_width)
 
-        if report_scope == 'per_band':
+        if report_scope in ['per_band', 'per_mode']:
             for band in bands:
                 band_header_text = f"\n{band.replace('M', '')} Meters Missed Multipliers"
                 
@@ -195,10 +202,9 @@ class Report(ContestReport):
                 mult_sets: Dict[str, Set[str]] = {call: set() for call in all_calls}
                 prefix_to_name_map = {}
 
-                for log in logs_to_process:
-                    callsign = log.get_metadata().get('MyCall', 'Unknown')
-                    df_full = log.get_processed_data()
-                    df = df_full[df_full['Dupe'] == False].copy()
+                for log_data in log_data_to_process:
+                    callsign = log_data['meta'].get('MyCall', 'Unknown')
+                    df = log_data['df'][log_data['df']['Dupe'] == False].copy()
                     
                     if df.empty or mult_column not in df.columns:
                         continue
@@ -313,7 +319,7 @@ class Report(ContestReport):
                 col_width = 12
                 num_cols = max(1, table_width // (col_width + 2))
                 
-                for i in range(0, len(unknown_calls), num_cols):
+                for i in range(0, len(unknown_calls), 5):
                     line_calls = unknown_calls[i:i+5]
                     report_lines.append("  ".join([f"{call:<{col_width}}" for call in line_calls]))
 

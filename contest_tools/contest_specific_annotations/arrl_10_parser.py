@@ -1,6 +1,6 @@
 # Contest Log Analyzer/contest_tools/contest_specific_annotations/arrl_10_parser.py
 #
-# Version: 0.32.0-Beta
+# Version: 0.32.7-Beta
 # Date: 2025-08-12
 #
 # Purpose: Provides a custom, contest-specific parser for the ARRL 10 Meter
@@ -16,6 +16,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 # --- Revision History ---
+## [0.32.7-Beta] - 2025-08-12
+### Fixed
+# - Added robust data sanitization to handle non-breaking spaces and to
+#   convert QSO lines to uppercase before parsing to prevent regex failures.
 ## [0.32.0-Beta] - 2025-08-12
 ### Added
 # - Initial release of the custom parser for the ARRL 10 Meter contest.
@@ -91,21 +95,27 @@ def parse_log(filepath: str, contest_definition: ContestDefinition) -> Tuple[pd.
         lines = f.readlines()
 
     for line in lines:
-        cleaned_line = line.strip()
-        if not cleaned_line:
+        # Sanitize the line to handle non-breaking spaces
+        sanitized_line = line.replace('\u00a0', ' ').strip()
+        if not sanitized_line:
             continue
+
+        # Conditionally convert QSO lines to uppercase for robust regex matching
+        temp_upper_line = sanitized_line.upper()
+        line_to_process = sanitized_line
+        if temp_upper_line.startswith('QSO:'):
+            line_to_process = temp_upper_line
             
-        if cleaned_line.upper().startswith('QSO:'):
+        if line_to_process.startswith('QSO:'):
             # First, match generic fields to get date, time, mode, etc.
-            common_match = common_fields_regex.match(cleaned_line)
+            common_match = common_fields_regex.match(line_to_process)
             if not common_match:
-                logging.warning(f"Skipping malformed QSO line: {cleaned_line}")
+                logging.warning(f"Skipping malformed QSO line: {line_to_process}")
                 continue
             
             common_data = dict(zip(contest_definition.qso_common_field_names, common_match.groups()))
             
             # Now, use the selected contest-specific regex on the full exchange part
-            # Note: Cabrillo includes MyCall in the exchange part, so we use common_data['ExchangeRest']
             exchange_rest = common_data.get('ExchangeRest','').strip()
             
             qso_match = qso_regex.match(exchange_rest)
@@ -114,13 +124,13 @@ def parse_log(filepath: str, contest_definition: ContestDefinition) -> Tuple[pd.
                 qso_data.update(common_data)
                 qso_records.append(qso_data)
             else:
-                logging.warning(f"Skipping QSO line that did not match '{rule_key}' rule: {cleaned_line}")
+                logging.warning(f"Skipping QSO line that did not match '{rule_key}' rule: {line_to_process}")
         
         # Parse header fields
-        elif not cleaned_line.upper().startswith('START-OF-LOG') and not cleaned_line.upper().startswith('END-OF-LOG'):
+        elif not line_to_process.startswith('START-OF-LOG') and not line_to_process.startswith('END-OF-LOG'):
             for cabrillo_tag, df_key in contest_definition.header_field_map.items():
-                if cleaned_line.upper().startswith(f"{cabrillo_tag}:"):
-                    value = cleaned_line[len(f"{cabrillo_tag}:"):].strip()
+                if line_to_process.upper().startswith(f"{cabrillo_tag}:"):
+                    value = line_to_process[len(f"{cabrillo_tag}:"):].strip()
                     log_metadata[df_key] = value
                     break
 
