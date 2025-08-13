@@ -1,10 +1,16 @@
 # Project Workflow Guide
 
-**Version: 0.33.0-Beta**
+**Version: 0.32.15-Beta**
 **Date: 2025-08-12**
 
 ---
 ### --- Revision History ---
+## [0.32.15-Beta] - 2025-08-12
+### Changed
+# - Updated Versioning Protocol (3.4) to reflect atomic versioning.
+# - Added Core Principle 7 (Non-Destructive Reporting).
+# - Added protocol for "Per-Mode" multiplier logic (5.4).
+# - Added protocol for the Custom Parser plug-in pattern (2.4).
 ## [0.33.0-Beta] - 2025-08-12
 ### Changed
 # - Overhauled the versioning protocol (3.4) to use an atomic,
@@ -68,6 +74,8 @@ These are the foundational rules that govern all interactions and analyses.
 5.  **Prefer Logic in Code, Not Data.** The project's design philosophy is to keep the `.json` definition files as simple, declarative maps. All complex, conditional, or contest-specific logic should be implemented in dedicated Python modules.
 
 6.  **Assume Bugs are Systemic.** When a bug is identified in one module, the default assumption is that the same flaw exists in all other similar modules. The AI must perform a global search for that specific bug pattern and fix all instances at once.
+
+7.  **Reports Must Be Non-Destructive.** Specialist report scripts must **never** modify the original `ContestLog` objects they receive. All data filtering or manipulation (e.g., for a specific mode or band) must be done on a temporary **copy** of the DataFrame. This prevents data corruption that can affect subsequent reports in the same run.
 ---
 ## Part II: Standard Operating Protocols
 
@@ -120,6 +128,11 @@ These are the step-by-step procedures for common, day-to-day development tasks.
     3.  **Propose, Don't Impose**: If the AI identifies a potential improvement, it will first propose the change and request permission before taking any action.
     4.  **Forward-Only Modification**: The most recently provided version of a file is the definitive state. All subsequent changes must be applied as modifications to this version. Do not revert to a prior version of a file unless explicitly instructed to do so.
 
+2.4. **Custom Parser Protocol.** For contests with highly complex or asymmetric exchanges that the generic parser cannot handle, a **Custom Parser** plug-in will be used.
+    1.  **Activation**: A new key, `"custom_parser_module": "module_name"`, is added to the contest's `.json` file.
+    2.  **Hook**: The `contest_log.py` script contains a "hook" that detects this key and calls the specified module instead of the generic `cabrillo_parser.py`.
+    3.  **Implementation**: The custom parser module (e.g., `arrl_10_parser.py`) is placed in the `contest_specific_annotations` directory and is responsible for all parsing logic for that contest.
+
 ### 3. File and Data Handling
 
 3.1. **Project File Input.** All project source files and documentation will be provided for updates in a single text file called a **project bundle**, or pasted individually into the chat. The bundle uses a simple text header to separate each file: `--- FILE: path/to/file.ext ---`
@@ -136,9 +149,9 @@ These are the step-by-step procedures for common, day-to-day development tasks.
     3.  **Mandatory Re-computation Protocol:** Every request for a checksum comparison is a **cache-invalidation event**. The AI must discard all previously calculated checksums, re-establish the definitive state, re-compute the hash for every file, and perform a literal comparison.
 
 3.4. **Versioning Protocol.**
-    1.  **Minor Version Bumps:** Major changes, new features, or significant refactoring will be marked by incrementing the minor version number (the second digit, e.g., `0.32.x` -> `0.33.0`).
+    1.  **Minor Version Bumps:** Major changes, new features, or significant refactoring will be marked by incrementing the minor version number (the second digit, e.g., `0.31.x` -> `0.32.0`).
     2.  **Atomic Versioning:** All files (code, documentation, etc.) modified as part of a single, logical update will receive the **same, identical version number**.
-    3.  **Patch Increments:** Subsequent logical updates will increment the patch number (the third digit, e.g., `0.33.0` -> `0.33.1`).
+    3.  **Patch Increments:** Subsequent logical updates will increment the patch number (the third digit, e.g., `0.32.0` -> `0.32.1`).
     4.  **Header Updates:** For every file changed, the AI must update the `Version:` and `Date:` in the file's header and add an entry to its revision history.
 
 3.5. **File Naming Convention Protocol.** All generated report files must adhere to the standardized naming convention: `<report_id>_<details>_<callsigns>.<ext>`.
@@ -166,6 +179,11 @@ These are the step-by-step procedures for common, day-to-day development tasks.
 5.2. When researching contest rules, the AI will prioritize finding and citing the **official rules from the sponsoring organization**.
 
 5.3. Each contest's ruleset is to be treated as entirely unique. Logic from one contest must **never** be assumed to apply to another.
+
+5.4. **Per-Mode Multiplier Protocol.** For contests where multipliers are counted independently for each mode (e.g., once on CW and once on Phone), the following applies:
+    1.  **Activation**: The contest's `.json` file must contain the key `"multiplier_report_scope": "per_mode"`.
+    2.  **Generator Logic**: This key instructs the `report_generator.py` to loop through each mode present in the logs and run the relevant multiplier reports (e.g., `missed_multipliers`) separately for each mode.
+    3.  **Report Logic**: The specialist reports must be written to accept a `mode_filter` argument and use it to filter their data accordingly.
 ---
 ## Part III: Special Case & Recovery Protocols
 
@@ -181,7 +199,7 @@ These protocols are for troubleshooting, error handling, and non-standard situat
 6.3. **Error Analysis Protocol.** When an error in the AI's process is identified, the AI must provide a clear and concise analysis.
     1.  **Acknowledge the Error:** State clearly that a mistake was made.
     2.  **Identify the Root Cause:** Explain the specific flaw in the internal process or logic that led to the error.
-    .  **Propose a Corrective Action:** Describe the specific, procedural change that will be implemented to prevent the error from recurring.
+    3.  **Propose a Corrective Action:** Describe the specific, procedural change that will be implemented to prevent the error from recurring.
 
 ### 7. Miscellaneous Protocols
 
