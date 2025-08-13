@@ -1,6 +1,6 @@
 # Contest Log Analyzer/contest_tools/reports/plot_hourly_animation.py
 #
-# Version: 0.35.0-Beta
+# Version: 0.35.1-Beta
 # Date: 2025-08-13
 #
 # Purpose: A plot report that generates a series of hourly images and compiles
@@ -17,6 +17,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 # --- Revision History ---
+## [0.35.1-Beta] - 2025-08-13
+### Fixed
+# - Added a safeguard to prevent axis limits from being set to zero when
+#   all logs have a score of zero, resolving a Matplotlib UserWarning.
 ## [0.35.0-Beta] - 2025-08-13
 ### Changed
 # - Refactored score calculation to be data-driven, using the new
@@ -176,6 +180,11 @@ class Report(ContestReport):
         
         max_final_qso = max(ld['cum_qso'].iloc[-1] for ld in log_data.values()) if log_data else 1
         max_final_score = max(final_scores.values()) if final_scores else 1
+        
+        # --- Safeguard against zero max values ---
+        if max_final_qso == 0: max_final_qso = 1
+        if max_final_score == 0: max_final_score = 1
+        if max_hourly_rate == 0: max_hourly_rate = 1
 
         return {
             'log_data': log_data, 'master_index': master_index,
