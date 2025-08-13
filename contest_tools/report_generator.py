@@ -7,8 +7,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-12
-# Version: 0.32.14-Beta
+# Date: 2025-08-13
+# Version: 0.33.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,6 +20,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 # --- Revision History ---
+## [0.33.0-Beta] - 2025-08-13
+### Added
+# - Added support for a new "animation" report type and output directory.
 ## [0.32.14-Beta] - 2025-08-12
 ### Changed
 # - Refactored run_reports into two mutually exclusive logic paths to ensure
@@ -90,6 +93,7 @@ class ReportGenerator:
         self.text_output_dir = os.path.join(self.base_output_dir, "text")
         self.plots_output_dir = os.path.join(self.base_output_dir, "plots")
         self.charts_output_dir = os.path.join(self.base_output_dir, "charts")
+        self.animations_output_dir = os.path.join(self.base_output_dir, "animations")
 
     def run_reports(self, report_id, **report_kwargs):
         """
@@ -100,7 +104,7 @@ class ReportGenerator:
 
         if report_id_lower == 'all':
             reports_to_run = list(AVAILABLE_REPORTS.items())
-        elif report_id_lower in ['chart', 'text', 'plot']:
+        elif report_id_lower in ['chart', 'text', 'plot', 'animation']:
             reports_to_run = [
                 (r_id, RClass) for r_id, RClass in AVAILABLE_REPORTS.items()
                 if RClass.report_type == report_id_lower
@@ -127,6 +131,7 @@ class ReportGenerator:
             if report_type == 'text': output_path = self.text_output_dir
             elif report_type == 'plot': output_path = self.plots_output_dir
             elif report_type == 'chart': output_path = self.charts_output_dir
+            elif report_type == 'animation': output_path = self.animations_output_dir
             else: output_path = self.base_output_dir
 
             is_multiplier_report = r_id in ['missed_multipliers', 'multiplier_summary', 'multipliers_by_hour']
