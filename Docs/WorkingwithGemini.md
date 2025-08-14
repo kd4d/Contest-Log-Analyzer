@@ -1,10 +1,14 @@
 # Project Workflow Guide
 
-**Version: 0.35.11-Beta**
+**Version: 0.35.17-Beta**
 **Date: 2025-08-14**
 
 ---
 ### --- Revision History ---
+## [0.35.17-Beta] - 2025-08-14
+### Changed
+# - Amended Protocol 1.2 to include a final, mutual acknowledgment step.
+# - Clarified the title and purpose of Protocol 4.3 for large file transmissions.
 ## [0.35.11-Beta] - 2025-08-14
 ### Changed
 # - Changed Protocol 4.3.2 to require individual file delivery instead of bundling.
@@ -71,6 +75,8 @@ These are the step-by-step procedures for common, day-to-day development tasks.
     1.  **Identify Ground Truth:** Perform a reverse chronological search of the chat history for the single most recent `atomic_checkpoint_YYYY-MM-DD_HHMMSS.txt` file.
     2.  **Initialize State:** Parse this checkpoint file to establish the current, correct version of all project files. This checkpoint is the sole source of truth for the task.
     3.  **Checkpoint on Completion:** As the final step of any task that modifies a file, a new, timestamped `atomic_checkpoint_...` file must be generated and maintained internally by the AI. It will serve as the definitive state for the next task but will not be provided in the chat unless explicitly requested by the user.
+    4.  **AI Confirmation**: After the internal checkpoint is updated, the AI must issue a confirmation message (e.g., "Task complete. Internal checkpoint updated.").
+    5.  **User Acknowledgment**: The user should provide a brief acknowledgment (e.g., "Acknowledged.") to confirm the state is synchronized before a new task is initiated.
 
 1.3. **Context Checkpoint Protocol.** If the AI appears to have lost context, the user can issue a **Context Checkpoint**.
     1.  The user begins with the exact phrase: **"Gemini, let's establish a Context Checkpoint."**
@@ -149,7 +155,7 @@ These are the step-by-step procedures for common, day-to-day development tasks.
 
 4.2. **Definition of Prefixes.** The standard definitions for binary and decimal prefixes will be strictly followed (e.g., Kilo (k) = 1,000; Kibi (Ki) = 1,024).
 
-4.3. **Explicit State-Transition Protocol for Multi-File Delivery.** This protocol makes the user the definitive controller of the delivery sequence.
+4.3. **Large File Transmission Protocol.** This protocol is used to reliably transmit a single large file that has been split into multiple parts, as invoked by Protocol 7.2 (Multi-Part Bundle Protocol).
     1.  **AI Declaration:** The AI will state its intent and declare the total number of bundles to be sent.
     2.  **Bundling Strategy:** Files modified as part of a single logical update will be delivered individually, one per response. The AI will not create bundles unless explicitly requested.
     3.  **State-Driven Sequence:** The AI's response for each part of the transfer must follow a strict, multi-part structure:
@@ -196,6 +202,6 @@ These protocols are for troubleshooting, error handling, and non-standard situat
 
 7.1. **Technical Debt Cleanup Protocol.** When code becomes convoluted, a **Technical Debt Cleanup Sprint** will be conducted to refactor the code for clarity, consistency, and maintainability.
 
-7.2. **Multi-Part Bundle Protocol.** If a large or complex text file (like a Markdown document) cannot be transmitted reliably in a single block, the Multi-Part Bundle Protocol will be used. The AI will take the single file and split its content into multiple, smaller text chunks, ensuring each chunk is below the 37-kilobyde limit. These chunks will then be delivered sequentially using the **Explicit State-Transition Protocol (Protocol 4.3)**.
+7.2. **Multi-Part Bundle Protocol.** If a large or complex text file (like a Markdown document) cannot be transmitted reliably in a single block, the Multi-Part Bundle Protocol will be used. The AI will take the single file and split its content into multiple, smaller text chunks, ensuring each chunk is below the 37-kilobyde limit. These chunks will then be delivered sequentially using the **Large File Transmission Protocol (Protocol 4.3)**.
 
 7.3. **Fragile Dependency Protocol.** If a third-party library proves to be unstable, a sprint will be conducted to replace it with a more robust alternative (e.g., replacing the Kaleido rendering engine with Matplotlib's native `savefig` functionality).
