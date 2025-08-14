@@ -3,12 +3,13 @@
 # Purpose: This utility traverses a directory to find all relevant project
 #          files and consolidates them into a single text file. By default,
 #          it bundles source code (.py, .json), but can be switched to
-#          bundle documentation files (.md, .txt) via a command-line flag.
+#          bundle documentation files (.md, .txt) or data files (.dat)
+#          via command-line flags.
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-02
-# Version: 0.26.2-Beta
+# Date: 2025-08-14
+# Version: 0.32.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -23,6 +24,10 @@
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
+
+## [0.32.1-Beta] - 2025-08-14
+### Added
+# - Added an optional '--data' command-line argument to bundle .dat files.
 
 ## [0.32.0-Beta] - 2025-08-11
 ### Changed
@@ -101,11 +106,20 @@ if __name__ == '__main__':
         action="store_true",
         help="Bundle documentation files (.md) instead of code files (.py, .json)."
     )
+    parser.add_argument(
+        "--data",
+        action="store_true",
+        help="Bundle data files (.dat) instead of code or documentation files."
+    )
     args = parser.parse_args()
 
     # --- Determine which files to bundle ---
-    if args.txt:
-        extensions_to_bundle = ('.md')
+    if args.data:
+        extensions_to_bundle = ('.dat',)
+        output_filename = 'data_bundle.txt'
+        print("Bundling data files (.dat)...")
+    elif args.txt:
+        extensions_to_bundle = ('.md',)
         output_filename = 'documentation_bundle.txt'
         print("Bundling documentation files (.md)...")
     else:

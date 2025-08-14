@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-11
-# Version: 0.31.46-Beta
+# Date: 2025-08-14
+# Version: 0.32.21-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,15 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.32.21-Beta] - 2025-08-14
+### Fixed
+# - Corrected the primary conditional check to include KH6 and KL7, ensuring
+#   Alaska and Hawaii are treated as State multipliers per NAQP rules.
+## [0.32.20-Beta] - 2025-08-14
+### Fixed
+# - Rewrote multiplier logic to correctly handle the three NAQP multiplier
+#   types (State/Prov, NA DXCC, Unknown) and consolidate them into the
+#   single 'Mult1' column for proper scoring.
 ## [0.31.46-Beta] - 2025-08-11
 ### Fixed
 # - Corrected multiplier logic to handle the special cases for Alaska and
@@ -42,50 +51,62 @@
 import pandas as pd
 import os
 from ..core_annotations._core_utils import AliasLookup
-from typing import Optional
+from typing import Optional, Any
+
+def _get_naqp_multiplier(row: pd.Series, alias_lookup: AliasLookup) -> Any:
+    """
+    Applies the NAQP multiplier logic to a single QSO row.
+    """
+    dxcc_pfx = row.get('DXCCPfx')
+    continent = row.get('Continent')
+    rcvd_location = row.get('RcvdLocation')
+
+    # 1. Initial Sanity Check
+    if pd.isna(dxcc_pfx) or dxcc_pfx == 'Unknown':
+        return "Unknown"
+
+    # 2. Check for US (including AK/HI), Canada, or Mexico
+    if dxcc_pfx in ['K', 'KH6', 'KL7', 'VE', 'XE']:
+        mult, _ = alias_lookup.get_multiplier(rcvd_location)
+        # If lookup is successful, return the mult; otherwise, it's Unknown
+        return mult if pd.notna(mult) else "Unknown"
+
+    # 3. Check for Other North American DXCC
+    elif continent == 'NA':
+        return dxcc_pfx
+
+    # 4. Handle Non-Multipliers
+    else:
+        return pd.NA # Use NA for stations ineligible for a multiplier
+
 
 def resolve_multipliers(df: pd.DataFrame, my_location_type: Optional[str]) -> pd.DataFrame:
     """
-    Resolves multipliers for the NAQP contest.
+    Resolves multipliers for the NAQP contest by identifying the multiplier
+    for each QSO and placing it into the 'Mult1' column.
     """
     if df.empty:
         return df
 
-    df['STPROV_Mult'] = pd.NA
-    df['NADXCC_Mult'] = pd.NA
-    df['NADXCC_MultName'] = pd.NA
+    # Ensure required columns exist before proceeding
+    required_cols = ['DXCCPfx', 'Continent', 'RcvdLocation']
+    for col in required_cols:
+        if col not in df.columns:
+            # If columns are missing, we cannot determine multipliers.
+            # Create a null Mult1 column and return.
+            df['Mult1'] = pd.NA
+            return df
 
+    # Initialize the alias lookup utility for NAQP multipliers.
     root_dir = os.environ.get('CONTEST_LOGS_REPORTS', '').strip().strip('"').strip("'")
     data_dir = os.path.join(root_dir, 'data')
     alias_lookup = AliasLookup(data_dir, 'NAQPmults.dat')
 
-    def get_mults(row):
-        stprov_mult = pd.NA
-        nadxcc_mult = pd.NA
-        nadxcc_mult_name = pd.NA
-
-        # Special Case: Alaska and Hawaii are always STPROV multipliers, regardless of continent.
-        if row.get('DXCCName') in ["Alaska", "Hawaii"]:
-            location = row.get('RcvdLocation', '')
-            mult_abbr, _ = alias_lookup.get_multiplier(location)
-            stprov_mult = mult_abbr
-            return stprov_mult, nadxcc_mult, nadxcc_mult_name
-
-        # Standard multiplier logic for all other stations.
-        if row.get('Continent') != 'NA':
-            return stprov_mult, nadxcc_mult, nadxcc_mult_name
-
-        if row.get('DXCCName') in ["United States", "Canada"]:
-            location = row.get('RcvdLocation', '')
-            mult_abbr, _ = alias_lookup.get_multiplier(location)
-            stprov_mult = mult_abbr
-        else:
-            nadxcc_mult = row.get('DXCCPfx')
-            nadxcc_mult_name = row.get('DXCCName')
-            
-        return stprov_mult, nadxcc_mult, nadxcc_mult_name
-
-    mult_results = df.apply(get_mults, axis=1, result_type='expand')
-    df[['STPROV_Mult', 'NADXCC_Mult', 'NADXCC_MultName']] = mult_results
+    # Apply the logic to each row and assign the result to the 'Mult1' column
+    df['Mult1'] = df.apply(_get_naqp_multiplier, axis=1, alias_lookup=alias_lookup)
     
+    # Clean up old, incorrect columns if they exist from previous versions
+    cols_to_drop = ['STPROV_Mult', 'NADXCC_Mult', 'NADXCC_MultName']
+    df.drop(columns=[col for col in cols_to_drop if col in df.columns], inplace=True)
+
     return df
