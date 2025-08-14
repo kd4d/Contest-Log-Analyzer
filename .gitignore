@@ -4,3 +4,4 @@
 *.xls*
 *.png
 __pycache__/
+CONTEST_LOGS_REPORTS/reports/

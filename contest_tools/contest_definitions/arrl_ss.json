@@ -1,6 +1,6 @@
 {
   "_filename": "contest_tools/contest_definitions/arrl_ss.json",
-  "_version": "0.35.0-Beta",
+  "_version": "0.35.3-Beta",
   "_date": "2025-08-13",
   "contest_name": "ARRL-SS",
   "valid_bands": [
@@ -16,7 +16,7 @@
   "custom_multiplier_resolver": "arrl_ss_multiplier_resolver",
   "exchange_parsing_rules": {
     "ARRL-SS-CW": {
-      "regex": "(\\d+)\\s+([A-Z])\\s+([A-Z0-9]+)\\s+(\\d{2})\\s+([A-Z]{2,4})\\s+([A-Z0-9/]+)\\s+(\\d+)\\s+([A-Z])\\s+([A-Z0-9]+)\\s+(\\d{2})\\s+([A-Z]{2,4})",
+      "regex": "(\\d{1,4})\\s+([A-Z])\\s+([A-Z0-9]+)\\s+(\\d{2})\\s+([A-Z]{2,4})\\s+([A-Z0-9/]+)\\s+(\\d{1,4})\\s+([A-Z])\\s+([A-Z0-9]+)\\s+(\\d{2})\\s+([A-Z]{2,4})",
       "groups": [
         "SentSerial",
         "SentPrecedence",
@@ -32,7 +32,7 @@
       ]
     },
     "ARRL-SS-PH": {
-      "regex": "(\\d+)\\s+([A-Z])\\s+([A-Z0-9]+)\\s+(\\d{2})\\s+([A-Z]{2,4})\\s+([A-Z0-9/]+)\\s+(\\d+)\\s+([A-Z])\\s+([A-Z0-9]+)\\s+(\\d{2})\\s+([A-Z]{2,4})",
+      "regex": "(\\d{1,4})\\s+([A-Z])\\s+([A-Z0-9]+)\\s+(\\d{2})\\s+([A-Z]{2,4})\\s+([A-Z0-9/]+)\\s+(\\d{1,4})\\s+([A-Z])\\s+([A-Z0-9]+)\\s+(\\d{2})\\s+([A-Z]{2,4})",
       "groups": [
         "SentSerial",
         "SentPrecedence",

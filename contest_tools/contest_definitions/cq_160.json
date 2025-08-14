@@ -1,8 +1,9 @@
 {
   "_filename": "contest_tools/contest_definitions/cq_160.json",
-  "_version": "0.30.0-Beta",
-  "_date": "2025-08-05",
+  "_version": "0.35.5-Beta",
+  "_date": "2025-08-13",
   "contest_name": "CQ-160",
+  "custom_parser_module": "cq_160_parser",
   "dupe_check_scope": "per_band",
   "valid_bands": [
     "160M"
