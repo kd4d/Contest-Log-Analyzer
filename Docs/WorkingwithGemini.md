@@ -1,10 +1,20 @@
 # Project Workflow Guide
 
-**Version: 0.32.20-Beta**
+**Version: 0.35.11-Beta**
 **Date: 2025-08-14**
 
 ---
 ### --- Revision History ---
+## [0.35.11-Beta] - 2025-08-14
+### Changed
+# - Changed Protocol 4.3.2 to require individual file delivery instead of bundling.
+## [0.35.10-Beta] - 2025-08-14
+### Fixed
+# - Added exception handling for log file mismatches (wrong contest/event)
+#   to ensure a graceful exit.
+### Added
+# - Added validation to finalize_loading to ensure all logs are from the
+#   same contest and event, raising a ValueError on mismatch.
 ## [0.32.20-Beta] - 2025-08-14
 ### Changed
 # - Amended Protocol 1.2 to clarify that the atomic_checkpoint file is
@@ -23,20 +33,6 @@
 # - Merged missing protocols from v0.32.15-Beta to create a complete document.
 # - Replaced the "Definitive State Reconciliation Protocol" (1.2) with the "Atomic State Checkpoint Protocol".
 # - Eliminated "Atomic Versioning" (3.4.2) and clarified the versioning workflow.
-## [0.32.16-Beta] - 2025-08-13
-### Added
-# - Added Core Principle 8 (Surgical Modification).
-# - Added Special Case Protocol 7.3 (Fragile Dependency).
-# - Added Development Philosophy 5.5 (Data-Driven Scoring).
-## [0.32.15-Beta] - 2025-08-12
-### Changed
-# - Updated Versioning Protocol (3.4) to reflect atomic versioning.
-# - Added Core Principle 7 (Non-Destructive Reporting).
-# - Added protocol for "Per-Mode" multiplier logic (5.4).
-# - Added protocol for the Custom Parser plug-in pattern (2.4).
-## [0.32.7-Beta] - 2025-08-12
-### Added
-# - Added the "Definitive State Initialization" protocol (1.4) as a "hard reset" mechanism for the project state.
 ---
 
 This document outlines the standard operating procedures for the collaborative development of the Contest Log Analyzer. **The primary audience for this document is the Gemini AI agent.**
@@ -155,7 +151,7 @@ These are the step-by-step procedures for common, day-to-day development tasks.
 
 4.3. **Explicit State-Transition Protocol for Multi-File Delivery.** This protocol makes the user the definitive controller of the delivery sequence.
     1.  **AI Declaration:** The AI will state its intent and declare the total number of bundles to be sent.
-    2.  **Bundling Strategy:** The AI will prioritize sending **fewer, larger bundles** under the **37 kilobyte** limit.
+    2.  **Bundling Strategy:** Files modified as part of a single logical update will be delivered individually, one per response. The AI will not create bundles unless explicitly requested.
     3.  **State-Driven Sequence:** The AI's response for each part of the transfer must follow a strict, multi-part structure:
         1. **Acknowledge State:** Confirm understanding of the user's last prompt.
         2. **Declare Current Action:** State which part is being sent using a "Block x of y" format (e.g., "**Sending Block 1 of 2.**").

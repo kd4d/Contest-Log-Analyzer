@@ -7,8 +7,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-10
-# Version: 0.31.32-Beta
+# Date: 2025-08-14
+# Version: 0.35.10-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,6 +19,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.35.10-Beta] - 2025-08-14
+### Added
+# - Added validation to finalize_loading to ensure all logs are from the
+#   same contest and event, raising a ValueError on mismatch.
 ## [0.31.32-Beta] - 2025-08-10
 ### Added
 # - Added a warning to detect and report if logs from different
@@ -78,23 +82,33 @@ class LogManager:
         """
         if not self.logs:
             return
-
-        # Check if all logs are from the same month and year
-        if len(self.logs) > 1:
-            log_dates = {}
-            for log in self.logs:
-                callsign = log.get_metadata().get('MyCall', 'Unknown')
-                df = log.get_processed_data()
-                if not df.empty and 'Date' in df.columns and not df['Date'].dropna().empty:
-                    first_qso_date = df['Date'].dropna().iloc[0]
-                    year_month = '-'.join(first_qso_date.split('-')[:2]) # Extracts 'YYYY-MM'
-                    log_dates[callsign] = year_month
             
-            unique_dates = set(log_dates.values())
-            if len(unique_dates) > 1:
-                logging.warning("Logs appear to be from different contest periods.")
-                for call, date_str in sorted(log_dates.items()):
-                    logging.warning(f"  - {call:<12}: {date_str}")
+        # --- Validation for Multi-Log Runs ---
+        if len(self.logs) > 1:
+            mismatch_errors = []
+            first_log = self.logs[0]
+
+            # 1. Same Contest Check
+            first_contest_name = first_log.get_metadata().get('ContestName', 'Unknown')
+            for log in self.logs[1:]:
+                current_contest_name = log.get_metadata().get('ContestName', 'Unknown')
+                if current_contest_name != first_contest_name:
+                    msg = (f"  - {log.get_metadata().get('MyCall')}: Incorrect contest '{current_contest_name}' "
+                           f"(expected '{first_contest_name}')")
+                    mismatch_errors.append(msg)
+
+            # 2. Same Event Check
+            first_event_id = self._get_event_id(first_log)
+            for log in self.logs[1:]:
+                current_event_id = self._get_event_id(log)
+                if current_event_id != first_event_id:
+                    msg = (f"  - {log.get_metadata().get('MyCall')}: Incorrect event '{current_event_id}' "
+                           f"(expected '{first_event_id}')")
+                    mismatch_errors.append(msg)
+            
+            if mismatch_errors:
+                error_summary = "Log file validation failed:\n" + "\n".join(mismatch_errors)
+                raise ValueError(error_summary)
 
         self._create_master_time_index()
 
@@ -132,8 +146,15 @@ class LogManager:
         resolver_name = log.contest_definition.contest_specific_event_id_resolver
         if resolver_name:
             try:
-                resolver_module = importlib.import_module(f"contest_tools.event_resolvers.{resolver_name}")
+                # Check if there's any data to get a timestamp from
+                if log.get_processed_data().empty or 'Datetime' not in log.get_processed_data().columns:
+                    return "NoQSOData"
+                
                 first_qso_time = log.get_processed_data()['Datetime'].iloc[0]
+                if pd.isna(first_qso_time):
+                    return "InvalidTime"
+
+                resolver_module = importlib.import_module(f"contest_tools.event_resolvers.{resolver_name}")
                 return resolver_module.resolve_event_id(first_qso_time)
             except (ImportError, AttributeError, IndexError) as e:
                 logging.warning(f"Could not run event ID resolver '{resolver_name}': {e}")
@@ -150,8 +171,8 @@ class LogManager:
             return
         
         all_datetimes = pd.concat([log.get_processed_data()['Datetime'] for log in self.logs if not log.get_processed_data().empty])
-        if all_datetimes.empty:
-            logging.info("  - No QSO data found. Skipping master time index creation.")
+        if all_datetimes.empty or all_datetimes.isna().all():
+            logging.info("  - No valid QSO datetimes found. Skipping master time index creation.")
             return
 
         min_time = all_datetimes.min().floor('h')
@@ -167,7 +188,7 @@ class LogManager:
         try:
             with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
                 for line in f:
-                    if line.startswith('CONTEST:'):
+                    if line.upper().startswith('CONTEST:'):
                         return line.split(':', 1)[1].strip()
         except Exception as e:
             logging.warning(f"Could not read contest name from {filepath}: {e}")
