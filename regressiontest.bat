@@ -5,3 +5,4 @@ python main_cli.py --report all 2025\cq-wpx-cw\k3lr.log 2025\cq-wpx-cw\kc1xx.log
 python main_cli.py --report all 2025\cq-wpx-cw\ni4w.log 2025\cq-wpx-cw\kb4dx.log
 python main_cli.py --report all 2025\NAQP-CW\aug\k3aj.log 2025\NAQP-CW\aug\wn4afp.log
 python main_cli.py --report all 2024\ARRL-10\ve3ej.log 2024\arrl-10\vp2vmm.log
+python main_cli.py --report all 2025\NAQP-CW\aug\k3aj.log 2025\NAQP-CW\aug\wx3b.log
