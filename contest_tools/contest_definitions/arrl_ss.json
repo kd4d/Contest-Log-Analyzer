@@ -1,6 +1,6 @@
 {
   "_filename": "contest_tools/contest_definitions/arrl_ss.json",
-  "_version": "0.35.3-Beta",
+  "_version": "0.35.7-Beta",
   "_date": "2025-08-13",
   "contest_name": "ARRL-SS",
   "valid_bands": [
