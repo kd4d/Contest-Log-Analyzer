@@ -1,6 +1,6 @@
 # Contest Log Analyzer/contest_tools/reports/plot_hourly_animation.py
 #
-# Version: 0.35.3-Beta
+# Version: 0.35.16-Beta
 # Date: 2025-08-14
 #
 # Purpose: A plot report that generates a series of hourly images and compiles
@@ -16,22 +16,21 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.35.3-Beta] - 2025-08-14
+## [0.35.16-Beta] - 2025-08-14
 ### Fixed
-# - Corrected the top bar chart to position the Score axis on top and the
-#   QSO axis on the bottom. Disabled scientific notation on the Score axis.
-## [0.35.2-Beta] - 2025-08-14
-### Fixed
-# - Corrected the cumulative multiplier calculation to properly sum multipliers
-#   per band, fixing the scoring logic for contests like NAQP.
-## [0.35.1-Beta] - 2025-08-13
-### Fixed
-# - Added a safeguard to prevent axis limits from being set to zero when
-#   all logs have a score of zero, resolving a Matplotlib UserWarning.
-## [0.35.0-Beta] - 2025-08-13
+# - Corrected four bugs in the three-chart layout: legend positioning,
+#   blank hourly chart data lookup, cumulative chart format, and
+#   vertical spacing.
+## [0.35.15-Beta] - 2025-08-14
 ### Changed
-# - Refactored score calculation to be data-driven, using the new
-#   `score_formula` from the contest definition.
+# - Refactored layout to a three-chart view. Added a new vertical bar
+#   chart for cumulative QSOs per band. Repositioned the hourly rate
+#   chart's legend to the bottom.
+## [0.35.14-Beta] - 2025-08-14
+### Changed
+# - Changed the bottom bar chart visualization to use color shades
+#   (Dark/Medium/Light) to represent Run/S&P/Unknown status instead
+#   of hatch patterns.
 import pandas as pd
 import os
 import logging
@@ -39,11 +38,22 @@ import imageio.v2 as imageio
 import shutil
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
+import matplotlib.gridspec as gridspec
+import colorsys
 from typing import List, Dict
 
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
 from ._report_utils import create_output_directory, get_valid_dataframe
+
+def _get_color_shades(base_rgb):
+    """Generates dark, medium, and light shades of a base color."""
+    h, l, s = colorsys.rgb_to_hls(*base_rgb)
+    return {
+        'Run': colorsys.hls_to_rgb(h, max(0, l * 0.65), s), # Darker
+        'S&P': colorsys.hls_to_rgb(h, l, s),                # Medium (Original)
+        'Unknown': colorsys.hls_to_rgb(h, min(1, l * 1.2 + 0.1), s) # Lighter
+    }
 
 class Report(ContestReport):
     report_id = "hourly_animation"
@@ -59,7 +69,6 @@ class Report(ContestReport):
     IMAGE_HEIGHT_PX = 720
     DPI = 100
     
-    RUN_STATE_HATCHES = {'Run': '/', 'S&P': '\\', 'Unknown': 'x'}
     CALLSIGN_COLORS = plt.get_cmap('tab10').colors
 
     def _prepare_data(self, band_filter: str = None, mode_filter: str = None) -> Dict:
@@ -94,7 +103,6 @@ class Report(ContestReport):
         for call, log_df in combined_df.groupby('MyCall'):
             cum_qso = log_df.set_index('Datetime')['Call'].resample('h').count().cumsum().reindex(master_index, method='ffill').fillna(0)
             
-            # --- Correct Multiplier Calculation Logic ---
             cum_mults = pd.Series(0.0, index=master_index)
             for hour in master_index:
                 df_slice = log_df[log_df['Datetime'] <= hour]
@@ -106,111 +114,120 @@ class Report(ContestReport):
 
                     if m_col in df_slice.columns:
                         df_slice_valid_mults = df_slice[df_slice[m_col].notna() & (df_slice[m_col] != 'Unknown')]
-                        if df_slice_valid_mults.empty:
-                            continue
-
+                        if df_slice_valid_mults.empty: continue
                         if totaling_method in ['once_per_band', 'sum_by_band']:
-                            per_band_counts = df_slice_valid_mults.groupby('Band')[m_col].nunique()
-                            total_mults_for_hour += per_band_counts.sum()
-                        else: # 'once_per_log' or 'once_per_contest'
+                            total_mults_for_hour += df_slice_valid_mults.groupby('Band')[m_col].nunique().sum()
+                        else:
                             total_mults_for_hour += df_slice_valid_mults[m_col].nunique()
                 
                 cum_mults[hour] = total_mults_for_hour
 
             if score_formula == 'qsos_times_mults':
                 cum_score = cum_qso * cum_mults
-            else: # Default to points_times_mults
+            else:
                 cum_points = log_df.set_index('Datetime')['QSOPoints'].resample('h').sum().cumsum().reindex(master_index, method='ffill').fillna(0)
                 cum_score = cum_points * cum_mults
             
             final_scores[call] = cum_score.iloc[-1]
             
             hourly_run_sp = log_df.groupby([log_df['Datetime'].dt.floor('h'), 'Band', 'Mode', 'Run']).size().unstack(fill_value=0)
+            
+            cum_qso_per_band_breakdown = log_df.groupby([log_df['Datetime'].dt.floor('h'), 'Band', 'Run']).size().unstack(level=['Band', 'Run'], fill_value=0).cumsum()
+            cum_qso_per_band_breakdown = cum_qso_per_band_breakdown.reindex(master_index, method='ffill').fillna(0)
 
             log_data[call] = {
-                'cum_qso': cum_qso,
-                'cum_score': cum_score,
-                'hourly_run_sp': hourly_run_sp
+                'cum_qso': cum_qso, 'cum_score': cum_score,
+                'hourly_run_sp': hourly_run_sp, 'cum_qso_per_band_breakdown': cum_qso_per_band_breakdown
             }
         
-        max_final_qso = max(ld['cum_qso'].iloc[-1] for ld in log_data.values()) if log_data else 1
-        max_final_score = max(final_scores.values()) if final_scores else 1
+        all_cum_per_band_dfs = [ld['cum_qso_per_band_breakdown'] for ld in log_data.values()]
+        max_cum_qso_on_band = 1
+        if all_cum_per_band_dfs:
+            final_band_totals = pd.concat([df.iloc[[-1]] for df in all_cum_per_band_dfs])
+            if not final_band_totals.empty:
+                # Sum the Run/S&P/Unknown columns for each band to get the total, then find the max
+                bands = sorted(combined_df['Band'].unique(), key=lambda b: [band[1] for band in ContestLog._HF_BANDS].index(b))
+                max_val = 0
+                for band in bands:
+                    band_cols = [col for col in final_band_totals.columns if col[0] == band]
+                    if band_cols:
+                        max_val = max(max_val, final_band_totals[band_cols].sum(axis=1).max())
+                max_cum_qso_on_band = max_val
+
+        if max_cum_qso_on_band == 0: max_cum_qso_on_band = 1
+        max_final_qso = max((ld['cum_qso'].iloc[-1] for ld in log_data.values()), default=1)
+        max_final_score = max(final_scores.values(), default=1)
         
-        # --- Safeguard against zero max values ---
         if max_final_qso == 0: max_final_qso = 1
         if max_final_score == 0: max_final_score = 1
         if max_hourly_rate == 0: max_hourly_rate = 1
 
         return {
             'log_data': log_data, 'master_index': master_index,
-            'max_final_qso': max_final_qso, 'max_final_score': max_final_score, 'max_hourly_rate': max_hourly_rate,
-            'bands': sorted(combined_df['Band'].unique(), key=lambda b: [band[1] for band in ContestLog._HF_BANDS].index(b)),
-            'modes': combined_df['Mode'].unique().tolist()
+            'max_final_qso': max_final_qso, 'max_final_score': max_final_score,
+            'max_hourly_rate': max_hourly_rate, 'max_cum_qso_on_band': max_cum_qso_on_band,
+            'bands': bands, 'modes': combined_df['Mode'].unique().tolist()
         }
 
     def _generate_video(self, data: Dict, output_path: str):
-        """Generates the MP4 video using Matplotlib for frames."""
         frame_dir = os.path.join(output_path, "temp_frames")
         if os.path.exists(frame_dir): shutil.rmtree(frame_dir)
         os.makedirs(frame_dir)
 
         logging.info(f"Generating {len(data['master_index'])} frames for animation video...")
-        frame_files = []
         
         total_frames = len(data['master_index'])
-        
         first_log_meta = self.logs[0].get_metadata()
         contest_name = first_log_meta.get('ContestName', 'Unknown Contest')
         year = self.logs[0].get_processed_data()['Date'].iloc[0].split('-')[0]
         event_id = first_log_meta.get('EventID', '')
+        calls = list(data['log_data'].keys())
+        num_logs = len(calls)
 
         for i, hour in enumerate(data['master_index']):
-            fig_mpl, (ax_top, ax_bottom) = plt.subplots(2, 1, figsize=(self.IMAGE_WIDTH_PX / self.DPI, self.IMAGE_HEIGHT_PX / self.DPI),
-                                                        gridspec_kw={'height_ratios': [0.25, 0.75]}, dpi=self.DPI)
-            
-            # --- Axis Configuration ---
-            ax_qso = ax_top  # Bottom bar, bottom axis
-            ax_score = ax_top.twiny() # Top bar, top axis
+            top_chart_ratio = 0.10 * num_logs
+            top_chart_ratio = max(0.12, min(top_chart_ratio, 0.40))
+            height_ratios = [top_chart_ratio, 1 - top_chart_ratio]
 
-            calls = list(data['log_data'].keys())
-            
+            fig_mpl = plt.figure(figsize=(self.IMAGE_WIDTH_PX / self.DPI, self.IMAGE_HEIGHT_PX / self.DPI), dpi=self.DPI)
+            gs_main = fig_mpl.add_gridspec(2, 1, height_ratios=height_ratios)
+            ax_top = fig_mpl.add_subplot(gs_main[0, 0])
+            gs_bottom = gs_main[1, 0].subgridspec(1, 2, width_ratios=[3, 2])
+            ax_bottom_left = fig_mpl.add_subplot(gs_bottom[0, 0])
+            ax_bottom_right = fig_mpl.add_subplot(gs_bottom[0, 1])
+
+            # --- Top Chart: Cumulative Score & QSOs ---
+            ax_qso = ax_top
+            ax_score = ax_top.twiny()
             for j, call in enumerate(calls):
                 score = data['log_data'][call]['cum_score'].get(hour, 0)
                 qsos = data['log_data'][call]['cum_qso'].get(hour, 0)
                 bar_color = self.CALLSIGN_COLORS[j % len(self.CALLSIGN_COLORS)]
                 
-                # Plot Score on the top bar (y=j+0.2), controlled by the top axis (ax_score)
                 ax_score.barh(j + 0.2, score, height=0.4, align='center', color=bar_color, label=call)
                 ax_score.text(score, j + 0.2, f' {score:,.0f}', va='center', ha='left')
-
-                # Plot QSOs on the bottom bar (y=j-0.2), controlled by the bottom axis (ax_qso)
                 ax_qso.barh(j - 0.2, qsos, height=0.4, align='center', color=bar_color, alpha=0.6)
                 ax_qso.text(qsos, j - 0.2, f' {qsos:,.0f}', va='center', ha='left')
+                ax_qso.text(-0.01, j + 0.2, 'Score', ha='right', va='center', transform=ax_qso.get_yaxis_transform(), fontsize=9)
+                ax_qso.text(-0.01, j - 0.2, 'QSOs', ha='right', va='center', transform=ax_qso.get_yaxis_transform(), fontsize=9)
             
-            # Configure bottom axis (QSOs)
-            ax_qso.set_yticks(range(len(calls)))
-            ax_qso.set_yticklabels([f"{c}\nScore\nQSOs" for c in calls])
-            ax_qso.tick_params(axis='y', length=0)
-            ax_qso.set_xlim(0, data['max_final_qso'])
-            ax_qso.set_xlabel("Cumulative QSOs")
-
-            # Configure top axis (Score)
-            ax_score.set_xlim(0, data['max_final_score'])
-            ax_score.set_xlabel("Cumulative Score")
-            ax_score.xaxis.set_ticks_position('top')
-            ax_score.xaxis.set_label_position('top')
+            ax_qso.set_yticks(range(len(calls))); ax_qso.set_yticklabels([]); ax_qso.tick_params(axis='y', length=0)
+            ax_qso.set_xlim(0, data['max_final_qso']); ax_qso.set_xlabel("Cumulative QSOs")
+            ax_score.set_xlim(0, data['max_final_score']); ax_score.set_xlabel("Cumulative Score")
+            ax_score.xaxis.set_ticks_position('top'); ax_score.xaxis.set_label_position('top')
             ax_score.xaxis.set_major_formatter(mticker.StrMethodFormatter('{x:,.0f}'))
-
-            legend_pos = 'lower left' if i > total_frames / 2 else 'lower right'
+            legend_pos = 'lower right' if i < total_frames / 2 else 'lower left'
             ax_score.legend(loc=legend_pos, title="Callsign")
-            
-            x_labels = [f"{b}-{m}" for b in data['bands'] for m in data['modes']]
-            bar_width = 0.8 / len(calls)
-            
+
+            # --- Bottom-Left Chart: Hourly Rates by Band/Mode ---
+            x_labels_hourly = [f"{b}-{m}" for b in data['bands'] for m in data['modes']]
+            bar_width_hourly = 0.8 / len(calls)
             for j, call in enumerate(calls):
-                bottoms = [0] * len(x_labels)
+                base_color = self.CALLSIGN_COLORS[j % len(self.CALLSIGN_COLORS)]
+                color_shades = _get_color_shades(base_color)
+                bottoms = [0] * len(x_labels_hourly)
                 for run_state in ['Run', 'S&P', 'Unknown']:
-                    hatch = self.RUN_STATE_HATCHES[run_state]
+                    color = color_shades[run_state]
                     y_values = []
                     for band in data['bands']:
                         for mode in data['modes']:
@@ -220,20 +237,47 @@ class Report(ContestReport):
                                 count = 0
                             y_values.append(count)
                     
-                    ax_bottom.bar([x + j * bar_width for x in range(len(x_labels))], y_values,
-                                  width=bar_width, bottom=bottoms, color=self.CALLSIGN_COLORS[j % len(self.CALLSIGN_COLORS)],
-                                  hatch=hatch, edgecolor='white', alpha=0.8)
+                    ax_bottom_left.bar([x + j * bar_width_hourly for x in range(len(x_labels_hourly))], y_values,
+                                       width=bar_width_hourly, bottom=bottoms, color=color, alpha=0.8)
                     bottoms = [b + y for b, y in zip(bottoms, y_values)]
             
-            ax_bottom.set_xticks([x + (bar_width * (len(calls)-1) / 2) for x in range(len(x_labels))])
-            ax_bottom.set_xticklabels(x_labels, rotation=45, ha='right')
-            ax_bottom.set_ylabel("QSOs per Hour")
-            ax_bottom.set_ylim(0, data['max_hourly_rate'] * 1.1)
-            ax_bottom.grid(False)
+            ax_bottom_left.set_xticks([x + (bar_width_hourly * (num_logs-1) / 2) for x in range(len(x_labels_hourly))])
+            ax_bottom_left.set_xticklabels(x_labels_hourly, rotation=45, ha='right')
+            ax_bottom_left.set_ylabel("QSOs per Hour")
+            ax_bottom_left.set_ylim(0, data['max_hourly_rate'] * 1.1); ax_bottom_left.grid(False)
+            sample_shades = _get_color_shades(self.CALLSIGN_COLORS[0])
+            legend_handles = [plt.Rectangle((0,0),1,1, fc=sample_shades[s]) for s in ['Run', 'S&P', 'Unknown']]
+            ax_bottom_left.legend(legend_handles, ['Run', 'S&P', 'Unknown'], title="QSO Type", loc='upper center', bbox_to_anchor=(0.5, -0.3), ncol=3)
 
-            hatch_legend_handles = [plt.Rectangle((0,0),1,1, facecolor='grey', edgecolor='black', hatch=h) for h in self.RUN_STATE_HATCHES.values()]
-            ax_bottom.legend(hatch_legend_handles, self.RUN_STATE_HATCHES.keys(), title="QSO Type", loc='best')
+            # --- Bottom-Right Chart: Cumulative QSOs by Band ---
+            bar_width_cum = 0.8 / num_logs
+            band_indices = range(len(data['bands']))
+            for j, call in enumerate(calls):
+                base_color = self.CALLSIGN_COLORS[j % len(self.CALLSIGN_COLORS)]
+                color_shades = _get_color_shades(base_color)
+                bottoms = [0] * len(data['bands'])
+                for run_state in ['Run', 'S&P', 'Unknown']:
+                    color = color_shades[run_state]
+                    y_values = [data['log_data'][call]['cum_qso_per_band_breakdown'].get((band, run_state), 0) for band in data['bands']]
+                    current_values = pd.Series(y_values, index=data['bands'])
+                    if hour in data['log_data'][call]['cum_qso_per_band_breakdown'].index:
+                         current_values = data['log_data'][call]['cum_qso_per_band_breakdown'].loc[hour]
+                    
+                    y_values_ordered = []
+                    for band in data['bands']:
+                         val = current_values.get((band, run_state), 0)
+                         y_values_ordered.append(val)
+                    
+                    ax_bottom_right.bar([x - (bar_width_cum * (num_logs - 1) / 2) + j * bar_width_cum for x in band_indices], y_values_ordered, width=bar_width_cum, bottom=bottoms, color=color, alpha=0.8)
+                    bottoms = [b + y for b, y in zip(bottoms, y_values_ordered)]
 
+            ax_bottom_right.set_title("Cumulative QSOs by Band", fontsize=10)
+            ax_bottom_right.set_ylabel("Total QSOs")
+            ax_bottom_right.set_xticks(band_indices)
+            ax_bottom_right.set_xticklabels(data['bands'])
+            ax_bottom_right.set_ylim(0, data['max_cum_qso_on_band'] * 1.1)
+            
+            # --- Overall Figure Formatting ---
             title_line_1 = f"{year} {event_id} {contest_name}"
             title_line_2 = f"Hour {i + 1} of {total_frames}"
             fig_mpl.suptitle(f"{title_line_1}\n{title_line_2}")
@@ -242,15 +286,13 @@ class Report(ContestReport):
             frame_path = os.path.join(frame_dir, f"frame_{i:03d}.png")
             plt.savefig(frame_path)
             plt.close(fig_mpl)
-            frame_files.append(frame_path)
 
         logging.info("Compiling video...")
-        video_filename = f"{self.report_id}_{'_vs_'.join(sorted(data['log_data'].keys()))}.mp4"
-        video_filepath = os.path.join(output_path, video_filename)
-        
+        video_filepath = os.path.join(output_path, f"{self.report_id}_{'_vs_'.join(sorted(calls))}.mp4")
         try:
             with imageio.get_writer(video_filepath, fps=self.FPS) as writer:
-                for frame_file in frame_files:
+                for i in range(total_frames):
+                    frame_file = os.path.join(frame_dir, f"frame_{i:03d}.png")
                     image = imageio.imread(frame_file)
                     for _ in range(self.FRAME_DURATION_SECONDS * self.FPS):
                         writer.append_data(image)
