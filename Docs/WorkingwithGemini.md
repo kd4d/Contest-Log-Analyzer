@@ -1,10 +1,14 @@
 # Project Workflow Guide
 
-**Version: 0.32.19-Beta**
+**Version: 0.32.20-Beta**
 **Date: 2025-08-14**
 
 ---
 ### --- Revision History ---
+## [0.32.20-Beta] - 2025-08-14
+### Changed
+# - Amended Protocol 1.2 to clarify that the atomic_checkpoint file is
+#   maintained internally and not provided in the chat unless requested.
 ## [0.32.19-Beta] - 2025-08-14
 ### Changed
 # - Amended Protocol 1.4 to include data_bundle.txt in the
@@ -70,7 +74,7 @@ These are the step-by-step procedures for common, day-to-day development tasks.
 1.2. **Atomic State Checkpoint Protocol.** This protocol is triggered by any request to read or update a project file and ensures the AI is always working from the definitive project state.
     1.  **Identify Ground Truth:** Perform a reverse chronological search of the chat history for the single most recent `atomic_checkpoint_YYYY-MM-DD_HHMMSS.txt` file.
     2.  **Initialize State:** Parse this checkpoint file to establish the current, correct version of all project files. This checkpoint is the sole source of truth for the task.
-    3.  **Checkpoint on Completion:** As the final step of any task that modifies a file, a new, timestamped `atomic_checkpoint_...` file containing a complete snapshot of the project must be generated and provided.
+    3.  **Checkpoint on Completion:** As the final step of any task that modifies a file, a new, timestamped `atomic_checkpoint_...` file must be generated and maintained internally by the AI. It will serve as the definitive state for the next task but will not be provided in the chat unless explicitly requested by the user.
 
 1.3. **Context Checkpoint Protocol.** If the AI appears to have lost context, the user can issue a **Context Checkpoint**.
     1.  The user begins with the exact phrase: **"Gemini, let's establish a Context Checkpoint."**
