@@ -1,7 +1,7 @@
 # Contest Log Analyzer/contest_tools/reports/plot_hourly_animation.py
 #
-# Version: 0.35.20-Beta
-# Date: 2025-08-14
+# Version: 0.35.21-Beta
+# Date: 2025-08-15
 #
 # Purpose: A plot report that generates a series of hourly images and compiles
 #          them into an animated video showing contest progression. It also
@@ -16,11 +16,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.35.21-Beta] - 2025-08-14
-### Fixed
-# - Changed vertical spacing (hspace) from 0.3 to 0.9 to
-#   resolve all element overlaps.##
-#[0.35.20-Beta] - 2025-08-14
+## [0.35.21-Beta] - 2025-08-15
+### Changed
+# - Updated the color scheme for vertical bar charts to use bright red
+#   for 'Unknown' QSOs and a dark/light shading for 'Run'/'S&P'.
+## [0.35.20-Beta] - 2025-08-14
 ### Fixed
 # - Fixed blank hourly rate chart by ensuring all Run/S&P/Unknown
 #   columns are present after data preparation.
@@ -31,11 +31,6 @@
 # - Re-architected the animation layout using a multi-row GridSpec to
 #   create dedicated spaces for titles and legends, resolving all
 #   known overlap and spacing issues.
-## [0.35.18-Beta] - 2025-08-14
-### Changed
-# - Refactored the animation layout to use the `constrained_layout`
-#   manager, fixing issues with title/legend overlap, chart height,
-#   and bottom legend positioning.
 import pandas as pd
 import os
 import logging
@@ -52,12 +47,12 @@ from .report_interface import ContestReport
 from ._report_utils import create_output_directory, get_valid_dataframe
 
 def _get_color_shades(base_rgb):
-    """Generates dark, medium, and light shades of a base color."""
+    """Generates dark, light, and red shades for Run/S&P/Unknown."""
     h, l, s = colorsys.rgb_to_hls(*base_rgb)
     return {
-        'Run': colorsys.hls_to_rgb(h, max(0, l * 0.65), s), # Darker
-        'S&P': colorsys.hls_to_rgb(h, l, s),                # Medium (Original)
-        'Unknown': colorsys.hls_to_rgb(h, min(1, l * 1.2 + 0.1), s) # Lighter
+        'Run': colorsys.hls_to_rgb(h, max(0, l * 0.65), s),      # Darker
+        'S&P': colorsys.hls_to_rgb(h, min(1, l * 1.2 + 0.1), s), # Lighter
+        'Unknown': '#FF0000'                                   # Bright Red
     }
 
 class Report(ContestReport):
@@ -194,7 +189,6 @@ class Report(ContestReport):
         for i, hour in enumerate(data['master_index']):
             fig_mpl = plt.figure(figsize=(self.IMAGE_WIDTH_PX / self.DPI, self.IMAGE_HEIGHT_PX / self.DPI), dpi=self.DPI)
             
-            # --- Define Layout ---
             gs_main = fig_mpl.add_gridspec(3, 1, height_ratios=[1, 10, 1.2], hspace=0.8)
             
             ax_top_legend = fig_mpl.add_subplot(gs_main[0])
@@ -210,12 +204,8 @@ class Report(ContestReport):
             ax_bottom_left = fig_mpl.add_subplot(gs_bottom_plots[0, 0])
             ax_bottom_right = fig_mpl.add_subplot(gs_bottom_plots[0, 1])
 
-            # --- Main Title ---
-            title_line_1 = f"{year} {event_id} {contest_name}"
-            title_line_2 = f"Hour {i + 1} of {total_frames}"
-            fig_mpl.suptitle(f"{title_line_1}\n{title_line_2}", y=0.98)
+            fig_mpl.suptitle(f"{year} {event_id} {contest_name}\nHour {i + 1} of {total_frames}")
 
-            # --- Top Chart: Cumulative Score & QSOs ---
             ax_qso = ax_top; ax_score = ax_top.twiny()
             for j, call in enumerate(calls):
                 score = data['log_data'][call]['cum_score'].get(hour, 0)
@@ -234,21 +224,17 @@ class Report(ContestReport):
             ax_score.xaxis.set_major_formatter(mticker.StrMethodFormatter('{x:,.0f}'))
             ax_top_legend.legend(*ax_score.get_legend_handles_labels(), loc='center', ncol=num_logs, title="Callsign", fontsize='medium')
 
-            # --- Bottom-Left Chart: Hourly Rates ---
             x_labels_hourly = [f"{b}-{m}" for b in data['bands'] for m in data['modes']]
             bar_width_hourly = 0.8 / len(calls)
             for j, call in enumerate(calls):
-                base_color = self.CALLSIGN_COLORS[j % len(self.CALLSIGN_COLORS)]
-                color_shades = _get_color_shades(base_color)
+                color_shades = _get_color_shades(self.CALLSIGN_COLORS[j % len(self.CALLSIGN_COLORS)])
                 bottoms = [0] * len(x_labels_hourly)
                 for run_state in ['Run', 'S&P', 'Unknown']:
                     y_values = []
                     for band in data['bands']:
                         for mode in data['modes']:
-                            try:
-                                count = data['log_data'][call]['hourly_run_sp'].loc[(hour, band, mode), run_state]
-                            except KeyError:
-                                count = 0
+                            try: count = data['log_data'][call]['hourly_run_sp'].loc[(hour, band, mode), run_state]
+                            except KeyError: count = 0
                             y_values.append(count)
                     
                     ax_bottom_left.bar([x + j * bar_width_hourly for x in range(len(x_labels_hourly))], y_values,
@@ -259,15 +245,12 @@ class Report(ContestReport):
             ax_bottom_left.set_xticklabels(x_labels_hourly, rotation=45, ha='right')
             ax_bottom_left.set_ylabel("QSOs per Hour"); ax_bottom_left.set_ylim(0, data['max_hourly_rate'] * 1.1); ax_bottom_left.grid(False)
 
-            # --- Bottom-Right Chart: Cumulative QSOs by Band ---
             bar_width_cum = 0.8 / num_logs
             band_indices = range(len(data['bands']))
             for j, call in enumerate(calls):
                 color_shades = _get_color_shades(self.CALLSIGN_COLORS[j % len(self.CALLSIGN_COLORS)])
                 bottoms = [0] * len(data['bands'])
-                
                 current_band_totals = data['log_data'][call]['cum_qso_per_band_breakdown'].loc[hour]
-                
                 for run_state in ['Run', 'S&P', 'Unknown']:
                     y_values = [current_band_totals.get((band, run_state), 0) for band in data['bands']]
                     ax_bottom_right.bar([x - (bar_width_cum * (num_logs - 1) / 2) + j * bar_width_cum for x in band_indices], y_values, width=bar_width_cum, bottom=bottoms, color=color_shades[run_state], alpha=0.8)
@@ -277,7 +260,6 @@ class Report(ContestReport):
             ax_bottom_right.set_ylabel("Total QSOs"); ax_bottom_right.set_xticks(band_indices)
             ax_bottom_right.set_xticklabels(data['bands']); ax_bottom_right.set_ylim(0, data['max_cum_qso_on_band'] * 1.1)
             
-            # --- Bottom Legend ---
             sample_shades = _get_color_shades(self.CALLSIGN_COLORS[0])
             legend_handles = [plt.Rectangle((0,0),1,1, fc=sample_shades[s]) for s in ['Run', 'S&P', 'Unknown']]
             ax_bottom_legend.legend(legend_handles, ['Run', 'S&P', 'Unknown'], title="QSO Type", loc='center', ncol=3)
