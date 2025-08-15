@@ -1,10 +1,15 @@
 # Contest Log Analyzer - Installation Guide
 
-**Version: 0.33.1-Beta**
-**Date: 2025-08-13**
+**Version: 0.35.22-Beta**
+**Date: 2025-08-15**
 
 ---
 ### --- Revision History ---
+## [0.35.22-Beta] - 2025-08-15
+### Changed
+# - Updated the list of required data files in Step 6 to be complete.
+# - Removed the obsolete Kaleido dependency from the installation
+#   command in Step 3.
 ## [0.33.1-Beta] - 2025-08-13
 ### Changed
 # - Updated installation instructions to use a single, consolidated conda
@@ -39,6 +44,7 @@ git clone [https://github.com/user/Contest-Log-Analyzer.git](https://github.com/
 cd Contest-Log-Analyzer
 ```
 This will create the project directory (`Contest-Log-Analyzer`) on your local machine.
+
 ### Step 2: Create and Activate the Conda Environment
 It is a best practice to create an isolated environment for the project's dependencies. This prevents conflicts with other Python projects on your system.
 ```
@@ -52,12 +58,11 @@ conda activate cla
 ### Step 3: Install Libraries with Conda
 With the `cla` environment active, use the following single command to install all required libraries from the recommended `conda-forge` channel. This includes `ffmpeg` for video creation.
 ```
-conda install -c conda-forge pandas matplotlib seaborn plotly python-kaleido imageio ffmpeg
+conda install -c conda-forge pandas matplotlib seaborn plotly imageio ffmpeg
 ```
 
 ### Step 4: Set Up the Data and Reports Directory
 The application requires a specific directory structure for its operation. You must create a main directory that will contain your log files, required data files, and the output reports. This directory can be anywhere on your system, but it is recommended to place it outside of the source code directory.
-
 For example, create a main folder `C:\Users\devnu\Desktop\CLA_Data`. Inside this folder, you must create the following subdirectories:
 
 ```
@@ -79,12 +84,16 @@ You must set a system environment variable named **`CONTEST_LOGS_REPORTS`** that
 4.  For "Variable name," enter: `CONTEST_LOGS_REPORTS`
 5.  For "Variable value," enter the full path to your main directory (e.g., `C:\Users\devnu\Desktop\CLA_Data`).
 6.  Click OK to close all windows. You must **restart** your terminal or command prompt for the change to take effect.
+
 ### Step 6: Obtain and Place Data Files
 The analyzer relies on several external data files. Download the following files and place them inside the **`data/`** subdirectory you created in Step 4.
 
-* **`cty.dat`**: The master country file. A standard version can be obtained from the [AD1C Country Files website](http://www.country-files.com/cty-dat-roto-zip-and-other-files-for-download/).
-* **`NAQPmults.dat`**: The alias file for North American QSO Party multipliers.
-* **`SweepstakesSections.dat`**: The alias file for ARRL Sweepstakes sections.
+* `cty.dat`: Required for all contests. A standard version can be obtained from the [AD1C Country Files website](http://www.country-files.com/cty-dat-roto-zip-and-other-files-for-download/).
+* `arrl_10_mults.dat`: Required for the ARRL 10 Meter contest.
+* `ARRLDXmults.dat`: Required for the ARRL DX contest.
+* `CQ160mults.dat`: Required for the CQ WW 160-Meter contest.
+* `NAQPmults.dat`: Required for North American QSO Party contests.
+* `SweepstakesSections.dat`: Required for ARRL Sweepstakes.
 ---
 ## 3. Running the Analyzer
 To verify the installation, run the program from the project's source code directory. Ensure your `cla` conda environment is active.

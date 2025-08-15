@@ -1,10 +1,14 @@
 # Contest Log Analyzer - User Guide
 
-**Version: 0.30.31-Beta**
-**Date: 2025-08-11**
+**Version: 0.35.25-Beta**
+**Date: 2025-08-15**
 
 ---
 ### --- Revision History ---
+## [0.35.25-Beta] - 2025-08-15
+### Changed
+# - Updated the "Available Reports" list and the `--report` argument
+#   description to be consistent with the current codebase.
 ## [0.30.31-Beta] - 2025-08-11
 ### Changed
 # - Updated the "Available Reports" section to be complete and accurate
@@ -43,13 +47,14 @@ Before running the analyzer, you will need a few files:
 ## 3. How to Run the Analyzer
 
 The program is run from your command prompt or terminal using `main_cli.py`.
+
 #### **Basic Syntax**
 
-    python main_cli.py --report <ReportID|all|chart|text|plot> <LogFile1> [<LogFile2>...] [options]
+    python main_cli.py --report <ReportID|all|chart|text|plot|animation> <LogFile1> [<LogFile2>...] [options]
 
 #### **Command-Line Options**
 
-* `--report <ReportID|all|chart|text|plot>`: (Required) Specifies which report to generate. Use a specific `ReportID` (e.g., `score_report`), `all` to generate every available report, or a category like `chart` to run all chart reports.
+* `--report <ReportID|all|chart|text|plot|animation>`: (Required) Specifies which report to generate. Use a specific `ReportID` (e.g., `score_report`), `all` to generate every available report, or a category keyword like `chart` to run all chart reports.
 * `<LogFile1> ...`: (Required) One or more paths to the Cabrillo log files you want to analyze.
 * `--include-dupes`: (Optional) By default, duplicate QSOs are ignored. Use this flag to include them in all calculations.
 * `--mult-name <name>`: (Optional) For reports that analyze multipliers (like `missed_multipliers`), this specifies which multiplier to use (e.g., 'Countries', 'Zones').
@@ -59,27 +64,27 @@ The program is run from your command prompt or terminal using `main_cli.py`.
 
 * **Generate all available reports for two logs:**
 
-__CODE_BLOCK__
+```
 python main_cli.py --report all 2025/cq-160-cw/kd4d.log 2025/cq-160-cw/n0ni.log
-__CODE_BLOCK__
+```
 
 * **Generate only the text reports for two logs:**
 
-__CODE_BLOCK__
+```
 python main_cli.py --report text 2025/cq-160-cw/kd4d.log 2025/cq-160-cw/n0ni.log
-__CODE_BLOCK__
+```
 
 * **Generate a specific report (Score Summary) for a single log:**
 
-__CODE_BLOCK__
+```
 python main_cli.py --report score_report 2025/cq-160-cw/kd4d.log
-__CODE_BLOCK__
+```
 
 * **Generate a Missed Multipliers report for CQ WW Zones:**
 
-__CODE_BLOCK__
+```
 python main_cli.py --report missed_multipliers --mult-name Zones Logs/2024/cq-ww-cw/k3lr.log Logs/2024/cq-ww-cw/kc1xx.log
-__CODE_BLOCK__
+```
 ---
 
 ## 4. Supported Contests
@@ -98,6 +103,10 @@ The analyzer uses the `CONTEST:` field in your Cabrillo file header to automatic
 ## 5. Available Reports
 
 Use the `Report ID` with the `--report` command-line option.
+
+#### **Animation Reports (`animations/`)**
+* `hourly_animation`: Hourly Rate Animation
+
 #### **Chart Reports (`charts/`)**
 * `chart_point_contribution`: Point Contribution Breakdown (Comparative)
 * `chart_point_contribution_single`: Point Contribution Breakdown (Single Log)

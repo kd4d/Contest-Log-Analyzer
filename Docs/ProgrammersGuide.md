@@ -1,10 +1,14 @@
 # Contest Log Analyzer - Programmer's Guide
 
-**Version: 0.32.15-Beta**
-**Date: 2025-08-12**
+**Version: 0.35.23-Beta**
+**Date: 2025-08-15**
 
 ---
 ### --- Revision History ---
+## [0.35.23-Beta] - 2025-08-15
+### Changed
+# - Updated the "Available Reports" list and the `--report` argument
+#   description to be consistent with the current codebase.
 ## [0.32.15-Beta] - 2025-08-12
 ### Added
 # - Added documentation for the new "Custom Parser Module" plug-in pattern.
@@ -33,11 +37,12 @@ This document provides a technical guide for developers (both human and AI) look
 This script is the main entry point for running the analyzer.
 * **Argument Parsing:** It uses Python's `argparse` to handle command-line arguments. Key arguments include:
     * `log_files`: A list of one or more log files to process.
-    * `--report`: Specifies which reports to run. This can be a single `report_id`, a comma-separated list of IDs, or the keyword `all`.
+    * `--report`: Specifies which reports to run. This can be a single `report_id`, a comma-separated list of IDs, the keyword `all`, or a category keyword (`chart`, `text`, `plot`, `animation`).
     * `--verbose`: Enables `INFO`-level debug logging.
     * `--include-dupes`: An optional flag to include duplicate QSOs in report calculations.
     * `--mult-name`: An optional argument to specify which multiplier to use for multiplier-specific reports (e.g., 'Countries').
 * **Report Discovery:** The script dynamically discovers all available reports by inspecting the `contest_tools.reports` package. Any valid report class in this package is automatically made available as a command-line option.
+
 ### Logging System (`Utils/logger_config.py`)
 The project uses Python's built-in `logging` framework for console output.
 * **`logging.info()`:** Used for verbose, step-by-step diagnostic messages. These are only displayed when the `--verbose` flag is used.
@@ -57,19 +62,22 @@ All reports must be created as `.py` files in the `contest_tools/reports/` direc
 | --- | --- | --- |
 | `report_id` | `str` | A unique, machine-friendly identifier (e.g., `score_report`). Used in the `--report` argument. |
 | `report_name` | `str` | A human-friendly name for the report (e.g., "Score Summary"). |
-| `report_type` | `str` | The category of the report. Currently `text`, `plot`, or `chart`. |
+| `report_type` | `str` | The category of the report. Currently `text`, `plot`, `chart`, or `animation`. |
 | `supports_single` | `bool` | `True` if the report can be run on a single log. |
 | `supports_multi` | `bool` | `True` if the report can be run on multiple logs (non-comparative). |
 | `supports_pairwise` | `bool` | `True` if the report compares exactly two logs. |
 
 4.  The class must implement a `generate(self, output_path: str, **kwargs) -> str` method. This method contains the core logic of the report and must accept `**kwargs` to handle optional arguments.
+
 ### Dynamic Discovery
 As long as a report file is in the `contest_tools/reports` directory and its class is named `Report`, the `__init__.py` in that directory will find and register it automatically.
+
 ### Helper Functions and Factoring (`_report_utils.py`)
 The `contest_tools/reports/_report_utils.py` module contains common helper functions. The philosophy for factoring is as follows:
 
 * **Keep it Self-Contained:** If a piece of logic is highly specific to a single report and unlikely to be reused, it should remain inside that report's `generate` method.
 * **Factor it Out:** If a function or component (like a chart style or data preparation step) is likely to be useful for other future reports, it should be factored out into a new helper function in `_report_utils.py`.
+
 ### Boilerplate Example
 Here is a minimal "Hello World" report.
 
@@ -97,6 +105,7 @@ class Report(ContestReport):
 ## How to Add a New Contest
 
 Adding a new contest can range from simple (creating a new `.json` file) to complex (extending the core parsing logic).
+
 ### JSON Quick Reference
 The primary way to add a contest is by creating a new `.json` file in the `contest_tools/contest_definitions/` directory. The following table describes the key attributes.
 
@@ -117,6 +126,7 @@ The primary way to add a contest is by creating a new `.json` file in the `conte
 2.  Define the `contest_name` to match the Cabrillo logs.
 3.  Define the `exchange_parsing_rules`. If the exchange can have multiple valid formats, you can provide a list of rule objects. The parser will try each one in order.
 4.  Define the `multiplier_rules`. For simple multipliers, you can use `"source_column"` to copy data from an existing column (like `CQZone` or `DXCCName`) into a multiplier column (`Mult1`, `Mult2`).
+
 ### Boilerplate Example
 
 ```
