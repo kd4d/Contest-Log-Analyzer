@@ -1,6 +1,6 @@
 # Contest Log Analyzer/contest_tools/reports/plot_hourly_animation.py
 #
-# Version: 0.35.16-Beta
+# Version: 0.35.20-Beta
 # Date: 2025-08-14
 #
 # Purpose: A plot report that generates a series of hourly images and compiles
@@ -16,21 +16,26 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.35.16-Beta] - 2025-08-14
+## [0.35.21-Beta] - 2025-08-14
 ### Fixed
-# - Corrected four bugs in the three-chart layout: legend positioning,
-#   blank hourly chart data lookup, cumulative chart format, and
-#   vertical spacing.
-## [0.35.15-Beta] - 2025-08-14
+# - Changed vertical spacing (hspace) from 0.3 to 0.9 to
+#   resolve all element overlaps.##
+#[0.35.20-Beta] - 2025-08-14
+### Fixed
+# - Fixed blank hourly rate chart by ensuring all Run/S&P/Unknown
+#   columns are present after data preparation.
+# - Added vertical spacing (hspace) to the GridSpec layout to
+#   resolve all element overlaps.
+## [0.35.19-Beta] - 2025-08-14
 ### Changed
-# - Refactored layout to a three-chart view. Added a new vertical bar
-#   chart for cumulative QSOs per band. Repositioned the hourly rate
-#   chart's legend to the bottom.
-## [0.35.14-Beta] - 2025-08-14
+# - Re-architected the animation layout using a multi-row GridSpec to
+#   create dedicated spaces for titles and legends, resolving all
+#   known overlap and spacing issues.
+## [0.35.18-Beta] - 2025-08-14
 ### Changed
-# - Changed the bottom bar chart visualization to use color shades
-#   (Dark/Medium/Light) to represent Run/S&P/Unknown status instead
-#   of hatch patterns.
+# - Refactored the animation layout to use the `constrained_layout`
+#   manager, fixing issues with title/legend overlap, chart height,
+#   and bottom legend positioning.
 import pandas as pd
 import os
 import logging
@@ -131,6 +136,9 @@ class Report(ContestReport):
             final_scores[call] = cum_score.iloc[-1]
             
             hourly_run_sp = log_df.groupby([log_df['Datetime'].dt.floor('h'), 'Band', 'Mode', 'Run']).size().unstack(fill_value=0)
+            for state in ['Run', 'S&P', 'Unknown']:
+                if state not in hourly_run_sp.columns:
+                    hourly_run_sp[state] = 0
             
             cum_qso_per_band_breakdown = log_df.groupby([log_df['Datetime'].dt.floor('h'), 'Band', 'Run']).size().unstack(level=['Band', 'Run'], fill_value=0).cumsum()
             cum_qso_per_band_breakdown = cum_qso_per_band_breakdown.reindex(master_index, method='ffill').fillna(0)
@@ -145,7 +153,6 @@ class Report(ContestReport):
         if all_cum_per_band_dfs:
             final_band_totals = pd.concat([df.iloc[[-1]] for df in all_cum_per_band_dfs])
             if not final_band_totals.empty:
-                # Sum the Run/S&P/Unknown columns for each band to get the total, then find the max
                 bands = sorted(combined_df['Band'].unique(), key=lambda b: [band[1] for band in ContestLog._HF_BANDS].index(b))
                 max_val = 0
                 for band in bands:
@@ -185,20 +192,31 @@ class Report(ContestReport):
         num_logs = len(calls)
 
         for i, hour in enumerate(data['master_index']):
-            top_chart_ratio = 0.10 * num_logs
-            top_chart_ratio = max(0.12, min(top_chart_ratio, 0.40))
-            height_ratios = [top_chart_ratio, 1 - top_chart_ratio]
-
             fig_mpl = plt.figure(figsize=(self.IMAGE_WIDTH_PX / self.DPI, self.IMAGE_HEIGHT_PX / self.DPI), dpi=self.DPI)
-            gs_main = fig_mpl.add_gridspec(2, 1, height_ratios=height_ratios)
-            ax_top = fig_mpl.add_subplot(gs_main[0, 0])
-            gs_bottom = gs_main[1, 0].subgridspec(1, 2, width_ratios=[3, 2])
-            ax_bottom_left = fig_mpl.add_subplot(gs_bottom[0, 0])
-            ax_bottom_right = fig_mpl.add_subplot(gs_bottom[0, 1])
+            
+            # --- Define Layout ---
+            gs_main = fig_mpl.add_gridspec(3, 1, height_ratios=[1, 10, 1.2], hspace=0.8)
+            
+            ax_top_legend = fig_mpl.add_subplot(gs_main[0])
+            ax_bottom_legend = fig_mpl.add_subplot(gs_main[2])
+            ax_top_legend.axis('off'); ax_bottom_legend.axis('off')
+            
+            top_chart_ratio = 0.12 * num_logs
+            top_chart_ratio = max(0.15, min(top_chart_ratio, 0.45))
+            
+            gs_plots = gridspec.GridSpecFromSubplotSpec(2, 1, subplot_spec=gs_main[1], height_ratios=[top_chart_ratio, 1 - top_chart_ratio], hspace=0.9)
+            ax_top = fig_mpl.add_subplot(gs_plots[0])
+            gs_bottom_plots = gridspec.GridSpecFromSubplotSpec(1, 2, subplot_spec=gs_plots[1], width_ratios=[3, 2], wspace=0.15)
+            ax_bottom_left = fig_mpl.add_subplot(gs_bottom_plots[0, 0])
+            ax_bottom_right = fig_mpl.add_subplot(gs_bottom_plots[0, 1])
+
+            # --- Main Title ---
+            title_line_1 = f"{year} {event_id} {contest_name}"
+            title_line_2 = f"Hour {i + 1} of {total_frames}"
+            fig_mpl.suptitle(f"{title_line_1}\n{title_line_2}", y=0.98)
 
             # --- Top Chart: Cumulative Score & QSOs ---
-            ax_qso = ax_top
-            ax_score = ax_top.twiny()
+            ax_qso = ax_top; ax_score = ax_top.twiny()
             for j, call in enumerate(calls):
                 score = data['log_data'][call]['cum_score'].get(hour, 0)
                 qsos = data['log_data'][call]['cum_qso'].get(hour, 0)
@@ -208,18 +226,15 @@ class Report(ContestReport):
                 ax_score.text(score, j + 0.2, f' {score:,.0f}', va='center', ha='left')
                 ax_qso.barh(j - 0.2, qsos, height=0.4, align='center', color=bar_color, alpha=0.6)
                 ax_qso.text(qsos, j - 0.2, f' {qsos:,.0f}', va='center', ha='left')
-                ax_qso.text(-0.01, j + 0.2, 'Score', ha='right', va='center', transform=ax_qso.get_yaxis_transform(), fontsize=9)
-                ax_qso.text(-0.01, j - 0.2, 'QSOs', ha='right', va='center', transform=ax_qso.get_yaxis_transform(), fontsize=9)
             
             ax_qso.set_yticks(range(len(calls))); ax_qso.set_yticklabels([]); ax_qso.tick_params(axis='y', length=0)
             ax_qso.set_xlim(0, data['max_final_qso']); ax_qso.set_xlabel("Cumulative QSOs")
             ax_score.set_xlim(0, data['max_final_score']); ax_score.set_xlabel("Cumulative Score")
             ax_score.xaxis.set_ticks_position('top'); ax_score.xaxis.set_label_position('top')
             ax_score.xaxis.set_major_formatter(mticker.StrMethodFormatter('{x:,.0f}'))
-            legend_pos = 'lower right' if i < total_frames / 2 else 'lower left'
-            ax_score.legend(loc=legend_pos, title="Callsign")
+            ax_top_legend.legend(*ax_score.get_legend_handles_labels(), loc='center', ncol=num_logs, title="Callsign", fontsize='medium')
 
-            # --- Bottom-Left Chart: Hourly Rates by Band/Mode ---
+            # --- Bottom-Left Chart: Hourly Rates ---
             x_labels_hourly = [f"{b}-{m}" for b in data['bands'] for m in data['modes']]
             bar_width_hourly = 0.8 / len(calls)
             for j, call in enumerate(calls):
@@ -227,7 +242,6 @@ class Report(ContestReport):
                 color_shades = _get_color_shades(base_color)
                 bottoms = [0] * len(x_labels_hourly)
                 for run_state in ['Run', 'S&P', 'Unknown']:
-                    color = color_shades[run_state]
                     y_values = []
                     for band in data['bands']:
                         for mode in data['modes']:
@@ -238,50 +252,35 @@ class Report(ContestReport):
                             y_values.append(count)
                     
                     ax_bottom_left.bar([x + j * bar_width_hourly for x in range(len(x_labels_hourly))], y_values,
-                                       width=bar_width_hourly, bottom=bottoms, color=color, alpha=0.8)
+                                       width=bar_width_hourly, bottom=bottoms, color=color_shades[run_state], alpha=0.8)
                     bottoms = [b + y for b, y in zip(bottoms, y_values)]
             
             ax_bottom_left.set_xticks([x + (bar_width_hourly * (num_logs-1) / 2) for x in range(len(x_labels_hourly))])
             ax_bottom_left.set_xticklabels(x_labels_hourly, rotation=45, ha='right')
-            ax_bottom_left.set_ylabel("QSOs per Hour")
-            ax_bottom_left.set_ylim(0, data['max_hourly_rate'] * 1.1); ax_bottom_left.grid(False)
-            sample_shades = _get_color_shades(self.CALLSIGN_COLORS[0])
-            legend_handles = [plt.Rectangle((0,0),1,1, fc=sample_shades[s]) for s in ['Run', 'S&P', 'Unknown']]
-            ax_bottom_left.legend(legend_handles, ['Run', 'S&P', 'Unknown'], title="QSO Type", loc='upper center', bbox_to_anchor=(0.5, -0.3), ncol=3)
+            ax_bottom_left.set_ylabel("QSOs per Hour"); ax_bottom_left.set_ylim(0, data['max_hourly_rate'] * 1.1); ax_bottom_left.grid(False)
 
             # --- Bottom-Right Chart: Cumulative QSOs by Band ---
             bar_width_cum = 0.8 / num_logs
             band_indices = range(len(data['bands']))
             for j, call in enumerate(calls):
-                base_color = self.CALLSIGN_COLORS[j % len(self.CALLSIGN_COLORS)]
-                color_shades = _get_color_shades(base_color)
+                color_shades = _get_color_shades(self.CALLSIGN_COLORS[j % len(self.CALLSIGN_COLORS)])
                 bottoms = [0] * len(data['bands'])
+                
+                current_band_totals = data['log_data'][call]['cum_qso_per_band_breakdown'].loc[hour]
+                
                 for run_state in ['Run', 'S&P', 'Unknown']:
-                    color = color_shades[run_state]
-                    y_values = [data['log_data'][call]['cum_qso_per_band_breakdown'].get((band, run_state), 0) for band in data['bands']]
-                    current_values = pd.Series(y_values, index=data['bands'])
-                    if hour in data['log_data'][call]['cum_qso_per_band_breakdown'].index:
-                         current_values = data['log_data'][call]['cum_qso_per_band_breakdown'].loc[hour]
-                    
-                    y_values_ordered = []
-                    for band in data['bands']:
-                         val = current_values.get((band, run_state), 0)
-                         y_values_ordered.append(val)
-                    
-                    ax_bottom_right.bar([x - (bar_width_cum * (num_logs - 1) / 2) + j * bar_width_cum for x in band_indices], y_values_ordered, width=bar_width_cum, bottom=bottoms, color=color, alpha=0.8)
-                    bottoms = [b + y for b, y in zip(bottoms, y_values_ordered)]
+                    y_values = [current_band_totals.get((band, run_state), 0) for band in data['bands']]
+                    ax_bottom_right.bar([x - (bar_width_cum * (num_logs - 1) / 2) + j * bar_width_cum for x in band_indices], y_values, width=bar_width_cum, bottom=bottoms, color=color_shades[run_state], alpha=0.8)
+                    bottoms = [b + y for b, y in zip(bottoms, y_values)]
 
             ax_bottom_right.set_title("Cumulative QSOs by Band", fontsize=10)
-            ax_bottom_right.set_ylabel("Total QSOs")
-            ax_bottom_right.set_xticks(band_indices)
-            ax_bottom_right.set_xticklabels(data['bands'])
-            ax_bottom_right.set_ylim(0, data['max_cum_qso_on_band'] * 1.1)
+            ax_bottom_right.set_ylabel("Total QSOs"); ax_bottom_right.set_xticks(band_indices)
+            ax_bottom_right.set_xticklabels(data['bands']); ax_bottom_right.set_ylim(0, data['max_cum_qso_on_band'] * 1.1)
             
-            # --- Overall Figure Formatting ---
-            title_line_1 = f"{year} {event_id} {contest_name}"
-            title_line_2 = f"Hour {i + 1} of {total_frames}"
-            fig_mpl.suptitle(f"{title_line_1}\n{title_line_2}")
-            fig_mpl.tight_layout(rect=[0, 0.03, 1, 0.93])
+            # --- Bottom Legend ---
+            sample_shades = _get_color_shades(self.CALLSIGN_COLORS[0])
+            legend_handles = [plt.Rectangle((0,0),1,1, fc=sample_shades[s]) for s in ['Run', 'S&P', 'Unknown']]
+            ax_bottom_legend.legend(legend_handles, ['Run', 'S&P', 'Unknown'], title="QSO Type", loc='center', ncol=3)
 
             frame_path = os.path.join(frame_dir, f"frame_{i:03d}.png")
             plt.savefig(frame_path)

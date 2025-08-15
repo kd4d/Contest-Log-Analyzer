@@ -1,10 +1,19 @@
 # Project Workflow Guide
 
-**Version: 0.35.17-Beta**
+**Version: 0.35.19-Beta**
 **Date: 2025-08-14**
 
 ---
 ### --- Revision History ---
+## [0.35.19-Beta] - 2025-08-14
+### Changed
+# - Amended Protocol 1.2.4 to require the confirmation prompt be
+#   included in the same response as the file delivery.
+# - Added a confirmation procedure step to Protocol 2.2.
+## [0.35.18-Beta] - 2025-08-14
+### Changed
+# - Amended Protocol 1.2.4 to include the exact required text for the
+#   AI's state confirmation prompt.
 ## [0.35.17-Beta] - 2025-08-14
 ### Changed
 # - Amended Protocol 1.2 to include a final, mutual acknowledgment step.
@@ -12,31 +21,6 @@
 ## [0.35.11-Beta] - 2025-08-14
 ### Changed
 # - Changed Protocol 4.3.2 to require individual file delivery instead of bundling.
-## [0.35.10-Beta] - 2025-08-14
-### Fixed
-# - Added exception handling for log file mismatches (wrong contest/event)
-#   to ensure a graceful exit.
-### Added
-# - Added validation to finalize_loading to ensure all logs are from the
-#   same contest and event, raising a ValueError on mismatch.
-## [0.32.20-Beta] - 2025-08-14
-### Changed
-# - Amended Protocol 1.2 to clarify that the atomic_checkpoint file is
-#   maintained internally and not provided in the chat unless requested.
-## [0.32.19-Beta] - 2025-08-14
-### Changed
-# - Amended Protocol 1.4 to include data_bundle.txt in the
-#   Definitive State Initialization.
-## [0.32.18-Beta] - 2025-08-14
-### Added
-# - Added Protocol 3.6 (File Purge Protocol).
-### Changed
-# - Amended Protocol 6.1 to require explicit clarification for typos.
-## [0.32.17-Beta] - 2025-08-14
-### Changed
-# - Merged missing protocols from v0.32.15-Beta to create a complete document.
-# - Replaced the "Definitive State Reconciliation Protocol" (1.2) with the "Atomic State Checkpoint Protocol".
-# - Eliminated "Atomic Versioning" (3.4.2) and clarified the versioning workflow.
 ---
 
 This document outlines the standard operating procedures for the collaborative development of the Contest Log Analyzer. **The primary audience for this document is the Gemini AI agent.**
@@ -75,7 +59,9 @@ These are the step-by-step procedures for common, day-to-day development tasks.
     1.  **Identify Ground Truth:** Perform a reverse chronological search of the chat history for the single most recent `atomic_checkpoint_YYYY-MM-DD_HHMMSS.txt` file.
     2.  **Initialize State:** Parse this checkpoint file to establish the current, correct version of all project files. This checkpoint is the sole source of truth for the task.
     3.  **Checkpoint on Completion:** As the final step of any task that modifies a file, a new, timestamped `atomic_checkpoint_...` file must be generated and maintained internally by the AI. It will serve as the definitive state for the next task but will not be provided in the chat unless explicitly requested by the user.
-    4.  **AI Confirmation**: After the internal checkpoint is updated, the AI must issue a confirmation message (e.g., "Task complete. Internal checkpoint updated.").
+    4.  **AI Confirmation**: The AI must append the following exact confirmation prompt to the end of the same response in which a file is delivered:
+        > Task complete. Internal checkpoint updated.
+        > As per Protocol 1.2.5, please provide your acknowledgment to confirm our states are synchronized.
     5.  **User Acknowledgment**: The user should provide a brief acknowledgment (e.g., "Acknowledged.") to confirm the state is synchronized before a new task is initiated.
 
 1.3. **Context Checkpoint Protocol.** If the AI appears to have lost context, the user can issue a **Context Checkpoint**.
@@ -106,6 +92,10 @@ These are the step-by-step procedures for common, day-to-day development tasks.
 2.1. **Decomposition of Complexity.** Complex requests must be broken down into smaller, sequential steps.
 
 2.2. **Pre-Flight Check Protocol.** The AI will perform a "white-box" mental code review **before** delivering a modified file.
+    1.  **Stating the Plan:** The AI will state its Pre-Flight Check plan, including the **Inputs** and the **Expected Outcome**.
+    2.  **Mental Walkthrough:** The AI will mentally trace the execution path to confirm the logic produces the expected outcome.
+    3.  **User Verification:** The user performs the final verification by running the code.
+    4.  **State Confirmation Procedure**: The AI will affirm that the mandatory confirmation prompt, as defined in Protocol 1.2.4, will be included with the file delivery.
 
 2.3. **Code Modification Protocol.**
     1.  **Strictly Adhere to Requested Changes**.
