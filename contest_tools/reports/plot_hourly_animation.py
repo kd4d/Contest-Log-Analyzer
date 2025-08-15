@@ -91,7 +91,7 @@ class Report(ContestReport):
         score_formula = first_log_def.score_formula
 
         min_time = combined_df['Datetime'].min().floor('h')
-        max_time = (combined_df['Datetime'].max() - pd.Timedelta(microseconds=1)).ceil('h')
+        max_time = (combined_df['Datetime'].max() - pd.Timedelta(microseconds=1)).floor('h')
         master_index = pd.date_range(start=min_time, end=max_time, freq='h', tz='UTC')
         
         log_data = {}
