@@ -1,26 +1,22 @@
 # Project Workflow Guide
 
-**Version: 0.35.19-Beta**
-**Date: 2025-08-14**
+**Version: 0.35.27-Beta**
+**Date: 2025-08-15**
 
 ---
 ### --- Revision History ---
+## [0.35.27-Beta] - 2025-08-15
+### Changed
+# - Replaced the "Atomic State Checkpoint Protocol" (1.2) with the new
+#   "Definitive State Reconciliation Protocol" which uses the last
+#   Definitive State Initialization as its baseline.
+# - Amended Protocol 1.5 to add an explicit step for handling
+#   documents that require no changes.
 ## [0.35.19-Beta] - 2025-08-14
 ### Changed
 # - Amended Protocol 1.2.4 to require the confirmation prompt be
 #   included in the same response as the file delivery.
 # - Added a confirmation procedure step to Protocol 2.2.
-## [0.35.18-Beta] - 2025-08-14
-### Changed
-# - Amended Protocol 1.2.4 to include the exact required text for the
-#   AI's state confirmation prompt.
-## [0.35.17-Beta] - 2025-08-14
-### Changed
-# - Amended Protocol 1.2 to include a final, mutual acknowledgment step.
-# - Clarified the title and purpose of Protocol 4.3 for large file transmissions.
-## [0.35.11-Beta] - 2025-08-14
-### Changed
-# - Changed Protocol 4.3.2 to require individual file delivery instead of bundling.
 ---
 
 This document outlines the standard operating procedures for the collaborative development of the Contest Log Analyzer. **The primary audience for this document is the Gemini AI agent.**
@@ -32,19 +28,12 @@ This document outlines the standard operating procedures for the collaborative d
 These are the foundational rules that govern all interactions and analyses.
 
 1.  **Protocol Adherence is Paramount.** All protocols must be followed with absolute precision. Failure to do so invalidates the results and undermines the development process. There is no room for deviation unless a deviation is explicitly requested by the AI and authorized by the user.
-
 2.  **Trust the User's Diagnostics.** When the user reports a bug, their description of the symptoms should be treated as the ground truth. The AI's primary task is to find the root cause of those specific, observed symptoms, not to propose alternative theories.
-
 3.  **No Unrequested Changes.** The AI will only implement changes explicitly requested by the user. All suggestions for refactoring, library changes, or stylistic updates must be proposed and approved by the user before implementation.
-
 4.  **Technical Diligence Over Conversational Assumptions.** Technical tasks are not conversations. Similar-looking prompts do not imply similar answers. Each technical request must be treated as a unique, atomic operation. The AI must execute a full re-computation from the current project state for every request, ignoring any previous results or cached data.
-
 5.  **Prefer Logic in Code, Not Data.** The project's design philosophy is to keep the `.json` definition files as simple, declarative maps. All complex, conditional, or contest-specific logic should be implemented in dedicated Python modules.
-
 6.  **Assume Bugs are Systemic.** When a bug is identified in one module, the default assumption is that the same flaw exists in all other similar modules. The AI must perform a global search for that specific bug pattern and fix all instances at once.
-
 7.  **Reports Must Be Non-Destructive.** Specialist report scripts must **never** modify the original `ContestLog` objects they receive. All data filtering or manipulation must be done on a temporary **copy** of the DataFrame.
-
 8.  **Principle of Surgical Modification.** All file modifications must be treated as surgical operations. The AI must start with the last known-good version of a file as the ground truth and apply only the minimal, approved change. Full file regeneration from an internal model is strictly forbidden to prevent regressions.
 ---
 ## Part II: Standard Operating Protocols
@@ -55,14 +44,10 @@ These are the step-by-step procedures for common, day-to-day development tasks.
 
 1.1. **Onboarding Protocol.** The first action for any AI agent upon starting a session is to read this document in its entirety, acknowledge it, and ask any clarifying questions.
 
-1.2. **Atomic State Checkpoint Protocol.** This protocol is triggered by any request to read or update a project file and ensures the AI is always working from the definitive project state.
-    1.  **Identify Ground Truth:** Perform a reverse chronological search of the chat history for the single most recent `atomic_checkpoint_YYYY-MM-DD_HHMMSS.txt` file.
-    2.  **Initialize State:** Parse this checkpoint file to establish the current, correct version of all project files. This checkpoint is the sole source of truth for the task.
-    3.  **Checkpoint on Completion:** As the final step of any task that modifies a file, a new, timestamped `atomic_checkpoint_...` file must be generated and maintained internally by the AI. It will serve as the definitive state for the next task but will not be provided in the chat unless explicitly requested by the user.
-    4.  **AI Confirmation**: The AI must append the following exact confirmation prompt to the end of the same response in which a file is delivered:
-        > Task complete. Internal checkpoint updated.
-        > As per Protocol 1.2.5, please provide your acknowledgment to confirm our states are synchronized.
-    5.  **User Acknowledgment**: The user should provide a brief acknowledgment (e.g., "Acknowledged.") to confirm the state is synchronized before a new task is initiated.
+1.2. **Definitive State Reconciliation Protocol.**
+    1.  **Establish Baseline**: The definitive state is established by first locating the most recent **Definitive State Initialization Protocol** in the chat history. The files from this initialization serve as the absolute baseline.
+    2.  **Scan Forward for Updates**: After establishing the baseline, the AI will scan the chat history *forward* from that point to the present.
+    3.  **Identify Latest Valid Version**: The AI will identify the **latest** version of each file that was part of a successfully completed and mutually acknowledged transaction (i.e., file delivery, AI confirmation, and user acknowledgment). This version supersedes the baseline version.
 
 1.3. **Context Checkpoint Protocol.** If the AI appears to have lost context, the user can issue a **Context Checkpoint**.
     1.  The user begins with the exact phrase: **"Gemini, let's establish a Context Checkpoint."**
@@ -81,10 +66,11 @@ These are the step-by-step procedures for common, day-to-day development tasks.
     2.  **Begin Sequential Review:** The AI will then loop through the list, processing one document at a time using the following steps:
         * **Step A: Identify and Request.** State which document is next and ask for permission to proceed.
         * **Step B: Analyze.** Upon approval, perform a full "a priori" review of the document against the current code baseline and provide an analysis of any discrepancies.
-        * **Step C: Propose Plan.** Ask if the user wants an implementation plan to update the document.
+        * **Step C (Changes Needed): Propose Plan.** If discrepancies are found, ask if the user wants an implementation plan to update the document.
         * **Step D: Provide Plan.** Upon approval, provide a detailed, surgical implementation plan for the necessary changes.
         * **Step E: Request to Proceed.** Ask for explicit permission to generate the updated document.
         * **Step F: Deliver Update.** Upon approval, perform a **Pre-Flight Check**, explicitly state that the check is complete, and then deliver the updated document.
+        * **Step G (No Changes Needed):** If the analysis in Step B finds no discrepancies, the AI will state that the document is already synchronized and ask for the user's confirmation to proceed to the next document.
     3.  **Completion:** After the final document has been processed, the AI will state that the protocol is complete.
 
 ### 2. Task Execution Workflow
