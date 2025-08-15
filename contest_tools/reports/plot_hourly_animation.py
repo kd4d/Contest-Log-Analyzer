@@ -1,6 +1,6 @@
 # Contest Log Analyzer/contest_tools/reports/plot_hourly_animation.py
 #
-# Version: 0.35.21-Beta
+# Version: 0.35.28-Beta
 # Date: 2025-08-15
 #
 # Purpose: A plot report that generates a series of hourly images and compiles
@@ -16,6 +16,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.35.28-Beta] - 2025-08-15
+### Fixed
+# - Corrected the animation timeline calculation to prevent an extra
+#   hour from being added to the end of the contest.
 ## [0.35.21-Beta] - 2025-08-15
 ### Changed
 # - Updated the color scheme for vertical bar charts to use bright red
@@ -26,11 +30,6 @@
 #   columns are present after data preparation.
 # - Added vertical spacing (hspace) to the GridSpec layout to
 #   resolve all element overlaps.
-## [0.35.19-Beta] - 2025-08-14
-### Changed
-# - Re-architected the animation layout using a multi-row GridSpec to
-#   create dedicated spaces for titles and legends, resolving all
-#   known overlap and spacing issues.
 import pandas as pd
 import os
 import logging
@@ -91,7 +90,8 @@ class Report(ContestReport):
         first_log_def = self.logs[0].contest_definition
         score_formula = first_log_def.score_formula
 
-        min_time, max_time = combined_df['Datetime'].min().floor('h'), combined_df['Datetime'].max().ceil('h')
+        min_time = combined_df['Datetime'].min().floor('h')
+        max_time = (combined_df['Datetime'].max() - pd.Timedelta(microseconds=1)).ceil('h')
         master_index = pd.date_range(start=min_time, end=max_time, freq='h', tz='UTC')
         
         log_data = {}
