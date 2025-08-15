@@ -1,8 +1,9 @@
 {
   "_filename": "contest_tools/contest_definitions/arrl_dx_cw.json",
-  "_version": "0.30.0-Beta",
-  "_date": "2025-08-05",
+  "_version": "0.35.4-Beta",
+  "_date": "2025-08-13",
   "contest_name": "ARRL-DX-CW",
+  "custom_parser_module": "arrl_dx_parser",
   "mults_from_zero_point_qsos": false,
   "custom_multiplier_resolver": "arrl_dx_multiplier_resolver",
   "multiplier_report_scope": "per_band",
@@ -10,7 +11,7 @@
     "point_rate_plots"
   ],
   "exchange_parsing_rules": {
-    "ARRL-DX-CW-WVE": {
+    "ARRL-DX-CW-W/VE": {
       "regex": "(\\d{3})\\s+([A-Z]{2})\\s+([A-Z0-9/]+)\\s+(\\d{3})\\s+([A-Z0-9]+)(?:\\s+(\\d))?",
       "groups": ["SentRST", "SentLocation", "Call", "RST", "RcvdPower", "Transmitter"]
     },
@@ -40,9 +41,9 @@
   ],
   "default_qso_columns": [
     "ContestName", "CategoryOverlay", "CategoryOperator", "CategoryTransmitter", "MyCall",
-    "Frequency", "Mode", "Datetime", 
+    "Frequency", "Mode", "Datetime",
     "SentRST", "SentLocation", "SentPower",
-    "Call", 
+    "Call",
     "RST", "RcvdLocation", "RcvdPower", "Transmitter",
     "Band", "Date", "Hour", "Dupe",
     "DXCCName", "DXCCPfx", "CQZone", "ITUZone", "Continent", "WAEName", "WAEPfx", "Lat", "Lon", "Tzone",

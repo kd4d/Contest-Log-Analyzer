@@ -1,10 +1,15 @@
 # WPX Prefix Lookup Specification
 
-**Version: 1.2.0-Beta**
-**Date: 2025-08-11**
+**Version: 0.31.59-Beta**
+**Date: 2025-08-15**
 
 ---
 ### --- Revision History ---
+## [0.31.59-Beta] - 2025-08-15
+### Changed
+# - Overhauled the algorithm description to accurately reflect the
+#   sophisticated, multi-stage logic from the code, including the
+#   critical DXCCPfx override.
 ## [1.2.0-Beta] - 2025-08-11
 ### Changed
 # - Updated the description of the `calculate_wpx_prefixes` function to
@@ -20,41 +25,37 @@
 
 ## 1. Introduction
 This document provides the definitive technical specification for how WPX (Worked All Prefixes) multipliers are calculated and processed by the Contest Log Analyzer. It covers both the abstract algorithm and its concrete implementation in the Python source code.
-
 ---
 ## 2. The Prefix Lookup Algorithm
-This section defines the formal, step-by-step logic for determining a valid WPX prefix from a single amateur radio callsign. The process is hierarchical, checking for a special case first before proceeding to the standard calculation.
+This section defines the formal, step-by-step logic for determining a valid WPX prefix from a single amateur radio callsign. The process is hierarchical, checking for special cases before proceeding to the standard calculation.
 
-### 2.1. Special Case: Prefix-Style Portables
-The algorithm first checks for the special case of a prefix-style portable callsign (e.g., `PA/F6ABC`).
+### 2.1. Pre-processing
+The algorithm begins by cleaning the raw callsign string.
+1.  **Strip Suffixes**: Common non-prefix suffixes like `/P`, `/M`, `/QRP`, etc., are removed.
+2.  **Maritime Mobile**: The call is checked for `/MM`. If present, the call is immediately classified as having an "Unknown" prefix, and the process terminates.
 
-1.  The callsign is checked for a forward slash (`/`).
-2.  If a slash is found, the portion of the callsign *before* the slash is isolated (the "prefix part").
-3.  This prefix part is then checked for any numerical digits.
-4.  If the prefix part contains **no digits**, a `0` is appended to it to form the final prefix (e.g., `PA` becomes `PA0`), and the algorithm terminates for this callsign.
-5.  If the prefix part *does* contain a digit (e.g., `IT9` in `IT9/K3MM`), this special rule is ignored, and the algorithm proceeds to the standard calculation below.
+### 2.2. Portable Call Logic
+If the cleaned callsign contains a `/`, it is processed by the portable call heuristics in `get_cty.py` to determine a `portableid`.
+* **call/letters** (e.g., `LX/KD4D`): The `portableid` is `LX`. The prefix is formed by appending a `0` (e.g., `LX0`).
+* **call/digit** (e.g., `WN5N/7`): The `portableid` is `7`. The prefix is formed by replacing the digit in the base call's prefix with the portable digit (e.g., `WN5` becomes `WN7`).
+* **call/prefix** (e.g., `VP2V/KD4D`): The `portableid` is `VP2V`. The prefix is the `portableid` itself.
 
-### 2.2. Standard Prefix Calculation
-If the callsign is not a special prefix-style portable, or if its prefix part contains a digit, the following standard algorithm is used:
-
-1.  **Remove Simple Portable Indicators:** Any standard portable indicators (e.g., `/P`, `/M`, `/AM`, `/MM`) are removed from the end of the callsign string.
-
-2.  **Extract Standard Prefix:** The code then uses a regular expression `([A-Z]+)(\d+)([A-Z]*)` to match the standard prefix structure: the initial group of letters, the first number group, and the subsequent group of letters.
-
-3.  **Apply LDL Special Case:** A final check is performed on the standard prefix extracted in the previous step. If it matches the specific **Letter-Digit-Letter (LDL)** format (e.g., `N8S`), the final letter is dropped to produce the correct prefix (e.g., `N8`). Otherwise, the standard prefix is used as the final result.
-
+### 2.3. Standard Prefix Calculation
+If the call is not a portable, the following logic is used:
+1.  **Default Prefix**: The default prefix is calculated as "everything up to and including the last digit" (e.g., `K3LR` -> `K3`, `WX3B` -> `WX3`). A fallback rule creates a prefix for calls with no numbers (e.g., `PA` -> `PA0`).
+2.  **DXCCPfx Override**: The algorithm then checks the `DXCCPfx` value for the callsign (provided by `get_cty.py`). If the `DXCCPfx` is a longer, more specific prefix than the default (e.g., for call `R1FJ`, the default is `R1` but the `DXCCPfx` is `R1F`), the **`DXCCPfx` is used as the final prefix**. This is the highest-priority rule for standard calls.
+3.  **Final Validation**: If the final calculated prefix is only a single digit, it is invalidated and classified as "Unknown".
 ---
 ## 3. The Python Implementation
 
 This section describes how the algorithm and the higher-level "first-worked" logic are implemented in the project's source code.
-
 ### 3.1. Overview
 The full process involves two stages, handled by two separate functions within the `cq_wpx_prefix.py` module:
 * A low-level helper function (`_get_prefix`) that implements the hierarchical algorithm from Section 2.
 * A high-level orchestrator function (`calculate_wpx_prefixes`) that uses this helper to implement the stateful "first-worked per contest" logic.
 
-#### `_get_prefix(call)` function
-This helper function is the direct, line-by-line implementation of the hierarchical algorithm described in Section 2. It accepts a single callsign string and returns the final, calculated prefix string, correctly handling all special cases.
+#### `_get_prefix(row)` function
+This helper function is the direct, line-by-line implementation of the hierarchical algorithm described in Section 2. It accepts a full DataFrame row (containing the `Call`, `DXCCPfx`, and `portableid`) and returns the final, calculated prefix string, correctly handling all special cases.
 
 #### `calculate_wpx_prefixes(df)` function
 This is the main function called by the log processing engine. It implements the "first-worked per contest" logic. Its process is as follows:
@@ -68,7 +69,7 @@ This is the main function called by the log processing engine. It implements the
 ### 3.3. Data Flow and Orchestration
 
 #### `contest_log.py`
-This script is the central orchestrator for all log processing. Its `apply_contest_specific_annotations` method reads the `multiplier_rules` from the relevant `.json` file. When it encounters a rule with `"source": "calculation_module"`, it uses the `module_name` and `function_name` from the rule to dynamically import and execute the correct function (e.g., `calculate_w_prefixes`). The sparse Series returned by this function is then assigned to the final multiplier column (e.g., `Mult1`) in the main DataFrame.
+This script is the central orchestrator for all log processing. Its `apply_contest_specific_annotations` method reads the `multiplier_rules` from the relevant `.json` file. When it encounters a rule with `"source": "calculation_module"`, it uses the `module_name` and `function_name` from the rule to dynamically import and execute the correct function (e.g., `calculate_wpx_prefixes`). The sparse Series returned by this function is then assigned to the final multiplier column (e.g., `Mult1`) in the main DataFrame.
 
 #### `get_cty.py`
-This utility is fundamental to the overall log processing pipeline, as it provides the essential geographic data for each QSO (e.g., `DXCCName`, `Continent`). However, for the specific task of calculating a WPX prefix, its data is **not** used as a direct input. The prefix is derived solely from the callsign string itself, as defined by the algorithm in Section 2.
+This utility is fundamental to the overall log processing pipeline. The prefix is derived from a combination of the callsign string itself and its associated `DXCCPfx` value, which is provided by the `get_cty.py` utility. The `DXCCPfx` serves as a critical override in the logic.

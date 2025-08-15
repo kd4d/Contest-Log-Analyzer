@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-05
-# Version: 0.30.29-Beta
+# Date: 2025-08-14
+# Version: 0.35.10-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,14 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.35.10-Beta] - 2025-08-14
+### Fixed
+# - Added exception handling for log file mismatches (wrong contest/event)
+#   to ensure a graceful exit.
+## [0.35.9-Beta] - 2025-08-14
+### Fixed
+# - Added a try...except block to gracefully handle the ValueError that occurs
+#   when the ReportGenerator is initialized with no valid logs.
 ## [0.30.29-Beta] - 2025-08-05
 ### Changed
 # - Updated the usage guide to include new report category options (chart, text, plot).
@@ -130,16 +138,22 @@ def main():
     for path in full_log_paths:
         log_manager.load_log(path)
     
-    log_manager.finalize_loading()
-    
     report_kwargs = {
         'include_dupes': args.include_dupes,
         'mult_name': args.mult_name,
         'metric': args.metric
     }
 
-    generator = ReportGenerator(logs=log_manager.get_logs(), root_output_dir=reports_dir)
-    generator.run_reports(args.report_id, **report_kwargs)
+    try:
+        log_manager.finalize_loading()
+        generator = ReportGenerator(logs=log_manager.get_logs(), root_output_dir=reports_dir)
+        generator.run_reports(args.report_id, **report_kwargs)
+    except ValueError as e:
+        handle_error(
+            "INITIALIZATION ERROR",
+            str(e),
+            "Ensure all logs are valid, from the same contest and event, and can be parsed correctly."
+        )
     
     logging.info("\n--- Done ---")
 

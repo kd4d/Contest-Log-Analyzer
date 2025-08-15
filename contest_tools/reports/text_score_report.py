@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-12
-# Version: 0.32.12-Beta
+# Date: 2025-08-13
+# Version: 0.35.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 # --- Revision History ---
+## [0.35.0-Beta] - 2025-08-13
+### Changed
+# - Refactored score calculation to be data-driven, using the new
+#   `score_formula` from the contest definition.
 ## [0.32.12-Beta] - 2025-08-12
 ### Fixed
 # - Added the missing `Tuple` to the `typing` import to resolve a NameError.
@@ -210,6 +214,11 @@ class Report(ContestReport):
                 total_multiplier_count += band_mults.sum()
 
         total_summary['AVG'] = (total_summary['Points'] / total_summary['QSOs']) if total_summary['QSOs'] > 0 else 0
-        final_score = total_summary['Points'] * total_multiplier_count
+        
+        # --- Data-driven score calculation ---
+        if contest_def.score_formula == 'qsos_times_mults':
+            final_score = total_summary['QSOs'] * total_multiplier_count
+        else: # Default to points_times_mults
+            final_score = total_summary['Points'] * total_multiplier_count
         
         return total_summary, final_score

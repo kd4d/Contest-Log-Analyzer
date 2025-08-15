@@ -1,0 +1,87 @@
+{
+  "_filename": "contest_tools/contest_definitions/arrl_ss.json",
+  "_version": "0.35.8-Beta",
+  "_date": "2025-08-14",
+  "contest_name": "ARRL-SS",
+  "valid_bands": [
+    "160M",
+    "80M",
+    "40M",
+    "20M",
+    "15M",
+    "10M"
+  ],
+  "dupe_check_scope": "all_bands",
+  "score_formula": "qsos_times_mults",
+  "custom_multiplier_resolver": "arrl_ss_multiplier_resolver",
+  "exchange_parsing_rules": {
+    "ARRL-SS-CW": {
+      "regex": "(\\d{1,4})\\s+([A-Z]{1,2})\\s+(\\d{2})\\s+([A-Z]{2,4})\\s+([A-Z0-9/]+)\\s+(\\d{1,4})\\s+([A-Z]{1,2})\\s+(\\d{2})\\s+([A-Z]{2,4})",
+      "groups": [
+        "SentSerial",
+        "SentPrecedence",
+        "SentCK",
+        "SentLocation",
+        "Call",
+        "RcvdSerial",
+        "RcvdPrecedence",
+        "RcvdCK",
+        "RcvdLocation"
+      ]
+    },
+    "ARRL-SS-PH": {
+      "regex": "(\\d{1,4})\\s+([A-Z]{1,2})\\s+(\\d{2})\\s+([A-Z]{2,4})\\s+([A-Z0-9/]+)\\s+(\\d{1,4})\\s+([A-Z]{1,2})\\s+(\\d{2})\\s+([A-Z]{2,4})",
+      "groups": [
+        "SentSerial",
+        "SentPrecedence",
+        "SentCK",
+        "SentLocation",
+        "Call",
+        "RcvdSerial",
+        "RcvdPrecedence",
+        "RcvdCK",
+        "RcvdLocation"
+      ]
+    }
+  },
+  "multiplier_rules": [
+    {
+      "name": "Sections",
+      "value_column": "Mult1",
+      "totaling_method": "once_per_log"
+    }
+  ],
+  "default_qso_columns": [
+    "ContestName",
+    "MyCall",
+    "Frequency",
+    "Mode",
+    "Datetime",
+    "SentSerial",
+    "SentPrecedence",
+    "SentMyCall",
+    "SentCK",
+    "SentLocation",
+    "Call",
+    "RcvdSerial",
+    "RcvdPrecedence",
+    "RcvdMyCall",
+    "RcvdCK",
+    "RcvdLocation",
+    "Band",
+    "Date",
+    "Hour",
+    "Dupe",
+    "DXCCName",
+    "DXCCPfx",
+    "CQZone",
+    "ITUZone",
+    "Continent",
+    "Lat",
+    "Lon",
+    "Tzone",
+    "Run",
+    "QSOPoints",
+    "Mult1"
+  ]
+}

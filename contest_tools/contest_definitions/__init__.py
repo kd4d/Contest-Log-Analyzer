@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-12
-# Version: 0.32.0-Beta
+# Date: 2025-08-13
+# Version: 0.35.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,6 +19,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 # --- Revision History ---
+## [0.35.0-Beta] - 2025-08-13
+### Added
+# - Added the `score_formula` property to support data-driven scoring calculations.
 ## [0.32.0-Beta] - 2025-08-12
 ### Added
 # - Added the `custom_parser_module` property to support optional,
@@ -138,6 +141,10 @@ class ContestDefinition:
     @property
     def multiplier_report_scope(self) -> str:
         return self._data.get('multiplier_report_scope', 'per_band')
+
+    @property
+    def score_formula(self) -> str:
+        return self._data.get('score_formula', 'points_times_mults')
 
     @property
     def cabrillo_version(self) -> str:
