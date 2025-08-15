@@ -1,7 +1,7 @@
 {
   "_filename": "contest_tools/contest_definitions/arrl_dx_cw.json",
-  "_version": "0.35.4-Beta",
-  "_date": "2025-08-13",
+  "_version": "0.36.0-Beta",
+  "_date": "2025-08-15",
   "contest_name": "ARRL-DX-CW",
   "custom_parser_module": "arrl_dx_parser",
   "mults_from_zero_point_qsos": false,
@@ -24,7 +24,8 @@
     {
       "name": "DXCC",
       "applies_to": "W/VE",
-      "source": "dxcc",
+      "source_column": "DXCCPfx",
+      "source_name_column": "DXCCName",
       "value_column": "Mult1",
       "name_column": "Mult1Name",
       "totaling_method": "sum_by_band"

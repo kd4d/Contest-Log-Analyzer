@@ -1,11 +1,11 @@
 # Project Workflow Guide
 
-**Version: 0.35.27-Beta**
+**Version: 0.36.0-Beta**
 **Date: 2025-08-15**
 
 ---
 ### --- Revision History ---
-## [0.35.27-Beta] - 2025-08-15
+## [0.36.0-Beta] - 2025-08-15
 ### Changed
 # - Replaced the "Atomic State Checkpoint Protocol" (1.2) with the new
 #   "Definitive State Reconciliation Protocol" which uses the last
