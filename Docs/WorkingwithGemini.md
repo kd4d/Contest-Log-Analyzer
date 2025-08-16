@@ -1,10 +1,30 @@
 # Project Workflow Guide
 
-**Version: 0.36.0-Beta**
+**Version: 0.36.4-Beta**
 **Date: 2025-08-15**
 
 ---
 ### --- Revision History ---
+## [0.36.4-Beta] - 2025-08-15
+### Changed
+# - Clarified Principle 8 (Surgical Modification) to explicitly require
+#   the preservation of revision histories.
+### Added
+# - Added Protocol 1.6 (Session Versioning Protocol) to establish the
+#   current version series at the start of a task.
+## [0.36.3-Beta] - 2025-08-15
+### Changed
+# - Merged missing protocols from v0.36.0-Beta to create a complete document.
+# - Synthesized a new, authoritative Versioning Protocol based on user clarification.
+# - Reorganized the document to separate workflow protocols from software design patterns.
+## [0.36.2-Beta] - 2025-08-15
+### Changed
+# - Overhauled the Task Execution and File Delivery protocols to formalize
+#   the new, more robust, state-machine workflow with per-file acknowledgments.
+## [0.36.1-Beta] - 2025-08-15
+### Changed
+# - Amended Protocol 2.2 to require the file's baseline version
+#   number in all implementation plans.
 ## [0.36.0-Beta] - 2025-08-15
 ### Changed
 # - Replaced the "Atomic State Checkpoint Protocol" (1.2) with the new
@@ -12,11 +32,6 @@
 #   Definitive State Initialization as its baseline.
 # - Amended Protocol 1.5 to add an explicit step for handling
 #   documents that require no changes.
-## [0.35.19-Beta] - 2025-08-14
-### Changed
-# - Amended Protocol 1.2.4 to require the confirmation prompt be
-#   included in the same response as the file delivery.
-# - Added a confirmation procedure step to Protocol 2.2.
 ---
 
 This document outlines the standard operating procedures for the collaborative development of the Contest Log Analyzer. **The primary audience for this document is the Gemini AI agent.**
@@ -34,7 +49,10 @@ These are the foundational rules that govern all interactions and analyses.
 5.  **Prefer Logic in Code, Not Data.** The project's design philosophy is to keep the `.json` definition files as simple, declarative maps. All complex, conditional, or contest-specific logic should be implemented in dedicated Python modules.
 6.  **Assume Bugs are Systemic.** When a bug is identified in one module, the default assumption is that the same flaw exists in all other similar modules. The AI must perform a global search for that specific bug pattern and fix all instances at once.
 7.  **Reports Must Be Non-Destructive.** Specialist report scripts must **never** modify the original `ContestLog` objects they receive. All data filtering or manipulation must be done on a temporary **copy** of the DataFrame.
-8.  **Principle of Surgical Modification.** All file modifications must be treated as surgical operations. The AI must start with the last known-good version of a file as the ground truth and apply only the minimal, approved change. Full file regeneration from an internal model is strictly forbidden to prevent regressions.
+8.  **Principle of Surgical Modification.** All file modifications must be treated as surgical operations. The AI must start with the last known-good version of a file as the ground truth and apply only the minimal, approved change. Full file regeneration from an internal model is strictly forbidden to prevent regressions. **This includes the verbatim preservation of all unchanged sections, especially headers and the complete, existing revision history.**
+9.  **Primacy of Official Rules.** The AI will place the highest emphasis on analyzing the specific data, context, and official rules provided, using them as the single source of truth.
+10. **Citation of Official Rules.** When researching contest rules, the AI will prioritize finding and citing the **official rules from the sponsoring organization**.
+11. **Uniqueness of Contest Logic.** Each contest's ruleset is to be treated as entirely unique. Logic from one contest must **never** be assumed to apply to another.
 ---
 ## Part II: Standard Operating Protocols
 
@@ -73,57 +91,52 @@ These are the step-by-step procedures for common, day-to-day development tasks.
         * **Step G (No Changes Needed):** If the analysis in Step B finds no discrepancies, the AI will state that the document is already synchronized and ask for the user's confirmation to proceed to the next document.
     3.  **Completion:** After the final document has been processed, the AI will state that the protocol is complete.
 
+1.6. **Session Versioning Protocol.** At the start of a new development task, the user will state the current version series (e.g., 'We are working on Version 0.36.x-Beta'). All subsequent file modifications for this and related tasks must use this version series, incrementing the patch number as needed.
+
 ### 2. Task Execution Workflow
+This workflow is a formal state machine that governs all development tasks, from initial request to final completion.
 
-2.1. **Decomposition of Complexity.** Complex requests must be broken down into smaller, sequential steps.
-
-2.2. **Pre-Flight Check Protocol.** The AI will perform a "white-box" mental code review **before** delivering a modified file.
-    1.  **Stating the Plan:** The AI will state its Pre-Flight Check plan, including the **Inputs** and the **Expected Outcome**.
+2.1. **Task Initiation**: The user provides a problem, feature request, or document update and requests an analysis.
+2.2. **Analysis and Discussion**: The AI provides an initial analysis. The user and AI may discuss the analysis to refine the understanding of the problem.
+2.3. **Implementation Plan**: The user requests an implementation plan. The AI provides a detailed plan, which must adhere to the **Pre-Flight Check Protocol (2.4)**.
+2.4. **Pre-Flight Check Protocol.** The AI will perform a "white-box" mental code review **before** delivering a modified file.
+    1.  **Stating the Plan:** The AI will state its Pre-Flight Check plan. The **Inputs** section must include the full filename and the specific baseline version number of the file to be modified. The plan must also state the **Expected Outcome**.
     2.  **Mental Walkthrough:** The AI will mentally trace the execution path to confirm the logic produces the expected outcome.
     3.  **User Verification:** The user performs the final verification by running the code.
-    4.  **State Confirmation Procedure**: The AI will affirm that the mandatory confirmation prompt, as defined in Protocol 1.2.4, will be included with the file delivery.
-
-2.3. **Code Modification Protocol.**
-    1.  **Strictly Adhere to Requested Changes**.
-    2.  **Modify, Don't Regenerate**.
-    3.  **Propose, Don't Impose**.
-    4.  **Forward-Only Modification**.
-
-2.4. **Custom Parser Protocol.** For contests with highly complex or asymmetric exchanges.
-    1.  **Activation**: A new key, `"custom_parser_module": "module_name"`, is added to the contest's `.json` file.
-    2.  **Hook**: The `contest_log.py` script detects this key and calls the specified module.
-    3.  **Implementation**: The custom parser module is placed in the `contest_specific_annotations` directory.
+    4.  **State Confirmation Procedure**: The AI will affirm that the mandatory confirmation prompt, as defined in Protocol 4.4, will be included with the file delivery.
+2.5. **Plan Refinement**: The user reviews the plan and may request changes or refinements. The AI provides a revised plan, repeating this step as necessary.
+2.6. **Approval**: The user provides explicit approval of the final implementation plan (e.g., "Approved").
+2.7. **Execution**: Upon approval, the AI will proceed with the **Confirmed File Delivery Protocol (4.4)**.
 
 ### 3. File and Data Handling
 
 3.1. **Project File Input.** All project source files and documentation will be provided for updates in a single text file called a **project bundle**, or pasted individually into the chat. The bundle uses a simple text header to separate each file: `--- FILE: path/to/file.ext ---`
-
 3.2. **AI Output Format.** When the AI provides updated files, it must follow these rules to ensure data integrity.
-    1.  **Single File or Bundle Per Response**: Only one file or one project bundle will be delivered in a single response.
+    1.  **Single File Per Response**: Only one file will be delivered in a single response.
     2.  **Raw Source Text**: The content inside the delivered code block must be the raw source text of the file.
     3.  **Code File Delivery**: For code files (e.g., `.py`, `.json`), the content will be delivered in a standard fenced code block with the appropriate language specifier.
-    4.  **Bundled File Delivery**: Bundles containing documentation or multiple files must be delivered in a single fenced code block using the `Plaintext` language specifier.
 
 3.3. **File and Checksum Verification.**
     1.  **Line Endings:** The user's file system uses Windows CRLF (`\r\n`). The AI must correctly handle this conversion when calculating checksums.
     2.  **Concise Reporting:** The AI will either state that **all checksums agree** or will list the **specific files that show a mismatch**.
     3.  **Mandatory Re-computation Protocol:** Every request for a checksum comparison is a **cache-invalidation event**. The AI must discard all previously calculated checksums, re-establish the definitive state, re-compute the hash for every file, and perform a literal comparison.
 
-3.4. **Versioning Protocol.**
-    1.  **Base Version:** At any time, the project has a declared **base version** (e.g., `0.32.0`). When a major or minor version change occurs, the patch level resets to `0`.
-    2.  **Patch Increments:** Subsequent logical updates increment the patch number (e.g., `0.32.0` -> `0.32.1`).
-    3.  **Header Updates:** Every file that is *changed* during a logical update must have its `Version:`, `Date:`, and `Revision History` headers updated. Unchanged files will retain their existing headers, resulting in different files potentially having different version strings.
+3.4. **Versioning Protocol.** This protocol defines how file versions are determined and updated.
+    1.  **Format**: The official versioning format is `x.y.z-Beta`, where `x` is the major version, `y` is the minor version, and `z` is the patch number.
+    2.  **Source of Truth**: The version number for any given file is located within its own content.
+        * **Python (`.py`) files**: Contained within a "Revision History" section in the file's docstring.
+        * **JSON (`.json`) files**: Stored as the value for a `"version"` parameter.
+        * **Data (`.dat`) files**: Found within a commented revision history block.
+    3.  **Update Procedure**: When a file is modified, only its patch number (`z`) will be incremented. Major (`x`) or minor (`y`) version changes will only be made upon explicit user direction.
+    4.  **History Preservation**: All existing revision histories must be preserved and appended to, never regenerated from scratch.
 
 3.5. **File Naming Convention Protocol.** All generated report files must adhere to the standardized naming convention: `<report_id>_<details>_<callsigns>.<ext>`.
 
 3.6. **File Purge Protocol.** This protocol provides a clear and safe procedure for removing a file from the project's definitive state.
-    1.  **Initiation**: The user will start the process with the exact phrase: "**Gemini, initiate File Purge Protocol.**" I will then ask for the specific file(s) to be purged.
-    2.  **Confirmation**: I will state which file(s) are targeted for removal and ask for your explicit confirmation to proceed. For example: *"I am about to purge `create_project_bundle.py` from the definitive state. Please confirm."*
-    3.  **Execution**: Once you confirm, I will:
-        * a. Load the most recent `atomic_checkpoint` file to establish the current project state.
-        * b. Remove the targeted file(s) from that state in memory.
-        * c. Generate a new, timestamped `atomic_checkpoint` file containing only the remaining files.
-    4.  **Verification**: I will confirm that the purge is complete and provide a list of all files that remain in the new `atomic_checkpoint`.
+    1.  **Initiation**: The user will start the process with the exact phrase: "**Gemini, initiate File Purge Protocol.**" The AI will then ask for the specific file(s) to be purged.
+    2.  **Confirmation**: The AI will state which file(s) are targeted for removal and ask for explicit confirmation to proceed.
+    3.  **Execution**: Once confirmed, the AI will remove the targeted file(s) from its in-memory representation of the definitive state.
+    4.  **Verification**: The AI will confirm that the purge is complete and can provide a list of all files that remain in the definitive state upon request.
 
 ### 4. Communication
 
@@ -131,32 +144,39 @@ These are the step-by-step procedures for common, day-to-day development tasks.
 
 4.2. **Definition of Prefixes.** The standard definitions for binary and decimal prefixes will be strictly followed (e.g., Kilo (k) = 1,000; Kibi (Ki) = 1,024).
 
-4.3. **Large File Transmission Protocol.** This protocol is used to reliably transmit a single large file that has been split into multiple parts, as invoked by Protocol 7.2 (Multi-Part Bundle Protocol).
+4.3. **Large File Transmission Protocol.** This protocol is used to reliably transmit a single large file that has been split into multiple parts.
     1.  **AI Declaration:** The AI will state its intent and declare the total number of bundles to be sent.
-    2.  **Bundling Strategy:** Files modified as part of a single logical update will be delivered individually, one per response. The AI will not create bundles unless explicitly requested.
-    3.  **State-Driven Sequence:** The AI's response for each part of the transfer must follow a strict, multi-part structure:
+    2.  **State-Driven Sequence:** The AI's response for each part of the transfer must follow a strict, multi-part structure:
         1. **Acknowledge State:** Confirm understanding of the user's last prompt.
-        2. **Declare Current Action:** State which part is being sent using a "Block x of y" format (e.g., "**Sending Block 1 of 2.**").
-        3. **Execute Action:** Provide the file bundle in the `Plaintext` code block.
+        2. **Declare Current Action:** State which part is being sent using a "Block x of y" format.
+        3. **Execute Action:** Provide the file bundle.
         4. **Provide Next Prompt:** If more parts remain, provide the exact text for the user's next prompt.
-    4.  **Completion:** After the final bundle, the AI will state that the task is complete.
+    3.  **Completion:** After the final bundle, the AI will state that the task is complete.
 
-### 5. Development Philosophy
+4.4. **Confirmed File Delivery Protocol.** This protocol is used for all standard file modifications.
+    1.  The AI delivers the first file from the approved implementation plan.
+    2.  The AI appends the mandatory confirmation prompt to the end of the same response.
+    3.  The user provides an "Acknowledged" response.
+    4.  The AI proceeds to deliver the next file, repeating the process until all files from the plan have been delivered and individually acknowledged.
 
-5.1. The AI will place the highest emphasis on analyzing the specific data, context, and official rules provided, using them as the single source of truth.
+---
+## Part III: Project-Specific Implementation Patterns
 
-5.2. When researching contest rules, the AI will prioritize finding and citing the **official rules from the sponsoring organization**.
+These protocols describe specific, named patterns for implementing features in the Contest Log Analyzer software.
 
-5.3. Each contest's ruleset is to be treated as entirely unique. Logic from one contest must **never** be assumed to apply to another.
+5.1. **Custom Parser Protocol.** For contests with highly complex or asymmetric exchanges.
+    1.  **Activation**: A new key, `"custom_parser_module": "module_name"`, is added to the contest's `.json` file.
+    2.  **Hook**: The `contest_log.py` script detects this key and calls the specified module.
+    3.  **Implementation**: The custom parser module is placed in the `contest_specific_annotations` directory.
 
-5.4. **Per-Mode Multiplier Protocol.** For contests where multipliers are counted independently for each mode.
+5.2. **Per-Mode Multiplier Protocol.** For contests where multipliers are counted independently for each mode.
     1.  **Activation**: The contest's `.json` file must contain `"multiplier_report_scope": "per_mode"`.
     2.  **Generator Logic**: This instructs the `report_generator.py` to run multiplier reports separately for each mode.
     3.  **Report Logic**: The specialist reports must accept a `mode_filter` argument.
 
-5.5. **Data-Driven Scoring Protocol.** To accommodate different scoring methods, the `score_formula` key is available in the contest's `.json` definition. If set to `"qsos_times_mults"`, the final score will be `Total QSOs x Total Multipliers`. If omitted, it defaults to `Total QSO Points x Total Multipliers`.
+5.3. **Data-Driven Scoring Protocol.** To accommodate different scoring methods, the `score_formula` key is available in the contest's `.json` definition. If set to `"qsos_times_mults"`, the final score will be `Total QSOs x Total Multipliers`. If omitted, it defaults to `Total QSO Points x Total Multipliers`.
 ---
-## Part III: Special Case & Recovery Protocols
+## Part IV: Special Case & Recovery Protocols
 
 These protocols are for troubleshooting, error handling, and non-standard situations.
 
@@ -178,6 +198,6 @@ These protocols are for troubleshooting, error handling, and non-standard situat
 
 7.1. **Technical Debt Cleanup Protocol.** When code becomes convoluted, a **Technical Debt Cleanup Sprint** will be conducted to refactor the code for clarity, consistency, and maintainability.
 
-7.2. **Multi-Part Bundle Protocol.** If a large or complex text file (like a Markdown document) cannot be transmitted reliably in a single block, the Multi-Part Bundle Protocol will be used. The AI will take the single file and split its content into multiple, smaller text chunks, ensuring each chunk is below the 37-kilobyde limit. These chunks will then be delivered sequentially using the **Large File Transmission Protocol (Protocol 4.3)**.
+7.2. **Multi-Part Bundle Protocol.** If a large or complex text file cannot be transmitted reliably in a single block, the Multi-Part Bundle Protocol will be used. The AI will take the single file and split its content into multiple, smaller text chunks. These chunks will then be delivered sequentially using the **Large File Transmission Protocol (Protocol 4.3)**.
 
-7.3. **Fragile Dependency Protocol.** If a third-party library proves to be unstable, a sprint will be conducted to replace it with a more robust alternative (e.g., replacing the Kaleido rendering engine with Matplotlib's native `savefig` functionality).
+7.3. **Fragile Dependency Protocol.** If a third-party library proves to be unstable, a sprint will be conducted to replace it with a more robust alternative.

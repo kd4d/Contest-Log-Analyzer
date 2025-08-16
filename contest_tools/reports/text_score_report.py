@@ -1,12 +1,12 @@
 # Contest Log Analyzer/contest_tools/reports/text_score_report.py
 #
 # Purpose: A text report that generates a detailed score summary for each
-#          log, broken down by band.
+#          [cite_start]log, broken down by band. [cite: 2009]
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-15
-# Version: 0.36.1-Beta
+# Version: 0.36.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -14,23 +14,28 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# [cite_start]License, v. 2.0. [cite: 2010] If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.36.2-Beta] - 2025-08-15
+### Fixed
+# - The double-counting bug for ARRL-DX multipliers is implicitly resolved
+#   by upstream changes to the multiplier resolver and contest definitions,
+#   which now provide data in dedicated columns.
 ## [0.36.1-Beta] - 2025-08-15
 ### Fixed
 # - Refactored the `_calculate_totals` function to be data-driven, using
 #   only the multiplier columns explicitly defined in the contest's JSON
-#   file to prevent double-counting.
+#   [cite_start]file to prevent double-counting. [cite: 2011]
 ## [0.36.0-Beta] - 2025-08-15
 ### Fixed
 # - Refactored the `_calculate_totals` function to be data-driven, using
 #   only the multiplier columns explicitly defined in the contest's JSON
-#   file to prevent double-counting.
+#   [cite_start]file to prevent double-counting. [cite: 2012]
 ## [0.35.0-Beta] - 2025-08-13
 ### Changed
 # - Refactored score calculation to be data-driven, using the new
-#   `score_formula` from the contest definition.
+#   [cite_start]`score_formula` from the contest definition. [cite: 2013]
 from typing import List, Dict, Set, Tuple
 import pandas as pd
 import os

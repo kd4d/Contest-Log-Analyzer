@@ -1,6 +1,6 @@
 {
   "_filename": "contest_tools/contest_definitions/arrl_dx_ssb.json",
-  "_version": "0.36.0-Beta",
+  "_version": "0.36.1-Beta",
   "_date": "2025-08-15",
   "contest_name": "ARRL-DX-SSB",
   "custom_parser_module": "arrl_dx_parser",
@@ -26,15 +26,14 @@
       "applies_to": "W/VE",
       "source_column": "DXCCPfx",
       "source_name_column": "DXCCName",
-      "value_column": "Mult1",
+      "value_column": "Mult_DXCC",
       "name_column": "Mult1Name",
       "totaling_method": "sum_by_band"
     },
     {
       "name": "STPROV",
       "applies_to": "DX",
-      "source_column": "FinalMultiplier",
-      "value_column": "Mult1",
+      "value_column": "Mult_STPROV",
       "totaling_method": "sum_by_band",
       "include_missed_summary": true,
       "alias_file": "ARRLDXmults.dat"
@@ -49,6 +48,7 @@
     "Band", "Date", "Hour", "Dupe",
     "DXCCName", "DXCCPfx", "CQZone", "ITUZone", "Continent", "WAEName", "WAEPfx", "Lat", "Lon", "Tzone",
     "Run", "QSOPoints",
-    "Mult1", "Mult1Name", "FinalMultiplier"
+    "Mult1", "Mult1Name", "FinalMultiplier",
+    "Mult_STPROV", "Mult_DXCC"
   ]
 }
