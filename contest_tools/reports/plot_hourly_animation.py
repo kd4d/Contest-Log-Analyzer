@@ -1,10 +1,10 @@
 # Contest Log Analyzer/contest_tools/reports/plot_hourly_animation.py
 #
-# Version: 0.36.5-Beta
-# Date: 2025-08-15
+# Version: 0.36.7-Beta
+# Date: 2025-08-16
 #
 # Purpose: A plot report that generates a series of hourly images and compiles
-#          [cite_start]them into an animated video showing contest progression. [cite: 698-699] It also
+#          them into an animated video showing contest progression. It also
 #          creates a standalone interactive HTML version of the chart.
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
@@ -13,9 +13,17 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# [cite_start]License, v. 2.0. [cite: 700-701] If a copy of the MPL was not distributed with this
+# License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.36.7-Beta] - 2025-08-16
+### Fixed
+# - Corrected a SyntaxError by adding a missing colon to the color
+#   shades dictionary in the _get_color_shades function.
+## [0.36.6-Beta] - 2025-08-16
+### Changed
+# - Modified the video generation loop to display the final frame for
+#   30 seconds, while all other frames remain at 2 seconds.
 ## [0.36.5-Beta] - 2025-08-15
 ### Fixed
 # - Replaced the flawed, manual cumulative multiplier calculation with a
@@ -78,6 +86,7 @@ class Report(ContestReport):
     # --- Configuration ---
     FPS = 10
     FRAME_DURATION_SECONDS = 2
+    LAST_FRAME_DURATION_SECONDS = 30
     IMAGE_WIDTH_PX = 1280
     IMAGE_HEIGHT_PX = 720
     DPI = 100
@@ -235,7 +244,8 @@ class Report(ContestReport):
                 ax_qso.barh(j - 0.2, qsos, height=0.4, align='center', color=bar_color, alpha=0.6)
                 ax_qso.text(qsos, j - 0.2, f' {qsos:,.0f}', va='center', ha='left')
             
-            ax_qso.set_yticks(range(len(calls))); ax_qso.set_yticklabels([]); ax_qso.tick_params(axis='y', length=0)
+            ax_qso.set_yticks(range(len(calls))); ax_qso.set_yticklabels([]);
+            ax_qso.tick_params(axis='y', length=0)
             ax_qso.set_xlim(0, data['max_final_qso']); ax_qso.set_xlabel("Cumulative QSOs")
             ax_score.set_xlim(0, data['max_final_score']); ax_score.set_xlabel("Cumulative Score")
             ax_score.xaxis.set_ticks_position('top'); ax_score.xaxis.set_label_position('top')
@@ -293,11 +303,18 @@ class Report(ContestReport):
                 for i in range(total_frames):
                     frame_file = os.path.join(frame_dir, f"frame_{i:03d}.png")
                     image = imageio.imread(frame_file)
-                    for _ in range(self.FRAME_DURATION_SECONDS * self.FPS):
+
+                    # Use a different duration for the final frame
+                    if i == total_frames - 1:
+                        duration = self.LAST_FRAME_DURATION_SECONDS
+                    else:
+                        duration = self.FRAME_DURATION_SECONDS
+                    
+                    for _ in range(duration * self.FPS):
                         writer.append_data(image)
             logging.info(f"Animation video saved to: {video_filepath}")
         except Exception as e:
-            logging.error(f"Failed to create video file. Ensure ffmpeg is installed. [cite_start]Error: {e}") [cite: 745-746]
+            logging.error(f"Failed to create video file. Ensure ffmpeg is installed. Error: {e}")
         finally:
             shutil.rmtree(frame_dir)
 
