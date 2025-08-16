@@ -1,12 +1,12 @@
 # Contest Log Analyzer/contest_tools/contest_specific_annotations/arrl_dx_multiplier_resolver.py
 #
 # Purpose: Provides contest-specific logic to resolve ARRL DX Contest multipliers
-#          (States/Provinces) from callsigns or explicit exchange fields.
+#          [cite_start](States/Provinces) from callsigns or explicit exchange fields. [cite: 263-264]
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-06
-# Version: 0.30.40-Beta
+# Date: 2025-08-15
+# Version: 0.30.41-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -14,15 +14,20 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# [cite_start]License, v. 2.0. [cite: 264-265] If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.30.41-Beta] - 2025-08-15
+### Changed
+# - Refactored logic to calculate and populate two new, dedicated columns
+#   (`Mult_STPROV` and `Mult_DXCC`) based on the worked station's location,
+#   resolving the upstream data issue for the score report.
 ## [0.30.40-Beta] - 2025-08-06
 ### Fixed
 # - Updated all references to the old CONTEST_DATA_DIR environment variable
-#   to use the correct CONTEST_LOGS_REPORTS variable.
+#   [cite_start]to use the correct CONTEST_LOGS_REPORTS variable. [cite: 266-267]
 ## [0.30.0-Beta] - 2025-08-05
-# - Initial release of Version 0.30.0-Beta.
+# [cite_start]- Initial release of Version 0.30.0-Beta. [cite: 267]
 import pandas as pd
 import os
 import re
@@ -48,7 +53,7 @@ class AliasLookup:
                     parts = line.split(':')
                     if len(parts) != 2:
                         continue
-                        
+                    
                     aliases_part, official_part = parts[0], parts[1]
                     aliases = [alias.strip().upper() for alias in aliases_part.split(',')]
                     
@@ -67,13 +72,13 @@ class AliasLookup:
                     for alias in aliases:
                         self._lookup[alias] = (official_abbr, full_name)
         except FileNotFoundError:
-            print(f"Warning: Multiplier alias file not found at {self.filepath}. Alias lookup will be disabled.")
+            print(f"Warning: Multiplier alias file not found at {self.filepath}. [cite_start]Alias lookup will be disabled.") [cite: 275-276]
         except Exception as e:
             print(f"Error reading multiplier alias file {self.filepath}: {e}")
 
     def get_multiplier(self, value: str) -> str:
         """
-        Looks up an alias and returns the official 2-letter multiplier.
+        [cite_start]Looks up an alias and returns the official 2-letter multiplier. [cite: 276-277]
         """
         if not isinstance(value, str):
             return "Unknown"
@@ -92,7 +97,8 @@ class AliasLookup:
 
 def resolve_multipliers(df: pd.DataFrame, my_location_type: str) -> pd.DataFrame:
     """
-    Resolves the final State/Province multiplier for ARRL DX Contest QSOs.
+    Resolves multipliers by creating two new columns, `Mult_STPROV` and
+    `Mult_DXCC`, based on the location of the station worked in each QSO.
     """
     if df.empty:
         return df
@@ -100,21 +106,31 @@ def resolve_multipliers(df: pd.DataFrame, my_location_type: str) -> pd.DataFrame
     root_dir = os.environ.get('CONTEST_LOGS_REPORTS').strip().strip('"').strip("'")
     data_dir = os.path.join(root_dir, 'data')
     alias_lookup = AliasLookup(data_dir)
-    
-    if my_location_type == "W/VE":
-        df['FinalMultiplier'] = df['DXCCPfx']
-        return df
-    
-    elif my_location_type == "DX":
-        def determine_mult(row):
+
+    def _get_multipliers_for_row(row):
+        stprov_mult = pd.NA
+        dxcc_mult = pd.NA
+
+        worked_dxcc_name = row.get('DXCCName', 'Unknown')
+        is_wve_contact = worked_dxcc_name in ["United States", "Canada"]
+
+        if is_wve_contact:
             location = row.get('RcvdLocation', '')
             mult = alias_lookup.get_multiplier(location)
-            
             if mult == "Unknown":
-                return alias_lookup.get_multiplier(row.get('Call', ''))
-            return mult
+                 mult = alias_lookup.get_multiplier(row.get('Call', ''))
 
-        df['FinalMultiplier'] = df.apply(determine_mult, axis=1)
-        return df
+            if mult != "Unknown":
+                stprov_mult = mult
+        else:
+            dxcc_mult = row.get('DXCCPfx')
+
+        return stprov_mult, dxcc_mult
+
+    df[['Mult_STPROV', 'Mult_DXCC']] = df.apply(_get_multipliers_for_row, axis=1, result_type='expand')
+
+    # Clean up old column if it exists to avoid downstream confusion
+    if 'FinalMultiplier' in df.columns:
+        df.drop(columns=['FinalMultiplier'], inplace=True)
 
     return df

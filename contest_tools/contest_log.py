@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-12
-# Version: 0.32.4-Beta
+# Date: 2025-08-15
+# Version: 0.36.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,41 +17,20 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 # --- Revision History ---
+## [0.36.1-Beta] - 2025-08-15
+### Fixed
+# - Fixed a crash in `_determine_own_location_type` by using the correct
+#   dictionary key (`DXCCName`) instead of an attribute to access the
+#   country name.
+## [0.36.0-Beta] - 2025-08-15
+### Changed
+# - Refactored multiplier logic to support a `source_name_column` key in
+#   JSON definitions, allowing for flexible mapping of multiplier names.
 ## [0.32.4-Beta] - 2025-08-12
 ### Fixed
 # - Replaced the fillna() loop with the native `na_rep` parameter in the
 #   to_csv() call to prevent all future downcasting warnings.
-## [0.32.3-Beta] - 2025-08-12
-### Fixed
-# - Refactored the fillna() operation in export_to_csv to use .loc and avoid
-#   a FutureWarning related to downcasting.
-## [0.32.2-Beta] - 2025-08-12
-### Fixed
-# - Refactored the fillna() operation in export_to_csv to avoid a chained
-#   assignment FutureWarning from Pandas.
-## [0.32.1-Beta] - 2025-08-12
-### Fixed
-# - Replaced the blanket fillna('') in the export_to_csv method with a
-#   selective fillna on only object-type columns to prevent a FutureWarning.
-## [0.32.0-Beta] - 2025-08-12
-### Added
-# - Added a "hook" to the _ingest_cabrillo_data method to allow for an
-#   optional, contest-specific custom parser module.
-## [0.31.46-Beta] - 2025-08-10
-### Added
-# - Added logic to handle multipliers sourced from a "calculation_module",
-#   fixing WPX multiplier processing.
-## [0.30.40-Beta] - 2025-08-06
-### Fixed
-# - Updated all references to the old CONTEST_DATA_DIR environment variable
-#   to use the correct CONTEST_LOGS_REPORTS variable.
-## [0.30.35-Beta] - 2025-08-06
-### Fixed
-# - Corrected the "wae_dxcc" multiplier logic to properly separate the
-#   prefix (e.g., OH0) from the full name (e.g., Aland Islands).
-
 from typing import List
 import pandas as pd
 from datetime import datetime
@@ -241,8 +220,8 @@ class ContestLog:
                 data_dir = os.path.join(root_dir, 'data')
                 cty_dat_path = os.path.join(data_dir, 'cty.dat')
                 cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)
-                info = cty_lookup.get_cty(my_call)
-                self._my_location_type = "W/VE" if info.name in ["United States", "Canada"] else "DX"
+                info = cty_lookup.get_cty_DXCC_WAE(my_call)._asdict()
+                self._my_location_type = "W/VE" if info['DXCCName'] in ["United States", "Canada"] else "DX"
                 logging.info(f"Logger location type determined as: {self._my_location_type}")
 
     def apply_annotations(self):
@@ -302,7 +281,7 @@ class ContestLog:
                         self.qsos_df[dest_col] = self.qsos_df[source_col]
                         
                         if dest_name_col:
-                            source_name_col = f"{source_col}Name"
+                            source_name_col = rule.get('source_name_column', f"{source_col}Name")
                             if source_name_col in self.qsos_df.columns:
                                 self.qsos_df[dest_name_col] = self.qsos_df[source_name_col]
                             else:

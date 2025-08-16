@@ -1,12 +1,12 @@
 # Contest Log Analyzer/contest_tools/reports/text_score_report.py
 #
 # Purpose: A text report that generates a detailed score summary for each
-#          log, broken down by band.
+#          [cite_start]log, broken down by band. [cite: 2009]
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-13
-# Version: 0.35.0-Beta
+# Date: 2025-08-15
+# Version: 0.36.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -14,38 +14,28 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# [cite_start]License, v. 2.0. [cite: 2010] If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 # --- Revision History ---
+## [0.36.2-Beta] - 2025-08-15
+### Fixed
+# - The double-counting bug for ARRL-DX multipliers is implicitly resolved
+#   by upstream changes to the multiplier resolver and contest definitions,
+#   which now provide data in dedicated columns.
+## [0.36.1-Beta] - 2025-08-15
+### Fixed
+# - Refactored the `_calculate_totals` function to be data-driven, using
+#   only the multiplier columns explicitly defined in the contest's JSON
+#   [cite_start]file to prevent double-counting. [cite: 2011]
+## [0.36.0-Beta] - 2025-08-15
+### Fixed
+# - Refactored the `_calculate_totals` function to be data-driven, using
+#   only the multiplier columns explicitly defined in the contest's JSON
+#   [cite_start]file to prevent double-counting. [cite: 2012]
 ## [0.35.0-Beta] - 2025-08-13
 ### Changed
 # - Refactored score calculation to be data-driven, using the new
-#   `score_formula` from the contest definition.
-## [0.32.12-Beta] - 2025-08-12
-### Fixed
-# - Added the missing `Tuple` to the `typing` import to resolve a NameError.
-## [0.32.11-Beta] - 2025-08-12
-### Changed
-# - Refactored data aggregation to be mode-aware, grouping by both Band and Mode.
-# - Added logic to _calculate_totals to correctly handle the "once_per_mode"
-#   multiplier totaling method.
-## [0.31.21-Beta] - 2025-08-09
-### Fixed
-# - Modified multiplier counting logic to explicitly exclude "Unknown" values.
-## [0.31.20-Beta] - 2025-08-08
-### Fixed
-# - Modified multiplier counting logic to explicitly exclude "Unknown" values
-#   from per-band and total calculations.
-## [0.28.28-Beta] - 2025-08-04
-### Fixed
-# - Corrected a hardcoded bug that caused DXCC multipliers to be ignored
-#   in the final score calculation.
-## [0.28.27-Beta] - 2025-08-04
-### Changed
-# - Standardized the report header to use a two-line title.
-# - The redundant per-band breakdown is now correctly hidden for single-band contests.
-
+#   [cite_start]`score_formula` from the contest definition. [cite: 2013]
 from typing import List, Dict, Set, Tuple
 import pandas as pd
 import os
@@ -182,15 +172,14 @@ class Report(ContestReport):
         df_net = df_full[df_full['Dupe'] == False]
         contest_def = log.contest_definition
         multiplier_rules = contest_def.multiplier_rules
-        mult_names = [rule['name'] for rule in multiplier_rules]
 
         total_summary = {'Band': 'TOTAL', 'Mode': ''}
         total_summary['QSOs'] = len(df_net)
         total_summary['Points'] = df_net['QSOPoints'].sum()
 
         total_multiplier_count = 0
-        for i, rule in enumerate(multiplier_rules):
-            mult_name = mult_names[i]
+        for rule in multiplier_rules:
+            mult_name = rule['name']
             mult_col = rule['value_column']
             totaling_method = rule.get('totaling_method', 'sum_by_band')
 
@@ -199,6 +188,7 @@ class Report(ContestReport):
                 continue
 
             df_valid_mults = df_net[df_net[mult_col].notna()]
+            df_valid_mults = df_valid_mults[df_valid_mults[mult_col] != 'Unknown']
 
             if totaling_method == 'once_per_mode':
                 mode_mults = df_valid_mults.groupby('Mode')[mult_col].nunique()

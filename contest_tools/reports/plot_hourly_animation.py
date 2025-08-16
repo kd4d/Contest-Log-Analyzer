@@ -1,10 +1,10 @@
 # Contest Log Analyzer/contest_tools/reports/plot_hourly_animation.py
 #
-# Version: 0.35.28-Beta
+# Version: 0.36.5-Beta
 # Date: 2025-08-15
 #
 # Purpose: A plot report that generates a series of hourly images and compiles
-#          them into an animated video showing contest progression. It also
+#          [cite_start]them into an animated video showing contest progression. [cite: 698-699] It also
 #          creates a standalone interactive HTML version of the chart.
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
@@ -13,9 +13,23 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# [cite_start]License, v. 2.0. [cite: 700-701] If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.36.5-Beta] - 2025-08-15
+### Fixed
+# - Replaced the flawed, manual cumulative multiplier calculation with a
+#   vectorized approach. The new logic correctly uses pandas resample/cumsum
+#   methods, ensuring multipliers from the final hour are included in the score.
+## [0.36.4-Beta] - 2025-08-15
+### Fixed
+# - Corrected a SyntaxError on line 57 by adding a missing colon in the
+#   `_get_color_shades` dictionary definition.
+## [0.36.3-Beta] - 2025-08-15
+### Fixed
+# - Corrected the animation timeline calculation to use `.floor('h')`
+#   directly on the max timestamp. This prevents the final hour from being
+#   truncated when the last QSO is exactly on the hour.
 ## [0.35.28-Beta] - 2025-08-15
 ### Fixed
 # - Corrected the animation timeline calculation to prevent an extra
@@ -51,7 +65,7 @@ def _get_color_shades(base_rgb):
     return {
         'Run': colorsys.hls_to_rgb(h, max(0, l * 0.65), s),      # Darker
         'S&P': colorsys.hls_to_rgb(h, min(1, l * 1.2 + 0.1), s), # Lighter
-        'Unknown': '#FF0000'                                   # Bright Red
+        'Unknown': '#FF0000',                                  # Bright Red
     }
 
 class Report(ContestReport):
@@ -91,7 +105,7 @@ class Report(ContestReport):
         score_formula = first_log_def.score_formula
 
         min_time = combined_df['Datetime'].min().floor('h')
-        max_time = (combined_df['Datetime'].max() - pd.Timedelta(microseconds=1)).floor('h')
+        max_time = combined_df['Datetime'].max().floor('h')
         master_index = pd.date_range(start=min_time, end=max_time, freq='h', tz='UTC')
         
         log_data = {}
@@ -103,24 +117,28 @@ class Report(ContestReport):
         for call, log_df in combined_df.groupby('MyCall'):
             cum_qso = log_df.set_index('Datetime')['Call'].resample('h').count().cumsum().reindex(master_index, method='ffill').fillna(0)
             
-            cum_mults = pd.Series(0.0, index=master_index)
-            for hour in master_index:
-                df_slice = log_df[log_df['Datetime'] <= hour]
-                total_mults_for_hour = 0
-                
-                for rule in first_log_def.multiplier_rules:
-                    m_col = rule['value_column']
-                    totaling_method = rule.get('totaling_method', 'sum_by_band')
+            # --- Cumulative Multiplier Calculation ---
+            cum_mults_df = pd.DataFrame(index=master_index)
+            
+            for rule in first_log_def.multiplier_rules:
+                m_col = rule['value_column']
+                totaling_method = rule.get('totaling_method', 'sum_by_band')
 
-                    if m_col in df_slice.columns:
-                        df_slice_valid_mults = df_slice[df_slice[m_col].notna() & (df_slice[m_col] != 'Unknown')]
-                        if df_slice_valid_mults.empty: continue
-                        if totaling_method in ['once_per_band', 'sum_by_band']:
-                            total_mults_for_hour += df_slice_valid_mults.groupby('Band')[m_col].nunique().sum()
-                        else:
-                            total_mults_for_hour += df_slice_valid_mults[m_col].nunique()
-                
-                cum_mults[hour] = total_mults_for_hour
+                if m_col in log_df.columns:
+                    df_valid_mults = log_df[log_df[m_col].notna() & (log_df[m_col] != 'Unknown')]
+                    if df_valid_mults.empty: continue
+
+                    if totaling_method == 'once_per_log':
+                        first_occurrence = df_valid_mults.drop_duplicates(subset=[m_col], keep='first')
+                    else: # Default: 'per_band', 'sum_by_band', 'per_mode'
+                        first_occurrence = df_valid_mults.drop_duplicates(subset=['Band', m_col], keep='first')
+                    
+                    if not first_occurrence.empty:
+                        hourly_new_mults = first_occurrence.set_index('Datetime')[m_col].resample('h').count()
+                        cum_mults_col = hourly_new_mults.cumsum().reindex(master_index, method='ffill').fillna(0)
+                        cum_mults_df[m_col] = cum_mults_col
+            
+            cum_mults = cum_mults_df.sum(axis=1)
 
             if score_formula == 'qsos_times_mults':
                 cum_score = cum_qso * cum_mults
@@ -279,7 +297,7 @@ class Report(ContestReport):
                         writer.append_data(image)
             logging.info(f"Animation video saved to: {video_filepath}")
         except Exception as e:
-            logging.error(f"Failed to create video file. Ensure ffmpeg is installed. Error: {e}")
+            logging.error(f"Failed to create video file. Ensure ffmpeg is installed. [cite_start]Error: {e}") [cite: 745-746]
         finally:
             shutil.rmtree(frame_dir)
 
