@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-16
-# Version: 0.37.4-Beta
+# Version: 0.37.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.37.5-Beta] - 2025-08-16
+### Fixed
+# - Corrected a complex f-string that caused a SyntaxError by
+#   refactoring it into two separate, simpler statements.
 ## [0.37.4-Beta] - 2025-08-16
 ### Changed
 # - Refactored logic to inspect the multiplier's `totaling_method`.
@@ -309,7 +313,10 @@ class Report(ContestReport):
                 report_lines.append(row_str)
 
         # --- Populate Table Footer (Summary) ---
-        separator = f"{'':<{first_col_width}} | {' | '.join([f'{'---':^{col_width}}' for _ in all_calls])}"
+        # Create the list of separator strings first
+        separator_parts = ['---' for _ in all_calls]
+        # Join the parts into the final f-string
+        separator = f"{'':<{first_col_width}} | {' | '.join([f'{part:^{col_width}}' for part in separator_parts])}"
         report_lines.append(separator)
         
         total_counts = {call: len(mult_sets[call]) for call in all_calls}
