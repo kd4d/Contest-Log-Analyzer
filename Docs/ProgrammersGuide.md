@@ -1,10 +1,14 @@
 # Contest Log Analyzer - Programmer's Guide
 
-**Version: 0.35.23-Beta**
+**Version: 0.36.7-Beta**
 **Date: 2025-08-15**
 
 ---
 ### --- Revision History ---
+## [0.36.7-Beta] - 2025-08-15
+### Changed
+# - Updated the CLI arguments list to be complete.
+# - Updated the JSON Quick Reference table to include all supported keys.
 ## [0.35.23-Beta] - 2025-08-15
 ### Changed
 # - Updated the "Available Reports" list and the `--report` argument
@@ -41,8 +45,8 @@ This script is the main entry point for running the analyzer.
     * `--verbose`: Enables `INFO`-level debug logging.
     * `--include-dupes`: An optional flag to include duplicate QSOs in report calculations.
     * `--mult-name`: An optional argument to specify which multiplier to use for multiplier-specific reports (e.g., 'Countries').
+    * `--metric`: An optional argument for difference plots, specifying whether to compare `qsos` or `points`. Defaults to `qsos`.
 * **Report Discovery:** The script dynamically discovers all available reports by inspecting the `contest_tools.reports` package. Any valid report class in this package is automatically made available as a command-line option.
-
 ### Logging System (`Utils/logger_config.py`)
 The project uses Python's built-in `logging` framework for console output.
 * **`logging.info()`:** Used for verbose, step-by-step diagnostic messages. These are only displayed when the `--verbose` flag is used.
@@ -68,16 +72,13 @@ All reports must be created as `.py` files in the `contest_tools/reports/` direc
 | `supports_pairwise` | `bool` | `True` if the report compares exactly two logs. |
 
 4.  The class must implement a `generate(self, output_path: str, **kwargs) -> str` method. This method contains the core logic of the report and must accept `**kwargs` to handle optional arguments.
-
 ### Dynamic Discovery
 As long as a report file is in the `contest_tools/reports` directory and its class is named `Report`, the `__init__.py` in that directory will find and register it automatically.
-
 ### Helper Functions and Factoring (`_report_utils.py`)
 The `contest_tools/reports/_report_utils.py` module contains common helper functions. The philosophy for factoring is as follows:
 
 * **Keep it Self-Contained:** If a piece of logic is highly specific to a single report and unlikely to be reused, it should remain inside that report's `generate` method.
 * **Factor it Out:** If a function or component (like a chart style or data preparation step) is likely to be useful for other future reports, it should be factored out into a new helper function in `_report_utils.py`.
-
 ### Boilerplate Example
 Here is a minimal "Hello World" report.
 
@@ -95,7 +96,7 @@ class Report(ContestReport):
         log = self.logs[0]
         callsign = log.get_metadata().get('MyCall', 'N/A')
         report_content = f"Hello, {callsign}!"
-        # In a real report, you would save this content to a file.
+# In a real report, you would save this content to a file.
         print(report_content)
         
         return f"Report '{self.report_name}' generated successfully."
@@ -105,7 +106,6 @@ class Report(ContestReport):
 ## How to Add a New Contest
 
 Adding a new contest can range from simple (creating a new `.json` file) to complex (extending the core parsing logic).
-
 ### JSON Quick Reference
 The primary way to add a contest is by creating a new `.json` file in the `contest_tools/contest_definitions/` directory. The following table describes the key attributes.
 
@@ -115,6 +115,13 @@ The primary way to add a contest is by creating a new `.json` file in the `conte
 | `dupe_check_scope` | Determines if dupes are checked `per_band` or across `all_bands`. | `"per_band"` |
 | `exchange_parsing_rules` | An object containing regex patterns to parse the exchange portion of a QSO line. | `{ "NAQP-CW": [ { "regex": "...", "groups": [...] } ] }` |
 | `multiplier_rules` | A list of objects defining the contest's multipliers. | `[ { "name": "Zones", "source_column": "CQZone", "value_column": "Mult1" } ]` |
+| `score_formula` | Scoring method. Can be `qsos_times_mults` or `points_times_mults`. | `"points_times_mults"` |
+| `multiplier_report_scope`| Determines if mult reports run `per_band` or `per_mode`. | `"per_band"` |
+| `excluded_reports`| A list of `report_id` strings to disable for this contest. | `[ "point_rate_plots" ]` |
+| `operating_time_rules`| Defines on-time limits for the `score_report`. | `{ "single_op_max_hours": 30 }` |
+| `mults_from_zero_point_qsos`| `True` if multipliers count from 0-point QSOs. | `true` |
+| `valid_bands` | A list of bands valid for the contest. | `[ "160M", "80M", "40M" ]` |
+| `contest_period` | Defines the official start/end of the contest. | `{ "start_day": "Saturday" }` |
 | `custom_parser_module` | *Optional.* Specifies a module to run for complex, asymmetric parsing. | `"arrl_10_parser"` |
 | `custom_multiplier_resolver` | *Optional.* Specifies a module to run for complex multiplier logic (e.g., NAQP). | `"naqp_multiplier_resolver"` |
 | `contest_specific_event_id_resolver` | *Optional.* Specifies a module to create a unique event ID for contests that run multiple times a year. | `"naqp_event_id_resolver"` |
@@ -126,7 +133,6 @@ The primary way to add a contest is by creating a new `.json` file in the `conte
 2.  Define the `contest_name` to match the Cabrillo logs.
 3.  Define the `exchange_parsing_rules`. If the exchange can have multiple valid formats, you can provide a list of rule objects. The parser will try each one in order.
 4.  Define the `multiplier_rules`. For simple multipliers, you can use `"source_column"` to copy data from an existing column (like `CQZone` or `DXCCName`) into a multiplier column (`Mult1`, `Mult2`).
-
 ### Boilerplate Example
 
 ```

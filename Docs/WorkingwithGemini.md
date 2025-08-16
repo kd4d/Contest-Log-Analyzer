@@ -1,10 +1,14 @@
 # Project Workflow Guide
 
-**Version: 0.36.4-Beta**
+**Version: 0.36.9-Beta**
 **Date: 2025-08-15**
 
 ---
 ### --- Revision History ---
+## [0.36.9-Beta] - 2025-08-15
+### Added
+# - Added rule 3.2.4 to mandate the substitution of markdown code fences
+#   with __CODE_BLOCK__ for proper web interface rendering.
 ## [0.36.4-Beta] - 2025-08-15
 ### Changed
 # - Clarified Principle 8 (Surgical Modification) to explicitly require
@@ -115,6 +119,7 @@ This workflow is a formal state machine that governs all development tasks, from
     1.  **Single File Per Response**: Only one file will be delivered in a single response.
     2.  **Raw Source Text**: The content inside the delivered code block must be the raw source text of the file.
     3.  **Code File Delivery**: For code files (e.g., `.py`, `.json`), the content will be delivered in a standard fenced code block with the appropriate language specifier.
+    4.  **Markdown File Delivery**: For documentation files (`.md`), all fenced code blocks (```) must be replaced with the string `__CODE_BLOCK__` to ensure proper rendering in the user's web interface.
 
 3.3. **File and Checksum Verification.**
     1.  **Line Endings:** The user's file system uses Windows CRLF (`\r\n`). The AI must correctly handle this conversion when calculating checksums.
