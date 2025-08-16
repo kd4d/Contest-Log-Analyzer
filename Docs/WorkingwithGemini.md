@@ -1,10 +1,22 @@
 # Project Workflow Guide
 
-**Version: 0.36.9-Beta**
-**Date: 2025-08-15**
+**Version: 0.36.11-Beta**
+**Date: 2025-08-16**
 
 ---
 ### --- Revision History ---
+## [0.36.11-Beta] - 2025-08-16
+### Added
+# - Added Protocol 1.7 (Project Structure Onboarding) to provide bootstrap
+#   architectural context after an initialization.
+# - Added Protocol 6.4 (Corrupted User Input Protocol) to define a
+#   formal procedure for handling malformed user files.
+## [0.36.10-Beta] - 2025-08-16
+### Added
+# - Added the new, top-priority Principle 1 for Context Integrity, which
+#   mandates a full state reset upon detection of context loss.
+### Changed
+# - Renumbered all subsequent principles accordingly.
 ## [0.36.9-Beta] - 2025-08-15
 ### Added
 # - Added rule 3.2.4 to mandate the substitution of markdown code fences
@@ -46,17 +58,29 @@ This document outlines the standard operating procedures for the collaborative d
 
 These are the foundational rules that govern all interactions and analyses.
 
-1.  **Protocol Adherence is Paramount.** All protocols must be followed with absolute precision. Failure to do so invalidates the results and undermines the development process. There is no room for deviation unless a deviation is explicitly requested by the AI and authorized by the user.
-2.  **Trust the User's Diagnostics.** When the user reports a bug, their description of the symptoms should be treated as the ground truth. The AI's primary task is to find the root cause of those specific, observed symptoms, not to propose alternative theories.
-3.  **No Unrequested Changes.** The AI will only implement changes explicitly requested by the user. All suggestions for refactoring, library changes, or stylistic updates must be proposed and approved by the user before implementation.
-4.  **Technical Diligence Over Conversational Assumptions.** Technical tasks are not conversations. Similar-looking prompts do not imply similar answers. Each technical request must be treated as a unique, atomic operation. The AI must execute a full re-computation from the current project state for every request, ignoring any previous results or cached data.
-5.  **Prefer Logic in Code, Not Data.** The project's design philosophy is to keep the `.json` definition files as simple, declarative maps. All complex, conditional, or contest-specific logic should be implemented in dedicated Python modules.
-6.  **Assume Bugs are Systemic.** When a bug is identified in one module, the default assumption is that the same flaw exists in all other similar modules. The AI must perform a global search for that specific bug pattern and fix all instances at once.
-7.  **Reports Must Be Non-Destructive.** Specialist report scripts must **never** modify the original `ContestLog` objects they receive. All data filtering or manipulation must be done on a temporary **copy** of the DataFrame.
-8.  **Principle of Surgical Modification.** All file modifications must be treated as surgical operations. The AI must start with the last known-good version of a file as the ground truth and apply only the minimal, approved change. Full file regeneration from an internal model is strictly forbidden to prevent regressions. **This includes the verbatim preservation of all unchanged sections, especially headers and the complete, existing revision history.**
-9.  **Primacy of Official Rules.** The AI will place the highest emphasis on analyzing the specific data, context, and official rules provided, using them as the single source of truth.
-10. **Citation of Official Rules.** When researching contest rules, the AI will prioritize finding and citing the **official rules from the sponsoring organization**.
-11. **Uniqueness of Contest Logic.** Each contest's ruleset is to be treated as entirely unique. Logic from one contest must **never** be assumed to apply to another.
+1.  **Context Integrity is Absolute.** The definitive project state is established by the baseline `*_bundle.txt` files and evolves with every acknowledged file change. Maintaining this evolving state requires both the baseline bundles and the subsequent chat history. If I detect that the baseline `*_bundle.txt` files are no longer in my active context, I must immediately halt all other tasks, report the context loss, and await the mandatory initiation of the **Definitive State Initialization Protocol**.
+
+2.  **Protocol Adherence is Paramount.** All protocols must be followed with absolute precision. Failure to do so invalidates the results and undermines the development process. There is no room for deviation unless a deviation is explicitly requested by the AI and authorized by the user.
+
+3.  **Trust the User's Diagnostics.** When the user reports a bug, their description of the symptoms should be treated as the ground truth. The AI's primary task is to find the root cause of those specific, observed symptoms, not to propose alternative theories.
+
+4.  **No Unrequested Changes.** The AI will only implement changes explicitly requested by the user. All suggestions for refactoring, library changes, or stylistic updates must be proposed and approved by the user before implementation.
+
+5.  **Technical Diligence Over Conversational Assumptions.** Technical tasks are not conversations. Similar-looking prompts do not imply similar answers. Each technical request must be treated as a unique, atomic operation. The AI must execute a full re-computation from the current project state for every request, ignoring any previous results or cached data.
+
+6.  **Prefer Logic in Code, Not Data.** The project's design philosophy is to keep the `.json` definition files as simple, declarative maps. All complex, conditional, or contest-specific logic should be implemented in dedicated Python modules.
+
+7.  **Assume Bugs are Systemic.** When a bug is identified in one module, the default assumption is that the same flaw exists in all other similar modules. The AI must perform a global search for that specific bug pattern and fix all instances at once.
+
+8.  **Reports Must Be Non-Destructive.** Specialist report scripts must **never** modify the original `ContestLog` objects they receive. All data filtering or manipulation must be done on a temporary **copy** of the DataFrame.
+
+9.  **Principle of Surgical Modification.** All file modifications must be treated as surgical operations. The AI must start with the last known-good version of a file as the ground truth and apply only the minimal, approved change. Full file regeneration from an internal model is strictly forbidden to prevent regressions. **This includes the verbatim preservation of all unchanged sections, especially headers and the complete, existing revision history.**
+
+10. **Primacy of Official Rules.** The AI will place the highest emphasis on analyzing the specific data, context, and official rules provided, using them as the single source of truth.
+
+11. **Citation of Official Rules.** When researching contest rules, the AI will prioritize finding and citing the **official rules from the sponsoring organization**.
+
+12. **Uniqueness of Contest Logic.** Each contest's ruleset is to be treated as entirely unique. Logic from one contest must **never** be assumed to apply to another.
 ---
 ## Part II: Standard Operating Protocols
 
@@ -96,6 +120,14 @@ These are the step-by-step procedures for common, day-to-day development tasks.
     3.  **Completion:** After the final document has been processed, the AI will state that the protocol is complete.
 
 1.6. **Session Versioning Protocol.** At the start of a new development task, the user will state the current version series (e.g., 'We are working on Version 0.36.x-Beta'). All subsequent file modifications for this and related tasks must use this version series, incrementing the patch number as needed.
+
+1.7. **Project Structure Onboarding.** After a state initialization, the AI will confirm its understanding of the high-level project architecture.
+    * **`contest_tools/`**: The core application library.
+    * **`contest_tools/reports/`**: The "plug-in" directory for all report modules.
+    * **`contest_tools/contest_definitions/`**: Data-driven JSON definitions for each contest.
+    * **`Docs/`**: All user and developer documentation.
+    * **`test_code/`**: Utility scripts not part of the main application.
+    * **`data/`**: Required data files (e.g., `cty.dat`).
 
 ### 2. Task Execution Workflow
 This workflow is a formal state machine that governs all development tasks, from initial request to final completion.
@@ -198,6 +230,11 @@ These protocols are for troubleshooting, error handling, and non-standard situat
     1.  **Acknowledge the Error:** State clearly that a mistake was made.
     2.  **Identify the Root Cause:** Explain the specific flaw in the internal process or logic that led to the error.
     3.  **Propose a Corrective Action:** Describe the specific, procedural change that will be implemented to prevent the error from recurring.
+
+6.4. **Corrupted User Input Protocol.** This protocol defines the procedure for handling malformed or corrupted input files provided by the user.
+    1.  Halt the current task immediately.
+    2.  Report the specific file that contains the error and describe the nature of the error (e.g., "Cabrillo parsing failed on line X" or "Bundle is missing a file header").
+    3.  Request a corrected version of the file from the user.
 
 ### 7. Miscellaneous Protocols
 
