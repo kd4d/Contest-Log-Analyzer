@@ -1,12 +1,12 @@
 # Contest Log Analyzer/contest_tools/reports/text_score_report.py
 #
 # Purpose: A text report that generates a detailed score summary for each
-#          [cite_start]log, broken down by band. [cite: 2009]
+#          log, broken down by band. [cite: 2064]
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-15
-# Version: 0.36.2-Beta
+# Date: 2025-08-16
+# Version: 0.37.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -14,9 +14,13 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# [cite_start]License, v. 2.0. [cite: 2010] If a copy of the MPL was not distributed with this
+# License, v. 2.0. [cite: 2065] If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.37.1-Beta] - 2025-08-16
+### Fixed
+# - Corrected file writing logic to append a final newline character,
+#   ensuring compatibility with diff utilities.
 ## [0.36.2-Beta] - 2025-08-15
 ### Fixed
 # - The double-counting bug for ARRL-DX multipliers is implicitly resolved
@@ -26,16 +30,16 @@
 ### Fixed
 # - Refactored the `_calculate_totals` function to be data-driven, using
 #   only the multiplier columns explicitly defined in the contest's JSON
-#   [cite_start]file to prevent double-counting. [cite: 2011]
+#   file to prevent double-counting. [cite: 2068]
 ## [0.36.0-Beta] - 2025-08-15
 ### Fixed
 # - Refactored the `_calculate_totals` function to be data-driven, using
 #   only the multiplier columns explicitly defined in the contest's JSON
-#   [cite_start]file to prevent double-counting. [cite: 2012]
+#   file to prevent double-counting. [cite: 2069]
 ## [0.35.0-Beta] - 2025-08-13
 ### Changed
 # - Refactored score calculation to be data-driven, using the new
-#   [cite_start]`score_formula` from the contest definition. [cite: 2013]
+#   `score_formula` from the contest definition. [cite: 2070]
 from typing import List, Dict, Set, Tuple
 import pandas as pd
 import os
@@ -156,7 +160,7 @@ class Report(ContestReport):
             score_text = f"TOTAL SCORE : {final_score:,.0f}"
             report_lines.append(score_text.rjust(table_width))
 
-            report_content = "\n".join(report_lines)
+            report_content = "\n".join(report_lines) + "\n"
             os.makedirs(output_path, exist_ok=True)
             filename = f"{self.report_id}_{callsign}.txt"
             filepath = os.path.join(output_path, filename)

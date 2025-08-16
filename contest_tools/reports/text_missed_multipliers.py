@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-12
-# Version: 0.32.10-Beta
+# Date: 2025-08-16
+# Version: 0.37.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,8 +16,11 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 # --- Revision History ---
+## [0.37.1-Beta] - 2025-08-16
+### Fixed
+# - Corrected file writing logic to append a final newline character,
+#   ensuring compatibility with diff utilities.
 ## [0.32.10-Beta] - 2025-08-12
 ### Fixed
 # - Corrected the report_scope check to include 'per_mode', fixing the
@@ -57,7 +60,7 @@
 #   treat them as a valid category for comparison.
 ## [0.31.21-Beta] - 2025-08-09
 ### Fixed
-# - Added a filter to exclude "Unknown" multipliers from the main report data.
+# - Added a filter to exclude "Unknown" multipliers from the report data.
 ## [0.30.37-Beta] - 2025-08-06
 ### Fixed
 # - Adjusted dynamic column width calculation to set a minimum width based
@@ -68,7 +71,6 @@
 # - First column is now correctly formatted as "Prefix (Country Name)".
 # - First column header is now dynamically set based on the multiplier rule.
 # - First column width is now calculated dynamically to fit the content.
-
 from typing import List, Dict, Any, Set
 import pandas as pd
 import numpy as np
@@ -173,13 +175,11 @@ class Report(ContestReport):
         if mult_column not in combined_df.columns:
             logging.info(f"Skipping '{self.report_name}' for '{mult_name}': Multiplier column '{mult_column}' not found in logs.")
             return f"Report '{self.report_name}' for '{mult_name}' skipped as no data was found."
-
         all_mults = combined_df[mult_column].dropna().unique()
         
         if all_mults.size == 0:
             logging.info(f"Skipping '{self.report_name}' for '{mult_name}{mode_title_str}': No multipliers of this type found in logs.")
             return f"Report '{self.report_name}' for '{mult_name}{mode_title_str}' skipped as no data was found."
-        
         name_map = {}
         if name_column and name_column in combined_df.columns:
             name_map_df = combined_df[[mult_column, name_column]].dropna().drop_duplicates()
@@ -323,7 +323,7 @@ class Report(ContestReport):
                     line_calls = unknown_calls[i:i+5]
                     report_lines.append("  ".join([f"{call:<{col_width}}" for call in line_calls]))
 
-        report_content = "\n".join(report_lines)
+        report_content = "\n".join(report_lines) + "\n"
         os.makedirs(output_path, exist_ok=True)
         
         filename_calls = '_vs_'.join(sorted(all_calls))

@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-09
-# Version: 0.31.21-Beta
+# Date: 2025-08-16
+# Version: 0.37.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.37.1-Beta] - 2025-08-16
+### Fixed
+# - Corrected file writing logic to append a final newline character,
+#   ensuring compatibility with diff utilities.
 ## [0.31.21-Beta] - 2025-08-09
 ### Fixed
 # - Added a filter to exclude "Unknown" multipliers from the report data.
@@ -50,7 +54,6 @@ class Report(ContestReport):
         mult_name = kwargs.get('mult_name')
         if not mult_name:
             return f"Error: 'mult_name' argument is required for the '{self.report_name}' report."
-
         final_report_messages = []
         
         log_manager = getattr(self.logs[0], '_log_manager_ref', None)
@@ -174,7 +177,7 @@ class Report(ContestReport):
                 total_line += f"{total_row['Total']:>9}"
             report_lines.append(total_line)
 
-            report_content = "\n".join(report_lines)
+            report_content = "\n".join(report_lines) + "\n"
             os.makedirs(output_path, exist_ok=True)
             filename = f"{self.report_id}_{mult_name.lower()}_{callsign}.txt"
             filepath = os.path.join(output_path, filename)

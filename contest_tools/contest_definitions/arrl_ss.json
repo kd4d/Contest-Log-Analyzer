@@ -1,7 +1,7 @@
 {
   "_filename": "contest_tools/contest_definitions/arrl_ss.json",
-  "_version": "0.35.8-Beta",
-  "_date": "2025-08-14",
+  "_version": "0.37.2-Beta",
+  "_date": "2025-08-16",
   "contest_name": "ARRL-SS",
   "valid_bands": [
     "160M",
@@ -47,6 +47,7 @@
   "multiplier_rules": [
     {
       "name": "Sections",
+      "source_column": "FinalMultiplier",
       "value_column": "Mult1",
       "totaling_method": "once_per_log"
     }

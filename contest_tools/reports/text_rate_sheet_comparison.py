@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-04
-# Version: 0.28.22-Beta
+# Date: 2025-08-16
+# Version: 0.37.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,6 +16,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.37.1-Beta] - 2025-08-16
+### Fixed
+# - Corrected file writing logic to append a final newline character,
+#   ensuring compatibility with diff utilities.
 # All notable changes to this project will be documented in this file.
 # The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
@@ -50,7 +54,6 @@ class Report(ContestReport):
 
         if len(self.logs) < 2:
             return "Error: The Comparative Rate Sheet report requires at least two logs."
-            
         all_calls = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])
         first_log = self.logs[0]
         contest_def = first_log.contest_definition
@@ -180,7 +183,7 @@ class Report(ContestReport):
                     total_line += f"{grand_total:>{hourly_width}}"
                 report_lines.append(total_line)
 
-        report_content = "\n".join(report_lines)
+        report_content = "\n".join(report_lines) + "\n"
         os.makedirs(output_path, exist_ok=True)
         
         filename_calls = '_vs_'.join(sorted(all_calls))

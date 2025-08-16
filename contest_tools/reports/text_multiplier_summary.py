@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-12
-# Version: 0.32.9-Beta
+# Date: 2025-08-16
+# Version: 0.37.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,8 +16,11 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 # --- Revision History ---
+## [0.37.1-Beta] - 2025-08-16
+### Fixed
+# - Corrected file writing logic to append a final newline character,
+#   ensuring compatibility with diff utilities.
 ## [0.32.9-Beta] - 2025-08-12
 ### Fixed
 # - Refactored the generate method to work on copies of the data, preventing
@@ -44,7 +47,6 @@
 ### Fixed
 # - Corrected a bug that caused the report to fail for single logs by
 #   enabling single-log support and adding the correct processing logic.
-
 from typing import List
 import pandas as pd
 import os
@@ -71,7 +73,6 @@ class Report(ContestReport):
 
         if not mult_name:
             return f"Error: 'mult_name' argument is required for the '{self.report_name}' report."
-
         # --- Create a list of filtered dataframes to process ---
         # This approach avoids modifying the original ContestLog objects.
         log_data_to_process = []
@@ -122,18 +123,15 @@ class Report(ContestReport):
         if not dfs:
             mode_str = f" on mode '{mode_filter}'" if mode_filter else ""
             return f"Report '{self.report_name}' for '{mult_name}'{mode_str} skipped as no data was found."
-
         mult_rule = next((r for r in contest_def.multiplier_rules if r.get('name', '').lower() == mult_name.lower()), None)
         if not mult_rule or 'value_column' not in mult_rule:
             return f"Error: Multiplier type '{mult_name}' not found in definition."
-        
         mult_column = mult_rule['value_column']
         name_column = mult_rule.get('name_column')
         
         combined_df = pd.concat(dfs, ignore_index=True)
         if combined_df.empty or mult_column not in combined_df.columns:
             return f"No '{mult_name}' multiplier data to report for mode '{mode_filter}'."
-            
         main_df = combined_df[combined_df[mult_column].notna()]
         
         bands = contest_def.valid_bands
@@ -230,13 +228,13 @@ class Report(ContestReport):
         
         total_pivot = pivot.groupby(level='MyCall').sum()
         for call in all_calls:
-                if call in total_pivot.index:
-                    row = total_pivot.loc[call]
-                    line = f"  {call}:".ljust(first_col_width)
-                    for band in bands: line += f"{row.get(band, 0):>7}"
-                    if not is_single_band:
-                        line += f"{row.get('Total', 0):>7}"
-                    report_lines.append(line)
+            if call in total_pivot.index:
+                row = total_pivot.loc[call]
+                line = f"  {call}:".ljust(first_col_width)
+                for band in bands: line += f"{row.get(band, 0):>7}"
+                if not is_single_band:
+                    line += f"{row.get('Total', 0):>7}"
+                report_lines.append(line)
 
         # --- Diagnostic Section for "Unknown" Multipliers ---
         unknown_df = combined_df[combined_df[mult_column] == 'Unknown']
@@ -254,7 +252,7 @@ class Report(ContestReport):
                 line_calls = unique_unknown_calls[i:i+num_cols]
                 report_lines.append("  ".join([f"{call:<{col_width}}" for call in line_calls]))
 
-        report_content = "\n".join(report_lines)
+        report_content = "\n".join(report_lines) + "\n"
         os.makedirs(output_path, exist_ok=True)
         
         filename_calls = '_vs_'.join(sorted(all_calls))

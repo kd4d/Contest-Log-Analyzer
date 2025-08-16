@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-06
-# Version: 0.30.39-Beta
+# Date: 2025-08-16
+# Version: 0.37.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.37.1-Beta] - 2025-08-16
+### Fixed
+# - Corrected file writing logic to append a final newline character,
+#   ensuring compatibility with diff utilities.
 ## [0.30.39-Beta] - 2025-08-06
 ### Fixed
 # - Corrected the logic in the 'TOTALS' section to correctly sum the
@@ -46,7 +50,6 @@ class Report(ContestReport):
 
         if len(self.logs) != 2:
             return f"Report '{self.report_name}' requires exactly two logs for pairwise comparison. Skipping."
-
         log1, log2 = self.logs[0], self.logs[1]
         call1 = log1.get_metadata().get('MyCall', 'Log1')
         call2 = log2.get_metadata().get('MyCall', 'Log2')
@@ -56,7 +59,6 @@ class Report(ContestReport):
 
         if df1.empty or df2.empty:
             return f"Skipping '{self.report_name}': At least one log has no valid QSOs."
-
         canonical_band_order = [band[1] for band in ContestLog._HF_BANDS]
         all_bands_in_logs = pd.concat([df1['Band'], df2['Band']]).unique()
         bands = sorted(all_bands_in_logs, key=lambda b: canonical_band_order.index(b) if b in canonical_band_order else -1)
@@ -135,7 +137,7 @@ class Report(ContestReport):
         output_filename = os.path.join(output_path, f"{self.report_id}_{call1}_vs_{call2}.txt")
         try:
             with open(output_filename, 'w') as f:
-                f.write("\n".join(report_lines))
+                f.write("\n".join(report_lines) + "\n")
             return f"'{self.report_name}' saved to {output_filename}"
         except Exception as e:
             return f"Error generating report '{self.report_name}': {e}"
