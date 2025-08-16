@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-16
-# Version: 0.37.1-Beta
+# Version: 0.37.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.37.2-Beta] - 2025-08-16
+### Added
+# - Added per-continent totals and a final overall total section to the
+#   report for a more comprehensive summary.
 ## [0.37.1-Beta] - 2025-08-16
 ### Fixed
 # - Corrected file writing logic to append a final newline character,
@@ -118,6 +122,17 @@ class Report(ContestReport):
                             for run_status in ['Run', 'S&P', 'Unknown']:
                                 line = f"    {run_status:<9}: {band_data.get(run_status, 0):>8}"
                                 continent_lines.append(line)
+                    
+                    # Add a total for the continent
+                    if not continent_data.empty:
+                        continent_totals = continent_data.sum()
+                        total_qsos_for_continent = continent_totals.sum()
+                        continent_lines.append(f"    {'-'*9}: {'-'*8}")
+                        for run_status in ['Run', 'S&P', 'Unknown']:
+                            line = f"    {run_status:<9}: {continent_totals.get(run_status, 0):>8}"
+                            continent_lines.append(line)
+                        continent_lines.append(f"    {'Total':<9}: {total_qsos_for_continent:>8}")
+
                     formatted_data[cont_name] = continent_lines
 
             grid_layout = [
@@ -143,6 +158,29 @@ class Report(ContestReport):
                         line = continent_data_block[i] if i < len(continent_data_block) else ""
                         line_parts.append(f"{line:<{col_width}}")
                     report_lines.append("".join(line_parts))
+
+            # --- Add Overall Totals Section ---
+            if not pivot.empty:
+                report_lines.append("\n" + "=" * table_width)
+                report_lines.append("Overall Totals".center(table_width))
+                report_lines.append("=" * table_width)
+                grand_totals = pivot.sum()
+                grand_total_qsos = grand_totals.sum()
+
+                col1_width = 35 // 2
+                col2_width = 35 // 2
+
+                run_line = f"{'Run:':<{col1_width}}{grand_totals.get('Run', 0):>{col2_width}}"
+                sp_line = f"{'S&P:':<{col1_width}}{grand_totals.get('S&P', 0):>{col2_width}}"
+                unk_line = f"{'Unknown:':<{col1_width}}{grand_totals.get('Unknown', 0):>{col2_width}}"
+                sep_line = f"{'-------':<{col1_width}}{'-------':>{col2_width}}"
+                total_line = f"{'Total:':<{col1_width}}{grand_total_qsos:>{col2_width}}"
+
+                report_lines.append(run_line.center(table_width))
+                report_lines.append(sp_line.center(table_width))
+                report_lines.append(unk_line.center(table_width))
+                report_lines.append(sep_line.center(table_width))
+                report_lines.append(total_line.center(table_width))
 
             # --- Add Diagnostic List for Unknown Calls ---
             unknown_continent_df = df[df['ContinentName'] == 'Unknown']

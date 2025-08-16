@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-16
-# Version: 0.37.1-Beta
+# Version: 0.37.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.37.2-Beta] - 2025-08-16
+### Fixed
+# - Corrected the conditional check to use 'once_per_log' to match the
+#   JSON contest definition standard, fixing inflated totals for contests like ARRL SS.
 ## [0.37.1-Beta] - 2025-08-16
 ### Fixed
 # - Corrected file writing logic to append a final newline character,
@@ -54,6 +58,7 @@ class Report(ContestReport):
         mult_name = kwargs.get('mult_name')
         if not mult_name:
             return f"Error: 'mult_name' argument is required for the '{self.report_name}' report."
+
         final_report_messages = []
         
         log_manager = getattr(self.logs[0], '_log_manager_ref', None)
@@ -118,7 +123,7 @@ class Report(ContestReport):
                     else:
                         current_hour_mults = set(band_df[mult_column].unique())
                     
-                    if totaling_method == 'once_per_contest':
+                    if totaling_method == 'once_per_log':
                         new_mults = current_hour_mults - worked_mults_overall
                         worked_mults_overall.update(current_hour_mults)
                     else: # Default to sum_by_band

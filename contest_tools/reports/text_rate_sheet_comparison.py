@@ -5,7 +5,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-16
-# Version: 0.37.1-Beta
+# Version: 0.37.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,6 +16,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.37.2-Beta] - 2025-08-16
+### Fixed
+# - Corrected timeline generation to use timestamps from all logs, ensuring
+#   all hours of activity are included in the report.
 ## [0.37.1-Beta] - 2025-08-16
 ### Fixed
 # - Corrected file writing logic to append a final newline character,
@@ -128,7 +132,8 @@ class Report(ContestReport):
             processed_data[callsign] = rate_data
 
         # --- Report Body ---
-        master_time_index = self.logs[0].get_processed_data()['Datetime'].dt.floor('h').dropna().unique()
+        all_datetimes = pd.concat([log.get_processed_data()['Datetime'] for log in self.logs])
+        master_time_index = all_datetimes.dt.floor('h').dropna().unique()
 
         for timestamp in sorted(master_time_index):
             hour_str = timestamp.strftime('%H%M')
