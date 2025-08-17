@@ -7,8 +7,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-14
-# Version: 0.35.10-Beta
+# Date: 2025-08-17
+# Version: 0.37.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,6 +19,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.37.0-Beta] - 2025-08-17
+### Added
+# - Added a conditional call to the new `export_to_adif` method,
+#   triggered by a key in the contest's JSON definition file.
 ## [0.35.10-Beta] - 2025-08-14
 ### Added
 # - Added validation to finalize_loading to ensure all logs are from the
@@ -134,9 +138,17 @@ class LogManager:
             
         for log in self.logs:
             base_filename = os.path.splitext(os.path.basename(log.filepath))[0]
+            
+            # --- CSV Export ---
             output_filename = f"{base_filename}_processed.csv"
             output_filepath = os.path.join(output_dir, output_filename)
             log.export_to_csv(output_filepath)
+            
+            # --- ADIF Export (if enabled for this contest) ---
+            if getattr(log.contest_definition, 'enable_adif_export', False):
+                adif_filename = f"{base_filename}_N1MMADIF.adi"
+                adif_filepath = os.path.join(output_dir, adif_filename)
+                log.export_to_adif(adif_filepath)
 
 
     def _get_event_id(self, log: ContestLog) -> str:

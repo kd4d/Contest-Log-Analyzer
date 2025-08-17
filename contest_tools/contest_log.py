@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-15
-# Version: 0.36.1-Beta
+# Date: 2025-08-17
+# Version: 0.37.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.37.0-Beta] - 2025-08-17
+### Added
+# - Added the `export_to_adif` method to generate a standard ADIF file
+#   for N1MM compatibility.
 ## [0.36.1-Beta] - 2025-08-15
 ### Fixed
 # - Fixed a crash in `_determine_own_location_type` by using the correct
@@ -377,6 +381,75 @@ class ContestLog:
             logging.info(f"Processed log saved to: {output_filepath}")
         except Exception as e:
             logging.error(f"Error exporting log to CSV '{output_filepath}': {e}")
+            raise
+
+    def export_to_adif(self, output_filepath: str):
+        """Generates a standard ADIF file from the processed log data."""
+        if self.qsos_df.empty:
+            logging.warning(f"No QSOs to export. ADIF file '{output_filepath}' will not be created.")
+            return
+            
+        df_to_export = self.qsos_df[self.qsos_df['Dupe'] == False].copy()
+
+        # --- ADIF Helper Functions ---
+        def adif_format(tag: str, value: Any) -> str:
+            if pd.isna(value) or value == '':
+                return ''
+            val_str = str(value)
+            return f"<{tag}:{len(val_str)}>{val_str} "
+
+        # --- Generate ADIF Content ---
+        adif_records = []
+        adif_records.append("ADIF Export from Contest-Log-Analyzer\n")
+        adif_records.append(f"<PROGRAMID:22>Contest-Log-Analyzer\n")
+        adif_records.append(f"<PROGRAMVERSION:10>0.37.0-Beta\n")
+        adif_records.append("<EOH>\n\n")
+
+        for _, row in df_to_export.iterrows():
+            record = []
+            record.append(adif_format('CALL', row.get('Call')))
+            
+            if pd.notna(row.get('Datetime')):
+                record.append(f"<QSO_DATE:8>{row['Datetime'].strftime('%Y%m%d')} ")
+                record.append(f"<TIME_ON:6>{row['Datetime'].strftime('%H%M%S')} ")
+
+            if pd.notna(row.get('Band')):
+                record.append(adif_format('BAND', str(row.get('Band')).lower()))
+
+            record.append(adif_format('STATION_CALLSIGN', self.metadata.get('MyCall')))
+            
+            if pd.notna(row.get('Frequency')):
+                freq_mhz = f"{row.get('Frequency') / 1000:.3f}"
+                record.append(adif_format('FREQ', freq_mhz))
+                record.append(adif_format('FREQ_RX', freq_mhz))
+
+            record.append(adif_format('CONTEST_ID', self.metadata.get('ContestName')))
+            record.append(adif_format('MODE', row.get('Mode')))
+            
+            rst_rcvd = row.get('RST') if pd.notna(row.get('RST')) else row.get('RS')
+            record.append(adif_format('RST_RCVD', rst_rcvd))
+            
+            rst_sent = row.get('SentRST') if pd.notna(row.get('SentRST')) else row.get('SentRS')
+            record.append(adif_format('RST_SENT', rst_sent))
+            
+            record.append(adif_format('OPERATOR', self.metadata.get('MyCall')))
+            record.append(adif_format('CQZ', row.get('CQZone')))
+            record.append(adif_format('ITUZ', row.get('ITUZone')))
+            
+            # Contest-specific location fields
+            if pd.notna(row.get('RcvdLocation')):
+                 record.append(adif_format('STATE', row.get('RcvdLocation')))
+                 record.append(adif_format('ARRL_SECT', row.get('RcvdLocation')))
+
+            adif_records.append("".join(record).strip() + " <EOR>\n")
+
+        # --- Write to File ---
+        try:
+            with open(output_filepath, 'w', encoding='utf-8') as f:
+                f.writelines(adif_records)
+            logging.info(f"ADIF log saved to: {output_filepath}")
+        except Exception as e:
+            logging.error(f"Error exporting log to ADIF '{output_filepath}': {e}")
             raise
 
     def get_processed_data(self) -> pd.DataFrame:
