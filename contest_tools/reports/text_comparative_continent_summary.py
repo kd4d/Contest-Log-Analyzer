@@ -1,12 +1,12 @@
-# Contest Log Analyzer/contest_tools/reports/text_comparative_score_report.py
+# Contest Log Analyzer/contest_tools/reports/text_comparative_continent_summary.py
 #
-# Purpose: A text report that generates an interleaved, comparative score
-#          summary, broken down by band, for multiple logs. [cite: 1371]
+# Purpose: A text report that generates a comparative summary of QSOs per
+#          continent, broken down by band for multiple logs.
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-16
-# Version: 0.37.1-Beta
+# Date: 2025-08-04
+# Version: 0.28.20-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -15,37 +15,19 @@
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
-# file, You can obtain one at http://mozilla.org/MPL/2.0/. [cite: 1372]
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.37.1-Beta] - 2025-08-16
-### Fixed
-# - Corrected file writing logic to append a final newline character,
-#   ensuring compatibility with diff utilities.
-## [0.35.0-Beta] - 2025-08-13
+# All notable changes to this project will be documented in this file.
+# The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
+# and this project aims to adhere to Semantic Versioning (https://semver.org/).
+## [0.28.20-Beta] - 2025-08-04
 ### Changed
-# - Refactored score calculation to be data-driven, using the new
-#   `score_formula` from the contest definition. [cite: 1373]
-## [0.32.12-Beta] - 2025-08-12
+# - Reworked the header formatting logic to correctly handle titles that
+#   are wider than the data table, per user specifications.
+## [0.28.19-Beta] - 2025-08-04
 ### Fixed
-# - Added the missing `Tuple` to the `typing` import to resolve a NameError. [cite: 1374]
-## [0.32.11-Beta] - 2025-08-12
-### Changed
-# - Refactored data aggregation to be mode-aware, grouping by both Band and Mode. [cite: 1375]
-# - Added logic to _calculate_totals to correctly handle the "once_per_mode"
-#   multiplier totaling method. [cite: 1376]
-## [0.31.21-Beta] - 2025-08-09
-### Fixed
-# - Modified multiplier counting logic to explicitly exclude "Unknown" values. [cite: 1377]
-## [0.28.30-Beta] - 2025-08-04
-### Fixed
-# - Corrected the `report_id` to its unique value, fixing the duplicate ID
-#   warning and resolving downstream scoring and on-time calculation bugs. [cite: 1378]
-## [0.28.29-Beta] - 2025-08-04
-### Changed
-# - Standardized report to have a two-line title followed by a blank line. [cite: 1379]
-# - Reworked table generation to ensure column alignment is always correct. [cite: 1380]
-# - The redundant per-band summary is now correctly hidden for single-band contests. [cite: 1381]
-from typing import List, Set, Dict, Tuple
+# - Corrected the formatting to ensure the second title line is centered.
+from typing import List
 import pandas as pd
 import os
 from ..contest_log import ContestLog
@@ -54,44 +36,73 @@ from .report_interface import ContestReport
 
 class Report(ContestReport):
     """
-    Generates a comparative, interleaved score summary report.
+    Generates a comparative summary of QSOs per continent, broken down by band.
     """
-    report_id: str = "comparative_score_report"
-    report_name: str = "Comparative Score Report"
+    report_id: str = "comparative_continent_summary"
+    report_name: str = "Comparative Continent QSO Summary"
     report_type: str = "text"
     supports_multi = True
-    supports_pairwise = True
     
     def generate(self, output_path: str, **kwargs) -> str:
         """
         Generates the report content.
         """
-        all_calls = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])
+        include_dupes = kwargs.get('include_dupes', False)
+        
+        # --- Data Preparation ---
+        all_dfs = []
+        for log in self.logs:
+            df_full = log.get_processed_data()
+            if not include_dupes and 'Dupe' in df_full.columns:
+                df = df_full[df_full['Dupe'] == False].copy()
+            else:
+                df = df_full.copy()
+            
+            df['MyCall'] = log.get_metadata().get('MyCall', 'Unknown')
+            all_dfs.append(df)
+
+        if not all_dfs:
+            return "No data available to generate report."
+        
+        combined_df = pd.concat(all_dfs, ignore_index=True)
+        
+        if combined_df.empty:
+            return "No valid QSOs to report."
+        
+        # --- Report Generation ---
         first_log = self.logs[0]
         contest_def = first_log.contest_definition
-
-        total_summaries = [self._calculate_totals(log) for log in self.logs]
         
+        continent_map = {
+            'NA': 'North America', 'SA': 'South America', 'EU': 'Europe',
+            'AS': 'Asia', 'AF': 'Africa', 'OC': 'Oceania', 'Unknown': 'Unknown'
+        }
+        bands = contest_def.valid_bands
+        is_single_band = len(bands) == 1
+        all_calls = sorted(combined_df['MyCall'].unique())
+
+        combined_df['ContinentName'] = combined_df['Continent'].map(continent_map).fillna('Unknown')
+
+        pivot = combined_df.pivot_table(
+            index=['ContinentName', 'MyCall'],
+            columns='Band',
+            aggfunc='size',
+            fill_value=0
+        )
+
+        for band in bands:
+            if band not in pivot.columns:
+                pivot[band] = 0
+        pivot = pivot[bands]
+        
+        if not is_single_band:
+            pivot['Total'] = pivot.sum(axis=1)
+
         # --- Formatting ---
-        mult_names = [rule['name'] for rule in contest_def.multiplier_rules]
-        col_order = ['Callsign', 'On-Time', 'QSOs'] + mult_names + ['Points', 'AVG']
-
-        col_widths = {key: len(str(key)) for key in col_order}
-        col_widths['Callsign'] = max([len(call) for call in all_calls] + [len('Callsign')])
-        
-        has_on_time = any(s[0].get('On-Time') and s[0].get('On-Time') != 'N/A' for s in total_summaries)
-        if not has_on_time:
-            col_order.remove('On-Time')
-            del col_widths['On-Time']
-
-        for summary, _ in total_summaries:
-             for key, value in summary.items():
-                if key in col_widths:
-                    val_len = len(f"{value:.2f}") if isinstance(value, float) else len(str(value))
-                    col_widths[key] = max(col_widths.get(key, 0), val_len)
-
-        header_parts = [f"{name:<{col_widths[name]}}" if name == 'Callsign' else f"{name:>{col_widths[name]}}" for name in col_order]
-        table_header = "  ".join(header_parts)
+        header_parts = [f"{b.replace('M',''):>7}" for b in bands]
+        if not is_single_band:
+            header_parts.append(f"{'Total':>7}")
+        table_header = f"{'':<17}" + "".join(header_parts)
         table_width = len(table_header)
         separator = "-" * table_width
         
@@ -101,54 +112,71 @@ class Report(ContestReport):
         title1 = f"--- {self.report_name} ---"
         title2 = f"{year} {contest_name} - {', '.join(all_calls)}"
         
-        report_lines = []
-        header_width = max(table_width, len(title1), len(title2))
-        report_lines.append(title1.center(header_width))
-        report_lines.append(title2.center(header_width))
-        report_lines.append("")
-        
+        title1_width = len(title1)
+        title2_width = len(title2)
+
+        if title1_width > table_width or title2_width > table_width:
+            header_width = max(title1_width, title2_width)
+            report_lines = [
+                f"{title1.ljust(header_width)}",
+                f"{title2.center(header_width)}",
+                ""
+            ]
+        else:
+            header_width = table_width
+            report_lines = [
+                title1.center(header_width),
+                title2.center(header_width),
+                ""
+            ]
+
         report_lines.append(table_header)
         report_lines.append(separator)
+
+        for cont_name in sorted(continent_map.values()):
+            if cont_name in pivot.index.get_level_values('ContinentName'):
+                report_lines.append(cont_name)
+                continent_data = pivot.loc[cont_name]
+                for call in all_calls:
+                    if call in continent_data.index:
+                        row = continent_data.loc[call]
+                        line = f"  {call:<15}"
+                        for band in bands:
+                            line += f"{row.get(band, 0):>7}"
+                        if not is_single_band:
+                            line += f"{row.get('Total', 0):>7}"
+                        report_lines.append(line)
+                report_lines.append("")
+
+        report_lines.append(separator)
+        report_lines.append("Total")
         
-        # --- Data Aggregation by Band and Mode ---
-        band_mode_summaries = {}
-        for log in self.logs:
-            call = log.get_metadata().get('MyCall', 'Unknown')
-            df_net = log.get_processed_data()[log.get_processed_data()['Dupe'] == False]
-            if not df_net.empty:
-                grouped = df_net.groupby(['Band', 'Mode'])
-                for (band, mode), group_df in grouped:
-                    key = (band, mode)
-                    if key not in band_mode_summaries:
-                        band_mode_summaries[key] = []
-                    
-                    summary = self._calculate_band_mode_summary(group_df, call, contest_def.multiplier_rules)
-                    band_mode_summaries[key].append(summary)
+        total_pivot = combined_df.pivot_table(index='MyCall', columns='Band', aggfunc='size', fill_value=0)
+        for band in bands:
+            if band not in total_pivot.columns:
+                total_pivot[band] = 0
+        total_pivot = total_pivot[bands]
+        
+        if not is_single_band:
+            total_pivot['Total'] = total_pivot.sum(axis=1)
 
-        # --- Report Generation ---
-        canonical_band_order = [band[1] for band in ContestLog._HF_BANDS]
-        sorted_keys = sorted(band_mode_summaries.keys(), key=lambda x: (canonical_band_order.index(x[0]), x[1]))
+        for call in all_calls:
+                if call in total_pivot.index:
+                    row = total_pivot.loc[call]
+                    line = f"  {call:<15}"
+                    for band in bands:
+                        line += f"{row.get(band, 0):>7}"
+                    if not is_single_band:
+                        line += f"{row.get('Total', 0):>7}"
+                    report_lines.append(line)
+        
+        self._add_diagnostic_sections(report_lines, contest_def)
 
-        for key in sorted_keys:
-            band, mode = key
-            report_lines.append(f"\n--- {band} {mode} ---")
-            for summary in band_mode_summaries[key]:
-                report_lines.append(self._format_row(summary, col_order, col_widths))
-
-        report_lines.append("\n--- TOTAL ---")
-        for summary, _ in total_summaries:
-            report_lines.append(self._format_row(summary, col_order, col_widths))
-
-        report_lines.append("=" * table_width)
-        report_lines.append("")
-        for summary, score in total_summaries:
-            callsign = summary['Callsign']
-            score_text = f"TOTAL SCORE ({callsign}) : {score:,.0f}"
-            report_lines.append(score_text.rjust(table_width))
-
-        report_content = "\n".join(report_lines) + "\n"
+        # --- Save the Report File ---
+        report_content = "\n".join(report_lines)
         os.makedirs(output_path, exist_ok=True)
-        filename_calls = '_vs_'.join(all_calls)
+        
+        filename_calls = '_vs_'.join(sorted(all_calls))
         filename = f"{self.report_id}_{filename_calls}.txt"
         filepath = os.path.join(output_path, filename)
         
@@ -157,77 +185,51 @@ class Report(ContestReport):
         
         return f"Text report saved to: {filepath}"
 
-    def _format_row(self, data: dict, col_order: list, col_widths: dict) -> str:
-        parts = []
-        for name in col_order:
-            align = "<" if name == 'Callsign' else ">"
-            val = data.get(name, ' ')
-            width = col_widths.get(name, len(str(val)))
-            
-            if isinstance(val, float):
-                formatted_val = f"{val:{align}{width}.2f}"
-            else:
-                formatted_val = f"{str(val):{align}{width}}"
-            parts.append(formatted_val)
-        return "  ".join(parts)
-
-    def _calculate_band_mode_summary(self, df_band_mode: pd.DataFrame, callsign: str, multiplier_rules: List) -> dict:
-        summary = {'Callsign': callsign}
-        summary['QSOs'] = len(df_band_mode)
-        summary['Points'] = df_band_mode['QSOPoints'].sum()
+    def _add_diagnostic_sections(self, report_lines: List[str], contest_def: ContestDefinition):
+        """Appends sections for various unknown data points to the report."""
         
-        for rule in multiplier_rules:
-            m_col = rule['value_column']
-            m_name = rule['name']
-            if m_col in df_band_mode.columns:
-                summary[m_name] = df_band_mode[m_col].nunique()
-        
-        summary['AVG'] = (summary['Points'] / summary['QSOs']) if summary['QSOs'] > 0 else 0
-        return summary
+        combined_df = pd.concat([log.get_processed_data() for log in self.logs])
+        if combined_df.empty:
+            return
 
-    def _calculate_totals(self, log: ContestLog) -> Tuple[Dict, int]:
-        df_full = log.get_processed_data()
-        df_net = df_full[df_full['Dupe'] == False]
-        contest_def = log.contest_definition
-        multiplier_rules = contest_def.multiplier_rules
-        mult_names = [rule['name'] for rule in multiplier_rules]
+        # --- Check for Unknown DXCC Prefix ---
+        unknown_dxcc_df = combined_df[combined_df['DXCCPfx'] == 'Unknown']
+        unknown_dxcc_calls = sorted(list(unknown_dxcc_df['Call'].unique()))
+        if unknown_dxcc_calls:
+            report_lines.append("\n" + "-" * 40)
+            report_lines.append("Callsigns with Unknown DXCC Prefix:")
+            report_lines.append("-" * 40)
+            col_width = 12
+            for i in range(0, len(unknown_dxcc_calls), 5):
+                line_calls = unknown_dxcc_calls[i:i+5]
+                report_lines.append("  ".join([f"{call:<{col_width}}" for call in line_calls]))
 
-        total_summary = {'Callsign': log.get_metadata().get('MyCall', 'Unknown')}
-        total_summary['On-Time'] = log.get_metadata().get('OperatingTime')
-        total_summary['QSOs'] = len(df_net)
-        total_summary['Points'] = df_net['QSOPoints'].sum()
+        # --- Check for Unknown Continent ---
+        unknown_continent_df = combined_df[combined_df['Continent'] == 'Unknown']
+        unknown_continent_calls = sorted(list(unknown_continent_df['Call'].unique()))
+        if unknown_continent_calls:
+            report_lines.append("\n" + "-" * 40)
+            report_lines.append("Callsigns with Unknown Continent:")
+            report_lines.append("-" * 40)
+            col_width = 12
+            for i in range(0, len(unknown_continent_calls), 5):
+                line_calls = unknown_continent_calls[i:i+5]
+                report_lines.append("  ".join([f"{call:<{col_width}}" for call in line_calls]))
 
-        total_multiplier_count = 0
-        for i, rule in enumerate(multiplier_rules):
-            mult_name = mult_names[i]
-            mult_col = rule['value_column']
-            totaling_method = rule.get('totaling_method', 'sum_by_band')
-
-            if mult_col not in df_net.columns:
-                total_summary[mult_name] = 0
-                continue
-
-            df_valid_mults = df_net[df_net[mult_col].notna()]
-
-            if totaling_method == 'once_per_mode':
-                mode_mults = df_valid_mults.groupby('Mode')[mult_col].nunique()
-                total_summary[mult_name] = mode_mults.sum()
-                total_multiplier_count += mode_mults.sum()
-            elif totaling_method == 'once_per_log':
-                unique_mults = df_valid_mults[mult_col].nunique()
-                total_summary[mult_name] = unique_mults
-                total_multiplier_count += unique_mults
-            else: # Default to sum_by_band
-                band_mults = df_valid_mults.groupby('Band')[mult_col].nunique()
-                total_summary[mult_name] = band_mults.sum()
-                total_multiplier_count += band_mults.sum()
-
-        total_summary['AVG'] = (total_summary['Points'] / total_summary['QSOs']) if total_summary['QSOs'] > 0 else 0
-        
-        # --- Data-driven score calculation ---
-        if contest_def.score_formula == 'qsos_times_mults':
-            final_score = total_summary['QSOs'] * total_multiplier_count
-        else: # Default to points_times_mults
-            final_score = total_summary['Points'] * total_multiplier_count
-        
-        return total_summary, final_score
+        # --- Context-Aware Check for Unknown Multipliers (WPX Only) ---
+        if 'CQ-WPX' in contest_def.contest_name:
+            rule = next((r for r in contest_def.multiplier_rules if r.get('name') == 'Prefixes'), None)
+            if rule:
+                col = rule.get('value_column')
+                if col and col in combined_df.columns:
+                    unknown_mult_df = combined_df[combined_df[col] == 'Unknown']
+                    unknown_calls = sorted(list(unknown_mult_df['Call'].unique()))
+                    
+                    if unknown_calls:
+                        report_lines.append("\n" + "-" * 40)
+                        report_lines.append(f"Callsigns with Unknown {rule['name']} ({col}):")
+                        report_lines.append("-" * 40)
+                        col_width = 12
+                        for i in range(0, len(unknown_calls), 5):
+                            line_calls = unknown_calls[i:i+5]
+                            report_lines.append("  ".join([f"{call:<{col_width}}" for call in line_calls]))

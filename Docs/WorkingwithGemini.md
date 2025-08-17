@@ -1,10 +1,17 @@
 # Project Workflow Guide
 
-**Version: 0.36.11-Beta**
-**Date: 2025-08-16**
+**Version: 0.36.12-Beta**
+**Date: 2025-08-17**
 
 ---
 ### --- Revision History ---
+## [0.36.12-Beta] - 2025-08-17
+### Changed
+# - Integrated clarifications from user feedback into Protocol 1.2,
+#   Principle 9, and Protocol 3.4.3 to make the document self-contained.
+### Added
+# - Added Protocol 6.5 (Bundle Integrity Check Protocol) to define a
+#   procedure for handling logical anomalies within initialization bundles.
 ## [0.36.11-Beta] - 2025-08-16
 ### Added
 # - Added Protocol 1.7 (Project Structure Onboarding) to provide bootstrap
@@ -74,7 +81,7 @@ These are the foundational rules that govern all interactions and analyses.
 
 8.  **Reports Must Be Non-Destructive.** Specialist report scripts must **never** modify the original `ContestLog` objects they receive. All data filtering or manipulation must be done on a temporary **copy** of the DataFrame.
 
-9.  **Principle of Surgical Modification.** All file modifications must be treated as surgical operations. The AI must start with the last known-good version of a file as the ground truth and apply only the minimal, approved change. Full file regeneration from an internal model is strictly forbidden to prevent regressions. **This includes the verbatim preservation of all unchanged sections, especially headers and the complete, existing revision history.**
+9.  **Principle of Surgical Modification.** All file modifications must be treated as surgical operations. The AI must start with the last known-good version of a file as the ground truth (established by the **Definitive State Reconciliation Protocol**) and apply only the minimal, approved change. Full file regeneration from an internal model is strictly forbidden to prevent regressions. **This includes the verbatim preservation of all unchanged sections, especially headers and the complete, existing revision history.**
 
 10. **Primacy of Official Rules.** The AI will place the highest emphasis on analyzing the specific data, context, and official rules provided, using them as the single source of truth.
 
@@ -94,6 +101,7 @@ These are the step-by-step procedures for common, day-to-day development tasks.
     1.  **Establish Baseline**: The definitive state is established by first locating the most recent **Definitive State Initialization Protocol** in the chat history. The files from this initialization serve as the absolute baseline.
     2.  **Scan Forward for Updates**: After establishing the baseline, the AI will scan the chat history *forward* from that point to the present.
     3.  **Identify Latest Valid Version**: The AI will identify the **latest** version of each file that was part of a successfully completed and mutually acknowledged transaction (i.e., file delivery, AI confirmation, and user acknowledgment). This version supersedes the baseline version.
+    4.  **Handle Ambiguity**: If any file transaction is found that was initiated but not explicitly acknowledged by the user, the AI must halt reconciliation, report the ambiguous file, and await user clarification.
 
 1.3. **Context Checkpoint Protocol.** If the AI appears to have lost context, the user can issue a **Context Checkpoint**.
     1.  The user begins with the exact phrase: **"Gemini, let's establish a Context Checkpoint."**
@@ -164,7 +172,7 @@ This workflow is a formal state machine that governs all development tasks, from
         * **Python (`.py`) files**: Contained within a "Revision History" section in the file's docstring.
         * **JSON (`.json`) files**: Stored as the value for a `"version"` parameter.
         * **Data (`.dat`) files**: Found within a commented revision history block.
-    3.  **Update Procedure**: When a file is modified, only its patch number (`z`) will be incremented. Major (`x`) or minor (`y`) version changes will only be made upon explicit user direction.
+    3.  **Update Procedure**: When a file is modified, only its patch number (`z`) will be incremented; this is done on a per-file basis. Major (`x`) or minor (`y`) version changes will only be made upon explicit user direction.
     4.  **History Preservation**: All existing revision histories must be preserved and appended to, never regenerated from scratch.
 
 3.5. **File Naming Convention Protocol.** All generated report files must adhere to the standardized naming convention: `<report_id>_<details>_<callsigns>.<ext>`.
@@ -235,6 +243,14 @@ These protocols are for troubleshooting, error handling, and non-standard situat
     1.  Halt the current task immediately.
     2.  Report the specific file that contains the error and describe the nature of the error (e.g., "Cabrillo parsing failed on line X" or "Bundle is missing a file header").
     3.  Request a corrected version of the file from the user.
+
+6.5. **Bundle Integrity Check Protocol.** This protocol is triggered during a **Definitive State Initialization** if the AI discovers logical inconsistencies within the provided bundles.
+    1.  Halt the initialization process after parsing all bundles.
+    2.  Report all discovered anomalies to the user. Examples include:
+        * **Duplicate Filenames:** The same file path appearing in multiple bundles or multiple times in one bundle.
+        * **Content Mismatch:** A file whose content appears to belong to another file (e.g., a file named `a.py` contains code clearly from `b.py`).
+        * **Misplaced Files:** A file that appears to be in the wrong logical directory (e.g., a core application file located in the `Docs/` bundle).
+    3.  Await user clarification and direction before completing the initialization and establishing the definitive state.
 
 ### 7. Miscellaneous Protocols
 
