@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-12
-# Version: 0.32.1-Beta
+# Date: 2025-08-17
+# Version: 0.37.4-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 # --- Revision History ---
+## [0.37.4-Beta] - 2025-08-17
+### Changed
+# - Added logic to detect ambiguous aliases (e.g., VE1) in .dat files,
+#   log a warning, and nullify the alias to prevent incorrect lookups.
 ## [0.32.1-Beta] - 2025-08-12
 ### Changed
 # - Enhanced AliasLookup to be section-aware, parsing categories like
@@ -45,6 +49,7 @@ class AliasLookup:
         self._valid_mults: Set[str] = set()
         self.sections: Dict[str, Set[str]] = {}
         self.multiplier_to_category: Dict[str, str] = {}
+        self._ambiguous_aliases: Set[str] = set()
         self._parse_file()
 
     def _parse_file(self):
@@ -86,7 +91,17 @@ class AliasLookup:
                     self.multiplier_to_category[official_abbr] = current_section
 
                     for alias in aliases:
-                        self._lookup[alias] = (official_abbr, full_name)
+                        # --- Ambiguous Alias Check ---
+                        if alias in self._lookup and self._lookup[alias][0] != official_abbr:
+                            logging.warning(
+                                f"Ambiguous alias '{alias}' found in '{os.path.basename(self.filepath)}'. "
+                                f"It is mapped to both '{self._lookup[alias][0]}' and '{official_abbr}'. "
+                                f"This alias will be ignored."
+                            )
+                            self._ambiguous_aliases.add(alias)
+                            del self._lookup[alias] # Remove the original entry
+                        elif alias not in self._ambiguous_aliases:
+                            self._lookup[alias] = (official_abbr, full_name)
 
         except FileNotFoundError:
             logging.warning(f"Multiplier alias file not found at {self.filepath}. Alias lookup will be disabled.")
@@ -101,6 +116,10 @@ class AliasLookup:
             return pd.NA, pd.NA
             
         value_upper = value.upper()
+
+        if value_upper in self._ambiguous_aliases:
+            return pd.NA, pd.NA
+            
         if value_upper in self._lookup:
             return self._lookup[value_upper]
         

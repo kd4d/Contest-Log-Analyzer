@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-17
-# Version: 0.37.2-Beta
+# Version: 0.37.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.37.3-Beta] - 2025-08-17
+### Fixed
+# - Corrected the hardcoded prefix for Alaska from KL7 to KL to ensure
+#   it is correctly classified as a State/Province multiplier.
 ## [0.37.2-Beta] - 2025-08-17
 ### Fixed
 # - Corrected multiplier logic to align with official NAQP rules by
@@ -79,7 +83,7 @@ def _get_naqp_multiplier(row: pd.Series, alias_lookup: AliasLookup) -> Tuple[Any
         return "Unknown", pd.NA
 
     # 2. Check for US (including AK/HI) or Canada (State/Province mults)
-    if dxcc_pfx in ['K', 'KH6', 'KL7', 'VE']:
+    if dxcc_pfx in ['K', 'KH6', 'KL', 'VE']:
         mult, _ = alias_lookup.get_multiplier(rcvd_location)
         stprov_mult = mult if pd.notna(mult) else "Unknown"
 

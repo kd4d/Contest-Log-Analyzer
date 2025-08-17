@@ -5,6 +5,11 @@
 # Date: 2025-08-03
 # Version: 1.0.1-Beta
 #
+# --- Revision History ---
+# [2025-08-17]
+# - Removed ambiguous 'VE1' alias from NB and NS entries to fix
+#   multiplier resolution bug.
+#
 # This data file is released into the public domain.
 #
 # Purpose: Defines aliases for North American QSO Party multipliers.
@@ -14,9 +19,9 @@
 AB,ALB,ALT,ALTA,AT,VA6,VE6:AB (Alberta)
 BC,VA7,VE7:BC (British Columbia)
 MB,MAN,VA4,VE4:MB (Manitoba)
-NB,VE1,VE9:NB (New Brunswick)
+NB,VE9:NB (New Brunswick)
 NL,LAB,LB,NF,VO1,VO2:NL (Newfoundland and Labrador)
-NS,VA1,VE1:NS (Nova Scotia)
+NS,VA1:NS (Nova Scotia)
 NT,NW,NWT,VE8:NT (Northwest Territories)
 NU,VY0:NU (Nunavut)
 ON,ONT,VA3,VE3:ON (Ontario)
