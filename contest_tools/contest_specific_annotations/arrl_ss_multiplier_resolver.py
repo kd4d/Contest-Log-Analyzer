@@ -1,12 +1,12 @@
-# Contest Log Analyzer/contest_tools/contest_specific_annotations/arrl_ss_multiplier_resolver.py
+# Contest Log Analyzer/contest_tools/contest_specific_annotations/naqp_multiplier_resolver.py
 #
-# Purpose: Provides contest-specific logic to resolve ARRL Sweepstakes multipliers
-#          (Sections) from the explicit exchange field.
+# Purpose: Provides contest-specific logic to resolve NAQP multipliers
+#          (States/Provinces and North American DXCC entities).
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-16
-# Version: 0.37.3-Beta
+# Date: 2025-08-17
+# Version: 0.37.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,10 +17,40 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.37.3-Beta] - 2025-08-16
+## [0.37.2-Beta] - 2025-08-17
 ### Fixed
-# - Corrected the script to read from the 'RcvdLocation' column instead
-#   of the non-existent 'RcvdSection' column, fixing the multiplier bug.
+# - Corrected multiplier logic to align with official NAQP rules by
+#   removing the 'XE' prefix from the State/Province check, ensuring
+#   Mexican stations are correctly classified as NA DXCC multipliers.
+## [0.37.1-Beta] - 2025-08-17
+### Changed
+# - Refactored resolver to populate two separate columns (`Mult_STPROV` and
+#   `Mult_NADXCC`) to enable distinct multiplier reporting.
+## [0.32.21-Beta] - 2025-08-14
+### Fixed
+# - Corrected the primary conditional check to include KH6 and KL7, ensuring
+#   Alaska and Hawaii are treated as State multipliers per NAQP rules.
+## [0.32.20-Beta] - 2025-08-14
+### Fixed
+# - Rewrote multiplier logic to correctly handle the three NAQP multiplier
+#   types (State/Prov, NA DXCC, Unknown) and consolidate them into the
+#   single 'Mult1' column for proper scoring.
+## [0.31.46-Beta] - 2025-08-11
+### Fixed
+# - Corrected multiplier logic to handle the special cases for Alaska and
+#   Hawaii, ensuring they are always processed as State/Province multipliers.
+## [0.31.45-Beta] - 2025-08-11
+### Fixed
+# - Corrected multiplier logic to properly handle Alaska (AK) and Hawaii (HI)
+#   as State/Province multipliers instead of DXCC entities.
+## [0.31.44-Beta] - 2025-08-11
+### Fixed
+# - Corrected logic to assign the DXCC Prefix (DXCCPfx) instead of the
+#   full DXCC Name to the NADXCC_Mult column.
+## [0.31.43-Beta] - 2025-08-10
+### Changed
+# - Refactored logic to use the 'Continent' field ('NA') instead of
+#   'WAEName' for identifying North American stations.
 ## [0.30.40-Beta] - 2025-08-06
 ### Fixed
 # - Updated all references to the old CONTEST_DATA_DIR environment variable
@@ -29,75 +59,65 @@
 # - Initial release of Version 0.30.0-Beta.
 import pandas as pd
 import os
-import re
-from typing import Dict, Tuple, Optional
+from ..core_annotations._core_utils import AliasLookup
+from typing import Optional, Any, Tuple
 
-class SectionAliasLookup:
-    """Parses and provides lookups for the SweepstakesSections.dat file."""
+def _get_naqp_multiplier(row: pd.Series, alias_lookup: AliasLookup) -> Tuple[Any, Any]:
+    """
+    Applies the NAQP multiplier logic to a single QSO row, returning separate
+    values for State/Province and NA DXCC multipliers.
+    """
+    stprov_mult = pd.NA
+    nadxcc_mult = pd.NA
     
-    def __init__(self, data_dir_path: str):
-        self.filepath = os.path.join(data_dir_path, 'SweepstakesSections.dat')
-        self._lookup: Dict[str, Tuple[str, str]] = {}
-        self._valid_mults: set = set()
-        self._parse_file()
+    dxcc_pfx = row.get('DXCCPfx')
+    continent = row.get('Continent')
+    rcvd_location = row.get('RcvdLocation')
 
-    def _parse_file(self):
-        try:
-            with open(self.filepath, 'r', encoding='utf-8') as f:
-                for line in f:
-                    line = line.strip()
-                    if not line or line.startswith('#'):
-                        continue
-                    
-                    parts = line.split(':')
-                    if len(parts) != 2:
-                        continue
-                        
-                    aliases_part, official_part = parts[0], parts[1]
-                    aliases = [alias.strip().upper() for alias in aliases_part.split(',')]
-                    
-                    match = re.match(r'([A-Z]{2,3})\s+\((.*)\)', official_part.strip())
-                    if not match:
-                        continue
-                    
-                    official_abbr = match.group(1).upper()
-                    full_name = match.group(2)
-                    
-                    self._valid_mults.add(official_abbr)
-                    for alias in aliases:
-                        self._lookup[alias] = (official_abbr, full_name)
-        except FileNotFoundError:
-            print(f"Warning: Section alias file not found at {self.filepath}. Alias lookup will be disabled.")
-        except Exception as e:
-            print(f"Error reading section alias file {self.filepath}: {e}")
+    # 1. Initial Sanity Check
+    if pd.isna(dxcc_pfx) or dxcc_pfx == 'Unknown':
+        return "Unknown", pd.NA
 
-    def get_section(self, value: str) -> str:
-        """
-        Looks up an alias and returns the official section abbreviation.
-        """
-        if not isinstance(value, str):
-            return "Unknown"
-            
-        value_upper = value.upper()
-        if value_upper in self._valid_mults:
-            return value_upper
-        
-        if value_upper in self._lookup:
-            return self._lookup[value_upper][0]
+    # 2. Check for US (including AK/HI) or Canada (State/Province mults)
+    if dxcc_pfx in ['K', 'KH6', 'KL7', 'VE']:
+        mult, _ = alias_lookup.get_multiplier(rcvd_location)
+        stprov_mult = mult if pd.notna(mult) else "Unknown"
 
-        return "Unknown"
+    # 3. Check for Other North American DXCC
+    elif continent == 'NA':
+        nadxcc_mult = dxcc_pfx
+
+    return stprov_mult, nadxcc_mult
+
 
 def resolve_multipliers(df: pd.DataFrame, my_location_type: Optional[str]) -> pd.DataFrame:
     """
-    Resolves the final Section multiplier for ARRL Sweepstakes QSOs.
+    Resolves multipliers for the NAQP contest by identifying the multiplier
+    for each QSO and placing it into the appropriate new column.
     """
-    if df.empty or 'RcvdLocation' not in df.columns:
-        df['FinalMultiplier'] = "Unknown"
+    if df.empty:
         return df
 
-    root_dir = os.environ.get('CONTEST_LOGS_REPORTS').strip().strip('"').strip("'")
+    # Ensure required columns exist before proceeding
+    required_cols = ['DXCCPfx', 'Continent', 'RcvdLocation']
+    for col in required_cols:
+        if col not in df.columns:
+            df['Mult_STPROV'] = pd.NA
+            df['Mult_NADXCC'] = pd.NA
+            return df
+
+    # Initialize the alias lookup utility for NAQP multipliers.
+    root_dir = os.environ.get('CONTEST_LOGS_REPORTS', '').strip().strip('"').strip("'")
     data_dir = os.path.join(root_dir, 'data')
-    alias_lookup = SectionAliasLookup(data_dir)
+    alias_lookup = AliasLookup(data_dir, 'NAQPmults.dat')
+
+    # Apply the logic to each row and assign the results to two new columns
+    df[['Mult_STPROV', 'Mult_NADXCC']] = df.apply(
+        _get_naqp_multiplier, axis=1, result_type='expand', alias_lookup=alias_lookup
+    )
     
-    df['FinalMultiplier'] = df['RcvdLocation'].apply(alias_lookup.get_section)
+    # Clean up old columns if they exist from previous versions
+    cols_to_drop = ['Mult1', 'STPROV_Mult', 'NADXCC_Mult', 'NADXCC_MultName']
+    df.drop(columns=[col for col in cols_to_drop if col in df.columns], inplace=True)
+
     return df
