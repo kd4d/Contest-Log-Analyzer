@@ -1,10 +1,21 @@
+Approval acknowledged. Executing the implementation plan.
+
+Here is the updated `Docs/InstallationGuide.md` file. The version number has been updated to align with other documentation, and the list of required data files in Step 6 has been corrected.
+
+```
 # Contest Log Analyzer - Installation Guide
 
-**Version: 0.35.22-Beta**
-**Date: 2025-08-15**
+**Version: 0.37.0-Beta**
+**Date: 2025-08-18**
 
 ---
 ### --- Revision History ---
+## [0.37.0-Beta] - 2025-08-18
+### Changed
+# - Aligned version with other documentation files.
+# - Corrected the list of required data files in Step 6, removing the
+#   obsolete reference to CQ160mults.dat and clarifying which
+#   contests use each file.
 ## [0.35.22-Beta] - 2025-08-15
 ### Changed
 # - Updated the list of required data files in Step 6 to be complete.
@@ -44,7 +55,6 @@ git clone [https://github.com/user/Contest-Log-Analyzer.git](https://github.com/
 cd Contest-Log-Analyzer
 ```
 This will create the project directory (`Contest-Log-Analyzer`) on your local machine.
-
 ### Step 2: Create and Activate the Conda Environment
 It is a best practice to create an isolated environment for the project's dependencies. This prevents conflicts with other Python projects on your system.
 ```
@@ -84,15 +94,13 @@ You must set a system environment variable named **`CONTEST_LOGS_REPORTS`** that
 4.  For "Variable name," enter: `CONTEST_LOGS_REPORTS`
 5.  For "Variable value," enter the full path to your main directory (e.g., `C:\Users\devnu\Desktop\CLA_Data`).
 6.  Click OK to close all windows. You must **restart** your terminal or command prompt for the change to take effect.
-
 ### Step 6: Obtain and Place Data Files
 The analyzer relies on several external data files. Download the following files and place them inside the **`data/`** subdirectory you created in Step 4.
 
-* `cty.dat`: Required for all contests. A standard version can be obtained from the [AD1C Country Files website](http://www.country-files.com/cty-dat-roto-zip-and-other-files-for-download/).
+* `cty.dat`: Required for all contests.
 * `arrl_10_mults.dat`: Required for the ARRL 10 Meter contest.
 * `ARRLDXmults.dat`: Required for the ARRL DX contest.
-* `CQ160mults.dat`: Required for the CQ WW 160-Meter contest.
-* `NAQPmults.dat`: Required for North American QSO Party contests.
+* `NAQPmults.dat`: Required for NAQP and CQ 160-Meter contests.
 * `SweepstakesSections.dat`: Required for ARRL Sweepstakes.
 ---
 ## 3. Running the Analyzer
@@ -107,3 +115,6 @@ conda activate cla
 ```
 
 If the installation is successful, you will see an output message indicating that the report was saved, and you will find a new `.txt` file in your `CLA_Data\reports` subdirectory.
+```
+
+Please respond with 'Acknowledged' to confirm.

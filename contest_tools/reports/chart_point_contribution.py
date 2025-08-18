@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-08
-# Version: 0.31.17-Beta
+# Date: 2025-08-18
+# Version: 0.38.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.38.0-Beta] - 2025-08-18
+### Added
+# - Added call to the save_debug_data helper function to dump the source
+#   dataframe when the --debug-data flag is enabled.
 ## [0.31.17-Beta] - 2025-08-08
 ### Changed
 # - Implemented area scaling for comparative charts, with a 15% minimum
@@ -80,7 +84,7 @@ import numpy as np
 import re
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from ._report_utils import DonutChartComponent, create_output_directory, get_valid_dataframe
+from ._report_utils import DonutChartComponent, create_output_directory, get_valid_dataframe, save_debug_data
 
 class Report(ContestReport):
     report_id: str = "chart_point_contribution"
@@ -109,7 +113,7 @@ class Report(ContestReport):
                 if not is_single_band and band != 'All Bands':
                     save_path = os.path.join(output_path, band)
 
-                filepath = self._create_plot_for_band(band, save_path)
+                filepath = self._create_plot_for_band(band, save_path, **kwargs)
                 if filepath:
                     created_files.append(filepath)
             except Exception as e:
@@ -117,11 +121,11 @@ class Report(ContestReport):
         
         if not created_files:
             return "No Point Contribution charts were generated."
-            
         return "Point Contribution charts saved to:\n" + "\n".join([f"  - {fp}" for fp in created_files])
 
-    def _create_plot_for_band(self, band: str, output_path: str) -> str:
+    def _create_plot_for_band(self, band: str, output_path: str, **kwargs) -> str:
         num_logs = len(self.logs)
+        debug_data_flag = kwargs.get("debug_data", False)
         
         # --- Dynamic Layout ---
         nrows = 1
@@ -138,10 +142,19 @@ class Report(ContestReport):
         ]
         max_band_points = max(band_log_points) if band_log_points else 1
 
+        all_calls = sorted([log.get_metadata().get('MyCall', f'Log{i+1}') for i, log in enumerate(self.logs)])
+        callsign_str = '_vs_'.join(all_calls)
+        is_single_band = len(self.logs[0].contest_definition.valid_bands) == 1
+        filename_band = self.logs[0].contest_definition.valid_bands[0].lower() if is_single_band else band.lower().replace('m','').replace(' ', '_')
+
         for i, log in enumerate(self.logs):
             df = get_valid_dataframe(log)
             band_df = df if band == 'All Bands' else df[df['Band'] == band]
 
+            # --- Save Debug Data ---
+            debug_filename = f"{self.report_id}_{filename_band}_{all_calls[i]}.txt"
+            save_debug_data(debug_data_flag, output_path, band_df, custom_filename=debug_filename)
+            
             point_ratio = (band_log_points[i] / max_band_points) if max_band_points > 0 else 0
             
             is_not_to_scale = 0 < point_ratio < 0.15
@@ -161,9 +174,6 @@ class Report(ContestReport):
         year = get_valid_dataframe(self.logs[0])['Date'].dropna().iloc[0].split('-')[0]
         contest_name = metadata.get('ContestName', '')
         event_id = metadata.get('EventID', '')
-        all_calls = sorted([log.get_metadata().get('MyCall', f'Log{i+1}') for i, log in enumerate(self.logs)])
-        callsign_str = '_vs_'.join(all_calls)
-        is_single_band = len(self.logs[0].contest_definition.valid_bands) == 1
         band_title = self.logs[0].contest_definition.valid_bands[0].replace('M', ' Meters') if is_single_band else band.replace('M', ' Meters')
         
         title_line1 = f"{event_id} {year} {contest_name}".strip()
@@ -171,7 +181,6 @@ class Report(ContestReport):
         fig.suptitle(f"{title_line1}\n{title_line2}", fontsize=22, fontweight='bold')
         
         create_output_directory(output_path)
-        filename_band = self.logs[0].contest_definition.valid_bands[0].lower() if is_single_band else band.lower().replace('m','').replace(' ', '_')
         filename = f"{self.report_id}_{filename_band}_{callsign_str}.png"
         filepath = os.path.join(output_path, filename)
         fig.savefig(filepath)

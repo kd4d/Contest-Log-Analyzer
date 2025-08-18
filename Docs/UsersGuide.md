@@ -1,10 +1,17 @@
+```
 # Contest Log Analyzer - User Guide
 
-**Version: 0.36.8-Beta**
-**Date: 2025-08-15**
+**Version: 0.37.0-Beta**
+**Date: 2025-08-18**
 
 ---
 ### --- Revision History ---
+## [0.37.0-Beta] - 2025-08-18
+### Changed
+# - Aligned version with other documentation files.
+# - Corrected the list of required data files in Section 2.
+# - Updated the Command-Line Options list in Section 3 to include
+#   the --debug-data flag.
 ## [0.36.8-Beta] - 2025-08-15
 ### Changed
 # - Updated lists of required data files, CLI options, and supported
@@ -44,8 +51,7 @@ Before running the analyzer, you will need a few files:
     * `cty.dat`: Required for all contests.
     * `arrl_10_mults.dat`: Required for the ARRL 10 Meter contest.
     * `ARRLDXmults.dat`: Required for the ARRL DX contest.
-    * `CQ160mults.dat`: Required for the CQ WW 160-Meter contest.
-    * `NAQPmults.dat`: Required for North American QSO Party contests.
+    * `NAQPmults.dat`: Required for NAQP and CQ 160-Meter contests.
     * `SweepstakesSections.dat`: Required for ARRL Sweepstakes.
 * **An Environment Variable**: You must tell the program where to find your data files by setting an environment variable named `CONTEST_LOGS_REPORTS`. This variable should point to the root directory that contains your `Logs`, `data`, and `reports` subdirectories.
 ---
@@ -65,6 +71,7 @@ The program is run from your command prompt or terminal using `main_cli.py`.
 * `--include-dupes`: (Optional) By default, duplicate QSOs are ignored. Use this flag to include them in all calculations.
 * `--mult-name <name>`: (Optional) For reports that analyze multipliers (like `missed_multipliers`), this specifies which multiplier to use (e.g., 'Countries', 'Zones').
 * `--metric <qsos|points>`: (Optional) For the `cumulative_difference_plots` report, this specifies whether to compare QSO counts or Point totals. Defaults to 'qsos'.
+* `--debug-data`: (Optional) When used with a visual report (chart, plot, animation), this saves the report's source data to a `.txt` file in a `Debug/` subdirectory.
 
 #### **Examples**
 
@@ -136,3 +143,4 @@ Use the `Report ID` with the `--report` command-line option.
 * `rate_sheet_comparison`: Rate Sheet Comparison
 * `score_report`: Score Report
 * `summary`: QSO Summary by Run/S&P
+```

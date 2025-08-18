@@ -1,12 +1,12 @@
 # Contest Log Analyzer/contest_tools/reports/text_comparative_score_report.py
 #
 # Purpose: A text report that generates an interleaved, comparative score
-#          summary, broken down by band, for multiple logs.
+#          summary, broken down by band, for multiple logs. [cite: 1371]
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-13
-# Version: 0.35.0-Beta
+# Date: 2025-08-16
+# Version: 0.37.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -15,34 +15,36 @@
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
+# file, You can obtain one at http://mozilla.org/MPL/2.0/. [cite: 1372]
 # --- Revision History ---
+## [0.37.1-Beta] - 2025-08-16
+### Fixed
+# - Corrected file writing logic to append a final newline character,
+#   ensuring compatibility with diff utilities.
 ## [0.35.0-Beta] - 2025-08-13
 ### Changed
 # - Refactored score calculation to be data-driven, using the new
-#   `score_formula` from the contest definition.
+#   `score_formula` from the contest definition. [cite: 1373]
 ## [0.32.12-Beta] - 2025-08-12
 ### Fixed
-# - Added the missing `Tuple` to the `typing` import to resolve a NameError.
+# - Added the missing `Tuple` to the `typing` import to resolve a NameError. [cite: 1374]
 ## [0.32.11-Beta] - 2025-08-12
 ### Changed
-# - Refactored data aggregation to be mode-aware, grouping by both Band and Mode.
+# - Refactored data aggregation to be mode-aware, grouping by both Band and Mode. [cite: 1375]
 # - Added logic to _calculate_totals to correctly handle the "once_per_mode"
-#   multiplier totaling method.
+#   multiplier totaling method. [cite: 1376]
 ## [0.31.21-Beta] - 2025-08-09
 ### Fixed
-# - Modified multiplier counting logic to explicitly exclude "Unknown" values.
+# - Modified multiplier counting logic to explicitly exclude "Unknown" values. [cite: 1377]
 ## [0.28.30-Beta] - 2025-08-04
 ### Fixed
 # - Corrected the `report_id` to its unique value, fixing the duplicate ID
-#   warning and resolving downstream scoring and on-time calculation bugs.
+#   warning and resolving downstream scoring and on-time calculation bugs. [cite: 1378]
 ## [0.28.29-Beta] - 2025-08-04
 ### Changed
-# - Standardized report to have a two-line title followed by a blank line.
-# - Reworked table generation to ensure column alignment is always correct.
-# - The redundant per-band summary is now correctly hidden for single-band contests.
-
+# - Standardized report to have a two-line title followed by a blank line. [cite: 1379]
+# - Reworked table generation to ensure column alignment is always correct. [cite: 1380]
+# - The redundant per-band summary is now correctly hidden for single-band contests. [cite: 1381]
 from typing import List, Set, Dict, Tuple
 import pandas as pd
 import os
@@ -144,7 +146,7 @@ class Report(ContestReport):
             score_text = f"TOTAL SCORE ({callsign}) : {score:,.0f}"
             report_lines.append(score_text.rjust(table_width))
 
-        report_content = "\n".join(report_lines)
+        report_content = "\n".join(report_lines) + "\n"
         os.makedirs(output_path, exist_ok=True)
         filename_calls = '_vs_'.join(all_calls)
         filename = f"{self.report_id}_{filename_calls}.txt"

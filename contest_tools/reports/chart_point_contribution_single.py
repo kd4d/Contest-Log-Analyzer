@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-08
-# Version: 0.31.17-Beta
+# Date: 2025-08-18
+# Version: 0.38.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.38.0-Beta] - 2025-08-18
+### Added
+# - Added call to the save_debug_data helper function to dump the source
+#   dataframe when the --debug-data flag is enabled.
 ## [0.31.17-Beta] - 2025-08-08
 ### Changed
 # - Implemented area scaling for per-band charts, with a 15% minimum
@@ -31,7 +35,7 @@
 ## [0.31.0-Beta] - 2025-08-07
 # - Initial release of Version 0.31.0-Beta.
 from .report_interface import ContestReport
-from ._report_utils import get_valid_dataframe, create_output_directory, DonutChartComponent
+from ._report_utils import get_valid_dataframe, create_output_directory, DonutChartComponent, save_debug_data
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 import pandas as pd
@@ -51,10 +55,15 @@ class Report(ContestReport):
         log = self.logs[0]
         callsign = log.get_metadata().get('MyCall', 'Log')
         df = get_valid_dataframe(log, kwargs.get('include_dupes', False))
+        debug_data_flag = kwargs.get("debug_data", False)
 
         if df.empty or 'QSOPoints' not in df.columns or df['QSOPoints'].sum() == 0:
             return f"Skipping '{self.report_name}': No QSO points found for {callsign}."
-        
+
+        # --- Save Debug Data ---
+        debug_filename = f"{self.report_id}_{callsign}.txt"
+        save_debug_data(debug_data_flag, output_path, df, custom_filename=debug_filename)
+
         bands = sorted(df['Band'].unique(), key=lambda b: [band[1] for band in ContestLog._HF_BANDS].index(b))
         num_bands = len(bands)
         

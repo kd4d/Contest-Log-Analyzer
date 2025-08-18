@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-06
-# Version: 0.30.40-Beta
+# Date: 2025-08-16
+# Version: 0.37.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.37.3-Beta] - 2025-08-16
+### Fixed
+# - Corrected the script to read from the 'RcvdLocation' column instead
+#   of the non-existent 'RcvdSection' column, fixing the multiplier bug.
 ## [0.30.40-Beta] - 2025-08-06
 ### Fixed
 # - Updated all references to the old CONTEST_DATA_DIR environment variable
@@ -87,7 +91,7 @@ def resolve_multipliers(df: pd.DataFrame, my_location_type: Optional[str]) -> pd
     """
     Resolves the final Section multiplier for ARRL Sweepstakes QSOs.
     """
-    if df.empty or 'RcvdSection' not in df.columns:
+    if df.empty or 'RcvdLocation' not in df.columns:
         df['FinalMultiplier'] = "Unknown"
         return df
 
@@ -95,5 +99,5 @@ def resolve_multipliers(df: pd.DataFrame, my_location_type: Optional[str]) -> pd
     data_dir = os.path.join(root_dir, 'data')
     alias_lookup = SectionAliasLookup(data_dir)
     
-    df['FinalMultiplier'] = df['RcvdSection'].apply(alias_lookup.get_section)
+    df['FinalMultiplier'] = df['RcvdLocation'].apply(alias_lookup.get_section)
     return df

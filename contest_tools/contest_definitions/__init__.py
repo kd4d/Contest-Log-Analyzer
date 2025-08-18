@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-13
-# Version: 0.35.0-Beta
+# Date: 2025-08-17
+# Version: 0.37.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,8 +17,11 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 # --- Revision History ---
+## [0.37.0-Beta] - 2025-08-17
+### Added
+# - Added the `enable_adif_export` property to correctly expose the
+#   JSON configuration setting to the application.
 ## [0.35.0-Beta] - 2025-08-13
 ### Added
 # - Added the `score_formula` property to support data-driven scoring calculations.
@@ -29,7 +32,6 @@
 ## [0.30.0-Beta] - 2025-08-05
 # - Initial release of Version 0.30.0-Beta.
 # - Standardized all project files to a common baseline version.
-
 import json
 import os
 import copy
@@ -121,6 +123,10 @@ class ContestDefinition:
     @property
     def mults_from_zero_point_qsos(self) -> bool:
         return self._data.get('mults_from_zero_point_qsos', True)
+
+    @property
+    def enable_adif_export(self) -> bool:
+        return self._data.get('enable_adif_export', False)
 
     @property
     def dupe_check_scope(self) -> str:

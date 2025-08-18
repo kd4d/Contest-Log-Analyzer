@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-08
-# Version: 0.31.18-Beta
+# Date: 2025-08-18
+# Version: 0.38.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,14 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.38.1-Beta] - 2025-08-18
+### Fixed
+# - Added a custom NpEncoder class to the save_debug_data helper to
+#   correctly handle JSON serialization of NumPy integer and float types.
+## [0.38.0-Beta] - 2025-08-18
+### Added
+# - Added the save_debug_data() helper function to handle the creation of
+#   debug data files for visual reports.
 ## [0.31.18-Beta] - 2025-08-08
 ### Changed
 # - Removed percentage labels from donut charts for a cleaner appearance.
@@ -35,8 +43,22 @@ from matplotlib.gridspec import GridSpec
 import os
 import numpy as np
 import re
-from typing import Optional
+import json
+import logging
+from pathlib import Path
+from typing import Optional, Dict
 from ..contest_log import ContestLog
+
+class NpEncoder(json.JSONEncoder):
+    """ Custom JSON encoder to handle NumPy data types. """
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super(NpEncoder, self).default(obj)
 
 def get_valid_dataframe(log: ContestLog, include_dupes: bool = False) -> pd.DataFrame:
     """Returns the log's DataFrame, excluding dupes unless specified."""
@@ -145,3 +167,47 @@ class DonutChartComponent:
         table.auto_set_font_size(False)
         table.set_fontsize(12)
         table.scale(1.2, 1.2)
+
+def save_debug_data(debug_flag: bool, output_path: str, data, custom_filename: str = None):
+    """
+    Saves the source data for a report to a .txt file if the debug flag is set.
+
+    Args:
+        debug_flag (bool): The value of the --debug-data flag.
+        output_path (str): The original output path for the report (e.g., .../charts).
+        data: The data to save (can be a pandas DataFrame or a dictionary).
+        custom_filename (str, optional): A specific filename to use. Defaults to None.
+    """
+    if not debug_flag:
+        return
+
+    # Create the 'Debug' subdirectory inside the specific report output path
+    debug_dir = Path(output_path) / "Debug"
+    debug_dir.mkdir(parents=True, exist_ok=True)
+
+    # Determine the output filename
+    if custom_filename:
+        filename = custom_filename
+    else:
+        # This part needs a bit of thought; assuming output_path is a directory
+        # and we need a base name for the file. Let's construct one.
+        # A more robust solution might require the original intended filename.
+        # For now, let's create a generic name if no custom name is given.
+        # This will be refined when each report is modified.
+        filename = "debug_data.txt" # Placeholder, will be passed from report
+    
+    debug_filepath = debug_dir / filename
+
+    # Format the data into a human-readable string
+    content = ""
+    if isinstance(data, pd.DataFrame):
+        content = data.to_string()
+    elif isinstance(data, dict):
+        content = json.dumps(data, indent=4, cls=NpEncoder)
+    else:
+        content = str(data)
+
+    # Write the formatted data to the debug file
+    with open(debug_filepath, 'w', encoding='utf-8') as f:
+        f.write(content)
+        logging.info(f"Debug data saved to {debug_filepath}")

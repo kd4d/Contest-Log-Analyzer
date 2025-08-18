@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-06
-# Version: 0.30.39-Beta
+# Date: 2025-08-16
+# Version: 0.37.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,18 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.37.3-Beta] - 2025-08-16
+### Changed
+# - Re-formatted the unique QSO breakdown into separate, right-aligned
+#   columns for Run, S&P, and Unknown counts for improved readability.
+## [0.37.2-Beta] - 2025-08-16
+### Fixed
+# - Corrected the unique QSO breakdown to include "Unknown" QSOs and
+#   updated the column header to "R/S/P/Unk" for clarity.
+## [0.37.1-Beta] - 2025-08-16
+### Fixed
+# - Corrected file writing logic to append a final newline character,
+#   ensuring compatibility with diff utilities.
 ## [0.30.39-Beta] - 2025-08-06
 ### Fixed
 # - Corrected the logic in the 'TOTALS' section to correctly sum the
@@ -33,9 +45,9 @@ import os
 from ..contest_log import ContestLog
 
 class Report(ContestReport):
-    report_id = "qso_comparison"
-    report_name = "QSO Comparison Summary"
-    report_type = "text"
+    report_id: str = "qso_comparison"
+    report_name: str = "QSO Comparison Summary"
+    report_type: str = "text"
     supports_single = False
     supports_pairwise = True
     supports_multi = False
@@ -67,8 +79,8 @@ class Report(ContestReport):
         # Initialize accumulators for the grand totals
         total_qso_1, total_unique_1, total_common_1 = 0, 0, 0
         total_qso_2, total_unique_2, total_common_2 = 0, 0, 0
-        total_run_unique_1, total_sp_unique_1 = 0, 0
-        total_run_unique_2, total_sp_unique_2 = 0, 0
+        total_run_unique_1, total_sp_unique_1, total_unk_unique_1 = 0, 0, 0
+        total_run_unique_2, total_sp_unique_2, total_unk_unique_2 = 0, 0, 0
 
         for band in bands:
             report_lines.append(f"\n--- {band} ---")
@@ -95,47 +107,50 @@ class Report(ContestReport):
             u1_band = c1_band[c1_band['Call'].isin(unique_calls_for_1)]
             u2_band = c2_band[c2_band['Call'].isin(unique_calls_for_2)]
 
-            def get_run_sp(df):
+            def get_run_sp_unk_counts(df):
                 run_count = (df['Run'] == 'Run').sum()
                 sp_count = (df['Run'] == 'S&P').sum()
-                return f"{run_count}/{sp_count}"
+                unk_count = (df['Run'] == 'Unknown').sum()
+                return run_count, sp_count, unk_count
 
-            report_lines.append(f"          {'Total':>8} {'Unique':>8} {'Common':>8}   {'Run/S&P':>8}")
-            report_lines.append(f"          {'-'*8} {'-'*8} {'-'*8}   {'-'*8}")
+            report_lines.append(f"          {'Total':>8} {'Unique':>8} {'Common':>8} | {'Run':>6} {'S&P':>6} {'Unk':>6}")
+            report_lines.append(f"          {'-'*8} {'-'*8} {'-'*8} | {'-'*6} {'-'*6} {'-'*6}")
             
-            report_lines.append(f"{call1:<9} {total_count_1:>8} {unique_count_1:>8} {common_count_1:>8} | Unique:  {get_run_sp(u1_band)}")
-            report_lines.append(f"{call2:<9} {total_count_2:>8} {unique_count_2:>8} {common_count_2:>8} | Unique:  {get_run_sp(u2_band)}")
+            r1, s1, u1 = get_run_sp_unk_counts(u1_band)
+            r2, s2, u2 = get_run_sp_unk_counts(u2_band)
+            
+            report_lines.append(f"{call1:<9} {total_count_1:>8} {unique_count_1:>8} {common_count_1:>8} | {r1:>6} {s1:>6} {u1:>6}")
+            report_lines.append(f"{call2:<9} {total_count_2:>8} {unique_count_2:>8} {common_count_2:>8} | {r2:>6} {s2:>6} {u2:>6}")
 
             # Accumulate totals
             total_qso_1 += total_count_1
             total_unique_1 += unique_count_1
             total_common_1 += common_count_1
-            total_run_unique_1 += (u1_band['Run'] == 'Run').sum()
-            total_sp_unique_1 += (u1_band['Run'] == 'S&P').sum()
+            total_run_unique_1 += r1
+            total_sp_unique_1 += s1
+            total_unk_unique_1 += u1
 
             total_qso_2 += total_count_2
             total_unique_2 += unique_count_2
             total_common_2 += common_count_2
-            total_run_unique_2 += (u2_band['Run'] == 'Run').sum()
-            total_sp_unique_2 += (u2_band['Run'] == 'S&P').sum()
+            total_run_unique_2 += r2
+            total_sp_unique_2 += s2
+            total_unk_unique_2 += u2
         
         # --- TOTALS Section ---
         report_lines.append("\n" + "="*40 + "\n--- TOTALS ---")
 
-        report_lines.append(f"          {'Total':>8} {'Unique':>8} {'Common':>8}   {'Run/S&P':>8}")
-        report_lines.append(f"          {'-'*8} {'-'*8} {'-'*8}   {'-'*8}")
+        report_lines.append(f"          {'Total':>8} {'Unique':>8} {'Common':>8} | {'Run':>6} {'S&P':>6} {'Unk':>6}")
+        report_lines.append(f"          {'-'*8} {'-'*8} {'-'*8} | {'-'*6} {'-'*6} {'-'*6}")
         
-        run_sp_1_total = f"{total_run_unique_1}/{total_sp_unique_1}"
-        run_sp_2_total = f"{total_run_unique_2}/{total_sp_unique_2}"
-        
-        report_lines.append(f"{call1:<9} {total_qso_1:>8} {total_unique_1:>8} {total_common_1:>8} | Unique:  {run_sp_1_total}")
-        report_lines.append(f"{call2:<9} {total_qso_2:>8} {total_unique_2:>8} {total_common_2:>8} | Unique:  {run_sp_2_total}")
+        report_lines.append(f"{call1:<9} {total_qso_1:>8} {total_unique_1:>8} {total_common_1:>8} | {total_run_unique_1:>6} {total_sp_unique_1:>6} {total_unk_unique_1:>6}")
+        report_lines.append(f"{call2:<9} {total_qso_2:>8} {total_unique_2:>8} {total_common_2:>8} | {total_run_unique_2:>6} {total_sp_unique_2:>6} {total_unk_unique_2:>6}")
         
         # Save to file
         output_filename = os.path.join(output_path, f"{self.report_id}_{call1}_vs_{call2}.txt")
         try:
             with open(output_filename, 'w') as f:
-                f.write("\n".join(report_lines))
+                f.write("\n".join(report_lines) + "\n")
             return f"'{self.report_name}' saved to {output_filename}"
         except Exception as e:
             return f"Error generating report '{self.report_name}': {e}"

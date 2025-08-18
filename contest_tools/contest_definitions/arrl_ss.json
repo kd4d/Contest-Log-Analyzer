@@ -1,7 +1,7 @@
 {
   "_filename": "contest_tools/contest_definitions/arrl_ss.json",
-  "_version": "0.35.8-Beta",
-  "_date": "2025-08-14",
+  "_version": "0.37.4-Beta",
+  "_date": "2025-08-16",
   "contest_name": "ARRL-SS",
   "valid_bands": [
     "160M",
@@ -12,7 +12,12 @@
     "10M"
   ],
   "dupe_check_scope": "all_bands",
-  "score_formula": "qsos_times_mults",
+  "operating_time_rules": {
+    "min_off_time_minutes": 30,
+    "single_op_max_hours": 24,
+    "multi_op_max_hours": 24
+  },
+  "score_formula": "points_times_mults",
   "custom_multiplier_resolver": "arrl_ss_multiplier_resolver",
   "exchange_parsing_rules": {
     "ARRL-SS-CW": {
@@ -47,6 +52,7 @@
   "multiplier_rules": [
     {
       "name": "Sections",
+      "source_column": "FinalMultiplier",
       "value_column": "Mult1",
       "totaling_method": "once_per_log"
     }

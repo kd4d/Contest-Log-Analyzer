@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-06
-# Version: 0.30.41-Beta
+# Date: 2025-08-18
+# Version: 0.38.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,6 +16,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.38.0-Beta] - 2025-08-18
+### Added
+# - Added call to the save_debug_data helper function to dump the source
+#   data dictionary when the --debug-data flag is enabled.
 ## [0.30.41-Beta] - 2025-08-06
 ### Fixed
 # - Regenerated file to fix a SyntaxError likely caused by file corruption.
@@ -36,7 +40,7 @@ import os
 
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from ._report_utils import create_output_directory
+from ._report_utils import create_output_directory, save_debug_data
 
 class Report(ContestReport):
     """
@@ -54,6 +58,8 @@ class Report(ContestReport):
         """
         if len(self.logs) != 2:
             return "Error: The QSO Breakdown Chart report requires exactly two logs."
+        
+        debug_data_flag = kwargs.get("debug_data", False)
         log1, log2 = self.logs[0], self.logs[1]
         call1 = log1.get_metadata().get('MyCall', 'Log1')
         call2 = log2.get_metadata().get('MyCall', 'Log2')
@@ -95,6 +101,10 @@ class Report(ContestReport):
             plot_data[call2]['unknown'].append((df2_unique['Run'] == 'Unknown').sum())
             
             plot_data['common'].append(len(common_calls))
+
+        # --- Save Debug Data ---
+        debug_filename = f"{self.report_id}_{call1}_vs_{call2}.txt"
+        save_debug_data(debug_data_flag, output_path, plot_data, custom_filename=debug_filename)
 
         # --- Plotting ---
         sns.set_theme(style="whitegrid")
