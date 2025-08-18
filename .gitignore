@@ -5,3 +5,4 @@
 *.png
 __pycache__/
 CONTEST_LOGS_REPORTS/reports/
+CONTeST_LOGS_REPORTS/reports_*/
