@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-10
-# Version: 0.31.26-Beta
+# Date: 2025-08-18
+# Version: 0.38.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.38.0-Beta] - 2025-08-18
+### Added
+# - Added call to the save_debug_data helper function to dump the source
+#   dataframe when the --debug-data flag is enabled.
 ## [0.31.26-Beta] - 2025-08-10
 ### Changed
 # - Improved robustness by adding a check for empty plots and logging an
@@ -46,7 +50,7 @@ import seaborn as sns
 import logging
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from ._report_utils import create_output_directory, get_valid_dataframe
+from ._report_utils import create_output_directory, get_valid_dataframe, save_debug_data
 
 class Report(ContestReport):
     """
@@ -75,23 +79,25 @@ class Report(ContestReport):
                 filepath = self._create_plot(
                     output_path=save_path,
                     band_filter=band,
+                    **kwargs
                 )
                 if filepath:
                     created_files.append(filepath)
             except Exception as e:
-                 print(f"  - Failed to generate point rate plot for {band}: {e}")
+                print(f"  - Failed to generate point rate plot for {band}: {e}")
 
         if not created_files:
             return "No point rate plots were generated."
-            
         return "Point rate plots saved to:\n" + "\n".join([f"  - {fp}" for fp in created_files])
 
-    def _create_plot(self, output_path: str, band_filter: str) -> str:
+    def _create_plot(self, output_path: str, band_filter: str, **kwargs) -> str:
+        debug_data_flag = kwargs.get("debug_data", False)
         fig, ax = plt.subplots(figsize=(12, 8))
         sns.set_theme(style="whitegrid")
 
         all_calls = []
         summary_data = []
+        all_series = []
         
         value_column = 'QSOPoints'
         agg_func = 'sum'
@@ -119,6 +125,9 @@ class Report(ContestReport):
                 cumulative_rate = cumulative_rate.reindex(master_time_index, method='pad').fillna(0)
             
             ax.plot(cumulative_rate.index, cumulative_rate.values, marker='o', linestyle='-', markersize=4, label=call)
+
+            cumulative_rate.name = call
+            all_series.append(cumulative_rate)
 
             total_value = df[value_column].sum()
 
@@ -172,6 +181,13 @@ class Report(ContestReport):
         
         filename_band = self.logs[0].contest_definition.valid_bands[0].lower() if is_single_band else band_filter.lower().replace('m', '')
         filename_calls = '_vs_'.join(sorted(all_calls))
+        
+        # --- Save Debug Data ---
+        if all_series:
+            debug_df = pd.concat(all_series, axis=1).fillna(0)
+            debug_filename = f"{self.report_id}_{filename_band}_{filename_calls}.txt"
+            save_debug_data(debug_data_flag, output_path, debug_df, custom_filename=debug_filename)
+        
         filename = f"{self.report_id}_{filename_band}_{filename_calls}.png"
         filepath = os.path.join(output_path, filename)
         fig.savefig(filepath)

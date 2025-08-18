@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-17
-# Version: 0.37.4-Beta
+# Date: 2025-08-18
+# Version: 0.38.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,8 +16,14 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 # --- Revision History ---
+## [0.38.2-Beta] - 2025-08-18
+### Changed
+# - Modified the AliasLookup ambiguity check to store all possible mappings
+#   for a conflicting alias instead of discarding it.
+### Added
+# - Added a get_ambiguous_mappings() method to the AliasLookup class to
+#   allow resolvers to access and handle context-dependent aliases.
 ## [0.37.4-Beta] - 2025-08-17
 ### Changed
 # - Added logic to detect ambiguous aliases (e.g., VE1) in .dat files,
@@ -31,12 +37,11 @@
 ## [0.30.0-Beta] - 2025-08-05
 # - Initial release of Version 0.30.0-Beta.
 # - Standardized all project files to a common baseline version.
-
 import pandas as pd
 import os
 import re
 import logging
-from typing import Dict, Tuple, Optional, Set
+from typing import Dict, Tuple, Optional, Set, List
 
 class AliasLookup:
     """
@@ -49,7 +54,7 @@ class AliasLookup:
         self._valid_mults: Set[str] = set()
         self.sections: Dict[str, Set[str]] = {}
         self.multiplier_to_category: Dict[str, str] = {}
-        self._ambiguous_aliases: Set[str] = set()
+        self._ambiguous_lookup: Dict[str, List[Tuple[str, str]]] = {}
         self._parse_file()
 
     def _parse_file(self):
@@ -61,7 +66,6 @@ class AliasLookup:
                 for line in f:
                     line = line.strip()
                     
-                    # Check for section header
                     header_match = section_pattern.match(line)
                     if header_match:
                         current_section = header_match.group(1).strip()
@@ -91,16 +95,31 @@ class AliasLookup:
                     self.multiplier_to_category[official_abbr] = current_section
 
                     for alias in aliases:
-                        # --- Ambiguous Alias Check ---
+                        # Check if this alias creates a new conflict
                         if alias in self._lookup and self._lookup[alias][0] != official_abbr:
-                            logging.warning(
-                                f"Ambiguous alias '{alias}' found in '{os.path.basename(self.filepath)}'. "
-                                f"It is mapped to both '{self._lookup[alias][0]}' and '{official_abbr}'. "
-                                f"This alias will be ignored."
-                            )
-                            self._ambiguous_aliases.add(alias)
-                            del self._lookup[alias] # Remove the original entry
-                        elif alias not in self._ambiguous_aliases:
+                            logging.info(f"Ambiguous alias '{alias}' detected in '{os.path.basename(self.filepath)}'. Storing all possibilities.")
+                            
+                            # Get original mapping details
+                            original_abbr = self._lookup[alias][0]
+                            original_category = self.multiplier_to_category.get(original_abbr, 'Default')
+                            
+                            # Store both possibilities in the ambiguous lookup
+                            self._ambiguous_lookup[alias] = [
+                                (original_abbr, original_category),
+                                (official_abbr, current_section)
+                            ]
+                            
+                            # Remove from the clean (unambiguous) lookup
+                            del self._lookup[alias]
+                        
+                        # If it's already ambiguous, add the new possibility
+                        elif alias in self._ambiguous_lookup:
+                            new_mapping = (official_abbr, current_section)
+                            if new_mapping not in self._ambiguous_lookup[alias]:
+                                self._ambiguous_lookup[alias].append(new_mapping)
+                        
+                        # If it's not in either dictionary, it's a new clean alias
+                        elif alias not in self._lookup:
                             self._lookup[alias] = (official_abbr, full_name)
 
         except FileNotFoundError:
@@ -117,19 +136,22 @@ class AliasLookup:
             
         value_upper = value.upper()
 
-        if value_upper in self._ambiguous_aliases:
-            return pd.NA, pd.NA
+        if value_upper in self._ambiguous_lookup:
+            return "Unknown", pd.NA
             
         if value_upper in self._lookup:
             return self._lookup[value_upper]
         
-        # Fallback for values that are already official abbreviations
         if value_upper in self._valid_mults:
             for abbr, (official_abbr, full_name) in self._lookup.items():
                 if value_upper == official_abbr:
                     return official_abbr, full_name
 
         return pd.NA, pd.NA
+
+    def get_ambiguous_mappings(self, alias: str) -> Optional[List[Tuple[str, str]]]:
+        """Returns a list of (official_abbr, category) tuples for an ambiguous alias."""
+        return self._ambiguous_lookup.get(alias.upper())
 
     def get_category(self, multiplier: str) -> Optional[str]:
         """

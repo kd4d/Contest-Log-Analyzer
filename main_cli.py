@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-14
-# Version: 0.35.10-Beta
+# Date: 2025-08-18
+# Version: 0.38.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.38.0-Beta] - 2025-08-18
+### Added
+# - Added a --debug-data flag to enable the generation of debug data dumps for visual reports.
 ## [0.35.10-Beta] - 2025-08-14
 ### Fixed
 # - Added exception handling for log file mismatches (wrong contest/event)
@@ -86,6 +89,7 @@ def main():
     parser.add_argument('--include-dupes', action='store_true', help="Include duplicate QSOs in calculations.")
     parser.add_argument('--mult-name', dest='mult_name', help="Specify the multiplier name for relevant reports.")
     parser.add_argument('--metric', dest='metric', choices=['qsos', 'points'], default='qsos', help="Metric for difference plots.")
+    parser.add_argument('--debug-data', action='store_true', help='If set, save the data source for visual reports to a text file.')
     
     args, unknown = parser.parse_known_args()
 
@@ -141,7 +145,8 @@ def main():
     report_kwargs = {
         'include_dupes': args.include_dupes,
         'mult_name': args.mult_name,
-        'metric': args.metric
+        'metric': args.metric,
+        'debug_data': args.debug_data
     }
 
     try:

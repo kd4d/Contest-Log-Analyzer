@@ -1,7 +1,7 @@
 # Contest Log Analyzer/contest_tools/reports/plot_hourly_animation.py
 #
-# Version: 0.36.7-Beta
-# Date: 2025-08-16
+# Version: 0.38.1-Beta
+# Date: 2025-08-18
 #
 # Purpose: A plot report that generates a series of hourly images and compiles
 #          them into an animated video showing contest progression. It also
@@ -16,6 +16,15 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.38.1-Beta] - 2025-08-18
+### Fixed
+# - Expanded the frame_debug_data dictionary to be a complete snapshot
+#   of the source data for all three animation charts, fixing the
+#   incomplete debug file bug.
+## [0.38.0-Beta] - 2025-08-18
+### Added
+# - Added call to the save_debug_data helper function inside the per-frame
+#   loop to dump the source data for each frame of the animation.
 ## [0.36.7-Beta] - 2025-08-16
 ### Fixed
 # - Corrected a SyntaxError by adding a missing colon to the color
@@ -65,7 +74,7 @@ from typing import List, Dict
 
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from ._report_utils import create_output_directory, get_valid_dataframe
+from ._report_utils import create_output_directory, get_valid_dataframe, save_debug_data
 
 def _get_color_shades(base_rgb):
     """Generates dark, light, and red shades for Run/S&P/Unknown."""
@@ -198,7 +207,7 @@ class Report(ContestReport):
             'bands': bands, 'modes': combined_df['Mode'].unique().tolist()
         }
 
-    def _generate_video(self, data: Dict, output_path: str):
+    def _generate_video(self, data: Dict, output_path: str, debug_data_flag: bool):
         frame_dir = os.path.join(output_path, "temp_frames")
         if os.path.exists(frame_dir): shutil.rmtree(frame_dir)
         os.makedirs(frame_dir)
@@ -214,6 +223,46 @@ class Report(ContestReport):
         num_logs = len(calls)
 
         for i, hour in enumerate(data['master_index']):
+            # --- Save Debug Data for this frame ---
+            frame_debug_data = {
+                'hour_timestamp': hour.isoformat(),
+                'hour_index': i + 1,
+                'logs': {}
+            }
+            for call in calls:
+                # Data for Top Chart (Cumulative Totals)
+                top_chart_data = {
+                    'score': data['log_data'][call]['cum_score'].get(hour, 0),
+                    'qsos': data['log_data'][call]['cum_qso'].get(hour, 0)
+                }
+
+                # Data for Bottom-Left Chart (Hourly Rates)
+                hourly_rate_data = {}
+                try:
+                    hourly_slice = data['log_data'][call]['hourly_run_sp'].loc[hour]
+                    if not hourly_slice.empty:
+                        hourly_rate_data = hourly_slice.to_dict()
+                except KeyError:
+                    pass 
+
+                # Data for Bottom-Right Chart (Cumulative by Band)
+                cum_by_band_data = {}
+                try:
+                    cum_slice = data['log_data'][call]['cum_qso_per_band_breakdown'].loc[hour]
+                    if not cum_slice.empty:
+                        cum_by_band_data = {band: cum_slice[band].to_dict() for band in cum_slice.index.get_level_values(0).unique()}
+                except KeyError:
+                    pass
+                
+                frame_debug_data['logs'][call] = {
+                    'top_chart_cumulative_totals': top_chart_data,
+                    'bottom_left_hourly_rates': hourly_rate_data,
+                    'bottom_right_cumulative_by_band': cum_by_band_data
+                }
+            
+            debug_filename = f"{self.report_id}_{'_vs_'.join(sorted(calls))}_frame_{i:03d}.txt"
+            save_debug_data(debug_data_flag, output_path, frame_debug_data, custom_filename=debug_filename)
+
             fig_mpl = plt.figure(figsize=(self.IMAGE_WIDTH_PX / self.DPI, self.IMAGE_HEIGHT_PX / self.DPI), dpi=self.DPI)
             
             gs_main = fig_mpl.add_gridspec(3, 1, height_ratios=[1, 10, 1.2], hspace=0.8)
@@ -244,8 +293,7 @@ class Report(ContestReport):
                 ax_qso.barh(j - 0.2, qsos, height=0.4, align='center', color=bar_color, alpha=0.6)
                 ax_qso.text(qsos, j - 0.2, f' {qsos:,.0f}', va='center', ha='left')
             
-            ax_qso.set_yticks(range(len(calls))); ax_qso.set_yticklabels([]);
-            ax_qso.tick_params(axis='y', length=0)
+            ax_qso.set_yticks(range(len(calls))); ax_qso.set_yticklabels([]); ax_qso.tick_params(axis='y', length=0)
             ax_qso.set_xlim(0, data['max_final_qso']); ax_qso.set_xlabel("Cumulative QSOs")
             ax_score.set_xlim(0, data['max_final_score']); ax_score.set_xlabel("Cumulative Score")
             ax_score.xaxis.set_ticks_position('top'); ax_score.xaxis.set_label_position('top')
@@ -333,7 +381,8 @@ class Report(ContestReport):
         if not data:
             return f"Report '{self.report_name}' skipped: No data to process."
 
-        self._generate_video(data, output_path)
+        debug_data_flag = kwargs.get("debug_data", False)
+        self._generate_video(data, output_path, debug_data_flag=debug_data_flag)
         self._generate_interactive_html(data, output_path)
         
         return f"Animation report files generated in: {output_path}"

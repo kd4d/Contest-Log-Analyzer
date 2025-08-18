@@ -1,7 +1,7 @@
 # Contest Log Analyzer/contest_tools/contest_specific_annotations/arrl_10_multiplier_resolver.py
 #
-# Version: 0.32.13-Beta
-# Date: 2025-08-12
+# Version: 0.38.2-Beta
+# Date: 2025-08-18
 #
 # Purpose: Provides contest-specific logic to resolve ARRL 10 Meter contest
 #          multipliers by parsing the asymmetric received exchange.
@@ -14,8 +14,11 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 # --- Revision History ---
+## [0.38.2-Beta] - 2025-08-18
+### Changed
+# - Enhanced resolver logic to query for ambiguous aliases and use the
+#   worked station's DXCC to resolve them, fixing the VER/VT bug.
 ## [0.32.13-Beta] - 2025-08-12
 ### Fixed
 # - Removed the destructive "once per mode" filtering logic. The resolver's
@@ -28,7 +31,6 @@
 ## [0.32.0-Beta] - 2025-08-12
 ### Added
 # - Initial release of the custom multiplier resolver for the ARRL 10 Meter contest.
-
 import pandas as pd
 import os
 import re
@@ -38,9 +40,16 @@ from typing import Dict, Any, Tuple
 from ..core_annotations._core_utils import AliasLookup
 from ..contest_definitions import ContestDefinition
 
+DXCC_TO_CATEGORY = {
+    "United States": "US States",
+    "Canada": "Canadian Provinces",
+    "Mexico": "Mexican States"
+}
+
 def _resolve_row(row: pd.Series, alias_lookup: AliasLookup, rules: Dict) -> pd.Series:
     """
-    Parses the received exchange and determines the multiplier for a single QSO row.
+    Parses the received exchange and determines the multiplier for a single QSO row,
+    now with logic to handle ambiguous aliases based on context.
     """
     # Initialize results
     mult_state, mult_ve, mult_xe, mult_dxcc, mult_itu = pd.NA, pd.NA, pd.NA, pd.NA, pd.NA
@@ -73,8 +82,23 @@ def _resolve_row(row: pd.Series, alias_lookup: AliasLookup, rules: Dict) -> pd.S
     if pd.notna(rcvd_itu):
         mult_itu = f"ITU {rcvd_itu}"
     elif pd.notna(rcvd_location):
+        # --- NEW LOGIC: Multi-step lookup ---
+        
+        # 3.1: Attempt standard, unambiguous lookup first
         mult_abbr, _ = alias_lookup.get_multiplier(rcvd_location)
-        if pd.notna(mult_abbr):
+
+        # 3.2: If standard lookup fails, attempt ambiguous lookup
+        if pd.isna(mult_abbr) or mult_abbr == "Unknown":
+            mappings = alias_lookup.get_ambiguous_mappings(rcvd_location)
+            if mappings:
+                target_category = DXCC_TO_CATEGORY.get(worked_dxcc)
+                for abbr, category in mappings:
+                    if category == target_category:
+                        mult_abbr = abbr # Found a context-specific match
+                        break
+        
+        # 3.3: If we have a resolved multiplier, categorize and assign it
+        if pd.notna(mult_abbr) and mult_abbr != "Unknown":
             category = alias_lookup.get_category(mult_abbr)
             if category == "US States":
                 mult_state = mult_abbr
@@ -82,8 +106,8 @@ def _resolve_row(row: pd.Series, alias_lookup: AliasLookup, rules: Dict) -> pd.S
                 mult_ve = mult_abbr
             elif category == "Mexican States":
                 mult_xe = mult_abbr
-    else: # Fallback to DXCC
-        if worked_dxcc != 'Unknown':
+    else: # Fallback to DXCC for non-W/VE/XE stations
+        if worked_dxcc not in ["United States", "Canada", "Mexico", "Alaska", "Hawaii", "Unknown"]:
             mult_dxcc = worked_dxcc
 
     return pd.Series([rcvd_location, rcvd_serial, rcvd_itu, mult_state, mult_ve, mult_xe, mult_dxcc, mult_itu])

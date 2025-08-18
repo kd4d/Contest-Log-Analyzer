@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-10
-# Version: 0.31.31-Beta
+# Date: 2025-08-18
+# Version: 0.38.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,14 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.38.1-Beta] - 2025-08-18
+### Fixed
+# - Resolved a TypeError by removing the redundant 'metric' keyword from a
+#   function call and retrieving it from kwargs instead.
+## [0.38.0-Beta] - 2025-08-18
+### Added
+# - Added call to the save_debug_data helper function to dump the source
+#   dataframe when the --debug-data flag is enabled.
 ## [0.31.31-Beta] - 2025-08-10
 ### Fixed
 # - Refactored time-series logic to calculate cumulative sum before
@@ -61,7 +69,7 @@ import logging
 
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from ._report_utils import create_output_directory, get_valid_dataframe
+from ._report_utils import create_output_directory, get_valid_dataframe, save_debug_data
 
 class Report(ContestReport):
     """
@@ -110,10 +118,12 @@ class Report(ContestReport):
         return cumulative_data[['Run', 'S&P+Unknown']]
 
 
-    def _generate_single_plot(self, output_path: str, band_filter: str, metric: str):
+    def _generate_single_plot(self, output_path: str, band_filter: str, **kwargs):
         """
         Helper function to generate a single cumulative difference plot.
         """
+        debug_data_flag = kwargs.get("debug_data", False)
+        metric = kwargs.get('metric', 'qsos')
         log1, log2 = self.logs[0], self.logs[1]
         call1 = log1.get_metadata().get('MyCall', 'Log1')
         call2 = log2.get_metadata().get('MyCall', 'Log2')
@@ -129,6 +139,18 @@ class Report(ContestReport):
         sp_unk_diff = data1['S&P+Unknown'] - data2['S&P+Unknown']
         overall_diff = run_diff + sp_unk_diff
 
+        # --- Save Debug Data ---
+        debug_df = pd.DataFrame({
+            f'run_{call1}': data1['Run'], f'sp_unk_{call1}': data1['S&P+Unknown'],
+            f'run_{call2}': data2['Run'], f'sp_unk_{call2}': data2['S&P+Unknown'],
+            'run_diff': run_diff, 'sp_unk_diff': sp_unk_diff, 'overall_diff': overall_diff
+        })
+        
+        is_single_band = len(log1.contest_definition.valid_bands) == 1
+        filename_band = log1.contest_definition.valid_bands[0].lower() if is_single_band else band_filter.lower().replace('m', '')
+        debug_filename = f"{self.report_id}_{metric}_{filename_band}_{call1}_vs_{call2}.txt"
+        save_debug_data(debug_data_flag, output_path, debug_df, custom_filename=debug_filename)
+        
         # --- Plotting ---
         sns.set_theme(style="whitegrid")
         fig = plt.figure(figsize=(12, 9))
@@ -156,7 +178,6 @@ class Report(ContestReport):
         event_id = metadata.get('EventID', '')
         
         metric_name = "Points" if metric == 'points' else "QSOs"
-        is_single_band = len(log1.contest_definition.valid_bands) == 1
         band_text = log1.contest_definition.valid_bands[0].replace('M', ' Meters') if is_single_band else band_filter.replace('M', ' Meters')
 
         title_line1 = f"{event_id} {year} {contest_name}".strip()
@@ -181,7 +202,6 @@ class Report(ContestReport):
 
         # --- Save File ---
         create_output_directory(output_path)
-        filename_band = log1.contest_definition.valid_bands[0].lower() if is_single_band else band_filter.lower().replace('m', '')
         filename = f"{self.report_id}_{metric}_{filename_band}_{call1}_vs_{call2}.png"
         filepath = os.path.join(output_path, filename)
         fig.savefig(filepath)
@@ -196,7 +216,6 @@ class Report(ContestReport):
         if len(self.logs) != 2:
             return "Error: The Cumulative Difference Plot report requires exactly two logs."
 
-        metric = kwargs.get('metric', 'qsos')
         bands = self.logs[0].contest_definition.valid_bands
         is_single_band = len(bands) == 1
         bands_to_plot = [bands[0]] if is_single_band else ['All'] + bands
@@ -212,7 +231,7 @@ class Report(ContestReport):
                 filepath = self._generate_single_plot(
                     output_path=save_path,
                     band_filter=band,
-                    metric=metric
+                    **kwargs
                 )
                 if filepath:
                     created_files.append(filepath)
@@ -220,6 +239,6 @@ class Report(ContestReport):
                 print(f"  - Failed to generate difference plot for {band}: {e}")
 
         if not created_files:
-            return f"No difference plots were generated for metric '{metric}'."
+            return f"No difference plots were generated for metric '{kwargs.get('metric', 'qsos')}'."
 
-        return f"Cumulative difference plots for {metric} saved to:\n" + "\n".join([f"  - {fp}" for fp in created_files])
+        return f"Cumulative difference plots for {kwargs.get('metric', 'qsos')} saved to:\n" + "\n".join([f"  - {fp}" for fp in created_files])
