@@ -1,6 +1,6 @@
 # Contest Log Analyzer/contest_tools/reports/plot_hourly_animation.py
 #
-# Version: 0.38.1-Beta
+# Version: 0.38.2-Beta
 # Date: 2025-08-18
 #
 # Purpose: A plot report that generates a series of hourly images and compiles
@@ -16,6 +16,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.38.2-Beta] - 2025-08-18
+### Fixed
+# - Corrected a TypeError in the animation's debug data generation by
+#   manually creating a nested dictionary to prevent invalid tuple keys.
 ## [0.38.1-Beta] - 2025-08-18
 ### Fixed
 # - Expanded the frame_debug_data dictionary to be a complete snapshot
@@ -241,7 +245,12 @@ class Report(ContestReport):
                 try:
                     hourly_slice = data['log_data'][call]['hourly_run_sp'].loc[hour]
                     if not hourly_slice.empty:
-                        hourly_rate_data = hourly_slice.to_dict()
+                        # Manually build a nested dictionary to avoid tuple keys
+                        for index, run_counts in hourly_slice.iterrows():
+                            band, mode = index
+                            if band not in hourly_rate_data:
+                                hourly_rate_data[band] = {}
+                            hourly_rate_data[band][mode] = run_counts.to_dict()
                 except KeyError:
                     pass 
 

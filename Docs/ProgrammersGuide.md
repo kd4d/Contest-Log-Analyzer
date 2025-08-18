@@ -1,10 +1,18 @@
+````
 # Contest Log Analyzer - Programmer's Guide
 
-**Version: 0.36.7-Beta**
-**Date: 2025-08-15**
+**Version: 0.37.0-Beta**
+**Date: 2025-08-18**
 
 ---
 ### --- Revision History ---
+## [0.37.0-Beta] - 2025-08-18
+### Added
+# - Added a new "Regression Testing" section to describe the
+#   run_regression_test.py script and its methodology.
+# - Added the `enable_adif_export` key to the JSON Quick Reference table.
+### Changed
+# - Updated the document's version to align with other documentation.
 ## [0.36.7-Beta] - 2025-08-15
 ### Changed
 # - Updated the CLI arguments list to be complete.
@@ -46,12 +54,22 @@ This script is the main entry point for running the analyzer.
     * `--include-dupes`: An optional flag to include duplicate QSOs in report calculations.
     * `--mult-name`: An optional argument to specify which multiplier to use for multiplier-specific reports (e.g., 'Countries').
     * `--metric`: An optional argument for difference plots, specifying whether to compare `qsos` or `points`. Defaults to `qsos`.
+    * `--debug-data`: An optional flag to save the source data for visual reports to a text file.
 * **Report Discovery:** The script dynamically discovers all available reports by inspecting the `contest_tools.reports` package. Any valid report class in this package is automatically made available as a command-line option.
+
 ### Logging System (`Utils/logger_config.py`)
 The project uses Python's built-in `logging` framework for console output.
 * **`logging.info()`:** Used for verbose, step-by-step diagnostic messages. These are only displayed when the `--verbose` flag is used.
 * **`logging.warning()`:** Used for non-critical issues the user should be aware of (e.g., ignoring an `X-QSO:` line). These are always displayed.
 * **`logging.error()`:** Used for critical, run-terminating failures (e.g., a file not found or a fatal parsing error).
+
+### Regression Testing (`run_regression_test.py`)
+The project includes an automated regression test script to ensure that new changes do not break existing functionality.
+* **Workflow**: The script follows a three-step process:
+    1.  **Archive**: It archives the last known-good set of reports by renaming the existing `reports/` directory with a timestamp.
+    2.  **Execute**: It runs a series of pre-defined test cases from a `regressiontest.bat` file. Each command in this file generates a new set of reports.
+    3.  **Compare**: It performs a `diff` comparison between the newly generated text reports and the archived baseline reports. Any differences are flagged as a regression.
+* **Methodology**: This approach focuses on **data integrity**. Instead of comparing images or videos, which can be brittle, the regression test compares the raw text output and the debug data dumps from visual reports. This provides a robust and reliable way to verify that the underlying data processing and calculations remain correct after code changes.
 ---
 ## How to Add a New Report
 
@@ -72,13 +90,16 @@ All reports must be created as `.py` files in the `contest_tools/reports/` direc
 | `supports_pairwise` | `bool` | `True` if the report compares exactly two logs. |
 
 4.  The class must implement a `generate(self, output_path: str, **kwargs) -> str` method. This method contains the core logic of the report and must accept `**kwargs` to handle optional arguments.
+
 ### Dynamic Discovery
 As long as a report file is in the `contest_tools/reports` directory and its class is named `Report`, the `__init__.py` in that directory will find and register it automatically.
+
 ### Helper Functions and Factoring (`_report_utils.py`)
 The `contest_tools/reports/_report_utils.py` module contains common helper functions. The philosophy for factoring is as follows:
 
 * **Keep it Self-Contained:** If a piece of logic is highly specific to a single report and unlikely to be reused, it should remain inside that report's `generate` method.
 * **Factor it Out:** If a function or component (like a chart style or data preparation step) is likely to be useful for other future reports, it should be factored out into a new helper function in `_report_utils.py`.
+
 ### Boilerplate Example
 Here is a minimal "Hello World" report.
 
@@ -96,7 +117,7 @@ class Report(ContestReport):
         log = self.logs[0]
         callsign = log.get_metadata().get('MyCall', 'N/A')
         report_content = f"Hello, {callsign}!"
-# In a real report, you would save this content to a file.
+        # In a real report, you would save this content to a file.
         print(report_content)
         
         return f"Report '{self.report_name}' generated successfully."
@@ -120,6 +141,7 @@ The primary way to add a contest is by creating a new `.json` file in the `conte
 | `excluded_reports`| A list of `report_id` strings to disable for this contest. | `[ "point_rate_plots" ]` |
 | `operating_time_rules`| Defines on-time limits for the `score_report`. | `{ "single_op_max_hours": 30 }` |
 | `mults_from_zero_point_qsos`| `True` if multipliers count from 0-point QSOs. | `true` |
+| `enable_adif_export` | `True` if the log should be exported to an N1MM-compatible ADIF file. | `true` |
 | `valid_bands` | A list of bands valid for the contest. | `[ "160M", "80M", "40M" ]` |
 | `contest_period` | Defines the official start/end of the contest. | `{ "start_day": "Saturday" }` |
 | `custom_parser_module` | *Optional.* Specifies a module to run for complex, asymmetric parsing. | `"arrl_10_parser"` |
@@ -133,6 +155,7 @@ The primary way to add a contest is by creating a new `.json` file in the `conte
 2.  Define the `contest_name` to match the Cabrillo logs.
 3.  Define the `exchange_parsing_rules`. If the exchange can have multiple valid formats, you can provide a list of rule objects. The parser will try each one in order.
 4.  Define the `multiplier_rules`. For simple multipliers, you can use `"source_column"` to copy data from an existing column (like `CQZone` or `DXCCName`) into a multiplier column (`Mult1`, `Mult2`).
+
 ### Boilerplate Example
 
 ```
@@ -166,3 +189,4 @@ If a contest requires logic that cannot be defined in JSON, you can extend the P
 * **Event ID Resolver:** Create a file (e.g., `my_contest_event_resolver.py`) with a `resolve_event_id` function. Set the `contest_specific_event_id_resolver` key in the JSON.
 * **Scoring Module:** Create a file named `my_contest_cw_scoring.py` containing a `calculate_points` function. The system will find this by convention.
 * **Multiplier Calculation Module:** Create a file (e.g., `my_contest_mult_calc.py`) with a function that returns a pandas Series. In the JSON `multiplier_rules`, set `"source": "calculation_module"` and add the `module_name` and `function_name` keys. The `contest_log.py` script will see these rules, use the `importlib` library to dynamically load your module, execute your function, and integrate the results.
+````
