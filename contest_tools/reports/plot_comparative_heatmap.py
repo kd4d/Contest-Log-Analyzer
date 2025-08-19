@@ -1,12 +1,15 @@
-# Contest Log Analyzer/contest_tools/reports/plot_split_heatmap_activity.py
+# Contest Log Analyzer/contest_tools/reports/plot_comparative_heatmap.py
 #
-# Version: 0.39.6-Beta
-# Date: 2025-08-18
+# Version: 0.39.8-Beta
+# Date: 2025-08-19
 #
 # Purpose: A plot report that generates a comparative "split heatmap" chart to
 #          visualize the band activity of two logs side-by-side.
 #
 # --- Revision History ---
+## [0.39.8-Beta] - 2025-08-19
+# - Renamed file and report_id to reflect new split-heatmap visualization.
+# - Updated logic to use the new ComparativeHeatmapChart helper class.
 ## [0.39.6-Beta] - 2025-08-18
 # - Initial release of the Split Heatmap Band Activity report.
 #
@@ -17,11 +20,11 @@ from typing import List, Dict, Any
 
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from ._report_utils import get_valid_dataframe, create_output_directory, SplitHeatmapChart
+from ._report_utils import get_valid_dataframe, create_output_directory, ComparativeHeatmapChart
 
 class Report(ContestReport):
-    report_id: str = "split_heatmap_activity"
-    report_name: str = "Split Heatmap Band Activity"
+    report_id: str = "comparative_heatmap"
+    report_name: str = "Comparative Band Activity Heatmap"
     report_type: str = "plot"
     supports_pairwise = True
 
@@ -60,7 +63,14 @@ class Report(ContestReport):
                 chunk_end_time = max_time
             
             time_bins = pd.date_range(start=chunk_start_time, end=chunk_end_time, freq=interval, tz='UTC')
-            all_bands = sorted(list(set(log1.contest_definition.valid_bands) | set(log2.contest_definition.valid_bands)))
+            
+            # Use only bands with activity in either log
+            active_bands1 = set(dfs[call1][dfs[call1]['Band'] != 'Invalid']['Band'].unique())
+            active_bands2 = set(dfs[call2][dfs[call2]['Band'] != 'Invalid']['Band'].unique())
+            all_bands = sorted(list(active_bands1 | active_bands2))
+            
+            if not all_bands:
+                return "Skipping report: No bands with activity found in either log."
 
             pivot_dfs = {}
             for call, df in dfs.items():
@@ -69,14 +79,14 @@ class Report(ContestReport):
                 pivot_dfs[call] = pivot
 
             # --- 3. Plotting ---
-            chart_title = f"{self.report_name}\n{call1} (Up) vs. {call2} (Down)"
+            chart_title = f"{self.report_name}\n{call1} (Top) vs. {call2} (Bottom)"
             if num_charts > 1:
                 chart_title += f" - Part {i+1}"
             
             output_suffix = f"_part_{i+1}" if num_charts > 1 else ""
             output_filename = os.path.join(output_path, f"{self.report_id}_{call1}_vs_{call2}{output_suffix}.png")
 
-            chart = SplitHeatmapChart(
+            chart = ComparativeHeatmapChart(
                 data1=pivot_dfs[call1],
                 data2=pivot_dfs[call2],
                 call1=call1,

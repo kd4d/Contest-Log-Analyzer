@@ -1,12 +1,16 @@
 # Contest Log Analyzer/contest_tools/reports/plot_comparative_band_activity.py
 #
-# Version: 0.39.7-Beta
-# Date: 2025-08-18
+# Version: 0.39.8-Beta
+# Date: 2025-08-19
 #
 # Purpose: A plot report that generates a comparative "butterfly" chart to
 #          visualize the band activity of two logs side-by-side.
 #
 # --- Revision History ---
+## [0.39.8-Beta] - 2025-08-19
+### Fixed
+# - Corrected the plotting logic to fix a UserWarning by setting y-tick
+#   locations before setting the labels.
 ## [0.39.7-Beta] - 2025-08-18
 # - Initial release of the Comparative Band Activity report.
 #
@@ -86,6 +90,7 @@ class Report(ContestReport):
             
             # Format Y-axis to show positive numbers
             ticks = ax.get_yticks()
+            ax.set_yticks(ticks) # Explicitly set the tick locations first
             ax.set_yticklabels([int(abs(tick)) for tick in ticks])
 
         # --- 3. Dynamic X-Axis Formatting ---

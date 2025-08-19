@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-19
-# Version: 0.39.7-Beta
+# Version: 0.39.8-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.39.8-Beta] - 2025-08-19
+### Changed
+# - Renamed SplitHeatmapChart to ComparativeHeatmapChart and rewrote its
+#   plotting logic to correctly generate a split-cell heatmap instead of
+#   a butterfly chart, resolving a major implementation bug.
 ## [0.39.7-Beta] - 2025-08-19
 ### Fixed
 # - Corrected the SplitHeatmapChart plotter to fix a UserWarning by
@@ -54,6 +59,8 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
+from matplotlib.patches import Rectangle
+from matplotlib.colors import Normalize
 import os
 import numpy as np
 import re
@@ -183,7 +190,7 @@ class DonutChartComponent:
         table.set_fontsize(12)
         table.scale(1.2, 1.2)
 
-class SplitHeatmapChart:
+class ComparativeHeatmapChart:
     """Helper class to generate a 'split cell' comparative heatmap."""
     
     def __init__(self, data1, data2, call1, call2, title, output_filename):
@@ -198,41 +205,58 @@ class SplitHeatmapChart:
         """Generates and saves the heatmap plot."""
         bands = self.data1.index
         num_bands = len(bands)
+        num_cols = len(self.data1.columns)
         
-        fig, axes = plt.subplots(num_bands, 1, figsize=(12, 1.5 * num_bands), sharex=True, squeeze=False)
-        axes = axes.flatten()
+        fig, ax = plt.subplots(figsize=(12, 1 + num_bands * 0.6))
 
-        max_rate = max(self.data1.max().max(), self.data2.max().max())
+        max_val = max(self.data1.max().max(), self.data2.max().max())
+        norm = Normalize(vmin=0, vmax=max_val)
+        cmap = plt.get_cmap('viridis')
 
-        for i, band in enumerate(bands):
-            ax = axes[i]
-            d1 = self.data1.loc[band]
-            d2 = -self.data2.loc[band]
-            x_pos = np.arange(len(d1))
+        # Manually draw rectangles for each cell half
+        for band_idx, band in enumerate(bands):
+            for time_idx in range(num_cols):
+                qso_count1 = self.data1.iloc[band_idx, time_idx]
+                qso_count2 = self.data2.iloc[band_idx, time_idx]
 
-            ax.bar(x_pos, d1, width=1, align='center', color='blue', alpha=0.7)
-            ax.bar(x_pos, d2, width=1, align='center', color='red', alpha=0.7)
-            
-            ax.axhline(0, color='black', linewidth=0.8)
-            ax.set_ylabel(band, rotation=0, ha='right', va='center')
-            ax.set_ylim(-max_rate * 1.1, max_rate * 1.1)
-            
-            ticks = ax.get_yticks()
-            ax.set_yticks(ticks) # Explicitly set tick locations
-            ax.set_yticklabels([int(abs(tick)) for tick in ticks])
+                # Top rectangle for Log 1
+                if qso_count1 > 0:
+                    ax.add_patch(Rectangle((time_idx, band_idx + 0.5), 1, 0.5, facecolor=cmap(norm(qso_count1))))
+                
+                # Bottom rectangle for Log 2
+                if qso_count2 > 0:
+                    ax.add_patch(Rectangle((time_idx, band_idx), 1, 0.5, facecolor=cmap(norm(qso_count2))))
 
-        fig.suptitle(self.title, fontsize=16, fontweight='bold')
-        axes[-1].set_xlabel("Contest Time (UTC)")
-        fig.supylabel("QSOs per 15 min")
+        # --- Formatting ---
+        ax.set_xlim(0, num_cols)
+        ax.set_ylim(0, num_bands)
+        ax.set_yticks(np.arange(num_bands) + 0.5)
+        ax.set_yticklabels(bands)
+        
+        ax.set_title(self.title, fontsize=16, fontweight='bold')
+        ax.set_xlabel("Contest Time (UTC)")
+        
+        # Add a custom legend
+        legend_patches = [
+            Rectangle((0, 0), 1, 1, facecolor='blue', label=f"{self.call1} (Top Half)"),
+            Rectangle((0, 0), 1, 1, facecolor='red', label=f"{self.call2} (Bottom Half)"),
+        ]
+        ax.legend(handles=legend_patches, loc='upper right', bbox_to_anchor=(1, 1.15))
 
-        fig.tight_layout(rect=[0.03, 0.03, 1, 0.95])
+        # Add color bar
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm.set_array([])
+        cbar = plt.colorbar(sm, ax=ax, aspect=40, pad=0.02)
+        cbar.set_label('QSOs / 15 min')
+
+        fig.tight_layout(rect=[0, 0, 1, 0.95])
         
         try:
             fig.savefig(self.output_filename)
             plt.close(fig)
             return self.output_filename
         except Exception as e:
-            logging.error(f"Error saving butterfly chart: {e}")
+            logging.error(f"Error saving split heatmap: {e}")
             plt.close(fig)
             return None
 
