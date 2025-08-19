@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-18
-# Version: 0.38.1-Beta
+# Date: 2025-08-19
+# Version: 0.46.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,70 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.46.0-Beta] - 2025-08-19
+### Fixed
+# - Modified the figsize calculation to enforce a minimum height,
+#   preventing chart elements from overlapping on single-band plots.
+## [0.45.0-Beta] - 2025-08-19
+### Fixed
+# - Replaced the layout manager with an explicit GridSpec to create a
+#   dedicated, reserved space for the legend, ensuring it is centered
+#   and does not overlap the title or chart.
+## [0.44.0-Beta] - 2025-08-19
+### Fixed
+# - Corrected the legend's vertical and horizontal placement to ensure it
+#   is centered and does not overlap the plot title.
+## [0.43.0-Beta] - 2025-08-19
+### Changed
+# - Adjusted the figure aspect ratio to be taller (11 x 8.5) for better
+#   readability and printing.
+# - Reworked the legend to use a sample color from the heatmap's actual
+#   color scale, with and without the dot pattern, to be more intuitive.
+# - Implemented the standard two-line figure suptitle.
+# - Changed the thin horizontal cell divider to a black line.
+## [0.42.0-Beta] - 2025-08-19
+### Changed
+# - Adjusted the figure aspect ratio to be taller (11 x 8.5) for better
+#   readability and printing.
+# - Reworked the legend to use a sample color from the heatmap's actual
+#   color scale, with and without the dot pattern, to be more intuitive.
+## [0.41.0-Beta] - 2025-08-19
+### Changed
+# - Modified the ComparativeHeatmapChart to use a truncated Viridis
+#   colormap, excluding the darkest colors.
+# - Added a white dot hatch pattern to the cells for the second log to
+#   improve visual distinction.
+# - Changed the primary horizontal grid lines between bands to be heavy,
+#   black, and drawn in the foreground.
+## [0.40.0-Beta] - 2025-08-19
+### Changed
+# - Enhanced the ComparativeHeatmapChart plotting logic to dynamically
+#   calculate and render correct, time-based labels for the x-axis,
+#   resolving the axis formatting bug.
+## [0.39.9-Beta] - 2025-08-19
+### Changed
+# - Rewrote the ComparativeHeatmapChart plotting logic to manually draw
+#   a custom grid with thick and thin lines, per user specification,
+#   to improve chart readability.
+## [0.39.8-Beta] - 2025-08-19
+### Changed
+# - Renamed SplitHeatmapChart to ComparativeHeatmapChart and rewrote its
+#   plotting logic to correctly generate a split-cell heatmap instead of
+#   a butterfly chart, resolving a major implementation bug.
+## [0.39.7-Beta] - 2025-08-19
+### Fixed
+# - Corrected the SplitHeatmapChart plotter to fix a UserWarning by
+#   setting y-tick locations before labels.
+# - Removed dead code from the SplitHeatmapChart plotter that was
+#   causing a TypeError due to a namespace collision.
+## [0.39.6-Beta] - 2025-08-18
+### Added
+# - Added the SplitHeatmapChart reusable plotting class to generate
+#   comparative, split-cell heatmap visualizations.
+## [0.39.5-Beta] - 2025-08-18
+### Fixed
+# - Resolved a pandas SettingWithCopyWarning by explicitly returning a
+#   .copy() of the DataFrame slice in the get_valid_dataframe helper.
 ## [0.38.1-Beta] - 2025-08-18
 ### Fixed
 # - Added a custom NpEncoder class to the save_debug_data helper to
@@ -40,13 +104,15 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
+from matplotlib.patches import Rectangle
+from matplotlib.colors import Normalize, ListedColormap
 import os
 import numpy as np
 import re
 import json
 import logging
 from pathlib import Path
-from typing import Optional, Dict
+from typing import Optional, Dict, Any
 from ..contest_log import ContestLog
 
 class NpEncoder(json.JSONEncoder):
@@ -61,9 +127,10 @@ class NpEncoder(json.JSONEncoder):
         return super(NpEncoder, self).default(obj)
 
 def get_valid_dataframe(log: ContestLog, include_dupes: bool = False) -> pd.DataFrame:
-    """Returns the log's DataFrame, excluding dupes unless specified."""
+    """Returns a safe copy of the log's DataFrame, excluding dupes unless specified."""
     df = log.get_processed_data()
-    return df if include_dupes else df[df['Dupe'] == False]
+    df_slice = df if include_dupes else df[df['Dupe'] == False]
+    return df_slice.copy()
 
 def create_output_directory(path: str):
     """Creates the output directory if it doesn't exist."""
@@ -168,37 +235,136 @@ class DonutChartComponent:
         table.set_fontsize(12)
         table.scale(1.2, 1.2)
 
+class ComparativeHeatmapChart:
+    """Helper class to generate a 'split cell' comparative heatmap."""
+    
+    def __init__(self, data1, data2, call1, call2, metadata: Dict[str, Any], output_filename: str, part_info: str = ""):
+        self.data1 = data1
+        self.data2 = data2
+        self.call1 = call1
+        self.call2 = call2
+        self.metadata = metadata
+        self.output_filename = output_filename
+        self.part_info = part_info
+
+    def plot(self):
+        """Generates and saves the heatmap plot."""
+        bands = self.data1.index
+        num_bands = len(bands)
+        num_cols = len(self.data1.columns)
+        
+        # Enforce a minimum height for single-band plots
+        height = max(6.0, 1 + num_bands * 1.2)
+        fig = plt.figure(figsize=(11, height))
+        
+        # --- Explicit Layout Control using GridSpec ---
+        gs = fig.add_gridspec(2, 1, height_ratios=[1, 15], hspace=0.05)
+        ax_legend = fig.add_subplot(gs[0])
+        ax = fig.add_subplot(gs[1])
+        ax_legend.axis('off')
+
+
+        max_val = max(self.data1.max().max(), self.data2.max().max())
+        norm = Normalize(vmin=0, vmax=max_val)
+        
+        base_cmap = plt.get_cmap('viridis')
+        cmap_colors = base_cmap(np.linspace(0.1, 1.0, 256)) 
+        cmap = ListedColormap(cmap_colors)
+
+        # --- Stage 1: Draw filled rectangles ---
+        for band_idx, band in enumerate(bands):
+            for time_idx in range(num_cols):
+                qso_count1 = self.data1.iloc[band_idx, time_idx]
+                qso_count2 = self.data2.iloc[band_idx, time_idx]
+
+                if qso_count1 > 0:
+                    ax.add_patch(Rectangle((time_idx, band_idx + 0.5), 1, 0.5, facecolor=cmap(norm(qso_count1)), edgecolor='none'))
+                
+                if qso_count2 > 0:
+                    ax.add_patch(Rectangle((time_idx, band_idx), 1, 0.5, facecolor=cmap(norm(qso_count2)), edgecolor='white', hatch='..'))
+
+        # --- Stage 2: Manually draw custom grid lines ---
+        for time_idx in range(num_cols + 1):
+            ax.axvline(time_idx, color='white', linewidth=1.5)
+            
+        for band_idx in range(num_bands):
+            ax.axhline(band_idx + 0.5, color='black', linewidth=0.75)
+            
+        for band_idx in range(num_bands + 1):
+            ax.axhline(band_idx, color='black', linewidth=2.0, zorder=10)
+
+        # --- Formatting ---
+        ax.set_xlim(0, num_cols)
+        ax.set_ylim(0, num_bands)
+        ax.set_yticks(np.arange(num_bands) + 0.5)
+        ax.set_yticklabels(bands)
+        
+        min_time = self.data1.columns[0]
+        max_time = self.data1.columns[-1]
+        contest_duration_hours = (max_time - min_time).total_seconds() / 3600
+        
+        if contest_duration_hours <= 12:
+            hour_interval = 2
+            date_format_str = '%H:%M'
+        else:
+            hour_interval = 3
+            date_format_str = '%H:%M'
+            
+        tick_step = hour_interval * 4
+        tick_positions = np.arange(0.5, num_cols, tick_step)
+        tick_labels = [self.data1.columns[int(i)].strftime(date_format_str) for i in tick_positions]
+        ax.set_xticks(tick_positions)
+        ax.set_xticklabels(tick_labels, rotation=45, ha='right')
+        
+        ax.set_xlabel("Contest Time (UTC)")
+        
+        # --- Standard Title and Legend ---
+        year = self.metadata.get('Year', '')
+        contest_name = self.metadata.get('ContestName', '')
+        event_id = self.metadata.get('EventID', '')
+        
+        title_line1 = f"{event_id} {year} {contest_name}".strip()
+        title_line2 = f"Comparative Band Activity Heatmap {self.part_info}".strip()
+        fig.suptitle(f"{title_line1}\n{title_line2}", fontsize=16, fontweight='bold', y=0.99)
+        
+        medium_color = cmap(0.5)
+        legend_patches = [
+            Rectangle((0, 0), 1, 1, facecolor=medium_color, label=self.call1),
+            Rectangle((0, 0), 1, 1, facecolor=medium_color, hatch='..', edgecolor='white', label=self.call2),
+        ]
+        ax_legend.legend(handles=legend_patches, loc='center', ncol=2, frameon=False)
+
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm.set_array([])
+        cbar = plt.colorbar(sm, ax=ax, aspect=40, pad=0.02)
+        cbar.set_label('QSOs / 15 min')
+        
+        try:
+            fig.savefig(self.output_filename)
+            plt.close(fig)
+            return self.output_filename
+        except Exception as e:
+            logging.error(f"Error saving split heatmap: {e}")
+            plt.close(fig)
+            return None
+
 def save_debug_data(debug_flag: bool, output_path: str, data, custom_filename: str = None):
     """
     Saves the source data for a report to a .txt file if the debug flag is set.
-
-    Args:
-        debug_flag (bool): The value of the --debug-data flag.
-        output_path (str): The original output path for the report (e.g., .../charts).
-        data: The data to save (can be a pandas DataFrame or a dictionary).
-        custom_filename (str, optional): A specific filename to use. Defaults to None.
     """
     if not debug_flag:
         return
 
-    # Create the 'Debug' subdirectory inside the specific report output path
     debug_dir = Path(output_path) / "Debug"
     debug_dir.mkdir(parents=True, exist_ok=True)
 
-    # Determine the output filename
     if custom_filename:
         filename = custom_filename
     else:
-        # This part needs a bit of thought; assuming output_path is a directory
-        # and we need a base name for the file. Let's construct one.
-        # A more robust solution might require the original intended filename.
-        # For now, let's create a generic name if no custom name is given.
-        # This will be refined when each report is modified.
-        filename = "debug_data.txt" # Placeholder, will be passed from report
+        filename = "debug_data.txt" 
     
     debug_filepath = debug_dir / filename
 
-    # Format the data into a human-readable string
     content = ""
     if isinstance(data, pd.DataFrame):
         content = data.to_string()
@@ -207,7 +373,6 @@ def save_debug_data(debug_flag: bool, output_path: str, data, custom_filename: s
     else:
         content = str(data)
 
-    # Write the formatted data to the debug file
     with open(debug_filepath, 'w', encoding='utf-8') as f:
         f.write(content)
         logging.info(f"Debug data saved to {debug_filepath}")

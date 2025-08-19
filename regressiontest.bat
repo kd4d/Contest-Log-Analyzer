@@ -7,3 +7,4 @@ python main_cli.py --report all 2025\NAQP-CW\aug\k3aj.log 2025\NAQP-CW\aug\wn4af
 python main_cli.py --report all 2024\ARRL-10\ve3ej.log 2024\arrl-10\vp2vmm.log  --debug-data
 python main_cli.py --report all 2025\NAQP-CW\aug\k3aj.log 2025\NAQP-CW\aug\wx3b.log  --debug-data
 python main_cli.py --report all 2025\arrl-dx-cw\k5zd.log 2025\arrl-dx-cw\aa3b.log  --debug-data
+python main_cli.py --report all 2025\arrl-fd\w1op.log 2025\arrl-fd\W3AO-CWSSB.log  --debug-data
