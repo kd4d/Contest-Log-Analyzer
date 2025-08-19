@@ -45,7 +45,7 @@
 ## [0.36.9-Beta] - 2025-08-15
 ### Added
 # - Added rule 3.2.4 to mandate the substitution of markdown code fences
-#   with __CODE_BLOCK__ for proper web interface rendering.
+#   with ```_ for proper web interface rendering.
 ## [0.36.4-Beta] - 2025-08-15
 ### Changed
 # - Clarified Principle 8 (Surgical Modification) to explicitly require
@@ -165,16 +165,16 @@ This workflow is a formal state machine that governs all development tasks, from
     1.  **Single File Per Response**: Only one file will be delivered in a single response.
     2.  **Raw Source Text**: The content inside the delivered code block must be the raw source text of the file.
     3.  **Code File Delivery**: For code files (e.g., `.py`, `.json`), the content will be delivered in a standard fenced code block with the appropriate language specifier.
-    4.  **Markdown File Delivery**: To prevent the user interface from rendering markdown and to provide a "Copy" button, the entire raw content of a documentation file (`.md`) must be delivered inside a single, plaintext-specified code block. The rule for replacing internal code fences with `__CODE_BLOCK__` still applies to the content within this block.
-        __CODE_BLOCK__text
+    4.  **Markdown File Delivery**: To prevent the user interface from rendering markdown and to provide a "Copy" button, the entire raw content of a documentation file (`.md`) must be delivered inside a single, plaintext-specified code block. The rule for replacing internal code fences with ````_` still applies to the content within this block.
+        ```_text
         # Markdown Header
 
         This is the raw text of the .md file.
 
-        __CODE_BLOCK__
+        ```_
         # An internal code block is replaced.
-        __CODE_BLOCK__
-        __CODE_BLOCK__
+        ```_
+        ```_
 3.3. **File and Checksum Verification.**
     1.  **Line Endings:** The user's file system uses Windows CRLF (`\r\n`). The AI must correctly handle this conversion when calculating checksums.
     2.  **Concise Reporting:** The AI will either state that **all checksums agree** or will list the **specific files that show a mismatch**.

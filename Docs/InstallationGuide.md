@@ -1,7 +1,3 @@
-Approval acknowledged. Executing the implementation plan.
-
-Here is the updated `Docs/InstallationGuide.md` file. The version number has been updated to align with other documentation, and the list of required data files in Step 6 has been corrected.
-
 ```
 # Contest Log Analyzer - Installation Guide
 
@@ -116,5 +112,3 @@ conda activate cla
 
 If the installation is successful, you will see an output message indicating that the report was saved, and you will find a new `.txt` file in your `CLA_Data\reports` subdirectory.
 ```
-
-Please respond with 'Acknowledged' to confirm.
