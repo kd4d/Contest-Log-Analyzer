@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-18
-# Version: 0.39.5-Beta
+# Date: 2025-08-19
+# Version: 0.39.7-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,16 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.39.7-Beta] - 2025-08-19
+### Fixed
+# - Corrected the SplitHeatmapChart plotter to fix a UserWarning by
+#   setting y-tick locations before labels.
+# - Removed dead code from the SplitHeatmapChart plotter that was
+#   causing a TypeError due to a namespace collision.
+## [0.39.6-Beta] - 2025-08-18
+### Added
+# - Added the SplitHeatmapChart reusable plotting class to generate
+#   comparative, split-cell heatmap visualizations.
 ## [0.39.5-Beta] - 2025-08-18
 ### Fixed
 # - Resolved a pandas SettingWithCopyWarning by explicitly returning a
@@ -172,6 +182,59 @@ class DonutChartComponent:
         table.auto_set_font_size(False)
         table.set_fontsize(12)
         table.scale(1.2, 1.2)
+
+class SplitHeatmapChart:
+    """Helper class to generate a 'split cell' comparative heatmap."""
+    
+    def __init__(self, data1, data2, call1, call2, title, output_filename):
+        self.data1 = data1
+        self.data2 = data2
+        self.call1 = call1
+        self.call2 = call2
+        self.title = title
+        self.output_filename = output_filename
+
+    def plot(self):
+        """Generates and saves the heatmap plot."""
+        bands = self.data1.index
+        num_bands = len(bands)
+        
+        fig, axes = plt.subplots(num_bands, 1, figsize=(12, 1.5 * num_bands), sharex=True, squeeze=False)
+        axes = axes.flatten()
+
+        max_rate = max(self.data1.max().max(), self.data2.max().max())
+
+        for i, band in enumerate(bands):
+            ax = axes[i]
+            d1 = self.data1.loc[band]
+            d2 = -self.data2.loc[band]
+            x_pos = np.arange(len(d1))
+
+            ax.bar(x_pos, d1, width=1, align='center', color='blue', alpha=0.7)
+            ax.bar(x_pos, d2, width=1, align='center', color='red', alpha=0.7)
+            
+            ax.axhline(0, color='black', linewidth=0.8)
+            ax.set_ylabel(band, rotation=0, ha='right', va='center')
+            ax.set_ylim(-max_rate * 1.1, max_rate * 1.1)
+            
+            ticks = ax.get_yticks()
+            ax.set_yticks(ticks) # Explicitly set tick locations
+            ax.set_yticklabels([int(abs(tick)) for tick in ticks])
+
+        fig.suptitle(self.title, fontsize=16, fontweight='bold')
+        axes[-1].set_xlabel("Contest Time (UTC)")
+        fig.supylabel("QSOs per 15 min")
+
+        fig.tight_layout(rect=[0.03, 0.03, 1, 0.95])
+        
+        try:
+            fig.savefig(self.output_filename)
+            plt.close(fig)
+            return self.output_filename
+        except Exception as e:
+            logging.error(f"Error saving butterfly chart: {e}")
+            plt.close(fig)
+            return None
 
 def save_debug_data(debug_flag: bool, output_path: str, data, custom_filename: str = None):
     """
