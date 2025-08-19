@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-19
-# Version: 0.45.0-Beta
+# Version: 0.46.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.46.0-Beta] - 2025-08-19
+### Fixed
+# - Modified the figsize calculation to enforce a minimum height,
+#   preventing chart elements from overlapping on single-band plots.
 ## [0.45.0-Beta] - 2025-08-19
 ### Fixed
 # - Replaced the layout manager with an explicit GridSpec to create a
@@ -249,10 +253,11 @@ class ComparativeHeatmapChart:
         num_bands = len(bands)
         num_cols = len(self.data1.columns)
         
-        fig = plt.figure(figsize=(11, 1 + num_bands * 1.2))
+        # Enforce a minimum height for single-band plots
+        height = max(6.0, 1 + num_bands * 1.2)
+        fig = plt.figure(figsize=(11, height))
         
         # --- Explicit Layout Control using GridSpec ---
-        # Main grid: 2 rows, one for the legend, one for the plot
         gs = fig.add_gridspec(2, 1, height_ratios=[1, 15], hspace=0.05)
         ax_legend = fig.add_subplot(gs[0])
         ax = fig.add_subplot(gs[1])
@@ -262,12 +267,11 @@ class ComparativeHeatmapChart:
         max_val = max(self.data1.max().max(), self.data2.max().max())
         norm = Normalize(vmin=0, vmax=max_val)
         
-        # Create a modified Viridis colormap that excludes the darkest colors
         base_cmap = plt.get_cmap('viridis')
-        cmap_colors = base_cmap(np.linspace(0.1, 1.0, 256)) # Start at 10% to cut off darkest colors
+        cmap_colors = base_cmap(np.linspace(0.1, 1.0, 256)) 
         cmap = ListedColormap(cmap_colors)
 
-        # --- Stage 1: Draw filled rectangles with no outlines ---
+        # --- Stage 1: Draw filled rectangles ---
         for band_idx, band in enumerate(bands):
             for time_idx in range(num_cols):
                 qso_count1 = self.data1.iloc[band_idx, time_idx]
@@ -280,15 +284,12 @@ class ComparativeHeatmapChart:
                     ax.add_patch(Rectangle((time_idx, band_idx), 1, 0.5, facecolor=cmap(norm(qso_count2)), edgecolor='white', hatch='..'))
 
         # --- Stage 2: Manually draw custom grid lines ---
-        # Thin white lines for individual cells
         for time_idx in range(num_cols + 1):
-            ax.axvline(time_idx, color='white', linewidth=1.5) # Thick vertical
+            ax.axvline(time_idx, color='white', linewidth=1.5)
             
-        # Thin black divider for cell halves
         for band_idx in range(num_bands):
             ax.axhline(band_idx + 0.5, color='black', linewidth=0.75)
             
-        # Heavy black lines between bands, drawn in the foreground
         for band_idx in range(num_bands + 1):
             ax.axhline(band_idx, color='black', linewidth=2.0, zorder=10)
 
@@ -298,7 +299,6 @@ class ComparativeHeatmapChart:
         ax.set_yticks(np.arange(num_bands) + 0.5)
         ax.set_yticklabels(bands)
         
-        # --- Dynamic X-Axis Formatting (Manual Calculation) ---
         min_time = self.data1.columns[0]
         max_time = self.data1.columns[-1]
         contest_duration_hours = (max_time - min_time).total_seconds() / 3600
@@ -306,11 +306,11 @@ class ComparativeHeatmapChart:
         if contest_duration_hours <= 12:
             hour_interval = 2
             date_format_str = '%H:%M'
-        else: # Default for up to 24 hours
+        else:
             hour_interval = 3
             date_format_str = '%H:%M'
             
-        tick_step = hour_interval * 4 # 4 intervals per hour
+        tick_step = hour_interval * 4
         tick_positions = np.arange(0.5, num_cols, tick_step)
         tick_labels = [self.data1.columns[int(i)].strftime(date_format_str) for i in tick_positions]
         ax.set_xticks(tick_positions)
@@ -338,7 +338,6 @@ class ComparativeHeatmapChart:
         sm.set_array([])
         cbar = plt.colorbar(sm, ax=ax, aspect=40, pad=0.02)
         cbar.set_label('QSOs / 15 min')
-
         
         try:
             fig.savefig(self.output_filename)
