@@ -1,12 +1,16 @@
 # Contest Log Analyzer/contest_tools/reports/plot_comparative_band_activity.py
 #
-# Version: 0.40.5-Beta
+# Version: 0.40.6-Beta
 # Date: 2025-08-19
 #
 # Purpose: A plot report that generates a comparative "butterfly" chart to
 #          visualize the band activity of two logs side-by-side.
 #
 # --- Revision History ---
+## [0.40.6-Beta] - 2025-08-19
+### Fixed
+# - Restored the timezone localization step that was lost during a previous
+#   refactoring, fixing the critical bug that caused plots to be empty.
 ## [0.40.5-Beta] - 2025-08-19
 ### Added
 # - Report now generates additional, per-mode plots for CW, PH, and DG if
@@ -26,7 +30,7 @@
 ## [0.40.1-Beta] - 2025-08-19
 ### Fixed
 # - Bands are now sorted in ascending order by frequency.
-# - Bands with no QSOs are now correctly skipped.
+# - Bands with no QSOs by either station are now correctly skipped.
 # - The Y-axis of each band's subplot is now scaled independently to the
 #   maximum rate on that specific band, improving readability.
 ## [0.40.0-Beta] - 2025-08-19
@@ -172,6 +176,10 @@ class Report(ContestReport):
 
         if df1.empty or df2.empty:
             return "Skipping report: At least one log has no valid, non-dupe QSO data."
+        
+        # --- MODIFICATION: Restore timezone localization ---
+        df1['Datetime'] = df1['Datetime'].dt.tz_localize('UTC')
+        df2['Datetime'] = df2['Datetime'].dt.tz_localize('UTC')
         
         # --- 1. Generate the main "All Modes" plot ---
         msg = self._generate_plot_for_slice(df1, df2, log1, log2, output_path, mode_filter=None, **kwargs)
