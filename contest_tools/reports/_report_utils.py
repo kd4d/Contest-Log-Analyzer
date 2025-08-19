@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-19
-# Version: 0.39.8-Beta
+# Version: 0.44.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,42 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.44.0-Beta] - 2025-08-19
+### Fixed
+# - Corrected the legend's vertical and horizontal placement to ensure it
+#   is centered and does not overlap the plot title.
+## [0.43.0-Beta] - 2025-08-19
+### Changed
+# - Adjusted the figure aspect ratio to be taller (11 x 8.5) for better
+#   readability and printing.
+# - Reworked the legend to use a sample color from the heatmap's actual
+#   color scale, with and without the dot pattern, to be more intuitive.
+# - Implemented the standard two-line figure suptitle.
+# - Changed the thin horizontal cell divider to a black line.
+## [0.42.0-Beta] - 2025-08-19
+### Changed
+# - Adjusted the figure aspect ratio to be taller (11 x 8.5) for better
+#   readability and printing.
+# - Reworked the legend to use a sample color from the heatmap's actual
+#   color scale, with and without the dot pattern, to be more intuitive.
+## [0.41.0-Beta] - 2025-08-19
+### Changed
+# - Modified the ComparativeHeatmapChart to use a truncated Viridis
+#   colormap, excluding the darkest colors.
+# - Added a white dot hatch pattern to the cells for the second log to
+#   improve visual distinction.
+# - Changed the primary horizontal grid lines between bands to be heavy,
+#   black, and drawn in the foreground.
+## [0.40.0-Beta] - 2025-08-19
+### Changed
+# - Enhanced the ComparativeHeatmapChart plotting logic to dynamically
+#   calculate and render correct, time-based labels for the x-axis,
+#   resolving the axis formatting bug.
+## [0.39.9-Beta] - 2025-08-19
+### Changed
+# - Rewrote the ComparativeHeatmapChart plotting logic to manually draw
+#   a custom grid with thick and thin lines, per user specification,
+#   to improve chart readability.
 ## [0.39.8-Beta] - 2025-08-19
 ### Changed
 # - Renamed SplitHeatmapChart to ComparativeHeatmapChart and rewrote its
@@ -60,14 +96,14 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 from matplotlib.patches import Rectangle
-from matplotlib.colors import Normalize
+from matplotlib.colors import Normalize, ListedColormap
 import os
 import numpy as np
 import re
 import json
 import logging
 from pathlib import Path
-from typing import Optional, Dict
+from typing import Optional, Dict, Any
 from ..contest_log import ContestLog
 
 class NpEncoder(json.JSONEncoder):
@@ -193,13 +229,14 @@ class DonutChartComponent:
 class ComparativeHeatmapChart:
     """Helper class to generate a 'split cell' comparative heatmap."""
     
-    def __init__(self, data1, data2, call1, call2, title, output_filename):
+    def __init__(self, data1, data2, call1, call2, metadata: Dict[str, Any], output_filename: str, part_info: str = ""):
         self.data1 = data1
         self.data2 = data2
         self.call1 = call1
         self.call2 = call2
-        self.title = title
+        self.metadata = metadata
         self.output_filename = output_filename
+        self.part_info = part_info
 
     def plot(self):
         """Generates and saves the heatmap plot."""
@@ -207,25 +244,40 @@ class ComparativeHeatmapChart:
         num_bands = len(bands)
         num_cols = len(self.data1.columns)
         
-        fig, ax = plt.subplots(figsize=(12, 1 + num_bands * 0.6))
+        fig, ax = plt.subplots(figsize=(11, 1 + num_bands * 1.2))
 
         max_val = max(self.data1.max().max(), self.data2.max().max())
         norm = Normalize(vmin=0, vmax=max_val)
-        cmap = plt.get_cmap('viridis')
+        
+        # Create a modified Viridis colormap that excludes the darkest colors
+        base_cmap = plt.get_cmap('viridis')
+        cmap_colors = base_cmap(np.linspace(0.1, 1.0, 256)) # Start at 10% to cut off darkest colors
+        cmap = ListedColormap(cmap_colors)
 
-        # Manually draw rectangles for each cell half
+        # --- Stage 1: Draw filled rectangles with no outlines ---
         for band_idx, band in enumerate(bands):
             for time_idx in range(num_cols):
                 qso_count1 = self.data1.iloc[band_idx, time_idx]
                 qso_count2 = self.data2.iloc[band_idx, time_idx]
 
-                # Top rectangle for Log 1
                 if qso_count1 > 0:
-                    ax.add_patch(Rectangle((time_idx, band_idx + 0.5), 1, 0.5, facecolor=cmap(norm(qso_count1))))
+                    ax.add_patch(Rectangle((time_idx, band_idx + 0.5), 1, 0.5, facecolor=cmap(norm(qso_count1)), edgecolor='none'))
                 
-                # Bottom rectangle for Log 2
                 if qso_count2 > 0:
-                    ax.add_patch(Rectangle((time_idx, band_idx), 1, 0.5, facecolor=cmap(norm(qso_count2))))
+                    ax.add_patch(Rectangle((time_idx, band_idx), 1, 0.5, facecolor=cmap(norm(qso_count2)), edgecolor='white', hatch='..'))
+
+        # --- Stage 2: Manually draw custom grid lines ---
+        # Thin white lines for individual cells
+        for time_idx in range(num_cols + 1):
+            ax.axvline(time_idx, color='white', linewidth=1.5) # Thick vertical
+            
+        # Thin black divider for cell halves
+        for band_idx in range(num_bands):
+            ax.axhline(band_idx + 0.5, color='black', linewidth=0.75)
+            
+        # Heavy black lines between bands, drawn in the foreground
+        for band_idx in range(num_bands + 1):
+            ax.axhline(band_idx, color='black', linewidth=2.0, zorder=10)
 
         # --- Formatting ---
         ax.set_xlim(0, num_cols)
@@ -233,23 +285,48 @@ class ComparativeHeatmapChart:
         ax.set_yticks(np.arange(num_bands) + 0.5)
         ax.set_yticklabels(bands)
         
-        ax.set_title(self.title, fontsize=16, fontweight='bold')
+        # --- Dynamic X-Axis Formatting (Manual Calculation) ---
+        min_time = self.data1.columns[0]
+        max_time = self.data1.columns[-1]
+        contest_duration_hours = (max_time - min_time).total_seconds() / 3600
+        
+        if contest_duration_hours <= 12:
+            hour_interval = 2
+            date_format_str = '%H:%M'
+        else: # Default for up to 24 hours
+            hour_interval = 3
+            date_format_str = '%H:%M'
+            
+        tick_step = hour_interval * 4 # 4 intervals per hour
+        tick_positions = np.arange(0.5, num_cols, tick_step)
+        tick_labels = [self.data1.columns[int(i)].strftime(date_format_str) for i in tick_positions]
+        ax.set_xticks(tick_positions)
+        ax.set_xticklabels(tick_labels, rotation=45, ha='right')
+        
         ax.set_xlabel("Contest Time (UTC)")
         
-        # Add a custom legend
+        # --- Standard Title and Legend ---
+        year = self.metadata.get('Year', '')
+        contest_name = self.metadata.get('ContestName', '')
+        event_id = self.metadata.get('EventID', '')
+        
+        title_line1 = f"{event_id} {year} {contest_name}".strip()
+        title_line2 = f"Comparative Band Activity Heatmap {self.part_info}".strip()
+        fig.suptitle(f"{title_line1}\n{title_line2}", fontsize=16, fontweight='bold')
+        
+        medium_color = cmap(0.5)
         legend_patches = [
-            Rectangle((0, 0), 1, 1, facecolor='blue', label=f"{self.call1} (Top Half)"),
-            Rectangle((0, 0), 1, 1, facecolor='red', label=f"{self.call2} (Bottom Half)"),
+            Rectangle((0, 0), 1, 1, facecolor=medium_color, label=self.call1),
+            Rectangle((0, 0), 1, 1, facecolor=medium_color, hatch='..', edgecolor='white', label=self.call2),
         ]
-        ax.legend(handles=legend_patches, loc='upper right', bbox_to_anchor=(1, 1.15))
+        fig.legend(handles=legend_patches, loc='lower center', bbox_to_anchor=(0.5, 0.94), ncol=2, frameon=False)
 
-        # Add color bar
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
         sm.set_array([])
         cbar = plt.colorbar(sm, ax=ax, aspect=40, pad=0.02)
         cbar.set_label('QSOs / 15 min')
 
-        fig.tight_layout(rect=[0, 0, 1, 0.95])
+        fig.tight_layout(rect=[0, 0, 1, 0.93]) # Adjust rect to make space for suptitle and legend
         
         try:
             fig.savefig(self.output_filename)

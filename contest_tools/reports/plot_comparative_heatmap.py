@@ -1,29 +1,44 @@
 # Contest Log Analyzer/contest_tools/reports/plot_comparative_heatmap.py
 #
-# Version: 0.39.8-Beta
+# Version: 1.1.0-Beta
 # Date: 2025-08-19
 #
-# Purpose: A plot report that generates a comparative "split heatmap" chart to
+# Purpose: A plot report that generates a comparative, split-cell heatmap to
 #          visualize the band activity of two logs side-by-side.
 #
+# Copyright (c) 2025 Mark Bailey, KD4D
+#
+# License: Mozilla Public License, v. 2.0
+#          (https://www.mozilla.org/MPL/2.0/)
+#
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
 # --- Revision History ---
-## [0.39.8-Beta] - 2025-08-19
-# - Renamed file and report_id to reflect new split-heatmap visualization.
-# - Updated logic to use the new ComparativeHeatmapChart helper class.
-## [0.39.6-Beta] - 2025-08-18
-# - Initial release of the Split Heatmap Band Activity report.
+## [1.1.0-Beta] - 2025-08-19
+### Changed
+# - Modified the script to pass the full metadata dictionary to the
+#   ComparativeHeatmapChart class to support standard title generation.
+## [1.0.0-Beta] - 2025-08-19
+# - Initial release of the comparative heatmap report, which uses the
+#   ComparativeHeatmapChart helper class.
 #
 import pandas as pd
 import os
 import logging
+import math
 from typing import List, Dict, Any
 
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from ._report_utils import get_valid_dataframe, create_output_directory, ComparativeHeatmapChart
+from ._report_utils import get_valid_dataframe, create_output_directory, save_debug_data, ComparativeHeatmapChart
 
 class Report(ContestReport):
-    report_id: str = "comparative_heatmap"
+    """
+    Generates a comparative, split-cell heatmap of band activity for two logs.
+    """
+    report_id: str = "comparative_band_activity_heatmap"
     report_name: str = "Comparative Band Activity Heatmap"
     report_type: str = "plot"
     supports_pairwise = True
@@ -36,66 +51,81 @@ class Report(ContestReport):
         log1, log2 = self.logs[0], self.logs[1]
         call1 = log1.get_metadata().get('MyCall', 'Log1')
         call2 = log2.get_metadata().get('MyCall', 'Log2')
-        final_report_messages = []
-        
+        debug_data_flag = kwargs.get("debug_data", False)
+
         # --- 1. Data Preparation ---
         dfs = {}
         for call, log in [(call1, log1), (call2, log2)]:
             df = get_valid_dataframe(log, include_dupes=False)
             if df.empty or 'Datetime' not in df.columns or df['Datetime'].isna().all():
-                msg = f"Skipping report for {call}: No valid QSOs with timestamps to report."
-                return msg
+                return f"Skipping report: Log for {call} has no valid QSO data with timestamps."
             df['Datetime'] = df['Datetime'].dt.tz_localize('UTC')
             dfs[call] = df
 
         interval = '15min'
         min_time = min(df['Datetime'].min() for df in dfs.values()).floor('h')
         max_time = max(df['Datetime'].max() for df in dfs.values()).ceil('h')
+        time_bins = pd.date_range(start=min_time, end=max_time, freq=interval, tz='UTC')
+
+        all_bands_with_activity = sorted(list(
+            set(dfs[call1]['Band'].unique()) | set(dfs[call2]['Band'].unique())
+        ))
+
+        pivot_dfs = {}
+        for call, df in dfs.items():
+            pivot = df.pivot_table(index='Band', columns=pd.Grouper(key='Datetime', freq=interval), aggfunc='size', fill_value=0)
+            pivot = pivot.reindex(index=all_bands_with_activity, columns=time_bins, fill_value=0)
+            pivot_dfs[call] = pivot
+
+        # --- 2. Handle Multi-Part Plots for Long Contests ---
+        intervals_per_day = 96  # 24 hours * 4 intervals/hour
+        total_intervals = len(time_bins)
+        num_parts = math.ceil(total_intervals / intervals_per_day)
+        created_files = []
         
-        # --- 2. Logic to handle contests > 24 hours ---
-        total_duration_hours = (max_time - min_time).total_seconds() / 3600
-        num_charts = int(total_duration_hours // 24) + (1 if total_duration_hours % 24 > 0 else 0)
+        # Prepare metadata for titles
+        metadata = log1.get_metadata()
+        df_first_log = get_valid_dataframe(log1)
+        metadata['Year'] = df_first_log['Date'].dropna().iloc[0].split('-')[0] if not df_first_log.empty and not df_first_log['Date'].dropna().empty else "----"
 
-        for i in range(num_charts):
-            chunk_start_time = min_time + pd.Timedelta(hours=i * 24)
-            chunk_end_time = min_time + pd.Timedelta(hours=(i + 1) * 24)
-            if chunk_end_time > max_time:
-                chunk_end_time = max_time
-            
-            time_bins = pd.date_range(start=chunk_start_time, end=chunk_end_time, freq=interval, tz='UTC')
-            
-            # Use only bands with activity in either log
-            active_bands1 = set(dfs[call1][dfs[call1]['Band'] != 'Invalid']['Band'].unique())
-            active_bands2 = set(dfs[call2][dfs[call2]['Band'] != 'Invalid']['Band'].unique())
-            all_bands = sorted(list(active_bands1 | active_bands2))
-            
-            if not all_bands:
-                return "Skipping report: No bands with activity found in either log."
 
-            pivot_dfs = {}
-            for call, df in dfs.items():
-                pivot = df.pivot_table(index='Band', columns=pd.Grouper(key='Datetime', freq=interval), aggfunc='size', fill_value=0)
-                pivot = pivot.reindex(index=all_bands, columns=time_bins, fill_value=0)
-                pivot_dfs[call] = pivot
-
-            # --- 3. Plotting ---
-            chart_title = f"{self.report_name}\n{call1} (Top) vs. {call2} (Bottom)"
-            if num_charts > 1:
-                chart_title += f" - Part {i+1}"
+        for part_num in range(num_parts):
+            start_interval = part_num * intervals_per_day
+            end_interval = start_interval + intervals_per_day
             
-            output_suffix = f"_part_{i+1}" if num_charts > 1 else ""
-            output_filename = os.path.join(output_path, f"{self.report_id}_{call1}_vs_{call2}{output_suffix}.png")
+            data1_part = pivot_dfs[call1].iloc[:, start_interval:end_interval]
+            data2_part = pivot_dfs[call2].iloc[:, start_interval:end_interval]
 
-            chart = ComparativeHeatmapChart(
-                data1=pivot_dfs[call1],
-                data2=pivot_dfs[call2],
+            # --- 3. Visualization ---
+            part_suffix_text = f"(Part {part_num + 1} of {num_parts})" if num_parts > 1 else ""
+            part_suffix_file = f"_Part_{part_num + 1}_of_{num_parts}" if num_parts > 1 else ""
+            
+            filename = f"{self.report_id}_{call1}_vs_{call2}{part_suffix_file}.png"
+            filepath = os.path.join(output_path, filename)
+            
+            # --- Save Debug Data for this part ---
+            debug_filename = f"{self.report_id}_{call1}_vs_{call2}{part_suffix_file}.txt"
+            debug_data = {
+                f"pivot_{call1}": data1_part.to_dict(),
+                f"pivot_{call2}": data2_part.to_dict()
+            }
+            save_debug_data(debug_data_flag, output_path, debug_data, custom_filename=debug_filename)
+
+            heatmap_chart = ComparativeHeatmapChart(
+                data1=data1_part,
+                data2=data2_part,
                 call1=call1,
                 call2=call2,
-                title=chart_title,
-                output_filename=output_filename
+                metadata=metadata,
+                output_filename=filepath,
+                part_info=part_suffix_text
             )
-            filepath = chart.plot()
-            if filepath:
-                final_report_messages.append(f"Plot saved to: {filepath}")
+            
+            saved_path = heatmap_chart.plot()
+            if saved_path:
+                created_files.append(saved_path)
 
-        return "\n".join(final_report_messages)
+        if not created_files:
+            return f"Report '{self.report_name}' was generated, but no files were created."
+
+        return f"Plot report(s) saved to:\n" + "\n".join([f"  - {fp}" for fp in created_files])
