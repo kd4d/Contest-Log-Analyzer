@@ -1,10 +1,17 @@
 # Project Workflow Guide
 
-**Version: 0.37.1-Beta**
-**Date: 2025-08-18**
+**Version: 0.38.0-Beta**
+**Date: 2025-08-19**
 
 ---
 ### --- Revision History ---
+## [0.38.0-Beta] - 2025-08-19
+### Added
+# - Added Protocol 2.3 (Baseline Consistency Check) to require plan
+#   validation against the definitive state before the plan is proposed.
+### Changed
+# - Renumbered subsequent protocols in the Task Execution Workflow.
+# - Updated internal cross-references to match the new numbering.
 ## [0.37.1-Beta] - 2025-08-18
 ### Changed
 # - Refined the Markdown File Delivery Protocol (3.2.4) to require
@@ -129,26 +136,27 @@ These are the step-by-step procedures for common, day-to-day development tasks.
 
 1.6. **Session Versioning Protocol.** At the start of a new development task, the user will state the current version series (e.g., 'We are working on Version 0.36.x-Beta'). All subsequent file modifications for this and related tasks must use this version series, incrementing the patch number as needed.
 1.7. **Project Structure Onboarding.** After a state initialization, the AI will confirm its understanding of the high-level project architecture.
-    * **`contest_tools/`**: The core application library.
-    * **`contest_tools/reports/`**: The "plug-in" directory for all report modules.
-    * **`contest_tools/contest_definitions/`**: Data-driven JSON definitions for each contest.
-    * **`Docs/`**: All user and developer documentation.
-    * **`test_code/`**: Utility scripts not part of the main application.
-    * **`data/`**: Required data files (e.g., `cty.dat`).
+    * `contest_tools/`: The core application library.
+    * `contest_tools/reports/`: The "plug-in" directory for all report modules.
+    * `contest_tools/contest_definitions/`: Data-driven JSON definitions for each contest.
+    * `Docs/`: All user and developer documentation.
+    * `test_code/`: Utility scripts not part of the main application.
+    * `data/`: Required data files (e.g., `cty.dat`).
 ### 2. Task Execution Workflow
 This workflow is a formal state machine that governs all development tasks, from initial request to final completion.
 2.1. **Task Initiation**: The user provides a problem, feature request, or document update and requests an analysis.
 2.2. **Analysis and Discussion**: The AI provides an initial analysis. The user and AI may discuss the analysis to refine the understanding of the problem.
-2.3. **Implementation Plan**: The user requests an implementation plan. The AI provides a detailed plan, which must adhere to the **Pre-Flight Check Protocol (2.4)**.
-2.4. **Pre-Flight Check Protocol.** The AI will perform a "white-box" mental code review **before** delivering a modified file.
+2.3. **Baseline Consistency Check.** Before presenting an implementation plan, the AI must perform and explicitly state the completion of a "Baseline Consistency Check." This check verifies that all proposed actions (e.g., adding a function, changing a variable, removing a line) are logically possible and consistent with the current, definitive state of the files to be modified.
+2.4. **Implementation Plan**: The user requests an implementation plan. The AI provides a detailed plan, which must adhere to the **Pre-Flight Check Protocol (2.5)**.
+2.5. **Pre-Flight Check Protocol.** The AI will perform a "white-box" mental code review **before** delivering a modified file.
     1.  **Stating the Plan:** The AI will state its Pre-Flight Check plan. The **Inputs** section must include the full filename and the specific baseline version number of the file to be modified. The plan must also state the **Expected Outcome**.
     2.  **Mental Walkthrough:** The AI will mentally trace the execution path to confirm the logic produces the expected outcome.
     3.  **User Verification:** The user performs the final verification by running the code.
     4.  **State Confirmation Procedure**: The AI will affirm that the mandatory confirmation prompt, as defined in Protocol 4.4, will be included with the file delivery.
-2.5. **Plan Refinement**: The user reviews the plan and may request changes or refinements. The AI provides a revised plan, repeating this step as necessary.
-2.6. **Approval**: The user provides explicit approval of the final implementation plan (e.g., "Approved").
-2.7. **Execution**: Upon approval, the AI will proceed with the **Confirmed File Delivery Protocol (4.4)**.
-2.8. **Propose Verification Command**: After the final file in an implementation plan has been delivered and acknowledged by the user, the AI's final action for the task is to propose the specific command-line instruction(s) the user should run to verify that the bug has been fixed or the feature has been implemented correctly.
+2.6. **Plan Refinement**: The user reviews the plan and may request changes or refinements. The AI provides a revised plan, repeating this step as necessary.
+2.7. **Approval**: The user provides explicit approval of the final implementation plan (e.g., "Approved"). Instructions, clarifications, or new requirements provided after a plan has been proposed do not constitute approval; they will be treated as requests for plan refinement under Protocol 2.6.
+2.8. **Execution**: Upon approval, the AI will proceed with the **Confirmed File Delivery Protocol (4.4)**.
+2.9. **Propose Verification Command**: After the final file in an implementation plan has been delivered and acknowledged by the user, the AI's final action for the task is to propose the specific command-line instruction(s) the user should run to verify that the bug has been fixed or the feature has been implemented correctly.
 
 ### 3. File and Data Handling
 

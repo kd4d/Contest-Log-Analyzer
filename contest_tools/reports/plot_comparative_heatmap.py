@@ -1,6 +1,6 @@
 # Contest Log Analyzer/contest_tools/reports/plot_comparative_heatmap.py
 #
-# Version: 1.3.0-Beta
+# Version: 0.40.4-Beta
 # Date: 2025-08-19
 #
 # Purpose: A plot report that generates a comparative, split-cell heatmap to
@@ -16,22 +16,26 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
-## [1.3.0-Beta] - 2025-08-19
+## [0.40.4-Beta] - 2025-08-19
+### Fixed
+# - Corrected a TypeError during debug data generation by converting
+#   pandas Timestamp keys to strings before JSON serialization.
+## [0.40.3-Beta] - 2025-08-19
 ### Fixed
 # - Refactored data preparation to establish a single, timezone-aware
 #   master time axis for each log pair, fixing the empty plot and
 #   missing debug data bugs.
-## [1.2.0-Beta] - 2025-08-19
+## [0.40.2-Beta] - 2025-08-19
 ### Changed
 # - Refactored the report into an autonomous, exhaustive analysis tool.
 # - It now automatically generates all possible pairwise comparisons.
 # - It now automatically generates breakdowns for each band and for each
 #   mode within each band if applicable.
-## [1.1.0-Beta] - 2025-08-19
+## [0.40.1-Beta] - 2025-08-19
 ### Changed
 # - Modified the script to pass the full metadata dictionary to the
 #   ComparativeHeatmapChart class to support standard title generation.
-## [1.0.0-Beta] - 2025-08-19
+## [0.40.0-Beta] - 2025-08-19
 # - Initial release of the comparative heatmap report, which uses the
 #   ComparativeHeatmapChart helper class.
 #
@@ -62,7 +66,7 @@ class Report(ContestReport):
         debug_data_flag = kwargs.get("debug_data", False)
         
         if df1_slice.empty and df2_slice.empty:
-            return None
+            return None # Skip plot generation if no data for this slice
 
         # --- Data Preparation for the slice ---
         dfs = {call1: df1_slice, call2: df2_slice}
@@ -107,8 +111,16 @@ class Report(ContestReport):
             filename = f"{self.report_id}_{call1}_vs_{call2}{filename_suffix}{part_suffix_file}.png"
             filepath = os.path.join(output_path, filename)
             
+            # --- Save Debug Data ---
             debug_filename = f"{self.report_id}_{call1}_vs_{call2}{filename_suffix}{part_suffix_file}.txt"
-            debug_data = {f"pivot_{call1}": data1_part.to_dict(), f"pivot_{call2}": data2_part.to_dict()}
+            
+            # Create copies and convert Timestamp columns to strings for JSON compatibility
+            debug_data1 = data1_part.copy()
+            debug_data2 = data2_part.copy()
+            debug_data1.columns = debug_data1.columns.map(lambda ts: ts.isoformat())
+            debug_data2.columns = debug_data2.columns.map(lambda ts: ts.isoformat())
+            
+            debug_data = {f"pivot_{call1}": debug_data1.to_dict(), f"pivot_{call2}": debug_data2.to_dict()}
             save_debug_data(debug_data_flag, output_path, debug_data, custom_filename=debug_filename)
 
             heatmap_chart = ComparativeHeatmapChart(

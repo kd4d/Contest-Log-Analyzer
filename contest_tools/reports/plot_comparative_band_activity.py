@@ -1,12 +1,16 @@
 # Contest Log Analyzer/contest_tools/reports/plot_comparative_band_activity.py
 #
-# Version: 0.39.8-Beta
+# Version: 0.40.0-Beta
 # Date: 2025-08-19
 #
 # Purpose: A plot report that generates a comparative "butterfly" chart to
 #          visualize the band activity of two logs side-by-side.
 #
 # --- Revision History ---
+## [0.40.0-Beta] - 2025-08-19
+### Fixed
+# - Modified the figure size calculation to enforce a minimum height,
+#   preventing the layout manager from failing on single-band contests.
 ## [0.39.8-Beta] - 2025-08-19
 ### Fixed
 # - Corrected the plotting logic to fix a UserWarning by setting y-tick
@@ -39,7 +43,6 @@ class Report(ContestReport):
         """Generates the report content."""
         if len(self.logs) != 2:
             return f"Error: Report '{self.report_name}' requires exactly two logs."
-
         log1, log2 = self.logs[0], self.logs[1]
         call1 = log1.get_metadata().get('MyCall', 'Log1')
         call2 = log2.get_metadata().get('MyCall', 'Log2')
@@ -68,7 +71,10 @@ class Report(ContestReport):
 
         # --- 2. Visualization ---
         num_bands = len(all_bands)
-        fig, axes = plt.subplots(num_bands, 1, figsize=(12, 2 * num_bands), sharex=True)
+        
+        height = max(8.0, 2 * num_bands)
+        fig, axes = plt.subplots(num_bands, 1, figsize=(12, height), sharex=True)
+        
         if num_bands == 1:
             axes = [axes] # Make it iterable
 
