@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-19
-# Version: 0.44.0-Beta
+# Version: 0.45.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.45.0-Beta] - 2025-08-19
+### Fixed
+# - Replaced the layout manager with an explicit GridSpec to create a
+#   dedicated, reserved space for the legend, ensuring it is centered
+#   and does not overlap the title or chart.
 ## [0.44.0-Beta] - 2025-08-19
 ### Fixed
 # - Corrected the legend's vertical and horizontal placement to ensure it
@@ -244,7 +249,15 @@ class ComparativeHeatmapChart:
         num_bands = len(bands)
         num_cols = len(self.data1.columns)
         
-        fig, ax = plt.subplots(figsize=(11, 1 + num_bands * 1.2))
+        fig = plt.figure(figsize=(11, 1 + num_bands * 1.2))
+        
+        # --- Explicit Layout Control using GridSpec ---
+        # Main grid: 2 rows, one for the legend, one for the plot
+        gs = fig.add_gridspec(2, 1, height_ratios=[1, 15], hspace=0.05)
+        ax_legend = fig.add_subplot(gs[0])
+        ax = fig.add_subplot(gs[1])
+        ax_legend.axis('off')
+
 
         max_val = max(self.data1.max().max(), self.data2.max().max())
         norm = Normalize(vmin=0, vmax=max_val)
@@ -312,21 +325,20 @@ class ComparativeHeatmapChart:
         
         title_line1 = f"{event_id} {year} {contest_name}".strip()
         title_line2 = f"Comparative Band Activity Heatmap {self.part_info}".strip()
-        fig.suptitle(f"{title_line1}\n{title_line2}", fontsize=16, fontweight='bold')
+        fig.suptitle(f"{title_line1}\n{title_line2}", fontsize=16, fontweight='bold', y=0.99)
         
         medium_color = cmap(0.5)
         legend_patches = [
             Rectangle((0, 0), 1, 1, facecolor=medium_color, label=self.call1),
             Rectangle((0, 0), 1, 1, facecolor=medium_color, hatch='..', edgecolor='white', label=self.call2),
         ]
-        fig.legend(handles=legend_patches, loc='lower center', bbox_to_anchor=(0.5, 0.94), ncol=2, frameon=False)
+        ax_legend.legend(handles=legend_patches, loc='center', ncol=2, frameon=False)
 
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
         sm.set_array([])
         cbar = plt.colorbar(sm, ax=ax, aspect=40, pad=0.02)
         cbar.set_label('QSOs / 15 min')
 
-        fig.tight_layout(rect=[0, 0, 1, 0.93]) # Adjust rect to make space for suptitle and legend
         
         try:
             fig.savefig(self.output_filename)
