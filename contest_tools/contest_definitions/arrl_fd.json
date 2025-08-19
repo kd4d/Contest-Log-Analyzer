@@ -1,0 +1,23 @@
+{
+  "_filename": "contest_tools/contest_definitions/arrl_fd.json",
+  "_version": "0.39.1-Beta",
+  "_date": "2025-08-18",
+  "contest_name": "ARRL-FIELD-DAY",
+  "valid_bands": [
+    "160M", "80M", "40M", "20M", "15M", "10M", 
+    "6M", "2M", "222MHz", "432MHz", "SAT"
+  ],
+  "dupe_check_scope": "per_band",
+  "multiplier_rules": [],
+  "custom_parser_module": "arrl_fd_parser",
+  "custom_multiplier_resolver": "arrl_fd_multiplier_resolver",
+  "default_qso_columns": [
+    "ContestName", "MyCall", "Frequency", "Mode", "Datetime",
+    "SentClass", "SentSection",
+    "Call", 
+    "RcvdClass", "RcvdSection",
+    "Band", "Date", "Hour", "Dupe", "DXCCName", "DXCCPfx", 
+    "CQZone", "ITUZone", "Continent", "Run", "QSOPoints",
+    "Mult_Section"
+  ]
+}

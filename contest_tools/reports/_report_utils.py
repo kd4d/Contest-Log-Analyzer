@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-18
-# Version: 0.38.1-Beta
+# Version: 0.39.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.39.5-Beta] - 2025-08-18
+### Fixed
+# - Resolved a pandas SettingWithCopyWarning by explicitly returning a
+#   .copy() of the DataFrame slice in the get_valid_dataframe helper.
 ## [0.38.1-Beta] - 2025-08-18
 ### Fixed
 # - Added a custom NpEncoder class to the save_debug_data helper to
@@ -61,9 +65,10 @@ class NpEncoder(json.JSONEncoder):
         return super(NpEncoder, self).default(obj)
 
 def get_valid_dataframe(log: ContestLog, include_dupes: bool = False) -> pd.DataFrame:
-    """Returns the log's DataFrame, excluding dupes unless specified."""
+    """Returns a safe copy of the log's DataFrame, excluding dupes unless specified."""
     df = log.get_processed_data()
-    return df if include_dupes else df[df['Dupe'] == False]
+    df_slice = df if include_dupes else df[df['Dupe'] == False]
+    return df_slice.copy()
 
 def create_output_directory(path: str):
     """Creates the output directory if it doesn't exist."""
@@ -171,34 +176,20 @@ class DonutChartComponent:
 def save_debug_data(debug_flag: bool, output_path: str, data, custom_filename: str = None):
     """
     Saves the source data for a report to a .txt file if the debug flag is set.
-
-    Args:
-        debug_flag (bool): The value of the --debug-data flag.
-        output_path (str): The original output path for the report (e.g., .../charts).
-        data: The data to save (can be a pandas DataFrame or a dictionary).
-        custom_filename (str, optional): A specific filename to use. Defaults to None.
     """
     if not debug_flag:
         return
 
-    # Create the 'Debug' subdirectory inside the specific report output path
     debug_dir = Path(output_path) / "Debug"
     debug_dir.mkdir(parents=True, exist_ok=True)
 
-    # Determine the output filename
     if custom_filename:
         filename = custom_filename
     else:
-        # This part needs a bit of thought; assuming output_path is a directory
-        # and we need a base name for the file. Let's construct one.
-        # A more robust solution might require the original intended filename.
-        # For now, let's create a generic name if no custom name is given.
-        # This will be refined when each report is modified.
-        filename = "debug_data.txt" # Placeholder, will be passed from report
+        filename = "debug_data.txt" 
     
     debug_filepath = debug_dir / filename
 
-    # Format the data into a human-readable string
     content = ""
     if isinstance(data, pd.DataFrame):
         content = data.to_string()
@@ -207,7 +198,6 @@ def save_debug_data(debug_flag: bool, output_path: str, data, custom_filename: s
     else:
         content = str(data)
 
-    # Write the formatted data to the debug file
     with open(debug_filepath, 'w', encoding='utf-8') as f:
         f.write(content)
         logging.info(f"Debug data saved to {debug_filepath}")

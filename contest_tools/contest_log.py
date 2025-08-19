@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-17
-# Version: 0.37.0-Beta
+# Date: 2025-08-18
+# Version: 0.39.4-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,20 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.39.4-Beta] - 2025-08-18
+### Fixed
+# - Corrected the _ingest_cabrillo_data method to intelligently merge
+#   parser-provided band data with frequency-derived band data, fixing
+#   a bug that erased VHF/UHF bands during processing.
+## [0.39.3-Beta] - 2025-08-18
+### Fixed
+# - Added temporary diagnostic logging to the _ingest_cabrillo_data
+#   method to debug the ARRL Field Day parsing and data integration issue.
+## [0.39.2-Beta] - 2025-08-18
+### Fixed
+# - Updated the master band list (_HF_BANDS) to include and correctly
+#   name all bands for the ARRL Field Day contest, resolving a
+#   'not in list' error in report generation.
 ## [0.37.0-Beta] - 2025-08-17
 ### Added
 # - Added the `export_to_adif` method to generate a standard ADIF file
@@ -67,8 +81,9 @@ class ContestLog:
         ((28000., 29700.), '10M'),
         ((50000., 54000.), '6M'),
         ((144000., 148000.), '2M'),
-        ((222000., 225000.), '1.25M'),
-        ((420000., 450000.), '70CM'),
+        ((222000., 225000.), '222MHz'),
+        ((420000., 450000.), '432MHz'),
+        (None, 'SAT') # Satellite has no fixed frequency range
     ]
 
     @staticmethod
@@ -77,7 +92,7 @@ class ContestLog:
             return 'Invalid'
         frequency_int = int(frequency_khz)
         for band_range, band_name in ContestLog._HF_BANDS:
-            if band_range[0] <= frequency_int <= band_range[1]:
+            if band_range and (band_range[0] <= frequency_int <= band_range[1]):
                 return band_name
         return 'Invalid'
 
@@ -101,7 +116,6 @@ class ContestLog:
 
 
     def _ingest_cabrillo_data(self, cabrillo_filepath: str):
-        # --- Check for a custom, contest-specific parser ---
         custom_parser_name = self.contest_definition.custom_parser_module
         if custom_parser_name:
             try:
@@ -112,28 +126,39 @@ class ContestLog:
                 logging.error(f"Could not run custom parser '{custom_parser_name}': {e}. Halting.")
                 raise
         else:
-            # --- Fallback to the default generic parser ---
             raw_df, metadata = parse_cabrillo_file(cabrillo_filepath, self.contest_definition)
         
         self.metadata.update(metadata)
-
+        
         if raw_df.empty:
             self.qsos_df = pd.DataFrame(columns=self.contest_definition.default_qso_columns)
             return
 
-        raw_df['Frequency'] = pd.to_numeric(raw_df.get('FrequencyRaw'), errors='coerce')
         raw_df['Datetime'] = pd.to_datetime(
             raw_df.get('DateRaw', '') + ' ' + raw_df.get('TimeRaw', ''),
             format='%Y-%m-%d %H%M',
             errors='coerce'
         )
-        raw_df.dropna(subset=['Frequency', 'Datetime'], inplace=True)
+        
+        # If a 'Band' column wasn't provided by the parser, create it.
+        if 'Band' not in raw_df.columns:
+            raw_df['Band'] = pd.NA
 
+        # Handle frequency-derived bands only where a band isn't already specified.
+        if 'FrequencyRaw' in raw_df.columns:
+            raw_df['Frequency'] = pd.to_numeric(raw_df['FrequencyRaw'], errors='coerce')
+            
+            # Create a temporary column for bands derived from frequency
+            derived_bands = raw_df['Frequency'].apply(self._derive_band_from_frequency)
+            
+            # Merge the results: use the existing Band value if present, otherwise use the derived one.
+            raw_df['Band'] = raw_df['Band'].combine_first(derived_bands)
+
+        raw_df.dropna(subset=['Datetime'], inplace=True)
         if raw_df.empty:
             self.qsos_df = pd.DataFrame(columns=self.contest_definition.default_qso_columns)
             return
 
-        raw_df['Band'] = raw_df['Frequency'].apply(self._derive_band_from_frequency)
         raw_df['Date'] = raw_df['Datetime'].dt.strftime('%Y-%m-%d')
         raw_df['Hour'] = raw_df['Datetime'].dt.strftime('%H')
 
