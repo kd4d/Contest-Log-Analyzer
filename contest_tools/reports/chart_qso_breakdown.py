@@ -5,7 +5,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-20
-# Version: 0.41.4-Beta
+# Version: 0.41.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,6 +16,13 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.41.5-Beta] - 2025-08-20
+### Added
+# - Implemented a two-legend system to separately describe Unique and
+#   Common QSO types.
+### Changed
+# - Replaced the single gray 'Common' bar with a color-coded stacked bar
+#   showing the breakdown of common QSOs (Run/S&P/Mixed).
 ## [0.41.4-Beta] - 2025-08-20
 ### Changed
 # - Switched to Matplotlib's constrained_layout manager for robust and
@@ -72,10 +79,25 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import os
 import math
+from matplotlib.patches import Patch
 
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
 from ._report_utils import create_output_directory, save_debug_data
+
+# Bright colors for UNIQUE QSOs
+UNIQUE_COLORS = {
+    'Run': '#FF4136',
+    'S&P': '#2ECC40',
+    'Unknown': '#FFDC00'
+}
+
+# Muted/darker colors for COMMON QSOs
+COMMON_COLORS = {
+    'Run (Both)': '#85144b',
+    'S&P (Both)': '#004D40',
+    'Mixed or Unknown': '#DAA520'
+}
 
 class Report(ContestReport):
     """
@@ -122,17 +144,17 @@ class Report(ContestReport):
             # --- Data Aggregation for the current page ---
             plot_data = {
                 'bands': [b.replace('M', '') for b in bands_on_page],
-                call1: {'run': [], 'sp': [], 'unknown': []},
-                call2: {'run': [], 'sp': [], 'unknown': []},
-                'common': []
+                call1: {'Run': [], 'S&P': [], 'Unknown': []},
+                call2: {'Run': [], 'S&P': [], 'Unknown': []},
+                'common': {'Run (Both)': [], 'S&P (Both)': [], 'Mixed or Unknown': []}
             }
 
             for band in bands_on_page:
                 df1_band = df1_full[df1_full['Band'] == band]
                 df2_band = df2_full[df2_full['Band'] == band]
 
-                calls1 = set(df1_band['Call'].unique())
-                calls2 = set(df2_band['Call'].unique())
+                calls1 = set(df1_band['Call'])
+                calls2 = set(df2_band['Call'])
                 
                 common_calls = calls1.intersection(calls2)
                 unique_to_1 = calls1.difference(calls2)
@@ -141,15 +163,26 @@ class Report(ContestReport):
                 df1_unique = df1_band[df1_band['Call'].isin(unique_to_1)]
                 df2_unique = df2_band[df2_band['Call'].isin(unique_to_2)]
 
-                plot_data[call1]['run'].append((df1_unique['Run'] == 'Run').sum())
-                plot_data[call1]['sp'].append((df1_unique['Run'] == 'S&P').sum())
-                plot_data[call1]['unknown'].append((df1_unique['Run'] == 'Unknown').sum())
+                plot_data[call1]['Run'].append((df1_unique['Run'] == 'Run').sum())
+                plot_data[call1]['S&P'].append((df1_unique['Run'] == 'S&P').sum())
+                plot_data[call1]['Unknown'].append((df1_unique['Run'] == 'Unknown').sum())
                 
-                plot_data[call2]['run'].append((df2_unique['Run'] == 'Run').sum())
-                plot_data[call2]['sp'].append((df2_unique['Run'] == 'S&P').sum())
-                plot_data[call2]['unknown'].append((df2_unique['Run'] == 'Unknown').sum())
+                plot_data[call2]['Run'].append((df2_unique['Run'] == 'Run').sum())
+                plot_data[call2]['S&P'].append((df2_unique['Run'] == 'S&P').sum())
+                plot_data[call2]['Unknown'].append((df2_unique['Run'] == 'Unknown').sum())
                 
-                plot_data['common'].append(len(common_calls))
+                # --- New logic for Common QSO breakdown ---
+                df1_common = df1_band[df1_band['Call'].isin(common_calls)][['Call', 'Run']].set_index('Call')
+                df2_common = df2_band[df2_band['Call'].isin(common_calls)][['Call', 'Run']].set_index('Call')
+                merged_common = df1_common.join(df2_common, lsuffix='_1', rsuffix='_2')
+
+                both_run = len(merged_common[(merged_common['Run_1'] == 'Run') & (merged_common['Run_2'] == 'Run')])
+                both_sp = len(merged_common[(merged_common['Run_1'] == 'S&P') & (merged_common['Run_2'] == 'S&P')])
+                other = len(merged_common) - both_run - both_sp
+                
+                plot_data['common']['Run (Both)'].append(both_run)
+                plot_data['common']['S&P (Both)'].append(both_sp)
+                plot_data['common']['Mixed or Unknown'].append(other)
 
             # --- Save Debug Data ---
             page_suffix = f"_p{page_num + 1}" if num_pages > 1 else ""
@@ -164,19 +197,26 @@ class Report(ContestReport):
             bar_width = 0.8
             index = np.arange(len(plot_data['bands'])) * group_spacing
 
-            run1_bars = np.array(plot_data[call1]['run'])
-            sp1_bars = np.array(plot_data[call1]['sp'])
-            ax.bar(index - bar_width, run1_bars, bar_width, color='red', label=f'Unique Run')
-            ax.bar(index - bar_width, sp1_bars, bar_width, bottom=run1_bars, color='green', label=f'Unique S&P')
-            ax.bar(index - bar_width, plot_data[call1]['unknown'], bar_width, bottom=run1_bars + sp1_bars, color='gold', label=f'Unique Unknown')
+            # Unique Bars for Call 1
+            bottom = np.zeros(len(bands_on_page))
+            for activity, color in UNIQUE_COLORS.items():
+                counts = np.array(plot_data[call1][activity])
+                ax.bar(index - bar_width, counts, bar_width, bottom=bottom, color=color)
+                bottom += counts
 
-            ax.bar(index, plot_data['common'], bar_width, color='grey', label='Common Calls')
-
-            run2_bars = np.array(plot_data[call2]['run'])
-            sp2_bars = np.array(plot_data[call2]['sp'])
-            ax.bar(index + bar_width, run2_bars, bar_width, color='red')
-            ax.bar(index + bar_width, sp2_bars, bar_width, bottom=run2_bars, color='green')
-            ax.bar(index + bar_width, plot_data[call2]['unknown'], bar_width, bottom=run2_bars + sp2_bars, color='gold')
+            # Common Stacked Bar
+            bottom = np.zeros(len(bands_on_page))
+            for category, color in COMMON_COLORS.items():
+                counts = np.array(plot_data['common'][category])
+                ax.bar(index, counts, bar_width, bottom=bottom, color=color)
+                bottom += counts
+            
+            # Unique Bars for Call 2
+            bottom = np.zeros(len(bands_on_page))
+            for activity, color in UNIQUE_COLORS.items():
+                counts = np.array(plot_data[call2][activity])
+                ax.bar(index + bar_width, counts, bar_width, bottom=bottom, color=color)
+                bottom += counts
 
             # --- Formatting ---
             metadata = log1.get_metadata()
@@ -202,26 +242,23 @@ class Report(ContestReport):
                 font_size -= 2
 
             for i, group_center in enumerate(index):
-                # Tier 3 (Bottom)
-                y_pos_tier3 = -0.12
+                y_pos_tier3 = -0.12 # Band
+                y_pos_tier2 = -0.08 # Common
+                y_pos_tier1 = -0.04 # Callsigns
+                
                 ax.text(group_center, y_pos_tier3, f"{plot_data['bands'][i]} Meters", ha='center', va='top', transform=ax.get_xaxis_transform(), fontweight='bold')
-                
-                # Tier 2 (Middle)
-                y_pos_tier2 = -0.08
                 ax.text(group_center, y_pos_tier2, "Common", ha='center', va='top', transform=ax.get_xaxis_transform(), fontsize=font_size)
-                
-                # Tier 1 (Top)
-                y_pos_tier1 = -0.04
                 ax.text(group_center - bar_width, y_pos_tier1, call1, ha='center', va='top', transform=ax.get_xaxis_transform(), fontsize=font_size)
                 ax.text(group_center + bar_width, y_pos_tier1, call2, ha='center', va='top', transform=ax.get_xaxis_transform(), fontsize=font_size)
-
-                # Vertical line from just above Tier 2 up to the axis
-                line_y_start = y_pos_tier2 + 0.005 
-                ax.plot([group_center, group_center], [0, line_y_start], color='gray', linestyle=':', transform=ax.get_xaxis_transform(), clip_on=False)
+                ax.plot([group_center, group_center], [y_pos_tier2 + 0.005, 0], color='gray', linestyle=':', transform=ax.get_xaxis_transform(), clip_on=False)
             
-            handles, labels = ax.get_legend_handles_labels()
-            unique_labels = dict(zip(labels, handles))
-            ax.legend(unique_labels.values(), unique_labels.keys(), ncol=4)
+            # --- Two-Legend System ---
+            unique_handles = [Patch(color=color, label=label) for label, color in UNIQUE_COLORS.items()]
+            leg1 = ax.legend(handles=unique_handles, loc='upper left', title=f'Unique QSOs')
+            ax.add_artist(leg1)
+            
+            common_handles = [Patch(color=color, label=label) for label, color in COMMON_COLORS.items()]
+            ax.legend(handles=common_handles, loc='upper right', title='Common QSOs')
 
             # --- Save File ---
             create_output_directory(output_path)
