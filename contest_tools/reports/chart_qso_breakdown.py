@@ -5,7 +5,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-20
-# Version: 0.41.5-Beta
+# Version: 0.41.6-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,6 +16,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.41.6-Beta] - 2025-08-20
+### Changed
+# - Brightened the colors for "Unique QSOs" to improve visual contrast with
+#   the "Common" bars.
 ## [0.41.5-Beta] - 2025-08-20
 ### Added
 # - Implemented a two-legend system to separately describe Unique and
@@ -79,18 +83,31 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import os
 import math
+import colorsys
 from matplotlib.patches import Patch
 
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
 from ._report_utils import create_output_directory, save_debug_data
 
-# Bright colors for UNIQUE QSOs
-UNIQUE_COLORS = {
+def _adjust_lightness(hex_color, factor):
+    """Increases the lightness of a hex color by a factor."""
+    h = hex_color.lstrip('#')
+    r, g, b = tuple(int(h[i:i+2], 16) / 255.0 for i in (0, 2, 4))
+    hue, lightness, saturation = colorsys.rgb_to_hls(r, g, b)
+    lightness = min(1.0, lightness * factor)
+    r, g, b = colorsys.hls_to_rgb(hue, lightness, saturation)
+    return f'#{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}'
+
+# Base colors for a consistent palette
+BASE_UNIQUE_COLORS = {
     'Run': '#FF4136',
     'S&P': '#2ECC40',
     'Unknown': '#FFDC00'
 }
+
+# Brightened colors for UNIQUE QSOs
+UNIQUE_COLORS = {k: _adjust_lightness(v, 1.25) for k, v in BASE_UNIQUE_COLORS.items()}
 
 # Muted/darker colors for COMMON QSOs
 COMMON_COLORS = {
