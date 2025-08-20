@@ -1,10 +1,17 @@
 # Project Workflow Guide
 
-**Version: 0.38.0-Beta**
-**Date: 2025-08-19**
+**Version: 0.42.0-Beta**
+**Date: 2025-08-20**
 
 ---
 ### --- Revision History ---
+## [0.42.0-Beta] - 2025-08-20
+### Added
+# - Added Protocol 2.3 (Visual Prototype Protocol) to formalize the use
+#   of prototype scripts for complex visual changes.
+### Changed
+# - Renumbered subsequent protocols in the Task Execution Workflow and
+#   updated internal cross-references.
 ## [0.38.0-Beta] - 2025-08-19
 ### Added
 # - Added Protocol 2.3 (Baseline Consistency Check) to require plan
@@ -45,7 +52,7 @@
 ## [0.36.9-Beta] - 2025-08-15
 ### Added
 # - Added rule 3.2.4 to mandate the substitution of markdown code fences
-#   with ```_ for proper web interface rendering.
+#   with __CODE_BLOCK__ for proper web interface rendering.
 ## [0.36.4-Beta] - 2025-08-15
 ### Changed
 # - Clarified Principle 8 (Surgical Modification) to explicitly require
@@ -146,17 +153,24 @@ These are the step-by-step procedures for common, day-to-day development tasks.
 This workflow is a formal state machine that governs all development tasks, from initial request to final completion.
 2.1. **Task Initiation**: The user provides a problem, feature request, or document update and requests an analysis.
 2.2. **Analysis and Discussion**: The AI provides an initial analysis. The user and AI may discuss the analysis to refine the understanding of the problem.
-2.3. **Baseline Consistency Check.** Before presenting an implementation plan, the AI must perform and explicitly state the completion of a "Baseline Consistency Check." This check verifies that all proposed actions (e.g., adding a function, changing a variable, removing a line) are logically possible and consistent with the current, definitive state of the files to be modified.
-2.4. **Implementation Plan**: The user requests an implementation plan. The AI provides a detailed plan, which must adhere to the **Pre-Flight Check Protocol (2.5)**.
-2.5. **Pre-Flight Check Protocol.** The AI will perform a "white-box" mental code review **before** delivering a modified file.
+2.3. **Visual Prototype Protocol.** This protocol is used to resolve ambiguity in tasks involving complex visual layouts or new, hard-to-describe logic before a full implementation is planned.
+    1.  **Initiation:** The AI proposes or the user requests a prototype to clarify a concept.
+    2.  **Agreement:** Both parties agree to create the prototype.
+    3.  **Prototype Delivery:** The AI delivers a standalone, self-contained script. The script must use simple, hardcoded data and focus only on demonstrating the specific concept in question.
+    4.  **Prototype Usability Clause:** For visual prototypes using Matplotlib, the script must save the output to a file and then immediately display the chart on-screen using `plt.show()` for ease of verification.
+    5.  **Review and Iteration:** The user reviews the prototype's output and provides feedback. This step can be repeated until the prototype is correct.
+    6.  **Approval:** The user gives explicit approval of the final prototype. This approval serves as the visual and logical ground truth for the subsequent implementation plan.
+2.4. **Baseline Consistency Check.** Before presenting an implementation plan, the AI must perform and explicitly state the completion of a "Baseline Consistency Check." This check verifies that all proposed actions (e.g., adding a function, changing a variable, removing a line) are logically possible and consistent with the current, definitive state of the files to be modified.
+2.5. **Implementation Plan**: The user requests an implementation plan. The AI provides a detailed plan, which must adhere to the **Pre-Flight Check Protocol (2.6)**.
+2.6. **Pre-Flight Check Protocol.** The AI will perform a "white-box" mental code review **before** delivering a modified file.
     1.  **Stating the Plan:** The AI will state its Pre-Flight Check plan. The **Inputs** section must include the full filename and the specific baseline version number of the file to be modified. The plan must also state the **Expected Outcome**.
     2.  **Mental Walkthrough:** The AI will mentally trace the execution path to confirm the logic produces the expected outcome.
     3.  **User Verification:** The user performs the final verification by running the code.
     4.  **State Confirmation Procedure**: The AI will affirm that the mandatory confirmation prompt, as defined in Protocol 4.4, will be included with the file delivery.
-2.6. **Plan Refinement**: The user reviews the plan and may request changes or refinements. The AI provides a revised plan, repeating this step as necessary.
-2.7. **Approval**: The user provides explicit approval of the final implementation plan (e.g., "Approved"). Instructions, clarifications, or new requirements provided after a plan has been proposed do not constitute approval; they will be treated as requests for plan refinement under Protocol 2.6.
-2.8. **Execution**: Upon approval, the AI will proceed with the **Confirmed File Delivery Protocol (4.4)**.
-2.9. **Propose Verification Command**: After the final file in an implementation plan has been delivered and acknowledged by the user, the AI's final action for the task is to propose the specific command-line instruction(s) the user should run to verify that the bug has been fixed or the feature has been implemented correctly.
+2.7. **Plan Refinement**: The user reviews the plan and may request changes or refinements. The AI provides a revised plan, repeating this step as necessary.
+2.8. **Approval**: The user provides explicit approval of the final implementation plan (e.g., "Approved"). Instructions, clarifications, or new requirements provided after a plan has been proposed do not constitute approval; they will be treated as requests for plan refinement under Protocol 2.7.
+2.9. **Execution**: Upon approval, the AI will proceed with the **Confirmed File Delivery Protocol (4.4)**.
+2.10. **Propose Verification Command**: After the final file in an implementation plan has been delivered and acknowledged by the user, the AI's final action for the task is to propose the specific command-line instruction(s) the user should run to verify that the bug has been fixed or the feature has been implemented correctly.
 
 ### 3. File and Data Handling
 
@@ -165,16 +179,16 @@ This workflow is a formal state machine that governs all development tasks, from
     1.  **Single File Per Response**: Only one file will be delivered in a single response.
     2.  **Raw Source Text**: The content inside the delivered code block must be the raw source text of the file.
     3.  **Code File Delivery**: For code files (e.g., `.py`, `.json`), the content will be delivered in a standard fenced code block with the appropriate language specifier.
-    4.  **Markdown File Delivery**: To prevent the user interface from rendering markdown and to provide a "Copy" button, the entire raw content of a documentation file (`.md`) must be delivered inside a single, plaintext-specified code block. The rule for replacing internal code fences with ````_` still applies to the content within this block.
-        ```_text
+    4.  **Markdown File Delivery**: To prevent the user interface from rendering markdown and to provide a "Copy" button, the entire raw content of a documentation file (`.md`) must be delivered inside a single, plaintext-specified code block. The rule for replacing internal code fences with `__CODE_BLOCK__` still applies to the content within this block.
+        __CODE_BLOCK__text
         # Markdown Header
 
         This is the raw text of the .md file.
 
-        ```_
+        __CODE_BLOCK__
         # An internal code block is replaced.
-        ```_
-        ```_
+        __CODE_BLOCK__
+        __CODE_BLOCK__
 3.3. **File and Checksum Verification.**
     1.  **Line Endings:** The user's file system uses Windows CRLF (`\r\n`). The AI must correctly handle this conversion when calculating checksums.
     2.  **Concise Reporting:** The AI will either state that **all checksums agree** or will list the **specific files that show a mismatch**.

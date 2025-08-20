@@ -1,12 +1,31 @@
 # Contest Log Analyzer/contest_tools/reports/plot_comparative_band_activity.py
 #
-# Version: 0.40.6-Beta
-# Date: 2025-08-19
+# Version: 0.41.3-Beta
+# Date: 2025-08-20
 #
 # Purpose: A plot report that generates a comparative "butterfly" chart to
 #          visualize the band activity of two logs side-by-side.
 #
 # --- Revision History ---
+## [0.41.3-Beta] - 2025-08-20
+### Changed
+# - Per-mode plots are now only generated if more than one mode is present
+#   across both logs, preventing redundant plots.
+## [0.41.2-Beta] - 2025-08-20
+### Changed
+# - Updated chart title to the standard three-line format for clarity.
+## [0.41.1-Beta] - 2025-08-20
+### Changed
+# - Replaced the default seaborn grid with a custom, heavy grid that
+#   clearly brackets each one-hour block of data.
+### Fixed
+# - Removed the default seaborn grid which was being partially drawn.
+## [0.41.0-Beta] - 2025-08-20
+### Added
+# - Added prominent vertical grid lines to delineate each hour on the chart.
+### Changed
+# - Normalized 15-minute QSO counts to an hourly rate to provide a more
+#   intuitive metric for contesters.
 ## [0.40.6-Beta] - 2025-08-19
 ### Fixed
 # - Restored the timezone localization step that was lost during a previous
@@ -68,7 +87,7 @@ class Report(ContestReport):
 
     def _get_rounded_axis_limit(self, max_value: float) -> int:
         """Takes a raw maximum value and returns a sensible upper limit."""
-        if max_value == 0: return 5 # Prevent a zero-height axis
+        if max_value == 0: return 5
         if max_value <= 45:
             return int(math.ceil(max_value / 5.0)) * 5
         if max_value <= 50: return 50
@@ -106,7 +125,7 @@ class Report(ContestReport):
         for call, df in dfs.items():
             pivot = df.pivot_table(index='Band', columns=pd.Grouper(key='Datetime', freq='15min'), aggfunc='size', fill_value=0)
             pivot = pivot.reindex(index=all_bands, columns=time_bins, fill_value=0)
-            pivot_dfs[call] = pivot
+            pivot_dfs[call] = pivot * 4
 
         # --- 2. Visualization ---
         num_bands = len(all_bands)
@@ -116,6 +135,8 @@ class Report(ContestReport):
 
         for i, band in enumerate(all_bands):
             ax = axes[i]
+            ax.grid(False)
+            
             data1 = pivot_dfs[call1].loc[band]
             data2 = -pivot_dfs[call2].loc[band]
             band_max_rate = max(data1.max(), data2.abs().max())
@@ -131,6 +152,9 @@ class Report(ContestReport):
             ticks = np.linspace(-rounded_limit, rounded_limit, num=7, dtype=int)
             ax.set_yticks(ticks)
             ax.set_yticklabels([abs(tick) for tick in ticks])
+            
+            for hour_marker in range(0, len(time_bins) + 1, 4):
+                ax.axvline(x=hour_marker - 0.5, color='black', linestyle='-', linewidth=1.5, alpha=0.4)
 
         # --- 3. Dynamic X-Axis Formatting ---
         contest_duration_hours = (max_time - min_time).total_seconds() / 3600
@@ -142,10 +166,21 @@ class Report(ContestReport):
         plt.xticks(tick_positions, tick_labels, rotation=45, ha='right')
         
         # --- 4. Titles and Legend ---
+        metadata = log1.get_metadata()
+        df_first_log = get_valid_dataframe(log1)
+        year = df_first_log['Date'].dropna().iloc[0].split('-')[0] if not df_first_log.empty and not df_first_log['Date'].dropna().empty else "----"
+        contest_name = metadata.get('ContestName', '')
+        event_id = metadata.get('EventID', '')
+        
         mode_title_str = f" ({mode_filter})" if mode_filter else ""
-        fig.suptitle(f"{self.report_name}{mode_title_str}\n{call1} (Up) vs. {call2} (Down)", fontsize=16, fontweight='bold')
+        title_line1 = f"{self.report_name}{mode_title_str}"
+        title_line2 = f"{event_id} {year} {contest_name}".strip()
+        title_line3 = f"{call1} (Up) vs. {call2} (Down)"
+        final_title = f"{title_line1}\n{title_line2}\n{title_line3}"
+        
+        fig.suptitle(final_title, fontsize=16, fontweight='bold')
         axes[-1].set_xlabel("Contest Time (UTC)")
-        fig.supylabel("QSOs per 15 min")
+        fig.supylabel("QSOs per Hour (Normalized)")
         fig.tight_layout(rect=[0.03, 0.03, 1, 0.95])
 
         # --- 5. Save File ---
@@ -177,7 +212,6 @@ class Report(ContestReport):
         if df1.empty or df2.empty:
             return "Skipping report: At least one log has no valid, non-dupe QSO data."
         
-        # --- MODIFICATION: Restore timezone localization ---
         df1['Datetime'] = df1['Datetime'].dt.tz_localize('UTC')
         df2['Datetime'] = df2['Datetime'].dt.tz_localize('UTC')
         
@@ -189,13 +223,15 @@ class Report(ContestReport):
         modes_to_plot = ['CW', 'PH', 'DG']
         modes_present = pd.concat([df1['Mode'], df2['Mode']]).dropna().unique()
 
-        for mode in modes_to_plot:
-            if mode in modes_present:
-                df1_slice = df1[df1['Mode'] == mode]
-                df2_slice = df2[df2['Mode'] == mode]
+        # --- MODIFICATION: Only generate per-mode plots if there is more than one mode ---
+        if len(modes_present) > 1:
+            for mode in modes_to_plot:
+                if mode in modes_present:
+                    df1_slice = df1[df1['Mode'] == mode]
+                    df2_slice = df2[df2['Mode'] == mode]
 
-                if not df1_slice.empty or not df2_slice.empty:
-                    msg = self._generate_plot_for_slice(df1_slice, df2_slice, log1, log2, output_path, mode_filter=mode, **kwargs)
-                    created_files.append(msg)
+                    if not df1_slice.empty or not df2_slice.empty:
+                        msg = self._generate_plot_for_slice(df1_slice, df2_slice, log1, log2, output_path, mode_filter=mode, **kwargs)
+                        created_files.append(msg)
 
         return "\n".join(created_files)
