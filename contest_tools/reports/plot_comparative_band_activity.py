@@ -1,12 +1,19 @@
 # Contest Log Analyzer/contest_tools/reports/plot_comparative_band_activity.py
 #
-# Version: 0.41.1-Beta
+# Version: 0.41.3-Beta
 # Date: 2025-08-20
 #
 # Purpose: A plot report that generates a comparative "butterfly" chart to
 #          visualize the band activity of two logs side-by-side.
 #
 # --- Revision History ---
+## [0.41.3-Beta] - 2025-08-20
+### Changed
+# - Per-mode plots are now only generated if more than one mode is present
+#   across both logs, preventing redundant plots.
+## [0.41.2-Beta] - 2025-08-20
+### Changed
+# - Updated chart title to the standard three-line format for clarity.
 ## [0.41.1-Beta] - 2025-08-20
 ### Changed
 # - Replaced the default seaborn grid with a custom, heavy grid that
@@ -128,7 +135,6 @@ class Report(ContestReport):
 
         for i, band in enumerate(all_bands):
             ax = axes[i]
-            # --- MODIFICATION: Disable default grid ---
             ax.grid(False)
             
             data1 = pivot_dfs[call1].loc[band]
@@ -147,7 +153,6 @@ class Report(ContestReport):
             ax.set_yticks(ticks)
             ax.set_yticklabels([abs(tick) for tick in ticks])
             
-            # --- MODIFICATION: Add heavy, bracketing hourly grid lines ---
             for hour_marker in range(0, len(time_bins) + 1, 4):
                 ax.axvline(x=hour_marker - 0.5, color='black', linestyle='-', linewidth=1.5, alpha=0.4)
 
@@ -161,8 +166,19 @@ class Report(ContestReport):
         plt.xticks(tick_positions, tick_labels, rotation=45, ha='right')
         
         # --- 4. Titles and Legend ---
+        metadata = log1.get_metadata()
+        df_first_log = get_valid_dataframe(log1)
+        year = df_first_log['Date'].dropna().iloc[0].split('-')[0] if not df_first_log.empty and not df_first_log['Date'].dropna().empty else "----"
+        contest_name = metadata.get('ContestName', '')
+        event_id = metadata.get('EventID', '')
+        
         mode_title_str = f" ({mode_filter})" if mode_filter else ""
-        fig.suptitle(f"{self.report_name}{mode_title_str}\n{call1} (Up) vs. {call2} (Down)", fontsize=16, fontweight='bold')
+        title_line1 = f"{self.report_name}{mode_title_str}"
+        title_line2 = f"{event_id} {year} {contest_name}".strip()
+        title_line3 = f"{call1} (Up) vs. {call2} (Down)"
+        final_title = f"{title_line1}\n{title_line2}\n{title_line3}"
+        
+        fig.suptitle(final_title, fontsize=16, fontweight='bold')
         axes[-1].set_xlabel("Contest Time (UTC)")
         fig.supylabel("QSOs per Hour (Normalized)")
         fig.tight_layout(rect=[0.03, 0.03, 1, 0.95])
@@ -207,13 +223,15 @@ class Report(ContestReport):
         modes_to_plot = ['CW', 'PH', 'DG']
         modes_present = pd.concat([df1['Mode'], df2['Mode']]).dropna().unique()
 
-        for mode in modes_to_plot:
-            if mode in modes_present:
-                df1_slice = df1[df1['Mode'] == mode]
-                df2_slice = df2[df2['Mode'] == mode]
+        # --- MODIFICATION: Only generate per-mode plots if there is more than one mode ---
+        if len(modes_present) > 1:
+            for mode in modes_to_plot:
+                if mode in modes_present:
+                    df1_slice = df1[df1['Mode'] == mode]
+                    df2_slice = df2[df2['Mode'] == mode]
 
-                if not df1_slice.empty or not df2_slice.empty:
-                    msg = self._generate_plot_for_slice(df1_slice, df2_slice, log1, log2, output_path, mode_filter=mode, **kwargs)
-                    created_files.append(msg)
+                    if not df1_slice.empty or not df2_slice.empty:
+                        msg = self._generate_plot_for_slice(df1_slice, df2_slice, log1, log2, output_path, mode_filter=mode, **kwargs)
+                        created_files.append(msg)
 
         return "\n".join(created_files)
