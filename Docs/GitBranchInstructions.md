@@ -1,13 +1,16 @@
-Understood. Here is the updated `Docs/GitBranchInstructions.md` file, delivered in a plaintext block for correct copying.
-
-```
 # Git Feature Branch Workflow
 
-**Version: 0.37.0-Beta**
-**Date: 2025-08-18**
+**Version: 0.38.0-Beta**
+**Date: 2025-08-20**
 
 ---
 ### --- Revision History ---
+## [0.38.0-Beta] - 2025-08-20
+### Added
+# - Added Section 9 to explain how to visualize history with `git log --graph`.
+# - Added Section 10 to cover pushing a feature branch to the remote.
+# - Added Section 11 for a basic guide on resolving merge/rebase conflicts.
+# - Added Section 12 to explain how to use `git stash`.
 ## [0.37.0-Beta] - 2025-08-18
 ### Added
 # - Initial versioning of the document to align with project standards.
@@ -15,12 +18,12 @@ Understood. Here is the updated `Docs/GitBranchInstructions.md` file, delivered 
 # - Added Section 8 to explain file management with `.gitignore` and `git rm`.
 ---
 
-The feature branch workflow is a standard practice that keeps your `master` branch clean and stable. It lets you work on new features in an isolated environment without affecting the main codebase. Once a feature is complete and tested, it's merged back into `master`. The Git commands are the same whether you're using Windows Shell (Command Prompt, PowerShell) or a Bash shell.
+[cite_start]The feature branch workflow is a standard practice that keeps your `master` branch clean and stable. [cite: 1653] [cite_start]It lets you work on new features in an isolated environment without affecting the main codebase. [cite: 1654] [cite_start]Once a feature is complete and tested, it's merged back into `master`. [cite: 1655] [cite_start]The Git commands are the same whether you're using Windows Shell (Command Prompt, PowerShell) or a Bash shell. [cite: 1656]
 ***
 
 ## 1. Start from `master`
 
-Before you do anything, you need to make sure your local `master` branch is up-to-date with the remote repository (like GitHub or Azure DevOps).
+[cite_start]Before you do anything, you need to make sure your local `master` branch is up-to-date with the remote repository (like GitHub or Azure DevOps). [cite: 1657]
 ```
 # Switch to your master branch
 git switch master
@@ -33,21 +36,21 @@ git pull
 
 ## 2. Create and Switch to a Feature Branch
 
-Now, you'll create a new branch for your feature. Branch names should be short and descriptive, like `login-form` or `user-profile-page`. This command creates a **new branch** and **immediately switches** to it.
+[cite_start]Now, you'll create a new branch for your feature. [cite: 1658] [cite_start]Branch names should be short and descriptive, like `login-form` or `user-profile-page`. [cite: 1659] [cite_start]This command creates a **new branch** and **immediately switches** to it. [cite: 1660]
 ```
 # The -c flag stands for "create"
 git switch -c new-feature-name
 ```
 
-*You can now work safely on this branch. Think of it as a separate copy of the project where your changes won't affect anyone else until you're ready.*
+[cite_start]*You can now work safely on this branch. [cite: 1661] [cite_start]Think of it as a separate copy of the project where your changes won't affect anyone else until you're ready.* [cite: 1662]
 
 ***
 
 ## 3. Develop the Feature: Add and Commit
 
-This is where you'll do your work—writing code, adding files, and fixing bugs. As you complete small, logical chunks of work, you should **commit** them. A commit is like a permanent save point. The process for each commit is the same:
-1.  **Stage** your changes (`git add`).
-2.  **Commit** them with a clear message (`git commit`).
+[cite_start]This is where you'll do your work—writing code, adding files, and fixing bugs. [cite: 1663] [cite_start]As you complete small, logical chunks of work, you should **commit** them. [cite: 1664] [cite_start]The process for each commit is the same: [cite: 1664]
+1.  [cite_start]**Stage** your changes (`git add`). [cite: 1665]
+2.  [cite_start]**Commit** them with a clear message (`git commit`). [cite: 1666]
 ```
 # Stage a specific file
 git add path/to/your/file.js
@@ -58,12 +61,12 @@ git add .
 git commit -m "feat: Add user login form component"
 ```
 
-You can (and should) have many commits on your feature branch. Committing often creates a clear history of your work and makes it easier to undo changes if something goes wrong.
+[cite_start]You can (and should) have many commits on your feature branch. [cite: 1668] [cite_start]Committing often creates a clear history of your work and makes it easier to undo changes if something goes wrong. [cite: 1668]
 ***
 
 ## 4. Keep Your Branch Synced (Optional but Recommended)
 
-If you're working on a feature for a while, the `master` branch might get updated by your teammates. It's a good practice to pull those updates into your feature branch. This makes the final merge much easier.
+[cite_start]If you're working on a feature for a while, the `master` branch might get updated by your teammates. [cite: 1669] [cite_start]It's a good practice to pull those updates into your feature branch. [cite: 1670]
 ```
 # Fetch the latest changes from all remote branches
 git fetch origin
@@ -72,13 +75,13 @@ git fetch origin
 git rebase origin/master
 ```
 
-The **`rebase`** command essentially "unplugs" your branch's changes, updates the base to the latest version of `master`, and then "re-plugs" your changes on top. This keeps your project history clean and linear.
+[cite_start]The **`rebase`** command keeps your project history clean and linear. [cite: 1672]
 
 ***
 
 ## 5. Merge Your Feature into `master`
 
-Once your feature is complete, tested, and ready to go, it's time to merge it back into the `master` branch.
+[cite_start]Once your feature is complete, tested, and ready to go, it's time to merge it back into the `master` branch. [cite: 1672]
 ```
 # 1. First, go back to the master branch
 git switch master
@@ -90,12 +93,12 @@ git pull
 git merge --no-ff new-feature-name
 ```
 
-Using **`--no-ff`** (no fast-forward) is a crucial best practice. It creates a "merge commit" that ties the history of your feature branch together. This makes it very easy to see when a specific feature was merged into `master` and which commits belonged to it.
+[cite_start]Using **`--no-ff`** (no fast-forward) is a crucial best practice. [cite: 1673] [cite_start]It creates a "merge commit" that ties the history of your feature branch together. [cite: 1674]
 ***
 
 ## 6. Push and Clean Up
 
-Your `master` branch now has the new feature, but only on your local machine. You need to push it to the remote server. After that, you can delete the feature branch, since its work is now part of `master`.
+[cite_start]Your `master` branch now has the new feature, but only on your local machine. [cite: 1676] [cite_start]You need to push it to the remote server. [cite: 1677] [cite_start]After that, you can delete the feature branch, since its work is now part of `master`. [cite: 1677]
 ```
 # 1. Push the updated master branch to the remote
 git push origin master
@@ -107,12 +110,11 @@ git branch -d new-feature-name
 git push origin --delete new-feature-name
 ```
 
-That's the complete lifecycle! 🚀 You've successfully created a feature, developed it in isolation, and safely merged it into the main project.
+That's the complete lifecycle! [cite_start]🚀 You've successfully created a feature, developed it in isolation, and safely merged it into the main project. [cite: 1679]
 ---
 ## 7. Correcting Mistakes (`git revert`)
 
-Sometimes you commit a change that you later realize was a mistake. The safest way to undo a commit that has been shared is `git revert`. This command does not rewrite history; instead, it creates a *new commit* that is the exact inverse of the commit you want to undo.
-
+[cite_start]The safest way to undo a commit that has been shared is `git revert`. [cite: 1681] [cite_start]This command creates a *new commit* that is the exact inverse of the commit you want to undo. [cite: 1682]
 ```
 # Find the hash of the commit you want to undo (e.g., from `git log`)
 # Let's say the bad commit hash is `a1b2c3d4`
@@ -123,14 +125,11 @@ git revert a1b2c3d4
 ---
 ## 8. Managing Files (`.gitignore` and `git rm`)
 
-It's important to keep your repository clean of temporary or unnecessary files.
-
 ### Ignoring Untracked Files (`.gitignore`)
-The best way to handle files that should *never* be in the repository (like build artifacts, log files, or local environment files) is to use a `.gitignore` file. This is a simple text file in the root of your project that tells Git which files or patterns to ignore. By adding patterns to `.gitignore`, these files won't show up in `git status` and cannot be accidentally committed.
+[cite_start]The best way to handle files that should *never* be in the repository (like build artifacts or log files) is to use a `.gitignore` file. [cite: 1684]
 
 ### Removing Tracked Files (`git rm`)
-If you have already committed a file that you now want to delete from the project, you must use `git rm`. This command removes the file from both your working directory and Git's tracking index.
-
+[cite_start]If you have already committed a file that you now want to delete, you must use `git rm`. [cite: 1687] [cite_start]This command removes the file from both your working directory and Git's tracking index. [cite: 1688]
 ```
 # Remove a file that is already tracked by Git
 git rm path/to/unwanted-file.txt
@@ -138,8 +137,69 @@ git rm path/to/unwanted-file.txt
 # Commit the deletion
 git commit -m "fix: Remove obsolete file"
 ```
+---
+## 9. Visualizing the History (`git log`)
 
-Use `git rm -f` if you have local modifications to the file that you want to discard along with the deletion.
+To see the results of your branching and merging, you can use `git log` with a few flags to create a clean, graphical view.
+
+```
+git log --graph --oneline --all
 ```
 
-Please respond with 'Acknowledged' to confirm.
+* `--graph`: Draws an ASCII graph showing the branch structure.
+* `--oneline`: Condenses each commit to a single line for readability.
+* `--all`: Shows the history of all branches.
+
+This is so useful that many developers create a global Git alias for it, like `git lg`.
+
+---
+## 10. Pushing a Feature Branch
+
+Before you merge, you often need to push your feature branch to the remote repository for backup, collaboration, or to create a pull request.
+
+```
+# The -u flag sets the remote branch as the "upstream" tracking branch
+git push -u origin new-feature-name
+```
+
+After running this once, you can simply use `git push` from that branch in the future.
+
+---
+## 11. Handling Conflicts
+
+If `git merge` or `git rebase` fails, it's likely due to a conflict. This happens when changes in the `master` branch and your feature branch affect the same lines in the same file.
+
+1.  Git will stop and tell you which files have conflicts.
+2.  Open the conflicting file. You will see markers like:
+    ```
+    <<<<<<< HEAD
+    // Code from the master branch
+    =======
+    // Code from your new-feature-name branch
+    >>>>>>> new-feature-name
+    ```
+3.  **Edit the file manually.** Remove the conflict markers and edit the code until it is correct, keeping the changes you need from both branches.
+4.  **Stage the resolved file:** `git add path/to/resolved/file.js`
+5.  **Finish the operation:**
+    * If you were rebasing: `git rebase --continue`
+    * If you were merging: `git commit`
+
+---
+## 12. Temporarily Saving Changes (`git stash`)
+
+If you have uncommitted changes but need to switch branches immediately, use `git stash`.
+
+```
+# 1. Save your uncommitted changes to a "stash"
+git stash
+
+# 2. Now your working directory is clean. You can switch branches.
+git switch master
+
+# 3. When you return to your feature branch, re-apply the changes.
+git switch new-feature-name
+git stash pop
+```
+
+* `git stash pop` applies the most recent stash and removes it from your stash list.
+* `git stash list` shows all of your saved stashes.
