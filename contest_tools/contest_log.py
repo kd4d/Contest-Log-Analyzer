@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-21
-# Version: 0.39.6-Beta
+# Version: 0.43.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,12 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.43.0-Beta] - 2025-08-21
+### Added
+# - Integrated a data-driven frequency validation check during Cabrillo
+#   ingest, which rejects out-of-band QSOs and issues warnings.
+### Changed
+# - Modified the export_to_adif method to include duplicate QSOs.
 ## [0.39.6-Beta] - 2025-08-21
 ### Fixed
 # - Resolved a NameError in the export_to_adif function by adding the
@@ -71,7 +77,7 @@ import logging
 # Relative imports from within the contest_tools package
 from .cabrillo_parser import parse_cabrillo_file
 from .contest_definitions import ContestDefinition
-from .core_annotations import CtyLookup, process_dataframe_for_cty_data, process_contest_log_for_run_s_p
+from .core_annotations import CtyLookup, process_dataframe_for_cty_data, process_contest_log_for_run_s_p, BandAllocator
 
 class ContestLog:
     """
@@ -113,6 +119,7 @@ class ContestLog:
         self.filepath = cabrillo_filepath
         self._my_location_type: Optional[str] = None # W/VE or DX
         self._log_manager_ref = None
+        self.band_allocator = BandAllocator()
 
         try:
             self.contest_definition = ContestDefinition.from_json(contest_name)
@@ -143,6 +150,29 @@ class ContestLog:
             self.qsos_df = pd.DataFrame(columns=self.contest_definition.default_qso_columns)
             return
 
+        # --- Perform frequency validation before further processing ---
+        validated_qso_records = []
+        rejected_qso_count = 0
+        raw_df['Frequency'] = pd.to_numeric(raw_df['FrequencyRaw'], errors='coerce')
+
+        for idx, row in raw_df.iterrows():
+            if self.band_allocator.is_frequency_valid(row['Frequency']):
+                validated_qso_records.append(row.to_dict())
+            else:
+                rejected_qso_count += 1
+                if rejected_qso_count <= 20:
+                    logging.warning(f"Rejected QSO (invalid frequency): File '{os.path.basename(cabrillo_filepath)}' - Freq={row['FrequencyRaw']}")
+        
+        if rejected_qso_count > 20:
+            suppressed_count = rejected_qso_count - 20
+            logging.warning(f"({suppressed_count} additional invalid frequency warnings suppressed for this file.)")
+
+        if not validated_qso_records:
+            self.qsos_df = pd.DataFrame(columns=self.contest_definition.default_qso_columns)
+            return
+            
+        raw_df = pd.DataFrame(validated_qso_records)
+        
         raw_df['Datetime'] = pd.to_datetime(
             raw_df.get('DateRaw', '') + ' ' + raw_df.get('TimeRaw', ''),
             format='%Y-%m-%d %H%M',
@@ -154,9 +184,7 @@ class ContestLog:
             raw_df['Band'] = pd.NA
 
         # Handle frequency-derived bands only where a band isn't already specified.
-        if 'FrequencyRaw' in raw_df.columns:
-            raw_df['Frequency'] = pd.to_numeric(raw_df['FrequencyRaw'], errors='coerce')
-            
+        if 'Frequency' in raw_df.columns:
             # Create a temporary column for bands derived from frequency
             derived_bands = raw_df['Frequency'].apply(self._derive_band_from_frequency)
             
@@ -423,7 +451,7 @@ class ContestLog:
             logging.warning(f"No QSOs to export. ADIF file '{output_filepath}' will not be created.")
             return
             
-        df_to_export = self.qsos_df[self.qsos_df['Dupe'] == False].copy()
+        df_to_export = self.qsos_df.copy()
 
         # --- ADIF Helper Functions ---
         def adif_format(tag: str, value: Any) -> str:
@@ -436,7 +464,7 @@ class ContestLog:
         adif_records = []
         adif_records.append("ADIF Export from Contest-Log-Analyzer\n")
         adif_records.append(f"<PROGRAMID:22>Contest-Log-Analyzer\n")
-        adif_records.append(f"<PROGRAMVERSION:10>0.39.6-Beta\n")
+        adif_records.append(f"<PROGRAMVERSION:10>0.43.0-Beta\n")
         adif_records.append("<EOH>\n\n")
 
         for _, row in df_to_export.iterrows():

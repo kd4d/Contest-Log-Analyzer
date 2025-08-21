@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-06
-# Version: 0.30.40-Beta
+# Date: 2025-08-21
+# Version: 0.43.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.43.0-Beta] - 2025-08-21
+### Added
+# - Exposed the new BandAllocator class through the package initializer.
 ## [0.30.40-Beta] - 2025-08-06
 ### Fixed
 # - Updated all references to the old CONTEST_DATA_DIR environment variable
@@ -32,6 +35,7 @@ from typing import Dict, Any, List
 # Import the core annotation functions to make them available at the package level
 from .get_cty import CtyLookup
 from .run_s_p import process_contest_log_for_run_s_p
+from ._band_allocator import BandAllocator
 
 def process_dataframe_for_cty_data(df: pd.DataFrame) -> pd.DataFrame:
     """
