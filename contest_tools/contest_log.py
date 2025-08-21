@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-18
-# Version: 0.39.4-Beta
+# Date: 2025-08-21
+# Version: 0.39.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.39.5-Beta] - 2025-08-21
+### Added
+# - Enhanced the export_to_adif method to generate custom APP_CLA tags
+#   for multiplier values and "is new multiplier" flags.
 ## [0.39.4-Beta] - 2025-08-18
 ### Fixed
 # - Corrected the _ingest_cabrillo_data method to intelligently merge
@@ -420,14 +424,14 @@ class ContestLog:
         def adif_format(tag: str, value: Any) -> str:
             if pd.isna(value) or value == '':
                 return ''
-            val_str = str(value)
+            val_str = str(int(value)) if isinstance(value, (float, np.floating, np.integer)) and float(value).is_integer() else str(value)
             return f"<{tag}:{len(val_str)}>{val_str} "
 
         # --- Generate ADIF Content ---
         adif_records = []
         adif_records.append("ADIF Export from Contest-Log-Analyzer\n")
         adif_records.append(f"<PROGRAMID:22>Contest-Log-Analyzer\n")
-        adif_records.append(f"<PROGRAMVERSION:10>0.37.0-Beta\n")
+        adif_records.append(f"<PROGRAMVERSION:10>0.39.5-Beta\n")
         adif_records.append("<EOH>\n\n")
 
         for _, row in df_to_export.iterrows():
@@ -461,10 +465,24 @@ class ContestLog:
             record.append(adif_format('CQZ', row.get('CQZone')))
             record.append(adif_format('ITUZ', row.get('ITUZone')))
             
-            # Contest-specific location fields
             if pd.notna(row.get('RcvdLocation')):
                  record.append(adif_format('STATE', row.get('RcvdLocation')))
                  record.append(adif_format('ARRL_SECT', row.get('RcvdLocation')))
+
+            # --- Custom CLA Tags ---
+            record.append(adif_format('APP_CLA_QSO_POINTS', row.get('QSOPoints')))
+            record.append(adif_format('APP_CLA_CONTINENT', row.get('Continent')))
+            if row.get('Run') == 'Run': record.append(adif_format('APP_CLA_ISRUNQSO', 1))
+            
+            mult_value_cols = [c for c in row.index if c.startswith('Mult_') or c in ['Mult1', 'Mult2']]
+            for col in mult_value_cols:
+                if pd.notna(row.get(col)):
+                    record.append(adif_format(f"APP_CLA_{col.upper()}", row.get(col)))
+
+            mult_flag_cols = [c for c in row.index if c.endswith('_IsNewMult')]
+            for col in mult_flag_cols:
+                if row.get(col) == 1:
+                    record.append(adif_format(f"APP_CLA_{col.upper()}", 1))
 
             adif_records.append("".join(record).strip() + " <EOR>\n")
 
