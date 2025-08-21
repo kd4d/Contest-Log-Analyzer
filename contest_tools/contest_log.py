@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-21
-# Version: 0.39.5-Beta
+# Version: 0.39.6-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.39.6-Beta] - 2025-08-21
+### Fixed
+# - Resolved a NameError in the export_to_adif function by adding the
+#   missing 'import numpy as np' statement.
 ## [0.39.5-Beta] - 2025-08-21
 ### Added
 # - Enhanced the export_to_adif method to generate custom APP_CLA tags
@@ -55,6 +59,7 @@
 #   to_csv() call to prevent all future downcasting warnings.
 from typing import List
 import pandas as pd
+import numpy as np
 from datetime import datetime
 from typing import Dict, Any, Optional, Set, Tuple
 import os
@@ -431,7 +436,7 @@ class ContestLog:
         adif_records = []
         adif_records.append("ADIF Export from Contest-Log-Analyzer\n")
         adif_records.append(f"<PROGRAMID:22>Contest-Log-Analyzer\n")
-        adif_records.append(f"<PROGRAMVERSION:10>0.39.5-Beta\n")
+        adif_records.append(f"<PROGRAMVERSION:10>0.39.6-Beta\n")
         adif_records.append("<EOH>\n\n")
 
         for _, row in df_to_export.iterrows():
