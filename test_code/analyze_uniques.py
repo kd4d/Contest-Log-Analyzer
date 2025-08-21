@@ -1,14 +1,15 @@
 import pandas as pd
 import sys
+import argparse
 
-def analyze_uniques(file1, file2):
+def analyze_uniques(file1: str, file2: str, include_dupes: bool = False):
     """
-    Analyzes two CSV files to find unique calls for each Mode/Band combination,
-    considering only non-duplicate QSOs.
+    Analyzes two CSV files to find unique calls for each Mode/Band combination.
 
     Args:
         file1 (str): The file path for the first CSV file.
         file2 (str): The file path for the second CSV file.
+        include_dupes (bool): If True, duplicate QSOs are included in the analysis.
     """
     try:
         # Load the full CSV files into pandas DataFrames
@@ -25,13 +26,18 @@ def analyze_uniques(file1, file2):
     label1 = df1_full['MyCall'].iloc[0]
     label2 = df2_full['MyCall'].iloc[0]
 
-    # **MODIFICATION**: Filter DataFrames to include only non-duplicate QSOs
-    # We use .copy() to prevent a SettingWithCopyWarning from pandas.
-    df1 = df1_full[df1_full['Dupe'] == False].copy()
-    df2 = df2_full[df2_full['Dupe'] == False].copy()
-
     print(f"Comparing {label1} and {label2}")
-    print("Analysis based on non-duplicate QSOs only.\n")
+
+    # Conditionally filter out duplicate QSOs based on the include_dupes flag
+    if not include_dupes:
+        df1 = df1_full[df1_full['Dupe'] == False].copy()
+        df2 = df2_full[df2_full['Dupe'] == False].copy()
+        print("Analysis based on non-duplicate QSOs only.\n")
+    else:
+        df1 = df1_full.copy()
+        df2 = df2_full.copy()
+        print("Analysis includes duplicate QSOs.\n")
+
 
     # Combine the "Mode" and "Band" columns to get all unique combinations
     modes_and_bands = pd.concat([df1[['Mode', 'Band']], df2[['Mode', 'Band']]]).drop_duplicates()
@@ -41,7 +47,7 @@ def analyze_uniques(file1, file2):
         mode = row['Mode']
         band = row['Band']
 
-        # Filter the (already dupe-filtered) DataFrames for the current Mode and Band
+        # Filter the DataFrames for the current Mode and Band
         df1_filtered = df1[(df1['Mode'] == mode) & (df1['Band'] == band)]
         df2_filtered = df2[(df2['Mode'] == mode) & (df2['Band'] == band)]
 
@@ -49,7 +55,7 @@ def analyze_uniques(file1, file2):
         calls1 = set(df1_filtered['Call'])
         calls2 = set(df2_filtered['Call'])
 
-        # Find the calls that are unique to each file (symmetric difference)
+        # Find the calls that are unique to each file
         uniques1 = calls1 - calls2
         uniques2 = calls2 - calls1
 
@@ -80,7 +86,16 @@ def analyze_uniques(file1, file2):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: python analyze_logs.py <file1.csv> <file2.csv>")
-    else:
-        analyze_uniques(sys.argv[1], sys.argv[2])
+    parser = argparse.ArgumentParser(
+        description="Analyzes two processed CSV files from the Contest Log Analyzer to find unique QSOs."
+    )
+    parser.add_argument("file1", help="The file path for the first CSV file.")
+    parser.add_argument("file2", help="The file path for the second CSV file.")
+    parser.add_argument(
+        "--dupes",
+        action="store_true",
+        help="Include duplicate QSOs in the analysis."
+    )
+    args = parser.parse_args()
+
+    analyze_uniques(args.file1, args.file2, include_dupes=args.dupes)

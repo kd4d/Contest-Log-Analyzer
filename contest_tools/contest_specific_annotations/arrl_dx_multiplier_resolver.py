@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-21
-# Version: 0.30.42-Beta
+# Version: 0.30.43-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,15 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.30.43-Beta] - 2025-08-21
+### Changed
+# - Completely refactored the resolver to correctly implement the
+#   asymmetric ARRL DX multiplier rules based on logger location.
+### Fixed
+# - Implemented "exchange-first" logic, where the received State/Province
+#   overrides the callsign's DXCC entity.
+# - Correctly excludes non-contiguous states (AK, HI) as multipliers
+#   for DX stations, per official contest rules.
 ## [0.30.42-Beta] - 2025-08-21
 ### Changed
 # - Refactored the resolver to be stateful, tracking multipliers per band.
@@ -93,18 +102,15 @@ class AliasLookup:
         if value_upper in self._valid_mults:
             return value_upper
         
-        temp = value_upper
-        while len(temp) > 0:
-            if temp in self._lookup:
-                return self._lookup[temp][0]
-            temp = temp[:-1]
+        if value_upper in self._lookup:
+            return self._lookup[value_upper][0]
 
         return "Unknown"
 
 def resolve_multipliers(df: pd.DataFrame, my_location_type: str) -> pd.DataFrame:
     """
-    Resolves multipliers and adds IsNewMult flags by creating four new columns:
-    `Mult_STPROV`, `Mult_DXCC`, `STPROV_IsNewMult`, and `DXCC_IsNewMult`.
+    Resolves multipliers for ARRL DX based on the logger's location, prioritizing
+    the received exchange over the callsign's prefix.
     """
     if df.empty:
         return df
@@ -120,54 +126,50 @@ def resolve_multipliers(df: pd.DataFrame, my_location_type: str) -> pd.DataFrame
     df['DXCC_IsNewMult'] = 0
     
     # Keep track of seen mults per band
-    seen_stprov_per_band = {}
-    seen_dxcc_per_band = {}
+    seen_stprov_per_band = {band: set() for band in df['Band'].unique() if pd.notna(band)}
+    seen_dxcc_per_band = {band: set() for band in df['Band'].unique() if pd.notna(band)}
+    
+    NON_CONTIGUOUS_STATES = {'AK', 'HI'}
 
     # Process QSOs chronologically to correctly identify the "first" multiplier
     df_sorted = df.sort_values(by='Datetime')
 
     for idx, row in df_sorted.iterrows():
         band = row.get('Band')
-        if not band:
-            continue
+        if not band: continue
+            
+        # --- Algorithm Step 1: Prioritize the received exchange field ---
+        rcvd_location = row.get('RcvdLocation', '')
+        resolved_stprov = alias_lookup.get_multiplier(rcvd_location)
+        is_valid_stprov = resolved_stprov != "Unknown"
         
-        # Initialize sets for new bands as they are encountered
-        if band not in seen_stprov_per_band:
-            seen_stprov_per_band[band] = set()
-        if band not in seen_dxcc_per_band:
-            seen_dxcc_per_band[band] = set()
-            
-        # --- Determine the multiplier value for the current QSO ---
-        stprov_mult = pd.NA
-        dxcc_mult = pd.NA
-        worked_dxcc_name = row.get('DXCCName', 'Unknown')
-        is_wve_contact = worked_dxcc_name in ["United States", "Canada"]
-
-        if is_wve_contact:
-            location = row.get('RcvdLocation', '')
-            mult = alias_lookup.get_multiplier(location)
-            if mult == "Unknown":
-                 mult = alias_lookup.get_multiplier(row.get('Call', ''))
-            if mult != "Unknown":
-                stprov_mult = mult
-        else:
-            dxcc_mult = row.get('DXCCPfx')
-            
-        # --- New Stateful Logic: Check if multiplier is new and set flag ---
-        if pd.notna(stprov_mult):
-            df.loc[idx, 'Mult_STPROV'] = stprov_mult
-            if stprov_mult not in seen_stprov_per_band[band]:
-                df.loc[idx, 'STPROV_IsNewMult'] = 1
-                seen_stprov_per_band[band].add(stprov_mult)
-
-        if pd.notna(dxcc_mult):
-            df.loc[idx, 'Mult_DXCC'] = dxcc_mult
-            if dxcc_mult not in seen_dxcc_per_band[band]:
-                df.loc[idx, 'DXCC_IsNewMult'] = 1
-                seen_dxcc_per_band[band].add(dxcc_mult)
+        # --- Algorithm Step 2: Apply rules based on LOGGER's location ---
+        if my_location_type == 'DX':
+            # DX loggers only care about STPROV multipliers from the contiguous 48 + DC + VE.
+            if is_valid_stprov and resolved_stprov not in NON_CONTIGUOUS_STATES:
+                df.loc[idx, 'Mult_STPROV'] = resolved_stprov
+                if resolved_stprov not in seen_stprov_per_band[band]:
+                    df.loc[idx, 'STPROV_IsNewMult'] = 1
+                    seen_stprov_per_band[band].add(resolved_stprov)
+        
+        elif my_location_type == 'W/VE':
+            # W/VE loggers only care about DXCC multipliers.
+            if is_valid_stprov:
+                # If a valid ST/PROV was sent, it's a W/VE contact and not a multiplier.
+                # The exception for portable DX calls is handled here.
+                pass
+            else:
+                # The exchange was not a valid ST/PROV, so now we check the callsign's
+                # DXCC entity to see if it's a DXCC multiplier.
+                worked_dxcc_name = row.get('DXCCName', 'Unknown')
+                
+                # A multiplier is any DXCC entity that is NOT the contiguous US or Canada.
+                # This correctly includes AK, HI, KP4, etc., as well as all other DX.
+                if worked_dxcc_name not in ["United States", "Canada"]:
+                    dxcc_mult = row.get('DXCCPfx')
+                    df.loc[idx, 'Mult_DXCC'] = dxcc_mult
+                    if pd.notna(dxcc_mult) and dxcc_mult not in seen_dxcc_per_band[band]:
+                        df.loc[idx, 'DXCC_IsNewMult'] = 1
+                        seen_dxcc_per_band[band].add(dxcc_mult)
     
-    # Clean up old column if it exists to avoid downstream confusion
-    if 'FinalMultiplier' in df.columns:
-        df.drop(columns=['FinalMultiplier'], inplace=True)
-        
     return df
