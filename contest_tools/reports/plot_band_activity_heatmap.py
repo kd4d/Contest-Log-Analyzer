@@ -1,11 +1,15 @@
 # Contest Log Analyzer/contest_tools/reports/plot_band_activity_heatmap.py
 #
-# Version: 0.39.6-Beta
-# Date: 2025-08-18
+# Version: 0.39.7-Beta
+# Date: 2025-08-21
 #
 # Purpose: A plot report that generates a heatmap of band activity over time.
 #
 # --- Revision History ---
+## [0.39.7-Beta] - 2025-08-21
+### Changed
+# - Changed the colormap from 'viridis' to 'hot' to provide a more
+#   traditional and intuitive color scheme for the heatmap.
 ## [0.39.6-Beta] - 2025-08-18
 ### Changed
 # - Modified the heatmap plot to use a mask, rendering zero-QSO intervals
@@ -116,7 +120,7 @@ class Report(ContestReport):
                 pivot_df,
                 ax=ax,
                 mask=mask,
-                cmap="viridis",
+                cmap="hot",
                 cbar=True,
                 cbar_kws={'label': 'QSOs / 15 min'},
                 linewidths=.5

@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-19
-# Version: 0.46.0-Beta
+# Date: 2025-08-21
+# Version: 0.46.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.46.1-Beta] - 2025-08-21
+### Changed
+# - Changed the colormap for the ComparativeHeatmapChart from 'viridis'
+#   to 'hot' to match user preference and other heatmap reports.
 ## [0.46.0-Beta] - 2025-08-19
 ### Fixed
 # - Modified the figsize calculation to enforce a minimum height,
@@ -267,7 +271,7 @@ class ComparativeHeatmapChart:
         max_val = max(self.data1.max().max(), self.data2.max().max())
         norm = Normalize(vmin=0, vmax=max_val)
         
-        base_cmap = plt.get_cmap('viridis')
+        base_cmap = plt.get_cmap('hot')
         cmap_colors = base_cmap(np.linspace(0.1, 1.0, 256)) 
         cmap = ListedColormap(cmap_colors)
 
@@ -286,7 +290,7 @@ class ComparativeHeatmapChart:
         # --- Stage 2: Manually draw custom grid lines ---
         for time_idx in range(num_cols + 1):
             ax.axvline(time_idx, color='white', linewidth=1.5)
-            
+        
         for band_idx in range(num_bands):
             ax.axhline(band_idx + 0.5, color='black', linewidth=0.75)
             
