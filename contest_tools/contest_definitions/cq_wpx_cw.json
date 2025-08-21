@@ -1,9 +1,10 @@
 {
   "_filename": "contest_tools/contest_definitions/cq_wpx_cw.json",
-  "_version": "0.31.56-Beta",
-  "_date": "2025-08-11",
+  "_version": "0.31.57-Beta",
+  "_date": "2025-08-21",
   "contest_name": "CQ-WPX-CW",
   "mults_from_zero_point_qsos": true,
+  "enable_adif_export": true,
   "contest_period": {
     "start_day": "Saturday",
     "start_time": "00:00:00 UTC",

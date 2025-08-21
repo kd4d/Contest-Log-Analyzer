@@ -1,8 +1,9 @@
 {
   "_filename": "contest_tools/contest_definitions/arrl_dx_cw.json",
-  "_version": "0.36.1-Beta",
-  "_date": "2025-08-15",
+  "_version": "0.36.2-Beta",
+  "_date": "2025-08-21",
   "contest_name": "ARRL-DX-CW",
+  "enable_adif_export": true,
   "custom_parser_module": "arrl_dx_parser",
   "mults_from_zero_point_qsos": false,
   "custom_multiplier_resolver": "arrl_dx_multiplier_resolver",
