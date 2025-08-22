@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-22
-# Version: 0.47.0-Beta
+# Version: 0.47.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,14 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.47.2-Beta] - 2025-08-22
+### Changed
+# - Refactored to confirm use of the shared calculate_multiplier_pivot
+#   utility as part of a project-wide bug fix.
+## [0.47.1-Beta] - 2025-08-22
+### Fixed
+# - Corrected the call to the shared pivot utility to only group by
+#   callsign for multi-log reports, resolving the single-log overcount bug.
 ## [0.47.0-Beta] - 2025-08-22
 ### Changed
 # - Refactored the script to use the new calculate_multiplier_pivot()
@@ -119,22 +127,23 @@ class Report(ContestReport):
         if not dfs:
             mode_str = f" on mode '{mode_filter}'" if mode_filter else ""
             return f"Report '{self.report_name}' for '{mult_name}'{mode_str} skipped as no data was found."
+
         mult_rule = next((r for r in contest_def.multiplier_rules if r.get('name', '').lower() == mult_name.lower()), None)
         if not mult_rule or 'value_column' not in mult_rule:
             return f"Error: Multiplier type '{mult_name}' not found in definition."
+
         mult_column = mult_rule['value_column']
         name_column = mult_rule.get('name_column')
         
         combined_df = pd.concat(dfs, ignore_index=True)
         if combined_df.empty or mult_column not in combined_df.columns:
             return f"No '{mult_name}' multiplier data to report for mode '{mode_filter}'."
+
         main_df = combined_df[combined_df[mult_column].notna()]
         main_df = main_df[main_df[mult_column] != 'Unknown']
 
         if not contest_def.mults_from_zero_point_qsos:
             main_df = main_df[main_df['QSOPoints'] > 0]
-        
-        logging.info(f"MULTIPLIER SUMMARY DEBUG: main_df shape for mult '{mult_name}' is {main_df.shape}")
         
         # --- Diagnostic File Generation ---
         if kwargs.get('debug_mults'):
@@ -147,8 +156,9 @@ class Report(ContestReport):
         
         bands = contest_def.valid_bands
         is_single_band = len(bands) == 1
+        is_comparative = len(all_calls) > 1
         
-        pivot = calculate_multiplier_pivot(main_df, mult_column, group_by_call=True)
+        pivot = calculate_multiplier_pivot(main_df, mult_column, group_by_call=is_comparative)
 
         name_map = {}
         if name_column and name_column in main_df.columns:
@@ -223,18 +233,33 @@ class Report(ContestReport):
             
             mult_data = pivot.loc[mult]
             for call in all_calls:
-                if call in mult_data.index:
-                    row = mult_data.loc[call]
-                    line = f"  {call}:".ljust(first_col_width)
-                    for band in bands: line += f"{row.get(band, 0):>7}"
-                    if not is_single_band:
-                        line += f"{row.get('Total', 0):>7}"
-                    report_lines.append(line)
+                # Handle both single-level and multi-level index
+                if is_comparative:
+                    if call in mult_data.index:
+                        row = mult_data.loc[call]
+                    else:
+                        continue # Skip if this call doesn't have this multiplier
+                else:
+                    row = mult_data
+
+                line = f"  {call}:".ljust(first_col_width)
+                for band in bands: line += f"{row.get(band, 0):>7}"
+                if not is_single_band:
+                    line += f"{row.get('Total', 0):>7}"
+                report_lines.append(line)
+
 
         report_lines.append(separator)
         report_lines.append(f"{'Total':<{first_col_width}}")
         
-        total_pivot = pivot.groupby(level='MyCall').sum()
+        # Adjust total calculation for single vs multi-log
+        if is_comparative:
+            total_pivot = pivot.groupby(level='MyCall').sum()
+        else:
+            total_pivot = pivot.sum().to_frame().T
+            total_pivot['MyCall'] = all_calls[0]
+            total_pivot = total_pivot.set_index('MyCall')
+
         for call in all_calls:
             if call in total_pivot.index:
                 row = total_pivot.loc[call]

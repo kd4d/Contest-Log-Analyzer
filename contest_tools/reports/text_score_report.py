@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-22
-# Version: 0.47.2-Beta
+# Version: 0.48.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,20 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.48.1-Beta] - 2025-08-22
+### Changed
+# - Verified that all multiplier calculations use the authoritative
+#   `calculate_multiplier_pivot` utility, ensuring consistency with
+#   the multiplier_summary report.
+## [0.48.0-Beta] - 2025-08-22
+### Fixed
+# - Removed temporary diagnostic code and finalized the fix to the per-band
+#   multiplier calculation. All counts are now derived directly from the
+#   authoritative pivot table, resolving the inconsistency bug.
+## [0.47.3-Beta] - 2025-08-22
+### Added
+# - Added a temporary diagnostic log to output the raw list of multipliers
+#   counted on the 80M band to isolate a persistent bug.
 ## [0.47.2-Beta] - 2025-08-22
 ### Fixed
 # - Replaced the per-band calculation logic with a direct lookup from the
