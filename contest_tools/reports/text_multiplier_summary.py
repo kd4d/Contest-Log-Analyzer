@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-21
-# Version: 0.38.0-Beta
+# Version: 0.39.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.39.0-Beta] - 2025-08-21
+### Fixed
+# - Added logic to correctly apply the 'mults_from_zero_point_qsos'
+#   contest rule, ensuring consistency with other reports.
 ## [0.38.0-Beta] - 2025-08-21
 ### Fixed
 # - Added a filter to exclude "Unknown" multipliers from the report,
@@ -30,11 +34,6 @@
 # - Refactored the generate method to work on copies of the data, preventing
 #   the permanent modification of the original ContestLog objects and fixing
 #   the data corruption bug for per-mode reports.
-## [0.32.6-Beta] - 2025-08-12
-### Changed
-# - Modified the generate method to accept a `mode_filter` argument and
-#   filter the dataframe by mode, enabling per-mode analysis.
-# - Updated the report title and filename to include the mode.
 from typing import List
 import pandas as pd
 import os
@@ -123,6 +122,10 @@ class Report(ContestReport):
             
         main_df = combined_df[combined_df[mult_column].notna()]
         main_df = main_df[main_df[mult_column] != 'Unknown']
+
+        # --- Apply contest rule for multipliers from zero-point QSOs ---
+        if not contest_def.mults_from_zero_point_qsos:
+            main_df = main_df[main_df['QSOPoints'] > 0]
         
         bands = contest_def.valid_bands
         is_single_band = len(bands) == 1

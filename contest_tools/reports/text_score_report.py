@@ -1,12 +1,12 @@
 # Contest Log Analyzer/contest_tools/reports/text_score_report.py
 #
 # Purpose: A text report that generates a detailed score summary for each
-#          log, broken down by band. [cite: 2064]
+#          log, broken down by band.
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-16
-# Version: 0.37.1-Beta
+# Date: 2025-08-21
+# Version: 0.41.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -14,36 +14,27 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. [cite: 2065] If a copy of the MPL was not distributed with this
+# License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.37.1-Beta] - 2025-08-16
+## [0.41.0-Beta] - 2025-08-21
+### Added
+# - Added a temporary diagnostic log to print the source rows for the
+#   40M SD multiplier to debug a counting inconsistency.
+## [0.40.0-Beta] - 2025-08-21
+### Added
+# - Added logic to generate a diagnostic file with per-band multiplier
+#   lists when the --debug-mults flag is used.
+## [0.38.0-Beta] - 2025-08-21
 ### Fixed
-# - Corrected file writing logic to append a final newline character,
-#   ensuring compatibility with diff utilities.
-## [0.36.2-Beta] - 2025-08-15
-### Fixed
-# - The double-counting bug for ARRL-DX multipliers is implicitly resolved
-#   by upstream changes to the multiplier resolver and contest definitions,
-#   which now provide data in dedicated columns.
-## [0.36.1-Beta] - 2025-08-15
-### Fixed
-# - Refactored the `_calculate_totals` function to be data-driven, using
-#   only the multiplier columns explicitly defined in the contest's JSON
-#   file to prevent double-counting. [cite: 2068]
-## [0.36.0-Beta] - 2025-08-15
-### Fixed
-# - Refactored the `_calculate_totals` function to be data-driven, using
-#   only the multiplier columns explicitly defined in the contest's JSON
-#   file to prevent double-counting. [cite: 2069]
-## [0.35.0-Beta] - 2025-08-13
-### Changed
-# - Refactored score calculation to be data-driven, using the new
-#   `score_formula` from the contest definition. [cite: 2070]
+# - Added logic to correctly apply the 'mults_from_zero_point_qsos'
+#   contest rule, ensuring consistency with other reports.
 from typing import List, Dict, Set, Tuple
 import pandas as pd
 import os
 import re
+import json
+import logging
 from ..contest_log import ContestLog
 from ..contest_definitions import ContestDefinition
 from .report_interface import ContestReport
@@ -75,7 +66,7 @@ class Report(ContestReport):
                 continue
 
             contest_def = log.contest_definition
-            total_summary, final_score = self._calculate_totals(log)
+            total_summary, final_score = self._calculate_totals(log, output_path, **kwargs)
             
             # --- Data Aggregation by Band and Mode ---
             summary_data = []
@@ -171,11 +162,15 @@ class Report(ContestReport):
 
         return "\n".join(final_report_messages)
 
-    def _calculate_totals(self, log: ContestLog) -> Tuple[Dict, int]:
+    def _calculate_totals(self, log: ContestLog, output_path: str, **kwargs) -> Tuple[Dict, int]:
         df_full = log.get_processed_data()
         df_net = df_full[df_full['Dupe'] == False]
         contest_def = log.contest_definition
         multiplier_rules = contest_def.multiplier_rules
+
+        # --- Apply contest rule for multipliers from zero-point QSOs ---
+        if not contest_def.mults_from_zero_point_qsos:
+            df_net = df_net[df_net['QSOPoints'] > 0]
 
         total_summary = {'Band': 'TOTAL', 'Mode': ''}
         total_summary['QSOs'] = len(df_net)
@@ -193,6 +188,15 @@ class Report(ContestReport):
 
             df_valid_mults = df_net[df_net[mult_col].notna()]
             df_valid_mults = df_valid_mults[df_valid_mults[mult_col] != 'Unknown']
+
+            # --- Temporary Diagnostic Logic ---
+            if mult_name == 'STPROV':
+                debug_df = df_valid_mults[(df_valid_mults['Band'] == '40M') & (df_valid_mults[mult_col] == 'SD')]
+                if not debug_df.empty:
+                    logging.info("\n" + "="*60)
+                    logging.info("--- DEBUG: 40M SD Multiplier Source Rows (score_report) ---")
+                    logging.info(debug_df.to_string())
+                    logging.info("="*60 + "\n")
 
             if totaling_method == 'once_per_mode':
                 mode_mults = df_valid_mults.groupby('Mode')[mult_col].nunique()
