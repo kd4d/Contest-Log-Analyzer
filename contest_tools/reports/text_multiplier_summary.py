@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-21
-# Version: 0.41.0-Beta
+# Date: 2025-08-22
+# Version: 0.47.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,22 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.47.0-Beta] - 2025-08-22
+### Changed
+# - Refactored the script to use the new calculate_multiplier_pivot()
+#   shared utility function, ensuring consistent logic with other reports.
+## [0.42.2-Beta] - 2025-08-22
+### Fixed
+# - Added the missing 'import logging' statement to resolve the NameError
+#   that was preventing the script from loading.
+## [0.42.1-Beta] - 2025-08-22
+### Added
+# - Added a diagnostic logging statement to show the shape of the dataframe
+#   used for multiplier calculations to help isolate a bug.
+## [0.42.0-Beta] - 2025-08-21
+### Added
+# - Added logic to save the intermediate main_df DataFrame to a
+#   CSV file when the --debug-mults flag is used.
 ## [0.41.0-Beta] - 2025-08-21
 ### Fixed
 # - Resolved a TypeError by removing redundant keyword arguments from the
@@ -29,16 +45,14 @@
 ### Fixed
 # - Added logic to correctly apply the 'mults_from_zero_point_qsos'
 #   contest rule, ensuring consistency with other reports.
-## [0.38.0-Beta] - 2025-08-21
-### Fixed
-# - Added a filter to exclude "Unknown" multipliers from the report,
-#   ensuring its counting logic is consistent with the score_report.
 from typing import List
 import pandas as pd
 import os
 import json
+import logging
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
+from ._report_utils import calculate_multiplier_pivot
 
 class Report(ContestReport):
     """
@@ -56,7 +70,6 @@ class Report(ContestReport):
         Generates the report content.
         """
         # --- Create a list of filtered dataframes to process ---
-        # This approach avoids modifying the original ContestLog objects.
         log_data_to_process = []
         for log in self.logs:
             df = log.get_processed_data()
@@ -65,7 +78,7 @@ class Report(ContestReport):
             else:
                 filtered_df = df.copy()
             log_data_to_process.append({'df': filtered_df, 'meta': log.get_metadata()})
-
+        
         # --- Single-Log Mode ---
         if len(log_data_to_process) == 1:
             log_data = log_data_to_process[0]
@@ -115,33 +128,27 @@ class Report(ContestReport):
         combined_df = pd.concat(dfs, ignore_index=True)
         if combined_df.empty or mult_column not in combined_df.columns:
             return f"No '{mult_name}' multiplier data to report for mode '{mode_filter}'."
-            
         main_df = combined_df[combined_df[mult_column].notna()]
         main_df = main_df[main_df[mult_column] != 'Unknown']
 
         if not contest_def.mults_from_zero_point_qsos:
             main_df = main_df[main_df['QSOPoints'] > 0]
         
+        logging.info(f"MULTIPLIER SUMMARY DEBUG: main_df shape for mult '{mult_name}' is {main_df.shape}")
+        
         # --- Diagnostic File Generation ---
         if kwargs.get('debug_mults'):
-            debug_mults_by_band = {}
-            grouped = main_df.groupby('Band')
-            for band, group_df in grouped:
-                unique_mults = sorted(list(group_df[mult_column].unique()))
-                debug_mults_by_band[band] = unique_mults
-            
             callsign = all_calls[0] if len(all_calls) == 1 else '_vs_'.join(all_calls)
-            debug_filename = f"multiplier_summary_mults_debug_{callsign}.txt"
-            debug_filepath = os.path.join(output_path, debug_filename)
-            with open(debug_filepath, 'w', encoding='utf-8') as f:
-                f.write(json.dumps(debug_mults_by_band, indent=4))
+
+            # Save the source DataFrame to CSV
+            debug_csv_filename = f"multiplier_summary_sourcedata_debug_{callsign}.csv"
+            debug_csv_filepath = os.path.join(output_path, debug_csv_filename)
+            main_df.to_csv(debug_csv_filepath, index=False)
         
         bands = contest_def.valid_bands
         is_single_band = len(bands) == 1
         
-        pivot = main_df.pivot_table(
-            index=[mult_column, 'MyCall'], columns='Band', aggfunc='size', fill_value=0
-        )
+        pivot = calculate_multiplier_pivot(main_df, mult_column, group_by_call=True)
 
         name_map = {}
         if name_column and name_column in main_df.columns:

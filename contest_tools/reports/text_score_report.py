@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-21
-# Version: 0.41.0-Beta
+# Date: 2025-08-22
+# Version: 0.47.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,18 +17,49 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.47.2-Beta] - 2025-08-22
+### Fixed
+# - Replaced the per-band calculation logic with a direct lookup from the
+#   authoritative pivot_table results. This is the final correction to
+#   ensure all calculations are consistent.
+## [0.47.1-Beta] - 2025-08-22
+### Changed
+# - Refactored the script to use the new calculate_multiplier_pivot()
+#   shared utility function, ensuring consistent logic with other reports.
+## [0.46.0-Beta] - 2025-08-22
+### Fixed
+# - Corrected the per-band multiplier calculation to source its data
+#   directly from the authoritative pivot_table. This resolves the bug
+#   causing inconsistent counts between the report body and the total line.
+## [0.45.1-Beta] - 2025-08-22
+### Added
+# - Added a diagnostic logging statement to show the shape of the dataframe
+#   used for multiplier calculations to help isolate a bug.
+## [0.45.0-Beta] - 2025-08-22
+### Fixed
+# - Unified the multiplier calculation logic within the report. Both the
+#   per-band rows and the final total are now derived from a single,
+#   authoritative pivot_table calculation, ensuring internal consistency
+#   and correcting the long-standing count discrepancy bug.
+## [0.44.0-Beta] - 2025-08-22
+### Fixed
+# - Refactored the script to perform all multiplier and score calculations
+#   within a single function (_calculate_totals). This ensures the per-band
+#   breakdown and the final totals are derived from the same robust
+#   pivot_table logic, fixing the inconsistency bug.
+## [0.43.0-Beta] - 2025-08-21
+### Fixed
+# - Replaced the flawed groupby().nunique() aggregation logic with a more
+#   robust pivot_table() method to fix the multiplier overcount bug and
+#   ensure consistency with the multiplier_summary report.
+## [0.42.0-Beta] - 2025-08-21
+### Added
+# - Added logic to save the intermediate df_valid_mults DataFrame to a
+#   CSV file when the --debug-mults flag is used.
 ## [0.41.0-Beta] - 2025-08-21
 ### Added
 # - Added a temporary diagnostic log to print the source rows for the
 #   40M SD multiplier to debug a counting inconsistency.
-## [0.40.0-Beta] - 2025-08-21
-### Added
-# - Added logic to generate a diagnostic file with per-band multiplier
-#   lists when the --debug-mults flag is used.
-## [0.38.0-Beta] - 2025-08-21
-### Fixed
-# - Added logic to correctly apply the 'mults_from_zero_point_qsos'
-#   contest rule, ensuring consistency with other reports.
 from typing import List, Dict, Set, Tuple
 import pandas as pd
 import os
@@ -38,6 +69,7 @@ import logging
 from ..contest_log import ContestLog
 from ..contest_definitions import ContestDefinition
 from .report_interface import ContestReport
+from ._report_utils import calculate_multiplier_pivot
 
 class Report(ContestReport):
     """
@@ -65,31 +97,11 @@ class Report(ContestReport):
                 final_report_messages.append(msg)
                 continue
 
-            contest_def = log.contest_definition
-            total_summary, final_score = self._calculate_totals(log, output_path, **kwargs)
+            # --- All calculations are now performed in a single, authoritative function ---
+            summary_data, total_summary, final_score = self._calculate_all_scores(log, output_path, **kwargs)
             
-            # --- Data Aggregation by Band and Mode ---
-            summary_data = []
-            df_net = df_full[df_full['Dupe'] == False].copy()
-            
-            if not df_net.empty:
-                grouped = df_net.groupby(['Band', 'Mode'])
-                for (band, mode), group_df in grouped:
-                    band_mode_summary = {'Band': band, 'Mode': mode}
-                    band_mode_summary['QSOs'] = len(group_df)
-                    band_mode_summary['Points'] = group_df['QSOPoints'].sum()
-                    
-                    for rule in contest_def.multiplier_rules:
-                        m_col = rule['value_column']
-                        m_name = rule['name']
-                        if m_col in group_df.columns:
-                            band_mode_summary[m_name] = group_df[m_col].nunique()
-                    
-                    band_mode_summary['AVG'] = (band_mode_summary['Points'] / band_mode_summary['QSOs']) if band_mode_summary['QSOs'] > 0 else 0
-                    summary_data.append(band_mode_summary)
-
             # --- Formatting ---
-            mult_names = [rule['name'] for rule in contest_def.multiplier_rules]
+            mult_names = [rule['name'] for rule in log.contest_definition.multiplier_rules]
             col_order = ['Band', 'Mode', 'QSOs'] + mult_names + ['Points', 'AVG']
             col_widths = {key: len(str(key)) for key in col_order}
 
@@ -162,9 +174,9 @@ class Report(ContestReport):
 
         return "\n".join(final_report_messages)
 
-    def _calculate_totals(self, log: ContestLog, output_path: str, **kwargs) -> Tuple[Dict, int]:
+    def _calculate_all_scores(self, log: ContestLog, output_path: str, **kwargs) -> Tuple[List[Dict], Dict, int]:
         df_full = log.get_processed_data()
-        df_net = df_full[df_full['Dupe'] == False]
+        df_net = df_full[df_full['Dupe'] == False].copy()
         contest_def = log.contest_definition
         multiplier_rules = contest_def.multiplier_rules
 
@@ -172,45 +184,50 @@ class Report(ContestReport):
         if not contest_def.mults_from_zero_point_qsos:
             df_net = df_net[df_net['QSOPoints'] > 0]
 
+        # --- Authoritative Multiplier Calculation using Pivot Table ---
+        band_mult_counts = {}
+        for rule in multiplier_rules:
+            mult_col = rule['value_column']
+            if mult_col in df_net.columns:
+                df_valid = df_net[df_net[mult_col].notna() & (df_net[mult_col] != 'Unknown')]
+                pivot = calculate_multiplier_pivot(df_valid, mult_col, group_by_call=False)
+                band_mult_counts[mult_col] = (pivot > 0).sum(axis=0)
+
+        # --- Per-Band/Mode Summary Calculation (derived from correct data) ---
+        summary_data = []
+        if not df_net.empty:
+            band_mode_groups = df_net.groupby(['Band', 'Mode'])
+            for (band, mode), group_df in band_mode_groups:
+                band_mode_summary = {'Band': band, 'Mode': mode}
+                band_mode_summary['QSOs'] = len(group_df)
+                band_mode_summary['Points'] = group_df['QSOPoints'].sum()
+                
+                for rule in multiplier_rules:
+                    m_col = rule['value_column']
+                    m_name = rule['name']
+                    # Get the count for this band directly from the authoritative pivot results
+                    band_counts_series = band_mult_counts.get(m_col)
+                    if band_counts_series is not None:
+                         band_mode_summary[m_name] = band_counts_series.get(band, 0)
+                    else:
+                         band_mode_summary[m_name] = 0
+
+                band_mode_summary['AVG'] = (band_mode_summary['Points'] / band_mode_summary['QSOs']) if band_mode_summary['QSOs'] > 0 else 0
+                summary_data.append(band_mode_summary)
+                
+        # --- TOTAL Summary Calculation (derived from correct data) ---
         total_summary = {'Band': 'TOTAL', 'Mode': ''}
-        total_summary['QSOs'] = len(df_net)
+        total_summary['QSOs'] = df_net.shape[0]
         total_summary['Points'] = df_net['QSOPoints'].sum()
 
         total_multiplier_count = 0
         for rule in multiplier_rules:
             mult_name = rule['name']
-            mult_col = rule['value_column']
-            totaling_method = rule.get('totaling_method', 'sum_by_band')
-
-            if mult_col not in df_net.columns:
-                total_summary[mult_name] = 0
-                continue
-
-            df_valid_mults = df_net[df_net[mult_col].notna()]
-            df_valid_mults = df_valid_mults[df_valid_mults[mult_col] != 'Unknown']
-
-            # --- Temporary Diagnostic Logic ---
-            if mult_name == 'STPROV':
-                debug_df = df_valid_mults[(df_valid_mults['Band'] == '40M') & (df_valid_mults[mult_col] == 'SD')]
-                if not debug_df.empty:
-                    logging.info("\n" + "="*60)
-                    logging.info("--- DEBUG: 40M SD Multiplier Source Rows (score_report) ---")
-                    logging.info(debug_df.to_string())
-                    logging.info("="*60 + "\n")
-
-            if totaling_method == 'once_per_mode':
-                mode_mults = df_valid_mults.groupby('Mode')[mult_col].nunique()
-                total_summary[mult_name] = mode_mults.sum()
-                total_multiplier_count += mode_mults.sum()
-            elif totaling_method == 'once_per_log':
-                unique_mults = df_valid_mults[mult_col].nunique()
-                total_summary[mult_name] = unique_mults
-                total_multiplier_count += unique_mults
-            else: # Default to sum_by_band
-                band_mults = df_valid_mults.groupby('Band')[mult_col].nunique()
-                total_summary[mult_name] = band_mults.sum()
-                total_multiplier_count += band_mults.sum()
-
+            
+            band_mult_sum = band_mult_counts.get(rule['value_column'], pd.Series()).sum()
+            total_summary[mult_name] = band_mult_sum
+            total_multiplier_count += band_mult_sum
+            
         total_summary['AVG'] = (total_summary['Points'] / total_summary['QSOs']) if total_summary['QSOs'] > 0 else 0
         
         # --- Data-driven score calculation ---
@@ -219,4 +236,4 @@ class Report(ContestReport):
         else: # Default to points_times_mults
             final_score = total_summary['Points'] * total_multiplier_count
         
-        return total_summary, final_score
+        return summary_data, total_summary, final_score

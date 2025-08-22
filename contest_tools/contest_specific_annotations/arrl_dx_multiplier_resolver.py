@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-21
-# Version: 0.33.0-Beta
+# Version: 0.33.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.33.2-Beta] - 2025-08-21
+### Added
+# - Added a temporary diagnostic log to print the source row for any
+#   40M SD, NF, or YT multipliers at the point of resolution.
 ## [0.33.0-Beta] - 2025-08-21
 ### Changed
 # - Refactored to use the new shared StateAndProvinceLookup utility.
@@ -26,16 +30,9 @@
 ## [0.31.1-Beta] - 2025-08-21
 ### Fixed
 # - Corrected a SyntaxError on line 66 by adding a missing colon.
-## [0.31.0-Beta] - 2025-08-21
-### Changed
-# - The "exchange override" logic is now only applied if the worked
-#   station's DXCC Identifier (e.g., "K", "KP4") begins with "K".
-## [0.30.43-Beta] - 2025-08-21
-### Changed
-# - Completely refactored the resolver to correctly implement the
-#   asymmetric ARRL DX multiplier rules based on logger location.
 import pandas as pd
 import os
+import logging
 from ._arrl_dx_utils import StateAndProvinceLookup
 from typing import Dict
 
@@ -73,14 +70,11 @@ def resolve_multipliers(df: pd.DataFrame, my_location_type: str) -> pd.DataFrame
         
         # --- Apply rules based on LOGGER's location ---
         if my_location_type == 'DX':
-            # DX loggers only care about STPROV multipliers.
             resolved_stprov = "Unknown"
 
             if dxcc_id in ['K', 'VE']:
-                # Normal Case: Standard US/VE station
                 resolved_stprov = lookup.get_multiplier(rcvd_location)
             elif dxcc_id.startswith('K'):
-                # Alternate (Override) Case: US-affiliated DX station (KP4, KH6, etc.)
                 if lookup.is_us_state_or_dc(rcvd_location):
                     resolved_stprov = lookup.get_multiplier(rcvd_location)
             
@@ -89,9 +83,15 @@ def resolve_multipliers(df: pd.DataFrame, my_location_type: str) -> pd.DataFrame
                 if resolved_stprov not in seen_stprov_per_band[band]:
                     df.loc[idx, 'STPROV_IsNewMult'] = 1
                     seen_stprov_per_band[band].add(resolved_stprov)
+                    
+                    # --- Temporary Diagnostic Logic ---
+                    if band == '40M' and resolved_stprov in ['SD', 'NF', 'YT']:
+                        logging.info("\n" + "="*60)
+                        logging.info(f"--- DEBUG: 40M '{resolved_stprov}' Multiplier Source Row (resolver) ---")
+                        logging.info(row.to_string())
+                        logging.info("="*60 + "\n")
         
         elif my_location_type == 'W/VE':
-            # W/VE loggers only care about DXCC multipliers.
             worked_dxcc_name = row.get('DXCCName', 'Unknown')
             is_dx_multiplier = worked_dxcc_name not in ["United States", "Canada"]
 
