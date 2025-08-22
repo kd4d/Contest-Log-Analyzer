@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-21
-# Version: 0.39.0-Beta
+# Version: 0.41.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,14 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.41.0-Beta] - 2025-08-21
+### Fixed
+# - Resolved a TypeError by removing redundant keyword arguments from the
+#   internal call to _generate_report_for_logs.
+## [0.40.0-Beta] - 2025-08-21
+### Added
+# - Added logic to generate a diagnostic file with per-band multiplier
+#   lists when the --debug-mults flag is used.
 ## [0.39.0-Beta] - 2025-08-21
 ### Fixed
 # - Added logic to correctly apply the 'mults_from_zero_point_qsos'
@@ -25,18 +33,10 @@
 ### Fixed
 # - Added a filter to exclude "Unknown" multipliers from the report,
 #   ensuring its counting logic is consistent with the score_report.
-## [0.37.1-Beta] - 2025-08-16
-### Fixed
-# - Corrected file writing logic to append a final newline character,
-#   ensuring compatibility with diff utilities.
-## [0.32.9-Beta] - 2025-08-12
-### Fixed
-# - Refactored the generate method to work on copies of the data, preventing
-#   the permanent modification of the original ContestLog objects and fixing
-#   the data corruption bug for per-mode reports.
 from typing import List
 import pandas as pd
 import os
+import json
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
 
@@ -55,18 +55,13 @@ class Report(ContestReport):
         """
         Generates the report content.
         """
-        mult_name = kwargs.get('mult_name')
-        mode_filter = kwargs.get('mode_filter')
-
-        if not mult_name:
-            return f"Error: 'mult_name' argument is required for the '{self.report_name}' report."
         # --- Create a list of filtered dataframes to process ---
         # This approach avoids modifying the original ContestLog objects.
         log_data_to_process = []
         for log in self.logs:
             df = log.get_processed_data()
-            if mode_filter:
-                filtered_df = df[df['Mode'] == mode_filter].copy()
+            if kwargs.get('mode_filter'):
+                filtered_df = df[df['Mode'] == kwargs.get('mode_filter')].copy()
             else:
                 filtered_df = df.copy()
             log_data_to_process.append({'df': filtered_df, 'meta': log.get_metadata()})
@@ -79,10 +74,9 @@ class Report(ContestReport):
             return self._generate_report_for_logs(
                 dfs=[df],
                 all_calls=all_calls,
-                mult_name=mult_name,
-                mode_filter=mode_filter,
                 output_path=output_path,
-                contest_def=self.logs[0].contest_definition
+                contest_def=self.logs[0].contest_definition,
+                **kwargs
             )
         
         # --- Multi-Log (Comparative) Mode ---
@@ -100,13 +94,15 @@ class Report(ContestReport):
             return self._generate_report_for_logs(
                 dfs=all_dfs,
                 all_calls=sorted(all_calls),
-                mult_name=mult_name,
-                mode_filter=mode_filter,
                 output_path=output_path,
-                contest_def=self.logs[0].contest_definition
+                contest_def=self.logs[0].contest_definition,
+                **kwargs
             )
 
-    def _generate_report_for_logs(self, dfs, all_calls, mult_name, mode_filter, output_path, contest_def):
+    def _generate_report_for_logs(self, dfs, all_calls, output_path, contest_def, **kwargs):
+        mult_name = kwargs.get('mult_name')
+        mode_filter = kwargs.get('mode_filter')
+        
         if not dfs:
             mode_str = f" on mode '{mode_filter}'" if mode_filter else ""
             return f"Report '{self.report_name}' for '{mult_name}'{mode_str} skipped as no data was found."
@@ -123,9 +119,22 @@ class Report(ContestReport):
         main_df = combined_df[combined_df[mult_column].notna()]
         main_df = main_df[main_df[mult_column] != 'Unknown']
 
-        # --- Apply contest rule for multipliers from zero-point QSOs ---
         if not contest_def.mults_from_zero_point_qsos:
             main_df = main_df[main_df['QSOPoints'] > 0]
+        
+        # --- Diagnostic File Generation ---
+        if kwargs.get('debug_mults'):
+            debug_mults_by_band = {}
+            grouped = main_df.groupby('Band')
+            for band, group_df in grouped:
+                unique_mults = sorted(list(group_df[mult_column].unique()))
+                debug_mults_by_band[band] = unique_mults
+            
+            callsign = all_calls[0] if len(all_calls) == 1 else '_vs_'.join(all_calls)
+            debug_filename = f"multiplier_summary_mults_debug_{callsign}.txt"
+            debug_filepath = os.path.join(output_path, debug_filename)
+            with open(debug_filepath, 'w', encoding='utf-8') as f:
+                f.write(json.dumps(debug_mults_by_band, indent=4))
         
         bands = contest_def.valid_bands
         is_single_band = len(bands) == 1
@@ -146,7 +155,6 @@ class Report(ContestReport):
         if not is_single_band:
             pivot['Total'] = pivot.sum(axis=1)
 
-        # --- Dynamic First Column Header & Width ---
         if mult_name.lower() == 'countries':
             source_type = mult_rule.get('source', 'dxcc').upper()
             first_col_header = source_type
