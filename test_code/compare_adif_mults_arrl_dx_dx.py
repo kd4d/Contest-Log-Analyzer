@@ -2,6 +2,7 @@ import re
 import os
 import sys
 import argparse
+from collections import Counter
 
 def analyze_adif_log(filename, suppress_zeros=False):
     """
@@ -36,22 +37,19 @@ def analyze_adif_log(filename, suppress_zeros=False):
         qso_data = dict(tag_regex.findall(qso_str.upper()))
         qso_data['__RAW_RECORD__'] = qso_str.strip()
 
-        # --- New Logic: Check for zero-point QSOs if flag is set ---
         if suppress_zeros:
             n1mm_points = qso_data.get('APP_N1MM_POINTS')
             cla_points = qso_data.get('APP_CLA_QSO_POINTS')
             
-            # Check if either point value is '0'
             if (n1mm_points is not None and int(n1mm_points) == 0) or \
                (cla_points is not None and int(cla_points) == 0):
-                continue # Skip this QSO
+                continue
 
         band = qso_data.get('BAND', '').strip().upper()
         state = qso_data.get('STATE', '').strip()
         province = qso_data.get('VE_PROV', '').strip()
         multiplier_val = state if state else province
 
-        # Track the first occurrence of any multiplier
         if band and multiplier_val:
             mult_key = (band, multiplier_val)
             if mult_key not in first_mults:
@@ -80,13 +78,28 @@ def main():
         print("\nAnalysis aborted due to file error.")
         return
 
-    # --- Analysis: Compare the final calculated set of multipliers ---
-    print("--- Final Multiplier Set Comparison ---")
     n1mm_mult_set = set(n1mm_first_mults.keys())
     cla_mult_set = set(cla_first_mults.keys())
 
-    print(f"Final unique multiplier count for N1MM: {len(n1mm_mult_set)}")
-    print(f"Final unique multiplier count for CLA:  {len(cla_mult_set)}")
+    # --- New: Per-Band Count Logic ---
+    n1mm_band_counts = Counter(band for band, mult in n1mm_mult_set)
+    cla_band_counts = Counter(band for band, mult in cla_mult_set)
+    all_bands = sorted(list(set(n1mm_band_counts.keys()) | set(cla_band_counts.keys())))
+
+    print("--- Per-Band Unique Multiplier Counts ---")
+    header = f"{'Band':<6} {'N1MM ADIF':>10} {'CLA ADIF':>10}"
+    print(header)
+    print('-' * len(header))
+    for band in all_bands:
+        n1mm_count = n1mm_band_counts.get(band, 0)
+        cla_count = cla_band_counts.get(band, 0)
+        print(f"{band:<6} {n1mm_count:>10} {cla_count:>10}")
+    print('-' * len(header))
+    print(f"{'Total':<6} {len(n1mm_mult_set):>10} {len(cla_mult_set):>10}\n")
+
+
+    # --- Analysis: Compare the final calculated set of multipliers ---
+    print("--- Detailed Multiplier Set Comparison ---")
     
     discrepancies = n1mm_mult_set.symmetric_difference(cla_mult_set)
 

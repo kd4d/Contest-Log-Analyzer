@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-16
-# Version: 0.37.1-Beta
+# Date: 2025-08-21
+# Version: 0.38.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.38.0-Beta] - 2025-08-21
+### Fixed
+# - Added a filter to exclude "Unknown" multipliers from the report,
+#   ensuring its counting logic is consistent with the score_report.
 ## [0.37.1-Beta] - 2025-08-16
 ### Fixed
 # - Corrected file writing logic to append a final newline character,
@@ -31,22 +35,6 @@
 # - Modified the generate method to accept a `mode_filter` argument and
 #   filter the dataframe by mode, enabling per-mode analysis.
 # - Updated the report title and filename to include the mode.
-## [0.31.25-Beta] - 2025-08-11
-### Fixed
-# - Corrected the first column width calculation to account for indented
-#   callsign labels, fixing the table alignment.
-## [0.31.24-Beta] - 2025-08-11
-### Changed
-# - Updated report formatting to be indented and labeled with callsigns,
-#   matching the style of the comparative rate sheet.
-## [0.31.23-Beta] - 2025-08-09
-### Fixed
-# - Corrected the diagnostic section to properly find and list all
-#   callsigns with "Unknown" multipliers.
-## [0.26.5-Beta] - 2025-08-04
-### Fixed
-# - Corrected a bug that caused the report to fail for single logs by
-#   enabling single-log support and adding the correct processing logic.
 from typing import List
 import pandas as pd
 import os
@@ -132,7 +120,9 @@ class Report(ContestReport):
         combined_df = pd.concat(dfs, ignore_index=True)
         if combined_df.empty or mult_column not in combined_df.columns:
             return f"No '{mult_name}' multiplier data to report for mode '{mode_filter}'."
+            
         main_df = combined_df[combined_df[mult_column].notna()]
+        main_df = main_df[main_df[mult_column] != 'Unknown']
         
         bands = contest_def.valid_bands
         is_single_band = len(bands) == 1
@@ -249,7 +239,7 @@ class Report(ContestReport):
             num_cols = max(1, table_width // (col_width + 2))
             
             for i in range(0, len(unique_unknown_calls), num_cols):
-                line_calls = unique_unknown_calls[i:i+num_cols]
+                line_calls = unique_unknown_calls[i:i+5]
                 report_lines.append("  ".join([f"{call:<{col_width}}" for call in line_calls]))
 
         report_content = "\n".join(report_lines) + "\n"

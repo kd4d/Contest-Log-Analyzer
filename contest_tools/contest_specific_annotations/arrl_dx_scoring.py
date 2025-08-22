@@ -5,7 +5,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-21
-# Version: 0.31.0-Beta
+# Version: 0.33.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,6 +16,16 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.33.0-Beta] - 2025-08-21
+### Changed
+# - Refactored to use the new shared StateAndProvinceLookup utility.
+# - Implemented the final, precise two-path algorithm for the "exchange
+#   override", correctly handling US/VE, US-affiliated DX, and foreign
+#   stations to ensure points are awarded consistently with multipliers.
+## [0.32.0-Beta] - 2025-08-21
+### Changed
+# - The "exchange override" logic is now only applied if the worked
+#   station's DXCC Identifier (e.g., "K", "KP4") begins with "K".
 ## [0.31.0-Beta] - 2025-08-21
 ### Changed
 # - Reworked scoring logic to be "exchange-first", prioritizing the
@@ -26,97 +36,41 @@
 # - Standardized all project files to a common baseline version.
 import pandas as pd
 import os
-import re
-from typing import Dict, Any, Tuple
+from ._arrl_dx_utils import StateAndProvinceLookup
+from typing import Dict, Any
 
-class AliasLookup:
-    """Parses and provides lookups for the ARRLDXmults.dat file."""
-    
-    def __init__(self, data_dir_path: str):
-        self.filepath = os.path.join(data_dir_path, 'ARRLDXmults.dat')
-        self._lookup: Dict[str, Tuple[str, str]] = {}
-        self._valid_mults: set = set()
-        self._parse_file()
-
-    def _parse_file(self):
-        try:
-            with open(self.filepath, 'r', encoding='utf-8') as f:
-                for line in f:
-                    line = line.strip()
-                    if not line or line.startswith('#'):
-                        continue
-                    
-                    parts = line.split(':')
-                    if len(parts) != 2:
-                        continue
-
-                    aliases_part, official_part = parts[0], parts[1]
-                    aliases = [alias.strip().upper() for alias in aliases_part.split(',')]
-                    
-                    match = re.match(r'([A-Z]{2})\s+\((.*)\)', official_part.strip())
-                    if not match:
-                        match_no_alias = re.match(r'([A-Z]{2})\s+\((.*)\)', aliases_part.strip())
-                        if match_no_alias:
-                            official_abbr = match_no_alias.group(1).upper()
-                            self._valid_mults.add(official_abbr)
-                        continue
-                    
-                    official_abbr = match.group(1).upper()
-                    full_name = match.group(2)
-                    
-                    self._valid_mults.add(official_abbr)
-                    for alias in aliases:
-                        self._lookup[alias] = (official_abbr, full_name)
-        except FileNotFoundError:
-            print(f"Warning: Multiplier alias file not found at {self.filepath}. Alias lookup will be disabled.")
-        except Exception as e:
-            print(f"Error reading multiplier alias file {self.filepath}: {e}")
-
-    def get_multiplier(self, value: str) -> str:
-        """
-        Looks up an alias and returns the official 2-letter multiplier.
-        """
-        if not isinstance(value, str):
-            return "Unknown"
-            
-        value_upper = value.upper()
-        if value_upper in self._valid_mults:
-            return value_upper
-        
-        if value_upper in self._lookup:
-            return self._lookup[value_upper][0]
-
-        return "Unknown"
-
-def _calculate_single_qso_points(row: pd.Series, my_location_type: str, alias_lookup: AliasLookup) -> int:
+def _calculate_single_qso_points(row: pd.Series, my_location_type: str, lookup: StateAndProvinceLookup) -> int:
     """
-    Calculates the point value for a single QSO based on ARRL DX rules,
-    prioritizing the received exchange over the callsign's DXCC entity.
+    Calculates the point value for a single QSO based on the refined,
+    two-path ARRL DX rules.
     """
     if row['Dupe']:
         return 0
 
     worked_location_type = "DX" # Default assumption
-    
-    # --- Exchange-First Logic ---
-    # First, check if the received exchange is a valid W/VE multiplier.
+    dxcc_id = str(row.get('DXCCPfx', ''))
     rcvd_location = row.get('RcvdLocation', '')
-    resolved_stprov = alias_lookup.get_multiplier(rcvd_location)
-    
-    if resolved_stprov != "Unknown":
-        # If the exchange is a valid ST/PROV, the station is treated as W/VE for scoring.
+
+    if dxcc_id in ['K', 'VE']:
+        # Normal Case: Standard US/VE station. Location type is always W/VE.
         worked_location_type = "W/VE"
+    elif dxcc_id.startswith('K'):
+        # Alternate (Override) Case: US-affiliated DX station (KP4, KH6, etc.)
+        # Override only succeeds if the exchange is a valid US State or DC.
+        if lookup.is_us_state_or_dc(rcvd_location):
+            worked_location_type = "W/VE"
+        else:
+            # Override fails. Station is treated as DX (0 points for DX logger).
+            worked_location_type = "DX"
     else:
-        # If the exchange is not a valid ST/PROV, fall back to the callsign's DXCC.
+        # Standard DX Case: Non-K-prefixed entity.
+        # Location type is determined by DXCC Name.
         worked_entity_name = row.get('DXCCName', 'Unknown')
         worked_location_type = "W/VE" if worked_entity_name in ["United States", "Canada"] else "DX"
 
-    # --- Scoring Rules ---
-    # W/VE stations can only work DX stations for points.
+    # --- Final Scoring Rules ---
     if my_location_type == "W/VE":
         return 3 if worked_location_type == "DX" else 0
-        
-    # DX stations can only work W/VE stations for points.
     elif my_location_type == "DX":
         return 3 if worked_location_type == "W/VE" else 0
     
@@ -125,13 +79,6 @@ def _calculate_single_qso_points(row: pd.Series, my_location_type: str, alias_lo
 def calculate_points(df: pd.DataFrame, my_call_info: Dict[str, Any]) -> pd.Series:
     """
     Calculates QSO points for an entire DataFrame based on ARRL DX rules.
-
-    Args:
-        df (pd.DataFrame): The DataFrame of QSOs to be scored.
-        my_call_info (Dict[str, Any]): A dictionary containing the logger's
-                                       own location info ('DXCCName').
-    Returns:
-        pd.Series: A Pandas Series containing the calculated points for each QSO.
     """
     my_entity_name = my_call_info.get('DXCCName')
     if not my_entity_name:
@@ -139,15 +86,13 @@ def calculate_points(df: pd.DataFrame, my_call_info: Dict[str, Any]) -> pd.Serie
 
     my_location_type = "W/VE" if my_entity_name in ["United States", "Canada"] else "DX"
 
-    # Initialize the alias lookup utility
     root_dir = os.environ.get('CONTEST_LOGS_REPORTS').strip().strip('"').strip("'")
     data_dir = os.path.join(root_dir, 'data')
-    alias_lookup = AliasLookup(data_dir)
+    lookup = StateAndProvinceLookup(data_dir)
 
-    # Apply the scoring logic to each row of the DataFrame.
     return df.apply(
         _calculate_single_qso_points, 
         axis=1, 
         my_location_type=my_location_type,
-        alias_lookup=alias_lookup
+        lookup=lookup
     )
