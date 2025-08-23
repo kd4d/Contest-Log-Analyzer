@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-21
-# Version: 0.33.0-Beta
+# Date: 2025-08-22
+# Version: 0.33.4-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,6 +16,18 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.33.4-Beta] - 2025-08-22
+### Fixed
+# - Corrected a SyntaxError in a logging f-string by refactoring the
+#   message into a temporary variable.
+## [0.33.3-Beta] - 2025-08-22
+### Added
+# - Added a diagnostic warning to flag when the K-prefix scoring
+#   override is triggered.
+## [0.33.2-Beta] - 2025-08-21
+### Added
+# - Added a temporary diagnostic log to print the source row for any
+#   40M SD, NF, or YT multipliers at the point of resolution.
 ## [0.33.0-Beta] - 2025-08-21
 ### Changed
 # - Refactored to use the new shared StateAndProvinceLookup utility.
@@ -36,6 +48,7 @@
 # - Standardized all project files to a common baseline version.
 import pandas as pd
 import os
+import logging
 from ._arrl_dx_utils import StateAndProvinceLookup
 from typing import Dict, Any
 
@@ -58,6 +71,8 @@ def _calculate_single_qso_points(row: pd.Series, my_location_type: str, lookup: 
         # Alternate (Override) Case: US-affiliated DX station (KP4, KH6, etc.)
         # Override only succeeds if the exchange is a valid US State or DC.
         if lookup.is_us_state_or_dc(rcvd_location):
+            log_message = f"SCORING OVERRIDE: Call {row.get('Call')} (DXCC: {dxcc_id}) sent valid US location '{rcvd_location}'. Classifying as W/VE for points."
+            logging.warning(log_message)
             worked_location_type = "W/VE"
         else:
             # Override fails. Station is treated as DX (0 points for DX logger).
@@ -92,7 +107,7 @@ def calculate_points(df: pd.DataFrame, my_call_info: Dict[str, Any]) -> pd.Serie
 
     return df.apply(
         _calculate_single_qso_points, 
-        axis=1, 
+        axis=1,
         my_location_type=my_location_type,
         lookup=lookup
     )

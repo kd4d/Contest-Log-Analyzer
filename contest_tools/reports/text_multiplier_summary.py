@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-22
-# Version: 0.47.2-Beta
+# Date: 2025-08-23
+# Version: 0.47.8-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,47 +17,24 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.47.2-Beta] - 2025-08-22
+## [0.47.8-Beta] - 2025-08-23
+### Added
+# - Added diagnostic code to save the complete set of (band, multiplier)
+#   tuples to a JSON file for definitive comparison.
+## [0.47.7-Beta] - 2025-08-23
+### Added
+# - Added diagnostic code to save the complete set of (band, multiplier)
+#   tuples to a JSON file for definitive comparison.
+## [0.47.6-Beta] - 2025-08-22
 ### Changed
-# - Refactored to confirm use of the shared calculate_multiplier_pivot
-#   utility as part of a project-wide bug fix.
-## [0.47.1-Beta] - 2025-08-22
-### Fixed
-# - Corrected the call to the shared pivot utility to only group by
-#   callsign for multi-log reports, resolving the single-log overcount bug.
-## [0.47.0-Beta] - 2025-08-22
-### Changed
-# - Refactored the script to use the new calculate_multiplier_pivot()
-#   shared utility function, ensuring consistent logic with other reports.
-## [0.42.2-Beta] - 2025-08-22
-### Fixed
-# - Added the missing 'import logging' statement to resolve the NameError
-#   that was preventing the script from loading.
-## [0.42.1-Beta] - 2025-08-22
-### Added
-# - Added a diagnostic logging statement to show the shape of the dataframe
-#   used for multiplier calculations to help isolate a bug.
-## [0.42.0-Beta] - 2025-08-21
-### Added
-# - Added logic to save the intermediate main_df DataFrame to a
-#   CSV file when the --debug-mults flag is used.
-## [0.41.0-Beta] - 2025-08-21
-### Fixed
-# - Resolved a TypeError by removing redundant keyword arguments from the
-#   internal call to _generate_report_for_logs.
-## [0.40.0-Beta] - 2025-08-21
-### Added
-# - Added logic to generate a diagnostic file with per-band multiplier
-#   lists when the --debug-mults flag is used.
-## [0.39.0-Beta] - 2025-08-21
-### Fixed
-# - Added logic to correctly apply the 'mults_from_zero_point_qsos'
-#   contest rule, ensuring consistency with other reports.
+# - Moved the checksum diagnostic to the beginning of the `generate`
+#   method to ensure it hashes the raw input DataFrame before any filtering.
 from typing import List
 import pandas as pd
 import os
 import json
 import logging
+import hashlib
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
 from ._report_utils import calculate_multiplier_pivot
@@ -77,6 +54,13 @@ class Report(ContestReport):
         """
         Generates the report content.
         """
+        # --- Checksum Diagnostic ---
+        for log in self.logs:
+            df_full = log.get_processed_data()
+            df_json = df_full.to_json(orient='split', date_format='iso', default_handler=str)
+            checksum = hashlib.sha256(df_json.encode('utf-8')).hexdigest()
+            logging.warning(f"WARNING: (multiplier_summary) INPUT DataFrame Checksum for {log.get_metadata().get('MyCall', 'Unknown')}: {checksum}")
+
         # --- Create a list of filtered dataframes to process ---
         log_data_to_process = []
         for log in self.logs:
@@ -159,6 +143,22 @@ class Report(ContestReport):
         is_comparative = len(all_calls) > 1
         
         pivot = calculate_multiplier_pivot(main_df, mult_column, group_by_call=is_comparative)
+
+        # --- Diagnostic: Create and save the set of multipliers being counted ---
+        counted_mults = set()
+        if not pivot.empty:
+            for index, row in pivot.iterrows():
+                mult = index[0] if isinstance(index, tuple) else index
+                for band, count in row.items():
+                    if count > 0 and band != 'Total':
+                        counted_mults.add(f"{band}_{mult}")
+
+        output_filename = os.path.join(output_path, "multiplier_summary_mult_set.json")
+        try:
+            with open(output_filename, 'w') as f:
+                json.dump(sorted(list(counted_mults)), f, indent=4)
+        except Exception as e:
+            logging.error(f"Could not write multiplier set file: {e}")
 
         name_map = {}
         if name_column and name_column in main_df.columns:
@@ -283,6 +283,22 @@ class Report(ContestReport):
             
             for i in range(0, len(unique_unknown_calls), num_cols):
                 line_calls = unique_unknown_calls[i:i+5]
+                report_lines.append("  ".join([f"{call:<{col_width}}" for call in line_calls]))
+
+        # --- Diagnostic Section for "Unassigned" Multipliers ---
+        unassigned_df = combined_df[combined_df[mult_column].isna()]
+        unique_unassigned_calls = sorted(unassigned_df['Call'].unique())
+        
+        if unique_unassigned_calls:
+            report_lines.append("\n" + "-" * 30)
+            report_lines.append(f"Callsigns with unassigned {first_col_header}:")
+            report_lines.append("-" * 30)
+            
+            col_width = 12
+            num_cols = max(1, table_width // (col_width + 2))
+            
+            for i in range(0, len(unique_unassigned_calls), num_cols):
+                line_calls = unique_unassigned_calls[i:i+5]
                 report_lines.append("  ".join([f"{call:<{col_width}}" for call in line_calls]))
 
         report_content = "\n".join(report_lines) + "\n"

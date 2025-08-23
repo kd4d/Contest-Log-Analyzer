@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-22
-# Version: 0.48.1-Beta
+# Date: 2025-08-23
+# Version: 0.48.12-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,69 +17,30 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.48.1-Beta] - 2025-08-22
+## [0.48.12-Beta] - 2025-08-23
+### Added
+# - Added diagnostic code to save the complete set of (band, multiplier)
+#   tuples to a JSON file for definitive comparison.
+## [0.48.11-Beta] - 2025-08-22
 ### Changed
-# - Verified that all multiplier calculations use the authoritative
-#   `calculate_multiplier_pivot` utility, ensuring consistency with
-#   the multiplier_summary report.
-## [0.48.0-Beta] - 2025-08-22
-### Fixed
-# - Removed temporary diagnostic code and finalized the fix to the per-band
-#   multiplier calculation. All counts are now derived directly from the
-#   authoritative pivot table, resolving the inconsistency bug.
-## [0.47.3-Beta] - 2025-08-22
+# - Moved the checksum diagnostic to the beginning of the `generate`
+#   method to ensure it hashes the raw input DataFrame before any filtering.
+## [0.48.10-Beta] - 2025-08-22
 ### Added
-# - Added a temporary diagnostic log to output the raw list of multipliers
-#   counted on the 80M band to isolate a persistent bug.
-## [0.47.2-Beta] - 2025-08-22
+# - Added a SHA-256 checksum diagnostic to verify the integrity of the
+#   final DataFrame used for calculations.
+## [0.48.9-Beta] - 2025-08-22
 ### Fixed
-# - Replaced the per-band calculation logic with a direct lookup from the
-#   authoritative pivot_table results. This is the final correction to
-#   ensure all calculations are consistent.
-## [0.47.1-Beta] - 2025-08-22
-### Changed
-# - Refactored the script to use the new calculate_multiplier_pivot()
-#   shared utility function, ensuring consistent logic with other reports.
-## [0.46.0-Beta] - 2025-08-22
-### Fixed
-# - Corrected the per-band multiplier calculation to source its data
-#   directly from the authoritative pivot_table. This resolves the bug
-#   causing inconsistent counts between the report body and the total line.
-## [0.45.1-Beta] - 2025-08-22
-### Added
-# - Added a diagnostic logging statement to show the shape of the dataframe
-#   used for multiplier calculations to help isolate a bug.
-## [0.45.0-Beta] - 2025-08-22
-### Fixed
-# - Unified the multiplier calculation logic within the report. Both the
-#   per-band rows and the final total are now derived from a single,
-#   authoritative pivot_table calculation, ensuring internal consistency
-#   and correcting the long-standing count discrepancy bug.
-## [0.44.0-Beta] - 2025-08-22
-### Fixed
-# - Refactored the script to perform all multiplier and score calculations
-#   within a single function (_calculate_totals). This ensures the per-band
-#   breakdown and the final totals are derived from the same robust
-#   pivot_table logic, fixing the inconsistency bug.
-## [0.43.0-Beta] - 2025-08-21
-### Fixed
-# - Replaced the flawed groupby().nunique() aggregation logic with a more
-#   robust pivot_table() method to fix the multiplier overcount bug and
-#   ensure consistency with the multiplier_summary report.
-## [0.42.0-Beta] - 2025-08-21
-### Added
-# - Added logic to save the intermediate df_valid_mults DataFrame to a
-#   CSV file when the --debug-mults flag is used.
-## [0.41.0-Beta] - 2025-08-21
-### Added
-# - Added a temporary diagnostic log to print the source rows for the
-#   40M SD multiplier to debug a counting inconsistency.
+# - Corrected a bug where the multiplier calculation was performed on an
+#   unfiltered DataFrame by moving the calculation logic to ensure it
+#   runs only after blank-multiplier QSOs have been removed.
 from typing import List, Dict, Set, Tuple
 import pandas as pd
 import os
 import re
 import json
 import logging
+import hashlib
 from ..contest_log import ContestLog
 from ..contest_definitions import ContestDefinition
 from .report_interface import ContestReport
@@ -103,6 +64,12 @@ class Report(ContestReport):
         for log in self.logs:
             metadata = log.get_metadata()
             df_full = log.get_processed_data()
+
+            # --- Checksum Diagnostic ---
+            df_json = df_full.to_json(orient='split', date_format='iso', default_handler=str)
+            checksum = hashlib.sha256(df_json.encode('utf-8')).hexdigest()
+            logging.warning(f"WARNING: (text_score_report) INPUT DataFrame Checksum: {checksum}")
+
             callsign = metadata.get('MyCall', 'UnknownCall')
             contest_name = metadata.get('ContestName', 'UnknownContest')
 
@@ -126,7 +93,7 @@ class Report(ContestReport):
                         val_len = len(f"{value:.2f}") if isinstance(value, float) else len(str(value))
                         col_widths[key] = max(col_widths.get(key, 0), val_len)
 
-            year = df_full['Date'].iloc[0].split('-')[0]
+            year = df_full['Date'].iloc[0].split('-')[0] if not df_full.empty and not df_full['Date'].dropna().empty else "----"
             
             header_parts = [f"{name:>{col_widths[name]}}" for name in col_order]
             header = "  ".join(header_parts)
@@ -177,6 +144,8 @@ class Report(ContestReport):
             score_text = f"TOTAL SCORE : {final_score:,.0f}"
             report_lines.append(score_text.rjust(table_width))
 
+            self._add_diagnostic_sections(report_lines, df_full, log)
+
             report_content = "\n".join(report_lines) + "\n"
             os.makedirs(output_path, exist_ok=True)
             filename = f"{self.report_id}_{callsign}.txt"
@@ -188,24 +157,109 @@ class Report(ContestReport):
 
         return "\n".join(final_report_messages)
 
+    def _add_diagnostic_sections(self, report_lines: List[str], df: pd.DataFrame, log: ContestLog):
+        """Appends sections for 'Unknown' and 'Unassigned' multipliers."""
+        if df.empty:
+            return
+
+        contest_def = log.contest_definition
+        log_location_type = getattr(log, '_my_location_type', None)
+
+        for rule in contest_def.multiplier_rules:
+            # --- Only report on multipliers applicable to this log ---
+            applies_to = rule.get('applies_to')
+            if applies_to and log_location_type and applies_to != log_location_type:
+                continue
+
+            mult_name = rule['name']
+            mult_col = rule['value_column']
+
+            if mult_col not in df.columns:
+                continue
+
+            # --- Section 1: Unknown Multipliers ---
+            unknown_df = df[df[mult_col] == 'Unknown']
+            unknown_calls = sorted(list(unknown_df['Call'].unique()))
+            if unknown_calls:
+                report_lines.append("\n" + "-" * 40)
+                report_lines.append(f"Callsigns with 'Unknown' {mult_name}:")
+                report_lines.append("-" * 40)
+                for i in range(0, len(unknown_calls), 5):
+                    line_calls = unknown_calls[i:i+5]
+                    report_lines.append("  ".join([f"{call:<12}" for call in line_calls]))
+
+            # --- Section 2: Unassigned Multipliers ---
+            unassigned_df = df[df[mult_col].isna()]
+            unassigned_calls = sorted(list(unassigned_df['Call'].unique()))
+            if unassigned_calls:
+                report_lines.append("\n" + "-" * 40)
+                report_lines.append(f"Callsigns with Unassigned {mult_name}:")
+                report_lines.append("-" * 40)
+                for i in range(0, len(unassigned_calls), 5):
+                    line_calls = unassigned_calls[i:i+5]
+                    report_lines.append("  ".join([f"{call:<12}" for call in line_calls]))
+
     def _calculate_all_scores(self, log: ContestLog, output_path: str, **kwargs) -> Tuple[List[Dict], Dict, int]:
         df_full = log.get_processed_data()
         df_net = df_full[df_full['Dupe'] == False].copy()
         contest_def = log.contest_definition
         multiplier_rules = contest_def.multiplier_rules
-
-        # --- Apply contest rule for multipliers from zero-point QSOs ---
-        if not contest_def.mults_from_zero_point_qsos:
-            df_net = df_net[df_net['QSOPoints'] > 0]
-
-        # --- Authoritative Multiplier Calculation using Pivot Table ---
         band_mult_counts = {}
+
+        # --- Unified Diagnostic and Filtering ---
+        primary_mult_col = None
+        log_location_type = getattr(log, '_my_location_type', None)
         for rule in multiplier_rules:
-            mult_col = rule['value_column']
-            if mult_col in df_net.columns:
-                df_valid = df_net[df_net[mult_col].notna() & (df_net[mult_col] != 'Unknown')]
-                pivot = calculate_multiplier_pivot(df_valid, mult_col, group_by_call=False)
-                band_mult_counts[mult_col] = (pivot > 0).sum(axis=0)
+            applies_to = rule.get('applies_to')
+            if not applies_to or applies_to == log_location_type:
+                primary_mult_col = rule['value_column']
+                break
+        
+        if primary_mult_col and primary_mult_col in df_net.columns:
+            # 1. Unified Diagnostic Check (run before any filtering)
+            blank_mult_mask = df_net[primary_mult_col].isna()
+            zero_point_mask = df_net['QSOPoints'] == 0
+            disregarded_mask = blank_mult_mask | zero_point_mask
+
+            if disregarded_mask.any():
+                for index, row in df_net[disregarded_mask].iterrows():
+                    reasons = []
+                    if blank_mult_mask.loc[index]:
+                        reasons.append("Blank Multiplier")
+                    if zero_point_mask.loc[index]:
+                        reasons.append("Zero-point QSO")
+                    
+                    reason_str = " & ".join(reasons)
+                    logging.warning(f"WARNING: (text_score_report) Disregarding QSO with call {row.get('Call')} ({reason_str}).")
+
+            # 2. Filtering in Correct Order
+            df_net.dropna(subset=[primary_mult_col], inplace=True)
+            if not contest_def.mults_from_zero_point_qsos:
+                df_net = df_net[df_net['QSOPoints'] > 0]
+
+            # 3. Authoritative Multiplier Calculation (moved to after filtering)
+            for rule in multiplier_rules:
+                mult_col = rule['value_column']
+                if mult_col in df_net.columns:
+                    df_valid = df_net[df_net[mult_col].notna() & (df_net[mult_col] != 'Unknown')]
+                    pivot = calculate_multiplier_pivot(df_valid, mult_col, group_by_call=False)
+                    
+                    # --- Diagnostic: Create and save the set of multipliers being counted ---
+                    counted_mults = set()
+                    if not pivot.empty:
+                        for mult in pivot.index:
+                            for band in pivot.columns:
+                                if pivot.loc[mult, band] > 0:
+                                    counted_mults.add(f"{band}_{mult}")
+                    
+                    output_filename = os.path.join(output_path, "score_report_mult_set.json")
+                    try:
+                        with open(output_filename, 'w') as f:
+                            json.dump(sorted(list(counted_mults)), f, indent=4)
+                    except Exception as e:
+                        logging.error(f"Could not write multiplier set file: {e}")
+
+                    band_mult_counts[mult_col] = (pivot > 0).sum(axis=0)
 
         # --- Per-Band/Mode Summary Calculation (derived from correct data) ---
         summary_data = []
@@ -250,4 +304,8 @@ class Report(ContestReport):
         else: # Default to points_times_mults
             final_score = total_summary['Points'] * total_multiplier_count
         
+        # --- Version and Count Diagnostic ---
+        version_message = f"I am running version 0.48.12-Beta of text_score_report.py. The number of multipliers calculated is {total_multiplier_count}."
+        logging.warning(version_message)
+
         return summary_data, total_summary, final_score
