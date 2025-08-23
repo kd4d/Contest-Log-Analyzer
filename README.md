@@ -1,10 +1,14 @@
 # Contest Log Analyzer
 
-**Version: 0.40.0-Beta**
-**Date: 2025-08-19**
+**Version: 0.47.0-Beta**
+**Date: 2025-08-23**
 
 ---
 ### --- Revision History ---
+## [0.47.0-Beta] - 2025-08-23
+### Changed
+# - Corrected report names in "Available Reports" to align with source code.
+# - Added the --debug-mults flag to the "Usage" section.
 ## [0.40.0-Beta] - 2025-08-19
 ### Changed
 # - Updated the "Usage" section to include the --debug-data flag.
@@ -65,31 +69,32 @@ All generated files are saved to a structured directory under `reports/YYYY/CONT
 * `hourly_animation`: Hourly Rate Animation
 
 #### **Chart Reports (`charts/`)**
-* `chart_point_contribution`: Point Contribution Breakdown (Comparative)
+* `chart_point_contribution`: Point Contribution Breakdown
 * `chart_point_contribution_single`: Point Contribution Breakdown (Single Log)
-* `qso_breakdown_chart`: QSO Breakdown by Run/S&P
+* `qso_breakdown_chart`: QSO Breakdown Chart
 
 #### **Plot Reports (`plots/`)**
 * `band_activity_heatmap`: Band Activity Heatmap
 * `comparative_band_activity`: Comparative Band Activity
 * `comparative_band_activity_heatmap`: Comparative Band Activity Heatmap
-* `cumulative_difference_plots`: Cumulative Difference Plot
-* `point_rate_plots`: Cumulative Point Rate Plot
-* `qso_rate_plots`: Cumulative QSO Rate Plot
+* `comparative_run_sp_timeline`: Comparative Activity Timeline (Run/S&P)
+* `cumulative_difference_plots`: Cumulative Difference Plots
+* `point_rate_plots`: Point Rate Comparison Plots
+* `qso_rate_plots`: QSO Rate Comparison Plots
 
 #### **Text Reports (`text/`)**
-* `comparative_continent_summary`: Comparative Continent Summary
+* `comparative_continent_summary`: Comparative Continent QSO Summary
 * `comparative_score_report`: Comparative Score Report
-* `continent_breakdown`: Continent Breakdown by Run/S&P
-* `continent_summary`: Continent Summary
-* `missed_multipliers`: Missed Multipliers
+* `continent_breakdown`: Continent QSO Breakdown
+* `continent_summary`: Continent QSO Summary
+* `missed_multipliers`: Missed Multipliers Report
 * `multiplier_summary`: Multiplier Summary
 * `multipliers_by_hour`: Multipliers by Hour
 * `qso_comparison`: QSO Comparison Summary
-* `rate_sheet`: Rate Sheet (per hour)
-* `rate_sheet_comparison`: Rate Sheet Comparison
-* `score_report`: Score Report
-* `summary`: QSO Summary by Run/S&P
+* `rate_sheet`: Hourly Rate Sheet
+* `rate_sheet_comparison`: Comparative Rate Sheet
+* `score_report`: Score Summary
+* `summary`: QSO Summary
 ---
 ## License
 

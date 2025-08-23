@@ -1,10 +1,14 @@
 # Project Workflow Guide
 
-**Version: 0.44.0-Beta**
+**Version: 0.47.6-Beta**
 **Date: 2025-08-23**
 
 ---
 ### --- Revision History ---
+## [0.47.6-Beta] - 2025-08-23
+### Added
+# - Added clarification to Protocol 1.5 that version numbers are only
+#   updated if a file's content is modified.
 ## [0.44.0-Beta] - 2025-08-23
 ### Changed
 # - Modified Protocol 3.2.4 to require substituting embedded code
@@ -156,6 +160,7 @@ These are the step-by-step procedures for common, day-to-day development tasks.
         * **Step F: Deliver Update.** Upon approval, perform a **Pre-Flight Check**, explicitly state that the check is complete, and then deliver the updated document.
         * **Step G (No Changes Needed):** If the analysis in Step B finds no discrepancies, the AI will state that the document is already synchronized and ask for the user's confirmation to proceed to the next document.
     3.  **Completion:** After the final document has been processed, the AI will state that the protocol is complete.
+    4.  **Version Update on Modification Only Clarification**: A file's version number and revision history will only be updated if its content requires changes to be synchronized with the project baseline. Documents that are found to be already synchronized during the review will not have their version numbers changed.
 
 1.6. **Session Versioning Protocol.** At the start of a new development task, the user will state the current version series (e.g., 'We are working on Version 0.36.x-Beta'). All subsequent file modifications for this and related tasks must use this version series, incrementing the patch number as needed.
 1.7. **Project Structure Onboarding.** After a state initialization, the AI will confirm its understanding of the high-level project architecture.
@@ -195,7 +200,7 @@ This workflow is a formal state machine that governs all development tasks, from
     2.  **Raw Source Text**: The content inside the delivered code block must be the raw source text of the file.
     3.  **Code File Delivery**: For code files (e.g., `.py`, `.json`), the content will be delivered in a standard fenced code block with the appropriate language specifier.
     4.  **Markdown File Delivery**: To prevent the user interface from rendering markdown and to provide a "Copy" button, the entire raw content of a documentation file (`.md`) must be delivered inside a single, plaintext-specified code block. The rule for replacing internal code fences with `__CODE_BLOCK__` still applies to the content within this block.
-        ```text
+        __CODE_BLOCK__text
         # Markdown Header
 
         This is the raw text of the .md file.
@@ -203,7 +208,7 @@ This workflow is a formal state machine that governs all development tasks, from
         __CODE_BLOCK__
         # An internal code block is replaced.
         __CODE_BLOCK__
-        ```
+        __CODE_BLOCK__
 3.3. **File and Checksum Verification.**
     1.  **Line Endings:** The user's file system uses Windows CRLF (`\r\n`). The AI must correctly handle this conversion when calculating checksums.
     2.  **Concise Reporting:** The AI will either state that **all checksums agree** or will list the **specific files that show a mismatch**.
