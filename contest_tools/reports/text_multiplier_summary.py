@@ -54,12 +54,12 @@ class Report(ContestReport):
         """
         Generates the report content.
         """
-        # --- Checksum Diagnostic ---
-        for log in self.logs:
-            df_full = log.get_processed_data()
-            df_json = df_full.to_json(orient='split', date_format='iso', default_handler=str)
-            checksum = hashlib.sha256(df_json.encode('utf-8')).hexdigest()
-            logging.warning(f"WARNING: (multiplier_summary) INPUT DataFrame Checksum for {log.get_metadata().get('MyCall', 'Unknown')}: {checksum}")
+#        # --- Checksum Diagnostic ---
+#        for log in self.logs:
+#            df_full = log.get_processed_data()
+#            df_json = df_full.to_json(orient='split', date_format='iso', default_handler=str)
+#            checksum = hashlib.sha256(df_json.encode('utf-8')).hexdigest()
+#            logging.warning(f"WARNING: (multiplier_summary) INPUT DataFrame Checksum for #log.get_metadata().get('MyCall', 'Unknown')}: {checksum}")
 
         # --- Create a list of filtered dataframes to process ---
         log_data_to_process = []
@@ -145,20 +145,20 @@ class Report(ContestReport):
         pivot = calculate_multiplier_pivot(main_df, mult_column, group_by_call=is_comparative)
 
         # --- Diagnostic: Create and save the set of multipliers being counted ---
-        counted_mults = set()
-        if not pivot.empty:
-            for index, row in pivot.iterrows():
-                mult = index[0] if isinstance(index, tuple) else index
-                for band, count in row.items():
-                    if count > 0 and band != 'Total':
-                        counted_mults.add(f"{band}_{mult}")
-
-        output_filename = os.path.join(output_path, "multiplier_summary_mult_set.json")
-        try:
-            with open(output_filename, 'w') as f:
-                json.dump(sorted(list(counted_mults)), f, indent=4)
-        except Exception as e:
-            logging.error(f"Could not write multiplier set file: {e}")
+#        counted_mults = set()
+#        if not pivot.empty:
+#            for index, row in pivot.iterrows():
+#                mult = index[0] if isinstance(index, tuple) else index
+#               for band, count in row.items():
+#                   if count > 0 and band != 'Total':
+#                       counted_mults.add(f"{band}_{mult}")
+#
+#        output_filename = os.path.join(output_path, "multiplier_summary_mult_set.json")
+#        try:
+#            with open(output_filename, 'w') as f:
+#               json.dump(sorted(list(counted_mults)), f, indent=4)
+#       except Exception as e:
+#            logging.error(f"Could not write multiplier set file: {e}")
 
         name_map = {}
         if name_column and name_column in main_df.columns:

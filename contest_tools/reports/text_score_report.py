@@ -66,9 +66,9 @@ class Report(ContestReport):
             df_full = log.get_processed_data()
 
             # --- Checksum Diagnostic ---
-            df_json = df_full.to_json(orient='split', date_format='iso', default_handler=str)
-            checksum = hashlib.sha256(df_json.encode('utf-8')).hexdigest()
-            logging.warning(f"WARNING: (text_score_report) INPUT DataFrame Checksum: {checksum}")
+#            df_json = df_full.to_json(orient='split', date_format='iso', default_handler=str)
+#            checksum = hashlib.sha256(df_json.encode('utf-8')).hexdigest()
+#            logging.warning(f"WARNING: (text_score_report) INPUT DataFrame Checksum: {checksum}")
 
             callsign = metadata.get('MyCall', 'UnknownCall')
             contest_name = metadata.get('ContestName', 'UnknownContest')
@@ -245,19 +245,19 @@ class Report(ContestReport):
                     pivot = calculate_multiplier_pivot(df_valid, mult_col, group_by_call=False)
                     
                     # --- Diagnostic: Create and save the set of multipliers being counted ---
-                    counted_mults = set()
-                    if not pivot.empty:
-                        for mult in pivot.index:
-                            for band in pivot.columns:
-                                if pivot.loc[mult, band] > 0:
-                                    counted_mults.add(f"{band}_{mult}")
-                    
-                    output_filename = os.path.join(output_path, "score_report_mult_set.json")
-                    try:
-                        with open(output_filename, 'w') as f:
-                            json.dump(sorted(list(counted_mults)), f, indent=4)
-                    except Exception as e:
-                        logging.error(f"Could not write multiplier set file: {e}")
+#                    counted_mults = set()
+#                    if not pivot.empty:
+#                        for mult in pivot.index:
+#                            for band in pivot.columns:
+#                                if pivot.loc[mult, band] > 0:
+#                                   counted_mults.add(f"{band}_{mult}")
+#                    
+#                    output_filename = os.path.join(output_path, "score_report_mult_set.json")
+#                    try:
+#                        with open(output_filename, 'w') as f:
+#                            json.dump(sorted(list(counted_mults)), f, indent=4)
+#                    except Exception as e:
+#                        logging.error(f"Could not write multiplier set file: {e}")
 
                     band_mult_counts[mult_col] = (pivot > 0).sum(axis=0)
 
@@ -305,7 +305,7 @@ class Report(ContestReport):
             final_score = total_summary['Points'] * total_multiplier_count
         
         # --- Version and Count Diagnostic ---
-        version_message = f"I am running version 0.48.12-Beta of text_score_report.py. The number of multipliers calculated is {total_multiplier_count}."
-        logging.warning(version_message)
+#        version_message = f"I am running version 0.48.12-Beta of text_score_report.py. The number of #        multipliers calculated is {total_multiplier_count}."
+#        logging.warning(version_message)
 
         return summary_data, total_summary, final_score
