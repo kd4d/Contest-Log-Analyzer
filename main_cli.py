@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-18
-# Version: 0.38.0-Beta
+# Date: 2025-08-21
+# Version: 0.39.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.39.0-Beta] - 2025-08-21
+### Added
+# - Added a --debug-mults flag to generate diagnostic files for debugging
+#   multiplier counting inconsistencies in text reports.
 ## [0.38.0-Beta] - 2025-08-18
 ### Added
 # - Added a --debug-data flag to enable the generation of debug data dumps for visual reports.
@@ -25,17 +29,6 @@
 ### Fixed
 # - Added exception handling for log file mismatches (wrong contest/event)
 #   to ensure a graceful exit.
-## [0.35.9-Beta] - 2025-08-14
-### Fixed
-# - Added a try...except block to gracefully handle the ValueError that occurs
-#   when the ReportGenerator is initialized with no valid logs.
-## [0.30.29-Beta] - 2025-08-05
-### Changed
-# - Updated the usage guide to include new report category options (chart, text, plot).
-## [0.30.24-Beta] - 2025-08-05
-# - No functional changes. Synchronizing version numbers.
-## [0.30.0-Beta] - 2025-08-05
-# - Initial release of Version 0.30.0-Beta.
 import sys
 import os
 import argparse
@@ -67,6 +60,8 @@ def print_usage_guide():
     print("  --include-dupes         Include duplicate QSOs in calculations.")
     print("  --mult-name <name>      Specify multiplier for reports (e.g., 'Countries', 'Zones').")
     print("  --metric <qsos|points>  Specify metric for difference plots (defaults to 'qsos').")
+    print("  --debug-data            Save source data for visual reports to a text file.")
+    print("  --debug-mults           Save intermediate multiplier lists from text reports for debugging.")
     
     print("\nAvailable Reports:")
     max_id_len = max(len(rid) for rid in AVAILABLE_REPORTS.keys())
@@ -90,6 +85,7 @@ def main():
     parser.add_argument('--mult-name', dest='mult_name', help="Specify the multiplier name for relevant reports.")
     parser.add_argument('--metric', dest='metric', choices=['qsos', 'points'], default='qsos', help="Metric for difference plots.")
     parser.add_argument('--debug-data', action='store_true', help='If set, save the data source for visual reports to a text file.')
+    parser.add_argument('--debug-mults', action='store_true', help='Generate a debug file listing multipliers counted by summary reports.')
     
     args, unknown = parser.parse_known_args()
 
@@ -146,7 +142,8 @@ def main():
         'include_dupes': args.include_dupes,
         'mult_name': args.mult_name,
         'metric': args.metric,
-        'debug_data': args.debug_data
+        'debug_data': args.debug_data,
+        'debug_mults': args.debug_mults
     }
 
     try:

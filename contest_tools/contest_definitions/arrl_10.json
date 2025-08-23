@@ -1,13 +1,14 @@
 {
   "_filename": "contest_tools/contest_definitions/arrl_10.json",
-  "_version": "0.32.6-Beta",
-  "_date": "2025-08-12",
+  "_version": "0.32.7-Beta",
+  "_date": "2025-08-21",
   "contest_name": "ARRL-10",
   "valid_bands": [
     "10M"
   ],
   "dupe_check_scope": "per_band",
   "multiplier_report_scope": "per_mode",
+  "enable_adif_export": true,
   "custom_parser_module": "arrl_10_parser",
   "custom_multiplier_resolver": "arrl_10_multiplier_resolver",
   "exchange_parsing_rules": {

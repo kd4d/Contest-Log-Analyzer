@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-18
-# Version: 0.39.4-Beta
+# Date: 2025-08-21
+# Version: 0.43.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,20 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.43.0-Beta] - 2025-08-21
+### Added
+# - Integrated a data-driven frequency validation check during Cabrillo
+#   ingest, which rejects out-of-band QSOs and issues warnings.
+### Changed
+# - Modified the export_to_adif method to include duplicate QSOs.
+## [0.39.6-Beta] - 2025-08-21
+### Fixed
+# - Resolved a NameError in the export_to_adif function by adding the
+#   missing 'import numpy as np' statement.
+## [0.39.5-Beta] - 2025-08-21
+### Added
+# - Enhanced the export_to_adif method to generate custom APP_CLA tags
+#   for multiplier values and "is new multiplier" flags.
 ## [0.39.4-Beta] - 2025-08-18
 ### Fixed
 # - Corrected the _ingest_cabrillo_data method to intelligently merge
@@ -51,6 +65,7 @@
 #   to_csv() call to prevent all future downcasting warnings.
 from typing import List
 import pandas as pd
+import numpy as np
 from datetime import datetime
 from typing import Dict, Any, Optional, Set, Tuple
 import os
@@ -62,7 +77,7 @@ import logging
 # Relative imports from within the contest_tools package
 from .cabrillo_parser import parse_cabrillo_file
 from .contest_definitions import ContestDefinition
-from .core_annotations import CtyLookup, process_dataframe_for_cty_data, process_contest_log_for_run_s_p
+from .core_annotations import CtyLookup, process_dataframe_for_cty_data, process_contest_log_for_run_s_p, BandAllocator
 
 class ContestLog:
     """
@@ -104,6 +119,7 @@ class ContestLog:
         self.filepath = cabrillo_filepath
         self._my_location_type: Optional[str] = None # W/VE or DX
         self._log_manager_ref = None
+        self.band_allocator = BandAllocator()
 
         try:
             self.contest_definition = ContestDefinition.from_json(contest_name)
@@ -134,6 +150,29 @@ class ContestLog:
             self.qsos_df = pd.DataFrame(columns=self.contest_definition.default_qso_columns)
             return
 
+        # --- Perform frequency validation before further processing ---
+        validated_qso_records = []
+        rejected_qso_count = 0
+        raw_df['Frequency'] = pd.to_numeric(raw_df['FrequencyRaw'], errors='coerce')
+
+        for idx, row in raw_df.iterrows():
+            if self.band_allocator.is_frequency_valid(row['Frequency']):
+                validated_qso_records.append(row.to_dict())
+            else:
+                rejected_qso_count += 1
+                if rejected_qso_count <= 20:
+                    logging.warning(f"Rejected QSO (invalid frequency): File '{os.path.basename(cabrillo_filepath)}' - Freq={row['FrequencyRaw']}")
+        
+        if rejected_qso_count > 20:
+            suppressed_count = rejected_qso_count - 20
+            logging.warning(f"({suppressed_count} additional invalid frequency warnings suppressed for this file.)")
+
+        if not validated_qso_records:
+            self.qsos_df = pd.DataFrame(columns=self.contest_definition.default_qso_columns)
+            return
+            
+        raw_df = pd.DataFrame(validated_qso_records)
+        
         raw_df['Datetime'] = pd.to_datetime(
             raw_df.get('DateRaw', '') + ' ' + raw_df.get('TimeRaw', ''),
             format='%Y-%m-%d %H%M',
@@ -145,9 +184,7 @@ class ContestLog:
             raw_df['Band'] = pd.NA
 
         # Handle frequency-derived bands only where a band isn't already specified.
-        if 'FrequencyRaw' in raw_df.columns:
-            raw_df['Frequency'] = pd.to_numeric(raw_df['FrequencyRaw'], errors='coerce')
-            
+        if 'Frequency' in raw_df.columns:
             # Create a temporary column for bands derived from frequency
             derived_bands = raw_df['Frequency'].apply(self._derive_band_from_frequency)
             
@@ -414,20 +451,20 @@ class ContestLog:
             logging.warning(f"No QSOs to export. ADIF file '{output_filepath}' will not be created.")
             return
             
-        df_to_export = self.qsos_df[self.qsos_df['Dupe'] == False].copy()
+        df_to_export = self.qsos_df.copy()
 
         # --- ADIF Helper Functions ---
         def adif_format(tag: str, value: Any) -> str:
             if pd.isna(value) or value == '':
                 return ''
-            val_str = str(value)
+            val_str = str(int(value)) if isinstance(value, (float, np.floating, np.integer)) and float(value).is_integer() else str(value)
             return f"<{tag}:{len(val_str)}>{val_str} "
 
         # --- Generate ADIF Content ---
         adif_records = []
         adif_records.append("ADIF Export from Contest-Log-Analyzer\n")
         adif_records.append(f"<PROGRAMID:22>Contest-Log-Analyzer\n")
-        adif_records.append(f"<PROGRAMVERSION:10>0.37.0-Beta\n")
+        adif_records.append(f"<PROGRAMVERSION:10>0.43.0-Beta\n")
         adif_records.append("<EOH>\n\n")
 
         for _, row in df_to_export.iterrows():
@@ -461,10 +498,24 @@ class ContestLog:
             record.append(adif_format('CQZ', row.get('CQZone')))
             record.append(adif_format('ITUZ', row.get('ITUZone')))
             
-            # Contest-specific location fields
             if pd.notna(row.get('RcvdLocation')):
                  record.append(adif_format('STATE', row.get('RcvdLocation')))
                  record.append(adif_format('ARRL_SECT', row.get('RcvdLocation')))
+
+            # --- Custom CLA Tags ---
+            record.append(adif_format('APP_CLA_QSO_POINTS', row.get('QSOPoints')))
+            record.append(adif_format('APP_CLA_CONTINENT', row.get('Continent')))
+            if row.get('Run') == 'Run': record.append(adif_format('APP_CLA_ISRUNQSO', 1))
+            
+            mult_value_cols = [c for c in row.index if c.startswith('Mult_') or c in ['Mult1', 'Mult2']]
+            for col in mult_value_cols:
+                if pd.notna(row.get(col)):
+                    record.append(adif_format(f"APP_CLA_{col.upper()}", row.get(col)))
+
+            mult_flag_cols = [c for c in row.index if c.endswith('_IsNewMult')]
+            for col in mult_flag_cols:
+                if row.get(col) == 1:
+                    record.append(adif_format(f"APP_CLA_{col.upper()}", 1))
 
             adif_records.append("".join(record).strip() + " <EOR>\n")
 

@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-16
-# Version: 0.37.1-Beta
+# Date: 2025-08-23
+# Version: 0.47.8-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,41 +17,27 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.37.1-Beta] - 2025-08-16
-### Fixed
-# - Corrected file writing logic to append a final newline character,
-#   ensuring compatibility with diff utilities.
-## [0.32.9-Beta] - 2025-08-12
-### Fixed
-# - Refactored the generate method to work on copies of the data, preventing
-#   the permanent modification of the original ContestLog objects and fixing
-#   the data corruption bug for per-mode reports.
-## [0.32.6-Beta] - 2025-08-12
+## [0.47.8-Beta] - 2025-08-23
+### Added
+# - Added diagnostic code to save the complete set of (band, multiplier)
+#   tuples to a JSON file for definitive comparison.
+## [0.47.7-Beta] - 2025-08-23
+### Added
+# - Added diagnostic code to save the complete set of (band, multiplier)
+#   tuples to a JSON file for definitive comparison.
+## [0.47.6-Beta] - 2025-08-22
 ### Changed
-# - Modified the generate method to accept a `mode_filter` argument and
-#   filter the dataframe by mode, enabling per-mode analysis.
-# - Updated the report title and filename to include the mode.
-## [0.31.25-Beta] - 2025-08-11
-### Fixed
-# - Corrected the first column width calculation to account for indented
-#   callsign labels, fixing the table alignment.
-## [0.31.24-Beta] - 2025-08-11
-### Changed
-# - Updated report formatting to be indented and labeled with callsigns,
-#   matching the style of the comparative rate sheet.
-## [0.31.23-Beta] - 2025-08-09
-### Fixed
-# - Corrected the diagnostic section to properly find and list all
-#   callsigns with "Unknown" multipliers.
-## [0.26.5-Beta] - 2025-08-04
-### Fixed
-# - Corrected a bug that caused the report to fail for single logs by
-#   enabling single-log support and adding the correct processing logic.
+# - Moved the checksum diagnostic to the beginning of the `generate`
+#   method to ensure it hashes the raw input DataFrame before any filtering.
 from typing import List
 import pandas as pd
 import os
+import json
+import logging
+import hashlib
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
+from ._report_utils import calculate_multiplier_pivot
 
 class Report(ContestReport):
     """
@@ -68,22 +54,23 @@ class Report(ContestReport):
         """
         Generates the report content.
         """
-        mult_name = kwargs.get('mult_name')
-        mode_filter = kwargs.get('mode_filter')
+#        # --- Checksum Diagnostic ---
+#        for log in self.logs:
+#            df_full = log.get_processed_data()
+#            df_json = df_full.to_json(orient='split', date_format='iso', default_handler=str)
+#            checksum = hashlib.sha256(df_json.encode('utf-8')).hexdigest()
+#            logging.warning(f"WARNING: (multiplier_summary) INPUT DataFrame Checksum for #log.get_metadata().get('MyCall', 'Unknown')}: {checksum}")
 
-        if not mult_name:
-            return f"Error: 'mult_name' argument is required for the '{self.report_name}' report."
         # --- Create a list of filtered dataframes to process ---
-        # This approach avoids modifying the original ContestLog objects.
         log_data_to_process = []
         for log in self.logs:
             df = log.get_processed_data()
-            if mode_filter:
-                filtered_df = df[df['Mode'] == mode_filter].copy()
+            if kwargs.get('mode_filter'):
+                filtered_df = df[df['Mode'] == kwargs.get('mode_filter')].copy()
             else:
                 filtered_df = df.copy()
             log_data_to_process.append({'df': filtered_df, 'meta': log.get_metadata()})
-
+        
         # --- Single-Log Mode ---
         if len(log_data_to_process) == 1:
             log_data = log_data_to_process[0]
@@ -92,10 +79,9 @@ class Report(ContestReport):
             return self._generate_report_for_logs(
                 dfs=[df],
                 all_calls=all_calls,
-                mult_name=mult_name,
-                mode_filter=mode_filter,
                 output_path=output_path,
-                contest_def=self.logs[0].contest_definition
+                contest_def=self.logs[0].contest_definition,
+                **kwargs
             )
         
         # --- Multi-Log (Comparative) Mode ---
@@ -113,33 +99,66 @@ class Report(ContestReport):
             return self._generate_report_for_logs(
                 dfs=all_dfs,
                 all_calls=sorted(all_calls),
-                mult_name=mult_name,
-                mode_filter=mode_filter,
                 output_path=output_path,
-                contest_def=self.logs[0].contest_definition
+                contest_def=self.logs[0].contest_definition,
+                **kwargs
             )
 
-    def _generate_report_for_logs(self, dfs, all_calls, mult_name, mode_filter, output_path, contest_def):
+    def _generate_report_for_logs(self, dfs, all_calls, output_path, contest_def, **kwargs):
+        mult_name = kwargs.get('mult_name')
+        mode_filter = kwargs.get('mode_filter')
+        
         if not dfs:
             mode_str = f" on mode '{mode_filter}'" if mode_filter else ""
             return f"Report '{self.report_name}' for '{mult_name}'{mode_str} skipped as no data was found."
+
         mult_rule = next((r for r in contest_def.multiplier_rules if r.get('name', '').lower() == mult_name.lower()), None)
         if not mult_rule or 'value_column' not in mult_rule:
             return f"Error: Multiplier type '{mult_name}' not found in definition."
+
         mult_column = mult_rule['value_column']
         name_column = mult_rule.get('name_column')
         
         combined_df = pd.concat(dfs, ignore_index=True)
         if combined_df.empty or mult_column not in combined_df.columns:
             return f"No '{mult_name}' multiplier data to report for mode '{mode_filter}'."
+
         main_df = combined_df[combined_df[mult_column].notna()]
+        main_df = main_df[main_df[mult_column] != 'Unknown']
+
+        if not contest_def.mults_from_zero_point_qsos:
+            main_df = main_df[main_df['QSOPoints'] > 0]
+        
+        # --- Diagnostic File Generation ---
+        if kwargs.get('debug_mults'):
+            callsign = all_calls[0] if len(all_calls) == 1 else '_vs_'.join(all_calls)
+
+            # Save the source DataFrame to CSV
+            debug_csv_filename = f"multiplier_summary_sourcedata_debug_{callsign}.csv"
+            debug_csv_filepath = os.path.join(output_path, debug_csv_filename)
+            main_df.to_csv(debug_csv_filepath, index=False)
         
         bands = contest_def.valid_bands
         is_single_band = len(bands) == 1
+        is_comparative = len(all_calls) > 1
         
-        pivot = main_df.pivot_table(
-            index=[mult_column, 'MyCall'], columns='Band', aggfunc='size', fill_value=0
-        )
+        pivot = calculate_multiplier_pivot(main_df, mult_column, group_by_call=is_comparative)
+
+        # --- Diagnostic: Create and save the set of multipliers being counted ---
+#        counted_mults = set()
+#        if not pivot.empty:
+#            for index, row in pivot.iterrows():
+#                mult = index[0] if isinstance(index, tuple) else index
+#               for band, count in row.items():
+#                   if count > 0 and band != 'Total':
+#                       counted_mults.add(f"{band}_{mult}")
+#
+#        output_filename = os.path.join(output_path, "multiplier_summary_mult_set.json")
+#        try:
+#            with open(output_filename, 'w') as f:
+#               json.dump(sorted(list(counted_mults)), f, indent=4)
+#       except Exception as e:
+#            logging.error(f"Could not write multiplier set file: {e}")
 
         name_map = {}
         if name_column and name_column in main_df.columns:
@@ -153,7 +172,6 @@ class Report(ContestReport):
         if not is_single_band:
             pivot['Total'] = pivot.sum(axis=1)
 
-        # --- Dynamic First Column Header & Width ---
         if mult_name.lower() == 'countries':
             source_type = mult_rule.get('source', 'dxcc').upper()
             first_col_header = source_type
@@ -215,18 +233,33 @@ class Report(ContestReport):
             
             mult_data = pivot.loc[mult]
             for call in all_calls:
-                if call in mult_data.index:
-                    row = mult_data.loc[call]
-                    line = f"  {call}:".ljust(first_col_width)
-                    for band in bands: line += f"{row.get(band, 0):>7}"
-                    if not is_single_band:
-                        line += f"{row.get('Total', 0):>7}"
-                    report_lines.append(line)
+                # Handle both single-level and multi-level index
+                if is_comparative:
+                    if call in mult_data.index:
+                        row = mult_data.loc[call]
+                    else:
+                        continue # Skip if this call doesn't have this multiplier
+                else:
+                    row = mult_data
+
+                line = f"  {call}:".ljust(first_col_width)
+                for band in bands: line += f"{row.get(band, 0):>7}"
+                if not is_single_band:
+                    line += f"{row.get('Total', 0):>7}"
+                report_lines.append(line)
+
 
         report_lines.append(separator)
         report_lines.append(f"{'Total':<{first_col_width}}")
         
-        total_pivot = pivot.groupby(level='MyCall').sum()
+        # Adjust total calculation for single vs multi-log
+        if is_comparative:
+            total_pivot = pivot.groupby(level='MyCall').sum()
+        else:
+            total_pivot = pivot.sum().to_frame().T
+            total_pivot['MyCall'] = all_calls[0]
+            total_pivot = total_pivot.set_index('MyCall')
+
         for call in all_calls:
             if call in total_pivot.index:
                 row = total_pivot.loc[call]
@@ -249,7 +282,23 @@ class Report(ContestReport):
             num_cols = max(1, table_width // (col_width + 2))
             
             for i in range(0, len(unique_unknown_calls), num_cols):
-                line_calls = unique_unknown_calls[i:i+num_cols]
+                line_calls = unique_unknown_calls[i:i+5]
+                report_lines.append("  ".join([f"{call:<{col_width}}" for call in line_calls]))
+
+        # --- Diagnostic Section for "Unassigned" Multipliers ---
+        unassigned_df = combined_df[combined_df[mult_column].isna()]
+        unique_unassigned_calls = sorted(unassigned_df['Call'].unique())
+        
+        if unique_unassigned_calls:
+            report_lines.append("\n" + "-" * 30)
+            report_lines.append(f"Callsigns with unassigned {first_col_header}:")
+            report_lines.append("-" * 30)
+            
+            col_width = 12
+            num_cols = max(1, table_width // (col_width + 2))
+            
+            for i in range(0, len(unique_unassigned_calls), num_cols):
+                line_calls = unique_unassigned_calls[i:i+5]
                 report_lines.append("  ".join([f"{call:<{col_width}}" for call in line_calls]))
 
         report_content = "\n".join(report_lines) + "\n"
