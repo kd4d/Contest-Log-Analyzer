@@ -1,10 +1,14 @@
 # Project Workflow Guide
 
-**Version: 0.43.0-Beta**
+**Version: 0.44.0-Beta**
 **Date: 2025-08-23**
 
 ---
 ### --- Revision History ---
+## [0.44.0-Beta] - 2025-08-23
+### Changed
+# - Modified Protocol 3.2.4 to require substituting embedded code
+#   fences (```) with __CODE_BLOCK__ for markdown file delivery.
 ## [0.43.0-Beta] - 2025-08-23
 ### Added
 # - Added Protocol 6.6 (Self-Correction on Contradiction) to mandate a
@@ -190,15 +194,15 @@ This workflow is a formal state machine that governs all development tasks, from
     1.  **Single File Per Response**: Only one file will be delivered in a single response.
     2.  **Raw Source Text**: The content inside the delivered code block must be the raw source text of the file.
     3.  **Code File Delivery**: For code files (e.g., `.py`, `.json`), the content will be delivered in a standard fenced code block with the appropriate language specifier.
-    4.  **Markdown File Delivery**: To prevent the user interface from rendering markdown and to provide a "Copy" button, the entire raw content of a documentation file (`.md`) must be delivered inside a single, plaintext-specified code block. The rule for replacing internal code fences with ````` still applies to the content within this block.
+    4.  **Markdown File Delivery**: To prevent the user interface from rendering markdown and to provide a "Copy" button, the entire raw content of a documentation file (`.md`) must be delivered inside a single, plaintext-specified code block. The rule for replacing internal code fences with `__CODE_BLOCK__` still applies to the content within this block.
         ```text
         # Markdown Header
 
         This is the raw text of the .md file.
 
-        ````
+        __CODE_BLOCK__
         # An internal code block is replaced.
-        ````
+        __CODE_BLOCK__
         ```
 3.3. **File and Checksum Verification.**
     1.  **Line Endings:** The user's file system uses Windows CRLF (`\r\n`). The AI must correctly handle this conversion when calculating checksums.
