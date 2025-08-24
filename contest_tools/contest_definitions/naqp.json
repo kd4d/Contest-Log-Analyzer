@@ -1,7 +1,7 @@
 {
   "_filename": "contest_tools/contest_definitions/naqp.json",
-  "_version": "0.37.1-Beta",
-  "_date": "2025-08-17",
+  "_version": "0.40.6-Beta",
+  "_date": "2025-08-24",
   "contest_name": "NAQP",
   "valid_bands": [
     "160M",
@@ -55,11 +55,13 @@
     {
       "name": "STPROV",
       "value_column": "Mult_STPROV",
+      "name_column": "Mult_STPROVName",
       "totaling_method": "once_per_band"
     },
     {
       "name": "NA DXCC",
       "value_column": "Mult_NADXCC",
+      "name_column": "Mult_NADXCCName",
       "totaling_method": "once_per_band"
     }
   ],
@@ -92,6 +94,8 @@
     "Run",
     "QSOPoints",
     "Mult_STPROV",
-    "Mult_NADXCC"
+    "Mult_STPROVName",
+    "Mult_NADXCC",
+    "Mult_NADXCCName"
   ]
 }

@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-16
-# Version: 0.37.3-Beta
+# Date: 2025-08-24
+# Version: 0.40.7-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.40.7-Beta] - 2025-08-24
+### Changed
+# - Modified resolver to create and populate Mult1 and Mult1Name columns
+#   to provide full names for Section multipliers.
+# - Updated the internal lookup class to return both abbreviation and name.
 ## [0.37.3-Beta] - 2025-08-16
 ### Fixed
 # - Corrected the script to read from the 'RcvdLocation' column instead
@@ -43,7 +48,7 @@ class SectionAliasLookup:
 
     def _parse_file(self):
         try:
-            with open(self.filepath, 'r', encoding='utf-8') as f:
+             with open(self.filepath, 'r', encoding='utf-8') as f:
                 for line in f:
                     line = line.strip()
                     if not line or line.startswith('#'):
@@ -52,7 +57,7 @@ class SectionAliasLookup:
                     parts = line.split(':')
                     if len(parts) != 2:
                         continue
-                        
+                
                     aliases_part, official_part = parts[0], parts[1]
                     aliases = [alias.strip().upper() for alias in aliases_part.split(',')]
                     
@@ -71,33 +76,45 @@ class SectionAliasLookup:
         except Exception as e:
             print(f"Error reading section alias file {self.filepath}: {e}")
 
-    def get_section(self, value: str) -> str:
+    def get_section(self, value: str) -> Tuple[str, Optional[str]]:
         """
-        Looks up an alias and returns the official section abbreviation.
+        Looks up an alias and returns the official section abbreviation and name.
         """
         if not isinstance(value, str):
-            return "Unknown"
+            return "Unknown", None
             
         value_upper = value.upper()
-        if value_upper in self._valid_mults:
-            return value_upper
         
         if value_upper in self._lookup:
-            return self._lookup[value_upper][0]
+            return self._lookup[value_upper]
 
-        return "Unknown"
+        if value_upper in self._valid_mults:
+            for abbr, (official_abbr, full_name) in self._lookup.items():
+                if value_upper == official_abbr:
+                    return official_abbr, full_name
+        
+        return "Unknown", None
 
 def resolve_multipliers(df: pd.DataFrame, my_location_type: Optional[str]) -> pd.DataFrame:
     """
     Resolves the final Section multiplier for ARRL Sweepstakes QSOs.
     """
     if df.empty or 'RcvdLocation' not in df.columns:
-        df['FinalMultiplier'] = "Unknown"
+        df['Mult1'] = "Unknown"
+        df['Mult1Name'] = None
         return df
 
     root_dir = os.environ.get('CONTEST_LOGS_REPORTS').strip().strip('"').strip("'")
     data_dir = os.path.join(root_dir, 'data')
     alias_lookup = SectionAliasLookup(data_dir)
     
-    df['FinalMultiplier'] = df['RcvdLocation'].apply(alias_lookup.get_section)
+    # Apply the lookup and expand the resulting tuple into two new columns
+    df[['Mult1', 'Mult1Name']] = df['RcvdLocation'].apply(
+        lambda x: pd.Series(alias_lookup.get_section(x))
+    )
+    
+    # Drop the old intermediate column if it exists
+    if 'FinalMultiplier' in df.columns:
+        df.drop(columns=['FinalMultiplier'], inplace=True)
+        
     return df

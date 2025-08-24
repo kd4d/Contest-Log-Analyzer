@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-17
-# Version: 0.37.3-Beta
+# Date: 2025-08-24
+# Version: 0.40.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.40.5-Beta] - 2025-08-24
+### Changed
+# - Modified resolver to create and populate name columns (Mult_STPROVName,
+#   Mult_NADXCCName) for enhanced reporting.
 ## [0.37.3-Beta] - 2025-08-17
 ### Fixed
 # - Corrected the hardcoded prefix for Alaska from KL7 to KL to ensure
@@ -66,13 +70,13 @@ import os
 from ..core_annotations._core_utils import AliasLookup
 from typing import Optional, Any, Tuple
 
-def _get_naqp_multiplier(row: pd.Series, alias_lookup: AliasLookup) -> Tuple[Any, Any]:
+def _get_naqp_multiplier(row: pd.Series, alias_lookup: AliasLookup) -> Tuple[Any, Any, Any, Any]:
     """
     Applies the NAQP multiplier logic to a single QSO row, returning separate
-    values for State/Province and NA DXCC multipliers.
+    values and names for State/Province and NA DXCC multipliers.
     """
-    stprov_mult = pd.NA
-    nadxcc_mult = pd.NA
+    stprov_mult, stprov_name = pd.NA, pd.NA
+    nadxcc_mult, nadxcc_name = pd.NA, pd.NA
     
     dxcc_pfx = row.get('DXCCPfx')
     continent = row.get('Continent')
@@ -80,18 +84,20 @@ def _get_naqp_multiplier(row: pd.Series, alias_lookup: AliasLookup) -> Tuple[Any
 
     # 1. Initial Sanity Check
     if pd.isna(dxcc_pfx) or dxcc_pfx == 'Unknown':
-        return "Unknown", pd.NA
+        return "Unknown", pd.NA, pd.NA, pd.NA
 
     # 2. Check for US (including AK/HI) or Canada (State/Province mults)
     if dxcc_pfx in ['K', 'KH6', 'KL', 'VE']:
-        mult, _ = alias_lookup.get_multiplier(rcvd_location)
+        mult, name = alias_lookup.get_multiplier(rcvd_location)
         stprov_mult = mult if pd.notna(mult) else "Unknown"
+        stprov_name = name if pd.notna(name) else pd.NA
 
     # 3. Check for Other North American DXCC
     elif continent == 'NA':
         nadxcc_mult = dxcc_pfx
+        nadxcc_name = row.get('DXCCName')
 
-    return stprov_mult, nadxcc_mult
+    return stprov_mult, stprov_name, nadxcc_mult, nadxcc_name
 
 
 def resolve_multipliers(df: pd.DataFrame, my_location_type: Optional[str]) -> pd.DataFrame:
@@ -107,7 +113,9 @@ def resolve_multipliers(df: pd.DataFrame, my_location_type: Optional[str]) -> pd
     for col in required_cols:
         if col not in df.columns:
             df['Mult_STPROV'] = pd.NA
+            df['Mult_STPROVName'] = pd.NA
             df['Mult_NADXCC'] = pd.NA
+            df['Mult_NADXCCName'] = pd.NA
             return df
 
     # Initialize the alias lookup utility for NAQP multipliers.
@@ -115,8 +123,8 @@ def resolve_multipliers(df: pd.DataFrame, my_location_type: Optional[str]) -> pd
     data_dir = os.path.join(root_dir, 'data')
     alias_lookup = AliasLookup(data_dir, 'NAQPmults.dat')
 
-    # Apply the logic to each row and assign the results to two new columns
-    df[['Mult_STPROV', 'Mult_NADXCC']] = df.apply(
+    # Apply the logic to each row and assign the results to four new columns
+    df[['Mult_STPROV', 'Mult_STPROVName', 'Mult_NADXCC', 'Mult_NADXCCName']] = df.apply(
         _get_naqp_multiplier, axis=1, result_type='expand', alias_lookup=alias_lookup
     )
     

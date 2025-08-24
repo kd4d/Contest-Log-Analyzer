@@ -1,7 +1,7 @@
 {
   "_filename": "contest_tools/contest_definitions/arrl_dx_cw.json",
-  "_version": "0.36.3-Beta",
-  "_date": "2025-08-21",
+  "_version": "0.40.3-Beta",
+  "_date": "2025-08-24",
   "contest_name": "ARRL-DX-CW",
   "enable_adif_export": true,
   "custom_parser_module": "arrl_dx_parser",
@@ -25,19 +25,20 @@
     {
       "name": "DXCC",
       "applies_to": "W/VE",
-      "source_column": "DXCCPfx",
-      "source_name_column": "DXCCName",
-      "value_column": "Mult_DXCC",
+      "source_column": "Mult_DXCC",
+      "source_name_column": "Mult_DXCCName",
+      "value_column": "Mult1",
       "name_column": "Mult1Name",
       "totaling_method": "sum_by_band"
     },
     {
       "name": "STPROV",
       "applies_to": "DX",
-      "value_column": "Mult_STPROV",
-      "totaling_method": "sum_by_band",
-      "include_missed_summary": true,
-      "alias_file": "ARRLDXmults.dat"
+      "source_column": "Mult_STPROV",
+      "source_name_column": "STPROV_MultName",
+      "value_column": "Mult1",
+      "name_column": "Mult1Name",
+      "totaling_method": "sum_by_band"
     }
   ],
   "default_qso_columns": [
@@ -49,7 +50,8 @@
     "Band", "Date", "Hour", "Dupe",
     "DXCCName", "DXCCPfx", "CQZone", "ITUZone", "Continent", "WAEName", "WAEPfx", "Lat", "Lon", "Tzone",
     "Run", "QSOPoints",
-    "Mult1", "Mult1Name", "FinalMultiplier",
-    "Mult_STPROV", "Mult_DXCC", "STPROV_IsNewMult", "DXCC_IsNewMult"
+    "Mult1", "Mult1Name",
+    "Mult_STPROV", "STPROV_MultName", "Mult_DXCC", "Mult_DXCCName",
+    "STPROV_IsNewMult", "DXCC_IsNewMult"
   ]
 }

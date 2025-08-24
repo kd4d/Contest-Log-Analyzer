@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-16
-# Version: 0.37.5-Beta
+# Date: 2025-08-24
+# Version: 0.40.9-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.40.9-Beta] - 2025-08-24
+### Changed
+# - Refactored table generation to use fully dynamic column widths,
+#   ensuring alignment for long multiplier names and callsigns.
 ## [0.37.5-Beta] - 2025-08-16
 ### Fixed
 # - Corrected a complex f-string that caused a SyntaxError by
@@ -218,7 +222,6 @@ class Report(ContestReport):
         mult_column = mult_rule['value_column']
         name_column = mult_rule.get('name_column')
         mult_name = mult_rule.get('name', 'Multiplier')
-        col_width = 14
         
         # --- Data Aggregation for the specified scope (band or "All Bands") ---
         band_data: Dict[str, pd.DataFrame] = {}
@@ -253,21 +256,52 @@ class Report(ContestReport):
             mult_sets[callsign].update(agg_data.index)
 
         union_of_all_mults = set.union(*mult_sets.values())
+        missed_mults_on_band = set()
+        for call in all_calls:
+            missed_mults_on_band.update(union_of_all_mults.difference(mult_sets[call]))
+            
+        # --- Pass 1: Pre-calculate all content and determine column widths ---
         
-        # --- Determine table structure and headers ---
+        # First column header
         if mult_name.lower() == 'countries':
             first_col_header = mult_rule.get('source', 'dxcc').upper()
         else:
             first_col_header = mult_name[:-1] if mult_name.lower().endswith('s') else mult_name
             first_col_header = first_col_header.capitalize()
 
-        max_mult_len = len(first_col_header)
-        if union_of_all_mults:
-            max_mult_len = max([len(str(m)) for m in union_of_all_mults] + [max_mult_len])
+        # Gather all strings for the first column to find its max width
+        first_col_content = [first_col_header, "Worked:", "Missed:", "Delta:"]
+        for mult in sorted(list(missed_mults_on_band)):
+            display_mult = str(mult)
+            if name_column and mult in prefix_to_name_map:
+                mult_full_name = prefix_to_name_map[mult]
+                if pd.notna(mult_full_name) and mult_full_name != '': 
+                    clean_name = str(mult_full_name).split(';')[0].strip()
+                    display_mult = f"{mult} ({clean_name})"
+            first_col_content.append(display_mult)
+        first_col_width = max(len(s) for s in first_col_content) if first_col_content else len(first_col_header)
 
-        first_col_width = max(max_mult_len, len("Missed:"))
-        
-        header_cells = [f"{call:^{col_width}}" for call in all_calls]
+        # Gather all strings for each callsign column to find its max width
+        col_widths = {}
+        for call in all_calls:
+            call_col_content = [call]
+            for mult in sorted(list(missed_mults_on_band)):
+                if call in band_data and mult in band_data[call].index:
+                    qso_count = band_data[call].loc[mult, 'QSO_Count']
+                    run_sp = band_data[call].loc[mult, 'Run_SP_Status']
+                    call_col_content.append(f"({run_sp}) {qso_count}")
+                else:
+                    call_col_content.append("0")
+            
+            total_worked = len(mult_sets[call])
+            total_missed = len(union_of_all_mults) - total_worked
+            call_col_content.append(str(total_worked))
+            call_col_content.append(str(total_missed))
+            
+            col_widths[call] = max(len(s) for s in call_col_content) if call_col_content else len(call)
+
+        # --- Pass 2: Format and build the report ---
+        header_cells = [f"{call:^{col_widths[call]}}" for call in all_calls]
         table_header = f"{first_col_header:<{first_col_width}} | {' | '.join(header_cells)}"
         table_width = len(table_header)
         
@@ -280,11 +314,6 @@ class Report(ContestReport):
 
         report_lines.append(table_header)
         
-        # --- Populate Table Rows ---
-        missed_mults_on_band = set()
-        for call in all_calls:
-            missed_mults_on_band.update(union_of_all_mults.difference(mult_sets[call]))
-
         if not missed_mults_on_band:
             report_lines.append(f"     (No missed {mult_name} for this scope)".center(table_width))
         else:
@@ -294,13 +323,10 @@ class Report(ContestReport):
                     if call in band_data and mult in band_data[call].index:
                         qso_count = band_data[call].loc[mult, 'QSO_Count']
                         run_sp = band_data[call].loc[mult, 'Run_SP_Status']
-                        text_part = f"({run_sp})"
-                        num_part = str(qso_count)
-                        padding = " " * (col_width - len(text_part) - len(num_part))
-                        cell_content = f"{text_part}{padding}{num_part}"
+                        cell_content = f"({run_sp}) {qso_count}"
                     else:
-                        cell_content = f"{'0':>{col_width}}"
-                    cell_parts.append(cell_content)
+                        cell_content = "0"
+                    cell_parts.append(f"{cell_content:>{col_widths[call]}}")
                 
                 display_mult = str(mult)
                 if name_column and mult in prefix_to_name_map:
@@ -312,24 +338,21 @@ class Report(ContestReport):
                 row_str = f"{display_mult:<{first_col_width}} | {' | '.join(cell_parts)}"
                 report_lines.append(row_str)
 
-        # --- Populate Table Footer (Summary) ---
-        # Create the list of separator strings first
-        separator_parts = ['---' for _ in all_calls]
-        # Join the parts into the final f-string
-        separator = f"{'':<{first_col_width}} | {' | '.join([f'{part:^{col_width}}' for part in separator_parts])}"
+        separator_parts = ['-' * col_widths[call] for call in all_calls]
+        separator = f"{'':<{first_col_width}} | {' | '.join(separator_parts)}"
         report_lines.append(separator)
         
         total_counts = {call: len(mult_sets[call]) for call in all_calls}
         union_count = len(union_of_all_mults)
         max_mults = max(total_counts.values()) if total_counts else 0
 
-        worked_cells = [f"{total_counts[call]:>{col_width}}" for call in all_calls]
+        worked_cells = [f"{total_counts[call]:>{col_widths[call]}}" for call in all_calls]
         worked_line = f"{'Worked:':<{first_col_width}} | {' | '.join(worked_cells)}"
         
-        missed_cells = [f"{union_count - total_counts[call]:>{col_width}}" for call in all_calls]
+        missed_cells = [f"{union_count - total_counts[call]:>{col_widths[call]}}" for call in all_calls]
         missed_line = f"{'Missed:':<{first_col_width}} | {' | '.join(missed_cells)}"
         
-        delta_cells = [f"{str(total_counts[call] - max_mults) if total_counts[call] - max_mults != 0 else '':>{col_width}}" for call in all_calls]
+        delta_cells = [f"{str(total_counts[call] - max_mults) if total_counts[call] - max_mults != 0 else '':>{col_widths[call]}}" for call in all_calls]
         delta_line = f"{'Delta:':<{first_col_width}} | {' | '.join(delta_cells)}"
         
         report_lines.append(worked_line)
