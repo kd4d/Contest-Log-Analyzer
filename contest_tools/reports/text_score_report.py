@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-23
-# Version: 0.48.5-Beta
+# Date: 2025-08-24
+# Version: 0.49.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -14,9 +14,22 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+# License, v. 2.0.
 # --- Revision History ---
+## [0.49.2-Beta] - 2025-08-24
+### Changed
+# - Refactored diagnostic logic to use the new, generic
+#   `mutually_exclusive_mults` property from the ContestDefinition class.
+## [0.49.1-Beta] - 2025-08-24
+### Fixed
+# - Corrected diagnostic logic to read the `score_report_rules` property
+#   from the ContestDefinition class, fixing the bug that caused the
+#   mutual-exclusion logic to be skipped.
+## [0.48.6-Beta] - 2025-08-24
+### Fixed
+# - Modified `_add_diagnostic_sections` to honor the
+#   `suppress_blank_mult_warnings` flag, hiding irrelevant diagnostic
+#   lists for contests like WPX.
 ## [0.48.5-Beta] - 2025-08-23
 ### Fixed
 # - Reworked per-band summary logic to correctly display "first-worked"
@@ -162,6 +175,7 @@ class Report(ContestReport):
             return
             
         log_location_type = getattr(log, '_my_location_type', None)
+        exclusive_groups = contest_def.mutually_exclusive_mults
 
         for rule in contest_def.multiplier_rules:
             applies_to = rule.get('applies_to')
@@ -174,6 +188,7 @@ class Report(ContestReport):
             if mult_col not in df.columns:
                 continue
 
+            # --- Check for "Unknown" Multipliers ---
             unknown_df = df[df[mult_col] == 'Unknown']
             unknown_calls = sorted(list(unknown_df['Call'].unique()))
             if unknown_calls:
@@ -184,7 +199,18 @@ class Report(ContestReport):
                     line_calls = unknown_calls[i:i+5]
                     report_lines.append("  ".join([f"{call:<12}" for call in line_calls]))
 
+            # --- Check for "Unassigned" (NaN) Multipliers ---
             unassigned_df = df[df[mult_col].isna()]
+            
+            # Filter out intentional blanks for mutually exclusive mults
+            for group in exclusive_groups:
+                if mult_col in group:
+                    partner_cols = [p for p in group if p != mult_col and p in df.columns]
+                    if partner_cols:
+                        indices_to_check = unassigned_df.index
+                        partner_values_exist = df.loc[indices_to_check, partner_cols].notna().any(axis=1)
+                        unassigned_df = unassigned_df.loc[~partner_values_exist]
+            
             unassigned_calls = sorted(list(unassigned_df['Call'].unique()))
             if unassigned_calls:
                 report_lines.append("\n" + "-" * 40)
@@ -247,7 +273,7 @@ class Report(ContestReport):
                     else:
                         band_counts_series = per_band_mult_counts.get(m_col)
                         if band_counts_series is not None:
-                             band_mode_summary[m_name] = band_counts_series.get(band, 0)
+                            band_mode_summary[m_name] = band_counts_series.get(band, 0)
                         else:
                              band_mode_summary[m_name] = 0
 
@@ -273,7 +299,7 @@ class Report(ContestReport):
                     total_mults_for_rule = df_valid[mult_col].nunique()
                 else:
                     total_mults_for_rule = per_band_mult_counts.get(mult_col, pd.Series()).sum()
-                
+            
                 total_summary[mult_name] = total_mults_for_rule
                 total_multiplier_count += total_mults_for_rule
             

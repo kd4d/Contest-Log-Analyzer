@@ -1,10 +1,15 @@
 # Project Workflow Guide
 
-**Version: 0.47.6-Beta**
-**Date: 2025-08-23**
+**Version: 0.48.0-Beta**
+**Date: 2025-08-24**
 
 ---
 ### --- Revision History ---
+## [0.48.0-Beta] - 2025-08-24
+### Changed
+# - Merged the Pre-Flight Check (2.6) into the Implementation Plan
+#   protocol (2.5) to reflect the new, more detailed planning process.
+# - Renumbered subsequent protocols in the Task Execution Workflow.
 ## [0.47.6-Beta] - 2025-08-23
 ### Added
 # - Added clarification to Protocol 1.5 that version numbers are only
@@ -182,16 +187,18 @@ This workflow is a formal state machine that governs all development tasks, from
     5.  **Review and Iteration:** The user reviews the prototype's output and provides feedback. This step can be repeated until the prototype is correct.
     6.  **Approval:** The user gives explicit approval of the final prototype. This approval serves as the visual and logical ground truth for the subsequent implementation plan.
 2.4. **Baseline Consistency Check.** Before presenting an implementation plan, the AI must perform and explicitly state the completion of a "Baseline Consistency Check." This check verifies that all proposed actions (e.g., adding a function, changing a variable, removing a line) are logically possible and consistent with the current, definitive state of the files to be modified.
-2.5. **Implementation Plan**: The user requests an implementation plan. The AI provides a detailed plan, which must adhere to the **Pre-Flight Check Protocol (2.6)**.
-2.6. **Pre-Flight Check Protocol.** The AI will perform a "white-box" mental code review **before** delivering a modified file.
-    1.  **Stating the Plan:** The AI will state its Pre-Flight Check plan. The **Inputs** section must include the full filename and the specific baseline version number of the file to be modified. The plan must also state the **Expected Outcome**.
-    2.  **Mental Walkthrough:** The AI will mentally trace the execution path to confirm the logic produces the expected outcome.
-    3.  **User Verification:** The user performs the final verification by running the code.
-    4.  **State Confirmation Procedure**: The AI will affirm that the mandatory confirmation prompt, as defined in Protocol 4.4, will be included with the file delivery.
-2.7. **Plan Refinement**: The user reviews the plan and may request changes or refinements. The AI provides a revised plan, repeating this step as necessary.
-2.8. **Approval**: The user provides explicit approval of the final implementation plan (e.g., "Approved"). Instructions, clarifications, or new requirements provided after a plan has been proposed do not constitute approval; they will be treated as requests for plan refinement under Protocol 2.7.
-2.9. **Execution**: Upon approval, the AI will proceed with the **Confirmed File Delivery Protocol (4.4)**.
-2.10. **Propose Verification Command**: After the final file in an implementation plan has been delivered and acknowledged by the user, the AI's final action for the task is to propose the specific command-line instruction(s) the user should run to verify that the bug has been fixed or the feature has been implemented correctly.
+2.5. **Implementation Plan**: The user requests an implementation plan. The AI's response must be a comprehensive document containing the following sections for each file to be modified:
+    1.  **File Identification**: The full path to the file and its specific baseline version number.
+    2.  **Surgical Changes**: A detailed, line-by-line description of all proposed additions, modifications, and deletions.
+    3.  **Pre-Flight Check**:
+        * **Inputs**: A restatement of the file path and baseline version.
+        * **Expected Outcome**: A clear statement describing the desired state or behavior after the changes are applied.
+        * **Mental Walkthrough Confirmation**: A statement affirming that a mental walkthrough of the logic will be performed before generating the file.
+        * **State Confirmation Procedure**: An affirmation that the mandatory confirmation prompt (as defined in Protocol 4.4) will be included with the file delivery.
+2.6. **Plan Refinement**: The user reviews the plan and may request changes or refinements. The AI provides a revised plan, repeating this step as necessary.
+2.7. **Approval**: The user provides explicit approval of the final implementation plan (e.g., "Approved"). Instructions, clarifications, or new requirements provided after a plan has been proposed do not constitute approval; they will be treated as requests for plan refinement under Protocol 2.6.
+2.8. **Execution**: Upon approval, the AI will proceed with the **Confirmed File Delivery Protocol (4.4)**.
+2.9. **Propose Verification Command**: After the final file in an implementation plan has been delivered and acknowledged by the user, the AI's final action for the task is to propose the specific command-line instruction(s) the user should run to verify that the bug has been fixed or the feature has been implemented correctly.
 ### 3. File and Data Handling
 
 3.1. **Project File Input.** All project source files and documentation will be provided for updates in a single text file called a **project bundle**, or pasted individually into the chat. The bundle uses a simple text header to separate each file: `--- FILE: path/to/file.ext ---`
@@ -200,15 +207,15 @@ This workflow is a formal state machine that governs all development tasks, from
     2.  **Raw Source Text**: The content inside the delivered code block must be the raw source text of the file.
     3.  **Code File Delivery**: For code files (e.g., `.py`, `.json`), the content will be delivered in a standard fenced code block with the appropriate language specifier.
     4.  **Markdown File Delivery**: To prevent the user interface from rendering markdown and to provide a "Copy" button, the entire raw content of a documentation file (`.md`) must be delivered inside a single, plaintext-specified code block. The rule for replacing internal code fences with `__CODE_BLOCK__` still applies to the content within this block.
-        __CODE_BLOCK__text
+        ```text
         # Markdown Header
 
         This is the raw text of the .md file.
 
-        __CODE_BLOCK__
+        ```
         # An internal code block is replaced.
-        __CODE_BLOCK__
-        __CODE_BLOCK__
+        ```
+        ```
 3.3. **File and Checksum Verification.**
     1.  **Line Endings:** The user's file system uses Windows CRLF (`\r\n`). The AI must correctly handle this conversion when calculating checksums.
     2.  **Concise Reporting:** The AI will either state that **all checksums agree** or will list the **specific files that show a mismatch**.

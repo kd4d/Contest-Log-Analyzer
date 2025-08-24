@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-06
-# Version: 0.30.40-Beta
+# Date: 2025-08-24
+# Version: 0.30.41-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -14,9 +14,13 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+# License, v. 2.0.
 # --- Revision History ---
+## [0.30.41-Beta] - 2025-08-24
+### Fixed
+# - Corrected logic to populate the DXCC multiplier value column with the
+#   DXCC Prefix instead of the full DXCC Name, fixing the redundant name
+#   bug in downstream reports.
 ## [0.30.40-Beta] - 2025-08-06
 ### Fixed
 # - Updated all references to the old CONTEST_DATA_DIR environment variable
@@ -53,7 +57,7 @@ def resolve_multipliers(df: pd.DataFrame, my_location_type: Optional[str]) -> pd
 
     df['STPROV_Mult'] = df.apply(get_stprov_mult, axis=1)
 
-    df['DXCC_Mult'] = df['DXCCName']
+    df['DXCC_Mult'] = df['DXCCPfx']
     df['DXCC_MultName'] = df['DXCCName']
 
     return df

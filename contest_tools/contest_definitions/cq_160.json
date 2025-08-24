@@ -1,7 +1,7 @@
 {
   "_filename": "contest_tools/contest_definitions/cq_160.json",
-  "_version": "0.35.6-Beta",
-  "_date": "2025-08-21",
+  "_version": "0.49.1-Beta",
+  "_date": "2025-08-24",
   "contest_name": "CQ-160",
   "enable_adif_export": true,
   "custom_parser_module": "cq_160_parser",
@@ -15,6 +15,9 @@
     "single_op_max_hours": 30,
     "multi_op_max_hours": 40
   },
+  "mutually_exclusive_mults": [
+    ["Mult1", "Mult2"]
+  ],
   "exchange_parsing_rules": {
     "CQ-160-CW": [
       {
