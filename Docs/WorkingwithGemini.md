@@ -1,10 +1,16 @@
 # Project Workflow Guide
 
-**Version: 0.48.0-Beta**
+**Version: 0.48.1-Beta**
 **Date: 2025-08-24**
 
 ---
 ### --- Revision History ---
+## [0.48.1-Beta] - 2025-08-24
+### Changed
+# - Amended Protocol 2.1 (Task Initiation) to require a mandatory check
+#   for an established session version number before proceeding.
+# - Clarified Protocol 3.4.3 (Update Procedure) to explicitly forbid
+#   unauthorized changes to major or minor version numbers.
 ## [0.48.0-Beta] - 2025-08-24
 ### Changed
 # - Merged the Pre-Flight Check (2.6) into the Implementation Plan
@@ -177,7 +183,7 @@ These are the step-by-step procedures for common, day-to-day development tasks.
     * `data/`: Required data files (e.g., `cty.dat`).
 ### 2. Task Execution Workflow
 This workflow is a formal state machine that governs all development tasks, from initial request to final completion.
-2.1. **Task Initiation**: The user provides a problem, feature request, or document update and requests an analysis.
+2.1. **Task Initiation**: The user provides a problem, feature request, or document update and requests an analysis. Before proceeding, the AI must verify that a session version series (as defined in Protocol 1.6) has been established. If it has not, the AI must ask for it before providing any analysis.
 2.2. **Analysis and Discussion**: The AI provides an initial analysis. The user and AI may discuss the analysis to refine the understanding of the problem.
 2.3. **Visual Prototype Protocol.** This protocol is used to resolve ambiguity in tasks involving complex visual layouts or new, hard-to-describe logic before a full implementation is planned.
     1.  **Initiation:** The AI proposes or the user requests a prototype to clarify a concept.
@@ -207,15 +213,15 @@ This workflow is a formal state machine that governs all development tasks, from
     2.  **Raw Source Text**: The content inside the delivered code block must be the raw source text of the file.
     3.  **Code File Delivery**: For code files (e.g., `.py`, `.json`), the content will be delivered in a standard fenced code block with the appropriate language specifier.
     4.  **Markdown File Delivery**: To prevent the user interface from rendering markdown and to provide a "Copy" button, the entire raw content of a documentation file (`.md`) must be delivered inside a single, plaintext-specified code block. The rule for replacing internal code fences with `__CODE_BLOCK__` still applies to the content within this block.
-        ```text
+        __CODE_BLOCK__text
         # Markdown Header
 
         This is the raw text of the .md file.
 
-        ```
+        __CODE_BLOCK__
         # An internal code block is replaced.
-        ```
-        ```
+        __CODE_BLOCK__
+        __CODE_BLOCK__
 3.3. **File and Checksum Verification.**
     1.  **Line Endings:** The user's file system uses Windows CRLF (`\r\n`). The AI must correctly handle this conversion when calculating checksums.
     2.  **Concise Reporting:** The AI will either state that **all checksums agree** or will list the **specific files that show a mismatch**.
@@ -226,7 +232,7 @@ This workflow is a formal state machine that governs all development tasks, from
         * **Python (`.py`) files**: Contained within a "Revision History" section in the file's docstring.
         * **JSON (`.json`) files**: Stored as the value for a `"version"` parameter.
         * **Data (`.dat`) files**: Found within a commented revision history block.
-    3.  **Update Procedure**: When a file is modified, only its patch number (`z`) will be incremented; this is done on a per-file basis. Major (`x`) or minor (`y`) version changes will only be made upon explicit user direction.
+    3.  **Update Procedure**: When a file is modified, only its patch number (`z`) will be incremented; this is done on a per-file basis. Major (`x`) or minor (`y`) version changes are forbidden unless explicitly directed by the user.
     4.  **History Preservation**: All existing revision histories must be preserved and appended to, never regenerated from scratch.
 
 3.5. **File Naming Convention Protocol.** All generated report files must adhere to the standardized naming convention: `<report_id>_<details>_<callsigns>.<ext>`.

@@ -1,10 +1,14 @@
 # Git Feature Branch Workflow
 
-**Version: 0.40.8-Beta**
+**Version: 0.40.11-Beta**
 **Date: 2025-08-24**
 
 ---
 ### --- Revision History ---
+## [0.40.11-Beta] - 2025-08-24
+### Added
+# - Added a new subsection to "Managing Files" explaining how to view a
+#   file's history and diffs using `git log`, `git show`, and `git diff`.
 ## [0.40.8-Beta] - 2025-08-24
 ### Added
 # - Added a subsection to "Managing Files" explaining `git restore`.
@@ -159,6 +163,30 @@ If you have made changes to a file in your working directory that you have **not
 git restore path/to/your/file.js
 ```
 **Warning:** This is a destructive operation. Once you restore the file, your local changes are gone permanently.
+
+### Viewing File History and Changes
+To inspect how a specific file has changed over time, you can use variations of `git log` and `git show`.
+
+* **See the commit history for one file:**
+```
+git log -- path/to/your/file.ext
+```
+
+* **See the history with the actual changes (diffs) for each commit:**
+```
+git log -p -- path/to/your/file.ext
+```
+
+* **See the changes from a single, specific commit:**
+```
+# Get the commit hash from the log first
+git show <commit-hash> -- path/to/your/file.ext
+```
+
+* **See your current uncommitted changes:**
+```
+git diff -- path/to/your/file.ext
+```
 
 ---
 ## 9. Visualizing the History (`git log`)

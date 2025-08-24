@@ -1,10 +1,14 @@
 # Contest Log Analyzer - Programmer's Guide
 
-**Version: 0.49.1-Beta**
+**Version: 0.40.10-Beta**
 **Date: 2025-08-24**
 
 ---
 ### --- Revision History ---
+## [0.40.10-Beta] - 2025-08-24
+### Added
+# - Added a section explaining when and why __init__.py files need to
+#   be updated, clarifying the project's dynamic vs. explicit import models.
 ## [0.49.1-Beta] - 2025-08-24
 ### Changed
 # - Replaced the `score_report_rules` key with the more generic
@@ -136,7 +140,7 @@ class Report(ContestReport):
         log = self.logs[0]
         callsign = log.get_metadata().get('MyCall', 'N/A')
         report_content = f"Hello, {callsign}!"
-        # In a real report, you would save this content to a file.
+# In a real report, you would save this content to a file.
         print(report_content)
         
         return f"Report '{self.report_name}' generated successfully."
@@ -185,6 +189,13 @@ After initial parsing, `contest_log.py` orchestrates a sequence of data enrichme
 2.  **Custom Multiplier Resolver**: If `custom_multiplier_resolver` is defined in the JSON, the specified module is dynamically imported and its `resolve_multipliers` function is executed.
 3.  **Standard Multiplier Rules**: The system processes the `multiplier_rules` from the JSON. If a rule has `"source": "calculation_module"`, it dynamically imports and runs the specified function. This is how WPX prefixes are calculated.
 4.  **Scoring**: The system looks for a scoring module by convention (e.g., `cq_ww_cw_scoring.py`) and executes its `calculate_points` function.
+### A Note on `__init__.py` Files
+The need to update an `__init__.py` file depends on whether a package uses dynamic or explicit importing.
+
+* **Dynamic Importing (No Update Needed):** Directories like `contest_tools/contest_specific_annotations` and `contest_tools/reports` are designed as "plug-in" folders. The application uses dynamic importing (`importlib.import_module`) to load these modules by name from the JSON definitions or by discovery. Therefore, the `__init__.py` files in these directories are intentionally left empty and **do not need to be updated** when a new module is added.
+
+* **Explicit Importing (Update Required):** When a new parameter is added to a `.json` file, the `ContestDefinition` class in `contest_tools/contest_definitions/__init__.py` **must be updated**. A new `@property` must be added to the class to expose the new data from the JSON file to the rest of the application. This is a critical maintenance step for extending the data model. Similarly, packages like `contest_tools/core_annotations` use their `__init__.py` to explicitly expose functions and classes, and would need to be updated if a new core utility were added.
+
 ### Advanced Guide: Extending Core Logic (Implementation Contracts)
 For contests requiring logic beyond simple JSON definitions, create a Python module in `contest_tools/contest_specific_annotations/`. Each module type has a specific contract (required function and signature) it must fulfill.
 * **Custom Parser Modules**:
@@ -205,3 +216,4 @@ This appendix lists the most important files for developers to consult to unders
 * **`contest_tools/reports/report_interface.py`**: Defines the `ContestReport` abstract base class that all new reports must inherit from.
 * **`contest_tools/contest_log.py`**: The central orchestrator for applying contest-specific logic, including custom parsers, multiplier resolvers, and scoring modules.
 * **`contest_tools/core_annotations/_core_utils.py`**: Contains shared utilities, most notably the `AliasLookup` class for handling complex multiplier aliases.
+---
