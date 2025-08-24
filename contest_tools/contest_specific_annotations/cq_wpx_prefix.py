@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-11
-# Version: 0.31.59-Beta
+# Date: 2025-08-23
+# Version: 0.48.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,6 +16,12 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.48.0-Beta] - 2025-08-23
+### Changed
+# - Refactored module to be a `custom_multiplier_resolver`.
+# - Renamed `calculate_wpx_prefixes` to `resolve_multipliers`.
+# - Function now adds a non-sparse `WPXPfx` column for every QSO and a
+#   sparse `Mult1` column for scoring.
 ## [0.31.59-Beta] - 2025-08-11
 ### Added
 # - Added detailed INFO-level logging to the _get_prefix helper function
@@ -43,8 +49,8 @@
 #   WPXPrefixLookupAlgorithm.md.
 ## [0.31.51-Beta] - 2025-08-10
 ### Changed
-# - Rewrote prefix calculation to identify the first time each prefix is
-#   worked on each band, per user specification.
+# - Rewrote prefix calculation to be stateful, identifying only the
+#   first time each prefix is worked on each band, per user specification.
 ## [0.31.50-Beta] - 2025-08-10
 ### Fixed
 # - Corrected the _get_prefix helper function to precisely implement the
@@ -60,7 +66,7 @@
 import pandas as pd
 import re
 import logging
-from typing import Optional
+from typing import Optional, Dict, Any
 
 def _clean_callsign(call: str) -> str:
     """
@@ -164,29 +170,30 @@ def _get_prefix(row: pd.Series) -> str:
     logging.info(f"  - Result: '{prefix_result}' (Final)")
     return prefix_result
 
-def calculate_wpx_prefixes(df: pd.DataFrame) -> pd.Series:
+def resolve_multipliers(df: pd.DataFrame, my_location_type: str) -> pd.DataFrame:
     """
-    Calculates the WPX prefix for each QSO, returning a sparse Series that
-    contains the prefix only for the first time it was worked in the contest.
+    Calculates the WPX prefix for each QSO, adding two new columns:
+    - `WPXPfx`: A non-sparse column with the prefix for every QSO.
+    - `Mult1`: A sparse column with the prefix only for the first time it was worked.
     """
     required_cols = ['Call', 'DXCCPfx', 'portableid', 'Datetime']
     for col in required_cols:
         if col not in df.columns:
-            # Return an empty series if required columns are not present.
-            return pd.Series(None, index=df.index, dtype=object)
+            df['Mult1'] = pd.NA
+            df['WPXPfx'] = pd.NA
+            return df
 
-    # Create a temporary DataFrame to calculate prefixes for all QSOs first
-    df_temp = df[required_cols].copy()
-    df_temp['Prefix'] = df_temp.apply(_get_prefix, axis=1)
+    # --- Step 1: Create the non-sparse `WPXPfx` column ---
+    df['WPXPfx'] = df.apply(_get_prefix, axis=1)
     
-    # Sort by time to process QSOs chronologically
-    df_temp.sort_values(by='Datetime', inplace=True)
+    # --- Step 2: Create the sparse `Mult1` column for scoring ---
+    df_sorted = df.sort_values(by='Datetime')
     
     seen_prefixes = set()
     results_dict = {}
 
-    for index, row in df_temp.iterrows():
-        prefix = row.get('Prefix')
+    for index, row in df_sorted.iterrows():
+        prefix = row.get('WPXPfx')
         
         if pd.notna(prefix) and prefix != "Unknown":
             if prefix not in seen_prefixes:
@@ -197,7 +204,7 @@ def calculate_wpx_prefixes(df: pd.DataFrame) -> pd.Series:
         else:
             results_dict[index] = None
 
-    # Reconstruct the Series in the original DataFrame's order
-    final_series = pd.Series(results_dict, index=df.index)
+    # Map the sparse results back to the original DataFrame
+    df['Mult1'] = df.index.map(results_dict)
     
-    return final_series
+    return df
