@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-25
-# Version: 0.49.3-Beta
+# Version: 0.49.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,6 +16,14 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0.
 # --- Revision History ---
+## [0.49.5-Beta] - 2025-08-25
+### Fixed
+# - Refactored logic to filter zero-point QSOs at the start of the
+#   calculation, ensuring the main QSO counts are correct.
+## [0.49.4-Beta] - 2025-08-25
+### Fixed
+# - Corrected a variable name typo that prevented zero-point QSOs from
+#   being correctly filtered out of multiplier calculations.
 ## [0.49.3-Beta] - 2025-08-25
 ### Fixed
 # - Corrected the multiplier counting logic in `_calculate_all_scores` to
@@ -227,9 +235,15 @@ class Report(ContestReport):
 
     def _calculate_all_scores(self, log: ContestLog, output_path: str, **kwargs) -> Tuple[List[Dict], Dict, int]:
         df_full = log.get_processed_data()
-        df_net = df_full[df_full['Dupe'] == False].copy()
         contest_def = log.contest_definition
         multiplier_rules = contest_def.multiplier_rules
+        
+        # Start with a DataFrame of non-duplicate QSOs
+        df_net = df_full[df_full['Dupe'] == False].copy()
+        
+        # If the contest rules require it, filter out zero-point QSOs for all counts
+        if not contest_def.mults_from_zero_point_qsos:
+            df_net = df_net[df_net['QSOPoints'] > 0].copy()
         
         # --- Pre-computation for all multiplier types ---
         per_band_mult_counts = {}
@@ -240,12 +254,10 @@ class Report(ContestReport):
             mult_col = rule['value_column']
             if mult_col not in df_net.columns: continue
 
-            df_valid = df_net[df_net[mult_col].notna() & (df_net[mult_col] != 'Unknown')]
-            if not contest_def.mults_from_zero_point_qsos:
-                df_valid = df_valid[df_valid['QSOPoints'] > 0]
-
+            df_valid_mults = df_net[df_net[mult_col].notna() & (df_net[mult_col] != 'Unknown')]
+            
             if rule.get('totaling_method') == 'once_per_log':
-                df_sorted = df_valid.sort_values(by='Datetime')
+                df_sorted = df_valid_mults.sort_values(by='Datetime')
                 overall_seen_mults = set()
                 new_mults_per_band_mode = {}
                 
@@ -257,7 +269,7 @@ class Report(ContestReport):
                     overall_seen_mults.update(new_mults)
                 first_worked_mult_counts[mult_col] = new_mults_per_band_mode
             else:
-                pivot = calculate_multiplier_pivot(df_valid, mult_col, group_by_call=False)
+                pivot = calculate_multiplier_pivot(df_valid_mults, mult_col, group_by_call=False)
                 per_band_mult_counts[mult_col] = (pivot > 0).sum(axis=0)
 
         # --- Per-Band/Mode Summary Calculation ---
@@ -295,19 +307,16 @@ class Report(ContestReport):
             mult_name = rule['name']
             mult_col = rule['value_column']
 
-            # --- NEW: Check if the rule applies to this logger ---
             applies_to = rule.get('applies_to')
             if applies_to and log_location_type and applies_to != log_location_type:
                 total_summary[mult_name] = 0
-                continue # Skip this rule
+                continue
             
             if mult_col in df_net.columns:
-                df_valid = df_net[df_net[mult_col].notna() & (df_net[mult_col] != 'Unknown')]
-                if not contest_def.mults_from_zero_point_qsos:
-                    df_valid = df_valid[df_valid['QSOPoints'] > 0]
+                df_valid_mults = df_net[df_net[mult_col].notna() & (df_net[mult_col] != 'Unknown')]
 
                 if rule.get('totaling_method') == 'once_per_log':
-                    total_mults_for_rule = df_valid[mult_col].nunique()
+                    total_mults_for_rule = df_valid_mults[mult_col].nunique()
                 else:
                     total_mults_for_rule = per_band_mult_counts.get(mult_col, pd.Series()).sum()
             
