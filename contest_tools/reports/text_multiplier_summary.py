@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-24
-# Version: 0.47.9-Beta
+# Version: 0.47.10-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.47.10-Beta] - 2025-08-24
+### Fixed
+# - Added a check for an empty pivot table to prevent a crash when no
+#   multipliers of the specified type are found in the logs.
 ## [0.47.9-Beta] - 2025-08-24
 ### Fixed
 # - Added logic to the diagnostic section to handle mutually exclusive
@@ -109,18 +113,18 @@ class Report(ContestReport):
         if not dfs:
             mode_str = f" on mode '{mode_filter}'" if mode_filter else ""
             return f"Report '{self.report_name}' for '{mult_name}'{mode_str} skipped as no data was found."
-        
+
         mult_rule = next((r for r in contest_def.multiplier_rules if r.get('name', '').lower() == mult_name.lower()), None)
         if not mult_rule or 'value_column' not in mult_rule:
             return f"Error: Multiplier type '{mult_name}' not found in definition."
-        
+
         mult_column = mult_rule['value_column']
         name_column = mult_rule.get('name_column')
         
         combined_df = pd.concat(dfs, ignore_index=True)
         if combined_df.empty or mult_column not in combined_df.columns:
             return f"No '{mult_name}' multiplier data to report for mode '{mode_filter}'."
-        
+
         main_df = combined_df[combined_df[mult_column].notna()]
         main_df = main_df[main_df[mult_column] != 'Unknown']
 
@@ -139,6 +143,29 @@ class Report(ContestReport):
         
         pivot = calculate_multiplier_pivot(main_df, mult_column, group_by_call=is_comparative)
 
+        # --- Report Header Setup ---
+        year = dfs[0]['Date'].iloc[0].split('-')[0] if not dfs[0].empty else "----"
+        mode_title_str = f" ({mode_filter})" if mode_filter else ""
+        title1 = f"--- {self.report_name}: {mult_name}{mode_title_str} ---"
+        title2 = f"{year} {contest_def.contest_name} - {', '.join(all_calls)}"
+        report_lines = []
+
+        # --- NEW: Gracefully handle cases with no multipliers ---
+        if pivot.empty:
+            report_lines.append(title1)
+            report_lines.append(title2)
+            report_lines.append(f"\nNo '{mult_name}' multipliers found to summarize.")
+            # --- Save the clean (but empty) report and exit ---
+            report_content = "\n".join(report_lines) + "\n"
+            os.makedirs(output_path, exist_ok=True)
+            filename_calls = '_vs_'.join(sorted(all_calls))
+            mode_suffix = f"_{mode_filter.lower()}" if mode_filter else ""
+            filename = f"{self.report_id}_{mult_name.lower()}{mode_suffix}_{filename_calls}.txt"
+            filepath = os.path.join(output_path, filename)
+            with open(filepath, 'w', encoding='utf-8') as f:
+                f.write(report_content)
+            return f"Text report saved to: {filepath}"
+        
         name_map = {}
         if name_column and name_column in main_df.columns:
             name_map_df = main_df[[mult_column, name_column]].dropna().drop_duplicates()
@@ -182,13 +209,6 @@ class Report(ContestReport):
         table_width = len(table_header)
         separator = "-" * table_width
         
-        year = dfs[0]['Date'].iloc[0].split('-')[0] if not dfs[0].empty else "----"
-        
-        mode_title_str = f" ({mode_filter})" if mode_filter else ""
-        title1 = f"--- {self.report_name}: {mult_name}{mode_title_str} ---"
-        title2 = f"{year} {contest_def.contest_name} - {', '.join(all_calls)}"
-        
-        report_lines = []
         header_width = max(table_width, len(title1), len(title2))
         if len(title1) > table_width or len(title2) > table_width:
              report_lines.append(f"{title1.ljust(header_width)}")

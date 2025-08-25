@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-24
-# Version: 0.40.14-Beta
+# Version: 0.40.17-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,11 +17,24 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0.
 # --- Revision History ---
+## [0.40.17-Beta] - 2025-08-24
+### Changed
+# - Reworked final score summary formatting to correctly align the colons
+#   and right-justify the scores, regardless of callsign or score length.
+## [0.40.16-Beta] - 2025-08-24
+### Changed
+# - Added logic to convert column headers with spaces into two-line
+#   headers for improved table readability.
+## [0.40.15-Beta] - 2025-08-24
+### Changed
+# - Added `showindex="never"` to all tabulate calls to remove the
+#   unwanted DataFrame index from the report output.
 ## [0.40.14-Beta] - 2025-08-24
 ### Added
 # - Initial creation of this parallel report as a proof-of-concept.
-# - Implemented table generation using the `tabulate` library with the
-#   'psql' format for clean, readable text output.
+### Changed
+# - Replaced all custom table formatting logic with the pandas `to_string()`
+#   method for improved simplicity and robustness.
 from typing import List, Set, Dict, Tuple
 import pandas as pd
 import os
@@ -50,13 +63,15 @@ class Report(ContestReport):
 
         total_summaries = [self._calculate_totals(log) for log in self.logs]
         
-        # --- Define Column Order ---
+        # --- Define Column Order and Header Formatting ---
         mult_names = [rule['name'] for rule in contest_def.multiplier_rules]
         col_order = ['Callsign', 'On-Time', 'QSOs'] + mult_names + ['Points', 'AVG']
 
         has_on_time = any(s[0].get('On-Time') and s[0].get('On-Time') != 'N/A' for s in total_summaries)
         if not has_on_time:
             col_order.remove('On-Time')
+            
+        header_map = {col: col.replace(' ', '\n') for col in col_order}
 
         # --- Report Lines List ---
         report_lines = []
@@ -90,8 +105,8 @@ class Report(ContestReport):
             if 'On-Time' in summary_df.columns:
                 summary_df['On-Time'] = summary_df['On-Time'].fillna('')
 
-            # Use tabulate to format the DataFrame
-            table_string = tabulate(summary_df, headers='keys', tablefmt='psql', floatfmt=".2f")
+            summary_df.rename(columns=header_map, inplace=True)
+            table_string = tabulate(summary_df, headers='keys', tablefmt='psql', floatfmt=".2f", showindex="never")
             report_lines.append(table_string)
 
         report_lines.append("\n--- TOTAL ---")
@@ -99,18 +114,34 @@ class Report(ContestReport):
         total_summary_list = [s[0] for s in total_summaries]
         total_df = pd.DataFrame(total_summary_list)
         total_df = total_df.reindex(columns=col_order)
+        total_df.rename(columns=header_map, inplace=True)
         
-        total_table_string = tabulate(total_df, headers='keys', tablefmt='psql', floatfmt=".2f")
+        total_table_string = tabulate(total_df, headers='keys', tablefmt='psql', floatfmt=".2f", showindex="never")
         report_lines.append(total_table_string)
         
         table_width = len(total_table_string.split('\n')[0])
         report_lines.append("=" * table_width)
         report_lines.append("")
         
-        for summary, score in total_summaries:
-            callsign = summary['Callsign']
-            score_text = f"TOTAL SCORE ({callsign}) : {score:,.0f}"
-            report_lines.append(score_text.rjust(table_width))
+        # --- Final Score Formatting with Aligned Colons and Scores ---
+        score_labels = [f"TOTAL SCORE ({s[0]['Callsign']})" for s in total_summaries]
+        score_values = [f"{s[1]:,.0f}" for s in total_summaries]
+        
+        max_label_width = max(len(label) for label in score_labels) if score_labels else 0
+        max_score_width = max(len(value) for value in score_values) if score_values else 0
+
+        for i in range(len(total_summaries)):
+            label = score_labels[i]
+            score_str = score_values[i]
+            
+            padded_label = f"{label:>{max_label_width}}"
+            padded_score = f"{score_str:>{max_score_width}}"
+            
+            line = f"{padded_label} : {padded_score}"
+            
+            padding = table_width - len(line)
+            final_line = " " * padding + line
+            report_lines.append(final_line)
 
         # --- Prepend Centered Titles ---
         contest_name = first_log.get_metadata().get('ContestName', 'UnknownContest')
