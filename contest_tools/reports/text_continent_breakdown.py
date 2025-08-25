@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-16
-# Version: 0.37.2-Beta
+# Date: 2025-08-25
+# Version: 0.37.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -14,9 +14,21 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+# License, v. 2.0.
 # --- Revision History ---
+## [0.37.5-Beta] - 2025-08-25
+### Fixed
+# - Corrected an order-of-operations bug where the report title was
+#   centered using a stale table width. The title is now centered using
+#   the final, dynamic width of the report grid.
+## [0.37.4-Beta] - 2025-08-25
+### Changed
+# - The report's grid layout is now generated dynamically based on the
+#   continents present in the data, eliminating empty columns.
+## [0.37.3-Beta] - 2025-08-25
+### Changed
+# - Modified report logic to be data-driven, omitting sections for
+#   continents with zero QSOs to improve readability.
 ## [0.37.2-Beta] - 2025-08-16
 ### Added
 # - Added per-continent totals and a final overall total section to the
@@ -94,25 +106,15 @@ class Report(ContestReport):
             )
 
             col_width = 35
-            table_width = col_width * 3
-            title1 = f"--- {self.report_name} ---"
-            title2 = f"{year} {contest_name} - {callsign}"
-            
             report_lines = []
-            if len(title1) > table_width or len(title2) > table_width:
-                header_width = max(len(title1), len(title2))
-                report_lines.append(f"{title1.ljust(header_width)}")
-                report_lines.append(f"{title2.center(header_width)}")
-            else:
-                header_width = table_width
-                report_lines.append(title1.center(header_width))
-                report_lines.append(title2.center(header_width))
-            report_lines.append("")
 
             # --- Grid Formatting Logic ---
             formatted_data = {}
-            for cont_name in sorted(continent_map.values()):
-                if cont_name in pivot.index.get_level_values('ContinentName'):
+            table_width = 0
+            
+            if not pivot.empty:
+                continents_with_data = sorted(pivot.index.get_level_values('ContinentName').unique())
+                for cont_name in continents_with_data:
                     continent_lines = []
                     continent_data = pivot.loc[cont_name]
                     for band in bands:
@@ -123,7 +125,6 @@ class Report(ContestReport):
                                 line = f"    {run_status:<9}: {band_data.get(run_status, 0):>8}"
                                 continent_lines.append(line)
                     
-                    # Add a total for the continent
                     if not continent_data.empty:
                         continent_totals = continent_data.sum()
                         total_qsos_for_continent = continent_totals.sum()
@@ -134,30 +135,49 @@ class Report(ContestReport):
                         continent_lines.append(f"    {'Total':<9}: {total_qsos_for_continent:>8}")
 
                     formatted_data[cont_name] = continent_lines
-
-            grid_layout = [
-                ["North America", "South America", "Europe"],
-                ["Asia", "Africa", "Oceania"]
-            ]
-            
-            for grid_row in grid_layout:
-                row_continent_data = [formatted_data.get(c, []) for c in grid_row]
                 
-                if not any(row_continent_data):
-                    continue
+                # Dynamically build the grid layout
+                grid_layout = []
+                max_cols = 3
+                for i in range(0, len(continents_with_data), max_cols):
+                    grid_layout.append(continents_with_data[i:i+max_cols])
 
-                header_line = "".join([f"{name:^{col_width}}" for name in grid_row])
-                separator = "".join([f"{'-' * (len(name)):^{col_width}}" for name in grid_row])
-                report_lines.append("\n" + header_line)
-                report_lines.append(separator)
+                # Recalculate table width based on dynamic grid
+                if grid_layout:
+                    table_width = col_width * len(grid_layout[0])
+                
+                # --- THIS BLOCK MOVED TO AFTER WIDTH CALCULATION ---
+                title1 = f"--- {self.report_name} ---"
+                title2 = f"{year} {contest_name} - {callsign}"
+                header_width = max(table_width, len(title1), len(title2))
+                
+                if len(title1) > table_width or len(title2) > table_width:
+                    report_lines.insert(0, f"{title2.center(header_width)}")
+                    report_lines.insert(0, f"{title1.ljust(header_width)}")
+                else:
+                    report_lines.insert(0, f"{title2.center(header_width)}")
+                    report_lines.insert(0, title1.center(header_width))
+                report_lines.insert(2, "")
+                # --- END MOVED BLOCK ---
 
-                max_lines = max(len(d) for d in row_continent_data) if row_continent_data else 0
-                for i in range(max_lines):
-                    line_parts = []
-                    for continent_data_block in row_continent_data:
-                        line = continent_data_block[i] if i < len(continent_data_block) else ""
-                        line_parts.append(f"{line:<{col_width}}")
-                    report_lines.append("".join(line_parts))
+                for grid_row in grid_layout:
+                    row_continent_data = [formatted_data.get(c, []) for c in grid_row]
+                    
+                    if not any(row_continent_data):
+                        continue
+
+                    header_line = "".join([f"{name:^{col_width}}" for name in grid_row])
+                    separator = "".join([f"{'-' * (len(name)):^{col_width}}" for name in grid_row])
+                    report_lines.append("\n" + header_line)
+                    report_lines.append(separator)
+
+                    max_lines = max(len(d) for d in row_continent_data) if row_continent_data else 0
+                    for i in range(max_lines):
+                        line_parts = []
+                        for continent_data_block in row_continent_data:
+                            line = continent_data_block[i] if i < len(continent_data_block) else ""
+                            line_parts.append(f"{line:<{col_width}}")
+                        report_lines.append("".join(line_parts))
 
             # --- Add Overall Totals Section ---
             if not pivot.empty:

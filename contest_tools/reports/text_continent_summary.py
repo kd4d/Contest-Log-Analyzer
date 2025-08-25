@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-16
-# Version: 0.37.1-Beta
+# Date: 2025-08-25
+# Version: 0.37.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -14,9 +14,12 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+# License, v. 2.0.
 # --- Revision History ---
+## [0.37.2-Beta] - 2025-08-25
+### Changed
+# - Modified report logic to be data-driven, omitting sections for
+#   continents with zero QSOs to improve readability.
 ## [0.37.1-Beta] - 2025-08-16
 ### Fixed
 # - Corrected file writing logic to append a final newline character,
@@ -26,10 +29,9 @@
 # and this project aims to adhere to Semantic Versioning (https://semver.org/).
 ## [0.26.4-Beta] - 2025-08-04
 ### Changed
-# - Standardized the report header to use a two-line title.
-# - Reworked title formatting to correctly handle titles wider than the table.
-### Fixed
-# - Redundant 'Total' column is now omitted for single-band contests.
+# - Standardized the report header to use a two-line title with proper formatting.
+# - The 'On-Time' column is now correctly hidden if the contest has no
+#   defined operating time limits.
 ## [0.26.3-Beta] - 2025-08-04
 ### Changed
 # - Standardized the report header to use a two-line title.
@@ -126,7 +128,7 @@ class Report(ContestReport):
             report_lines.append(table_header)
             report_lines.append(separator)
 
-            for cont_name in continent_map.values():
+            for cont_name in sorted(pivot.index.get_level_values('ContinentName').unique()):
                 if cont_name in pivot.index:
                     row = pivot.loc[cont_name]
                     line = f"{cont_name:<17}"
