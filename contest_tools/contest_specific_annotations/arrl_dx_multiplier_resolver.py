@@ -96,14 +96,7 @@ def resolve_multipliers(df: pd.DataFrame, my_location_type: str) -> pd.DataFrame
                 if resolved_stprov not in seen_stprov_per_band[band]:
                     df.loc[idx, 'STPROV_IsNewMult'] = 1
                     seen_stprov_per_band[band].add(resolved_stprov)
-                    
-                    # --- Temporary Diagnostic Logic ---
-                    if band == '40M' and resolved_stprov in ['SD', 'NF', 'YT']:
-                        logging.info("\n" + "="*60)
-                        logging.info(f"--- DEBUG: 40M '{resolved_stprov}' Multiplier Source Row (resolver) ---")
-                        logging.info(row.to_string())
-                        logging.info("="*60 + "\n")
-        
+       
         elif my_location_type == 'W/VE':
             worked_dxcc_name = row.get('DXCCName', 'Unknown')
             is_dx_multiplier = worked_dxcc_name not in ["United States", "Canada"]

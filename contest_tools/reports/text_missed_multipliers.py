@@ -1,12 +1,12 @@
 # Contest Log Analyzer/contest_tools/reports/text_missed_multipliers.py
 #
 # Purpose: A data-driven text report that generates a comparative "missed multipliers"
-#          summary for any multiplier type defined in a contest's JSON file.
+#          summary. This version uses the `tabulate` library for formatting.
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-24
-# Version: 0.40.9-Beta
+# Version: 0.40.15-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -14,88 +14,27 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+# License, v. 2.0.
 # --- Revision History ---
-## [0.40.9-Beta] - 2025-08-24
-### Changed
-# - Refactored table generation to use fully dynamic column widths,
-#   ensuring alignment for long multiplier names and callsigns.
-## [0.37.5-Beta] - 2025-08-16
-### Fixed
-# - Corrected a complex f-string that caused a SyntaxError by
-#   refactoring it into two separate, simpler statements.
-## [0.37.4-Beta] - 2025-08-16
-### Changed
-# - Refactored logic to inspect the multiplier's `totaling_method`.
-#   If `once_per_log`, it now correctly generates a single all-band
-#   summary instead of an incorrect per-band breakdown.
-## [0.37.1-Beta] - 2025-08-16
-### Fixed
-# - Corrected file writing logic to append a final newline character,
-#   ensuring compatibility with diff utilities.
-## [0.32.10-Beta] - 2025-08-12
-### Fixed
-# - Corrected the report_scope check to include 'per_mode', fixing the
-#   blank report bug for the ARRL 10 Meter contest.
-## [0.32.9-Beta] - 2025-08-12
-### Fixed
-# - Refactored the generate method to work on copies of the data, preventing
-#   the permanent modification of the original ContestLog objects and fixing
-#   the data corruption bug for per-mode reports.
-## [0.32.5-Beta] - 2025-08-12
-### Changed
-# - Modified the generate method to accept a `mode_filter` argument and
-#   filter the dataframe by mode, enabling per-mode analysis.
-# - Updated the report title and filename to include the mode.
-## [0.32.0-Beta] - 2025-08-12
-### Fixed
-# - Added a protective check to prevent a ValueError when processing a
-#   multiplier type that has no QSOs in the logs.
-## [0.31.45-Beta] - 2025-08-11
-### Fixed
-# - Corrected column width calculation to be global instead of per-band,
-#   ensuring consistent table alignment throughout the report.
-## [0.31.44-Beta] - 2025-08-11
-### Fixed
-# - Corrected the first column width calculation to account for summary
-#   labels, fixing the table alignment.
-## [0.31.44-Beta] - 2025-08-10
-### Changed
-# - Modified main report logic to exclude "Unknown" multipliers from the
-#   comparative analysis.
+## [0.40.15-Beta] - 2025-08-24
 ### Added
-# - Added a diagnostic section to list all callsigns associated with an
-#   "Unknown" multiplier.
-## [0.31.22-Beta] - 2025-08-09
+# - Initial creation of this parallel report as a proof-of-concept for
+#   the `tabulate` library.
 ### Changed
-# - Re-enabled "Unknown" multipliers by removing the exclusion filter to
-#   treat them as a valid category for comparison.
-## [0.31.21-Beta] - 2025-08-09
-### Fixed
-# - Added a filter to exclude "Unknown" multipliers from the report data.
-## [0.30.37-Beta] - 2025-08-06
-### Fixed
-# - Adjusted dynamic column width calculation to set a minimum width based
-#   on summary labels (e.g., "Worked:"), fixing alignment for short mult names.
-## [0.30.36-Beta] - 2025-08-06
-### Changed
-# - Reverted the two-line multiplier format.
-# - First column is now correctly formatted as "Prefix (Country Name)".
-# - First column header is now dynamically set based on the multiplier rule.
-# - First column width is now calculated dynamically to fit the content.
+# - Replaced all custom table formatting logic with the `tabulate` library
+#   using the 'psql' format for improved simplicity and robustness.
 from typing import List, Dict, Any, Set
 import pandas as pd
-import numpy as np
 import os
 import logging
+from tabulate import tabulate
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
 
 class Report(ContestReport):
     """
     Generates a comparative report showing a specific multiplier worked by each
-    station on each band, highlighting missed opportunities.
+    station on each band, highlighting missed opportunities (tabulate version).
     """
     report_id: str = "missed_multipliers"
     report_name: str = "Missed Multipliers Report"
@@ -140,7 +79,6 @@ class Report(ContestReport):
 
         all_calls = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])
         
-        # --- Create a list of dictionaries containing filtered data to process ---
         log_data_to_process = []
         for log in self.logs:
             df = log.get_processed_data()
@@ -158,22 +96,17 @@ class Report(ContestReport):
         mode_title_str = f" ({mode_filter})" if mode_filter else ""
         title1 = f"--- {self.report_name}: {mult_name}{mode_title_str} ---"
         title2 = f"{year} {contest_name} - {', '.join(all_calls)}"
-        report_lines = []
+        report_lines = [title1, title2]
 
         totaling_method = mult_rule.get('totaling_method', 'sum_by_band')
         report_scope = first_log_def.multiplier_report_scope
         bands = first_log.contest_definition.valid_bands
         
-        # --- LOGIC BRANCH: Determine if report is per-band or contest-wide ---
         if totaling_method == 'once_per_log':
-            # This multiplier is scored once for the whole contest.
-            # Generate a single, all-band summary table.
             self._generate_missed_mult_table(
                 "All Bands", all_calls, log_data_to_process, mult_rule, report_lines
             )
         elif report_scope in ['per_band', 'per_mode']:
-            # This multiplier is scored per-band.
-            # Generate a separate table for each band.
             for band in bands:
                 self._generate_missed_mult_table(
                     band, all_calls, log_data_to_process, mult_rule, report_lines
@@ -182,26 +115,6 @@ class Report(ContestReport):
              self._generate_missed_mult_table(
                 "All Bands", all_calls, log_data_to_process, mult_rule, report_lines
             )
-
-        # --- Add Diagnostic List for Unknown Multipliers ---
-        combined_df = pd.concat([log_data['df'] for log_data in log_data_to_process])
-        mult_column = mult_rule['value_column']
-
-        if not combined_df.empty and mult_column in combined_df.columns:
-            unknown_mult_df = combined_df[combined_df[mult_column] == 'Unknown']
-            unknown_calls = sorted(list(unknown_mult_df['Call'].unique()))
-            
-            if unknown_calls:
-                report_lines.append("\n" + "-" * 40)
-                report_lines.append(f"Callsigns with Unknown {mult_name}:")
-                report_lines.append("-" * 40)
-                
-                col_width = 12
-                num_cols = max(1, 80 // (col_width + 2))
-                
-                for i in range(0, len(unknown_calls), 5):
-                    line_calls = unknown_calls[i:i+5]
-                    report_lines.append("  ".join([f"{call:<{col_width}}" for call in line_calls]))
 
         report_content = "\n".join(report_lines) + "\n"
         os.makedirs(output_path, exist_ok=True)
@@ -223,7 +136,6 @@ class Report(ContestReport):
         name_column = mult_rule.get('name_column')
         mult_name = mult_rule.get('name', 'Multiplier')
         
-        # --- Data Aggregation for the specified scope (band or "All Bands") ---
         band_data: Dict[str, pd.DataFrame] = {}
         mult_sets: Dict[str, Set[str]] = {call: set() for call in all_calls}
         prefix_to_name_map = {}
@@ -232,15 +144,13 @@ class Report(ContestReport):
             callsign = log_data['meta'].get('MyCall', 'Unknown')
             df = log_data['df'][log_data['df']['Dupe'] == False].copy()
             
-            if df.empty or mult_column not in df.columns:
-                continue
+            if df.empty or mult_column not in df.columns: continue
             
             df_scope = df if band == "All Bands" else df[df['Band'] == band].copy()
             df_scope = df_scope[df_scope[mult_column] != 'Unknown']
             df_scope = df_scope[df_scope[mult_column].notna()]
             
-            if df_scope.empty:
-                continue
+            if df_scope.empty: continue
             
             if name_column and name_column in df_scope.columns:
                 name_map_df = df_scope[[mult_column, name_column]].dropna().drop_duplicates()
@@ -260,101 +170,56 @@ class Report(ContestReport):
         for call in all_calls:
             missed_mults_on_band.update(union_of_all_mults.difference(mult_sets[call]))
             
-        # --- Pass 1: Pre-calculate all content and determine column widths ---
-        
-        # First column header
-        if mult_name.lower() == 'countries':
-            first_col_header = mult_rule.get('source', 'dxcc').upper()
-        else:
-            first_col_header = mult_name[:-1] if mult_name.lower().endswith('s') else mult_name
-            first_col_header = first_col_header.capitalize()
+        first_col_header = mult_name[:-1] if mult_name.lower().endswith('s') else mult_name
+        first_col_header = first_col_header.capitalize()
 
-        # Gather all strings for the first column to find its max width
-        first_col_content = [first_col_header, "Worked:", "Missed:", "Delta:"]
-        for mult in sorted(list(missed_mults_on_band)):
-            display_mult = str(mult)
-            if name_column and mult in prefix_to_name_map:
-                mult_full_name = prefix_to_name_map[mult]
-                if pd.notna(mult_full_name) and mult_full_name != '': 
-                    clean_name = str(mult_full_name).split(';')[0].strip()
-                    display_mult = f"{mult} ({clean_name})"
-            first_col_content.append(display_mult)
-        first_col_width = max(len(s) for s in first_col_content) if first_col_content else len(first_col_header)
-
-        # Gather all strings for each callsign column to find its max width
-        col_widths = {}
-        for call in all_calls:
-            call_col_content = [call]
-            for mult in sorted(list(missed_mults_on_band)):
-                if call in band_data and mult in band_data[call].index:
-                    qso_count = band_data[call].loc[mult, 'QSO_Count']
-                    run_sp = band_data[call].loc[mult, 'Run_SP_Status']
-                    call_col_content.append(f"({run_sp}) {qso_count}")
-                else:
-                    call_col_content.append("0")
-            
-            total_worked = len(mult_sets[call])
-            total_missed = len(union_of_all_mults) - total_worked
-            call_col_content.append(str(total_worked))
-            call_col_content.append(str(total_missed))
-            
-            col_widths[call] = max(len(s) for s in call_col_content) if call_col_content else len(call)
-
-        # --- Pass 2: Format and build the report ---
-        header_cells = [f"{call:^{col_widths[call]}}" for call in all_calls]
-        table_header = f"{first_col_header:<{first_col_width}} | {' | '.join(header_cells)}"
-        table_width = len(table_header)
-        
         band_header_text = f"\n{band.replace('M', '')} Meters Missed Multipliers" if band != "All Bands" else f"\nOverall Missed Multipliers"
-        report_lines.append(band_header_text.center(table_width))
+        report_lines.append(band_header_text)
 
         if not union_of_all_mults:
-            report_lines.append(f"     (No multipliers found for this scope)".center(table_width))
+            report_lines.append(f"     (No multipliers found for this scope)")
             return
 
-        report_lines.append(table_header)
-        
+        # --- Table Generation with tabulate ---
+        headers = [first_col_header] + all_calls
+        main_table_data = []
+
         if not missed_mults_on_band:
-            report_lines.append(f"     (No missed {mult_name} for this scope)".center(table_width))
+            report_lines.append(f"     (No missed {mult_name} for this scope)")
         else:
             for mult in sorted(list(missed_mults_on_band)):
-                cell_parts = []
+                display_mult = str(mult)
+                if name_column and mult in prefix_to_name_map:
+                    clean_name = str(prefix_to_name_map[mult]).split(';')[0].strip()
+                    display_mult = f"{mult} ({clean_name})"
+                
+                row = {first_col_header: display_mult}
                 for call in all_calls:
                     if call in band_data and mult in band_data[call].index:
                         qso_count = band_data[call].loc[mult, 'QSO_Count']
                         run_sp = band_data[call].loc[mult, 'Run_SP_Status']
-                        cell_content = f"({run_sp}) {qso_count}"
+                        row[call] = f"({run_sp}) {qso_count}"
                     else:
-                        cell_content = "0"
-                    cell_parts.append(f"{cell_content:>{col_widths[call]}}")
-                
-                display_mult = str(mult)
-                if name_column and mult in prefix_to_name_map:
-                    mult_full_name = prefix_to_name_map[mult]
-                    if pd.notna(mult_full_name) and mult_full_name != '':
-                        clean_name = str(mult_full_name).split(';')[0].strip()
-                        display_mult = f"{mult} ({clean_name})"
+                        row[call] = "0"
+                main_table_data.append(row)
 
-                row_str = f"{display_mult:<{first_col_width}} | {' | '.join(cell_parts)}"
-                report_lines.append(row_str)
+            report_lines.append(tabulate(main_table_data, headers="keys", tablefmt="psql", stralign="left", numalign="right"))
 
-        separator_parts = ['-' * col_widths[call] for call in all_calls]
-        separator = f"{'':<{first_col_width}} | {' | '.join(separator_parts)}"
-        report_lines.append(separator)
-        
+        # --- Summary Table ---
+        summary_table_data = []
         total_counts = {call: len(mult_sets[call]) for call in all_calls}
         union_count = len(union_of_all_mults)
         max_mults = max(total_counts.values()) if total_counts else 0
 
-        worked_cells = [f"{total_counts[call]:>{col_widths[call]}}" for call in all_calls]
-        worked_line = f"{'Worked:':<{first_col_width}} | {' | '.join(worked_cells)}"
-        
-        missed_cells = [f"{union_count - total_counts[call]:>{col_widths[call]}}" for call in all_calls]
-        missed_line = f"{'Missed:':<{first_col_width}} | {' | '.join(missed_cells)}"
-        
-        delta_cells = [f"{str(total_counts[call] - max_mults) if total_counts[call] - max_mults != 0 else '':>{col_widths[call]}}" for call in all_calls]
-        delta_line = f"{'Delta:':<{first_col_width}} | {' | '.join(delta_cells)}"
-        
-        report_lines.append(worked_line)
-        report_lines.append(missed_line)
-        report_lines.append(delta_line)
+        worked_row = {' ': 'Worked:'}
+        missed_row = {' ': 'Missed:'}
+        delta_row = {' ': 'Delta:'}
+
+        for call in all_calls:
+            worked_row[call] = total_counts.get(call, 0)
+            missed_row[call] = union_count - total_counts.get(call, 0)
+            delta = total_counts.get(call, 0) - max_mults
+            delta_row[call] = delta if delta != 0 else ''
+
+        summary_table_data.extend([worked_row, missed_row, delta_row])
+        report_lines.append(tabulate(summary_table_data, headers="keys", tablefmt="psql", stralign="left", numalign="right"))
