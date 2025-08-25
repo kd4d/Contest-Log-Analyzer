@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-24
-# Version: 0.49.2-Beta
+# Date: 2025-08-25
+# Version: 0.49.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,6 +16,11 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0.
 # --- Revision History ---
+## [0.49.3-Beta] - 2025-08-25
+### Fixed
+# - Corrected the multiplier counting logic in `_calculate_all_scores` to
+#   respect the "applies_to" key, fixing the double-counting bug for
+#   contests like ARRL DX.
 ## [0.49.2-Beta] - 2025-08-24
 ### Changed
 # - Refactored diagnostic logic to use the new, generic
@@ -275,7 +280,7 @@ class Report(ContestReport):
                         if band_counts_series is not None:
                             band_mode_summary[m_name] = band_counts_series.get(band, 0)
                         else:
-                             band_mode_summary[m_name] = 0
+                            band_mode_summary[m_name] = 0
 
                 band_mode_summary['AVG'] = (band_mode_summary['Points'] / band_mode_summary['QSOs']) if band_mode_summary['QSOs'] > 0 else 0
                 summary_data.append(band_mode_summary)
@@ -289,6 +294,12 @@ class Report(ContestReport):
         for rule in multiplier_rules:
             mult_name = rule['name']
             mult_col = rule['value_column']
+
+            # --- NEW: Check if the rule applies to this logger ---
+            applies_to = rule.get('applies_to')
+            if applies_to and log_location_type and applies_to != log_location_type:
+                total_summary[mult_name] = 0
+                continue # Skip this rule
             
             if mult_col in df_net.columns:
                 df_valid = df_net[df_net[mult_col].notna() & (df_net[mult_col] != 'Unknown')]
