@@ -1,10 +1,15 @@
 # Contest Log Analyzer - Programmer's Guide
 
-**Version: 0.40.10-Beta**
-**Date: 2025-08-24**
+**Version: 0.40.11-Beta**
+**Date: 2025-08-25**
 
 ---
 ### --- Revision History ---
+## [0.40.11-Beta] - 2025-08-25
+### Changed
+# - Updated the JSON Quick Reference table to include the new
+#   `mutually_exclusive_mults` key, reflecting its replacement of
+#   the obsolete `score_report_rules` key in the codebase.
 ## [0.40.10-Beta] - 2025-08-24
 ### Added
 # - Added a section explaining when and why __init__.py files need to
@@ -140,7 +145,7 @@ class Report(ContestReport):
         log = self.logs[0]
         callsign = log.get_metadata().get('MyCall', 'N/A')
         report_content = f"Hello, {callsign}!"
-# In a real report, you would save this content to a file.
+        # In a real report, you would save this content to a file.
         print(report_content)
         
         return f"Report '{self.report_name}' generated successfully."
@@ -191,11 +196,8 @@ After initial parsing, `contest_log.py` orchestrates a sequence of data enrichme
 4.  **Scoring**: The system looks for a scoring module by convention (e.g., `cq_ww_cw_scoring.py`) and executes its `calculate_points` function.
 ### A Note on `__init__.py` Files
 The need to update an `__init__.py` file depends on whether a package uses dynamic or explicit importing.
-
 * **Dynamic Importing (No Update Needed):** Directories like `contest_tools/contest_specific_annotations` and `contest_tools/reports` are designed as "plug-in" folders. The application uses dynamic importing (`importlib.import_module`) to load these modules by name from the JSON definitions or by discovery. Therefore, the `__init__.py` files in these directories are intentionally left empty and **do not need to be updated** when a new module is added.
-
 * **Explicit Importing (Update Required):** When a new parameter is added to a `.json` file, the `ContestDefinition` class in `contest_tools/contest_definitions/__init__.py` **must be updated**. A new `@property` must be added to the class to expose the new data from the JSON file to the rest of the application. This is a critical maintenance step for extending the data model. Similarly, packages like `contest_tools/core_annotations` use their `__init__.py` to explicitly expose functions and classes, and would need to be updated if a new core utility were added.
-
 ### Advanced Guide: Extending Core Logic (Implementation Contracts)
 For contests requiring logic beyond simple JSON definitions, create a Python module in `contest_tools/contest_specific_annotations/`. Each module type has a specific contract (required function and signature) it must fulfill.
 * **Custom Parser Modules**:

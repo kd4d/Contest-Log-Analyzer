@@ -1,10 +1,14 @@
 # Contest Log Analyzer - Installation Guide
 
-**Version: 0.47.2-Beta**
-**Date: 2025-08-24**
+**Version: 0.47.3-Beta**
+**Date: 2025-08-25**
 
 ---
 ### --- Revision History ---
+## [0.47.3-Beta] - 2025-08-25
+### Added
+# - Added the required `band_allocations.dat` file to the list of
+#   required data files in Step 6.
 ## [0.47.2-Beta] - 2025-08-24
 ### Changed
 # - Updated the description for SweepstakesSections.dat to correctly
@@ -104,6 +108,7 @@ The analyzer relies on several external data files. Download the following files
 * `ARRLDXmults.dat`: Required for the ARRL DX contest.
 * `NAQPmults.dat`: Required for NAQP and CQ 160-Meter contests.
 * `SweepstakesSections.dat`: Required for ARRL Sweepstakes and ARRL Field Day.
+* `band_allocations.dat`: Required for all contests to perform frequency validation.
 ---
 ## 3. Running the Analyzer
 To verify the installation, run the program from the project's source code directory. Ensure your `cla` conda environment is active.

@@ -1,10 +1,22 @@
 # Project Workflow Guide
 
-**Version: 0.49.0-Beta**
+**Version: 0.49.2-Beta**
 **Date: 2025-08-25**
 
 ---
 ### --- Revision History ---
+## [0.49.2-Beta] - 2025-08-25
+### Added
+# - Added Protocol 7.4 (Prototype Script Development Protocol) to formalize
+#   the development workflow for prototype scripts.
+### Changed
+# - Clarified Protocol 1.7 to define the special status of the
+#   `test_code/` directory.
+## [0.49.1-Beta] - 2025-08-25
+### Added
+# - Added Protocol 2.9.1 (Task Type Verification) to clarify when it is
+#   appropriate to propose a verification command, preventing errors when
+#   a task modifies a documentation file.
 ## [0.49.0-Beta] - 2025-08-25
 ### Added
 # - Added Protocol 2.8.1 (Post-Execution Refinement Protocol) to clarify
@@ -196,7 +208,7 @@ These are the step-by-step procedures for common, day-to-day development tasks.
     * `contest_tools/reports/`: The "plug-in" directory for all report modules.
     * `contest_tools/contest_definitions/`: Data-driven JSON definitions for each contest.
     * `Docs/`: All user and developer documentation.
-    * `test_code/`: Utility scripts not part of the main application.
+    * `test_code/`: Utility and prototype scripts not part of the main application. These scripts are not held to the same change control and documentation standards (e.g., a revision history is not required).
     * `data/`: Required data files (e.g., `cty.dat`).
 ### 2. Task Execution Workflow
 This workflow is a formal state machine that governs all development tasks, from initial request to final completion.
@@ -221,8 +233,9 @@ This workflow is a formal state machine that governs all development tasks, from
 2.6. **Plan Refinement**: The user reviews the plan and may request changes or refinements. The AI provides a revised plan, repeating this step as necessary.
 2.7. **Approval**: The user provides explicit approval of the final implementation plan (e.g., "Approved"). Instructions, clarifications, or new requirements provided after a plan has been proposed do not constitute approval; they will be treated as requests for plan refinement under Protocol 2.6.
 2.8. **Execution**: Upon approval, the AI will proceed with the **Confirmed File Delivery Protocol (4.4)**.
-2.8.1. **Post-Execution Refinement Protocol.** If a user acknowledges a file delivery but subsequently reports that the fix is incomplete or incorrect, the task is not considered complete. The workflow immediately returns to **Protocol 2.2 (Analysis and Discussion)**. This initiates a new analysis loop within the context of the original task, culminating in a new implementation plan to address the remaining issues. The task is only complete after **Protocol 2.10 (Propose Verification Command)** is successfully executed for the *final, correct* implementation.
+2.8.1. **Post-Execution Refinement Protocol.** If a user acknowledges a file delivery but subsequently reports that the fix is incomplete or incorrect, the task is not considered complete. The workflow immediately returns to **Protocol 2.2 (Analysis and Discussion)**. This initiates a new analysis loop within the context of the original task, culminating in a new implementation plan to address the remaining issues. The task is only complete after **Protocol 2.9 (Propose Verification Command)** is successfully executed for the *final, correct* implementation.
 2.9. **Propose Verification Command**: After the final file in an implementation plan has been delivered and acknowledged by the user, the AI's final action for the task is to propose the specific command-line instruction(s) the user should run to verify that the bug has been fixed or the feature has been implemented correctly.
+    **2.9.1: Task Type Verification.** This protocol applies **only** if the final file modified was a code or data file (e.g., `.py`, `.json`, `.dat`). If the final file was a documentation or text file (e.g., `.md`), a verification command is not applicable. In this case, the AI's final action will be to state that the documentation update is complete, thus successfully concluding the task.
 ### 3. File and Data Handling
 
 3.1. **Project File Input.** All project source files and documentation will be provided for updates in a single text file called a **project bundle**, or pasted individually into the chat. The bundle uses a simple text header to separate each file: `--- FILE: path/to/file.ext ---`
@@ -344,3 +357,6 @@ These protocols are for troubleshooting, error handling, and non-standard situat
 7.2. **Multi-Part Bundle Protocol.** If a large or complex text file cannot be transmitted reliably in a single block, the Multi-Part Bundle Protocol will be used. The AI will take the single file and split its content into multiple, smaller text chunks. These chunks will then be delivered sequentially using the **Large File Transmission Protocol (Protocol 4.3)**.
 
 7.3. **Fragile Dependency Protocol.** If a third-party library proves to be unstable, a sprint will be conducted to replace it with a more robust alternative.
+7.4. **Prototype Script Development Protocol.** This protocol is used for the creation and modification of standalone prototype scripts located in the `test_code/` directory.
+    1.  **Formal Entity**: A prototype script is a formal, versioned file, but is exempt from requiring an in-file revision history. Versioning begins at `1.0.0-Beta`.
+    2.  **Standard Workflow**: All work on a prototype script must follow the complete **Task Execution Workflow (Section 2)**, including a formal Implementation Plan, user Approval, and a Confirmed File Delivery.
