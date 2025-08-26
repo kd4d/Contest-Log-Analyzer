@@ -1,10 +1,14 @@
 # Project Workflow Guide
 
-**Version: 0.49.2-Beta**
-**Date: 2025-08-25**
+**Version: 0.52.20-Beta**
+**Date: 2025-08-26**
 
 ---
 ### --- Revision History ---
+## [0.52.20-Beta] - 2025-08-26
+### Added
+# - Added a mandatory "Affected Modules Checklist" to Protocol 2.5 to
+#   make Principle 7 (Assume Bugs are Systemic) more robust.
 ## [0.49.2-Beta] - 2025-08-25
 ### Added
 # - Added Protocol 7.4 (Prototype Script Development Protocol) to formalize
@@ -225,7 +229,8 @@ This workflow is a formal state machine that governs all development tasks, from
 2.5. **Implementation Plan**: The user requests an implementation plan. The AI's response must be a comprehensive document containing the following sections for each file to be modified:
     1.  **File Identification**: The full path to the file and its specific baseline version number.
     2.  **Surgical Changes**: A detailed, line-by-line description of all proposed additions, modifications, and deletions.
-    3.  **Pre-Flight Check**:
+    3.  **Affected Modules Checklist**: A list of all other modules that follow a similar architectural pattern to the file being modified (e.g., all custom parsers, all score reports). The AI must confirm that these modules have been checked and will be updated if necessary to keep them consistent with the proposed change. This makes the application of Principle 7 (Assume Bugs are Systemic) explicit.
+    4.  **Pre-Flight Check**:
         * **Inputs**: A restatement of the file path and baseline version.
         * **Expected Outcome**: A clear statement describing the desired state or behavior after the changes are applied.
         * **Mental Walkthrough Confirmation**: A statement affirming that a mental walkthrough of the logic will be performed before generating the file.
