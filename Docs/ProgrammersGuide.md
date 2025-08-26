@@ -1,10 +1,17 @@
 # Contest Log Analyzer - Programmer's Guide
 
-**Version: 0.40.11-Beta**
-**Date: 2025-08-25**
+**Version: 0.51.0-Beta**
+**Date: 2025-08-26**
 
 ---
 ### --- Revision History ---
+## [0.51.0-Beta] - 2025-08-26
+### Added
+# - Added "Advanced Report Design: Shared Logic" section to document the
+#   pattern of separating data aggregation from presentation.
+### Changed
+# - Updated CLI arguments and ContestReport class to include the new
+#   'html' report type.
 ## [0.40.11-Beta] - 2025-08-25
 ### Changed
 # - Updated the JSON Quick Reference table to include the new
@@ -76,7 +83,7 @@ This document provides a technical guide for developers (both human and AI) look
 This script is the main entry point for running the analyzer.
 * **Argument Parsing:** It uses Python's `argparse` to handle command-line arguments. Key arguments include:
     * `log_files`: A list of one or more log files to process.
-    * `--report`: Specifies which reports to run. This can be a single `report_id`, a comma-separated list of IDs, the keyword `all`, or a category keyword (`chart`, `text`, `plot`, `animation`).
+    * `--report`: Specifies which reports to run. This can be a single `report_id`, a comma-separated list of IDs, the keyword `all`, or a category keyword (`chart`, `text`, `plot`, `animation`, `html`).
     * `--verbose`: Enables `INFO`-level debug logging.
     * `--include-dupes`: An optional flag to include duplicate QSOs in report calculations.
     * `--mult-name`: An optional argument to specify which multiplier to use for multiplier-specific reports (e.g., 'Countries').
@@ -114,7 +121,7 @@ class ContestReport(ABC):
     # --- Required Class Attributes ---
     report_id: str = "abstract_report"
     report_name: str = "Abstract Report"
-    report_type: str = "text" # 'text', 'plot', 'chart', or 'animation'
+    report_type: str = "text" # 'text', 'plot', 'chart', 'animation', or 'html'
     
     supports_single: bool = False
     supports_pairwise: bool = False
@@ -211,6 +218,18 @@ For contests requiring logic beyond simple JSON definitions, create a Python mod
     * **Required Function Signature**: `calculate_points(df: pd.DataFrame, my_call_info: Dict[str, Any]) -> pd.Series`
 * **Utility for Complex Multipliers (`_core_utils.py`)**:
     * For contests with complex multiplier aliases (like NAQP or ARRL DX), developers should use the `AliasLookup` class found in `contest_tools/core_annotations/_core_utils.py`. This utility is designed to be used within a custom multiplier resolver to parse `.dat` alias files.
+---
+## Advanced Report Design: Shared Logic
+A key architectural principle for creating maintainable and consistent reports is the **separation of data aggregation from presentation**. When multiple reports need to display the same underlying data in different formats (e.g., HTML and plain text), the data aggregation logic should not be duplicated.
+### The Shared Aggregator Pattern
+The preferred method is to create a dedicated, non-report helper module within the `contest_tools/reports/` directory. This module's sole responsibility is to perform the complex data calculations and return a clean, structured data object (like a dictionary or pandas DataFrame).
+#### Example: `_qso_comparison_aggregator.py`
+To generate both `html_qso_comparison` and `text_qso_comparison` reports, we can create a shared helper:
+1.  **Create the Aggregator**: A new file, `_qso_comparison_aggregator.py`, would contain a function like `aggregate_qso_comparison_data(logs)`. This function would perform all the necessary calculations (Unique QSOs, Common QSOs, Run/S&P breakdowns, etc.) and return a final dictionary.
+2.  **Update the Report Modules**:
+    * `html_qso_comparison.py` would import and call this function. Its only remaining job would be to take the returned data and render it into the final HTML string.
+    * `text_qso_comparison.py` would also import and call the *same* function. Its job would be to take the data and render it into a fixed-width text table using a tool like pandas' `to_string()` method.
+This pattern ensures that both reports are always based on the exact same data, eliminating the risk of inconsistencies and reducing code duplication.
 ---
 ## Appendix: Key Source Code References
 This appendix lists the most important files for developers to consult to understand the application's framework. The sections above provide context and instructions on how these files are used.
