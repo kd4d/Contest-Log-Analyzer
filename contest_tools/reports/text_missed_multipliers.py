@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-24
-# Version: 0.40.15-Beta
+# Date: 2025-08-26
+# Version: 0.52.16-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,6 +16,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0.
 # --- Revision History ---
+## [0.52.16-Beta] - 2025-08-26
+### Changed
+# - Right-aligned the summary table to be flush with the main table
+#   above it for improved visual layout.
 ## [0.40.15-Beta] - 2025-08-24
 ### Added
 # - Initial creation of this parallel report as a proof-of-concept for
@@ -180,13 +184,10 @@ class Report(ContestReport):
             report_lines.append(f"     (No multipliers found for this scope)")
             return
 
-        # --- Table Generation with tabulate ---
-        headers = [first_col_header] + all_calls
-        main_table_data = []
-
-        if not missed_mults_on_band:
-            report_lines.append(f"     (No missed {mult_name} for this scope)")
-        else:
+        # --- Table Generation with Alignment ---
+        main_table_string = ""
+        if missed_mults_on_band:
+            main_table_data = []
             for mult in sorted(list(missed_mults_on_band)):
                 display_mult = str(mult)
                 if name_column and mult in prefix_to_name_map:
@@ -202,8 +203,11 @@ class Report(ContestReport):
                     else:
                         row[call] = "0"
                 main_table_data.append(row)
-
-            report_lines.append(tabulate(main_table_data, headers="keys", tablefmt="psql", stralign="left", numalign="right"))
+            
+            main_table_string = tabulate(main_table_data, headers="keys", tablefmt="psql", stralign="left", numalign="right")
+            report_lines.append(main_table_string)
+        else:
+            report_lines.append(f"     (No missed {mult_name} for this scope)")
 
         # --- Summary Table ---
         summary_table_data = []
@@ -222,4 +226,13 @@ class Report(ContestReport):
             delta_row[call] = delta if delta != 0 else ''
 
         summary_table_data.extend([worked_row, missed_row, delta_row])
-        report_lines.append(tabulate(summary_table_data, headers="keys", tablefmt="psql", stralign="left", numalign="right"))
+        summary_table_string = tabulate(summary_table_data, headers="keys", tablefmt="psql", stralign="left", numalign="right")
+
+        # Right-align the summary table relative to the main table
+        if main_table_string:
+            target_width = len(main_table_string.split('\n')[0])
+            for line in summary_table_string.split('\n'):
+                report_lines.append(line.rjust(target_width))
+        else:
+            # If there's no main table, just append the summary table normally
+            report_lines.append(summary_table_string)
