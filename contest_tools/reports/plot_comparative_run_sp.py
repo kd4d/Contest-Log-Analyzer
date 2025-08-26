@@ -1,12 +1,16 @@
 # Contest Log Analyzer/contest_tools/reports/plot_comparative_run_sp.py
 #
-# Version: 0.42.2-Beta
-# Date: 2025-08-20
+# Version: 0.52.1-Beta
+# Date: 2025-08-26
 #
 # Purpose: A plot report that generates a "paired timeline" chart, visualizing
 #          the operating style (Run, S&P, or Mixed) of two operators over time.
 #
 # --- Revision History ---
+## [0.52.1-Beta] - 2025-08-26
+### Changed
+# - Refactored report to generate individual plots by mode (CW, PH, DG) in
+#   addition to the overall plot for contests with multiple modes.
 ## [0.42.2-Beta] - 2025-08-20
 ### Fixed
 # - Explicitly disabled horizontal gridlines on the timeline chart to
@@ -116,7 +120,7 @@ class Report(ContestReport):
         else:
             return 'Mixed'
 
-    def _generate_plot_for_page(self, df1: pd.DataFrame, df2: pd.DataFrame, log1_meta: Dict, log2_meta: Dict, bands_on_page: List[str], time_bins: pd.DatetimeIndex, output_path: str, page_title_suffix: str, page_file_suffix: str, **kwargs):
+    def _generate_plot_for_page(self, df1: pd.DataFrame, df2: pd.DataFrame, log1_meta: Dict, log2_meta: Dict, bands_on_page: List[str], time_bins: pd.DatetimeIndex, output_path: str, page_title_suffix: str, page_file_suffix: str, mode_filter: str, **kwargs):
         """Helper to generate a single plot page."""
         call1 = log1_meta.get('MyCall', 'Log1')
         call2 = log2_meta.get('MyCall', 'Log2')
@@ -193,7 +197,8 @@ class Report(ContestReport):
         contest_name = log1_meta.get('ContestName', '')
         event_id = log1_meta.get('EventID', '')
         
-        title_line1 = f"{self.report_name}{page_title_suffix}"
+        mode_title_str = f" ({mode_filter})" if mode_filter else ""
+        title_line1 = f"{self.report_name}{mode_title_str}{page_title_suffix}"
         title_line2 = f"{event_id} {year} {contest_name}".strip()
         final_title = f"{title_line1}\n{title_line2}"
         fig.suptitle(final_title, fontsize=16, fontweight='bold')
@@ -208,10 +213,11 @@ class Report(ContestReport):
         fig.tight_layout(rect=[0, 0, 0.9, 0.9])
 
         # --- Save File ---
-        filename = f"{self.report_id}_{call1}_vs_{call2}{page_file_suffix}.png"
+        mode_filename_str = f"_{mode_filter.lower()}" if mode_filter else ""
+        filename = f"{self.report_id}{mode_filename_str}_{call1}_vs_{call2}{page_file_suffix}.png"
         filepath = os.path.join(output_path, filename)
         
-        debug_filename = f"{self.report_id}_{call1}_vs_{call2}{page_file_suffix}.txt"
+        debug_filename = f"{self.report_id}{mode_filename_str}_{call1}_vs_{call2}{page_file_suffix}.txt"
         save_debug_data(debug_data_flag, output_path, plot_data_for_debug, custom_filename=debug_filename)
         
         fig.savefig(filepath)
@@ -219,21 +225,48 @@ class Report(ContestReport):
         return filepath
 
     def generate(self, output_path: str, **kwargs) -> str:
-        """Orchestrates the generation of the timeline plot(s)."""
+        """Orchestrates the generation of the combined plot and per-mode plots."""
         if len(self.logs) != 2:
-            return "Error: This report requires exactly two logs."
+            return f"Error: Report '{self.report_name}' requires exactly two logs."
 
-        BANDS_PER_PAGE = 8 # Fit more bands on a page with the new design
+        BANDS_PER_PAGE = 8
         log1, log2 = self.logs[0], self.logs[1]
-        
+        created_files = []
+
         df1 = get_valid_dataframe(log1, include_dupes=False)
         df2 = get_valid_dataframe(log2, include_dupes=False)
+
         if df1.empty or df2.empty:
             return f"Skipping '{self.report_name}': At least one log has no valid QSOs."
 
         df1['Datetime'] = pd.to_datetime(df1['Datetime']).dt.tz_localize('UTC')
         df2['Datetime'] = pd.to_datetime(df2['Datetime']).dt.tz_localize('UTC')
         
+        # --- 1. Generate the main "All Modes" plot ---
+        filepath = self._run_plot_for_slice(df1, df2, log1, log2, output_path, BANDS_PER_PAGE, mode_filter=None, **kwargs)
+        if filepath:
+            created_files.append(filepath)
+        
+        # --- 2. Generate per-mode plots if necessary ---
+        modes_present = pd.concat([df1['Mode'], df2['Mode']]).dropna().unique()
+        if len(modes_present) > 1:
+            for mode in ['CW', 'PH', 'DG']:
+                if mode in modes_present:
+                    df1_slice = df1[df1['Mode'] == mode]
+                    df2_slice = df2[df2['Mode'] == mode]
+
+                    if not df1_slice.empty or not df2_slice.empty:
+                        filepath = self._run_plot_for_slice(df1_slice, df2_slice, log1, log2, output_path, BANDS_PER_PAGE, mode_filter=mode, **kwargs)
+                        if filepath:
+                            created_files.append(filepath)
+
+        if not created_files:
+            return f"Report '{self.report_name}' did not generate any files."
+
+        return f"Report file(s) saved to:\n" + "\n".join([f"  - {fp}" for fp in created_files])
+
+    def _run_plot_for_slice(self, df1, df2, log1, log2, output_path, bands_per_page, mode_filter, **kwargs):
+        """Helper to run the paginated plot generation for a specific data slice."""
         all_datetimes = pd.concat([df1['Datetime'], df2['Datetime']])
         min_time = all_datetimes.min().floor('h')
         max_time = all_datetimes.max().ceil('h')
@@ -244,20 +277,20 @@ class Report(ContestReport):
         active_bands = sorted(list(active_bands_set), key=lambda b: canonical_band_order.index(b) if b in canonical_band_order else -1)
 
         if not active_bands:
-            return f"Skipping '{self.report_name}': No bands with activity found."
-        num_pages = math.ceil(len(active_bands) / BANDS_PER_PAGE)
-        created_files = []
+            return None
 
+        num_pages = math.ceil(len(active_bands) / bands_per_page)
+        
         for page_num in range(num_pages):
-            start_index = page_num * BANDS_PER_PAGE
-            end_index = start_index + BANDS_PER_PAGE
+            start_index = page_num * bands_per_page
+            end_index = start_index + bands_per_page
             bands_on_page = active_bands[start_index:end_index]
             
             page_title_suffix = f" (Page {page_num + 1}/{num_pages})" if num_pages > 1 else ""
             # Sanitize suffix for filename
             page_file_suffix = f"_Page_{page_num + 1}_of_{num_pages}" if num_pages > 1 else ""
             
-            filepath = self._generate_plot_for_page(
+            return self._generate_plot_for_page(
                 df1=df1,
                 df2=df2,
                 log1_meta=log1.get_metadata(),
@@ -267,8 +300,6 @@ class Report(ContestReport):
                 output_path=output_path,
                 page_title_suffix=page_title_suffix,
                 page_file_suffix=page_file_suffix.replace('/', '_'),
+                mode_filter=mode_filter,
                 **kwargs
             )
-            created_files.append(filepath)
-
-        return f"Report file(s) saved to:\n" + "\n".join([f"  - {fp}" for fp in created_files])

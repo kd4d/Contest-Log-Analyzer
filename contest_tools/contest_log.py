@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-21
-# Version: 0.43.0-Beta
+# Date: 2025-08-26
+# Version: 0.52.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.52.0-Beta] - 2025-08-26
+### Added
+# - Added a warning message to the log ingest process to report any QSOs
+#   with modes other than the standard 'CW', 'PH', or 'DG'.
 ## [0.43.0-Beta] - 2025-08-21
 ### Added
 # - Integrated a data-driven frequency validation check during Cabrillo
@@ -202,6 +206,17 @@ class ContestLog:
         for col in ['MyCallRaw', 'Call', 'Mode']:
             if col in raw_df.columns:
                 raw_df[col.replace('Raw','')] = raw_df[col].fillna('').astype(str).str.upper()
+
+        # --- Check for non-standard modes ---
+        standard_modes = {'CW', 'PH', 'DG'}
+        present_modes = set(raw_df['Mode'].dropna().unique())
+        non_standard_modes = present_modes - standard_modes
+        if non_standard_modes:
+            logging.warning(
+                f"Non-standard modes found in '{os.path.basename(cabrillo_filepath)}': "
+                f"{sorted(list(non_standard_modes))}. These will be processed but may not be "
+                "handled correctly by all reports."
+            )
 
         raw_df.drop(columns=['FrequencyRaw', 'DateRaw', 'TimeRaw', 'MyCallRaw'], inplace=True, errors='ignore')
         self.qsos_df = raw_df.reindex(columns=self.contest_definition.default_qso_columns)
@@ -464,7 +479,7 @@ class ContestLog:
         adif_records = []
         adif_records.append("ADIF Export from Contest-Log-Analyzer\n")
         adif_records.append(f"<PROGRAMID:22>Contest-Log-Analyzer\n")
-        adif_records.append(f"<PROGRAMVERSION:10>0.43.0-Beta\n")
+        adif_records.append(f"<PROGRAMVERSION:10>0.52.0-Beta\n")
         adif_records.append("<EOH>\n\n")
 
         for _, row in df_to_export.iterrows():

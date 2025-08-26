@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-18
-# Version: 0.38.1-Beta
+# Date: 2025-08-26
+# Version: 0.52.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.52.2-Beta] - 2025-08-26
+### Changed
+# - Report now generates individual plots by mode (CW, PH, DG) for both
+#   the "All Bands" and per-band summaries on multi-mode contests.
 ## [0.38.1-Beta] - 2025-08-18
 ### Fixed
 # - Resolved a TypeError by removing the redundant 'metric' keyword from a
@@ -81,13 +85,11 @@ class Report(ContestReport):
     report_type: str = "plot"
     supports_pairwise = True
     
-    def _prepare_data_for_plot(self, log: ContestLog, value_column: str, agg_func: str, band_filter: str) -> pd.DataFrame:
+    def _prepare_data_for_plot(self, log: ContestLog, df: pd.DataFrame, value_column: str, agg_func: str, band_filter: str) -> pd.DataFrame:
         """
         Prepares a single log's data for plotting by grouping, aggregating,
         and aligning to the master time index.
         """
-        df = get_valid_dataframe(log)
-        
         if band_filter != "All":
             df = df[df['Band'] == band_filter]
 
@@ -118,7 +120,7 @@ class Report(ContestReport):
         return cumulative_data[['Run', 'S&P+Unknown']]
 
 
-    def _generate_single_plot(self, output_path: str, band_filter: str, **kwargs):
+    def _generate_single_plot(self, df1_slice: pd.DataFrame, df2_slice: pd.DataFrame, output_path: str, band_filter: str, mode_filter: str, **kwargs):
         """
         Helper function to generate a single cumulative difference plot.
         """
@@ -131,8 +133,8 @@ class Report(ContestReport):
         value_column = 'QSOPoints' if metric == 'points' else 'Call'
         agg_func = 'sum' if metric == 'points' else 'count'
         
-        data1 = self._prepare_data_for_plot(log1, value_column, agg_func, band_filter)
-        data2 = self._prepare_data_for_plot(log2, value_column, agg_func, band_filter)
+        data1 = self._prepare_data_for_plot(log1, df1_slice, value_column, agg_func, band_filter)
+        data2 = self._prepare_data_for_plot(log2, df2_slice, value_column, agg_func, band_filter)
 
         # --- Calculate Differences from Cumulative Data ---
         run_diff = data1['Run'] - data2['Run']
@@ -148,7 +150,8 @@ class Report(ContestReport):
         
         is_single_band = len(log1.contest_definition.valid_bands) == 1
         filename_band = log1.contest_definition.valid_bands[0].lower() if is_single_band else band_filter.lower().replace('m', '')
-        debug_filename = f"{self.report_id}_{metric}_{filename_band}_{call1}_vs_{call2}.txt"
+        mode_suffix = f"_{mode_filter.lower()}" if mode_filter else ""
+        debug_filename = f"{self.report_id}_{metric}{mode_suffix}_{filename_band}_{call1}_vs_{call2}.txt"
         save_debug_data(debug_data_flag, output_path, debug_df, custom_filename=debug_filename)
         
         # --- Plotting ---
@@ -179,9 +182,10 @@ class Report(ContestReport):
         
         metric_name = "Points" if metric == 'points' else "QSOs"
         band_text = log1.contest_definition.valid_bands[0].replace('M', ' Meters') if is_single_band else band_filter.replace('M', ' Meters')
+        mode_text = f" - {mode_filter}" if mode_filter else ""
 
         title_line1 = f"{event_id} {year} {contest_name}".strip()
-        title_line2 = f"Cumulative {metric_name} Difference ({band_text})"
+        title_line2 = f"Cumulative {metric_name} Difference ({band_text}{mode_text})"
         sub_title = f"{call1} minus {call2}"
         
         fig.suptitle(f"{title_line1}\n{title_line2}", fontsize=16, fontweight='bold')
@@ -202,19 +206,17 @@ class Report(ContestReport):
 
         # --- Save File ---
         create_output_directory(output_path)
-        filename = f"{self.report_id}_{metric}_{filename_band}_{call1}_vs_{call2}.png"
+        filename = f"{self.report_id}_{metric}{mode_suffix}_{filename_band}_{call1}_vs_{call2}.png"
         filepath = os.path.join(output_path, filename)
         fig.savefig(filepath)
         plt.close(fig)
 
         return filepath
 
-    def generate(self, output_path: str, **kwargs) -> str:
-        """
-        Orchestrates the generation of all cumulative difference plots.
-        """
-        if len(self.logs) != 2:
-            return "Error: The Cumulative Difference Plot report requires exactly two logs."
+    def _orchestrate_plot_generation(self, df1, df2, output_path, mode_filter, **kwargs):
+        """Helper to generate the full set of plots for a given data slice."""
+        if df1.empty or df2.empty:
+            return []
 
         bands = self.logs[0].contest_definition.valid_bands
         is_single_band = len(bands) == 1
@@ -226,19 +228,61 @@ class Report(ContestReport):
             try:
                 save_path = output_path
                 if not is_single_band and band != 'All':
-                    save_path = os.path.join(output_path, band)
+                    # For per-mode plots, create a subdirectory for the mode
+                    if mode_filter:
+                        save_path = os.path.join(output_path, mode_filter.lower(), band)
+                    else:
+                        save_path = os.path.join(output_path, band)
                 
                 filepath = self._generate_single_plot(
+                    df1_slice=df1,
+                    df2_slice=df2,
                     output_path=save_path,
                     band_filter=band,
+                    mode_filter=mode_filter,
                     **kwargs
                 )
                 if filepath:
                     created_files.append(filepath)
             except Exception as e:
-                print(f"  - Failed to generate difference plot for {band}: {e}")
+                print(f"  - Failed to generate difference plot for {band} (Mode: {mode_filter or 'All'}): {e}")
+        
+        return created_files
 
-        if not created_files:
+    def generate(self, output_path: str, **kwargs) -> str:
+        """
+        Orchestrates the generation of all cumulative difference plots, including per-mode breakdowns.
+        """
+        if len(self.logs) != 2:
+            return "Error: The Cumulative Difference Plot report requires exactly two logs."
+
+        log1, log2 = self.logs[0], self.logs[1]
+        df1_full = get_valid_dataframe(log1)
+        df2_full = get_valid_dataframe(log2)
+
+        if df1_full.empty or df2_full.empty:
+            return "Skipping report: At least one log has no valid QSO data."
+
+        all_created_files = []
+
+        # 1. Generate plots for "All Modes"
+        all_created_files.extend(
+            self._orchestrate_plot_generation(df1_full, df2_full, output_path, mode_filter=None, **kwargs)
+        )
+
+        # 2. Generate plots for each mode if applicable
+        modes_present = pd.concat([df1_full['Mode'], df2_full['Mode']]).dropna().unique()
+        if len(modes_present) > 1:
+            for mode in ['CW', 'PH', 'DG']:
+                if mode in modes_present:
+                    df1_slice = df1_full[df1_full['Mode'] == mode]
+                    df2_slice = df2_full[df2_full['Mode'] == mode]
+                    
+                    all_created_files.extend(
+                        self._orchestrate_plot_generation(df1_slice, df2_slice, output_path, mode_filter=mode, **kwargs)
+                    )
+        
+        if not all_created_files:
             return f"No difference plots were generated for metric '{kwargs.get('metric', 'qsos')}'."
 
-        return f"Cumulative difference plots for {kwargs.get('metric', 'qsos')} saved to:\n" + "\n".join([f"  - {fp}" for fp in created_files])
+        return f"Cumulative difference plots for {kwargs.get('metric', 'qsos')} saved to relevant subdirectories."
