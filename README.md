@@ -3,33 +3,6 @@
 **Version: 0.47.1-Beta**
 **Date: 2025-08-24**
 
----
-### --- Revision History ---
-## [0.47.1-Beta] - 2025-08-24
-### Added
-# - Added the missing 'chart_point_contribution' report to the
-#   "Available Reports" list to synchronize with the codebase.
-## [0.47.0-Beta] - 2025-08-23
-### Changed
-# - Corrected report names in "Available Reports" to align with source code.
-# - Added the --debug-mults flag to the "Usage" section.
-## [0.40.0-Beta] - 2025-08-19
-### Changed
-# - Updated the "Usage" section to include the --debug-data flag.
-# - Updated the "Available Reports" list to be complete.
-## [0.36.6-Beta] - 2025-08-15
-### Changed
-# - Updated the --report argument syntax in the "Usage" section to include
-#   the 'animation' category keyword.
-## [0.35.21-Beta] - 2025-08-15
-### Changed
-# - Updated "Key Features" and "Available Reports" to include the
-#   new hourly animation report.
-## [0.31.0-Beta] - 2025-08-11
-### Added
-# - Initial release of the README.md file.
----
-
 A Python-based tool for in-depth analysis and comparison of amateur radio contest logs. This application processes standard Cabrillo files to generate detailed reports, charts, and visualizations, providing deep insights into operator strategy and performance.
 ---
 ## Key Features
