@@ -7,9 +7,17 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-26
-# Version: 0.51.3-Beta
+# Version: 0.51.5-Beta
 #
 # --- Revision History ---
+# ## [0.51.5-Beta] - 2025-08-26
+# ### Changed
+# - Refactored width calculation to use the "All Bands" table as a
+#   template, ensuring all per-band tables have a consistent width.
+# ## [0.51.4-Beta] - 2025-08-26
+# ### Changed
+# - Implemented logic to pre-calculate column widths and apply them as
+#   inline styles, ensuring all tables in the report have a uniform width.
 # ## [0.51.3-Beta] - 2025-08-26
 # ### Added
 # - Added an "All Bands" summary table to the report.
@@ -134,22 +142,45 @@ class Report(ContestReport):
             all_data[band] = band_data
         
         # --- Calculate "All Bands" Summary ---
-        all_bands_summary = {}
-        for call in all_calls:
-            all_bands_summary[call] = {
-                'total': sum(all_data[band][call]['total'] for band in sorted_bands),
-                'unique': sum(all_data[band][call]['unique'] for band in sorted_bands),
-                'common': sum(all_data[band][call]['common'] for band in sorted_bands),
-                'run_unique': sum(all_data[band][call]['run_unique'] for band in sorted_bands),
-                'sp_unique': sum(all_data[band][call]['sp_unique'] for band in sorted_bands),
-                'unk_unique': sum(all_data[band][call]['unk_unique'] for band in sorted_bands),
-                'run_common': sum(all_data[band][call]['run_common'] for band in sorted_bands),
-                'sp_common': sum(all_data[band][call]['sp_common'] for band in sorted_bands),
-                'unk_common': sum(all_data[band][call]['unk_common'] for band in sorted_bands),
-            }
-        all_data["All Bands"] = all_bands_summary
+        if len(sorted_bands) > 1:
+            all_bands_summary = {}
+            for call in all_calls:
+                all_bands_summary[call] = {
+                    'total': sum(all_data[band][call]['total'] for band in sorted_bands),
+                    'unique': sum(all_data[band][call]['unique'] for band in sorted_bands),
+                    'common': sum(all_data[band][call]['common'] for band in sorted_bands),
+                    'run_unique': sum(all_data[band][call]['run_unique'] for band in sorted_bands),
+                    'sp_unique': sum(all_data[band][call]['sp_unique'] for band in sorted_bands),
+                    'unk_unique': sum(all_data[band][call]['unk_unique'] for band in sorted_bands),
+                    'run_common': sum(all_data[band][call]['run_common'] for band in sorted_bands),
+                    'sp_common': sum(all_data[band][call]['sp_common'] for band in sorted_bands),
+                    'unk_common': sum(all_data[band][call]['unk_common'] for band in sorted_bands),
+                }
+            all_data["All Bands"] = all_bands_summary
         
         return all_data
+
+    def _calculate_column_widths(self, all_bands_data: Dict, all_calls: List[str]) -> Dict[str, int]:
+        """
+        Calculates the maximum required width for each column based on the
+        "All Bands" summary data.
+        """
+        col_keys = [
+            'total', 'unique', 'common', 'run_unique', 'sp_unique',
+            'unk_unique', 'run_common', 'sp_common', 'unk_common'
+        ]
+        widths = {
+            'call': max(len(call) for call in all_calls) if all_calls else 4,
+            'total': 5, 'unique': 6, 'common': 6,
+            'run_unique': 3, 'sp_unique': 3, 'unk_unique': 3,
+            'run_common': 3, 'sp_common': 3, 'unk_common': 3
+        }
+
+        for call, data in all_bands_data.items():
+            for key in col_keys:
+                widths[key] = max(widths[key], len(f"{data.get(key, 0):,}"))
+        
+        return widths
 
     def _generate_html(self, aggregated_data: Dict, logs: List[ContestLog]) -> str:
         """
@@ -157,7 +188,11 @@ class Report(ContestReport):
         """
         all_calls = [log.get_metadata().get('MyCall', f'Log{i+1}') for i, log in enumerate(logs)]
         
-        # --- Define the order of bands for the report ---
+        is_multi_band = "All Bands" in aggregated_data
+        col_widths = {}
+        if is_multi_band:
+            col_widths = self._calculate_column_widths(aggregated_data["All Bands"], all_calls)
+
         report_order = ["All Bands"] + sorted(
             [b for b in aggregated_data.keys() if b != "All Bands"],
             key=lambda b: [band[1] for band in ContestLog._HF_BANDS].index(b) if b in [band[1] for band in ContestLog._HF_BANDS] else -1
@@ -165,6 +200,7 @@ class Report(ContestReport):
 
         all_tables_html = ""
         for band in report_order:
+            if band not in aggregated_data: continue
             band_data = aggregated_data[band]
             
             table_rows_html = ""
@@ -172,39 +208,42 @@ class Report(ContestReport):
                 data = band_data.get(call, {})
                 if not data or data.get('total', 0) == 0: continue
 
+                style = lambda key: f'style="min-width: {col_widths.get(key, 0)}ch;"' if col_widths else ''
+                
                 table_rows_html += f"""
                 <tr class="border-b border-gray-400">
-                    <td class="p-3 text-left font-medium border-r-2 border-r-gray-500 whitespace-nowrap">{call}</td>
-                    <td class="p-3 text-right border-r border-gray-400">{data.get('total', 0):,}</td>
-                    <td class="p-3 text-right border-r border-gray-400">{data.get('unique', 0):,}</td>
-                    <td class="p-3 text-right border-r-2 border-r-gray-500">{data.get('common', 0):,}</td>
-                    <td class="p-3 text-right border-r border-gray-400">{data.get('run_unique', 0):,}</td>
-                    <td class="p-3 text-right border-r border-gray-400">{data.get('sp_unique', 0):,}</td>
-                    <td class="p-3 text-right border-r-2 border-r-gray-500">{data.get('unk_unique', 0):,}</td>
-                    <td class="p-3 text-right border-r border-gray-400">{data.get('run_common', 0):,}</td>
-                    <td class="p-3 text-right border-r border-gray-400">{data.get('sp_common', 0):,}</td>
-                    <td class="p-3 text-right">{data.get('unk_common', 0):,}</td>
+                    <td {style('call')} class="p-3 text-left font-medium border-r-2 border-r-gray-500 whitespace-nowrap">{call}</td>
+                    <td {style('total')} class="p-3 text-right border-r border-gray-400">{data.get('total', 0):,}</td>
+                    <td {style('unique')} class="p-3 text-right border-r border-gray-400">{data.get('unique', 0):,}</td>
+                    <td {style('common')} class="p-3 text-right border-r-2 border-r-gray-500">{data.get('common', 0):,}</td>
+                    <td {style('run_unique')} class="p-3 text-right border-r border-gray-400">{data.get('run_unique', 0):,}</td>
+                    <td {style('sp_unique')} class="p-3 text-right border-r border-gray-400">{data.get('sp_unique', 0):,}</td>
+                    <td {style('unk_unique')} class="p-3 text-right border-r-2 border-r-gray-500">{data.get('unk_unique', 0):,}</td>
+                    <td {style('run_common')} class="p-3 text-right border-r border-gray-400">{data.get('run_common', 0):,}</td>
+                    <td {style('sp_common')} class="p-3 text-right border-r border-gray-400">{data.get('sp_common', 0):,}</td>
+                    <td {style('unk_common')} class="p-3 text-right">{data.get('unk_common', 0):,}</td>
                 </tr>
                 """
 
             if table_rows_html:
-                header_html = """
+                style = lambda key: f'style="min-width: {col_widths.get(key, 0)}ch;"' if col_widths else ''
+                header_html = f"""
                 <thead class="bg-gray-50">
                     <tr>
-                        <th rowspan="2" class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r-2 border-r-gray-500"></th>
-                        <th rowspan="2" class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">Total</th>
-                        <th rowspan="2" class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">Unique</th>
-                        <th rowspan="2" class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r-2 border-r-gray-500">Common</th>
+                        <th rowspan="2" {style('call')} class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r-2 border-r-gray-500"></th>
+                        <th rowspan="2" {style('total')} class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">Total</th>
+                        <th rowspan="2" {style('unique')} class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">Unique</th>
+                        <th rowspan="2" {style('common')} class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r-2 border-r-gray-500">Common</th>
                         <th colspan="3" class="p-3 font-semibold text-center border-b border-gray-400 border-r-2 border-r-gray-500 whitespace-nowrap">Unique QSOs</th>
                         <th colspan="3" class="p-3 font-semibold text-center border-b border-gray-400 whitespace-nowrap">Common QSOs</th>
                     </tr>
                     <tr>
-                        <th class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">Run</th>
-                        <th class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">S&P</th>
-                        <th class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r-2 border-r-gray-500">Unk</th>
-                        <th class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">Run</th>
-                        <th class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">S&P</th>
-                        <th class="p-3 font-semibold text-center border-b-2 border-gray-500">Unk</th>
+                        <th {style('run_unique')} class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">Run</th>
+                        <th {style('sp_unique')} class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">S&P</th>
+                        <th {style('unk_unique')} class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r-2 border-r-gray-500">Unk</th>
+                        <th {style('run_common')} class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">Run</th>
+                        <th {style('sp_common')} class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">S&P</th>
+                        <th {style('unk_common')} class="p-3 font-semibold text-center border-b-2 border-gray-500">Unk</th>
                     </tr>
                 </thead>
                 """
