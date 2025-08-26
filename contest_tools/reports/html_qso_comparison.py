@@ -2,14 +2,28 @@
 #
 # Purpose: Generates a comprehensive HTML report comparing QSO counts,
 #          broken down by band and operating style (Run/S&P/Unknown),
-#          for one or more logs.
+#          for multiple logs.
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-26
-# Version: 0.51.0-Beta
+# Version: 0.51.3-Beta
 #
 # --- Revision History ---
+# ## [0.51.3-Beta] - 2025-08-26
+# ### Added
+# - Added an "All Bands" summary table to the report.
+# ### Changed
+# - Updated HTML template to center the tables on the page.
+# ## [0.51.2-Beta] - 2025-08-26
+# ### Changed
+# - Refactored report to be a multi-log comparison only, removing all
+#   single-log support and fixing a TypeError.
+# ## [0.51.1-Beta] - 2025-08-26
+# ### Changed
+# - Changed report_type to 'html' to save output to the correct directory.
+# - Updated HTML template to use dynamic table sizing.
+# - Modified single-log report to use the consistent, nine-column format.
 # ## [0.51.0-Beta] - 2025-08-26
 # - Updated version number to align with project standards.
 # ## [1.0.0-Beta] - 2025-08-25
@@ -26,30 +40,37 @@ from ._report_utils import get_valid_dataframe, create_output_directory, save_de
 class Report(ContestReport):
     report_id: str = "html_qso_comparison"
     report_name: str = "HTML QSO Comparison Report"
-    report_type: str = "chart" # Treated as a visual report
-    supports_single = True
+    report_type: str = "html" # Saves to the 'html' subdirectory
+    supports_single = False
     supports_multi = True
     supports_pairwise = False
 
     def generate(self, output_path: str, **kwargs) -> str:
         """
-        Main controller for generating the HTML QSO comparison report(s).
+        Main controller for generating the HTML QSO comparison report.
         """
-        created_files = []
+        if len(self.logs) < 2:
+            return f"Report '{self.report_name}' requires at least two logs. Skipping."
 
-        # Generate individual reports for each log
-        for log in self.logs:
-            single_log_files = self._generate_single_log_report(log, output_path, **kwargs)
-            created_files.extend(single_log_files)
+        all_calls = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])
+        aggregated_data = self._aggregate_data(self.logs)
 
-        # Generate a comparative report if there are multiple logs
-        if len(self.logs) > 1:
-            multi_log_files = self._generate_multi_log_report(self.logs, output_path, **kwargs)
-            created_files.extend(multi_log_files)
+        if not aggregated_data:
+            return "No data available to generate the report."
 
-        if not created_files:
-            return "No HTML QSO comparison reports were generated."
-        return "HTML QSO comparison reports saved to:\n" + "\n".join([f"  - {fp}" for fp in created_files])
+        if kwargs.get("debug_data", False):
+            debug_filename = f"{self.report_id}_{'_vs_'.join(all_calls)}_debug.txt"
+            save_debug_data(True, output_path, aggregated_data, debug_filename)
+            
+        html_content = self._generate_html(aggregated_data, self.logs)
+        
+        filename = f"{self.report_id}_{'_vs_'.join(all_calls)}.html"
+        filepath = os.path.join(output_path, filename)
+        create_output_directory(output_path)
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(html_content)
+            
+        return f"HTML QSO comparison report saved to:\n  - {filepath}"
 
     def _get_run_sp_unk_counts(self, df: pd.DataFrame) -> Dict[str, int]:
         """Helper to get a dictionary of Run/S&P/Unknown counts from a DataFrame."""
@@ -65,160 +86,142 @@ class Report(ContestReport):
 
     def _aggregate_data(self, logs: List[ContestLog]) -> Dict[str, Any]:
         """
-        Aggregates all necessary data for single or multi-log reports.
+        Aggregates all necessary data for multi-log reports.
         """
         all_data = {}
         all_calls = [log.get_metadata().get('MyCall', f'Log{i+1}') for i, log in enumerate(logs)]
         
-        # Get a complete list of all bands present across all logs
         all_dfs = [get_valid_dataframe(log, False) for log in logs]
         all_bands_in_logs = pd.concat([df['Band'] for df in all_dfs if not df.empty]).dropna().unique()
         canonical_band_order = [band[1] for band in ContestLog._HF_BANDS]
         sorted_bands = sorted(list(all_bands_in_logs), key=lambda b: canonical_band_order.index(b) if b in canonical_band_order else -1)
 
+        # --- Calculate Per-Band Data ---
         for band in sorted_bands:
             band_data = {}
-            
-            # --- Per-Log Data ---
             calls_on_band = {call: set(df[df['Band'] == band]['Call']) for call, df in zip(all_calls, all_dfs)}
             
             for i, log in enumerate(logs):
                 call = all_calls[i]
                 df_band = all_dfs[i][all_dfs[i]['Band'] == band]
                 
-                # --- Multi-Log Specific Calculations (Unique/Common) ---
-                if len(logs) > 1:
-                    other_calls_on_band = set()
-                    for other_call in all_calls:
-                        if other_call != call:
-                            other_calls_on_band.update(calls_on_band[other_call])
-                    
-                    unique_calls = calls_on_band[call] - other_calls_on_band
-                    common_calls = calls_on_band[call].intersection(other_calls_on_band)
+                other_calls_on_band = set()
+                for other_call in all_calls:
+                    if other_call != call:
+                        other_calls_on_band.update(calls_on_band.get(other_call, set()))
+                
+                unique_calls = calls_on_band[call] - other_calls_on_band
+                common_calls = calls_on_band[call].intersection(other_calls_on_band)
 
-                    df_unique = df_band[df_band['Call'].isin(unique_calls)]
-                    df_common = df_band[df_band['Call'].isin(common_calls)]
-                    
-                    unique_counts = self._get_run_sp_unk_counts(df_unique)
-                    common_counts = self._get_run_sp_unk_counts(df_common)
+                df_unique = df_band[df_band['Call'].isin(unique_calls)]
+                df_common = df_band[df_band['Call'].isin(common_calls)]
+                
+                unique_counts = self._get_run_sp_unk_counts(df_unique)
+                common_counts = self._get_run_sp_unk_counts(df_common)
 
-                    band_data[call] = {
-                        'total': len(df_band),
-                        'unique': len(df_unique),
-                        'common': len(df_common),
-                        'run_unique': unique_counts['run'],
-                        'sp_unique': unique_counts['sp'],
-                        'unk_unique': unique_counts['unk'],
-                        'run_common': common_counts['run'],
-                        'sp_common': common_counts['sp'],
-                        'unk_common': common_counts['unk'],
-                    }
-                else: # Single-Log Mode
-                    total_counts = self._get_run_sp_unk_counts(df_band)
-                    band_data[call] = {
-                        'total': len(df_band),
-                        'run': total_counts['run'],
-                        'sp': total_counts['sp'],
-                        'unk': total_counts['unk'],
-                    }
+                band_data[call] = {
+                    'total': len(df_band),
+                    'unique': len(df_unique),
+                    'common': len(df_common),
+                    'run_unique': unique_counts['run'],
+                    'sp_unique': unique_counts['sp'],
+                    'unk_unique': unique_counts['unk'],
+                    'run_common': common_counts['run'],
+                    'sp_common': common_counts['sp'],
+                    'unk_common': common_counts['unk'],
+                }
             
             all_data[band] = band_data
         
+        # --- Calculate "All Bands" Summary ---
+        all_bands_summary = {}
+        for call in all_calls:
+            all_bands_summary[call] = {
+                'total': sum(all_data[band][call]['total'] for band in sorted_bands),
+                'unique': sum(all_data[band][call]['unique'] for band in sorted_bands),
+                'common': sum(all_data[band][call]['common'] for band in sorted_bands),
+                'run_unique': sum(all_data[band][call]['run_unique'] for band in sorted_bands),
+                'sp_unique': sum(all_data[band][call]['sp_unique'] for band in sorted_bands),
+                'unk_unique': sum(all_data[band][call]['unk_unique'] for band in sorted_bands),
+                'run_common': sum(all_data[band][call]['run_common'] for band in sorted_bands),
+                'sp_common': sum(all_data[band][call]['sp_common'] for band in sorted_bands),
+                'unk_common': sum(all_data[band][call]['unk_common'] for band in sorted_bands),
+            }
+        all_data["All Bands"] = all_bands_summary
+        
         return all_data
 
-    def _generate_html(self, aggregated_data: Dict, logs: List[ContestLog], is_multi_log: bool) -> str:
+    def _generate_html(self, aggregated_data: Dict, logs: List[ContestLog]) -> str:
         """
         Generates the final HTML string from the aggregated data.
         """
         all_calls = [log.get_metadata().get('MyCall', f'Log{i+1}') for i, log in enumerate(logs)]
         
-        # --- Build Table HTML for each band ---
+        # --- Define the order of bands for the report ---
+        report_order = ["All Bands"] + sorted(
+            [b for b in aggregated_data.keys() if b != "All Bands"],
+            key=lambda b: [band[1] for band in ContestLog._HF_BANDS].index(b) if b in [band[1] for band in ContestLog._HF_BANDS] else -1
+        )
+
         all_tables_html = ""
-        for band, band_data in aggregated_data.items():
+        for band in report_order:
+            band_data = aggregated_data[band]
             
-            # --- Build Table Body Rows ---
             table_rows_html = ""
             for call in all_calls:
                 data = band_data.get(call, {})
                 if not data or data.get('total', 0) == 0: continue
 
-                if is_multi_log:
-                    table_rows_html += f"""
-                    <tr class="border-b border-gray-400">
-                        <td class="p-3 text-left font-medium border-r-2 border-r-gray-500 whitespace-nowrap">{call}</td>
-                        <td class="p-3 text-right border-r border-gray-400">{data.get('total', 0):,}</td>
-                        <td class="p-3 text-right border-r border-gray-400">{data.get('unique', 0):,}</td>
-                        <td class="p-3 text-right border-r-2 border-r-gray-500">{data.get('common', 0):,}</td>
-                        <td class="p-3 text-right border-r border-gray-400">{data.get('run_unique', 0):,}</td>
-                        <td class="p-3 text-right border-r border-gray-400">{data.get('sp_unique', 0):,}</td>
-                        <td class="p-3 text-right border-r-2 border-r-gray-500">{data.get('unk_unique', 0):,}</td>
-                        <td class="p-3 text-right border-r border-gray-400">{data.get('run_common', 0):,}</td>
-                        <td class="p-3 text-right border-r border-gray-400">{data.get('sp_common', 0):,}</td>
-                        <td class="p-3 text-right">{data.get('unk_common', 0):,}</td>
-                    </tr>
-                    """
-                else: # Single Log Mode
-                    table_rows_html += f"""
-                    <tr class="border-b border-gray-400">
-                        <td class="p-3 text-left font-medium border-r-2 border-r-gray-500 whitespace-nowrap">{call}</td>
-                        <td class="p-3 text-right border-r-2 border-r-gray-500">{data.get('total', 0):,}</td>
-                        <td class="p-3 text-right border-r border-gray-400">{data.get('run', 0):,}</td>
-                        <td class="p-3 text-right border-r border-gray-400">{data.get('sp', 0):,}</td>
-                        <td class="p-3 text-right">{data.get('unk', 0):,}</td>
-                    </tr>
-                    """
+                table_rows_html += f"""
+                <tr class="border-b border-gray-400">
+                    <td class="p-3 text-left font-medium border-r-2 border-r-gray-500 whitespace-nowrap">{call}</td>
+                    <td class="p-3 text-right border-r border-gray-400">{data.get('total', 0):,}</td>
+                    <td class="p-3 text-right border-r border-gray-400">{data.get('unique', 0):,}</td>
+                    <td class="p-3 text-right border-r-2 border-r-gray-500">{data.get('common', 0):,}</td>
+                    <td class="p-3 text-right border-r border-gray-400">{data.get('run_unique', 0):,}</td>
+                    <td class="p-3 text-right border-r border-gray-400">{data.get('sp_unique', 0):,}</td>
+                    <td class="p-3 text-right border-r-2 border-r-gray-500">{data.get('unk_unique', 0):,}</td>
+                    <td class="p-3 text-right border-r border-gray-400">{data.get('run_common', 0):,}</td>
+                    <td class="p-3 text-right border-r border-gray-400">{data.get('sp_common', 0):,}</td>
+                    <td class="p-3 text-right">{data.get('unk_common', 0):,}</td>
+                </tr>
+                """
 
-            # --- Assemble the full table for the band ---
-            if table_rows_html: # Only create a table if there's data for this band
-                
-                header_html = ""
-                if is_multi_log:
-                    header_html = """
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th rowspan="2" class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r-2 border-r-gray-500"></th>
-                            <th rowspan="2" class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">Total</th>
-                            <th rowspan="2" class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">Unique</th>
-                            <th rowspan="2" class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r-2 border-r-gray-500">Common</th>
-                            <th colspan="3" class="p-3 font-semibold text-center border-b border-gray-400 border-r-2 border-r-gray-500 whitespace-nowrap">Unique QSOs</th>
-                            <th colspan="3" class="p-3 font-semibold text-center border-b border-gray-400 whitespace-nowrap">Common QSOs</th>
-                        </tr>
-                        <tr>
-                            <th class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">Run</th>
-                            <th class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">S&P</th>
-                            <th class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r-2 border-r-gray-500">Unk</th>
-                            <th class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">Run</th>
-                            <th class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">S&P</th>
-                            <th class="p-3 font-semibold text-center border-b-2 border-gray-500">Unk</th>
-                        </tr>
-                    </thead>
-                    """
-                else: # Single Log Mode
-                    header_html = """
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r-2 border-r-gray-500"></th>
-                            <th class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r-2 border-r-gray-500">Total QSOs</th>
-                            <th class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">Run</th>
-                            <th class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">S&P</th>
-                            <th class="p-3 font-semibold text-center border-b-2 border-gray-500">Unk</th>
-                        </tr>
-                    </thead>
-                    """
-
+            if table_rows_html:
+                header_html = """
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th rowspan="2" class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r-2 border-r-gray-500"></th>
+                        <th rowspan="2" class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">Total</th>
+                        <th rowspan="2" class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">Unique</th>
+                        <th rowspan="2" class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r-2 border-r-gray-500">Common</th>
+                        <th colspan="3" class="p-3 font-semibold text-center border-b border-gray-400 border-r-2 border-r-gray-500 whitespace-nowrap">Unique QSOs</th>
+                        <th colspan="3" class="p-3 font-semibold text-center border-b border-gray-400 whitespace-nowrap">Common QSOs</th>
+                    </tr>
+                    <tr>
+                        <th class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">Run</th>
+                        <th class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">S&P</th>
+                        <th class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r-2 border-r-gray-500">Unk</th>
+                        <th class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">Run</th>
+                        <th class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">S&P</th>
+                        <th class="p-3 font-semibold text-center border-b-2 border-gray-500">Unk</th>
+                    </tr>
+                </thead>
+                """
                 all_tables_html += f"""
                 <h2 class="text-xl font-semibold text-gray-700 mt-8 mb-4">--- {band} ---</h2>
-                <div class="overflow-hidden rounded-lg border-2 border-gray-500">
-                    <table class="text-sm">
-                        {header_html}
-                        <tbody class="bg-white">
-                            {table_rows_html}
-                        </tbody>
-                    </table>
+                <div class="inline-block">
+                    <div class="overflow-hidden rounded-lg border-2 border-gray-500">
+                        <table class="text-sm">
+                            {header_html}
+                            <tbody class="bg-white">
+                                {table_rows_html}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
                 """
         
-        # --- Final HTML Template ---
         first_log = logs[0]
         metadata = first_log.get_metadata()
         df_first_log = get_valid_dataframe(first_log)
@@ -250,52 +253,12 @@ class Report(ContestReport):
             <p class="text-lg text-gray-600">{title_line2}</p>
             <p class="text-md text-gray-500">{title_line3}</p>
         </div>
-        {all_tables_html}
+        <div class="mt-8 flex justify-center">
+            <div>
+                {all_tables_html}
+            </div>
+        </div>
     </div>
 </body>
 </html>
         """
-
-    def _generate_single_log_report(self, log: ContestLog, output_path: str, **kwargs) -> List[str]:
-        """Generates the HTML report for a single log."""
-        callsign = log.get_metadata().get('MyCall', 'Unknown')
-        aggregated_data = self._aggregate_data([log])
-        
-        if not aggregated_data:
-            return []
-
-        if kwargs.get("debug_data", False):
-            debug_filename = f"{self.report_id}_{callsign}_debug.txt"
-            save_debug_data(True, output_path, aggregated_data, debug_filename)
-
-        html_content = self._generate_html(aggregated_data, [log], is_multi_log=False)
-        
-        filename = f"{self.report_id}_{callsign}.html"
-        filepath = os.path.join(output_path, filename)
-        create_output_directory(output_path)
-        with open(filepath, 'w', encoding='utf-8') as f:
-            f.write(html_content)
-        
-        return [filepath]
-
-    def _generate_multi_log_report(self, logs: List[ContestLog], output_path: str, **kwargs) -> List[str]:
-        """Generates the comparative HTML report for multiple logs."""
-        all_calls = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in logs])
-        aggregated_data = self._aggregate_data(logs)
-
-        if not aggregated_data:
-            return []
-
-        if kwargs.get("debug_data", False):
-            debug_filename = f"{self.report_id}_{'_vs_'.join(all_calls)}_debug.txt"
-            save_debug_data(True, output_path, aggregated_data, debug_filename)
-            
-        html_content = self._generate_html(aggregated_data, logs, is_multi_log=True)
-        
-        filename = f"{self.report_id}_{'_vs_'.join(all_calls)}.html"
-        filepath = os.path.join(output_path, filename)
-        create_output_directory(output_path)
-        with open(filepath, 'w', encoding='utf-8') as f:
-            f.write(html_content)
-            
-        return [filepath]
