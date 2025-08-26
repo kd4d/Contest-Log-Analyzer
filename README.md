@@ -1,33 +1,9 @@
 # Contest Log Analyzer
 
-**Version: 0.47.0-Beta**
-**Date: 2025-08-23**
+**Version: 0.52.0-Beta**
+**Date: 2025-08-26**
 
----
-### --- Revision History ---
-## [0.47.0-Beta] - 2025-08-23
-### Changed
-# - Corrected report names in "Available Reports" to align with source code.
-# - Added the --debug-mults flag to the "Usage" section.
-## [0.40.0-Beta] - 2025-08-19
-### Changed
-# - Updated the "Usage" section to include the --debug-data flag.
-# - Updated the "Available Reports" list to be complete.
-## [0.36.6-Beta] - 2025-08-15
-### Changed
-# - Updated the --report argument syntax in the "Usage" section to include
-#   the 'animation' category keyword.
-## [0.35.21-Beta] - 2025-08-15
-### Changed
-# - Updated "Key Features" and "Available Reports" to include the
-#   new hourly animation report.
-## [0.31.0-Beta] - 2025-08-11
-### Added
-# - Initial release of the README.md file.
----
-
-A Python-based tool for in-depth analysis and comparison of amateur radio contest logs.
-This application processes standard Cabrillo files to generate detailed reports, charts, and visualizations, providing deep insights into operator strategy and performance.
+A Python-based tool for in-depth analysis and comparison of amateur radio contest logs. This application processes standard Cabrillo files to generate detailed reports, charts, and visualizations, providing deep insights into operator strategy and performance.
 ---
 ## Key Features
 
@@ -45,28 +21,50 @@ This application processes standard Cabrillo files to generate detailed reports,
 The analyzer is run from the command line using `main_cli.py`.
 #### **Basic Syntax**
 
-    python main_cli.py --report <ReportID|all|chart|text|plot|animation> <LogFile1> [<LogFile2>...] [options]
+    python main_cli.py --report <ReportID|all|chart|text|plot|animation|html> <LogFile1> [<LogFile2>...] [options]
 
 #### **Examples**
 
 * **Generate all available reports for two logs:**
 
-        python main_cli.py --report all Logs/2024/cq-ww-cw/k3lr.log Logs/2024/cq-ww-cw/kc1xx.log
+__CODE_BLOCK__
+python main_cli.py --report all Logs/2024/cq-ww-cw/k3lr.log Logs/2024/cq-ww-cw/kc1xx.log
+__CODE_BLOCK__
 
 * **Generate a specific report (Score Summary) for a single log:**
 
-        python main_cli.py --report score_report Logs/2024/cq-ww-cw/k3lr.log
+__CODE_BLOCK__
+python main_cli.py --report score_report Logs/2024/cq-ww-cw/k3lr.log
+__CODE_BLOCK__
 
 * **Generate a Missed Multipliers report for CQ WW Zones:**
 
-        python main_cli.py --report missed_multipliers --mult-name Zones Logs/2024/cq-ww-cw/k3lr.log Logs/2024/cq-ww-cw/kc1xx.log
+__CODE_BLOCK__
+python main_cli.py --report missed_multipliers --mult-name Zones Logs/2024/cq-ww-cw/k3lr.log Logs/2024/cq-ww-cw/kc1xx.log
+__CODE_BLOCK__
 
+---
+## Supported Contests
+
+The analyzer uses the `CONTEST:` field in the Cabrillo header to apply contest-specific rules. The following contests are currently supported:
+
+* ARRL 10 Meter
+* ARRL DX (CW & SSB)
+* ARRL Field Day
+* ARRL Sweepstakes
+* CQ 160-Meter
+* CQ WPX (CW & SSB)
+* CQ World Wide DX (CW & SSB)
+* North American QSO Party (NAQP)
 ---
 ## Available Reports
 
 All generated files are saved to a structured directory under `reports/YYYY/CONTEST_NAME/`.
 #### **Animation Reports (`animations/`)**
 * `hourly_animation`: Hourly Rate Animation
+
+#### **HTML Reports (`html/`)**
+* `html_qso_comparison`: HTML QSO Comparison Report
 
 #### **Chart Reports (`charts/`)**
 * `chart_point_contribution`: Point Contribution Breakdown
