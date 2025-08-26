@@ -1,10 +1,14 @@
 # CLA Reports Style Guide
 
-**Version: 0.51.0-Beta**
+**Version: 0.52.14-Beta**
 **Date: 2025-08-26**
 
 ---
 ### --- Revision History ---
+## [0.52.14-Beta] - 2025-08-26
+### Changed
+# - Revised and standardized the report title format to a new,
+#   mandatory two-line structure for all report types.
 ## [0.51.0-Beta] - 2025-08-26
 ### Added
 # - Initial release of the official CLA Reports Style Guide.
@@ -17,12 +21,19 @@ This document is the single source of truth for the visual and formatting standa
 
 ---
 ## 2. Report Titles
-All generated reports, regardless of their output format (text, plot, chart, or HTML), must use the standard three-line title format. This creates a consistent and professional header for all user-facing documents.
+All generated reports, regardless of their output format (text, plot, chart, animation, or HTML), must use the standard **two-line** title format. This creates a consistent and professional header for all user-facing documents.
 
-* **Line 1**: The report's official `report_name`.
-* **Line 2**: The contest context, formatted as `Year EventID ContestName`.
-* **Line 3**: The callsigns being analyzed (e.g., `K1ABC` or `K1ABC vs W1XYZ`).
+* **Line 1**: The report's official `report_name` as defined in its Python class.
+* **Line 2**: A consolidated string containing the context and callsigns, formatted as `YYYY ContestName EventID - Callsign(s)`. The `EventID` is only included if defined for the contest.
 
+#### **Examples:**
+* **Single Log (No EventID):**
+    > Score Summary
+    > 2025 CQ World Wide DX CW - K1ABC
+
+* **Comparative (With EventID):**
+    > Comparative Rate Sheet
+    > 2025 NAQP CW AUG - K1ABC vs W1XYZ
 ---
 ## 3. Text Reports (`.txt`)
 This section defines the standards for all plain-text reports.
@@ -30,14 +41,12 @@ This section defines the standards for all plain-text reports.
 ### 3.1. Table Formatting
 All new text-based tables must be generated using the **`tabulate`** Python library. This ensures that all tables have clean, perfectly aligned, fixed-width columns.
 * **Required Format**: The standard format to be used is **`tablefmt='psql'`**.
-
 ---
 ## 4. HTML Reports (`.html`)
 This section defines the standards for all web-based reports. The goal is to create modern, responsive, and visually appealing documents.
 
 ### 4.1. Styling Framework
 All styling for HTML reports must be implemented using **Tailwind CSS**. No custom CSS in `<style>` blocks should be used unless absolutely necessary for a feature that Tailwind cannot support.
-
 ### 4.2. Table Styling
 HTML tables should be styled to be clean, readable, and visually hierarchical.
 * **Centering**: All tables must be centered horizontally on the page.

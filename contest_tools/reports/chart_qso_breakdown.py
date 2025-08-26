@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-20
-# Version: 0.41.6-Beta
+# Date: 2025-08-26
+# Version: 0.52.15-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,6 +16,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.52.15-Beta] - 2025-08-26
+### Changed
+# - Updated the report title to conform to the new mandatory
+#   two-line format defined in the style guide.
 ## [0.41.6-Beta] - 2025-08-20
 ### Changed
 # - Brightened the colors for "Unique QSOs" to improve visual contrast with
@@ -242,8 +246,11 @@ class Report(ContestReport):
             event_id = metadata.get('EventID', '')
             page_title_suffix = f" (Page {page_num + 1}/{num_pages})" if num_pages > 1 else ""
             
-            title_line1 = f"{event_id} {year} {contest_name}".strip()
-            title_line2 = f"QSO Breakdown ({call1} vs {call2}){page_title_suffix}"
+            # Per CLA Reports Style Guide v0.52.14-Beta
+            title_line1 = self.report_name
+            context_str = f"{year} {event_id} {contest_name}".strip().replace("  ", " ")
+            calls_str = f"{call1} vs {call2}{page_title_suffix}"
+            title_line2 = f"{context_str} - {calls_str}"
             ax.set_title(f"{title_line1}\n{title_line2}", fontsize=16, fontweight='bold')
             ax.set_ylabel('QSO Count')
             

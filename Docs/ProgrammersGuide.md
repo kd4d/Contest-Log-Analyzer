@@ -1,10 +1,16 @@
 # Contest Log Analyzer - Programmer's Guide
 
-**Version: 0.51.0-Beta**
+**Version: 0.52.13-Beta**
 **Date: 2025-08-26**
 
 ---
 ### --- Revision History ---
+## [0.52.13-Beta] - 2025-08-26
+### Changed
+# - Updated the Core Data Columns list to include the new `RawQSO` column.
+# - Updated the custom parser contract to require the `RawQSO` column.
+# - Updated the `report_type` and `--report` argument descriptions to include 'html'.
+# - Added the missing `--debug-mults` CLI argument to the documentation.
 ## [0.51.0-Beta] - 2025-08-26
 ### Added
 # - Added "Advanced Report Design: Shared Logic" section to document the
@@ -164,7 +170,7 @@ class Report(ContestReport):
 Adding a new contest is primarily a data-definition task that involves creating a `.json` file and, if necessary, contest-specific Python modules.
 ### The Core Data Columns
 After parsing, all log data is normalized into a standard pandas DataFrame. The available columns are defined in `contest_tools/contest_definitions/_common_cabrillo_fields.json`. When creating exchange parsing rules, the `groups` list **must** map to these column names.
-**Available Columns**: `ContestName`, `CategoryOverlay`, `CategoryOperator`, `CategoryTransmitter`, `MyCall`, `Frequency`, `Mode`, `Datetime`, `SentRS`, `SentRST`, `SentZone`, `SentNR`, `Call`, `RS`, `RST`, `Zone`, `NR`, `Transmitter`, `Band`, `Date`, `Hour`, `Dupe`, `DXCCName`, `DXCCPfx`, `CQZone`, `ITUZone`, `Continent`, `WAEName`, `WAEPfx`, `Lat`, `Lon`, `Tzone`, `portableid`, `Run`, `QSOPoints`, `Mult1`, `Mult1Name`, `Mult2`, `Mult2Name`.
+**Available Columns**: `ContestName`, `CategoryOverlay`, `CategoryOperator`, `CategoryTransmitter`, `MyCall`, `Frequency`, `Mode`, `Datetime`, `SentRS`, `SentRST`, `SentZone`, `SentNR`, `Call`, `RS`, `RST`, `Zone`, `NR`, `Transmitter`, `RawQSO`, `Band`, `Date`, `Hour`, `Dupe`, `DXCCName`, `DXCCPfx`, `CQZone`, `ITUZone`, `Continent`, `WAEName`, `WAEPfx`, `Lat`, `Lon`, `Tzone`, `portableid`, `Run`, `QSOPoints`, `Mult1`, `Mult1Name`, `Mult2`, `Mult2Name`.
 ### JSON Quick Reference
 Create a new `.json` file in `contest_tools/contest_definitions/`. The following table describes the available keys.
 
@@ -210,6 +216,7 @@ For contests requiring logic beyond simple JSON definitions, create a Python mod
 * **Custom Parser Modules**:
     * **Purpose**: To parse a raw log file and return a standardized DataFrame and metadata dictionary. Called *instead of* the generic parser.
     * **Required Function Signature**: `parse_log(filepath: str, contest_definition: ContestDefinition) -> Tuple[pd.DataFrame, Dict[str, Any]]`
+    * The returned DataFrame **must** now include a `RawQSO` column containing the original, cleaned `QSO:` line string to support enhanced diagnostics.
 * **Custom Multiplier Resolvers**:
     * **Purpose**: To apply complex logic to identify multipliers and add the appropriate `Mult_` columns to the DataFrame.
     * **Required Function Signature**: `resolve_multipliers(df: pd.DataFrame, my_location_type: str) -> pd.DataFrame`
@@ -237,4 +244,3 @@ This appendix lists the most important files for developers to consult to unders
 * **`contest_tools/reports/report_interface.py`**: Defines the `ContestReport` abstract base class that all new reports must inherit from.
 * **`contest_tools/contest_log.py`**: The central orchestrator for applying contest-specific logic, including custom parsers, multiplier resolvers, and scoring modules.
 * **`contest_tools/core_annotations/_core_utils.py`**: Contains shared utilities, most notably the `AliasLookup` class for handling complex multiplier aliases.
----

@@ -1,12 +1,15 @@
-# Contest Log Analyzer/contest_tools/contest_specific_annotations/arrl_fd_parser.py
+# Contest Log Analyzer/test_code/arrl_fd_parser.py
 #
-# Version: 0.39.2-Beta
-# Date: 2025-08-18
+# Version: 0.52.8-Beta
+# Date: 2025-08-26
 #
 # Purpose: Provides a custom, contest-specific parser for the ARRL Field Day
 #          contest to handle its complex, multi-part exchange format.
-#
 # --- Revision History ---
+## [0.52.8-Beta] - 2025-08-26
+### Changed
+# - Parser now includes the raw, cleaned QSO: line in its output
+#   under the 'RawQSO' key to support enhanced diagnostics.
 ## [0.39.2-Beta] - 2025-08-18
 ### Fixed
 # - Rewrote the parser to use a list of regular expressions to handle
@@ -84,6 +87,7 @@ def parse_log(filepath: str, contest_definition: ContestDefinition) -> Tuple[pd.
                 match = regex.match(sanitized_line)
                 if match:
                     qso_data = dict(zip(groups, match.groups()))
+                    qso_data['RawQSO'] = sanitized_line
                     qso_records.append(qso_data)
                     matched = True
                     break
