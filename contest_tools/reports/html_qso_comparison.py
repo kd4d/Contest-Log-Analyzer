@@ -7,9 +7,13 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-26
-# Version: 0.51.5-Beta
+# Version: 0.51.6-Beta
 #
 # --- Revision History ---
+# ## [0.51.6-Beta] - 2025-08-26
+# ### Changed
+# - Refactored width calculation to apply a single min-width to the
+#   table's container div, ensuring all tables have a uniform width.
 # ## [0.51.5-Beta] - 2025-08-26
 # ### Changed
 # - Refactored width calculation to use the "All Bands" table as a
@@ -160,10 +164,9 @@ class Report(ContestReport):
         
         return all_data
 
-    def _calculate_column_widths(self, all_bands_data: Dict, all_calls: List[str]) -> Dict[str, int]:
+    def _calculate_total_width(self, all_bands_data: Dict, all_calls: List[str]) -> int:
         """
-        Calculates the maximum required width for each column based on the
-        "All Bands" summary data.
+        Calculates the total character width of the widest possible table.
         """
         col_keys = [
             'total', 'unique', 'common', 'run_unique', 'sp_unique',
@@ -180,7 +183,9 @@ class Report(ContestReport):
             for key in col_keys:
                 widths[key] = max(widths[key], len(f"{data.get(key, 0):,}"))
         
-        return widths
+        # Sum of all column widths + padding + borders
+        total_width = sum(widths.values()) + (len(widths) * 2) + len(widths)
+        return total_width
 
     def _generate_html(self, aggregated_data: Dict, logs: List[ContestLog]) -> str:
         """
@@ -189,9 +194,9 @@ class Report(ContestReport):
         all_calls = [log.get_metadata().get('MyCall', f'Log{i+1}') for i, log in enumerate(logs)]
         
         is_multi_band = "All Bands" in aggregated_data
-        col_widths = {}
+        total_table_width_ch = 0
         if is_multi_band:
-            col_widths = self._calculate_column_widths(aggregated_data["All Bands"], all_calls)
+            total_table_width_ch = self._calculate_total_width(aggregated_data["All Bands"], all_calls)
 
         report_order = ["All Bands"] + sorted(
             [b for b in aggregated_data.keys() if b != "All Bands"],
@@ -208,50 +213,50 @@ class Report(ContestReport):
                 data = band_data.get(call, {})
                 if not data or data.get('total', 0) == 0: continue
 
-                style = lambda key: f'style="min-width: {col_widths.get(key, 0)}ch;"' if col_widths else ''
-                
                 table_rows_html += f"""
                 <tr class="border-b border-gray-400">
-                    <td {style('call')} class="p-3 text-left font-medium border-r-2 border-r-gray-500 whitespace-nowrap">{call}</td>
-                    <td {style('total')} class="p-3 text-right border-r border-gray-400">{data.get('total', 0):,}</td>
-                    <td {style('unique')} class="p-3 text-right border-r border-gray-400">{data.get('unique', 0):,}</td>
-                    <td {style('common')} class="p-3 text-right border-r-2 border-r-gray-500">{data.get('common', 0):,}</td>
-                    <td {style('run_unique')} class="p-3 text-right border-r border-gray-400">{data.get('run_unique', 0):,}</td>
-                    <td {style('sp_unique')} class="p-3 text-right border-r border-gray-400">{data.get('sp_unique', 0):,}</td>
-                    <td {style('unk_unique')} class="p-3 text-right border-r-2 border-r-gray-500">{data.get('unk_unique', 0):,}</td>
-                    <td {style('run_common')} class="p-3 text-right border-r border-gray-400">{data.get('run_common', 0):,}</td>
-                    <td {style('sp_common')} class="p-3 text-right border-r border-gray-400">{data.get('sp_common', 0):,}</td>
-                    <td {style('unk_common')} class="p-3 text-right">{data.get('unk_common', 0):,}</td>
+                    <td class="p-3 text-left font-medium border-r-2 border-r-gray-500 whitespace-nowrap">{call}</td>
+                    <td class="p-3 text-right border-r border-gray-400">{data.get('total', 0):,}</td>
+                    <td class="p-3 text-right border-r border-gray-400">{data.get('unique', 0):,}</td>
+                    <td class="p-3 text-right border-r-2 border-r-gray-500">{data.get('common', 0):,}</td>
+                    <td class="p-3 text-right border-r border-gray-400">{data.get('run_unique', 0):,}</td>
+                    <td class="p-3 text-right border-r border-gray-400">{data.get('sp_unique', 0):,}</td>
+                    <td class="p-3 text-right border-r-2 border-r-gray-500">{data.get('unk_unique', 0):,}</td>
+                    <td class="p-3 text-right border-r border-gray-400">{data.get('run_common', 0):,}</td>
+                    <td class="p-3 text-right border-r border-gray-400">{data.get('sp_common', 0):,}</td>
+                    <td class="p-3 text-right">{data.get('unk_common', 0):,}</td>
                 </tr>
                 """
 
             if table_rows_html:
-                style = lambda key: f'style="min-width: {col_widths.get(key, 0)}ch;"' if col_widths else ''
-                header_html = f"""
+                header_html = """
                 <thead class="bg-gray-50">
                     <tr>
-                        <th rowspan="2" {style('call')} class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r-2 border-r-gray-500"></th>
-                        <th rowspan="2" {style('total')} class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">Total</th>
-                        <th rowspan="2" {style('unique')} class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">Unique</th>
-                        <th rowspan="2" {style('common')} class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r-2 border-r-gray-500">Common</th>
+                        <th rowspan="2" class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r-2 border-r-gray-500"></th>
+                        <th rowspan="2" class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">Total</th>
+                        <th rowspan="2" class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">Unique</th>
+                        <th rowspan="2" class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r-2 border-r-gray-500">Common</th>
                         <th colspan="3" class="p-3 font-semibold text-center border-b border-gray-400 border-r-2 border-r-gray-500 whitespace-nowrap">Unique QSOs</th>
                         <th colspan="3" class="p-3 font-semibold text-center border-b border-gray-400 whitespace-nowrap">Common QSOs</th>
                     </tr>
                     <tr>
-                        <th {style('run_unique')} class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">Run</th>
-                        <th {style('sp_unique')} class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">S&P</th>
-                        <th {style('unk_unique')} class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r-2 border-r-gray-500">Unk</th>
-                        <th {style('run_common')} class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">Run</th>
-                        <th {style('sp_common')} class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">S&P</th>
-                        <th {style('unk_common')} class="p-3 font-semibold text-center border-b-2 border-gray-500">Unk</th>
+                        <th class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">Run</th>
+                        <th class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">S&P</th>
+                        <th class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r-2 border-r-gray-500">Unk</th>
+                        <th class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">Run</th>
+                        <th class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">S&P</th>
+                        <th class="p-3 font-semibold text-center border-b-2 border-gray-500">Unk</th>
                     </tr>
                 </thead>
                 """
+                
+                table_style = f'style="min-width: {total_table_width_ch}ch;"' if total_table_width_ch > 0 else ''
+                
                 all_tables_html += f"""
                 <h2 class="text-xl font-semibold text-gray-700 mt-8 mb-4">--- {band} ---</h2>
-                <div class="inline-block">
+                <div class="inline-block" {table_style}>
                     <div class="overflow-hidden rounded-lg border-2 border-gray-500">
-                        <table class="text-sm">
+                        <table class="w-full text-sm">
                             {header_html}
                             <tbody class="bg-white">
                                 {table_rows_html}
