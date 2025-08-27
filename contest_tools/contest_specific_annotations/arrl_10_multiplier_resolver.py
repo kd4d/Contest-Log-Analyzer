@@ -1,7 +1,7 @@
 # Contest Log Analyzer/contest_tools/contest_specific_annotations/arrl_10_multiplier_resolver.py
 #
-# Version: 0.38.2-Beta
-# Date: 2025-08-18
+# Version: 0.38.3-Beta
+# Date: 2025-08-27
 #
 # Purpose: Provides contest-specific logic to resolve ARRL 10 Meter contest
 #          multipliers by parsing the asymmetric received exchange.
@@ -15,6 +15,13 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.38.3-Beta] - 2025-08-27
+### Fixed
+# - Corrected DXCC multiplier logic to use the prefix (DXCCPfx) instead
+#   of the full entity name.
+### Added
+# - Resolver now creates and populates full name columns (e.g.,
+#   Mult_StateName) for all multiplier types to support enhanced reporting.
 ## [0.38.2-Beta] - 2025-08-18
 ### Changed
 # - Enhanced resolver logic to query for ambiguous aliases and use the
@@ -51,8 +58,9 @@ def _resolve_row(row: pd.Series, alias_lookup: AliasLookup, rules: Dict) -> pd.S
     Parses the received exchange and determines the multiplier for a single QSO row,
     now with logic to handle ambiguous aliases based on context.
     """
-    # Initialize results
+    # Initialize results for abbreviations and names
     mult_state, mult_ve, mult_xe, mult_dxcc, mult_itu = pd.NA, pd.NA, pd.NA, pd.NA, pd.NA
+    mult_statename, mult_vename, mult_xename, mult_dxccname = pd.NA, pd.NA, pd.NA, pd.NA
     rcvd_location, rcvd_serial, rcvd_itu = pd.NA, pd.NA, pd.NA
     
     worked_call = row.get('Call', '')
@@ -82,35 +90,42 @@ def _resolve_row(row: pd.Series, alias_lookup: AliasLookup, rules: Dict) -> pd.S
     if pd.notna(rcvd_itu):
         mult_itu = f"ITU {rcvd_itu}"
     elif pd.notna(rcvd_location):
-        # --- NEW LOGIC: Multi-step lookup ---
-        
-        # 3.1: Attempt standard, unambiguous lookup first
-        mult_abbr, _ = alias_lookup.get_multiplier(rcvd_location)
+        # --- Multi-step lookup for State/Province/XE ---
+        mult_abbr, full_name = alias_lookup.get_multiplier(rcvd_location)
 
-        # 3.2: If standard lookup fails, attempt ambiguous lookup
         if pd.isna(mult_abbr) or mult_abbr == "Unknown":
             mappings = alias_lookup.get_ambiguous_mappings(rcvd_location)
             if mappings:
                 target_category = DXCC_TO_CATEGORY.get(worked_dxcc)
                 for abbr, category in mappings:
                     if category == target_category:
-                        mult_abbr = abbr # Found a context-specific match
+                        mult_abbr, full_name = alias_lookup.get_multiplier(abbr) # Re-lookup to get full name
                         break
         
-        # 3.3: If we have a resolved multiplier, categorize and assign it
         if pd.notna(mult_abbr) and mult_abbr != "Unknown":
             category = alias_lookup.get_category(mult_abbr)
             if category == "US States":
                 mult_state = mult_abbr
+                mult_statename = full_name
             elif category == "Canadian Provinces":
                 mult_ve = mult_abbr
+                mult_vename = full_name
             elif category == "Mexican States":
                 mult_xe = mult_abbr
+                mult_xename = full_name
     else: # Fallback to DXCC for non-W/VE/XE stations
         if worked_dxcc not in ["United States", "Canada", "Mexico", "Alaska", "Hawaii", "Unknown"]:
-            mult_dxcc = worked_dxcc
+            mult_dxcc = row.get('DXCCPfx', 'Unknown') # Use Prefix as identifier
+            mult_dxccname = worked_dxcc # Use Name as the full name
 
-    return pd.Series([rcvd_location, rcvd_serial, rcvd_itu, mult_state, mult_ve, mult_xe, mult_dxcc, mult_itu])
+    return pd.Series([
+        rcvd_location, rcvd_serial, rcvd_itu,
+        mult_state, mult_statename,
+        mult_ve, mult_vename,
+        mult_xe, mult_xename,
+        mult_dxcc, mult_dxccname,
+        mult_itu
+    ])
 
 
 def resolve_multipliers(df: pd.DataFrame, my_call_info: Dict[str, Any]) -> pd.DataFrame:
@@ -129,9 +144,15 @@ def resolve_multipliers(df: pd.DataFrame, my_call_info: Dict[str, Any]) -> pd.Da
     contest_def = ContestDefinition.from_json("ARRL-10")
     rules = contest_def.exchange_parsing_rules
 
-    # --- Step 1: Parse exchange and determine multiplier category for every QSO ---
+    # Define the full set of columns to be populated
     parsed_cols = ['RcvdLocation', 'RcvdSerial', 'RcvdITU']
-    mult_cols = ['Mult_State', 'Mult_VE', 'Mult_XE', 'Mult_DXCC', 'Mult_ITU']
+    mult_cols = [
+        'Mult_State', 'Mult_StateName',
+        'Mult_VE', 'Mult_VEName',
+        'Mult_XE', 'Mult_XEName',
+        'Mult_DXCC', 'Mult_DXCCName',
+        'Mult_ITU'
+    ]
     
     df[parsed_cols + mult_cols] = df.apply(_resolve_row, axis=1, alias_lookup=alias_lookup, rules=rules)
 
