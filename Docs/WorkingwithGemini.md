@@ -1,10 +1,22 @@
 # Project Workflow Guide
 
-**Version: 0.52.20-Beta**
-**Date: 2025-08-26**
+**Version: 0.52.22-Beta**
+**Date: 2025-08-27**
 
 ---
 ### --- Revision History ---
+## [0.52.22-Beta] - 2025-08-27
+### Changed
+# - Revised Protocol 5.4 to recommend `prettytable` for complex,
+#   multi-table reports and designate `tabulate` for simpler,
+#   single-table use cases.
+## [0.52.21-Beta] - 2025-08-27
+### Changed
+# - Strengthened Principle 9 (Surgical Modification) to explicitly
+#   forbid unauthorized stylistic refactoring.
+### Added
+# - Added Protocol 7.5 (Tool Suitability Re-evaluation Protocol) to
+#   formalize the process of handling unsuitable third-party tools.
 ## [0.52.20-Beta] - 2025-08-26
 ### Added
 # - Added a mandatory "Affected Modules Checklist" to Protocol 2.5 to
@@ -117,7 +129,7 @@
 ## [0.36.9-Beta] - 2025-08-15
 ### Added
 # - Added rule 3.2.4 to mandate the substitution of markdown code fences
-#   with ``` for proper web interface rendering.
+#   with __CODE_BLOCK__ for proper web interface rendering.
 ## [0.36.4-Beta] - 2025-08-15
 ### Changed
 # - Clarified Principle 8 (Surgical Modification) to explicitly require
@@ -162,7 +174,7 @@ These are the foundational rules that govern all interactions and analyses.
 6.  **Prefer Logic in Code, Not Data.** The project's design philosophy is to keep the `.json` definition files as simple, declarative maps. All complex, conditional, or contest-specific logic should be implemented in dedicated Python modules.
 7.  **Assume Bugs are Systemic.** When a bug is identified in one module, the default assumption is that the same flaw exists in all other similar modules. The AI must perform a global search for that specific bug pattern and fix all instances at once.
 8.  **Reports Must Be Non-Destructive.** Specialist report scripts must **never** modify the original `ContestLog` objects they receive. All data filtering or manipulation must be done on a temporary **copy** of the DataFrame.
-9.  **Principle of Surgical Modification.** All file modifications must be treated as surgical operations. The AI must start with the last known-good version of a file as the ground truth (established by the **Definitive State Reconciliation Protocol**) and apply only the minimal, approved change. Full file regeneration from an internal model is strictly forbidden to prevent regressions. **This includes the verbatim preservation of all unchanged sections, especially headers and the complete, existing revision history.**
+9.  **Principle of Surgical Modification.** All file modifications must be treated as surgical operations. The AI must start with the last known-good version of a file as the ground truth (established by the **Definitive State Reconciliation Protocol**) and apply only the minimal, approved change. Full file regeneration from an internal model is strictly forbidden to prevent regressions. **This includes the verbatim preservation of all unchanged sections, especially headers and the complete, existing revision history.** This principle explicitly forbids stylistic refactoring (e.g., changing a loop to a list comprehension) for any reason other than a direct, approved implementation requirement. Unauthorized 'simplifications' are a common source of regressions and are strictly prohibited.
 10. **Primacy of Official Rules.** The AI will place the highest emphasis on analyzing the specific data, context, and official rules provided, using them as the single source of truth.
 11. **Citation of Official Rules.** When researching contest rules, the AI will prioritize finding and citing the **official rules from the sponsoring organization**.
 12. **Uniqueness of Contest Logic.** Each contest's ruleset is to be treated as entirely unique. Logic from one contest must **never** be assumed to apply to another.
@@ -249,8 +261,8 @@ This workflow is a formal state machine that governs all development tasks, from
     2.  **Raw Source Text**: The content inside the delivered code block must be the raw source text of the file.
     3.  **Code File Delivery**: For code files (e.g., `.py`, `.json`), the content will be delivered in a standard fenced code block with the appropriate language specifier.
     4.  **Markdown File Delivery**: To prevent the user interface from rendering markdown and to provide a "Copy" button, the entire raw content of a documentation file (`.md`) must be delivered inside a single, plaintext-specified code block.
-        * **Internal Code Fences**: Any internal markdown code fences (```) must be replaced with the `__CODE_BLOCK__` placeholder.
-        * **Clarification**: This substitution is a requirement of the AI's web interface. The user will provide files back with standard markdown fences (` ``` `), which is the expected behavior.
+        * **Internal Code Fences**: Any internal markdown code fences (__CODE_BLOCK__) must be replaced with the `__CODE_BLOCK__` placeholder.
+        * **Clarification**: This substitution is a requirement of the AI's web interface. The user will provide files back with standard markdown fences (`__CODE_BLOCK__`), which is the expected behavior.
 3.3. **File and Checksum Verification.**
     1.  **Line Endings:** The user's file system uses Windows CRLF (`\r\n`). The AI must correctly handle this conversion when calculating checksums.
     2.  **Concise Reporting:** The AI will either state that **all checksums agree** or will list the **specific files that show a mismatch**.
@@ -306,10 +318,10 @@ These protocols describe specific, named patterns for implementing features in t
 
 5.3. **Data-Driven Scoring Protocol.** To accommodate different scoring methods, the `score_formula` key is available in the contest's `.json` definition. If set to `"qsos_times_mults"`, the final score will be `Total QSOs x Total Multipliers`. If omitted, it defaults to `Total QSO Points x Total Multipliers`.
 
-5.4. **Tabulate Protocol for Text Tables.** To ensure consistency and simplify development, all text-based tables in reports must be generated using the `tabulate` Python library.
-    1.  **Activation**: The report must import the `tabulate` library.
-    2.  **Implementation**: Data should be prepared in a pandas DataFrame. The final table string must be generated by calling `tabulate()` on the DataFrame.
-    3.  **Formatting**: Unless specified otherwise, the standard format to be used is `tablefmt='psql'`. The DataFrame's index should be suppressed by using `showindex="never"`. Headers should be taken from the DataFrame's column names using `headers='keys'`.
+5.4. **Text Table Generation Protocol.** This protocol governs the creation of text-based tables in reports, recommending the appropriate tool for the job.
+    1.  **For Complex Reports, Use `prettytable`**: For any report that requires a fixed-width layout, precise column alignment, or the alignment and "stitching" of multiple tables, the **`prettytable`** library is the required standard. It offers direct, programmatic control over column widths and properties, which is essential for complex layouts.
+    2.  **For Simple Reports, Use `tabulate`**: For reports that require only a single, standalone table where complex alignment with other elements is not a concern, the simpler **`tabulate`** library is a suitable alternative.
+    
 5.5. **Component Modernization Protocol.** This protocol is used to replace a legacy component (e.g., a report, a utility) with a modernized version that uses a new technology or methodology.
     1.  **Initiation**: During a **Technical Debt Cleanup Sprint**, the user or AI will identify a legacy component for modernization.
     2.  **Implementation**: An implementation plan will be created for a new module that replicates the functionality of the legacy component using the modern technology (e.g., a new report using the `plotly` library).
@@ -365,3 +377,9 @@ These protocols are for troubleshooting, error handling, and non-standard situat
 7.4. **Prototype Script Development Protocol.** This protocol is used for the creation and modification of standalone prototype scripts located in the `test_code/` directory.
     1.  **Formal Entity**: A prototype script is a formal, versioned file, but is exempt from requiring an in-file revision history. Versioning begins at `1.0.0-Beta`.
     2.  **Standard Workflow**: All work on a prototype script must follow the complete **Task Execution Workflow (Section 2)**, including a formal Implementation Plan, user Approval, and a Confirmed File Delivery.
+7.5. **Tool Suitability Re-evaluation Protocol.**
+    1.  **Trigger**: This protocol is initiated when an approved implementation plan fails for a second time due to the unexpected or undocumented behavior of a third-party library or tool.
+    2.  **Halt**: The AI must halt further implementation attempts with the current tool.
+    3.  **Analysis**: The AI must analyze *why* the tool is failing and identify the specific feature gap (e.g., "`tabulate` lacks a mechanism to enforce column widths on separate tables").
+    4.  **Propose Alternatives**: The AI will research and propose one or two alternative tools that appear to have the required features, explaining how they would solve the specific problem.
+    5.  **User Decision**: The user will make the final decision on whether to switch tools or attempt a different workaround.
