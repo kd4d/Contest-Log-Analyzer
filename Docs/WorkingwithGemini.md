@@ -1,10 +1,66 @@
 # Project Workflow Guide
 
-**Version: 0.47.6-Beta**
-**Date: 2025-08-23**
+**Version: 0.52.22-Beta**
+**Date: 2025-08-27**
 
 ---
 ### --- Revision History ---
+## [0.52.22-Beta] - 2025-08-27
+### Changed
+# - Revised Protocol 5.4 to recommend `prettytable` for complex,
+#   multi-table reports and designate `tabulate` for simpler,
+#   single-table use cases.
+## [0.52.21-Beta] - 2025-08-27
+### Changed
+# - Strengthened Principle 9 (Surgical Modification) to explicitly
+#   forbid unauthorized stylistic refactoring.
+### Added
+# - Added Protocol 7.5 (Tool Suitability Re-evaluation Protocol) to
+#   formalize the process of handling unsuitable third-party tools.
+## [0.52.20-Beta] - 2025-08-26
+### Added
+# - Added a mandatory "Affected Modules Checklist" to Protocol 2.5 to
+#   make Principle 7 (Assume Bugs are Systemic) more robust.
+## [0.49.2-Beta] - 2025-08-25
+### Added
+# - Added Protocol 7.4 (Prototype Script Development Protocol) to formalize
+#   the development workflow for prototype scripts.
+### Changed
+# - Clarified Protocol 1.7 to define the special status of the
+#   `test_code/` directory.
+## [0.49.1-Beta] - 2025-08-25
+### Added
+# - Added Protocol 2.9.1 (Task Type Verification) to clarify when it is
+#   appropriate to propose a verification command, preventing errors when
+#   a task modifies a documentation file.
+## [0.49.0-Beta] - 2025-08-25
+### Added
+# - Added Protocol 2.8.1 (Post-Execution Refinement Protocol) to clarify
+#   the workflow for handling incomplete fixes.
+# - Added Protocol 5.5 (Component Modernization Protocol) to formalize
+#   the process of upgrading and deprecating legacy components.
+# - Added a mandatory "Request Diagnostic Output" step to Protocol 6.3
+#   (Error Analysis Protocol) to improve diagnostic efficiency.
+### Changed
+# - Renumbered subsequent protocols in the Task Execution Workflow.
+## [0.48.2-Beta] - 2025-08-25
+### Added
+# - Added Protocol 5.4 to formalize the use of the `tabulate` library
+#   for generating all text-based tables.
+### Changed
+# - Clarified Protocol 3.2.4 to explain the reasoning behind the
+#   __CODE_BLOCK__ substitution for markdown file delivery.
+## [0.48.1-Beta] - 2025-08-24
+### Changed
+# - Amended Protocol 2.1 (Task Initiation) to require a mandatory check
+#   for an established session version number before proceeding.
+# - Clarified Protocol 3.4.3 (Update Procedure) to explicitly forbid
+#   unauthorized changes to major or minor version numbers.
+## [0.48.0-Beta] - 2025-08-24
+### Changed
+# - Merged the Pre-Flight Check (2.6) into the Implementation Plan
+#   protocol (2.5) to reflect the new, more detailed planning process.
+# - Renumbered subsequent protocols in the Task Execution Workflow.
 ## [0.47.6-Beta] - 2025-08-23
 ### Added
 # - Added clarification to Protocol 1.5 that version numbers are only
@@ -73,7 +129,7 @@
 ## [0.36.9-Beta] - 2025-08-15
 ### Added
 # - Added rule 3.2.4 to mandate the substitution of markdown code fences
-#   with ``` for proper web interface rendering.
+#   with __CODE_BLOCK__ for proper web interface rendering.
 ## [0.36.4-Beta] - 2025-08-15
 ### Changed
 # - Clarified Principle 8 (Surgical Modification) to explicitly require
@@ -118,7 +174,7 @@ These are the foundational rules that govern all interactions and analyses.
 6.  **Prefer Logic in Code, Not Data.** The project's design philosophy is to keep the `.json` definition files as simple, declarative maps. All complex, conditional, or contest-specific logic should be implemented in dedicated Python modules.
 7.  **Assume Bugs are Systemic.** When a bug is identified in one module, the default assumption is that the same flaw exists in all other similar modules. The AI must perform a global search for that specific bug pattern and fix all instances at once.
 8.  **Reports Must Be Non-Destructive.** Specialist report scripts must **never** modify the original `ContestLog` objects they receive. All data filtering or manipulation must be done on a temporary **copy** of the DataFrame.
-9.  **Principle of Surgical Modification.** All file modifications must be treated as surgical operations. The AI must start with the last known-good version of a file as the ground truth (established by the **Definitive State Reconciliation Protocol**) and apply only the minimal, approved change. Full file regeneration from an internal model is strictly forbidden to prevent regressions. **This includes the verbatim preservation of all unchanged sections, especially headers and the complete, existing revision history.**
+9.  **Principle of Surgical Modification.** All file modifications must be treated as surgical operations. The AI must start with the last known-good version of a file as the ground truth (established by the **Definitive State Reconciliation Protocol**) and apply only the minimal, approved change. Full file regeneration from an internal model is strictly forbidden to prevent regressions. **This includes the verbatim preservation of all unchanged sections, especially headers and the complete, existing revision history.** This principle explicitly forbids stylistic refactoring (e.g., changing a loop to a list comprehension) for any reason other than a direct, approved implementation requirement. Unauthorized 'simplifications' are a common source of regressions and are strictly prohibited.
 10. **Primacy of Official Rules.** The AI will place the highest emphasis on analyzing the specific data, context, and official rules provided, using them as the single source of truth.
 11. **Citation of Official Rules.** When researching contest rules, the AI will prioritize finding and citing the **official rules from the sponsoring organization**.
 12. **Uniqueness of Contest Logic.** Each contest's ruleset is to be treated as entirely unique. Logic from one contest must **never** be assumed to apply to another.
@@ -168,11 +224,11 @@ These are the step-by-step procedures for common, day-to-day development tasks.
     * `contest_tools/reports/`: The "plug-in" directory for all report modules.
     * `contest_tools/contest_definitions/`: Data-driven JSON definitions for each contest.
     * `Docs/`: All user and developer documentation.
-    * `test_code/`: Utility scripts not part of the main application.
+    * `test_code/`: Utility and prototype scripts not part of the main application. These scripts are not held to the same change control and documentation standards (e.g., a revision history is not required).
     * `data/`: Required data files (e.g., `cty.dat`).
 ### 2. Task Execution Workflow
 This workflow is a formal state machine that governs all development tasks, from initial request to final completion.
-2.1. **Task Initiation**: The user provides a problem, feature request, or document update and requests an analysis.
+2.1. **Task Initiation**: The user provides a problem, feature request, or document update and requests an analysis. Before proceeding, the AI must verify that a session version series (as defined in Protocol 1.6) has been established. If it has not, the AI must ask for it before providing any analysis.
 2.2. **Analysis and Discussion**: The AI provides an initial analysis. The user and AI may discuss the analysis to refine the understanding of the problem.
 2.3. **Visual Prototype Protocol.** This protocol is used to resolve ambiguity in tasks involving complex visual layouts or new, hard-to-describe logic before a full implementation is planned.
     1.  **Initiation:** The AI proposes or the user requests a prototype to clarify a concept.
@@ -182,16 +238,21 @@ This workflow is a formal state machine that governs all development tasks, from
     5.  **Review and Iteration:** The user reviews the prototype's output and provides feedback. This step can be repeated until the prototype is correct.
     6.  **Approval:** The user gives explicit approval of the final prototype. This approval serves as the visual and logical ground truth for the subsequent implementation plan.
 2.4. **Baseline Consistency Check.** Before presenting an implementation plan, the AI must perform and explicitly state the completion of a "Baseline Consistency Check." This check verifies that all proposed actions (e.g., adding a function, changing a variable, removing a line) are logically possible and consistent with the current, definitive state of the files to be modified.
-2.5. **Implementation Plan**: The user requests an implementation plan. The AI provides a detailed plan, which must adhere to the **Pre-Flight Check Protocol (2.6)**.
-2.6. **Pre-Flight Check Protocol.** The AI will perform a "white-box" mental code review **before** delivering a modified file.
-    1.  **Stating the Plan:** The AI will state its Pre-Flight Check plan. The **Inputs** section must include the full filename and the specific baseline version number of the file to be modified. The plan must also state the **Expected Outcome**.
-    2.  **Mental Walkthrough:** The AI will mentally trace the execution path to confirm the logic produces the expected outcome.
-    3.  **User Verification:** The user performs the final verification by running the code.
-    4.  **State Confirmation Procedure**: The AI will affirm that the mandatory confirmation prompt, as defined in Protocol 4.4, will be included with the file delivery.
-2.7. **Plan Refinement**: The user reviews the plan and may request changes or refinements. The AI provides a revised plan, repeating this step as necessary.
-2.8. **Approval**: The user provides explicit approval of the final implementation plan (e.g., "Approved"). Instructions, clarifications, or new requirements provided after a plan has been proposed do not constitute approval; they will be treated as requests for plan refinement under Protocol 2.7.
-2.9. **Execution**: Upon approval, the AI will proceed with the **Confirmed File Delivery Protocol (4.4)**.
-2.10. **Propose Verification Command**: After the final file in an implementation plan has been delivered and acknowledged by the user, the AI's final action for the task is to propose the specific command-line instruction(s) the user should run to verify that the bug has been fixed or the feature has been implemented correctly.
+2.5. **Implementation Plan**: The user requests an implementation plan. The AI's response must be a comprehensive document containing the following sections for each file to be modified:
+    1.  **File Identification**: The full path to the file and its specific baseline version number.
+    2.  **Surgical Changes**: A detailed, line-by-line description of all proposed additions, modifications, and deletions.
+    3.  **Affected Modules Checklist**: A list of all other modules that follow a similar architectural pattern to the file being modified (e.g., all custom parsers, all score reports). The AI must confirm that these modules have been checked and will be updated if necessary to keep them consistent with the proposed change. This makes the application of Principle 7 (Assume Bugs are Systemic) explicit.
+    4.  **Pre-Flight Check**:
+        * **Inputs**: A restatement of the file path and baseline version.
+        * **Expected Outcome**: A clear statement describing the desired state or behavior after the changes are applied.
+        * **Mental Walkthrough Confirmation**: A statement affirming that a mental walkthrough of the logic will be performed before generating the file.
+        * **State Confirmation Procedure**: An affirmation that the mandatory confirmation prompt (as defined in Protocol 4.4) will be included with the file delivery.
+2.6. **Plan Refinement**: The user reviews the plan and may request changes or refinements. The AI provides a revised plan, repeating this step as necessary.
+2.7. **Approval**: The user provides explicit approval of the final implementation plan (e.g., "Approved"). Instructions, clarifications, or new requirements provided after a plan has been proposed do not constitute approval; they will be treated as requests for plan refinement under Protocol 2.6.
+2.8. **Execution**: Upon approval, the AI will proceed with the **Confirmed File Delivery Protocol (4.4)**.
+2.8.1. **Post-Execution Refinement Protocol.** If a user acknowledges a file delivery but subsequently reports that the fix is incomplete or incorrect, the task is not considered complete. The workflow immediately returns to **Protocol 2.2 (Analysis and Discussion)**. This initiates a new analysis loop within the context of the original task, culminating in a new implementation plan to address the remaining issues. The task is only complete after **Protocol 2.9 (Propose Verification Command)** is successfully executed for the *final, correct* implementation.
+2.9. **Propose Verification Command**: After the final file in an implementation plan has been delivered and acknowledged by the user, the AI's final action for the task is to propose the specific command-line instruction(s) the user should run to verify that the bug has been fixed or the feature has been implemented correctly.
+    **2.9.1: Task Type Verification.** This protocol applies **only** if the final file modified was a code or data file (e.g., `.py`, `.json`, `.dat`). If the final file was a documentation or text file (e.g., `.md`), a verification command is not applicable. In this case, the AI's final action will be to state that the documentation update is complete, thus successfully concluding the task.
 ### 3. File and Data Handling
 
 3.1. **Project File Input.** All project source files and documentation will be provided for updates in a single text file called a **project bundle**, or pasted individually into the chat. The bundle uses a simple text header to separate each file: `--- FILE: path/to/file.ext ---`
@@ -199,16 +260,9 @@ This workflow is a formal state machine that governs all development tasks, from
     1.  **Single File Per Response**: Only one file will be delivered in a single response.
     2.  **Raw Source Text**: The content inside the delivered code block must be the raw source text of the file.
     3.  **Code File Delivery**: For code files (e.g., `.py`, `.json`), the content will be delivered in a standard fenced code block with the appropriate language specifier.
-    4.  **Markdown File Delivery**: To prevent the user interface from rendering markdown and to provide a "Copy" button, the entire raw content of a documentation file (`.md`) must be delivered inside a single, plaintext-specified code block. The rule for replacing internal code fences with `__CODE_BLOCK__` still applies to the content within this block.
-        __CODE_BLOCK__text
-        # Markdown Header
-
-        This is the raw text of the .md file.
-
-        __CODE_BLOCK__
-        # An internal code block is replaced.
-        __CODE_BLOCK__
-        __CODE_BLOCK__
+    4.  **Markdown File Delivery**: To prevent the user interface from rendering markdown and to provide a "Copy" button, the entire raw content of a documentation file (`.md`) must be delivered inside a single, plaintext-specified code block.
+        * **Internal Code Fences**: Any internal markdown code fences (__CODE_BLOCK__) must be replaced with the `__CODE_BLOCK__` placeholder.
+        * **Clarification**: This substitution is a requirement of the AI's web interface. The user will provide files back with standard markdown fences (`__CODE_BLOCK__`), which is the expected behavior.
 3.3. **File and Checksum Verification.**
     1.  **Line Endings:** The user's file system uses Windows CRLF (`\r\n`). The AI must correctly handle this conversion when calculating checksums.
     2.  **Concise Reporting:** The AI will either state that **all checksums agree** or will list the **specific files that show a mismatch**.
@@ -219,7 +273,7 @@ This workflow is a formal state machine that governs all development tasks, from
         * **Python (`.py`) files**: Contained within a "Revision History" section in the file's docstring.
         * **JSON (`.json`) files**: Stored as the value for a `"version"` parameter.
         * **Data (`.dat`) files**: Found within a commented revision history block.
-    3.  **Update Procedure**: When a file is modified, only its patch number (`z`) will be incremented; this is done on a per-file basis. Major (`x`) or minor (`y`) version changes will only be made upon explicit user direction.
+    3.  **Update Procedure**: When a file is modified, only its patch number (`z`) will be incremented; this is done on a per-file basis. Major (`x`) or minor (`y`) version changes are forbidden unless explicitly directed by the user.
     4.  **History Preservation**: All existing revision histories must be preserved and appended to, never regenerated from scratch.
 
 3.5. **File Naming Convention Protocol.** All generated report files must adhere to the standardized naming convention: `<report_id>_<details>_<callsigns>.<ext>`.
@@ -263,6 +317,17 @@ These protocols describe specific, named patterns for implementing features in t
     3.  **Report Logic**: The specialist reports must accept a `mode_filter` argument.
 
 5.3. **Data-Driven Scoring Protocol.** To accommodate different scoring methods, the `score_formula` key is available in the contest's `.json` definition. If set to `"qsos_times_mults"`, the final score will be `Total QSOs x Total Multipliers`. If omitted, it defaults to `Total QSO Points x Total Multipliers`.
+
+5.4. **Text Table Generation Protocol.** This protocol governs the creation of text-based tables in reports, recommending the appropriate tool for the job.
+    1.  **For Complex Reports, Use `prettytable`**: For any report that requires a fixed-width layout, precise column alignment, or the alignment and "stitching" of multiple tables, the **`prettytable`** library is the required standard. It offers direct, programmatic control over column widths and properties, which is essential for complex layouts.
+    2.  **For Simple Reports, Use `tabulate`**: For reports that require only a single, standalone table where complex alignment with other elements is not a concern, the simpler **`tabulate`** library is a suitable alternative.
+    
+5.5. **Component Modernization Protocol.** This protocol is used to replace a legacy component (e.g., a report, a utility) with a modernized version that uses a new technology or methodology.
+    1.  **Initiation**: During a **Technical Debt Cleanup Sprint**, the user or AI will identify a legacy component for modernization.
+    2.  **Implementation**: An implementation plan will be created for a new module that replicates the functionality of the legacy component using the modern technology (e.g., a new report using the `plotly` library).
+    3.  **Verification**: After the modernized component is approved and acknowledged, the user will run both the legacy and new versions. The AI will be asked to confirm that their outputs are functionally identical and that the new version meets all requirements.
+    4.  **Deprecation**: Once the modernized component is verified as a complete replacement, the user will initiate the **File Purge Protocol (3.6)** to remove the legacy component from the definitive state.
+    5.  **Example Application**: The migration of text-based reports from manual string formatting to the `tabulate` library (per Protocol 5.4) is a direct application of this modernization protocol.
 ---
 ## Part IV: Special Case & Recovery Protocols
 
@@ -277,8 +342,9 @@ These protocols are for troubleshooting, error handling, and non-standard situat
 
 6.3. **Error Analysis Protocol.** When an error in the AI's process is identified, the AI must provide a clear and concise analysis. **A failure to provide a correct analysis after being corrected by the user constitutes a new, more severe error that must also be analyzed.**
     1.  **Acknowledge the Error:** State clearly that a mistake was made.
-    2.  **Identify the Root Cause:** Explain the specific flaw in the internal process or logic that led to the error. This includes identifying which specific principles or protocols were violated.
-    3.  **Propose a Corrective Action:** Describe the specific, procedural change that will be implemented to prevent the error from recurring.
+    2.  **Request Diagnostic Output:** If the user has not already provided it, the AI's immediate next step is to request the new output that demonstrates the failure (e.g., the incorrect text report or a screenshot). This output becomes the new ground truth for the re-analysis.
+    3.  **Identify the Root Cause:** Explain the specific flaw in the internal process or logic that led to the error. This includes identifying which specific principles or protocols were violated.
+    4.  **Propose a Corrective Action:** Describe the specific, procedural change that will be implemented to prevent the error from recurring.
 6.4. **Corrupted User Input Protocol.** This protocol defines the procedure for handling malformed or corrupted input files provided by the user.
     1.  Halt the current task immediately.
     2.  Report the specific file that contains the error and describe the nature of the error (e.g., "Cabrillo parsing failed on line X" or "Bundle is missing a file header").
@@ -308,3 +374,12 @@ These protocols are for troubleshooting, error handling, and non-standard situat
 7.2. **Multi-Part Bundle Protocol.** If a large or complex text file cannot be transmitted reliably in a single block, the Multi-Part Bundle Protocol will be used. The AI will take the single file and split its content into multiple, smaller text chunks. These chunks will then be delivered sequentially using the **Large File Transmission Protocol (Protocol 4.3)**.
 
 7.3. **Fragile Dependency Protocol.** If a third-party library proves to be unstable, a sprint will be conducted to replace it with a more robust alternative.
+7.4. **Prototype Script Development Protocol.** This protocol is used for the creation and modification of standalone prototype scripts located in the `test_code/` directory.
+    1.  **Formal Entity**: A prototype script is a formal, versioned file, but is exempt from requiring an in-file revision history. Versioning begins at `1.0.0-Beta`.
+    2.  **Standard Workflow**: All work on a prototype script must follow the complete **Task Execution Workflow (Section 2)**, including a formal Implementation Plan, user Approval, and a Confirmed File Delivery.
+7.5. **Tool Suitability Re-evaluation Protocol.**
+    1.  **Trigger**: This protocol is initiated when an approved implementation plan fails for a second time due to the unexpected or undocumented behavior of a third-party library or tool.
+    2.  **Halt**: The AI must halt further implementation attempts with the current tool.
+    3.  **Analysis**: The AI must analyze *why* the tool is failing and identify the specific feature gap (e.g., "`tabulate` lacks a mechanism to enforce column widths on separate tables").
+    4.  **Propose Alternatives**: The AI will research and propose one or two alternative tools that appear to have the required features, explaining how they would solve the specific problem.
+    5.  **User Decision**: The user will make the final decision on whether to switch tools or attempt a different workaround.

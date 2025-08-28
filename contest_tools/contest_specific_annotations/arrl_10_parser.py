@@ -1,7 +1,7 @@
 # Contest Log Analyzer/contest_tools/contest_specific_annotations/arrl_10_parser.py
 #
-# Version: 0.32.7-Beta
-# Date: 2025-08-12
+# Version: 0.52.9-Beta
+# Date: 2025-08-26
 #
 # Purpose: Provides a custom, contest-specific parser for the ARRL 10 Meter
 #          contest to handle its asymmetric sent exchange format.
@@ -14,8 +14,11 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 # --- Revision History ---
+## [0.52.9-Beta] - 2025-08-26
+### Changed
+# - Parser now includes the raw, cleaned QSO: line in its output
+#   under the 'RawQSO' key to support enhanced diagnostics.
 ## [0.32.7-Beta] - 2025-08-12
 ### Fixed
 # - Added robust data sanitization to handle non-breaking spaces and to
@@ -23,7 +26,6 @@
 ## [0.32.0-Beta] - 2025-08-12
 ### Added
 # - Initial release of the custom parser for the ARRL 10 Meter contest.
-
 import pandas as pd
 import re
 import logging
@@ -122,6 +124,7 @@ def parse_log(filepath: str, contest_definition: ContestDefinition) -> Tuple[pd.
             if qso_match:
                 qso_data = dict(zip(qso_groups, qso_match.groups()))
                 qso_data.update(common_data)
+                qso_data['RawQSO'] = line_to_process
                 qso_records.append(qso_data)
             else:
                 logging.warning(f"Skipping QSO line that did not match '{rule_key}' rule: {line_to_process}")

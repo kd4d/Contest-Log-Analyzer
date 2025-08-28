@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-17
-# Version: 0.37.0-Beta
+# Date: 2025-08-27
+# Version: 0.49.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -15,9 +15,19 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+# License, v. 2.0.
 # --- Revision History ---
+## [0.49.3-Beta] - 2025-08-27
+### Added
+# - Added the `is_naqp_ruleset` property to expose the new JSON key.
+## [0.49.2-Beta] - 2025-08-24
+### Changed
+# - Replaced the specific `score_report_rules` property with a more
+#   generic `mutually_exclusive_mults` property to support multiple reports.
+## [0.49.1-Beta] - 2025-08-24
+### Added
+# - Added a `score_report_rules` property to expose diagnostic rules
+#   to the reporting engine.
 ## [0.37.0-Beta] - 2025-08-17
 ### Added
 # - Added the `enable_adif_export` property to correctly expose the
@@ -117,6 +127,10 @@ class ContestDefinition:
         return self._data.get('multiplier_rules', [])
 
     @property
+    def mutually_exclusive_mults(self) -> List[List[str]]:
+        return self._data.get('mutually_exclusive_mults', [])
+
+    @property
     def excluded_reports(self) -> List[str]:
         return self._data.get('excluded_reports', [])
         
@@ -127,6 +141,10 @@ class ContestDefinition:
     @property
     def enable_adif_export(self) -> bool:
         return self._data.get('enable_adif_export', False)
+
+    @property
+    def is_naqp_ruleset(self) -> bool:
+        return self._data.get('is_naqp_ruleset', False)
 
     @property
     def dupe_check_scope(self) -> str:

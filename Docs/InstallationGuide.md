@@ -1,10 +1,18 @@
 # Contest Log Analyzer - Installation Guide
 
-**Version: 0.47.1-Beta**
-**Date: 2025-08-23**
+**Version: 0.47.3-Beta**
+**Date: 2025-08-25**
 
 ---
 ### --- Revision History ---
+## [0.47.3-Beta] - 2025-08-25
+### Added
+# - Added the required `band_allocations.dat` file to the list of
+#   required data files in Step 6.
+## [0.47.2-Beta] - 2025-08-24
+### Changed
+# - Updated the description for SweepstakesSections.dat to correctly
+#   include the ARRL Field Day contest.
 ## [0.47.1-Beta] - 2025-08-23
 ### Changed
 # - Updated the conda install command to add `numpy` and remove `plotly`.
@@ -37,14 +45,12 @@
 # ---
 
 ## Introduction
-This document provides instructions for setting up the Contest Log Analyzer application and its dependencies on a local computer.
-Following these steps will ensure that the application can find the necessary data files and has a place to write its output reports.
+This document provides instructions for setting up the Contest Log Analyzer application and its dependencies on a local computer. Following these steps will ensure that the application can find the necessary data files and has a place to write its output reports.
 ---
 ## 1. Prerequisites
 Before you begin, ensure you have the following software installed on your system:
 * **Git:** For cloning the source code repository.
-* **Miniforge:** This is the recommended way to install Python and manage the project's libraries in an isolated environment.
-Miniforge is a minimal installer for the Conda package manager.
+* **Miniforge:** This is the recommended way to install Python and manage the project's libraries in an isolated environment. Miniforge is a minimal installer for the Conda package manager.
 ---
 ## 2. Installation Steps
 
@@ -56,8 +62,7 @@ cd Contest-Log-Analyzer
 ```
 This will create the project directory (`Contest-Log-Analyzer`) on your local machine.
 ### Step 2: Create and Activate the Conda Environment
-It is a best practice to create an isolated environment for the project's dependencies.
-This prevents conflicts with other Python projects on your system.
+It is a best practice to create an isolated environment for the project's dependencies. This prevents conflicts with other Python projects on your system.
 ```
 # Create an environment named "cla" with Python 3.11
 conda create --name cla python=3.11
@@ -67,16 +72,13 @@ conda activate cla
 ```
 
 ### Step 3: Install Libraries with Conda
-With the `cla` environment active, use the following single command to install all required libraries from the recommended `conda-forge` channel.
-This includes `ffmpeg` for video creation.
+With the `cla` environment active, use the following single command to install all required libraries from the recommended `conda-forge` channel. This includes `ffmpeg` for video creation.
 ```
 conda install -c conda-forge pandas numpy matplotlib seaborn imageio ffmpeg
 ```
 
 ### Step 4: Set Up the Data and Reports Directory
-The application requires a specific directory structure for its operation.
-You must create a main directory that will contain your log files, required data files, and the output reports.
-This directory can be anywhere on your system, but it is recommended to place it outside of the source code directory.
+The application requires a specific directory structure for its operation. You must create a main directory that will contain your log files, required data files, and the output reports. This directory can be anywhere on your system, but it is recommended to place it outside of the source code directory.
 For example, create a main folder `C:\Users\devnu\Desktop\CLA_Data`. Inside this folder, you must create the following subdirectories:
 
 ```
@@ -99,18 +101,17 @@ You must set a system environment variable named **`CONTEST_LOGS_REPORTS`** that
 5.  For "Variable value," enter the full path to your main directory (e.g., `C:\Users\devnu\Desktop\CLA_Data`).
 6.  Click OK to close all windows. You must **restart** your terminal or command prompt for the change to take effect.
 ### Step 6: Obtain and Place Data Files
-The analyzer relies on several external data files.
-Download the following files and place them inside the **`data/`** subdirectory you created in Step 4.
+The analyzer relies on several external data files. Download the following files and place them inside the **`data/`** subdirectory you created in Step 4.
 
 * `cty.dat`: Required for all contests.
 * `arrl_10_mults.dat`: Required for the ARRL 10 Meter contest.
 * `ARRLDXmults.dat`: Required for the ARRL DX contest.
 * `NAQPmults.dat`: Required for NAQP and CQ 160-Meter contests.
-* `SweepstakesSections.dat`: Required for ARRL Sweepstakes.
+* `SweepstakesSections.dat`: Required for ARRL Sweepstakes and ARRL Field Day.
+* `band_allocations.dat`: Required for all contests to perform frequency validation.
 ---
 ## 3. Running the Analyzer
-To verify the installation, run the program from the project's source code directory.
-Ensure your `cla` conda environment is active.
+To verify the installation, run the program from the project's source code directory. Ensure your `cla` conda environment is active.
 
 ```
 # Make sure your conda environment is active

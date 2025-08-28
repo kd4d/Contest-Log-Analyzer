@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-11
-# Version: 0.31.55-Beta
+# Date: 2025-08-26
+# Version: 0.52.6-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.52.6-Beta] - 2025-08-26
+### Changed
+# - The parser now includes the raw, cleaned QSO: line in its output
+#   under the 'RawQSO' key to support enhanced diagnostics.
 ## [0.31.55-Beta] - 2025-08-11
 ### Changed
 # - Consolidated X-QSO warnings to a single message per log file.
@@ -118,6 +122,7 @@ def parse_cabrillo_file(filepath: str, contest_definition: ContestDefinition) ->
             in_header = False
             qso_data = _parse_qso_line(line_to_process, contest_definition, log_metadata)
             if qso_data:
+                qso_data['RawQSO'] = line_to_process
                 qso_records.append(qso_data)
             continue 
 

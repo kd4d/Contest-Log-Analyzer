@@ -1,10 +1,40 @@
 # Contest Log Analyzer - Programmer's Guide
 
-**Version: 0.48.0-Beta**
-**Date: 2025-08-23**
+**Version: 0.52.13-Beta**
+**Date: 2025-08-26**
 
 ---
 ### --- Revision History ---
+## [0.52.13-Beta] - 2025-08-26
+### Changed
+# - Updated the Core Data Columns list to include the new `RawQSO` column.
+# - Updated the custom parser contract to require the `RawQSO` column.
+# - Updated the `report_type` and `--report` argument descriptions to include 'html'.
+# - Added the missing `--debug-mults` CLI argument to the documentation.
+## [0.51.0-Beta] - 2025-08-26
+### Added
+# - Added "Advanced Report Design: Shared Logic" section to document the
+#   pattern of separating data aggregation from presentation.
+### Changed
+# - Updated CLI arguments and ContestReport class to include the new
+#   'html' report type.
+## [0.40.11-Beta] - 2025-08-25
+### Changed
+# - Updated the JSON Quick Reference table to include the new
+#   `mutually_exclusive_mults` key, reflecting its replacement of
+#   the obsolete `score_report_rules` key in the codebase.
+## [0.40.10-Beta] - 2025-08-24
+### Added
+# - Added a section explaining when and why __init__.py files need to
+#   be updated, clarifying the project's dynamic vs. explicit import models.
+## [0.49.1-Beta] - 2025-08-24
+### Changed
+# - Replaced the `score_report_rules` key with the more generic
+#   `mutually_exclusive_mults` key in the JSON Quick Reference table.
+## [0.49.0-Beta] - 2025-08-24
+### Added
+# - Documented the new `score_report_rules` key in the JSON Quick
+#   Reference table.
 ## [0.48.0-Beta] - 2025-08-23
 ### Added
 # - Major overhaul to create a comprehensive, standalone developer guide.
@@ -47,58 +77,45 @@
 
 ## Introduction
 
-This document provides a technical guide for developers (both human and AI) looking to extend the functionality of the Contest Log Analyzer.
-The project is built on a few core principles:
+This document provides a technical guide for developers (both human and AI) looking to extend the functionality of the Contest Log Analyzer. The project is built on a few core principles:
 
-* **Data-Driven:** The behavior of the analysis engine is primarily controlled by data, not code.
-Contest rules, multiplier definitions, and parsing logic are defined in simple `.json` files.
-This allows new contests to be added without changing the core Python scripts.
-* **Extensible:** The application is designed with a "plugin" architecture.
-New reports and contest-specific logic modules can be dropped into the appropriate directories, and the main engine will discover and integrate them automatically.
+* **Data-Driven:** The behavior of the analysis engine is primarily controlled by data, not code. Contest rules, multiplier definitions, and parsing logic are defined in simple `.json` files. This allows new contests to be added without changing the core Python scripts.
+* **Extensible:** The application is designed with a "plugin" architecture. New reports and contest-specific logic modules can be dropped into the appropriate directories, and the main engine will discover and integrate them automatically.
 * **Convention over Configuration:** This extensibility relies on convention. The dynamic discovery of modules requires that files and classes be named and placed in specific, predictable locations.
 ---
 ## Core Components
 
 ### Command-Line Interface (`main_cli.py`)
 This script is the main entry point for running the analyzer.
-* **Argument Parsing:** It uses Python's `argparse` to handle command-line arguments.
-Key arguments include:
+* **Argument Parsing:** It uses Python's `argparse` to handle command-line arguments. Key arguments include:
     * `log_files`: A list of one or more log files to process.
-    * `--report`: Specifies which reports to run. This can be a single `report_id`, a comma-separated list of IDs, the keyword `all`, or a category keyword (`chart`, `text`, `plot`, `animation`).
+    * `--report`: Specifies which reports to run. This can be a single `report_id`, a comma-separated list of IDs, the keyword `all`, or a category keyword (`chart`, `text`, `plot`, `animation`, `html`).
     * `--verbose`: Enables `INFO`-level debug logging.
     * `--include-dupes`: An optional flag to include duplicate QSOs in report calculations.
     * `--mult-name`: An optional argument to specify which multiplier to use for multiplier-specific reports (e.g., 'Countries').
     * `--metric`: An optional argument for difference plots, specifying whether to compare `qsos` or `points`. Defaults to `qsos`.
     * `--debug-data`: An optional flag to save the source data for visual reports to a text file.
     * `--debug-mults`: An optional flag to save intermediate multiplier lists from text reports for debugging.
-* **Report Discovery:** The script dynamically discovers all available reports by inspecting the `contest_tools.reports` package.
-Any valid report class in this package is automatically made available as a command-line option.
+* **Report Discovery:** The script dynamically discovers all available reports by inspecting the `contest_tools.reports` package. Any valid report class in this package is automatically made available as a command-line option.
 ### Logging System (`Utils/logger_config.py`)
 The project uses Python's built-in `logging` framework for console output.
 * **`logging.info()`:** Used for verbose, step-by-step diagnostic messages. These are only displayed when the `--verbose` flag is used.
-* **`logging.warning()`:** Used for non-critical issues the user should be aware of (e.g., ignoring an `X-QSO:` line).
-These are always displayed.
+* **`logging.warning()`:** Used for non-critical issues the user should be aware of (e.g., ignoring an `X-QSO:` line). These are always displayed.
 * **`logging.error()`:** Used for critical, run-terminating failures (e.g., a file not found or a fatal parsing error).
 ### Regression Testing (`run_regression_test.py`)
 The project includes an automated regression test script to ensure that new changes do not break existing functionality.
 * **Workflow**: The script follows a three-step process:
     1.  **Archive**: It archives the last known-good set of reports by renaming the existing `reports/` directory with a timestamp.
-    2.  **Execute**: It runs a series of pre-defined test cases from a `regressiontest.bat` file.
-Each command in this file generates a new set of reports.
-    3.  **Compare**: It performs a `diff` comparison between the newly generated text reports and the archived baseline reports.
-Any differences are flagged as a regression.
-* **Methodology**: This approach focuses on **data integrity**.
-Instead of comparing images or videos, which can be brittle, the regression test compares the raw text output and the debug data dumps from visual reports.
-This provides a robust and reliable way to verify that the underlying data processing and calculations remain correct after code changes.
+    2.  **Execute**: It runs a series of pre-defined test cases from a `regressiontest.bat` file. Each command in this file generates a new set of reports.
+    3.  **Compare**: It performs a `diff` comparison between the newly generated text reports and the archived baseline reports. Any differences are flagged as a regression.
+* **Methodology**: This approach focuses on **data integrity**. Instead of comparing images or videos, which can be brittle, the regression test compares the raw text output and the debug data dumps from visual reports. This provides a robust and reliable way to verify that the underlying data processing and calculations remain correct after code changes.
 ---
 ## How to Add a New Report
 
 ### The Report Interface
 All reports must be created as `.py` files in the `contest_tools/reports/` directory. For the program to recognize a report, it must adhere to the contract defined by the `ContestReport` base class.
-
 ### The `ContestReport` Base Class
 This abstract base class, defined in `contest_tools/reports/report_interface.py`, provides the required structure for all report modules. A new report **must** inherit from this class and implement its required attributes and methods.
-
 ```python
 # Excerpt from contest_tools/reports/report_interface.py
 
@@ -110,7 +127,7 @@ class ContestReport(ABC):
     # --- Required Class Attributes ---
     report_id: str = "abstract_report"
     report_name: str = "Abstract Report"
-    report_type: str = "text" # 'text', 'plot', 'chart', or 'animation'
+    report_type: str = "text" # 'text', 'plot', 'chart', 'animation', or 'html'
     
     supports_single: bool = False
     supports_pairwise: bool = False
@@ -127,8 +144,7 @@ class ContestReport(ABC):
 
 ### Boilerplate Example
 Here is a minimal "Hello World" report.
-
-```
+```python
 # contest_tools/reports/text_hello_world.py
 from .report_interface import ContestReport
 
@@ -152,12 +168,9 @@ class Report(ContestReport):
 ## How to Add a New Contest
 
 Adding a new contest is primarily a data-definition task that involves creating a `.json` file and, if necessary, contest-specific Python modules.
-
 ### The Core Data Columns
 After parsing, all log data is normalized into a standard pandas DataFrame. The available columns are defined in `contest_tools/contest_definitions/_common_cabrillo_fields.json`. When creating exchange parsing rules, the `groups` list **must** map to these column names.
-
-**Available Columns**: `ContestName`, `CategoryOverlay`, `CategoryOperator`, `CategoryTransmitter`, `MyCall`, `Frequency`, `Mode`, `Datetime`, `SentRS`, `SentRST`, `SentZone`, `SentNR`, `Call`, `RS`, `RST`, `Zone`, `NR`, `Transmitter`, `Band`, `Date`, `Hour`, `Dupe`, `DXCCName`, `DXCCPfx`, `CQZone`, `ITUZone`, `Continent`, `WAEName`, `WAEPfx`, `Lat`, `Lon`, `Tzone`, `portableid`, `Run`, `QSOPoints`, `Mult1`, `Mult1Name`, `Mult2`, `Mult2Name`.
-
+**Available Columns**: `ContestName`, `CategoryOverlay`, `CategoryOperator`, `CategoryTransmitter`, `MyCall`, `Frequency`, `Mode`, `Datetime`, `SentRS`, `SentRST`, `SentZone`, `SentNR`, `Call`, `RS`, `RST`, `Zone`, `NR`, `Transmitter`, `RawQSO`, `Band`, `Date`, `Hour`, `Dupe`, `DXCCName`, `DXCCPfx`, `CQZone`, `ITUZone`, `Continent`, `WAEName`, `WAEPfx`, `Lat`, `Lon`, `Tzone`, `portableid`, `Run`, `QSOPoints`, `Mult1`, `Mult1Name`, `Mult2`, `Mult2Name`.
 ### JSON Quick Reference
 Create a new `.json` file in `contest_tools/contest_definitions/`. The following table describes the available keys.
 
@@ -167,6 +180,7 @@ Create a new `.json` file in `contest_tools/contest_definitions/`. The following
 | `dupe_check_scope` | Determines if dupes are checked `per_band` or across `all_bands`. | `"per_band"` |
 | `exchange_parsing_rules` | An object containing regex patterns to parse the exchange portion of a QSO line. | `{ "NAQP-CW": [ { "regex": "...", "groups": [...] } ] }` |
 | `multiplier_rules` | A list of objects defining the contest's multipliers. | `[ { "name": "Zones", "source_column": "CQZone", "value_column": "Mult1" } ]` |
+| `mutually_exclusive_mults` | *Optional.* Defines groups of multiplier columns that are mutually exclusive for a single QSO, used for diagnostic reporting. | `[["Mult1", "Mult2"]]` |
 | `score_formula` | Scoring method. Can be `qsos_times_mults` or `points_times_mults`. | `"points_times_mults"` |
 | `multiplier_report_scope`| Determines if mult reports run `per_band` or `per_mode`. | `"per_band"` |
 | `excluded_reports`| A list of `report_id` strings to disable for this contest. | `[ "point_rate_plots" ]` |
@@ -188,19 +202,21 @@ Create a new `.json` file in `contest_tools/contest_definitions/`. The following
 
 ### The Annotation and Scoring Workflow (`contest_log.py`)
 After initial parsing, `contest_log.py` orchestrates a sequence of data enrichment steps. This is the plug-in system for contest-specific logic. The sequence is defined in the `apply_contest_specific_annotations` method. A developer needing to add complex logic should reference this file to understand the workflow.
-
 **Sequence of Operations:**
 1.  **Universal Annotations**: Run/S&P and DXCC/Zone lookups are applied to all logs.
 2.  **Custom Multiplier Resolver**: If `custom_multiplier_resolver` is defined in the JSON, the specified module is dynamically imported and its `resolve_multipliers` function is executed.
 3.  **Standard Multiplier Rules**: The system processes the `multiplier_rules` from the JSON. If a rule has `"source": "calculation_module"`, it dynamically imports and runs the specified function. This is how WPX prefixes are calculated.
 4.  **Scoring**: The system looks for a scoring module by convention (e.g., `cq_ww_cw_scoring.py`) and executes its `calculate_points` function.
-
+### A Note on `__init__.py` Files
+The need to update an `__init__.py` file depends on whether a package uses dynamic or explicit importing.
+* **Dynamic Importing (No Update Needed):** Directories like `contest_tools/contest_specific_annotations` and `contest_tools/reports` are designed as "plug-in" folders. The application uses dynamic importing (`importlib.import_module`) to load these modules by name from the JSON definitions or by discovery. Therefore, the `__init__.py` files in these directories are intentionally left empty and **do not need to be updated** when a new module is added.
+* **Explicit Importing (Update Required):** When a new parameter is added to a `.json` file, the `ContestDefinition` class in `contest_tools/contest_definitions/__init__.py` **must be updated**. A new `@property` must be added to the class to expose the new data from the JSON file to the rest of the application. This is a critical maintenance step for extending the data model. Similarly, packages like `contest_tools/core_annotations` use their `__init__.py` to explicitly expose functions and classes, and would need to be updated if a new core utility were added.
 ### Advanced Guide: Extending Core Logic (Implementation Contracts)
 For contests requiring logic beyond simple JSON definitions, create a Python module in `contest_tools/contest_specific_annotations/`. Each module type has a specific contract (required function and signature) it must fulfill.
-
 * **Custom Parser Modules**:
     * **Purpose**: To parse a raw log file and return a standardized DataFrame and metadata dictionary. Called *instead of* the generic parser.
     * **Required Function Signature**: `parse_log(filepath: str, contest_definition: ContestDefinition) -> Tuple[pd.DataFrame, Dict[str, Any]]`
+    * The returned DataFrame **must** now include a `RawQSO` column containing the original, cleaned `QSO:` line string to support enhanced diagnostics.
 * **Custom Multiplier Resolvers**:
     * **Purpose**: To apply complex logic to identify multipliers and add the appropriate `Mult_` columns to the DataFrame.
     * **Required Function Signature**: `resolve_multipliers(df: pd.DataFrame, my_location_type: str) -> pd.DataFrame`
@@ -210,9 +226,20 @@ For contests requiring logic beyond simple JSON definitions, create a Python mod
 * **Utility for Complex Multipliers (`_core_utils.py`)**:
     * For contests with complex multiplier aliases (like NAQP or ARRL DX), developers should use the `AliasLookup` class found in `contest_tools/core_annotations/_core_utils.py`. This utility is designed to be used within a custom multiplier resolver to parse `.dat` alias files.
 ---
+## Advanced Report Design: Shared Logic
+A key architectural principle for creating maintainable and consistent reports is the **separation of data aggregation from presentation**. When multiple reports need to display the same underlying data in different formats (e.g., HTML and plain text), the data aggregation logic should not be duplicated.
+### The Shared Aggregator Pattern
+The preferred method is to create a dedicated, non-report helper module within the `contest_tools/reports/` directory. This module's sole responsibility is to perform the complex data calculations and return a clean, structured data object (like a dictionary or pandas DataFrame).
+#### Example: `_qso_comparison_aggregator.py`
+To generate both `html_qso_comparison` and `text_qso_comparison` reports, we can create a shared helper:
+1.  **Create the Aggregator**: A new file, `_qso_comparison_aggregator.py`, would contain a function like `aggregate_qso_comparison_data(logs)`. This function would perform all the necessary calculations (Unique QSOs, Common QSOs, Run/S&P breakdowns, etc.) and return a final dictionary.
+2.  **Update the Report Modules**:
+    * `html_qso_comparison.py` would import and call this function. Its only remaining job would be to take the returned data and render it into the final HTML string.
+    * `text_qso_comparison.py` would also import and call the *same* function. Its job would be to take the data and render it into a fixed-width text table using a tool like pandas' `to_string()` method.
+This pattern ensures that both reports are always based on the exact same data, eliminating the risk of inconsistencies and reducing code duplication.
+---
 ## Appendix: Key Source Code References
 This appendix lists the most important files for developers to consult to understand the application's framework. The sections above provide context and instructions on how these files are used.
-
 * **`contest_tools/contest_definitions/_common_cabrillo_fields.json`**: The definitive source for all available DataFrame column names. Essential for writing exchange parsing rules.
 * **`contest_tools/reports/report_interface.py`**: Defines the `ContestReport` abstract base class that all new reports must inherit from.
 * **`contest_tools/contest_log.py`**: The central orchestrator for applying contest-specific logic, including custom parsers, multiplier resolvers, and scoring modules.

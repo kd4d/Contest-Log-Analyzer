@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-23
-# Version: 0.47.8-Beta
+# Date: 2025-08-27
+# Version: 0.47.14-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,30 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.47.14-Beta] - 2025-08-27
+### Fixed
+# - Corrected a persistent IndentationError by fixing the indentation of
+#   the final code block in the _generate_report_for_logs method.
+## [0.47.13-Beta] - 2025-08-27
+### Fixed
+# - Corrected an IndentationError.
+## [0.47.12-Beta] - 2025-08-27
+### Fixed
+# - Corrected an IndentationError that occurred during file generation.
+## [0.47.11-Beta] - 2025-08-27
+### Fixed
+# - Corrected the "Unassigned Multipliers" diagnostic to handle the
+#   special rules for the NAQP contest, preventing incorrect warnings for
+#   non-North American QSOs.
+## [0.47.10-Beta] - 2025-08-24
+### Fixed
+# - Added a check for an empty pivot table to prevent a crash when no
+#   multipliers of the specified type are found in the logs.
+## [0.47.9-Beta] - 2025-08-24
+### Fixed
+# - Added logic to the diagnostic section to handle mutually exclusive
+#   multipliers, using the new generic `mutually_exclusive_mults` key
+#   from the contest definition.
 ## [0.47.8-Beta] - 2025-08-23
 ### Added
 # - Added diagnostic code to save the complete set of (band, multiplier)
@@ -54,13 +78,6 @@ class Report(ContestReport):
         """
         Generates the report content.
         """
-#        # --- Checksum Diagnostic ---
-#        for log in self.logs:
-#            df_full = log.get_processed_data()
-#            df_json = df_full.to_json(orient='split', date_format='iso', default_handler=str)
-#            checksum = hashlib.sha256(df_json.encode('utf-8')).hexdigest()
-#            logging.warning(f"WARNING: (multiplier_summary) INPUT DataFrame Checksum for #log.get_metadata().get('MyCall', 'Unknown')}: {checksum}")
-
         # --- Create a list of filtered dataframes to process ---
         log_data_to_process = []
         for log in self.logs:
@@ -129,11 +146,8 @@ class Report(ContestReport):
         if not contest_def.mults_from_zero_point_qsos:
             main_df = main_df[main_df['QSOPoints'] > 0]
         
-        # --- Diagnostic File Generation ---
         if kwargs.get('debug_mults'):
             callsign = all_calls[0] if len(all_calls) == 1 else '_vs_'.join(all_calls)
-
-            # Save the source DataFrame to CSV
             debug_csv_filename = f"multiplier_summary_sourcedata_debug_{callsign}.csv"
             debug_csv_filepath = os.path.join(output_path, debug_csv_filename)
             main_df.to_csv(debug_csv_filepath, index=False)
@@ -144,22 +158,29 @@ class Report(ContestReport):
         
         pivot = calculate_multiplier_pivot(main_df, mult_column, group_by_call=is_comparative)
 
-        # --- Diagnostic: Create and save the set of multipliers being counted ---
-#        counted_mults = set()
-#        if not pivot.empty:
-#            for index, row in pivot.iterrows():
-#                mult = index[0] if isinstance(index, tuple) else index
-#               for band, count in row.items():
-#                   if count > 0 and band != 'Total':
-#                       counted_mults.add(f"{band}_{mult}")
-#
-#        output_filename = os.path.join(output_path, "multiplier_summary_mult_set.json")
-#        try:
-#            with open(output_filename, 'w') as f:
-#               json.dump(sorted(list(counted_mults)), f, indent=4)
-#       except Exception as e:
-#            logging.error(f"Could not write multiplier set file: {e}")
+        # --- Report Header Setup ---
+        year = dfs[0]['Date'].iloc[0].split('-')[0] if not dfs[0].empty else "----"
+        mode_title_str = f" ({mode_filter})" if mode_filter else ""
+        title1 = f"--- {self.report_name}: {mult_name}{mode_title_str} ---"
+        title2 = f"{year} {contest_def.contest_name} - {', '.join(all_calls)}"
+        report_lines = []
 
+        # --- Gracefully handle cases with no multipliers ---
+        if pivot.empty:
+            report_lines.append(title1)
+            report_lines.append(title2)
+            report_lines.append(f"\nNo '{mult_name}' multipliers found to summarize.")
+            # --- Save the clean (but empty) report and exit ---
+            report_content = "\n".join(report_lines) + "\n"
+            os.makedirs(output_path, exist_ok=True)
+            filename_calls = '_vs_'.join(sorted(all_calls))
+            mode_suffix = f"_{mode_filter.lower()}" if mode_filter else ""
+            filename = f"{self.report_id}_{mult_name.lower()}{mode_suffix}_{filename_calls}.txt"
+            filepath = os.path.join(output_path, filename)
+            with open(filepath, 'w', encoding='utf-8') as f:
+                f.write(report_content)
+            return f"Text report saved to: {filepath}"
+        
         name_map = {}
         if name_column and name_column in main_df.columns:
             name_map_df = main_df[[mult_column, name_column]].dropna().drop_duplicates()
@@ -203,20 +224,13 @@ class Report(ContestReport):
         table_width = len(table_header)
         separator = "-" * table_width
         
-        year = dfs[0]['Date'].iloc[0].split('-')[0] if not dfs[0].empty else "----"
-        
-        mode_title_str = f" ({mode_filter})" if mode_filter else ""
-        title1 = f"--- {self.report_name}: {mult_name}{mode_title_str} ---"
-        title2 = f"{year} {contest_def.contest_name} - {', '.join(all_calls)}"
-        
-        report_lines = []
         header_width = max(table_width, len(title1), len(title2))
         if len(title1) > table_width or len(title2) > table_width:
-             report_lines.append(f"{title1.ljust(header_width)}")
-             report_lines.append(f"{title2.center(header_width)}")
+            report_lines.append(f"{title1.ljust(header_width)}")
+            report_lines.append(f"{title2.center(header_width)}")
         else:
-             report_lines.append(title1.center(header_width))
-             report_lines.append(title2.center(header_width))
+            report_lines.append(title1.center(header_width))
+            report_lines.append(title2.center(header_width))
         report_lines.append("")
         report_lines.append(table_header)
         report_lines.append(separator)
@@ -233,12 +247,11 @@ class Report(ContestReport):
             
             mult_data = pivot.loc[mult]
             for call in all_calls:
-                # Handle both single-level and multi-level index
                 if is_comparative:
                     if call in mult_data.index:
                         row = mult_data.loc[call]
                     else:
-                        continue # Skip if this call doesn't have this multiplier
+                        continue
                 else:
                     row = mult_data
 
@@ -252,7 +265,6 @@ class Report(ContestReport):
         report_lines.append(separator)
         report_lines.append(f"{'Total':<{first_col_width}}")
         
-        # Adjust total calculation for single vs multi-log
         if is_comparative:
             total_pivot = pivot.groupby(level='MyCall').sum()
         else:
@@ -286,7 +298,22 @@ class Report(ContestReport):
                 report_lines.append("  ".join([f"{call:<{col_width}}" for call in line_calls]))
 
         # --- Diagnostic Section for "Unassigned" Multipliers ---
-        unassigned_df = combined_df[combined_df[mult_column].isna()]
+        df_to_check = combined_df
+        if getattr(contest_def, 'is_naqp_ruleset', False):
+            df_to_check = combined_df[(combined_df['Continent'] == 'NA') | (combined_df['DXCCPfx'] == 'KH6')]
+
+        unassigned_df = df_to_check[df_to_check[mult_column].isna()]
+        
+        # Filter out intentional blanks for mutually exclusive mults
+        exclusive_groups = contest_def.mutually_exclusive_mults
+        for group in exclusive_groups:
+            if mult_column in group:
+                partner_cols = [p for p in group if p != mult_column and p in combined_df.columns]
+                if partner_cols:
+                    indices_to_check = unassigned_df.index
+                    partner_values_exist = combined_df.loc[indices_to_check, partner_cols].notna().any(axis=1)
+                    unassigned_df = unassigned_df.loc[~partner_values_exist]
+        
         unique_unassigned_calls = sorted(unassigned_df['Call'].unique())
         
         if unique_unassigned_calls:

@@ -1,7 +1,7 @@
 {
   "_filename": "contest_tools/contest_definitions/cq_160.json",
-  "_version": "0.35.6-Beta",
-  "_date": "2025-08-21",
+  "_version": "0.40.1-Beta",
+  "_date": "2025-08-24",
   "contest_name": "CQ-160",
   "enable_adif_export": true,
   "custom_parser_module": "cq_160_parser",
@@ -15,6 +15,9 @@
     "single_op_max_hours": 30,
     "multi_op_max_hours": 40
   },
+  "mutually_exclusive_mults": [
+    ["Mult1", "Mult2"]
+  ],
   "exchange_parsing_rules": {
     "CQ-160-CW": [
       {
@@ -42,6 +45,8 @@
       "name": "STPROV",
       "source_column": "STPROV_Mult",
       "value_column": "Mult1",
+      "name_column": "Mult1Name",
+      "source_name_column": "STPROV_MultName",
       "totaling_method": "once_per_contest"
     },
     {
@@ -49,7 +54,8 @@
       "applies_to": "W/VE",
       "source_column": "DXCC_Mult",
       "value_column": "Mult2",
-      "name_column": "DXCC_MultName",
+      "name_column": "Mult2Name",
+      "source_name_column": "DXCC_MultName",
       "totaling_method": "once_per_contest"
     }
   ],
@@ -62,6 +68,8 @@
     "Band", "Date", "Hour", "Dupe",
     "DXCCName", "DXCCPfx", "CQZone", "ITUZone", "Continent", "WAEName", "WAEPfx", "Lat", "Lon", "Tzone",
     "Run", "QSOPoints",
-    "Mult1", "Mult1Name", "Mult2", "Mult2Name", "STPROV_Mult", "DXCC_Mult", "DXCC_MultName"
+    "Mult1", "Mult1Name", "Mult2", "Mult2Name", 
+    "STPROV_Mult", "STPROV_MultName", 
+    "DXCC_Mult", "DXCC_MultName"
   ]
 }

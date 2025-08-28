@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-18
-# Version: 0.38.0-Beta
+# Date: 2025-08-26
+# Version: 0.52.4-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.52.4-Beta] - 2025-08-26
+### Changed
+# - Report now generates individual plots by mode (CW, PH, DG) for both
+#   the "All Bands" and per-band summaries on multi-mode contests.
 ## [0.38.0-Beta] - 2025-08-18
 ### Added
 # - Added call to the save_debug_data helper function to dump the source
@@ -64,8 +68,36 @@ class Report(ContestReport):
     
     def generate(self, output_path: str, **kwargs) -> str:
         """
-        Orchestrates the generation of all QSO rate plots.
+        Orchestrates the generation of all QSO rate plots, including per-mode breakdowns.
         """
+        all_created_files = []
+
+        # Prepare full dataframes once
+        full_dfs = [get_valid_dataframe(log) for log in self.logs]
+        if any(df.empty for df in full_dfs):
+            return "Skipping report: At least one log has no valid QSO data."
+
+        # 1. Generate plots for "All Modes"
+        all_created_files.extend(
+            self._orchestrate_plot_generation(full_dfs, output_path, mode_filter=None, **kwargs)
+        )
+
+        # 2. Generate plots for each mode if applicable
+        modes_present = pd.concat([df['Mode'] for df in full_dfs]).dropna().unique()
+        if len(modes_present) > 1:
+            for mode in ['CW', 'PH', 'DG']:
+                if mode in modes_present:
+                    sliced_dfs = [df[df['Mode'] == mode] for df in full_dfs]
+                    all_created_files.extend(
+                        self._orchestrate_plot_generation(sliced_dfs, output_path, mode_filter=mode, **kwargs)
+                    )
+        
+        if not all_created_files:
+            return "No QSO rate plots were generated."
+        return "QSO rate plots saved to:\n" + "\n".join([f"  - {fp}" for fp in all_created_files])
+
+    def _orchestrate_plot_generation(self, dfs: List[pd.DataFrame], output_path: str, mode_filter: str, **kwargs) -> List[str]:
+        """Helper to generate the full set of plots for a given data slice."""
         bands = self.logs[0].contest_definition.valid_bands
         is_single_band = len(bands) == 1
         bands_to_plot = ['All'] if is_single_band else ['All'] + bands
@@ -74,10 +106,19 @@ class Report(ContestReport):
         
         for band in bands_to_plot:
             try:
-                save_path = os.path.join(output_path, band) if band != "All" else output_path
+                save_path = output_path
+                if not is_single_band and band != 'All':
+                    # For per-mode plots, create a subdirectory for the mode
+                    if mode_filter:
+                        save_path = os.path.join(output_path, mode_filter.lower(), band)
+                    else:
+                        save_path = os.path.join(output_path, band)
+
                 filepath = self._create_plot(
+                    dfs=dfs,
                     output_path=save_path,
                     band_filter=band,
+                    mode_filter=mode_filter,
                     **kwargs
                 )
                 if filepath:
@@ -85,11 +126,9 @@ class Report(ContestReport):
             except Exception as e:
                 print(f"  - Failed to generate QSO rate plot for {band}: {e}")
 
-        if not created_files:
-            return "No QSO rate plots were generated."
-        return "QSO rate plots saved to:\n" + "\n".join([f"  - {fp}" for fp in created_files])
+        return created_files
 
-    def _create_plot(self, output_path: str, band_filter: str, **kwargs) -> str:
+    def _create_plot(self, dfs: List[pd.DataFrame], output_path: str, band_filter: str, mode_filter: str, **kwargs) -> str:
         debug_data_flag = kwargs.get("debug_data", False)
         fig, ax = plt.subplots(figsize=(12, 8))
         sns.set_theme(style="whitegrid")
@@ -102,10 +141,10 @@ class Report(ContestReport):
         agg_func = 'count'
         metric_name = "QSOs"
 
-        for log in self.logs:
+        for i, df in enumerate(dfs):
+            log = self.logs[i]
             call = log.get_metadata().get('MyCall', 'Unknown')
             all_calls.append(call)
-            df = get_valid_dataframe(log)
 
             if band_filter != "All":
                 df = df[df['Band'] == band_filter]
@@ -145,9 +184,10 @@ class Report(ContestReport):
         
         is_single_band = len(self.logs[0].contest_definition.valid_bands) == 1
         band_text = self.logs[0].contest_definition.valid_bands[0].replace('M', ' Meters') if is_single_band else band_filter.replace('M', ' Meters')
+        mode_text = f" - {mode_filter}" if mode_filter else ""
         
         title_line1 = f"{event_id} {year} {contest_name}".strip()
-        title_line2 = f"Cumulative {metric_name} ({band_text})"
+        title_line2 = f"Cumulative {metric_name} ({band_text}{mode_text})"
         
         ax.set_title(f"{title_line1}\n{title_line2}", fontsize=16, fontweight='bold')
         ax.set_xlabel("Contest Time")
@@ -174,20 +214,21 @@ class Report(ContestReport):
             logging.info(f"Skipping {metric_name} plot for {band_filter}: No data available for any log on this band.")
             plt.close(fig)
             return None
-
+            
         fig.tight_layout()
         create_output_directory(output_path)
         
         filename_band = self.logs[0].contest_definition.valid_bands[0].lower() if is_single_band else band_filter.lower().replace('m', '')
         filename_calls = '_vs_'.join(sorted(all_calls))
+        mode_suffix = f"_{mode_filter.lower()}" if mode_filter else ""
         
         # --- Save Debug Data ---
         if all_series:
             debug_df = pd.concat(all_series, axis=1).fillna(0)
-            debug_filename = f"{self.report_id}_{filename_band}_{filename_calls}.txt"
+            debug_filename = f"{self.report_id}_{filename_band}{mode_suffix}_{filename_calls}.txt"
             save_debug_data(debug_data_flag, output_path, debug_df, custom_filename=debug_filename)
         
-        filename = f"{self.report_id}_{filename_band}_{filename_calls}.png"
+        filename = f"{self.report_id}_{filename_band}{mode_suffix}_{filename_calls}.png"
         filepath = os.path.join(output_path, filename)
         fig.savefig(filepath)
         plt.close(fig)

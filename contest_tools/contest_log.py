@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-21
-# Version: 0.43.0-Beta
+# Date: 2025-08-26
+# Version: 0.52.7-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,14 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.52.7-Beta] - 2025-08-26
+### Changed
+# - Updated the "invalid frequency" warning to include the full, original
+#   QSO: line from the Cabrillo log for improved diagnostics.
+## [0.52.0-Beta] - 2025-08-26
+### Added
+# - Added a warning message to the log ingest process to report any QSOs
+#   with modes other than the standard 'CW', 'PH', or 'DG'.
 ## [0.43.0-Beta] - 2025-08-21
 ### Added
 # - Integrated a data-driven frequency validation check during Cabrillo
@@ -153,7 +161,7 @@ class ContestLog:
         # --- Perform frequency validation before further processing ---
         validated_qso_records = []
         rejected_qso_count = 0
-        raw_df['Frequency'] = pd.to_numeric(raw_df['FrequencyRaw'], errors='coerce')
+        raw_df['Frequency'] = pd.to_numeric(raw_df.get('FrequencyRaw'), errors='coerce')
 
         for idx, row in raw_df.iterrows():
             if self.band_allocator.is_frequency_valid(row['Frequency']):
@@ -161,7 +169,7 @@ class ContestLog:
             else:
                 rejected_qso_count += 1
                 if rejected_qso_count <= 20:
-                    logging.warning(f"Rejected QSO (invalid frequency): File '{os.path.basename(cabrillo_filepath)}' - Freq={row['FrequencyRaw']}")
+                    logging.warning(f"Rejected QSO (invalid frequency): File '{os.path.basename(cabrillo_filepath)}' - Line: {row['RawQSO']}")
         
         if rejected_qso_count > 20:
             suppressed_count = rejected_qso_count - 20
@@ -203,7 +211,18 @@ class ContestLog:
             if col in raw_df.columns:
                 raw_df[col.replace('Raw','')] = raw_df[col].fillna('').astype(str).str.upper()
 
-        raw_df.drop(columns=['FrequencyRaw', 'DateRaw', 'TimeRaw', 'MyCallRaw'], inplace=True, errors='ignore')
+        # --- Check for non-standard modes ---
+        standard_modes = {'CW', 'PH', 'DG'}
+        present_modes = set(raw_df['Mode'].dropna().unique())
+        non_standard_modes = present_modes - standard_modes
+        if non_standard_modes:
+            logging.warning(
+                f"Non-standard modes found in '{os.path.basename(cabrillo_filepath)}': "
+                f"{sorted(list(non_standard_modes))}. These will be processed but may not be "
+                "handled correctly by all reports."
+            )
+
+        raw_df.drop(columns=['FrequencyRaw', 'DateRaw', 'TimeRaw', 'MyCallRaw', 'RawQSO'], inplace=True, errors='ignore')
         self.qsos_df = raw_df.reindex(columns=self.contest_definition.default_qso_columns)
         self._check_dupes()
 
@@ -464,7 +483,7 @@ class ContestLog:
         adif_records = []
         adif_records.append("ADIF Export from Contest-Log-Analyzer\n")
         adif_records.append(f"<PROGRAMID:22>Contest-Log-Analyzer\n")
-        adif_records.append(f"<PROGRAMVERSION:10>0.43.0-Beta\n")
+        adif_records.append(f"<PROGRAMVERSION:10>0.52.7-Beta\n")
         adif_records.append("<EOH>\n\n")
 
         for _, row in df_to_export.iterrows():

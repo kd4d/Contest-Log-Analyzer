@@ -1,7 +1,7 @@
 {
   "_filename": "contest_tools/contest_definitions/arrl_10.json",
-  "_version": "0.32.7-Beta",
-  "_date": "2025-08-21",
+  "_version": "0.40.17-Beta",
+  "_date": "2025-08-27",
   "contest_name": "ARRL-10",
   "valid_bands": [
     "10M"
@@ -11,6 +11,15 @@
   "enable_adif_export": true,
   "custom_parser_module": "arrl_10_parser",
   "custom_multiplier_resolver": "arrl_10_multiplier_resolver",
+  "mutually_exclusive_mults": [
+    [
+      "Mult_State",
+      "Mult_VE",
+      "Mult_XE",
+      "Mult_DXCC",
+      "Mult_ITU"
+    ]
+  ],
   "exchange_parsing_rules": {
     "ARRL-10-DX-LOGGER": {
       "regex": "(\\d{2,3})\\s+(\\d+)\\s+([A-Z0-9/]+)\\s+(\\d{2,3})\\s+(.*)",
@@ -55,21 +64,25 @@
     {
       "name": "States",
       "value_column": "Mult_State",
+      "name_column": "Mult_StateName",
       "totaling_method": "once_per_mode"
     },
     {
       "name": "Provinces",
       "value_column": "Mult_VE",
+      "name_column": "Mult_VEName",
       "totaling_method": "once_per_mode"
     },
     {
       "name": "Mexican States",
       "value_column": "Mult_XE",
+      "name_column": "Mult_XEName",
       "totaling_method": "once_per_mode"
     },
     {
       "name": "DXCC",
       "value_column": "Mult_DXCC",
+      "name_column": "Mult_DXCCName",
       "totaling_method": "once_per_mode"
     },
     {
@@ -105,9 +118,13 @@
     "Run",
     "QSOPoints",
     "Mult_State",
+    "Mult_StateName",
     "Mult_VE",
+    "Mult_VEName",
     "Mult_XE",
+    "Mult_XEName",
     "Mult_DXCC",
+    "Mult_DXCCName",
     "Mult_ITU"
   ]
 }

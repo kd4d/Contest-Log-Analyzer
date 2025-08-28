@@ -1,12 +1,13 @@
 # Contest Log Analyzer/contest_tools/reports/text_comparative_score_report.py
 #
 # Purpose: A text report that generates an interleaved, comparative score
-#          summary, broken down by band, for multiple logs. [cite: 1371]
+#          summary, broken down by band, for multiple logs. This version
+#          serves as a proof-of-concept for using the tabulate library.
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-16
-# Version: 0.37.1-Beta
+# Date: 2025-08-25
+# Version: 0.40.19-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -14,47 +15,47 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
-# file, You can obtain one at http://mozilla.org/MPL/2.0/. [cite: 1372]
+# License, v. 2.0.
 # --- Revision History ---
-## [0.37.1-Beta] - 2025-08-16
+## [0.40.19-Beta] - 2025-08-25
 ### Fixed
-# - Corrected file writing logic to append a final newline character,
-#   ensuring compatibility with diff utilities.
-## [0.35.0-Beta] - 2025-08-13
+# - Corrected the `_calculate_band_mode_summary` function to check the
+#   `applies_to` key in multiplier rules. This ensures per-band multiplier
+#   counts are correct for asymmetric contests.
+## [0.40.18-Beta] - 2025-08-25
+### Fixed
+# - Added logic to the `_calculate_totals` function to correctly handle
+#   asymmetric contests by checking the `applies_to` key in multiplier
+#   rules, ensuring multipliers are not counted for the wrong station type.
+## [0.40.17-Beta] - 2025-08-24
 ### Changed
-# - Refactored score calculation to be data-driven, using the new
-#   `score_formula` from the contest definition. [cite: 1373]
-## [0.32.12-Beta] - 2025-08-12
-### Fixed
-# - Added the missing `Tuple` to the `typing` import to resolve a NameError. [cite: 1374]
-## [0.32.11-Beta] - 2025-08-12
+# - Reworked final score summary formatting to correctly align the colons
+#   and right-justify the scores, regardless of callsign or score length.
+## [0.40.16-Beta] - 2025-08-24
 ### Changed
-# - Refactored data aggregation to be mode-aware, grouping by both Band and Mode. [cite: 1375]
-# - Added logic to _calculate_totals to correctly handle the "once_per_mode"
-#   multiplier totaling method. [cite: 1376]
-## [0.31.21-Beta] - 2025-08-09
-### Fixed
-# - Modified multiplier counting logic to explicitly exclude "Unknown" values. [cite: 1377]
-## [0.28.30-Beta] - 2025-08-04
-### Fixed
-# - Corrected the `report_id` to its unique value, fixing the duplicate ID
-#   warning and resolving downstream scoring and on-time calculation bugs. [cite: 1378]
-## [0.28.29-Beta] - 2025-08-04
+# - Added logic to convert column headers with spaces into two-line
+#   headers for improved table readability.
+## [0.40.15-Beta] - 2025-08-24
 ### Changed
-# - Standardized report to have a two-line title followed by a blank line. [cite: 1379]
-# - Reworked table generation to ensure column alignment is always correct. [cite: 1380]
-# - The redundant per-band summary is now correctly hidden for single-band contests. [cite: 1381]
+# - Added `showindex="never"` to all tabulate calls to remove the
+#   unwanted DataFrame index from the report output.
+## [0.40.14-Beta] - 2025-08-24
+### Added
+# - Initial creation of this parallel report as a proof-of-concept.
+### Changed
+# - Replaced all custom table formatting logic with the pandas `to_string()`
+#   method for improved simplicity and robustness.
 from typing import List, Set, Dict, Tuple
 import pandas as pd
 import os
+from tabulate import tabulate
 from ..contest_log import ContestLog
 from ..contest_definitions import ContestDefinition
 from .report_interface import ContestReport
 
 class Report(ContestReport):
     """
-    Generates a comparative, interleaved score summary report.
+    Generates a comparative, interleaved score summary report (tabulate version).
     """
     report_id: str = "comparative_score_report"
     report_name: str = "Comparative Score Report"
@@ -72,43 +73,18 @@ class Report(ContestReport):
 
         total_summaries = [self._calculate_totals(log) for log in self.logs]
         
-        # --- Formatting ---
+        # --- Define Column Order and Header Formatting ---
         mult_names = [rule['name'] for rule in contest_def.multiplier_rules]
         col_order = ['Callsign', 'On-Time', 'QSOs'] + mult_names + ['Points', 'AVG']
 
-        col_widths = {key: len(str(key)) for key in col_order}
-        col_widths['Callsign'] = max([len(call) for call in all_calls] + [len('Callsign')])
-        
         has_on_time = any(s[0].get('On-Time') and s[0].get('On-Time') != 'N/A' for s in total_summaries)
         if not has_on_time:
             col_order.remove('On-Time')
-            del col_widths['On-Time']
+            
+        header_map = {col: col.replace(' ', '\n') for col in col_order}
 
-        for summary, _ in total_summaries:
-             for key, value in summary.items():
-                if key in col_widths:
-                    val_len = len(f"{value:.2f}") if isinstance(value, float) else len(str(value))
-                    col_widths[key] = max(col_widths.get(key, 0), val_len)
-
-        header_parts = [f"{name:<{col_widths[name]}}" if name == 'Callsign' else f"{name:>{col_widths[name]}}" for name in col_order]
-        table_header = "  ".join(header_parts)
-        table_width = len(table_header)
-        separator = "-" * table_width
-        
-        contest_name = first_log.get_metadata().get('ContestName', 'UnknownContest')
-        year = first_log.get_processed_data()['Date'].iloc[0].split('-')[0] if not first_log.get_processed_data().empty else "----"
-        
-        title1 = f"--- {self.report_name} ---"
-        title2 = f"{year} {contest_name} - {', '.join(all_calls)}"
-        
+        # --- Report Lines List ---
         report_lines = []
-        header_width = max(table_width, len(title1), len(title2))
-        report_lines.append(title1.center(header_width))
-        report_lines.append(title2.center(header_width))
-        report_lines.append("")
-        
-        report_lines.append(table_header)
-        report_lines.append(separator)
         
         # --- Data Aggregation by Band and Mode ---
         band_mode_summaries = {}
@@ -122,30 +98,77 @@ class Report(ContestReport):
                     if key not in band_mode_summaries:
                         band_mode_summaries[key] = []
                     
-                    summary = self._calculate_band_mode_summary(group_df, call, contest_def.multiplier_rules)
+                    summary = self._calculate_band_mode_summary(group_df, call, contest_def.multiplier_rules, log)
                     band_mode_summaries[key].append(summary)
 
-        # --- Report Generation ---
+        # --- Report Generation using tabulate ---
         canonical_band_order = [band[1] for band in ContestLog._HF_BANDS]
         sorted_keys = sorted(band_mode_summaries.keys(), key=lambda x: (canonical_band_order.index(x[0]), x[1]))
 
         for key in sorted_keys:
             band, mode = key
             report_lines.append(f"\n--- {band} {mode} ---")
-            for summary in band_mode_summaries[key]:
-                report_lines.append(self._format_row(summary, col_order, col_widths))
+            
+            summary_df = pd.DataFrame(band_mode_summaries[key])
+            summary_df = summary_df.reindex(columns=col_order)
+            
+            if 'On-Time' in summary_df.columns:
+                summary_df['On-Time'] = summary_df['On-Time'].fillna('')
+
+            summary_df.rename(columns=header_map, inplace=True)
+            table_string = tabulate(summary_df, headers='keys', tablefmt='psql', floatfmt=".2f", showindex="never")
+            report_lines.append(table_string)
 
         report_lines.append("\n--- TOTAL ---")
-        for summary, _ in total_summaries:
-            report_lines.append(self._format_row(summary, col_order, col_widths))
-
+        
+        total_summary_list = [s[0] for s in total_summaries]
+        total_df = pd.DataFrame(total_summary_list)
+        total_df = total_df.reindex(columns=col_order)
+        total_df.rename(columns=header_map, inplace=True)
+        
+        total_table_string = tabulate(total_df, headers='keys', tablefmt='psql', floatfmt=".2f", showindex="never")
+        report_lines.append(total_table_string)
+        
+        table_width = len(total_table_string.split('\n')[0])
         report_lines.append("=" * table_width)
         report_lines.append("")
-        for summary, score in total_summaries:
-            callsign = summary['Callsign']
-            score_text = f"TOTAL SCORE ({callsign}) : {score:,.0f}"
-            report_lines.append(score_text.rjust(table_width))
+        
+        # --- Final Score Formatting with Aligned Colons and Scores ---
+        score_labels = [f"TOTAL SCORE ({s[0]['Callsign']})" for s in total_summaries]
+        score_values = [f"{s[1]:,.0f}" for s in total_summaries]
+        
+        max_label_width = max(len(label) for label in score_labels) if score_labels else 0
+        max_score_width = max(len(value) for value in score_values) if score_values else 0
 
+        for i in range(len(total_summaries)):
+            label = score_labels[i]
+            score_str = score_values[i]
+            
+            padded_label = f"{label:>{max_label_width}}"
+            padded_score = f"{score_str:>{max_score_width}}"
+            
+            line = f"{padded_label} : {padded_score}"
+            
+            padding = table_width - len(line)
+            final_line = " " * padding + line
+            report_lines.append(final_line)
+
+        # --- Prepend Centered Titles ---
+        contest_name = first_log.get_metadata().get('ContestName', 'UnknownContest')
+        year = first_log.get_processed_data()['Date'].iloc[0].split('-')[0] if not first_log.get_processed_data().empty else "----"
+        
+        title1 = f"--- {self.report_name} ---"
+        title2 = f"{year} {contest_name} - {', '.join(all_calls)}"
+        
+        header_width = max(table_width, len(title1), len(title2))
+        final_header = [
+            title1.center(header_width),
+            title2.center(header_width),
+            ""
+        ]
+        report_lines = final_header + report_lines
+
+        # --- Save to File ---
         report_content = "\n".join(report_lines) + "\n"
         os.makedirs(output_path, exist_ok=True)
         filename_calls = '_vs_'.join(all_calls)
@@ -157,30 +180,25 @@ class Report(ContestReport):
         
         return f"Text report saved to: {filepath}"
 
-    def _format_row(self, data: dict, col_order: list, col_widths: dict) -> str:
-        parts = []
-        for name in col_order:
-            align = "<" if name == 'Callsign' else ">"
-            val = data.get(name, ' ')
-            width = col_widths.get(name, len(str(val)))
-            
-            if isinstance(val, float):
-                formatted_val = f"{val:{align}{width}.2f}"
-            else:
-                formatted_val = f"{str(val):{align}{width}}"
-            parts.append(formatted_val)
-        return "  ".join(parts)
-
-    def _calculate_band_mode_summary(self, df_band_mode: pd.DataFrame, callsign: str, multiplier_rules: List) -> dict:
+    def _calculate_band_mode_summary(self, df_band_mode: pd.DataFrame, callsign: str, multiplier_rules: List, log: ContestLog) -> dict:
         summary = {'Callsign': callsign}
         summary['QSOs'] = len(df_band_mode)
         summary['Points'] = df_band_mode['QSOPoints'].sum()
+        log_location_type = getattr(log, '_my_location_type', None)
         
         for rule in multiplier_rules:
             m_col = rule['value_column']
             m_name = rule['name']
+
+            applies_to = rule.get('applies_to')
+            if applies_to and log_location_type and applies_to != log_location_type:
+                summary[m_name] = 0
+                continue
+            
             if m_col in df_band_mode.columns:
                 summary[m_name] = df_band_mode[m_col].nunique()
+            else:
+                summary[m_name] = 0
         
         summary['AVG'] = (summary['Points'] / summary['QSOs']) if summary['QSOs'] > 0 else 0
         return summary
@@ -191,6 +209,7 @@ class Report(ContestReport):
         contest_def = log.contest_definition
         multiplier_rules = contest_def.multiplier_rules
         mult_names = [rule['name'] for rule in multiplier_rules]
+        log_location_type = getattr(log, '_my_location_type', None)
 
         total_summary = {'Callsign': log.get_metadata().get('MyCall', 'Unknown')}
         total_summary['On-Time'] = log.get_metadata().get('OperatingTime')
@@ -201,6 +220,12 @@ class Report(ContestReport):
         for i, rule in enumerate(multiplier_rules):
             mult_name = mult_names[i]
             mult_col = rule['value_column']
+            
+            applies_to = rule.get('applies_to')
+            if applies_to and log_location_type and applies_to != log_location_type:
+                total_summary[mult_name] = 0
+                continue
+            
             totaling_method = rule.get('totaling_method', 'sum_by_band')
 
             if mult_col not in df_net.columns:
@@ -224,7 +249,6 @@ class Report(ContestReport):
 
         total_summary['AVG'] = (total_summary['Points'] / total_summary['QSOs']) if total_summary['QSOs'] > 0 else 0
         
-        # --- Data-driven score calculation ---
         if contest_def.score_formula == 'qsos_times_mults':
             final_score = total_summary['QSOs'] * total_multiplier_count
         else: # Default to points_times_mults

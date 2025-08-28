@@ -1,7 +1,7 @@
 # Contest Log Analyzer/contest_tools/contest_specific_annotations/cq_160_parser.py
 #
-# Version: 0.35.5-Beta
-# Date: 2025-08-13
+# Version: 0.52.11-Beta
+# Date: 2025-08-26
 #
 # Purpose: Provides a custom, contest-specific parser for the CQ 160 Meter contest
 #          to handle its dual exchange format (State/Province or Zone).
@@ -14,13 +14,15 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 # --- Revision History ---
+## [0.52.11-Beta] - 2025-08-26
+### Changed
+# - Parser now includes the raw, cleaned QSO: line in its output
+#   under the 'RawQSO' key to support enhanced diagnostics.
 ## [0.35.5-Beta] - 2025-08-13
 ### Added
 # - Initial release of the custom parser for the CQ 160 Meter contest to
 #   restore functionality by migrating it to the new plug-in system.
-
 import pandas as pd
 import re
 import logging
@@ -92,6 +94,7 @@ def parse_log(filepath: str, contest_definition: ContestDefinition) -> Tuple[pd.
             if qso_match:
                 qso_data = dict(zip(qso_groups, qso_match.groups()))
                 qso_data.update(common_data)
+                qso_data['RawQSO'] = line_to_process
                 qso_records.append(qso_data)
             else:
                 logging.warning(f"Skipping QSO line that did not match any rule: {line_to_process}")
