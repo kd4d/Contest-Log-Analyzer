@@ -1,7 +1,7 @@
 {
   "_filename": "contest_tools/contest_definitions/naqp.json",
-  "_version": "0.40.6-Beta",
-  "_date": "2025-08-24",
+  "_version": "0.40.7-Beta",
+  "_date": "2025-08-27",
   "contest_name": "NAQP",
   "valid_bands": [
     "160M",
@@ -15,6 +15,12 @@
   "score_formula": "qsos_times_mults",
   "enable_adif_export": true,
   "custom_multiplier_resolver": "naqp_multiplier_resolver",
+  "mutually_exclusive_mults": [
+    [
+      "Mult_STPROV",
+      "Mult_NADXCC"
+    ]
+  ],
   "contest_specific_event_id_resolver": "naqp_event_id_resolver",
   "exchange_parsing_rules": {
     "NAQP-CW": {
