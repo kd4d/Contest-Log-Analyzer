@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-24
-# Version: 0.49.2-Beta
+# Date: 2025-08-27
+# Version: 0.49.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,9 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0.
 # --- Revision History ---
+## [0.49.3-Beta] - 2025-08-27
+### Added
+# - Added the `is_naqp_ruleset` property to expose the new JSON key.
 ## [0.49.2-Beta] - 2025-08-24
 ### Changed
 # - Replaced the specific `score_report_rules` property with a more
@@ -138,6 +141,10 @@ class ContestDefinition:
     @property
     def enable_adif_export(self) -> bool:
         return self._data.get('enable_adif_export', False)
+
+    @property
+    def is_naqp_ruleset(self) -> bool:
+        return self._data.get('is_naqp_ruleset', False)
 
     @property
     def dupe_check_scope(self) -> str:

@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-25
-# Version: 0.49.5-Beta
+# Date: 2025-08-27
+# Version: 0.49.7-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,6 +16,14 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0.
 # --- Revision History ---
+## [0.49.7-Beta] - 2025-08-27
+### Fixed
+# - Corrected an IndentationError.
+## [0.49.6-Beta] - 2025-08-27
+### Fixed
+# - Corrected the "Unassigned Multipliers" diagnostic to handle the
+#   special rules for the NAQP contest, preventing incorrect warnings for
+#   non-North American QSOs.
 ## [0.49.5-Beta] - 2025-08-25
 ### Fixed
 # - Refactored logic to filter zero-point QSOs at the start of the
@@ -213,7 +221,11 @@ class Report(ContestReport):
                     report_lines.append("  ".join([f"{call:<12}" for call in line_calls]))
 
             # --- Check for "Unassigned" (NaN) Multipliers ---
-            unassigned_df = df[df[mult_col].isna()]
+            df_to_check = df
+            if getattr(contest_def, 'is_naqp_ruleset', False):
+                df_to_check = df[(df['Continent'] == 'NA') | (df['DXCCPfx'] == 'KH6')]
+            
+            unassigned_df = df_to_check[df_to_check[mult_col].isna()]
             
             # Filter out intentional blanks for mutually exclusive mults
             for group in exclusive_groups:

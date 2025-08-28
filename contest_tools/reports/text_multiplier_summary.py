@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-24
-# Version: 0.47.10-Beta
+# Date: 2025-08-27
+# Version: 0.47.14-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,21 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.47.14-Beta] - 2025-08-27
+### Fixed
+# - Corrected a persistent IndentationError by fixing the indentation of
+#   the final code block in the _generate_report_for_logs method.
+## [0.47.13-Beta] - 2025-08-27
+### Fixed
+# - Corrected an IndentationError.
+## [0.47.12-Beta] - 2025-08-27
+### Fixed
+# - Corrected an IndentationError that occurred during file generation.
+## [0.47.11-Beta] - 2025-08-27
+### Fixed
+# - Corrected the "Unassigned Multipliers" diagnostic to handle the
+#   special rules for the NAQP contest, preventing incorrect warnings for
+#   non-North American QSOs.
 ## [0.47.10-Beta] - 2025-08-24
 ### Fixed
 # - Added a check for an empty pivot table to prevent a crash when no
@@ -150,7 +165,7 @@ class Report(ContestReport):
         title2 = f"{year} {contest_def.contest_name} - {', '.join(all_calls)}"
         report_lines = []
 
-        # --- NEW: Gracefully handle cases with no multipliers ---
+        # --- Gracefully handle cases with no multipliers ---
         if pivot.empty:
             report_lines.append(title1)
             report_lines.append(title2)
@@ -211,11 +226,11 @@ class Report(ContestReport):
         
         header_width = max(table_width, len(title1), len(title2))
         if len(title1) > table_width or len(title2) > table_width:
-             report_lines.append(f"{title1.ljust(header_width)}")
-             report_lines.append(f"{title2.center(header_width)}")
+            report_lines.append(f"{title1.ljust(header_width)}")
+            report_lines.append(f"{title2.center(header_width)}")
         else:
-             report_lines.append(title1.center(header_width))
-             report_lines.append(title2.center(header_width))
+            report_lines.append(title1.center(header_width))
+            report_lines.append(title2.center(header_width))
         report_lines.append("")
         report_lines.append(table_header)
         report_lines.append(separator)
@@ -283,7 +298,11 @@ class Report(ContestReport):
                 report_lines.append("  ".join([f"{call:<{col_width}}" for call in line_calls]))
 
         # --- Diagnostic Section for "Unassigned" Multipliers ---
-        unassigned_df = combined_df[combined_df[mult_column].isna()]
+        df_to_check = combined_df
+        if getattr(contest_def, 'is_naqp_ruleset', False):
+            df_to_check = combined_df[(combined_df['Continent'] == 'NA') | (combined_df['DXCCPfx'] == 'KH6')]
+
+        unassigned_df = df_to_check[df_to_check[mult_column].isna()]
         
         # Filter out intentional blanks for mutually exclusive mults
         exclusive_groups = contest_def.mutually_exclusive_mults
