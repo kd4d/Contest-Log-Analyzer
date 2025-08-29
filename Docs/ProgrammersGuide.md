@@ -1,10 +1,14 @@
 # Contest Log Analyzer - Programmer's Guide
 
-**Version: 0.52.13-Beta**
-**Date: 2025-08-26**
+**Version: 0.54.1-Beta**
+**Date: 2025-08-28**
 
 ---
 ### --- Revision History ---
+## [0.54.1-Beta] - 2025-08-28
+### Changed
+# - Clarified that the `RawQSO` column is an intermediate field that is
+#   removed before the final reporting stage.
 ## [0.52.13-Beta] - 2025-08-26
 ### Changed
 # - Updated the Core Data Columns list to include the new `RawQSO` column.
@@ -116,7 +120,7 @@ The project includes an automated regression test script to ensure that new chan
 All reports must be created as `.py` files in the `contest_tools/reports/` directory. For the program to recognize a report, it must adhere to the contract defined by the `ContestReport` base class.
 ### The `ContestReport` Base Class
 This abstract base class, defined in `contest_tools/reports/report_interface.py`, provides the required structure for all report modules. A new report **must** inherit from this class and implement its required attributes and methods.
-```python
+__CODE_BLOCK__python
 # Excerpt from contest_tools/reports/report_interface.py
 
 from abc import ABC, abstractmethod
@@ -140,11 +144,11 @@ class ContestReport(ABC):
     def generate(self, output_path: str, **kwargs) -> str:
         # ... your report logic goes here ...
         pass
-```
+__CODE_BLOCK__
 
 ### Boilerplate Example
 Here is a minimal "Hello World" report.
-```python
+__CODE_BLOCK__python
 # contest_tools/reports/text_hello_world.py
 from .report_interface import ContestReport
 
@@ -162,7 +166,7 @@ class Report(ContestReport):
         print(report_content)
         
         return f"Report '{self.report_name}' generated successfully."
-```
+__CODE_BLOCK__
 
 ---
 ## How to Add a New Contest
@@ -170,7 +174,7 @@ class Report(ContestReport):
 Adding a new contest is primarily a data-definition task that involves creating a `.json` file and, if necessary, contest-specific Python modules.
 ### The Core Data Columns
 After parsing, all log data is normalized into a standard pandas DataFrame. The available columns are defined in `contest_tools/contest_definitions/_common_cabrillo_fields.json`. When creating exchange parsing rules, the `groups` list **must** map to these column names.
-**Available Columns**: `ContestName`, `CategoryOverlay`, `CategoryOperator`, `CategoryTransmitter`, `MyCall`, `Frequency`, `Mode`, `Datetime`, `SentRS`, `SentRST`, `SentZone`, `SentNR`, `Call`, `RS`, `RST`, `Zone`, `NR`, `Transmitter`, `RawQSO`, `Band`, `Date`, `Hour`, `Dupe`, `DXCCName`, `DXCCPfx`, `CQZone`, `ITUZone`, `Continent`, `WAEName`, `WAEPfx`, `Lat`, `Lon`, `Tzone`, `portableid`, `Run`, `QSOPoints`, `Mult1`, `Mult1Name`, `Mult2`, `Mult2Name`.
+**Available Columns**: `ContestName`, `CategoryOverlay`, `CategoryOperator`, `CategoryTransmitter`, `MyCall`, `Frequency`, `Mode`, `Datetime`, `SentRS`, `SentRST`, `SentZone`, `SentNR`, `Call`, `RS`, `RST`, `Zone`, `NR`, `Transmitter`, `RawQSO` (*Note: This is an intermediate column used for diagnostics during parsing and is removed before the final DataFrame is available for reporting*), `Band`, `Date`, `Hour`, `Dupe`, `DXCCName`, `DXCCPfx`, `CQZone`, `ITUZone`, `Continent`, `WAEName`, `WAEPfx`, `Lat`, `Lon`, `Tzone`, `portableid`, `Run`, `QSOPoints`, `Mult1`, `Mult1Name`, `Mult2`, `Mult2Name`.
 ### JSON Quick Reference
 Create a new `.json` file in `contest_tools/contest_definitions/`. The following table describes the available keys.
 
@@ -216,7 +220,7 @@ For contests requiring logic beyond simple JSON definitions, create a Python mod
 * **Custom Parser Modules**:
     * **Purpose**: To parse a raw log file and return a standardized DataFrame and metadata dictionary. Called *instead of* the generic parser.
     * **Required Function Signature**: `parse_log(filepath: str, contest_definition: ContestDefinition) -> Tuple[pd.DataFrame, Dict[str, Any]]`
-    * The returned DataFrame **must** now include a `RawQSO` column containing the original, cleaned `QSO:` line string to support enhanced diagnostics.
+    * The returned DataFrame **must** now include a `RawQSO` column containing the original, cleaned `QSO:` line string to support enhanced diagnostics. This column is used by downstream functions like the frequency validator and is removed by `contest_log.py` before the final data processing stages.
 * **Custom Multiplier Resolvers**:
     * **Purpose**: To apply complex logic to identify multipliers and add the appropriate `Mult_` columns to the DataFrame.
     * **Required Function Signature**: `resolve_multipliers(df: pd.DataFrame, my_location_type: str) -> pd.DataFrame`
@@ -228,14 +232,17 @@ For contests requiring logic beyond simple JSON definitions, create a Python mod
 ---
 ## Advanced Report Design: Shared Logic
 A key architectural principle for creating maintainable and consistent reports is the **separation of data aggregation from presentation**. When multiple reports need to display the same underlying data in different formats (e.g., HTML and plain text), the data aggregation logic should not be duplicated.
+
 ### The Shared Aggregator Pattern
 The preferred method is to create a dedicated, non-report helper module within the `contest_tools/reports/` directory. This module's sole responsibility is to perform the complex data calculations and return a clean, structured data object (like a dictionary or pandas DataFrame).
+
 #### Example: `_qso_comparison_aggregator.py`
 To generate both `html_qso_comparison` and `text_qso_comparison` reports, we can create a shared helper:
 1.  **Create the Aggregator**: A new file, `_qso_comparison_aggregator.py`, would contain a function like `aggregate_qso_comparison_data(logs)`. This function would perform all the necessary calculations (Unique QSOs, Common QSOs, Run/S&P breakdowns, etc.) and return a final dictionary.
 2.  **Update the Report Modules**:
     * `html_qso_comparison.py` would import and call this function. Its only remaining job would be to take the returned data and render it into the final HTML string.
     * `text_qso_comparison.py` would also import and call the *same* function. Its job would be to take the data and render it into a fixed-width text table using a tool like pandas' `to_string()` method.
+
 This pattern ensures that both reports are always based on the exact same data, eliminating the risk of inconsistencies and reducing code duplication.
 ---
 ## Appendix: Key Source Code References

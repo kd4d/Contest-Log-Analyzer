@@ -1,10 +1,14 @@
 # CLA Reports Style Guide
 
-**Version: 0.52.14-Beta**
-**Date: 2025-08-26**
+**Version: 0.54.0-Beta**
+**Date: 2025-08-28**
 
 ---
 ### --- Revision History ---
+## [0.54.0-Beta] - 2025-08-28
+### Changed
+# - Updated Section 3.1 (Table Formatting) to recommend `prettytable`
+#   for complex reports, aligning it with Protocol 5.4.
 ## [0.52.14-Beta] - 2025-08-26
 ### Changed
 # - Revised and standardized the report title format to a new,
@@ -22,7 +26,6 @@ This document is the single source of truth for the visual and formatting standa
 ---
 ## 2. Report Titles
 All generated reports, regardless of their output format (text, plot, chart, animation, or HTML), must use the standard **two-line** title format. This creates a consistent and professional header for all user-facing documents.
-
 * **Line 1**: The report's official `report_name` as defined in its Python class.
 * **Line 2**: A consolidated string containing the context and callsigns, formatted as `YYYY ContestName EventID - Callsign(s)`. The `EventID` is only included if defined for the contest.
 
@@ -37,16 +40,19 @@ All generated reports, regardless of their output format (text, plot, chart, ani
 ---
 ## 3. Text Reports (`.txt`)
 This section defines the standards for all plain-text reports.
-
 ### 3.1. Table Formatting
-All new text-based tables must be generated using the **`tabulate`** Python library. This ensures that all tables have clean, perfectly aligned, fixed-width columns.
-* **Required Format**: The standard format to be used is **`tablefmt='psql'`**.
+The creation of text-based tables is governed by the following two-tool approach to ensure both simplicity for basic reports and robust control for complex layouts.
+
+* **For Complex Reports, Use `prettytable`**: For any report that requires a fixed-width layout, precise column alignment, or the alignment and "stitching" of multiple tables, the **`prettytable`** library is the required standard. It offers direct, programmatic control over column widths, which is essential for complex layouts.
+
+* **For Simple Reports, Use `tabulate`**: For reports that require only a single, standalone table where complex alignment with other elements is not a concern, the simpler **`tabulate`** library is a suitable alternative.
 ---
 ## 4. HTML Reports (`.html`)
 This section defines the standards for all web-based reports. The goal is to create modern, responsive, and visually appealing documents.
 
 ### 4.1. Styling Framework
 All styling for HTML reports must be implemented using **Tailwind CSS**. No custom CSS in `<style>` blocks should be used unless absolutely necessary for a feature that Tailwind cannot support.
+
 ### 4.2. Table Styling
 HTML tables should be styled to be clean, readable, and visually hierarchical.
 * **Centering**: All tables must be centered horizontally on the page.
