@@ -1,7 +1,7 @@
 # Contest Log Analyzer
 
-**Version: 0.52.0-Beta**
-**Date: 2025-08-26**
+**Version: 0.55.0-Beta**
+**Date: 2025-08-29**
 
 A Python-based tool for in-depth analysis and comparison of amateur radio contest logs. This application processes standard Cabrillo files to generate detailed reports, charts, and visualizations, providing deep insights into operator strategy and performance.
 ---
@@ -55,6 +55,7 @@ The analyzer uses the `CONTEST:` field in the Cabrillo header to apply contest-s
 * CQ 160-Meter
 * CQ WPX (CW & SSB)
 * CQ World Wide DX (CW & SSB)
+* IARU HF World Championship
 * North American QSO Party (NAQP)
 ---
 ## Available Reports

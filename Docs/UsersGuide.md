@@ -1,10 +1,13 @@
 # Contest Log Analyzer - User Guide
 
-**Version: 0.54.3-Beta**
+**Version: 0.55.0-Beta**
 **Date: 2025-08-29**
 
 ---
 ### --- Revision History ---
+## [0.55.0-Beta] - 2025-08-29
+### Added
+# - Added "IARU HF World Championship" to the list of supported contests.
 ## [0.54.3-Beta] - 2025-08-29
 ### Changed
 # - Updated the --report argument and "Available Reports" list to
@@ -56,7 +59,6 @@ The Contest Log Analyzer is a powerful command-line tool designed for amateur ra
 * Generate detailed reports and charts that compare your log against one or more others.
 * Analyze performance on a band-by-band basis to identify strengths and weaknesses.
 * Calculate contest-specific QSO points for supported contests.
-
 The ultimate goal of this program is to help you understand your contest operation in minute detail, identify missed opportunities, and improve your strategy for the next event.
 ---
 
@@ -78,7 +80,6 @@ Before running the analyzer, you will need a few files:
 ## 3. How to Run the Analyzer
 
 The program is run from your command prompt or terminal using `main_cli.py`.
-
 #### **Basic Syntax**
 
     python main_cli.py --report <ReportID|all|chart|text|plot|animation|html> <LogFile1> [<LogFile2>...] [options]
@@ -93,7 +94,6 @@ The program is run from your command prompt or terminal using `main_cli.py`.
 * `--metric <qsos|points>`: (Optional) For the `cumulative_difference_plots` report, this specifies whether to compare QSO counts or Point totals. Defaults to 'qsos'.
 * `--debug-data`: (Optional) When used with a visual report (chart, plot, animation), this saves the report's source data to a `.txt` file in a `Debug/` subdirectory.
 * `--debug-mults`: (Optional) Save intermediate multiplier lists from text reports for debugging.
-
 #### **Examples**
 
 * **Generate all available reports for two logs:**
@@ -132,6 +132,7 @@ The analyzer uses the `CONTEST:` field in your Cabrillo file header to automatic
 * CQ 160-Meter (CW & SSB)
 * CQ WPX (CW & SSB)
 * CQ World Wide DX (CW & SSB)
+* IARU HF World Championship
 * North American QSO Party (NAQP) (CW & SSB)
 
 ---
@@ -139,7 +140,6 @@ The analyzer uses the `CONTEST:` field in your Cabrillo file header to automatic
 ## 5. Available Reports
 
 Use the `Report ID` with the `--report` command-line option.
-
 #### **Animation Reports (`animations/`)**
 * `hourly_animation`: Hourly Rate Animation
 

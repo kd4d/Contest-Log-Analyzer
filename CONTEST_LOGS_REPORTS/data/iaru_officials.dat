@@ -1,0 +1,13 @@
+# data/iaru_officials.dat
+#
+# Author: Gemini AI
+# Date: 2025-08-29
+# Version: 1.0.0-Beta
+#
+# Purpose: Defines the official IARU official multiplier abbreviations
+#          for the IARU HF World Championship contest.
+
+AC
+R1
+R2
+R3
