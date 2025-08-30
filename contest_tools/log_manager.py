@@ -7,8 +7,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-17
-# Version: 0.37.0-Beta
+# Date: 2025-08-30
+# Version: 0.55.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,6 +19,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.55.5-Beta] - 2025-08-30
+### Added
+# - Added a hook to the `finalize_loading` method to support a new
+#   pluggable, contest-specific ADIF exporter architecture.
 ## [0.37.0-Beta] - 2025-08-17
 ### Added
 # - Added a conditional call to the new `export_to_adif` method,
@@ -148,7 +152,17 @@ class LogManager:
             if getattr(log.contest_definition, 'enable_adif_export', False):
                 adif_filename = f"{base_filename}_N1MMADIF.adi"
                 adif_filepath = os.path.join(output_dir, adif_filename)
-                log.export_to_adif(adif_filepath)
+                
+                # Use custom exporter if defined, otherwise fall back to generic
+                if custom_exporter_name := getattr(log.contest_definition, 'custom_adif_exporter', None):
+                    try:
+                        exporter_module = importlib.import_module(f"contest_tools.adif_exporters.{custom_exporter_name}")
+                        exporter_module.export_log(log, adif_filepath)
+                    except Exception as e:
+                        logging.error(f"Could not run custom ADIF exporter '{custom_exporter_name}': {e}")
+                else:
+                    # Fallback to the generic method in ContestLog
+                    log.export_to_adif(adif_filepath)
 
 
     def _get_event_id(self, log: ContestLog) -> str:
