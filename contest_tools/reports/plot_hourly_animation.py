@@ -1,6 +1,6 @@
 # Contest Log Analyzer/contest_tools/reports/plot_hourly_animation.py
 #
-# Version: 0.56.8-Beta
+# Version: 0.56.25-Beta
 # Date: 2025-08-31
 #
 # Purpose: A plot report that generates a series of hourly images and compiles
@@ -17,6 +17,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.56.25-Beta] - 2025-08-31
+### Fixed
+# - Replaced the cleanup logic with a resilient 10-second retry loop to
+#   prevent a PermissionError race condition when deleting temp files.
+# - Downgraded the final cleanup failure message from an error to a warning.
 ## [0.56.8-Beta] - 2025-08-31
 ### Fixed
 # - Updated band sorting logic to use the refactored _HAM_BANDS
@@ -79,6 +84,8 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import matplotlib.gridspec as gridspec
 import colorsys
+import time
+import errno
 from typing import List, Dict
 
 from ..contest_log import ContestLog
@@ -378,7 +385,18 @@ class Report(ContestReport):
         except Exception as e:
             logging.error(f"Failed to create video file. Ensure ffmpeg is installed. Error: {e}")
         finally:
-            shutil.rmtree(frame_dir)
+            # Resilient cleanup to handle race condition with ffmpeg file locks
+            for i in range(10):
+                try:
+                    shutil.rmtree(frame_dir)
+                    break 
+                except OSError as e:
+                    if e.errno == errno.EACCES and i < 9:
+                        time.sleep(1)
+                        continue
+                    else:
+                        logging.warning(f"Could not remove temp frame directory '{frame_dir}': {e}")
+                        break
 
     def _generate_interactive_html(self, data: Dict, output_path: str):
         logging.info("Interactive HTML generation is planned but not yet implemented in this version.")
