@@ -1,11 +1,26 @@
 # Contest Log Analyzer/contest_tools/contest_specific_annotations/iaru_hf_scoring.py
 #
 # Author: Gemini AI
-# Date: 2025-08-29
-# Version: 0.55.0-Beta
+# Date: 2025-08-30
+# Version: 0.55.6-Beta
+#
+# Copyright (c) 2025 Mark Bailey, KD4D
+#
+# License: Mozilla Public License, v. 2.0
+#          (https://www.mozilla.org/MPL/2.0/)
+#
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # Purpose: Provides contest-specific scoring logic for the IARU HF World
 #          Championship contest.
+#
+# --- Revision History ---
+## [0.55.6-Beta] - 2025-08-30
+### Changed
+# - Added the standard copyright and MPL 2.0 license block to the header
+#   to conform to project standards.
 
 import pandas as pd
 from typing import Dict, Any
@@ -14,7 +29,7 @@ def _calculate_qso_points(row: pd.Series, my_continent: str, my_itu_zone: int) -
     """
     Calculates the point value for a single QSO based on IARU HF Championship rules.
     """
-    # Rule 0: Duplicates are always worth 0 points.
+    # Rule 0: Dupes are always worth 0 points.
     if row['Dupe']:
         return 0
 

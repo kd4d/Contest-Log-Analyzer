@@ -2,12 +2,27 @@
 #
 # Author: Gemini AI
 # Date: 2025-08-30
-# Version: 0.55.5-Beta
+# Version: 0.55.6-Beta
+#
+# Copyright (c) 2025 Mark Bailey, KD4D
+#
+# License: Mozilla Public License, v. 2.0
+#          (https://www.mozilla.org/MPL/2.0/)
+#
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # Purpose: Provides a contest-specific ADIF exporter for the IARU HF
 #          World Championship contest. It generates an ADIF file compatible
 #          with N1MM Logger+ by writing specific tags and omitting the <ITUZ>
 #          tag for HQ and Official station contacts.
+#
+# --- Revision History ---
+## [0.55.6-Beta] - 2025-08-30
+### Changed
+# - Added the standard copyright and MPL 2.0 license block to the header
+#   to conform to project standards.
 
 import pandas as pd
 import numpy as np
@@ -44,7 +59,7 @@ def export_log(log: ContestLog, output_filepath: str):
     adif_records: List[str] = []
     adif_records.append("ADIF Export from Contest-Log-Analyzer\n")
     adif_records.append(f"<PROGRAMID:22>Contest-Log-Analyzer\n")
-    adif_records.append(f"<PROGRAMVERSION:11>0.55.5-Beta\n")
+    adif_records.append(f"<PROGRAMVERSION:11>0.55.6-Beta\n")
     adif_records.append("<EOH>\n\n")
 
     for _, row in df_to_export.iterrows():

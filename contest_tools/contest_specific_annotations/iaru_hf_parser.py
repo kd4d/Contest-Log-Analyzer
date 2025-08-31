@@ -1,12 +1,27 @@
 # Contest Log Analyzer/contest_tools/contest_specific_annotations/iaru_hf_parser.py
 #
 # Author: Gemini AI
-# Date: 2025-08-29
-# Version: 0.55.0-Beta
+# Date: 2025-08-30
+# Version: 0.55.6-Beta
+#
+# Copyright (c) 2025 Mark Bailey, KD4D
+#
+# License: Mozilla Public License, v. 2.0
+#          (https://www.mozilla.org/MPL/2.0/)
+#
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # Purpose: Provides a custom, contest-specific parser for the IARU HF World
 #          Championship contest to handle its asymmetric exchange format, which
 #          differs based on whether the logger is an HQ or a Zone station.
+#
+# --- Revision History ---
+## [0.55.6-Beta] - 2025-08-30
+### Changed
+# - Added the standard copyright and MPL 2.0 license block to the header
+#   to conform to project standards.
 
 import pandas as pd
 import re

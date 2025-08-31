@@ -1,10 +1,26 @@
 # Contest Log Analyzer - Programmer's Guide
 
-**Version: 0.54.1-Beta**
-**Date: 2025-08-28**
+**Version: 0.55.9-Beta**
+**Date: 2025-08-31**
 
 ---
 ### --- Revision History ---
+## [0.55.9-Beta] - 2025-08-31
+### Changed
+# - Deprecated the `qso_common_fields_regex` in the JSON Quick Reference
+#   as this logic is now handled internally by the parser.
+# - Added a note to describe the new mode normalization logic (e.g., FM -> PH).
+## [0.55.8-Beta] - 2025-08-30
+### Added
+# - Added a new "Implementation Details and Conventions" section to the
+#   Custom ADIF Exporter contract to document N1MM-specific tagging
+#   requirements and the APP_CLA_ tag convention.
+## [0.55.7-Beta] - 2025-08-30
+### Added
+# - Added a note to the Custom Parser contract clarifying the need to
+#   include temporary columns in the `default_qso_columns` list.
+# - Added "Custom ADIF Exporter Modules" to the implementation contracts.
+# - Added the `custom_adif_exporter` key to the JSON Quick Reference table.
 ## [0.54.1-Beta] - 2025-08-28
 ### Changed
 # - Clarified that the `RawQSO` column is an intermediate field that is
@@ -77,7 +93,7 @@
 ## [1.0.0-Beta] - 2025-08-10
 ### Added
 # - Initial release of the Programmer's Guide.
-# ---
+---
 
 ## Introduction
 
@@ -195,11 +211,12 @@ Create a new `.json` file in `contest_tools/contest_definitions/`. The following
 | `contest_period` | Defines the official start/end of the contest. | `{ "start_day": "Saturday" }` |
 | `custom_parser_module` | *Optional.* Specifies a module to run for complex, asymmetric parsing. | `"arrl_10_parser"` |
 | `custom_multiplier_resolver` | *Optional.* Specifies a module to run for complex multiplier logic (e.g., NAQP). | `"naqp_multiplier_resolver"` |
+| `custom_adif_exporter` | *Optional.* Specifies a module to generate a contest-specific ADIF file. | `"iaru_hf_adif"` |
 | `contest_specific_event_id_resolver` | *Optional.* Specifies a module to create a unique event ID for contests that run multiple times a year. | `"naqp_event_id_resolver"` |
 | `scoring_module` | *Implied.* The system looks for a `[contest_name]_scoring.py` file with a `calculate_points` function. | N/A (Convention-based) |
 | `cabrillo_version` | The Cabrillo version for the log header. | `"3.0"` |
 | `header_field_map` | Maps Cabrillo tags to internal DataFrame columns. | `{"CALLSIGN": "MyCall"}` |
-| `qso_common_fields_regex`| Regex to parse the non-exchange part of a QSO line. | `"QSO:\\s+(\\d+)..."` |
+| `qso_common_fields_regex`| *Deprecated.* Regex to parse the non-exchange part of a QSO line. This is now handled internally by the parser. | `"QSO:\\s+(\\d+)..."` |
 | `qso_common_field_names` | A list of names for the groups in the common regex. | `["FrequencyRaw", "Mode"]` |
 | `default_qso_columns` | The complete, ordered list of columns for the final DataFrame. | `["MyCall", "Frequency", "Mode"]` |
 | `scoring_rules` | *Legacy.* Defines contest-specific point values. | `{"points_per_qso": 2}` |
@@ -208,9 +225,10 @@ Create a new `.json` file in `contest_tools/contest_definitions/`. The following
 After initial parsing, `contest_log.py` orchestrates a sequence of data enrichment steps. This is the plug-in system for contest-specific logic. The sequence is defined in the `apply_contest_specific_annotations` method. A developer needing to add complex logic should reference this file to understand the workflow.
 **Sequence of Operations:**
 1.  **Universal Annotations**: Run/S&P and DXCC/Zone lookups are applied to all logs.
-2.  **Custom Multiplier Resolver**: If `custom_multiplier_resolver` is defined in the JSON, the specified module is dynamically imported and its `resolve_multipliers` function is executed.
-3.  **Standard Multiplier Rules**: The system processes the `multiplier_rules` from the JSON. If a rule has `"source": "calculation_module"`, it dynamically imports and runs the specified function. This is how WPX prefixes are calculated.
-4.  **Scoring**: The system looks for a scoring module by convention (e.g., `cq_ww_cw_scoring.py`) and executes its `calculate_points` function.
+2.  **Mode Normalization**: The `Mode` column is standardized (e.g., `FM` is mapped to `PH`, `RY` to `DG`).
+3.  **Custom Multiplier Resolver**: If `custom_multiplier_resolver` is defined in the JSON, the specified module is dynamically imported and its `resolve_multipliers` function is executed.
+4.  **Standard Multiplier Rules**: The system processes the `multiplier_rules` from the JSON. If a rule has `"source": "calculation_module"`, it dynamically imports and runs the specified function. This is how WPX prefixes are calculated.
+5.  **Scoring**: The system looks for a scoring module by convention (e.g., `cq_ww_cw_scoring.py`) and executes its `calculate_points` function.
 ### A Note on `__init__.py` Files
 The need to update an `__init__.py` file depends on whether a package uses dynamic or explicit importing.
 * **Dynamic Importing (No Update Needed):** Directories like `contest_tools/contest_specific_annotations` and `contest_tools/reports` are designed as "plug-in" folders. The application uses dynamic importing (`importlib.import_module`) to load these modules by name from the JSON definitions or by discovery. Therefore, the `__init__.py` files in these directories are intentionally left empty and **do not need to be updated** when a new module is added.
@@ -220,29 +238,34 @@ For contests requiring logic beyond simple JSON definitions, create a Python mod
 * **Custom Parser Modules**:
     * **Purpose**: To parse a raw log file and return a standardized DataFrame and metadata dictionary. Called *instead of* the generic parser.
     * **Required Function Signature**: `parse_log(filepath: str, contest_definition: ContestDefinition) -> Tuple[pd.DataFrame, Dict[str, Any]]`
-    * The returned DataFrame **must** now include a `RawQSO` column containing the original, cleaned `QSO:` line string to support enhanced diagnostics. This column is used by downstream functions like the frequency validator and is removed by `contest_log.py` before the final data processing stages.
+    * **Note on Temporary Columns**: Any temporary columns created by the parser that are needed by a downstream module (like a custom resolver) **must** be included in the `default_qso_columns` list in the contest's JSON definition. Failure to do so will cause the column to be discarded after parsing.
 * **Custom Multiplier Resolvers**:
     * **Purpose**: To apply complex logic to identify multipliers and add the appropriate `Mult_` columns to the DataFrame.
     * **Required Function Signature**: `resolve_multipliers(df: pd.DataFrame, my_location_type: str) -> pd.DataFrame`
 * **Scoring Modules**:
     * **Purpose**: To calculate the point value for every QSO and return the results as a pandas Series that will become the `QSOPoints` column.
     * **Required Function Signature**: `calculate_points(df: pd.DataFrame, my_call_info: Dict[str, Any]) -> pd.Series`
+* **Custom ADIF Exporter Modules**:
+    * **Purpose**: To generate a highly customized ADIF file for compatibility with specific external programs (e.g., N1MM Logger+).
+    * **Required Function Signature**: `export_log(log: ContestLog, output_filepath: str)`
+    * **Location**: `contest_tools/adif_exporters/`
+    * **Implementation Details and Conventions**:
+        * **External Tool Compatibility**: Custom exporters must be aware of the specific tags required by external programs. For example, N1MM Logger+ uses `<APP_N1MM_HQ>` for IARU HQ/Official multipliers.
+        * **Conditional Tag Omission**: A critical function of a custom exporter is to conditionally *omit* standard ADIF tags when required by a contest's rules to ensure correct scoring by external tools. For the IARU contest, the standard `<ITUZ>` tag must be omitted for any QSO that provides an HQ or Official multiplier.
+        * **Redundant `APP_CLA_` Tags**: To ensure our own ADIF files are self-descriptive for future use (e.g., log ingestion by CLA), it is a project convention to include redundant, parallel `APP_CLA_` tags for all contest-specific data. For example, an IARU HQ QSO should contain both `<APP_N1MM_HQ:4>DARC` for N1MM and a corresponding `<APP_CLA_MULT_HQ:4>DARC` for our own tools.
 * **Utility for Complex Multipliers (`_core_utils.py`)**:
     * For contests with complex multiplier aliases (like NAQP or ARRL DX), developers should use the `AliasLookup` class found in `contest_tools/core_annotations/_core_utils.py`. This utility is designed to be used within a custom multiplier resolver to parse `.dat` alias files.
 ---
 ## Advanced Report Design: Shared Logic
 A key architectural principle for creating maintainable and consistent reports is the **separation of data aggregation from presentation**. When multiple reports need to display the same underlying data in different formats (e.g., HTML and plain text), the data aggregation logic should not be duplicated.
-
 ### The Shared Aggregator Pattern
 The preferred method is to create a dedicated, non-report helper module within the `contest_tools/reports/` directory. This module's sole responsibility is to perform the complex data calculations and return a clean, structured data object (like a dictionary or pandas DataFrame).
-
 #### Example: `_qso_comparison_aggregator.py`
 To generate both `html_qso_comparison` and `text_qso_comparison` reports, we can create a shared helper:
 1.  **Create the Aggregator**: A new file, `_qso_comparison_aggregator.py`, would contain a function like `aggregate_qso_comparison_data(logs)`. This function would perform all the necessary calculations (Unique QSOs, Common QSOs, Run/S&P breakdowns, etc.) and return a final dictionary.
 2.  **Update the Report Modules**:
     * `html_qso_comparison.py` would import and call this function. Its only remaining job would be to take the returned data and render it into the final HTML string.
     * `text_qso_comparison.py` would also import and call the *same* function. Its job would be to take the data and render it into a fixed-width text table using a tool like pandas' `to_string()` method.
-
 This pattern ensures that both reports are always based on the exact same data, eliminating the risk of inconsistencies and reducing code duplication.
 ---
 ## Appendix: Key Source Code References

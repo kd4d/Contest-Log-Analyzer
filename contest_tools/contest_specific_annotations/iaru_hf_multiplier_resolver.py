@@ -1,8 +1,17 @@
 # Contest Log Analyzer/contest_tools/contest_specific_annotations/iaru_hf_multiplier_resolver.py
 #
 # Author: Gemini AI
-# Date: 2025-08-29
-# Version: 0.55.4-Beta
+# Date: 2025-08-30
+# Version: 0.55.6-Beta
+#
+# Copyright (c) 2025 Mark Bailey, KD4D
+#
+# License: Mozilla Public License, v. 2.0
+#          (https://www.mozilla.org/MPL/2.0/)
+#
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # Purpose: Provides a custom, contest-specific multiplier resolver for the
 #          IARU HF World Championship contest. It parses the received exchange
@@ -10,20 +19,15 @@
 #          ITU Zones, IARU HQ Stations, and IARU Officials.
 #
 # --- Revision History ---
+## [0.55.6-Beta] - 2025-08-30
+### Changed
+# - Added the standard copyright and MPL 2.0 license block to the header
+#   to conform to project standards.
 ## [0.55.4-Beta] - 2025-08-29
 ### Fixed
 # - Simplified logic to read the clean 'RcvdMult' column from the parser,
 #   removing the incorrect string-splitting logic.
 # - Updated the input column check from 'RcvdExchangeFull' to 'RcvdMult'.
-## [0.55.2-Beta] - 2025-08-29
-### Added
-# - Added temporary, verbose logging to the _resolve_row function to
-#   diagnose a persistent multiplier resolution failure.
-## [0.55.1-Beta] - 2025-08-29
-### Fixed
-# - Corrected resolver logic to parse the full received exchange string
-#   (e.g., "599 06") by isolating the last element as the multiplier,
-#   fixing the bug where no multipliers were being assigned.
 
 import pandas as pd
 import os
