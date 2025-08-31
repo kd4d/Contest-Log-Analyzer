@@ -1,12 +1,16 @@
 # Contest Log Analyzer/contest_tools/reports/plot_comparative_run_sp.py
 #
-# Version: 0.52.1-Beta
-# Date: 2025-08-26
+# Version: 0.56.7-Beta
+# Date: 2025-08-31
 #
 # Purpose: A plot report that generates a "paired timeline" chart, visualizing
 #          the operating style (Run, S&P, or Mixed) of two operators over time.
 #
 # --- Revision History ---
+## [0.56.7-Beta] - 2025-08-31
+### Fixed
+# - Updated band sorting logic to use the refactored _HAM_BANDS
+#   variable from the ContestLog class, fixing an AttributeError.
 ## [0.52.1-Beta] - 2025-08-26
 ### Changed
 # - Refactored report to generate individual plots by mode (CW, PH, DG) in
@@ -228,7 +232,6 @@ class Report(ContestReport):
         """Orchestrates the generation of the combined plot and per-mode plots."""
         if len(self.logs) != 2:
             return f"Error: Report '{self.report_name}' requires exactly two logs."
-
         BANDS_PER_PAGE = 8
         log1, log2 = self.logs[0], self.logs[1]
         created_files = []
@@ -238,7 +241,6 @@ class Report(ContestReport):
 
         if df1.empty or df2.empty:
             return f"Skipping '{self.report_name}': At least one log has no valid QSOs."
-
         df1['Datetime'] = pd.to_datetime(df1['Datetime']).dt.tz_localize('UTC')
         df2['Datetime'] = pd.to_datetime(df2['Datetime']).dt.tz_localize('UTC')
         
@@ -262,7 +264,6 @@ class Report(ContestReport):
 
         if not created_files:
             return f"Report '{self.report_name}' did not generate any files."
-
         return f"Report file(s) saved to:\n" + "\n".join([f"  - {fp}" for fp in created_files])
 
     def _run_plot_for_slice(self, df1, df2, log1, log2, output_path, bands_per_page, mode_filter, **kwargs):
@@ -273,7 +274,7 @@ class Report(ContestReport):
         time_bins = pd.date_range(start=min_time, end=max_time, freq='15min', tz='UTC')
         
         active_bands_set = set(df1['Band'].unique()) | set(df2['Band'].unique())
-        canonical_band_order = [band[1] for band in ContestLog._HF_BANDS]
+        canonical_band_order = [band[1] for band in ContestLog._HAM_BANDS]
         active_bands = sorted(list(active_bands_set), key=lambda b: canonical_band_order.index(b) if b in canonical_band_order else -1)
 
         if not active_bands:

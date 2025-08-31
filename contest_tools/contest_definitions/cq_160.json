@@ -1,7 +1,7 @@
 {
   "_filename": "contest_tools/contest_definitions/cq_160.json",
-  "_version": "0.40.1-Beta",
-  "_date": "2025-08-24",
+  "_version": "0.56.10-Beta",
+  "_date": "2025-08-31",
   "contest_name": "CQ-160",
   "enable_adif_export": true,
   "custom_parser_module": "cq_160_parser",
@@ -27,6 +27,10 @@
       {
         "regex": "(\\d{3})\\s+([A-Z]{2,3})\\s+([A-Z0-9/]+)\\s+(\\d{3})\\s+(\\d+)(?:\\s+(\\d))?",
         "groups": ["SentRST", "SentLocation", "Call", "RST", "RcvdZone", "Transmitter"]
+      },
+      {
+        "regex": "(\\d{3})\\s+([A-Z]{2,3})\\s+([A-Z0-9/]+)\\s+(\\d{3})\\s+(DX)(?:\\s+(\\d))?",
+        "groups": ["SentRST", "SentLocation", "Call", "RST", "RcvdLocation", "Transmitter"]
       }
     ],
     "CQ-160-SSB": [
@@ -37,6 +41,10 @@
       {
         "regex": "(\\d{2})\\s+([A-Z]{2,3})\\s+([A-Z0-9/]+)\\s+(\\d{2})\\s+(\\d+)(?:\\s+(\\d))?",
         "groups": ["SentRS", "SentLocation", "Call", "RS", "RcvdZone", "Transmitter"]
+      },
+      {
+        "regex": "(\\d{2})\\s+([A-Z]{2,3})\\s+([A-Z0-9/]+)\\s+(\\d{2})\\s+(DX)(?:\\s+(\\d))?",
+        "groups": ["SentRS", "SentLocation", "Call", "RS", "RcvdLocation", "Transmitter"]
       }
     ]
   },
