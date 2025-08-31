@@ -3,7 +3,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-31
-# Version: 0.55.11-Beta
+# Version: 0.56.20-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,6 +19,15 @@
 #          province, or "DX".
 #
 # --- Revision History ---
+## [0.56.20-Beta] - 2025-08-31
+### Fixed
+# - Added the `RawQSO` field to the parser's output to ensure it provides
+#   the necessary data for downstream diagnostic logging.
+## [0.56.11-Beta] - 2025-08-31
+### Fixed
+# - Corrected a logic error where the parser used a generic key to look
+#   up parsing rules. It now pre-scans the header to get the specific
+#   contest ID (e.g., CQ-160-CW) and uses it to retrieve the correct rules.
 ## [0.55.11-Beta] - 2025-08-31
 ### Changed
 # - Refactored to use the new, centralized `parse_qso_common_fields`
@@ -42,7 +51,6 @@
 ### Added
 # - Added a custom parser for the CQ 160-Meter Contest to handle its
 #   unique exchange format, which can be either a state/province or "DX".
-
 import pandas as pd
 import re
 from typing import Dict, Any, List, Tuple
@@ -65,7 +73,18 @@ def parse_log(filepath: str, contest_definition: ContestDefinition) -> Tuple[pd.
     except Exception as e:
         raise ValueError(f"Error reading Cabrillo file {filepath}: {e}")
 
-    rules_for_contest = contest_definition.exchange_parsing_rules.get("CQ-160", [])
+    # --- Pre-scan header to determine the specific contest ID (e.g., CQ-160-CW) ---
+    contest_id_from_header = ''
+    for line in lines[:30]: # Check first 30 lines for the header
+        if line.upper().startswith('CONTEST:'):
+            contest_id_from_header = line.split(':', 1)[1].strip()
+            log_metadata['ContestName'] = contest_id_from_header
+            break
+    
+    if not contest_id_from_header:
+        raise ValueError("CONTEST: tag not found in Cabrillo header.")
+
+    rules_for_contest = contest_definition.exchange_parsing_rules.get(contest_id_from_header, [])
     if not isinstance(rules_for_contest, list):
         rules_for_contest = [rules_for_contest]
 
@@ -89,6 +108,7 @@ def parse_log(filepath: str, contest_definition: ContestDefinition) -> Tuple[pd.
                 if exchange_match:
                     exchange_data = dict(zip(rule_info['groups'], exchange_match.groups()))
                     common_data.update(exchange_data)
+                    common_data['RawQSO'] = line_to_process
                     qso_records.append(common_data)
                     break
         

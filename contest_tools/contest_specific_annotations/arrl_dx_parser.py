@@ -3,7 +3,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-31
-# Version: 0.55.11-Beta
+# Version: 0.56.24-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,19 @@
 #          has a highly asymmetric exchange format.
 #
 # --- Revision History ---
+## [0.56.24-Beta] - 2025-08-31
+### Fixed
+# - Corrected a typo in a variable name (`logger` to `logger_call`) that
+#   was causing a `NameError` during the header pre-scan.
+## [0.56.18-Beta] - 2025-08-31
+### Fixed
+# - Added the `RawQSO` field to the parser's output to ensure it provides
+#   the necessary data for downstream diagnostic logging.
+## [0.56.13-Beta] - 2025-08-31
+### Fixed
+# - Corrected a logic error where the parser used an incomplete key to
+#   look up parsing rules. It now pre-scans for the full contest ID
+#   and combines it with the logger's location to get the correct rules.
 ## [0.55.11-Beta] - 2025-08-31
 ### Changed
 # - Refactored to use the new, centralized `parse_qso_common_fields`
@@ -40,7 +53,6 @@
 #   from DX stations.
 ## [0.32.0-Beta] - 2025-08-12
 # - Initial release of Version 0.32.0-Beta.
-
 import pandas as pd
 import re
 from typing import Dict, Any, List, Tuple
@@ -61,15 +73,23 @@ def parse_log(filepath: str, contest_definition: ContestDefinition) -> Tuple[pd.
     with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
         lines = f.readlines()
 
-    # --- Pre-scan header to determine logger's location (W/VE or DX) ---
+    # --- Pre-scan header to determine logger's location and contest ID ---
     logger_call = ''
+    contest_id_from_header = ''
     for line in lines[:30]:
-        if line.upper().startswith('CALLSIGN:'):
+        line_upper = line.upper()
+        if line_upper.startswith('CALLSIGN:'):
             logger_call = line.split(':', 1)[1].strip()
+        elif line_upper.startswith('CONTEST:'):
+            contest_id_from_header = line.split(':', 1)[1].strip()
+        
+        if logger_call and contest_id_from_header:
             break
     
     if not logger_call:
         raise ValueError("CALLSIGN: tag not found in Cabrillo header.")
+    if not contest_id_from_header:
+        raise ValueError("CONTEST: tag not found in Cabrillo header.")
         
     root_dir = os.environ.get('CONTEST_LOGS_REPORTS').strip().strip('"').strip("'")
     data_dir = os.path.join(root_dir, 'data')
@@ -78,35 +98,38 @@ def parse_log(filepath: str, contest_definition: ContestDefinition) -> Tuple[pd.
     info = cty_lookup.get_cty_DXCC_WAE(logger_call)._asdict()
     logger_location_type = "W/VE" if info['DXCCName'] in ["United States", "Canada"] else "DX"
     logging.info(f"ARRL DX parser: Logger location type determined as '{logger_location_type}'")
+    
+    # Select the appropriate rule based on the contest and logger's location
+    rule_set_key = f"{contest_id_from_header}-{logger_location_type}"
+    rule_info = contest_definition.exchange_parsing_rules.get(rule_set_key)
+    if not rule_info:
+        raise ValueError(f"Parsing rule '{rule_set_key}' not found in JSON definition.")
+        
+    exchange_regex = re.compile(rule_info['regex'])
+    exchange_groups = rule_info['groups']
 
     for line in lines:
         cleaned_line = line.replace('\u00a0', ' ').strip()
         line_to_process = cleaned_line.upper() if cleaned_line.upper().startswith('QSO:') else cleaned_line
         
-        if not line_to_process:
+        if not line_to_process or line_to_process.startswith(('END-OF-LOG:', 'START-OF-LOG:')):
             continue
-        elif line_to_process.startswith('END-OF-LOG:'):
-            break
-        elif line_to_process.startswith('QSO:'):
+            
+        if line_to_process.startswith('QSO:'):
             common_data = parse_qso_common_fields(line_to_process)
             if not common_data:
                 continue
                 
             exchange_rest = common_data.pop('ExchangeRest', '').strip()
             
-            # Select the appropriate list of rules based on the logger's location
-            rule_set_key = f"ARRL-DX-{logger_location_type}"
-            rules_for_contest = contest_definition.exchange_parsing_rules.get(rule_set_key, [])
-            
-            for rule_info in rules_for_contest:
-                exchange_match = re.match(rule_info['regex'], exchange_rest)
-                if exchange_match:
-                    exchange_data = dict(zip(rule_info['groups'], exchange_match.groups()))
-                    common_data.update(exchange_data)
-                    qso_records.append(common_data)
-                    break
+            exchange_match = exchange_regex.match(exchange_rest)
+            if exchange_match:
+                exchange_data = dict(zip(exchange_groups, exchange_match.groups()))
+                common_data.update(exchange_data)
+                common_data['RawQSO'] = line_to_process
+                qso_records.append(common_data)
         
-        elif not line_to_process.startswith('START-OF-LOG:'):
+        else: # It's a header line
             for cabrillo_tag, df_key in contest_definition.header_field_map.items():
                 if line_to_process.startswith(f"{cabrillo_tag}:"):
                     value = line_to_process[len(f"{cabrillo_tag}:"):].strip()

@@ -3,7 +3,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-31
-# Version: 0.55.11-Beta
+# Version: 0.56.19-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,6 +19,10 @@
 #          frequencies and VHF+ band designators.
 #
 # --- Revision History ---
+## [0.56.19-Beta] - 2025-08-31
+### Fixed
+# - Added the `RawQSO` field to the parser's output to ensure it provides
+#   the necessary data for downstream diagnostic logging.
 ## [0.55.11-Beta] - 2025-08-31
 ### Changed
 # - Refactored to use the new, centralized `parse_qso_common_fields`
@@ -44,7 +48,6 @@
 #   provide better diagnostic feedback during execution.
 ## [0.39.4-Beta] - 2025-08-18
 # - Initial release of the ARRL Field Day custom parser.
-
 import pandas as pd
 import re
 from typing import Dict, Any, List, Tuple
@@ -90,6 +93,7 @@ def parse_log(filepath: str, contest_definition: ContestDefinition) -> Tuple[pd.
             if exchange_match:
                 exchange_data = dict(zip(exchange_groups, exchange_match.groups()))
                 common_data.update(exchange_data)
+                common_data['RawQSO'] = line_to_process
                 qso_records.append(common_data)
             else:
                 logging.warning(f"Skipping ARRL-FD QSO line (unrecognized exchange): {line_to_process}")

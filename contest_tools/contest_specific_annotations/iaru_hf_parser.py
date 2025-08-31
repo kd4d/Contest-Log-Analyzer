@@ -2,7 +2,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-08-31
-# Version: 0.55.11-Beta
+# Version: 0.56.21-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,10 @@
 #          differs based on whether the logger is an HQ or a Zone station.
 #
 # --- Revision History ---
+## [0.56.21-Beta] - 2025-08-31
+### Fixed
+# - Added the `RawQSO` field to the parser's output to ensure it provides
+#   the necessary data for downstream diagnostic logging.
 ## [0.55.11-Beta] - 2025-08-31
 ### Changed
 # - Refactored to use the new, centralized `parse_qso_common_fields`
@@ -27,7 +31,6 @@
 ### Changed
 # - Added the standard copyright and MPL 2.0 license block to the header
 #   to conform to project standards.
-
 import pandas as pd
 import re
 import logging
@@ -96,6 +99,7 @@ def parse_log(filepath: str, contest_definition: ContestDefinition) -> Tuple[pd.
             if exchange_match:
                 exchange_data = dict(zip(exchange_groups, exchange_match.groups()))
                 common_data.update(exchange_data)
+                common_data['RawQSO'] = line_to_process
                 qso_records.append(common_data)
             else:
                 logging.warning(f"Skipping QSO line that did not match '{rule_key}' rule: {line_to_process}")

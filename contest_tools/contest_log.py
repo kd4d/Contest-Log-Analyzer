@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-08-31
-# Version: 0.56.6-Beta
+# Version: 0.56.23-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.56.23-Beta] - 2025-08-31
+### Fixed
+# - Corrected the frequency validation logic to properly handle VHF/UHF
+#   QSOs logged with a band designator instead of a numeric frequency,
+#   preventing them from being incorrectly rejected.
 ## [0.56.6-Beta] - 2025-08-31
 ### Changed
 # - Renamed the internal _HF_BANDS variable to _HAM_BANDS to reflect
@@ -168,7 +173,12 @@ class ContestLog:
         raw_df['Frequency'] = pd.to_numeric(raw_df.get('FrequencyRaw'), errors='coerce')
 
         for idx, row in raw_df.iterrows():
-            if self.band_allocator.is_frequency_valid(row['Frequency']):
+            freq_val = row['Frequency']
+            band_val = row.get('Band')
+
+            # A QSO is valid if it has a valid frequency OR if it has a band but no numeric frequency.
+            if (pd.notna(freq_val) and self.band_allocator.is_frequency_valid(freq_val)) or \
+               (pd.isna(freq_val) and pd.notna(band_val)):
                 validated_qso_records.append(row.to_dict())
             else:
                 rejected_qso_count += 1
