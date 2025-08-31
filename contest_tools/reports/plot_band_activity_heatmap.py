@@ -1,11 +1,15 @@
 # Contest Log Analyzer/contest_tools/reports/plot_band_activity_heatmap.py
 #
-# Version: 0.39.7-Beta
-# Date: 2025-08-21
+# Version: 0.56.7-Beta
+# Date: 2025-08-31
 #
 # Purpose: A plot report that generates a heatmap of band activity over time.
 #
 # --- Revision History ---
+## [0.56.7-Beta] - 2025-08-31
+### Changed
+# - Updated band sorting logic to use the refactored _HAM_BANDS
+#   variable from the ContestLog class.
 ## [0.39.7-Beta] - 2025-08-21
 ### Changed
 # - Changed the colormap from 'viridis' to 'hot' to provide a more
@@ -86,7 +90,7 @@ class Report(ContestReport):
             )
             
             all_bands = log.contest_definition.valid_bands
-            canonical_band_order_tuples = ContestLog._HF_BANDS
+            canonical_band_order_tuples = ContestLog._HAM_BANDS
             canonical_band_order = [band[1] for band in canonical_band_order_tuples]
             sorted_bands = sorted(all_bands, key=lambda b: canonical_band_order.index(b) if b in canonical_band_order else -1)
             time_bins = pd.date_range(start=min_time, end=max_time, freq=interval, tz='UTC')

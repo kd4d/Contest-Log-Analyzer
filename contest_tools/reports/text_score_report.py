@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-27
-# Version: 0.49.7-Beta
+# Date: 2025-08-31
+# Version: 0.56.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,6 +16,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0.
 # --- Revision History ---
+## [0.56.3-Beta] - 2025-08-31
+### Changed
+# - Updated the band sorting logic to use the refactored _HAM_BANDS
+#   variable from the ContestLog class.
 ## [0.49.7-Beta] - 2025-08-27
 ### Fixed
 # - Corrected an IndentationError.
@@ -147,7 +151,7 @@ class Report(ContestReport):
             report_lines.append(separator)
 
             # Sort data for display
-            canonical_band_order = [band[1] for band in ContestLog._HF_BANDS]
+            canonical_band_order = [band[1] for band in ContestLog._HAM_BANDS]
             summary_data.sort(key=lambda x: (canonical_band_order.index(x['Band']), x['Mode']))
 
             for item in summary_data:

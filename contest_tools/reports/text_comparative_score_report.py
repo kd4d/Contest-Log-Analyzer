@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-25
-# Version: 0.40.19-Beta
+# Date: 2025-08-31
+# Version: 0.56.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0.
 # --- Revision History ---
+## [0.56.2-Beta] - 2025-08-31
+### Changed
+# - Updated the band sorting logic to use the refactored _HAM_BANDS
+#   variable from the ContestLog class.
 ## [0.40.19-Beta] - 2025-08-25
 ### Fixed
 # - Corrected the `_calculate_band_mode_summary` function to check the
@@ -102,7 +106,7 @@ class Report(ContestReport):
                     band_mode_summaries[key].append(summary)
 
         # --- Report Generation using tabulate ---
-        canonical_band_order = [band[1] for band in ContestLog._HF_BANDS]
+        canonical_band_order = [band[1] for band in ContestLog._HAM_BANDS]
         sorted_keys = sorted(band_mode_summaries.keys(), key=lambda x: (canonical_band_order.index(x[0]), x[1]))
 
         for key in sorted_keys:

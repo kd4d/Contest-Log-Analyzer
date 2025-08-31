@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-26
-# Version: 0.52.7-Beta
+# Date: 2025-08-31
+# Version: 0.56.6-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.56.6-Beta] - 2025-08-31
+### Changed
+# - Renamed the internal _HF_BANDS variable to _HAM_BANDS to reflect
+#   that it includes VHF/UHF bands, resolving a refactoring error.
 ## [0.52.7-Beta] - 2025-08-26
 ### Changed
 # - Updated the "invalid frequency" warning to include the full, original
@@ -92,7 +96,7 @@ class ContestLog:
     High-level broker class to manage a single amateur radio contest log.
     """
 
-    _HF_BANDS = [
+    _HAM_BANDS = [
         (( 1800.,  2000.), '160M'),
         (( 3500.,  4000.), '80M'),
         (( 7000.,  7300.), '40M'),
@@ -114,7 +118,7 @@ class ContestLog:
         if pd.isna(frequency_khz):
             return 'Invalid'
         frequency_int = int(frequency_khz)
-        for band_range, band_name in ContestLog._HF_BANDS:
+        for band_range, band_name in ContestLog._HAM_BANDS:
             if band_range and (band_range[0] <= frequency_int <= band_range[1]):
                 return band_name
         return 'Invalid'
