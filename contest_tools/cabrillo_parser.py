@@ -1,8 +1,8 @@
-# Contest Log Analyzer/contest_tools/contest_log.py
+# Contest Log Analyzer/contest_tools/cabrillo_parser.py
 #
-# Purpose: Defines the ContestLog class, which manages the ingestion, processing,
-#          and analysis of Cabrillo log data. It orchestrates the parsing,
-#          data cleaning, and calculation of various contest metrics.
+# Purpose: Provides functionality to parse Cabrillo log files into a Pandas DataFrame
+#          and extract log metadata. It uses a ContestDefinition object to guide
+#          the parsing of contest-specific header fields and QSO exchange formats.
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -20,544 +20,209 @@
 # --- Revision History ---
 ## [0.55.9-Beta] - 2025-08-31
 ### Changed
-# - Renamed the canonical band list from `_HF_BANDS` to `_HAM_BANDS` and
-#   updated it to include all official VHF/UHF/SHF band designators.
-# - Added logic to the log ingest process to normalize modes (e.g., FM -> PH)
-#   and to validate band designators against the new canonical list,
-#   flagging any unknown bands and issuing a warning.
-## [0.52.7-Beta] - 2025-08-26
+# - Refactored the parser to use an internal, two-pattern regex system
+#   to robustly handle both HF (kHz) frequencies and VHF+ band designators.
+# - The primary QSO parsing regex is no longer loaded from JSON.
+## [0.52.6-Beta] - 2025-08-26
 ### Changed
-# - Updated the "invalid frequency" warning to include the full, original
-#   QSO: line from the Cabrillo log for improved diagnostics.
-## [0.52.0-Beta] - 2025-08-26
-### Added
-# - Added a warning message to the log ingest process to report any QSOs
-#   with modes other than the standard 'CW', 'PH', or 'DG'.
-## [0.43.0-Beta] - 2025-08-21
-### Added
-# - Integrated a data-driven frequency validation check during Cabrillo
-#   ingest, which rejects out-of-band QSOs and issues warnings.
+# - The parser now includes the raw, cleaned QSO: line in its output
+#   under the 'RawQSO' key to support enhanced diagnostics.
+## [0.31.55-Beta] - 2025-08-11
 ### Changed
-# - Modified the export_to_adif method to include duplicate QSOs.
-## [0.39.6-Beta] - 2025-08-21
-### Fixed
-# - Resolved a NameError in the export_to_adif function by adding the
-#   missing 'import numpy as np' statement.
-## [0.39.5-Beta] - 2025-08-21
-### Added
-# - Enhanced the export_to_adif method to generate custom APP_CLA tags
-#   for multiplier values and "is new multiplier" flags.
-## [0.39.4-Beta] - 2025-08-18
-### Fixed
-# - Corrected the _ingest_cabrillo_data method to intelligently merge
-#   parser-provided band data with frequency-derived band data, fixing
-#   a bug that erased VHF/UHF bands during processing.
-## [0.39.3-Beta] - 2025-08-18
-### Fixed
-# - Added temporary diagnostic logging to the _ingest_cabrillo_data
-#   method to debug the ARRL Field Day parsing and data integration issue.
-## [0.39.2-Beta] - 2025-08-18
-### Fixed
-# - Updated the master band list (_HF_BANDS) to include and correctly
-#   name all bands for the ARRL Field Day contest, resolving a
-#   'not in list' error in report generation.
-## [0.37.0-Beta] - 2025-08-17
-### Added
-# - Added the `export_to_adif` method to generate a standard ADIF file
-#   for N1MM compatibility.
-## [0.36.1-Beta] - 2025-08-15
-### Fixed
-# - Fixed a crash in `_determine_own_location_type` by using the correct
-#   dictionary key (`DXCCName`) instead of an attribute to access the
-#   country name.
-## [0.36.0-Beta] - 2025-08-15
+# - Consolidated X-QSO warnings to a single message per log file.
+## [0.31.45-Beta] - 2025-08-10
 ### Changed
-# - Refactored multiplier logic to support a `source_name_column` key in
-#   JSON definitions, allowing for flexible mapping of multiplier names.
-## [0.32.4-Beta] - 2025-08-12
-### Fixed
-# - Replaced the fillna() loop with the native `na_rep` parameter in the
-#   to_csv() call to prevent all future downcasting warnings.
-from typing import List
-import pandas as pd
-import numpy as np
-from datetime import datetime
-from typing import Dict, Any, Optional, Set, Tuple
-import os
+# - Removed temporary debugging log statements from the _parse_qso_line method.
+## [0.31.41-Beta] - 2025-08-10
+### Added
+# - Added a WARNING-level log message to report when X-QSO lines are found
+#   and ignored in a log file.
+## [0.31.40-Beta] - 2025-08-10
+### Changed
+# - Implemented case-insensitive parsing for QSO lines by converting them
+#   to uppercase during the data cleanup stage.
+## [0.31.37-Beta] - 2025-08-10
+### Changed
+# - Synchronizing to current project version to resolve environmental
+#   file mismatch issues.
+## [0.31.36-Beta] - 2025-08-10
+### Added
+# - Added a hexadecimal dump of the exchange string to the debug logs to
+#   conclusively identify problematic characters.
+## [0.31.35-Beta] - 2025-08-10
+### Added
+# - Added detailed INFO-level logging statements to the _parse_qso_line
+#   method to assist with debugging parsing failures.
+## [0.30.34-Beta] - 2025-08-06
+### Changed
+# - Removed diagnostic print statements from _parse_qso_line.
+## [0.30.33-Beta] - 2025-08-06
+### Added
+# - Added diagnostic print statements to _parse_qso_line to debug
+#   persistent parsing failures.
+## [0.30.31-Beta] - 2025-08-06
+### Changed
+# - Added a line to the main parsing loop to replace non-breaking spaces
+#   with regular spaces, increasing parsing robustness.
+## [0.30.0-Beta] - 2025-08-05
+# - Initial release of Version 0.30.0-Beta.
 import re
-import json
-import importlib
+import pandas as pd
+from typing import Dict, Any, List, Tuple, Optional
+import os
 import logging
 
-# Relative imports from within the contest_tools package
-from .cabrillo_parser import parse_cabrillo_file
-from .contest_definitions import ContestDefinition
-from .core_annotations import CtyLookup, process_dataframe_for_cty_data, process_contest_log_for_run_s_p, BandAllocator
+# Import the ContestDefinition class from the definitions package
+from .contest_definitions import ContestDefinition # Relative import within contest_tools
 
-class ContestLog:
+# --- Internal Regex Definitions for QSO lines ---
+# Pattern 1: Standard HF bands with frequency in kHz (4-5 digits)
+QSO_REGEX_HF = re.compile(r'QSO:\s+(\d{4,5})\s+([A-Z]{2})\s+(\d{4}-\d{2}-\d{2})\s+(\d{4})\s+([A-Z0-9/]+)\s+(.*)')
+QSO_GROUPS_HF = ["FrequencyRaw", "Mode", "DateRaw", "TimeRaw", "MyCallRaw", "ExchangeRest"]
+
+# Pattern 2: VHF/UHF/etc. bands where the first field is a band designator
+QSO_REGEX_VHF = re.compile(r'QSO:\s+([A-Z0-9.]+)\s+([A-Z]{2})\s+(\d{4}-\d{2}-\d{2})\s+(\d{4})\s+([A-Z0-9/]+)\s+(.*)')
+QSO_GROUPS_VHF = ["Band", "Mode", "DateRaw", "TimeRaw", "MyCallRaw", "ExchangeRest"]
+
+
+def parse_cabrillo_file(filepath: str, contest_definition: ContestDefinition) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """
-    High-level broker class to manage a single amateur radio contest log.
+    Parses a Cabrillo log file into a Pandas DataFrame of QSOs and extracts header metadata.
     """
+    log_metadata: Dict[str, Any] = {}
+    qso_records: List[Dict[str, Any]] = []
+    
+    actual_contest_name: Optional[str] = None
+    x_qso_warning_issued = False
 
-    _HAM_BANDS = [
-        # HF
-        '160M', '80M', '40M', '20M', '15M', '10M',
-        # VHF
-        '50', '70', '144', '222', '432',
-        # UHF
-        '902', '1.2G', '2.3G', '3.4G', '5.7G',
-        # SHF
-        '10G', '24G', '47G', '75G', '122G', '134G', '241G',
-        # Other
-        'LIGHT', 'SAT'
-    ]
+    try:
+        with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+            lines = f.readlines()
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Cabrillo file not found: {filepath}")
+    except Exception as e:
+        raise ValueError(f"Error reading Cabrillo file {filepath}: {e}")
 
-    _BAND_DERIVATION_RANGES = [
-        (( 1800.,  2000.), '160M'),
-        (( 3500.,  4000.), '80M'),
-        (( 7000.,  7300.), '40M'),
-        ((14000., 14350.), '20M'),
-        ((21000., 21450.), '15M'),
-        ((28000., 29700.), '10M')
-    ]
-
-    @staticmethod
-    def _derive_band_from_frequency(frequency_khz: float) -> str:
-        if pd.isna(frequency_khz):
-            return 'Invalid'
-        frequency_int = int(frequency_khz)
-        for band_range, band_name in ContestLog._BAND_DERIVATION_RANGES:
-            if band_range and (band_range[0] <= frequency_int <= band_range[1]):
-                return band_name
-        return 'Invalid'
-
-    def __init__(self, contest_name: str, cabrillo_filepath: Optional[str] = None):
-        self.contest_name = contest_name
-        self.qsos_df: pd.DataFrame = pd.DataFrame()
-        self.metadata: Dict[str, Any] = {}
-        self.dupe_sets: Dict[str, Set[Tuple[str, str]]] = {}
-        self.filepath = cabrillo_filepath
-        self._my_location_type: Optional[str] = None # W/VE or DX
-        self._log_manager_ref = None
-        self.band_allocator = BandAllocator()
-
-        try:
-            self.contest_definition = ContestDefinition.from_json(contest_name)
-        except (FileNotFoundError, json.JSONDecodeError, ValueError) as e:
-            raise ValueError(f"Failed to load contest definition for '{contest_name}': {e}")
-
-        if cabrillo_filepath:
-            self._ingest_cabrillo_data(cabrillo_filepath)
-            self._determine_own_location_type()
-
-
-    def _ingest_cabrillo_data(self, cabrillo_filepath: str):
-        custom_parser_name = self.contest_definition.custom_parser_module
-        if custom_parser_name:
-            try:
-                parser_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{custom_parser_name}")
-                raw_df, metadata = parser_module.parse_log(cabrillo_filepath, self.contest_definition)
-                logging.info(f"Using custom parser module: '{custom_parser_name}'")
-            except Exception as e:
-                logging.error(f"Could not run custom parser '{custom_parser_name}': {e}. Halting.")
-                raise
+    in_header = True
+    
+    for i, line in enumerate(lines):
+        # Clean the line of nbsp and leading/trailing whitespace
+        cleaned_line = line.replace('\u00a0', ' ').strip()
+        
+        # Create a temporary uppercase version for a case-insensitive check
+        temp_upper_line = cleaned_line.upper()
+        
+        # Check if it's a QSO line. If so, use the uppercase version for all parsing.
+        if temp_upper_line.startswith('QSO:') or temp_upper_line.startswith('QSO-X:'):
+            line_to_process = temp_upper_line
         else:
-            raw_df, metadata = parse_cabrillo_file(cabrillo_filepath, self.contest_definition)
-        
-        self.metadata.update(metadata)
-        
-        if raw_df.empty:
-            self.qsos_df = pd.DataFrame(columns=self.contest_definition.default_qso_columns)
-            return
+            line_to_process = cleaned_line
 
-        # --- Perform frequency validation before further processing ---
-        validated_qso_records = []
-        rejected_qso_count = 0
-        raw_df['Frequency'] = pd.to_numeric(raw_df.get('FrequencyRaw'), errors='coerce')
+        if not line_to_process: # Skip blank lines
+            continue
 
-        for idx, row in raw_df.iterrows():
-            if self.band_allocator.is_frequency_valid(row['Frequency']):
-                validated_qso_records.append(row.to_dict())
-            else:
-                rejected_qso_count += 1
-                if rejected_qso_count <= 20:
-                    logging.warning(f"Rejected QSO (invalid frequency): File '{os.path.basename(cabrillo_filepath)}' - Line: {row['RawQSO']}")
-        
-        if rejected_qso_count > 20:
-            suppressed_count = rejected_qso_count - 20
-            logging.warning(f"({suppressed_count} additional invalid frequency warnings suppressed for this file.)")
+        if line_to_process.startswith('START-OF-LOG:'):
+            if i != 0:
+                raise ValueError(f"Cabrillo format error: START-OF-LOG: must be the first line. (Line {i+1})")
+            continue
+        elif line_to_process.startswith('END-OF-LOG:'):
+            break
+        elif line_to_process.startswith('X-QSO:'):
+            if not x_qso_warning_issued:
+                logging.warning(f"Ignoring X-QSO line(s) in {os.path.basename(filepath)}")
+                x_qso_warning_issued = True
+            continue
+        elif line_to_process.startswith('QSO:'):
+            in_header = False
+            qso_data = _parse_qso_line(line_to_process, contest_definition, log_metadata)
+            if qso_data:
+                qso_data['RawQSO'] = line_to_process
+                qso_records.append(qso_data)
+            continue 
 
-        if not validated_qso_records:
-            self.qsos_df = pd.DataFrame(columns=self.contest_definition.default_qso_columns)
-            return
-            
-        raw_df = pd.DataFrame(validated_qso_records)
-        
-        raw_df['Datetime'] = pd.to_datetime(
-            raw_df.get('DateRaw', '') + ' ' + raw_df.get('TimeRaw', ''),
-            format='%Y-%m-%d %H%M',
-            errors='coerce'
-        )
-        
-        if 'Band' not in raw_df.columns:
-            raw_df['Band'] = pd.NA
+        if in_header:
+            for cabrillo_tag, df_key in contest_definition.header_field_map.items():
+                if line_to_process.startswith(f"{cabrillo_tag}:"):
+                    value = line_to_process[len(f"{cabrillo_tag}:"):].strip()
+                    log_metadata[df_key] = value
+                    if cabrillo_tag == 'CONTEST':
+                        actual_contest_name = value
+                    break 
+    
+    if not qso_records:
+        raise ValueError(f"No valid QSO lines found in Cabrillo file: {filepath}")
+    
+    if 'MyCall' not in log_metadata or 'ContestName' not in log_metadata:
+        raise ValueError(f"Required header fields (CALLSIGN:, CONTEST:) not found in {filepath}")
+    
+    df = pd.DataFrame(qso_records)
 
-        if 'Frequency' in raw_df.columns:
-            derived_bands = raw_df['Frequency'].apply(self._derive_band_from_frequency)
-            raw_df['Band'] = raw_df['Band'].combine_first(derived_bands)
+    return df, log_metadata
 
-        raw_df.dropna(subset=['Datetime'], inplace=True)
-        if raw_df.empty:
-            self.qsos_df = pd.DataFrame(columns=self.contest_definition.default_qso_columns)
-            return
+def _parse_qso_line(
+    line: str,
+    contest_definition: ContestDefinition,
+    log_metadata: Dict[str, Any]
+) -> Optional[Dict[str, Any]]:
+    """
+    Internal helper to parse a single QSO line from a Cabrillo log.
+    """
+    qso_final_dict = {col: pd.NA for col in contest_definition.default_qso_columns}
 
-        raw_df['Date'] = raw_df['Datetime'].dt.strftime('%Y-%m-%d')
-        raw_df['Hour'] = raw_df['Datetime'].dt.strftime('%H')
-
-        for col in ['MyCallRaw', 'Call', 'Mode']:
-            if col in raw_df.columns:
-                raw_df[col.replace('Raw','')] = raw_df[col].fillna('').astype(str).str.upper()
-
-        # --- Normalize Modes ---
-        mode_map = {'FM': 'PH', 'RY': 'DG'}
-        raw_df['Mode'] = raw_df['Mode'].replace(mode_map)
-        
-        # --- Validate Bands ---
-        valid_bands_set = set(self._HAM_BANDS)
-        if 'Band' in raw_df.columns:
-            unique_bands_in_log = raw_df['Band'].dropna().unique()
-            for band in unique_bands_in_log:
-                if band not in valid_bands_set:
-                    logging.warning(f"Log contains unrecognized band '{band}'. Reclassifying as 'Unknown'.")
-                    raw_df.loc[raw_df['Band'] == band, 'Band'] = "Unknown"
-
-        raw_df.drop(columns=['FrequencyRaw', 'DateRaw', 'TimeRaw', 'MyCallRaw', 'RawQSO'], inplace=True, errors='ignore')
-        self.qsos_df = raw_df.reindex(columns=self.contest_definition.default_qso_columns)
-        self._check_dupes()
-
-    def _check_dupes(self):
-        self.qsos_df['Dupe'] = False
-        self.dupe_sets.clear()
-        
-        dupe_scope = self.contest_definition.dupe_check_scope
-        
-        if dupe_scope == 'all_bands':
-            all_bands_dupe_set = set()
-            for idx in self.qsos_df.index:
-                call = self.qsos_df.loc[idx, 'Call']
-                if not call:
-                    continue
-                if call in all_bands_dupe_set:
-                    self.qsos_df.loc[idx, 'Dupe'] = True
-                else:
-                    all_bands_dupe_set.add(call)
+    # --- New Two-Pattern Matching Logic ---
+    common_match = QSO_REGEX_HF.match(line)
+    if common_match:
+        common_groups = QSO_GROUPS_HF
+    else:
+        common_match = QSO_REGEX_VHF.match(line)
+        if common_match:
+            common_groups = QSO_GROUPS_VHF
         else:
-            for band in self.qsos_df['Band'].unique():
-                if band == 'Invalid' or not band:
-                    continue
-                
-                self.dupe_sets[band] = set()
-                band_indices = self.qsos_df[self.qsos_df['Band'] == band].index
-                
-                for idx in band_indices:
-                    call = self.qsos_df.loc[idx, 'Call']
-                    mode = self.qsos_df.loc[idx, 'Mode']
-                    
-                    if not call or not mode:
-                        continue
-                    
-                    qso_tuple = (call, mode)
-                    if qso_tuple in self.dupe_sets[band]:
-                        self.qsos_df.loc[idx, 'Dupe'] = True
-                    else:
-                        self.dupe_sets[band].add(qso_tuple)
-
-    def _calculate_operating_time(self) -> Optional[str]:
-        rules = self.contest_definition.operating_time_rules
-        if not rules:
+            logging.warning(f"Skipping malformed QSO line: {line}")
             return None
+    
+    qso_dict_common_parsed = dict(zip(common_groups, common_match.groups()))
+    
+    for key, val in qso_dict_common_parsed.items():
+        qso_final_dict[key] = val.strip() if isinstance(val, str) else val
 
-        min_off_time = pd.Timedelta(minutes=rules.get('min_off_time_minutes', 30))
+    exchange_rest = qso_final_dict.pop('ExchangeRest', '').strip()
+
+    contest_name = log_metadata.get('ContestName')
+    rules_for_contest = contest_definition.exchange_parsing_rules.get(contest_name)
+    
+    if not rules_for_contest:
+        base_contest_name = contest_name.rsplit('-', 1)[0]
+        rules_for_contest = contest_definition.exchange_parsing_rules.get(base_contest_name)
+
+    if not rules_for_contest:
+        return None 
+
+    if not isinstance(rules_for_contest, list):
+        rules_for_contest = [rules_for_contest]
+
+    parsed_successfully = False
+    for i, rule_info in enumerate(rules_for_contest):
+        exchange_regex = rule_info['regex']
+        exchange_groups = rule_info['groups']
+        exchange_match = re.match(exchange_regex, exchange_rest)
         
-        df = self.qsos_df[self.qsos_df['Dupe'] == False].sort_values(by='Datetime')
-        
-        if len(df) < 2:
-            return "00:00"
-
-        total_duration = df['Datetime'].iloc[-1] - df['Datetime'].iloc[0]
-        gaps = df['Datetime'].diff()
-        off_time_gaps = gaps[gaps > min_off_time]
-        total_off_time = off_time_gaps.sum()
-        
-        on_time = total_duration - total_off_time
-
-        total_seconds = on_time.total_seconds()
-        hours = int(total_seconds // 3600)
-        minutes = int((total_seconds % 3600) // 60)
-        on_time_str = f"{hours:02d}:{minutes:02d}"
-        
-        category = self.metadata.get('CategoryOperator', 'SINGLE-OP').upper()
-        if 'MULTI' in category:
-            max_hours = rules.get('multi_op_max_hours', 48)
-        else:
-            max_hours = rules.get('single_op_max_hours', 48)
-
-        return f"{on_time_str} of {max_hours}:00 allowed"
-        
-    def _determine_own_location_type(self):
-        is_asymmetric = any(rule.get('applies_to') for rule in self.contest_definition.multiplier_rules)
-        
-        if is_asymmetric:
-            my_call = self.metadata.get('MyCall')
-            if my_call:
-                root_dir = os.environ.get('CONTEST_LOGS_REPORTS').strip().strip('"').strip("'")
-                data_dir = os.path.join(root_dir, 'data')
-                cty_dat_path = os.path.join(data_dir, 'cty.dat')
-                cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)
-                info = cty_lookup.get_cty_DXCC_WAE(my_call)._asdict()
-                self._my_location_type = "W/VE" if info['DXCCName'] in ["United States", "Canada"] else "DX"
-                logging.info(f"Logger location type determined as: {self._my_location_type}")
-
-    def apply_annotations(self):
-        if self.qsos_df.empty:
-            logging.warning("No QSOs loaded. Cannot apply annotations.")
-            return
-
-        try:
-            logging.info("Applying Run/S&P annotation...")
-            self.qsos_df = process_contest_log_for_run_s_p(self.qsos_df)
-            logging.info("Run/S&P annotation complete.")
-        except Exception as e:
-            logging.error(f"Error during Run/S&P annotation: {e}. Skipping.")
-
-        try:
-            logging.info("Applying Universal DXCC/Zone lookup...")
-            self.qsos_df = process_dataframe_for_cty_data(self.qsos_df)
-            logging.info("Universal DXCC/Zone lookup complete.")
-        except Exception as e:
-            logging.error(f"Error during Universal DXCC/Zone lookup: {e}. Skipping.")
-        
-        self.apply_contest_specific_annotations()
-        
-        try:
-            self.metadata['OperatingTime'] = self._calculate_operating_time()
-        except Exception as e:
-            logging.error(f"Error during on-time calculation: {e}. Skipping.")
-
-    def apply_contest_specific_annotations(self):
-        logging.info("Applying contest-specific annotations (Multipliers & Scoring)...")
-        
-        resolver_name = self.contest_definition.custom_multiplier_resolver
-        if resolver_name:
-            try:
-                resolver_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{resolver_name}")
-                self.qsos_df = resolver_module.resolve_multipliers(self.qsos_df, self._my_location_type)
-                logging.info(f"Successfully applied '{resolver_name}' multiplier resolver.")
-            except Exception as e:
-                logging.warning(f"Could not run '{resolver_name}' multiplier resolver: {e}")
-
-        multiplier_rules = self.contest_definition.multiplier_rules
-        if multiplier_rules:
-            logging.info("Calculating contest multipliers...")
-            for rule in multiplier_rules:
-                applies_to = rule.get('applies_to')
-                if applies_to and self._my_location_type and applies_to != self._my_location_type:
-                    continue
-
-                dest_col = rule.get('value_column')
-                dest_name_col = rule.get('name_column')
-                
-                if not dest_col: continue
-
-                if 'source_column' in rule:
-                    source_col = rule.get('source_column')
-                    if source_col in self.qsos_df.columns:
-                        self.qsos_df[dest_col] = self.qsos_df[source_col]
-                        
-                        if dest_name_col:
-                            source_name_col = rule.get('source_name_column', f"{source_col}Name")
-                            if source_name_col in self.qsos_df.columns:
-                                self.qsos_df[dest_name_col] = self.qsos_df[source_name_col]
-                            else:
-                                logging.warning(f"Name column '{source_name_col}' not found for source '{source_col}'.")
-                    else:
-                        logging.warning(f"Source column '{source_col}' not found for multiplier '{rule.get('name')}'.")
-
-                elif rule.get('source') == 'wae_dxcc':
-                    wae_mask = self.qsos_df['WAEName'].notna() & (self.qsos_df['WAEName'] != '')
-                    
-                    self.qsos_df.loc[wae_mask, dest_col] = self.qsos_df.loc[wae_mask, 'WAEPfx']
-                    self.qsos_df.loc[~wae_mask, dest_col] = self.qsos_df.loc[~wae_mask, 'DXCCPfx']
-                    
-                    if dest_name_col:
-                        self.qsos_df.loc[wae_mask, dest_name_col] = self.qsos_df.loc[wae_mask, 'WAEName']
-                        self.qsos_df.loc[~wae_mask, dest_name_col] = self.qsos_df.loc[~wae_mask, 'DXCCName']
-                
-                elif rule.get('source') == 'calculation_module':
-                    try:
-                        module_name = rule['module_name']
-                        function_name = rule['function_name']
-                        
-                        module = importlib.import_module(f"contest_tools.contest_specific_annotations.{module_name}")
-                        calculation_func = getattr(module, function_name)
-                        
-                        self.qsos_df[dest_col] = calculation_func(self.qsos_df)
-                        logging.info(f"Successfully applied '{function_name}' from '{module_name}'.")
-                    except (ImportError, AttributeError, KeyError) as e:
-                        logging.warning(f"Could not run calculation module for rule '{rule.get('name')}': {e}")
-
-
-        # --- Scoring Calculation ---
-        my_call = self.metadata.get('MyCall')
-        if not my_call:
-            logging.warning("'MyCall' not found in metadata. Cannot calculate QSO points.")
-            self.qsos_df['QSOPoints'] = 0
-            return
+        if exchange_match:
+            for i, group_name in enumerate(exchange_groups):
+                try:
+                    val = exchange_match.groups()[i]
+                    if val is not None:
+                        qso_final_dict[group_name] = val.strip()
+                except IndexError:
+                    qso_final_dict[group_name] = pd.NA
+            parsed_successfully = True
+            break 
             
-        try:
-            root_dir = os.environ.get('CONTEST_LOGS_REPORTS').strip().strip('"').strip("'")
-            data_dir = os.path.join(root_dir, 'data')
-            cty_dat_path = os.path.join(data_dir, 'cty.dat')
-            cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)
-            my_call_info = cty_lookup.get_cty_DXCC_WAE(my_call)._asdict()
-            my_call_info['MyCall'] = my_call
-        except Exception as e:
-            logging.warning(f"Could not determine own location for scoring due to CTY error: {e}")
-            self.qsos_df['QSOPoints'] = 0
-            return
+    if not parsed_successfully:
+        return None 
 
-        scoring_module = None
-        try:
-            module_name_specific = self.contest_name.lower().replace('-', '_')
-            scoring_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{module_name_specific}_scoring")
-        except ImportError:
-            try:
-                base_contest_name = self.contest_name.rsplit('-', 1)[0]
-                module_name_generic = base_contest_name.lower().replace('-', '_')
-                scoring_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{module_name_generic}_scoring")
-            except (ImportError, IndexError):
-                logging.warning(f"No scoring module found for contest '{self.contest_name}'. Points will be 0.")
-                self.qsos_df['QSOPoints'] = 0
-                return
-        
-        try:
-            self.qsos_df['QSOPoints'] = scoring_module.calculate_points(self.qsos_df, my_call_info)
-            logging.info(f"Scoring complete.")
-        except Exception as e:
-            logging.error(f"Error during {self.contest_name} scoring: {e}")
-            self.qsos_df['QSOPoints'] = 0
+    for cabrillo_tag, df_key in contest_definition.header_field_map.items():
+        if df_key in log_metadata:
+            qso_final_dict[df_key] = log_metadata[df_key]
 
-
-    def export_to_csv(self, output_filepath: str):
-        if self.qsos_df.empty:
-            logging.warning(f"No QSOs to export. CSV file '{output_filepath}' will not be created.")
-            return
-
-        try:
-            df_for_output = self.qsos_df.copy()
-            
-            if 'Datetime' in df_for_output.columns:
-                df_for_output['Datetime'] = df_for_output['Datetime'].dt.strftime('%Y-%m-%d %H:%M:%S')
-
-            df_for_output = df_for_output.reindex(columns=self.contest_definition.default_qso_columns)
-
-            for col in df_for_output.columns:
-                if pd.api.types.is_integer_dtype(df_for_output[col]) and isinstance(df_for_output[col].dtype, pd.Int64Dtype):
-                    df_for_output[col] = df_for_output[col].astype(object)
-
-            # Use the na_rep parameter to handle missing values directly in the CSV output
-            df_for_output.to_csv(output_filepath, index=False, na_rep='')
-            
-            logging.info(f"Processed log saved to: {output_filepath}")
-        except Exception as e:
-            logging.error(f"Error exporting log to CSV '{output_filepath}': {e}")
-            raise
-
-    def export_to_adif(self, output_filepath: str):
-        """Generates a standard ADIF file from the processed log data."""
-        if self.qsos_df.empty:
-            logging.warning(f"No QSOs to export. ADIF file '{output_filepath}' will not be created.")
-            return
-            
-        df_to_export = self.qsos_df.copy()
-
-        # --- ADIF Helper Functions ---
-        def adif_format(tag: str, value: Any) -> str:
-            if pd.isna(value) or value == '':
-                return ''
-            val_str = str(int(value)) if isinstance(value, (float, np.floating, np.integer)) and float(value).is_integer() else str(value)
-            return f"<{tag}:{len(val_str)}>{val_str} "
-
-        # --- Generate ADIF Content ---
-        adif_records = []
-        adif_records.append("ADIF Export from Contest-Log-Analyzer\n")
-        adif_records.append(f"<PROGRAMID:22>Contest-Log-Analyzer\n")
-        adif_records.append(f"<PROGRAMVERSION:11>0.55.9-Beta\n")
-        adif_records.append("<EOH>\n\n")
-
-        for _, row in df_to_export.iterrows():
-            record = []
-            record.append(adif_format('CALL', row.get('Call')))
-            
-            if pd.notna(row.get('Datetime')):
-                record.append(f"<QSO_DATE:8>{row['Datetime'].strftime('%Y%m%d')} ")
-                record.append(f"<TIME_ON:6>{row['Datetime'].strftime('%H%M%S')} ")
-
-            if pd.notna(row.get('Band')):
-                record.append(adif_format('BAND', str(row.get('Band')).lower()))
-
-            record.append(adif_format('STATION_CALLSIGN', self.metadata.get('MyCall')))
-            
-            if pd.notna(row.get('Frequency')):
-                freq_mhz = f"{row.get('Frequency') / 1000:.3f}"
-                record.append(adif_format('FREQ', freq_mhz))
-                record.append(adif_format('FREQ_RX', freq_mhz))
-
-            record.append(adif_format('CONTEST_ID', self.metadata.get('ContestName')))
-            record.append(adif_format('MODE', row.get('Mode')))
-            
-            rst_rcvd = row.get('RST') if pd.notna(row.get('RST')) else row.get('RS')
-            record.append(adif_format('RST_RCVD', rst_rcvd))
-            
-            rst_sent = row.get('SentRST') if pd.notna(row.get('SentRST')) else row.get('SentRS')
-            record.append(adif_format('RST_SENT', rst_sent))
-            
-            record.append(adif_format('OPERATOR', self.metadata.get('MyCall')))
-            record.append(adif_format('CQZ', row.get('CQZone')))
-            record.append(adif_format('ITUZ', row.get('ITUZone')))
-            
-            if pd.notna(row.get('RcvdLocation')):
-                 record.append(adif_format('STATE', row.get('RcvdLocation')))
-                 record.append(adif_format('ARRL_SECT', row.get('RcvdLocation')))
-
-            # --- Custom CLA Tags ---
-            record.append(adif_format('APP_CLA_QSO_POINTS', row.get('QSOPoints')))
-            record.append(adif_format('APP_CLA_CONTINENT', row.get('Continent')))
-            if row.get('Run') == 'Run': record.append(adif_format('APP_CLA_ISRUNQSO', 1))
-            
-            mult_value_cols = [c for c in row.index if c.startswith('Mult_') or c in ['Mult1', 'Mult2']]
-            for col in mult_value_cols:
-                if pd.notna(row.get(col)):
-                    record.append(adif_format(f"APP_CLA_{col.upper()}", row.get(col)))
-
-            mult_flag_cols = [c for c in row.index if c.endswith('_IsNewMult')]
-            for col in mult_flag_cols:
-                if row.get(col) == 1:
-                    record.append(adif_format(f"APP_CLA_{col.upper()}", 1))
-
-            adif_records.append("".join(record).strip() + " <EOR>\n")
-
-        # --- Write to File ---
-        try:
-            with open(output_filepath, 'w', encoding='utf-8') as f:
-                f.writelines(adif_records)
-            logging.info(f"ADIF log saved to: {output_filepath}")
-        except Exception as e:
-            logging.error(f"Error exporting log to ADIF '{output_filepath}': {e}")
-            raise
-
-    def get_processed_data(self) -> pd.DataFrame:
-        return self.qsos_df
-
-    def get_metadata(self) -> Dict[str, Any]:
-        return self.metadata
+    return qso_final_dict
