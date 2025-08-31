@@ -1,6 +1,6 @@
 {
   "_filename": "contest_tools/contest_definitions/iaru_hf.json",
-  "_version": "0.55.10-Beta",
+  "_version": "0.55.12-Beta",
   "_date": "2025-08-31",
   "contest_name": "IARU-HF",
   "dupe_check_scope": "per_band",
@@ -9,8 +9,6 @@
   "custom_parser_module": "iaru_hf_parser",
   "custom_multiplier_resolver": "iaru_hf_multiplier_resolver",
   "custom_adif_exporter": "iaru_hf_adif",
-  "qso_common_fields_regex": "QSO:\\s+([A-Z0-9.]+)\\s+([A-Z]{2})\\s+(\\d{4}-\\d{2}-\\d{2})\\s+(\\d{4})\\s+([A-Z0-9/]+)\\s+(.*)",
-  "qso_common_field_names": ["FrequencyRaw", "Mode", "DateRaw", "TimeRaw", "MyCallRaw", "ExchangeRest"],
   "multiplier_rules": [
     {
       "name": "Zones",
