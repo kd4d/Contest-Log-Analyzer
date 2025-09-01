@@ -27,21 +27,21 @@ The analyzer is run from the command line using `main_cli.py`.
 
 * **Generate all available reports for two logs:**
 
-__CODE_BLOCK__
+```
 python main_cli.py --report all Logs/2024/cq-ww-cw/k3lr.log Logs/2024/cq-ww-cw/kc1xx.log
-__CODE_BLOCK__
+```
 
 * **Generate a specific report (Score Summary) for a single log:**
 
-__CODE_BLOCK__
+```
 python main_cli.py --report score_report Logs/2024/cq-ww-cw/k3lr.log
-__CODE_BLOCK__
+```
 
 * **Generate a Missed Multipliers report for CQ WW Zones:**
 
-__CODE_BLOCK__
+```
 python main_cli.py --report missed_multipliers --mult-name Zones Logs/2024/cq-ww-cw/k3lr.log Logs/2024/cq-ww-cw/kc1xx.log
-__CODE_BLOCK__
+```
 
 ---
 ## Supported Contests
