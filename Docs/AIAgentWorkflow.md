@@ -1,10 +1,15 @@
-# Project Workflow Guide
+# AIAgentWorkflow.md
 
-**Version: 0.56.31-Beta**
+**Version: 0.57.0-Beta**
 **Date: 2025-09-01**
 
 ---
 ### --- Revision History ---
+## [0.57.0-Beta] - 2025-09-01
+### Changed
+# - Renamed file from WorkingwithGemini.md to AIAgentWorkflow.md to
+#   clarify its purpose as the AI's technical specification.
+# - Updated the introduction to reference the new WorkflowUserGuide.md.
 ## [0.56.31-Beta] - 2025-09-01
 ### Added
 # - Added Protocol 7.6 (Systemic Bug Eradication Protocol) to formalize
@@ -184,11 +189,11 @@
 #   documents that require no changes.
 ---
 
-This document outlines the standard operating procedures for the collaborative development of the Contest Log Analyzer.
+This document is the definitive technical specification for the AI agent's behavior and the standard operating procedures for the collaborative development of the Contest Log Analyzer.
 
-**The primary audience for this document is the Gemini AI agent.**
+**The primary audience for this document is the Gemini AI agent.** It is a machine-readable set of rules and protocols.
 
-**Its core purpose is to serve as a persistent set of rules and context.** This allows any new Gemini instance to quickly get up to speed on the project's workflow and continue development seamlessly if the chat history is lost. Adhering to this workflow ensures consistency and prevents data loss.
+For a narrative, human-focused explanation of this workflow, please see `Docs/WorkflowUserGuide.md`.
 ---
 ## Part I: Core Principles
 
