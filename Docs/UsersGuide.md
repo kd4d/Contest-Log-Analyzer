@@ -1,10 +1,14 @@
 # Contest Log Analyzer - User Guide
 
-**Version: 0.55.0-Beta**
-**Date: 2025-08-29**
+**Version: 0.56.30-Beta**
+**Date: 2025-09-01**
 
 ---
 ### --- Revision History ---
+## [0.56.30-Beta] - 2025-09-01
+### Fixed
+# - Added the missing `iaru_officials.dat` file to the list of
+#   required data files.
 ## [0.55.0-Beta] - 2025-08-29
 ### Added
 # - Added "IARU HF World Championship" to the list of supported contests.
@@ -74,6 +78,7 @@ Before running the analyzer, you will need a few files:
     * `NAQPmults.dat`: Required for NAQP and CQ 160-Meter contests.
     * `SweepstakesSections.dat`: Required for ARRL Sweepstakes and ARRL Field Day.
     * `band_allocations.dat`: Required for all contests to perform frequency validation.
+    * `iaru_officials.dat`: Required for the IARU HF World Championship contest.
 * **An Environment Variable**: You must tell the program where to find your data files by setting an environment variable named `CONTEST_LOGS_REPORTS`. This variable should point to the root directory that contains your `Logs`, `data`, and `reports` subdirectories.
 ---
 
@@ -98,27 +103,27 @@ The program is run from your command prompt or terminal using `main_cli.py`.
 
 * **Generate all available reports for two logs:**
 
-__CODE_BLOCK__
+```
 python main_cli.py --report all 2025/cq-160-cw/kd4d.log 2025/cq-160-cw/n0ni.log
-__CODE_BLOCK__
+```
 
 * **Generate only the text reports for two logs:**
 
-__CODE_BLOCK__
+```
 python main_cli.py --report text 2025/cq-160-cw/kd4d.log 2025/cq-160-cw/n0ni.log
-__CODE_BLOCK__
+```
 
 * **Generate a specific report (Score Summary) for a single log:**
 
-__CODE_BLOCK__
+```
 python main_cli.py --report score_report 2025/cq-160-cw/kd4d.log
-__CODE_BLOCK__
+```
 
 * **Generate a Missed Multipliers report for CQ WW Zones:**
 
-__CODE_BLOCK__
+```
 python main_cli.py --report missed_multipliers --mult-name Zones Logs/2024/cq-ww-cw/k3lr.log Logs/2024/cq-ww-cw/kc1xx.log
-__CODE_BLOCK__
+```
 ---
 
 ## 4. Supported Contests
