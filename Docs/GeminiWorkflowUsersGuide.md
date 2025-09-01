@@ -1,4 +1,3 @@
---- FILE: Docs/GeminiWorkflowUsersGuide.md ---
 # Contest Log Analyzer - Workflow User Guide
 
 **Version: 0.57.1-Beta**
