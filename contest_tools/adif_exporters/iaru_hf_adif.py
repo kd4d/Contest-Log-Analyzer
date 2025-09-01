@@ -1,8 +1,8 @@
 # Contest Log Analyzer/contest_tools/adif_exporters/iaru_hf_adif.py
 #
 # Author: Gemini AI
-# Date: 2025-08-31
-# Version: 0.56.27-Beta
+# Date: 2025-09-01
+# Version: 0.57.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,6 +19,10 @@
 #          tag for HQ and Official station contacts.
 #
 # --- Revision History ---
+## [0.57.3-Beta] - 2025-09-01
+### Fixed
+# - Added logic to add a per-second offset to QSOs with identical timestamps,
+#   preventing multiplier double-counting errors in N1MM Logger+.
 ## [0.56.27-Beta] - 2025-08-31
 ### Changed
 # - ADIF MODE tag is now correctly output as 'SSB' instead of 'PH'.
@@ -48,6 +52,13 @@ def export_log(log: ContestLog, output_filepath: str):
 
     # Use a copy to avoid modifying the original DataFrame
     df_to_export = df_full.copy()
+    
+    # --- Add per-second offset to identical timestamps for N1MM compatibility ---
+    if 'Datetime' in df_to_export.columns and not df_to_export.empty:
+        offsets = df_to_export.groupby('Datetime').cumcount()
+        time_deltas = pd.to_timedelta(offsets, unit='s')
+        df_to_export['Datetime'] = df_to_export['Datetime'] + time_deltas
+        df_to_export.sort_values(by='Datetime', inplace=True)
     
     # --- State tracking for new multipliers ---
     seen_zones_per_band: Dict[str, Set[str]] = {}

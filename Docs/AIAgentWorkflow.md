@@ -1,10 +1,16 @@
 # AIAgentWorkflow.md
 
-**Version: 0.57.0-Beta**
+**Version: 0.57.1-Beta**
 **Date: 2025-09-01**
 
 ---
 ### --- Revision History ---
+## [0.57.1-Beta] - 2025-09-01
+### Changed
+# - Clarified Protocol 3.2.1 to explicitly state that "bundles" are
+#   only for user-to-AI state initializations.
+# - Updated Protocol 3.2.5 to define the precise, literal pattern
+#   for citation tags and to note that it does not include backticks.
 ## [0.57.0-Beta] - 2025-09-01
 ### Changed
 # - Renamed file from WorkingwithGemini.md to AIAgentWorkflow.md to
@@ -291,13 +297,13 @@ This workflow is a formal state machine that governs all development tasks, from
 
 3.1. **Project File Input.** All project source files and documentation will be provided for updates in a single text file called a **project bundle**, or pasted individually into the chat. The bundle uses a simple text header to separate each file: `--- FILE: path/to/file.ext ---`
 3.2. **AI Output Format.** When the AI provides updated files, it must follow these rules to ensure data integrity.
-    1.  **Single File Per Response**: Only one file will be delivered in a single response.
+    1.  **Single File Per Response**: Only one file will be delivered in a single response. The "bundle" terminology (e.g., `project_bundle.txt`) refers exclusively to the user-provided files used for a Definitive State Initialization; all file deliveries from the AI are strictly individual.
     2.  **Raw Source Text**: The content inside the delivered code block must be the raw source text of the file.
     3.  **Code File Delivery**: For code files (e.g., `.py`, `.json`), the content will be delivered in a standard fenced code block with the appropriate language specifier.
     4.  **Markdown File Delivery**: To prevent the user interface from rendering markdown and to provide a "Copy" button, the entire raw content of a documentation file (`.md`) must be delivered inside a single, plaintext-specified code block.
         * **Internal Code Fences**: Any internal markdown code fences (__CODE_BLOCK__) must be replaced with the `__CODE_BLOCK__` placeholder.
         * **Clarification**: This substitution is a requirement of the AI's web interface. The user will provide files back with standard markdown fences (`__CODE_BLOCK__`), which is the expected behavior.
-    5.  **Remove Citation Tags**: All internal AI development tags (``) must be removed from the content before the file is delivered.
+    5.  **Remove Citation Tags**: All internal AI development citation tags must be removed from the content before the file is delivered. The tag is a literal text sequence: an open square bracket, the string "cite: ", one or more digits, and a close square bracket (e.g.,). This pattern does not include Markdown backticks.
 3.3. **File and Checksum Verification.**
     1.  **Line Endings:** The user's file system uses Windows CRLF (`\r\n`). The AI must correctly handle this conversion when calculating checksums.
     2.  **Concise Reporting:** The AI will either state that **all checksums agree** or will list the **specific files that show a mismatch**.

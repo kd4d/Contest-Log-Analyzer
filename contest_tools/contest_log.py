@@ -1,13 +1,14 @@
+--- FILE: contest_tools/contest_log.py ---
 # Contest Log Analyzer/contest_tools/contest_log.py
 #
 # Purpose: Defines the ContestLog class, which manages the ingestion, processing,
-#          and analysis of Cabrillo log data. It orchestrates the parsing,
-#          data cleaning, and calculation of various contest metrics.
+#          [cite_start]and analysis of Cabrillo log data. [cite: 65] It orchestrates the parsing,
+#          [cite_start]data cleaning, and calculation of various contest metrics. [cite: 65]
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-31
-# Version: 0.56.23-Beta
+# Date: 2025-09-01
+# Version: 0.57.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -15,71 +16,76 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+# [cite_start]License, v. 2.0. [cite: 67] If a copy of the MPL was not distributed with this
+# [cite_start]file, You can obtain one at http://mozilla.org/MPL/2.0/. [cite: 67]
 # --- Revision History ---
+## [0.57.2-Beta] - 2025-09-01
+### Fixed
+# - Added logic to the generic `export_to_adif` method to add a per-second
+#   offset to QSOs with identical timestamps, preventing multiplier
+#   double-counting errors in N1MM Logger+.
 ## [0.56.23-Beta] - 2025-08-31
 ### Fixed
 # - Corrected the frequency validation logic to properly handle VHF/UHF
 #   QSOs logged with a band designator instead of a numeric frequency,
-#   preventing them from being incorrectly rejected.
+#   [cite_start]preventing them from being incorrectly rejected. [cite: 68]
 ## [0.56.6-Beta] - 2025-08-31
 ### Changed
 # - Renamed the internal _HF_BANDS variable to _HAM_BANDS to reflect
-#   that it includes VHF/UHF bands, resolving a refactoring error.
+#   [cite_start]that it includes VHF/UHF bands, resolving a refactoring error. [cite: 69]
 ## [0.52.7-Beta] - 2025-08-26
 ### Changed
 # - Updated the "invalid frequency" warning to include the full, original
-#   QSO: line from the Cabrillo log for improved diagnostics.
+#   [cite_start]QSO: line from the Cabrillo log for improved diagnostics. [cite: 70]
 ## [0.52.0-Beta] - 2025-08-26
 ### Added
 # - Added a warning message to the log ingest process to report any QSOs
-#   with modes other than the standard 'CW', 'PH', or 'DG'.
+#   [cite_start]with modes other than the standard 'CW', 'PH', or 'DG'. [cite: 71]
 ## [0.43.0-Beta] - 2025-08-21
 ### Added
 # - Integrated a data-driven frequency validation check during Cabrillo
-#   ingest, which rejects out-of-band QSOs and issues warnings.
+#   [cite_start]ingest, which rejects out-of-band QSOs and issues warnings. [cite: 72]
 ### Changed
-# - Modified the export_to_adif method to include duplicate QSOs.
+# [cite_start]- Modified the export_to_adif method to include duplicate QSOs. [cite: 73]
 ## [0.39.6-Beta] - 2025-08-21
 ### Fixed
 # - Resolved a NameError in the export_to_adif function by adding the
-#   missing 'import numpy as np' statement.
+#   [cite_start]missing 'import numpy as np' statement. [cite: 74]
 ## [0.39.5-Beta] - 2025-08-21
 ### Added
 # - Enhanced the export_to_adif method to generate custom APP_CLA tags
-#   for multiplier values and "is new multiplier" flags.
+#   [cite_start]for multiplier values and "is new multiplier" flags. [cite: 75]
 ## [0.39.4-Beta] - 2025-08-18
 ### Fixed
 # - Corrected the _ingest_cabrillo_data method to intelligently merge
 #   parser-provided band data with frequency-derived band data, fixing
-#   a bug that erased VHF/UHF bands during processing.
+#   [cite_start]a bug that erased VHF/UHF bands during processing. [cite: 76]
 ## [0.39.3-Beta] - 2025-08-18
 ### Fixed
 # - Added temporary diagnostic logging to the _ingest_cabrillo_data
-#   method to debug the ARRL Field Day parsing and data integration issue.
+#   [cite_start]method to debug the ARRL Field Day parsing and data integration issue. [cite: 77]
 ## [0.39.2-Beta] - 2025-08-18
 ### Fixed
 # - Updated the master band list (_HF_BANDS) to include and correctly
 #   name all bands for the ARRL Field Day contest, resolving a
-#   'not in list' error in report generation.
+#   [cite_start]'not in list' error in report generation. [cite: 78]
 ## [0.37.0-Beta] - 2025-08-17
 ### Added
 # - Added the `export_to_adif` method to generate a standard ADIF file
-#   for N1MM compatibility.
+#   [cite_start]for N1MM compatibility. [cite: 79]
 ## [0.36.1-Beta] - 2025-08-15
 ### Fixed
 # - Fixed a crash in `_determine_own_location_type` by using the correct
 #   dictionary key (`DXCCName`) instead of an attribute to access the
-#   country name.
+#   [cite_start]country name. [cite: 80]
 ## [0.36.0-Beta] - 2025-08-15
 ### Changed
 # - Refactored multiplier logic to support a `source_name_column` key in
-#   JSON definitions, allowing for flexible mapping of multiplier names.
+#   [cite_start]JSON definitions, allowing for flexible mapping of multiplier names. [cite: 81]
 ## [0.32.4-Beta] - 2025-08-12
 ### Fixed
 # - Replaced the fillna() loop with the native `na_rep` parameter in the
-#   to_csv() call to prevent all future downcasting warnings.
+#   [cite_start]to_csv() call to prevent all future downcasting warnings. [cite: 82]
 from typing import List
 import pandas as pd
 import numpy as np
@@ -485,6 +491,13 @@ class ContestLog:
             return
             
         df_to_export = self.qsos_df.copy()
+
+        # --- Add per-second offset to identical timestamps for N1MM compatibility ---
+        if 'Datetime' in df_to_export.columns and not df_to_export.empty:
+            offsets = df_to_export.groupby('Datetime').cumcount()
+            time_deltas = pd.to_timedelta(offsets, unit='s')
+            df_to_export['Datetime'] = df_to_export['Datetime'] + time_deltas
+            df_to_export.sort_values(by='Datetime', inplace=True)
 
         # --- ADIF Helper Functions ---
         def adif_format(tag: str, value: Any) -> str:
