@@ -1,4 +1,3 @@
---- FILE: contest_tools/contest_log.py ---
 # Contest Log Analyzer/contest_tools/contest_log.py
 #
 # Purpose: Defines the ContestLog class, which manages the ingestion, processing,
