@@ -1,8 +1,8 @@
 # Contest Log Analyzer/contest_tools/adif_exporters/iaru_hf_adif.py
 #
 # Author: Gemini AI
-# Date: 2025-08-30
-# Version: 0.55.6-Beta
+# Date: 2025-08-31
+# Version: 0.56.27-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,11 +19,16 @@
 #          tag for HQ and Official station contacts.
 #
 # --- Revision History ---
+## [0.56.27-Beta] - 2025-08-31
+### Changed
+# - ADIF MODE tag is now correctly output as 'SSB' instead of 'PH'.
+### Removed
+# - Removed the APP_N1MM_MULT1 and APP_N1MM_MULT2 tags to align with
+#   N1MM Logger+ import requirements.
 ## [0.55.6-Beta] - 2025-08-30
 ### Changed
 # - Added the standard copyright and MPL 2.0 license block to the header
 #   to conform to project standards.
-
 import pandas as pd
 import numpy as np
 import os
@@ -59,7 +64,7 @@ def export_log(log: ContestLog, output_filepath: str):
     adif_records: List[str] = []
     adif_records.append("ADIF Export from Contest-Log-Analyzer\n")
     adif_records.append(f"<PROGRAMID:22>Contest-Log-Analyzer\n")
-    adif_records.append(f"<PROGRAMVERSION:11>0.55.6-Beta\n")
+    adif_records.append(f"<PROGRAMVERSION:11>0.56.27-Beta\n")
     adif_records.append("<EOH>\n\n")
 
     for _, row in df_to_export.iterrows():
@@ -72,7 +77,12 @@ def export_log(log: ContestLog, output_filepath: str):
             record_parts.append(f"<TIME_ON:6>{row['Datetime'].strftime('%H%M%S')} ")
         if pd.notna(row.get('Band')):
             record_parts.append(adif_format('BAND', str(row.get('Band')).lower()))
-        record_parts.append(adif_format('MODE', row.get('Mode')))
+        
+        mode = row.get('Mode')
+        if mode == 'PH':
+            mode = 'SSB'
+        record_parts.append(adif_format('MODE', mode))
+        
         record_parts.append(adif_format('RST_RCVD', row.get('RST') or row.get('RS')))
         record_parts.append(adif_format('RST_SENT', row.get('SentRST') or row.get('SentRS')))
         record_parts.append(adif_format('CONTEST_ID', log.get_metadata().get('ContestName')))
@@ -93,9 +103,8 @@ def export_log(log: ContestLog, output_filepath: str):
             if pd.notna(mult_zone):
                 is_new = mult_zone not in seen_zones_per_band[band]
                 if is_new: seen_zones_per_band[band].add(mult_zone)
-                
+            
                 record_parts.append(adif_format('ITUZ', mult_zone))
-                if is_new: record_parts.append('<APP_N1MM_MULT1:1>1 ')
                 record_parts.append(adif_format('APP_CLA_MULT_ZONE', mult_zone))
                 if is_new: record_parts.append('<APP_CLA_MULT_ZONE_ISNEWMULT:1>1 ')
 
@@ -105,7 +114,6 @@ def export_log(log: ContestLog, output_filepath: str):
                 if is_new: seen_hq_officials_per_band[band].add(mult_hq)
                 
                 record_parts.append(adif_format('APP_N1MM_HQ', mult_hq))
-                if is_new: record_parts.append('<APP_N1MM_MULT2:1>1 ')
                 record_parts.append(adif_format('APP_CLA_MULT_HQ', mult_hq))
                 if is_new: record_parts.append('<APP_CLA_MULT_HQ_ISNEWMULT:1>1 ')
             
@@ -115,7 +123,6 @@ def export_log(log: ContestLog, output_filepath: str):
                 if is_new: seen_hq_officials_per_band[band].add(mult_official)
 
                 record_parts.append(adif_format('APP_N1MM_HQ', mult_official))
-                if is_new: record_parts.append('<APP_N1MM_MULT2:1>1 ')
                 record_parts.append(adif_format('APP_CLA_MULT_OFFICIAL', mult_official))
                 if is_new: record_parts.append('<APP_CLA_MULT_OFFICIAL_ISNEWMULT:1>1 ')
 
