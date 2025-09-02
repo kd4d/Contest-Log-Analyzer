@@ -2,7 +2,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-09-01
-# Version: 0.57.3-Beta
+# Version: 0.57.13-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,6 +19,10 @@
 #          tag for HQ and Official station contacts.
 #
 # --- Revision History ---
+## [0.57.13-Beta] - 2025-09-01
+### Changed
+# - Changed the ADIF timestamp offset for identical timestamps to a
+#   configurable 5-second parameter.
 ## [0.57.3-Beta] - 2025-09-01
 ### Fixed
 # - Added logic to add a per-second offset to QSOs with identical timestamps,
@@ -41,6 +45,8 @@ from typing import Dict, Any, Set, List
 
 from ..contest_log import ContestLog
 
+_TIMESTAMP_OFFSET_SECONDS = 5
+
 def export_log(log: ContestLog, output_filepath: str):
     """
     Generates a contest-specific ADIF file for an IARU HF Championship log.
@@ -56,7 +62,7 @@ def export_log(log: ContestLog, output_filepath: str):
     # --- Add per-second offset to identical timestamps for N1MM compatibility ---
     if 'Datetime' in df_to_export.columns and not df_to_export.empty:
         offsets = df_to_export.groupby('Datetime').cumcount()
-        time_deltas = pd.to_timedelta(offsets, unit='s')
+        time_deltas = pd.to_timedelta(offsets * _TIMESTAMP_OFFSET_SECONDS, unit='s')
         df_to_export['Datetime'] = df_to_export['Datetime'] + time_deltas
         df_to_export.sort_values(by='Datetime', inplace=True)
     
