@@ -6,10 +6,14 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-26
-# Version: 0.51.6-Beta
+# Date: 2025-08-31
+# Version: 0.56.5-Beta
 #
 # --- Revision History ---
+# ## [0.56.5-Beta] - 2025-08-31
+# ### Fixed
+# - Updated band sorting logic to use the refactored _HAM_BANDS
+#   variable from the ContestLog class, fixing an AttributeError.
 # ## [0.51.6-Beta] - 2025-08-26
 # ### Changed
 # - Refactored width calculation to apply a single min-width to the
@@ -63,13 +67,11 @@ class Report(ContestReport):
         """
         if len(self.logs) < 2:
             return f"Report '{self.report_name}' requires at least two logs. Skipping."
-
         all_calls = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])
         aggregated_data = self._aggregate_data(self.logs)
 
         if not aggregated_data:
             return "No data available to generate the report."
-
         if kwargs.get("debug_data", False):
             debug_filename = f"{self.report_id}_{'_vs_'.join(all_calls)}_debug.txt"
             save_debug_data(True, output_path, aggregated_data, debug_filename)
@@ -105,7 +107,7 @@ class Report(ContestReport):
         
         all_dfs = [get_valid_dataframe(log, False) for log in logs]
         all_bands_in_logs = pd.concat([df['Band'] for df in all_dfs if not df.empty]).dropna().unique()
-        canonical_band_order = [band[1] for band in ContestLog._HF_BANDS]
+        canonical_band_order = [band[1] for band in ContestLog._HAM_BANDS]
         sorted_bands = sorted(list(all_bands_in_logs), key=lambda b: canonical_band_order.index(b) if b in canonical_band_order else -1)
 
         # --- Calculate Per-Band Data ---
@@ -200,7 +202,7 @@ class Report(ContestReport):
 
         report_order = ["All Bands"] + sorted(
             [b for b in aggregated_data.keys() if b != "All Bands"],
-            key=lambda b: [band[1] for band in ContestLog._HF_BANDS].index(b) if b in [band[1] for band in ContestLog._HF_BANDS] else -1
+            key=lambda b: [band[1] for band in ContestLog._HAM_BANDS].index(b) if b in [band[1] for band in ContestLog._HAM_BANDS] else -1
         )
 
         all_tables_html = ""

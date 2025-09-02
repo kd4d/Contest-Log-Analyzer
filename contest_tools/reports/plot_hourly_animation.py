@@ -1,10 +1,11 @@
 # Contest Log Analyzer/contest_tools/reports/plot_hourly_animation.py
 #
-# Version: 0.38.2-Beta
-# Date: 2025-08-18
+# Version: 0.56.25-Beta
+# Date: 2025-08-31
 #
 # Purpose: A plot report that generates a series of hourly images and compiles
-#          them into an animated video showing contest progression. It also
+#          them into an animated video showing contest progression.
+#          It also
 #          creates a standalone interactive HTML version of the chart.
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
@@ -16,6 +17,15 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.56.25-Beta] - 2025-08-31
+### Fixed
+# - Replaced the cleanup logic with a resilient 10-second retry loop to
+#   prevent a PermissionError race condition when deleting temp files.
+# - Downgraded the final cleanup failure message from an error to a warning.
+## [0.56.8-Beta] - 2025-08-31
+### Fixed
+# - Updated band sorting logic to use the refactored _HAM_BANDS
+#   variable from the ContestLog class, fixing an AttributeError.
 ## [0.38.2-Beta] - 2025-08-18
 ### Fixed
 # - Corrected a TypeError in the animation's debug data generation by
@@ -74,6 +84,8 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import matplotlib.gridspec as gridspec
 import colorsys
+import time
+import errno
 from typing import List, Dict
 
 from ..contest_log import ContestLog
@@ -188,7 +200,7 @@ class Report(ContestReport):
         if all_cum_per_band_dfs:
             final_band_totals = pd.concat([df.iloc[[-1]] for df in all_cum_per_band_dfs])
             if not final_band_totals.empty:
-                bands = sorted(combined_df['Band'].unique(), key=lambda b: [band[1] for band in ContestLog._HF_BANDS].index(b))
+                bands = sorted(combined_df['Band'].unique(), key=lambda b: [band[1] for band in ContestLog._HAM_BANDS].index(b))
                 max_val = 0
                 for band in bands:
                     band_cols = [col for col in final_band_totals.columns if col[0] == band]
@@ -373,7 +385,18 @@ class Report(ContestReport):
         except Exception as e:
             logging.error(f"Failed to create video file. Ensure ffmpeg is installed. Error: {e}")
         finally:
-            shutil.rmtree(frame_dir)
+            # Resilient cleanup to handle race condition with ffmpeg file locks
+            for i in range(10):
+                try:
+                    shutil.rmtree(frame_dir)
+                    break 
+                except OSError as e:
+                    if e.errno == errno.EACCES and i < 9:
+                        time.sleep(1)
+                        continue
+                    else:
+                        logging.warning(f"Could not remove temp frame directory '{frame_dir}': {e}")
+                        break
 
     def _generate_interactive_html(self, data: Dict, output_path: str):
         logging.info("Interactive HTML generation is planned but not yet implemented in this version.")

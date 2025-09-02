@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-27
-# Version: 0.49.3-Beta
+# Date: 2025-08-31
+# Version: 0.56.26-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0.
 # --- Revision History ---
+## [0.56.26-Beta] - 2025-08-31
+### Fixed
+# - Added the missing `custom_adif_exporter` property to the class,
+#   allowing the log manager to correctly trigger custom ADIF exporters.
 ## [0.49.3-Beta] - 2025-08-27
 ### Added
 # - Added the `is_naqp_ruleset` property to expose the new JSON key.
@@ -157,6 +161,10 @@ class ContestDefinition:
     @property
     def custom_multiplier_resolver(self) -> Optional[str]:
         return self._data.get('custom_multiplier_resolver')
+
+    @property
+    def custom_adif_exporter(self) -> Optional[str]:
+        return self._data.get('custom_adif_exporter')
 
     @property
     def contest_period(self) -> Optional[Dict[str, str]]:

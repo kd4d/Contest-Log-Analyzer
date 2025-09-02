@@ -1,10 +1,13 @@
 # Git Feature Branch Workflow
 
-**Version: 0.40.11-Beta**
-**Date: 2025-08-24**
+**Version: 0.56.28-Beta**
+**Date: 2025-09-01**
 
 ---
 ### --- Revision History ---
+## [0.56.28-Beta] - 2025-09-01
+### Added
+# - Added a subsection to Section 9 to explain the `git branch -a` command.
 ## [0.40.11-Beta] - 2025-08-24
 ### Added
 # - Added a new subsection to "Managing Files" explaining how to view a
@@ -32,8 +35,9 @@
 # - Added Section 8 to explain file management with `.gitignore` and `git rm`.
 ---
 
-The feature branch workflow is a standard practice that keeps your `master` branch clean and stable. It lets you work on new features in an isolated environment without affecting the main codebase. Once a feature is complete and tested, it's merged back into `master`. The Git commands are the same whether you're using Windows Shell (Command Prompt, PowerShell) or a Bash shell.
+The feature branch workflow is a standard practice that keeps your `master` branch clean and stable. It lets you work on new features in an isolated environment without affecting the main codebase. Once a feature is complete and tested, it's merged back into `master`.
 
+The Git commands are the same whether you're using Windows Shell (Command Prompt, PowerShell) or a Bash shell.
 ***
 
 ## 1. Start from `master`
@@ -51,7 +55,9 @@ git pull
 
 ## 2. Create and Switch to a Feature Branch
 
-Now, you'll create a new branch for your feature. Branch names should be short and descriptive, like `login-form` or `user-profile-page`. This command creates a **new branch** and **immediately switches** to it.
+Now, you'll create a new branch for your feature. Branch names should be short and descriptive, like `login-form` or `user-profile-page`.
+
+This command creates a **new branch** and **immediately switches** to it.
 ```
 # The -c flag stands for "create"
 git switch -c new-feature-name
@@ -63,7 +69,9 @@ git switch -c new-feature-name
 
 ## 3. Develop the Feature: Add and Commit
 
-This is where you'll do your work—writing code, adding files, and fixing bugs. As you complete small, logical chunks of work, you should **commit** them. The process for each commit is the same:
+This is where you'll do your work—writing code, adding files, and fixing bugs. As you complete small, logical chunks of work, you should **commit** them.
+
+The process for each commit is the same:
 1.  **Stage** your changes (`git add`).
 2.  **Commit** them with a clear message (`git commit`).
 ```
@@ -77,7 +85,6 @@ git commit -m "feat: Add user login form component"
 ```
 
 You can (and should) have many commits on your feature branch. Committing often creates a clear history of your work and makes it easier to undo changes if something goes wrong.
-
 ***
 
 ## 4. Keep Your Branch Synced (Optional but Recommended)
@@ -92,7 +99,6 @@ git rebase origin/master
 ```
 
 The **`rebase`** command keeps your project history clean and linear.
-
 ***
 
 ## 5. Merge Your Feature into `master`
@@ -110,7 +116,6 @@ git merge --no-ff new-feature-name
 ```
 
 Using **`--no-ff`** (no fast-forward) is a crucial best practice. It creates a "merge commit" that ties the history of your feature branch together.
-
 ***
 
 ## 6. Push and Clean Up
@@ -128,7 +133,6 @@ git push origin --delete new-feature-name
 ```
 
 That's the complete lifecycle! 🚀 You've successfully created a feature, developed it in isolation, and safely merged it into the main project.
-
 ---
 ## 7. Correcting Mistakes (`git revert`)
 
@@ -145,7 +149,6 @@ git revert a1b2c3d4
 
 ### Ignoring Untracked Files (`.gitignore`)
 The best way to handle files that should *never* be in the repository (like build artifacts or log files) is to use a `.gitignore` file.
-
 ### Removing Tracked Files (`git rm`)
 If you have already committed a file that you now want to delete, you must use `git rm`. This command removes the file from both your working directory and Git's tracking index.
 ```
@@ -163,10 +166,8 @@ If you have made changes to a file in your working directory that you have **not
 git restore path/to/your/file.js
 ```
 **Warning:** This is a destructive operation. Once you restore the file, your local changes are gone permanently.
-
 ### Viewing File History and Changes
 To inspect how a specific file has changed over time, you can use variations of `git log` and `git show`.
-
 * **See the commit history for one file:**
 ```
 git log -- path/to/your/file.ext
@@ -201,6 +202,14 @@ git log --graph --oneline --all
 * `--all`: Shows the history of all branches.
 This is so useful that many developers create a global Git alias for it, like `git lg`.
 
+### Listing Branches
+To see a simple list of all local and remote-tracking branches without the commit history, use `git branch -a`.
+
+```
+git branch -a
+```
+
+* `-a`: Shows all branches, including those that only exist on the remote repository.
 ---
 ## 10. Pushing a Feature Branch
 
@@ -211,7 +220,6 @@ git push -u origin new-feature-name
 ```
 
 After running this once, you can simply use `git push` from that branch in the future.
-
 ---
 ## 11. Handling Merge & Rebase Conflicts
 
@@ -236,7 +244,6 @@ The resolution process is similar for both:
     * If you were merging: `git commit`
     * If you were rebasing: `git rebase --continue`
     * **If a rebase goes wrong, you can always cancel it safely with `git rebase --abort`**. This will return you to the state before the rebase began.
-
 ---
 ## 12. Temporarily Saving Changes (`git stash`)
 
@@ -255,12 +262,10 @@ git stash pop
 
 * `git stash pop` applies the most recent stash and removes it from your stash list.
 * `git stash list` shows all of your saved stashes.
-
 ---
 ## 13. Cleaning Up Commits
 
 Before you merge your feature branch, it's good practice to clean up your commit history.
-
 ### Amending the Last Commit (`git commit --amend`)
 If you just made a commit and realized you had a typo in the message or forgot to include a file, you can easily fix it with `--amend`.
 ```
@@ -271,7 +276,6 @@ git add path/to/forgotten-file.js
 git commit --amend
 ```
 This will open your editor to let you change the commit message. The new changes will be added to the same commit.
-
 ### Interactive Rebase (`git rebase -i`)
 Interactive rebase is a powerful tool for rewriting history. You can use it to **squash** multiple small commits into a single larger one, **reword** commit messages, and **reorder** commits.
 ```
@@ -279,7 +283,6 @@ Interactive rebase is a powerful tool for rewriting history. You can use it to *
 git rebase -i origin/master
 ```
 This command opens an editor with a list of your branch's commits. You can change the command next to each commit (e.g., from `pick` to `squash` or `reword`) to clean up your history before it's merged.
-
 ---
 ## 14. Tagging a Release
 

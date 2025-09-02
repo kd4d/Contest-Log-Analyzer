@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-26
-# Version: 0.52.15-Beta
+# Date: 2025-08-31
+# Version: 0.56.4-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,6 +16,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.56.4-Beta] - 2025-08-31
+### Fixed
+# - Updated the band sorting logic to use the refactored _HAM_BANDS
+#   variable from the ContestLog class, fixing an AttributeError.
 ## [0.52.15-Beta] - 2025-08-26
 ### Changed
 # - Updated the report title to conform to the new mandatory
@@ -148,7 +152,7 @@ class Report(ContestReport):
         
         # --- Get active bands from data and sort them ---
         active_bands_set = set(df1_full['Band'].unique()) | set(df2_full['Band'].unique())
-        canonical_band_order = [band[1] for band in ContestLog._HF_BANDS]
+        canonical_band_order = [band[1] for band in ContestLog._HAM_BANDS]
         active_bands = sorted(list(active_bands_set), key=lambda b: canonical_band_order.index(b) if b in canonical_band_order else -1)
 
         if not active_bands:

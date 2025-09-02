@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-26
-# Version: 0.52.7-Beta
+# Date: 2025-09-01
+# Version: 0.57.12-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,24 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.57.12-Beta] - 2025-09-01
+### Changed
+# - Changed the ADIF timestamp offset for identical timestamps to a
+#   configurable 5-second parameter.
+## [0.57.2-Beta] - 2025-09-01
+### Fixed
+# - Added logic to the generic `export_to_adif` method to add a per-second
+#   offset to QSOs with identical timestamps, preventing multiplier
+#   double-counting errors in N1MM Logger+.
+## [0.56.23-Beta] - 2025-08-31
+### Fixed
+# - Corrected the frequency validation logic to properly handle VHF/UHF
+#   QSOs logged with a band designator instead of a numeric frequency,
+#   preventing them from being incorrectly rejected.
+## [0.56.6-Beta] - 2025-08-31
+### Changed
+# - Renamed the internal _HF_BANDS variable to _HAM_BANDS to reflect
+#   that it includes VHF/UHF bands, resolving a refactoring error.
 ## [0.52.7-Beta] - 2025-08-26
 ### Changed
 # - Updated the "invalid frequency" warning to include the full, original
@@ -91,8 +109,9 @@ class ContestLog:
     """
     High-level broker class to manage a single amateur radio contest log.
     """
-
-    _HF_BANDS = [
+    _ADIF_TIMESTAMP_OFFSET_SECONDS = 5
+    
+    _HAM_BANDS = [
         (( 1800.,  2000.), '160M'),
         (( 3500.,  4000.), '80M'),
         (( 7000.,  7300.), '40M'),
@@ -114,7 +133,7 @@ class ContestLog:
         if pd.isna(frequency_khz):
             return 'Invalid'
         frequency_int = int(frequency_khz)
-        for band_range, band_name in ContestLog._HF_BANDS:
+        for band_range, band_name in ContestLog._HAM_BANDS:
             if band_range and (band_range[0] <= frequency_int <= band_range[1]):
                 return band_name
         return 'Invalid'
@@ -164,7 +183,12 @@ class ContestLog:
         raw_df['Frequency'] = pd.to_numeric(raw_df.get('FrequencyRaw'), errors='coerce')
 
         for idx, row in raw_df.iterrows():
-            if self.band_allocator.is_frequency_valid(row['Frequency']):
+            freq_val = row['Frequency']
+            band_val = row.get('Band')
+
+            # A QSO is valid if it has a valid frequency OR if it has a band but no numeric frequency.
+            if (pd.notna(freq_val) and self.band_allocator.is_frequency_valid(freq_val)) or \
+               (pd.isna(freq_val) and pd.notna(band_val)):
                 validated_qso_records.append(row.to_dict())
             else:
                 rejected_qso_count += 1
@@ -471,6 +495,13 @@ class ContestLog:
             return
             
         df_to_export = self.qsos_df.copy()
+
+        # --- Add per-second offset to identical timestamps for N1MM compatibility ---
+        if 'Datetime' in df_to_export.columns and not df_to_export.empty:
+            offsets = df_to_export.groupby('Datetime').cumcount()
+            time_deltas = pd.to_timedelta(offsets * self._ADIF_TIMESTAMP_OFFSET_SECONDS, unit='s')
+            df_to_export['Datetime'] = df_to_export['Datetime'] + time_deltas
+            df_to_export.sort_values(by='Datetime', inplace=True)
 
         # --- ADIF Helper Functions ---
         def adif_format(tag: str, value: Any) -> str:

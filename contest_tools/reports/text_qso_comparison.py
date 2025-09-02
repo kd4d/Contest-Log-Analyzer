@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-16
-# Version: 0.37.3-Beta
+# Date: 2025-08-31
+# Version: 0.56.9-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.56.9-Beta] - 2025-08-31
+### Fixed
+# - Updated band sorting logic to use the refactored _HAM_BANDS
+#   variable from the ContestLog class, fixing an AttributeError.
 ## [0.37.3-Beta] - 2025-08-16
 ### Changed
 # - Re-formatted the unique QSO breakdown into separate, right-aligned
@@ -69,7 +73,7 @@ class Report(ContestReport):
         if df1.empty or df2.empty:
             return f"Skipping '{self.report_name}': At least one log has no valid QSOs."
 
-        canonical_band_order = [band[1] for band in ContestLog._HF_BANDS]
+        canonical_band_order = [band[1] for band in ContestLog._HAM_BANDS]
         all_bands_in_logs = pd.concat([df1['Band'], df2['Band']]).unique()
         bands = sorted(all_bands_in_logs, key=lambda b: canonical_band_order.index(b) if b in canonical_band_order else -1)
         

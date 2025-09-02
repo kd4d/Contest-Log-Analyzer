@@ -1,10 +1,46 @@
-# Project Workflow Guide
+# AIAgentWorkflow.md
 
-**Version: 0.52.22-Beta**
-**Date: 2025-08-27**
+**Version: 0.57.1-Beta**
+**Date: 2025-09-01**
 
 ---
 ### --- Revision History ---
+## [0.57.1-Beta] - 2025-09-01
+### Changed
+# - Clarified Protocol 3.2.1 to explicitly state that "bundles" are
+#   only for user-to-AI state initializations.
+# - Updated Protocol 3.2.5 to define the precise, literal pattern
+#   for citation tags and to note that it does not include backticks.
+## [0.57.0-Beta] - 2025-09-01
+### Changed
+# - Renamed file from WorkingwithGemini.md to AIAgentWorkflow.md to
+#   clarify its purpose as the AI's technical specification.
+# - Updated the introduction to reference the new WorkflowUserGuide.md.
+## [0.56.31-Beta] - 2025-09-01
+### Added
+# - Added Protocol 7.6 (Systemic Bug Eradication Protocol) to formalize
+#   the process of auditing for and fixing systemic bugs.
+# - Added a rule to Protocol 3.2 requiring the removal of all internal
+#   citation tags from delivered documents.
+### Changed
+# - Rewrote Protocol 2.9.1 to align the documentation delivery workflow
+#   with the code delivery workflow, concluding the task after the user's
+#   "Acknowledged" response.
+# - Removed all internal [cite] tags from the document content.
+## [0.55.13-Beta] - 2025-08-31
+### Changed
+# - Updated Protocol 2.9.1 to require a final user acknowledgment
+#   after a documentation file (.md) has been delivered.
+## [0.55.7-Beta] - 2025-08-30
+### Added
+# - Added Principle 11 ("The Log is the Ground Truth") to clarify how to
+#   handle factually incorrect data within a log file.
+# - Added Protocol 3.7 (Temporary Column Preservation Protocol) to prevent
+#   the accidental deletion of intermediate data columns during processing.
+# - Added Protocol 5.6 (Custom ADIF Exporter Protocol) to formalize the
+#   new, pluggable architecture for contest-specific ADIF generation.
+### Changed
+# - Renumbered subsequent principles in Part I.
 ## [0.52.22-Beta] - 2025-08-27
 ### Changed
 # - Revised Protocol 5.4 to recommend `prettytable` for complex,
@@ -159,13 +195,16 @@
 #   documents that require no changes.
 ---
 
-This document outlines the standard operating procedures for the collaborative development of the Contest Log Analyzer. **The primary audience for this document is the Gemini AI agent.**
+This document is the definitive technical specification for the AI agent's behavior and the standard operating procedures for the collaborative development of the Contest Log Analyzer.
 
-**Its core purpose is to serve as a persistent set of rules and context.** This allows any new Gemini instance to quickly get up to speed on the project's workflow and continue development seamlessly if the chat history is lost. Adhering to this workflow ensures consistency and prevents data loss.
+**The primary audience for this document is the Gemini AI agent.** It is a machine-readable set of rules and protocols.
+
+For a narrative, human-focused explanation of this workflow, please see `Docs/WorkflowUserGuide.md`.
 ---
 ## Part I: Core Principles
 
 These are the foundational rules that govern all interactions and analyses.
+
 1.  **Context Integrity is Absolute.** The definitive project state is established by the baseline `*_bundle.txt` files and evolves with every acknowledged file change. Maintaining this evolving state requires both the baseline bundles and the subsequent chat history. If I detect that the baseline `*_bundle.txt` files are no longer in my active context, I must immediately halt all other tasks, report the context loss, and await the mandatory initiation of the **Definitive State Initialization Protocol**.
 2.  **Protocol Adherence is Paramount.** All protocols must be followed with absolute precision. Failure to do so invalidates the results and undermines the development process. There is no room for deviation unless a deviation is explicitly requested by the AI and authorized by the user.
 3.  **Trust the User's Diagnostics.** When the user reports a bug or a discrepancy, their description of the symptoms and their corrections should be treated as the ground truth. The AI's primary task is to find the root cause of those specific, observed symptoms, not to propose alternative theories.
@@ -176,9 +215,10 @@ These are the foundational rules that govern all interactions and analyses.
 8.  **Reports Must Be Non-Destructive.** Specialist report scripts must **never** modify the original `ContestLog` objects they receive. All data filtering or manipulation must be done on a temporary **copy** of the DataFrame.
 9.  **Principle of Surgical Modification.** All file modifications must be treated as surgical operations. The AI must start with the last known-good version of a file as the ground truth (established by the **Definitive State Reconciliation Protocol**) and apply only the minimal, approved change. Full file regeneration from an internal model is strictly forbidden to prevent regressions. **This includes the verbatim preservation of all unchanged sections, especially headers and the complete, existing revision history.** This principle explicitly forbids stylistic refactoring (e.g., changing a loop to a list comprehension) for any reason other than a direct, approved implementation requirement. Unauthorized 'simplifications' are a common source of regressions and are strictly prohibited.
 10. **Primacy of Official Rules.** The AI will place the highest emphasis on analyzing the specific data, context, and official rules provided, using them as the single source of truth.
-11. **Citation of Official Rules.** When researching contest rules, the AI will prioritize finding and citing the **official rules from the sponsoring organization**.
-12. **Uniqueness of Contest Logic.** Each contest's ruleset is to be treated as entirely unique. Logic from one contest must **never** be assumed to apply to another.
-13. **Classify Ambiguity Before Action.** When the AI discovers a conflict between the data (e.g., in a `.dat` or `.json` file) and the code's assumptions, its first step is not to assume the data is wrong. It must present the conflict to the user and ask for a ruling:
+11. **The Log is the Ground Truth.** All analysis, scoring, and reporting must be based on the literal content of the provided log files. The analyzer's function is not to correct potentially erroneous data (e.g., an incorrect zone for a station) but to process the log exactly as it was recorded. Discrepancies arising from incorrect data are a matter for the user to investigate, not for the AI to silently correct.
+12. **Citation of Official Rules.** When researching contest rules, the AI will prioritize finding and citing the **official rules from the sponsoring organization**.
+13. **Uniqueness of Contest Logic.** Each contest's ruleset is to be treated as entirely unique. Logic from one contest must **never** be assumed to apply to another.
+14. **Classify Ambiguity Before Action.** When the AI discovers a conflict between the data (e.g., in a `.dat` or `.json` file) and the code's assumptions, its first step is not to assume the data is wrong. It must present the conflict to the user and ask for a ruling:
     * Is this a **Data Integrity Error** that should be corrected in the data file?
     * Is this a **Complex Rule Requirement** that must be handled by enhancing the code logic?
 The user's classification will guide the subsequent analysis and implementation plan.
@@ -252,17 +292,18 @@ This workflow is a formal state machine that governs all development tasks, from
 2.8. **Execution**: Upon approval, the AI will proceed with the **Confirmed File Delivery Protocol (4.4)**.
 2.8.1. **Post-Execution Refinement Protocol.** If a user acknowledges a file delivery but subsequently reports that the fix is incomplete or incorrect, the task is not considered complete. The workflow immediately returns to **Protocol 2.2 (Analysis and Discussion)**. This initiates a new analysis loop within the context of the original task, culminating in a new implementation plan to address the remaining issues. The task is only complete after **Protocol 2.9 (Propose Verification Command)** is successfully executed for the *final, correct* implementation.
 2.9. **Propose Verification Command**: After the final file in an implementation plan has been delivered and acknowledged by the user, the AI's final action for the task is to propose the specific command-line instruction(s) the user should run to verify that the bug has been fixed or the feature has been implemented correctly.
-    **2.9.1: Task Type Verification.** This protocol applies **only** if the final file modified was a code or data file (e.g., `.py`, `.json`, `.dat`). If the final file was a documentation or text file (e.g., `.md`), a verification command is not applicable. In this case, the AI's final action will be to state that the documentation update is complete, thus successfully concluding the task.
+**2.9.1: Task Type Verification.** This protocol applies **only** if the final file modified was a code or data file (e.g., `.py`, `.json`, `.dat`). If the final file was a documentation or text file (e.g., `.md`), a verification command is not applicable. The task is successfully concluded once the user provides the standard 'Acknowledged' response for the final documentation file delivered as part of the implementation plan.
 ### 3. File and Data Handling
 
 3.1. **Project File Input.** All project source files and documentation will be provided for updates in a single text file called a **project bundle**, or pasted individually into the chat. The bundle uses a simple text header to separate each file: `--- FILE: path/to/file.ext ---`
 3.2. **AI Output Format.** When the AI provides updated files, it must follow these rules to ensure data integrity.
-    1.  **Single File Per Response**: Only one file will be delivered in a single response.
+    1.  **Single File Per Response**: Only one file will be delivered in a single response. The "bundle" terminology (e.g., `project_bundle.txt`) refers exclusively to the user-provided files used for a Definitive State Initialization; all file deliveries from the AI are strictly individual.
     2.  **Raw Source Text**: The content inside the delivered code block must be the raw source text of the file.
     3.  **Code File Delivery**: For code files (e.g., `.py`, `.json`), the content will be delivered in a standard fenced code block with the appropriate language specifier.
     4.  **Markdown File Delivery**: To prevent the user interface from rendering markdown and to provide a "Copy" button, the entire raw content of a documentation file (`.md`) must be delivered inside a single, plaintext-specified code block.
         * **Internal Code Fences**: Any internal markdown code fences (__CODE_BLOCK__) must be replaced with the `__CODE_BLOCK__` placeholder.
         * **Clarification**: This substitution is a requirement of the AI's web interface. The user will provide files back with standard markdown fences (`__CODE_BLOCK__`), which is the expected behavior.
+    5.  **Remove Citation Tags**: All internal AI development citation tags must be removed from the content before the file is delivered. The tag is a literal text sequence: an open square bracket, the string "cite: ", one or more digits, and a close square bracket (e.g.,). This pattern does not include Markdown backticks.
 3.3. **File and Checksum Verification.**
     1.  **Line Endings:** The user's file system uses Windows CRLF (`\r\n`). The AI must correctly handle this conversion when calculating checksums.
     2.  **Concise Reporting:** The AI will either state that **all checksums agree** or will list the **specific files that show a mismatch**.
@@ -283,6 +324,7 @@ This workflow is a formal state machine that governs all development tasks, from
     2.  **Confirmation**: The AI will state which file(s) are targeted for removal and ask for explicit confirmation to proceed.
     3.  **Execution**: Once confirmed, the AI will remove the targeted file(s) from its in-memory representation of the definitive state.
     4.  **Verification**: The AI will confirm that the purge is complete and can provide a list of all files that remain in the definitive state upon request.
+3.7. **Temporary Column Preservation Protocol.** When implementing a multi-stage processing pipeline that relies on temporary data columns (e.g., a custom parser creating a column for a custom resolver to consume), any such temporary column **must** be explicitly included in the contest's `default_qso_columns` list in its JSON definition. The `contest_log.py` module uses this list to reindex the DataFrame after initial parsing, and any column not on this list will be discarded, causing downstream failures. This is a critical data integrity step in the workflow.
 ### 4. Communication
 
 4.1. **Communication Protocol.** All AI communication will be treated as **technical writing**. The AI must use the exact, consistent terminology from the source code and protocols.
@@ -321,13 +363,16 @@ These protocols describe specific, named patterns for implementing features in t
 5.4. **Text Table Generation Protocol.** This protocol governs the creation of text-based tables in reports, recommending the appropriate tool for the job.
     1.  **For Complex Reports, Use `prettytable`**: For any report that requires a fixed-width layout, precise column alignment, or the alignment and "stitching" of multiple tables, the **`prettytable`** library is the required standard. It offers direct, programmatic control over column widths and properties, which is essential for complex layouts.
     2.  **For Simple Reports, Use `tabulate`**: For reports that require only a single, standalone table where complex alignment with other elements is not a concern, the simpler **`tabulate`** library is a suitable alternative.
-    
 5.5. **Component Modernization Protocol.** This protocol is used to replace a legacy component (e.g., a report, a utility) with a modernized version that uses a new technology or methodology.
     1.  **Initiation**: During a **Technical Debt Cleanup Sprint**, the user or AI will identify a legacy component for modernization.
     2.  **Implementation**: An implementation plan will be created for a new module that replicates the functionality of the legacy component using the modern technology (e.g., a new report using the `plotly` library).
     3.  **Verification**: After the modernized component is approved and acknowledged, the user will run both the legacy and new versions. The AI will be asked to confirm that their outputs are functionally identical and that the new version meets all requirements.
     4.  **Deprecation**: Once the modernized component is verified as a complete replacement, the user will initiate the **File Purge Protocol (3.6)** to remove the legacy component from the definitive state.
     5.  **Example Application**: The migration of text-based reports from manual string formatting to the `tabulate` library (per Protocol 5.4) is a direct application of this modernization protocol.
+5.6. **Custom ADIF Exporter Protocol.** For contests requiring a highly specific ADIF output format for compatibility with external tools (e.g., N1MM).
+    1.  **Activation**: A new key, `"custom_adif_exporter": "module_name"`, is added to the contest's `.json` file.
+    2.  **Hook**: The `log_manager.py` script detects this key and calls the specified module instead of the generic ADIF exporter.
+    3.  **Implementation**: The custom exporter module is placed in the new `contest_tools/adif_exporters/` directory and must contain an `export_log(log, output_filepath)` function.
 ---
 ## Part IV: Special Case & Recovery Protocols
 
@@ -367,7 +412,6 @@ These protocols are for troubleshooting, error handling, and non-standard situat
     1.  **Initiation:** The user provides a simplified, ground-truth data file (e.g., a JSON or text file containing only the essential data points).
     2.  **Prioritization:** The AI must treat this new file as the highest-priority source of truth for the specific data it contains.
     3.  **Analysis:** The AI will use the simplified file to debug its own logic and resolve the discrepancy. The goal is to make the primary analysis tool's output match the ground truth provided in the simplified file.
-
 ### 7. Miscellaneous Protocols
 
 7.1. **Technical Debt Cleanup Protocol.** When code becomes convoluted, a **Technical Debt Cleanup Sprint** will be conducted to refactor the code for clarity, consistency, and maintainability.
@@ -383,3 +427,9 @@ These protocols are for troubleshooting, error handling, and non-standard situat
     3.  **Analysis**: The AI must analyze *why* the tool is failing and identify the specific feature gap (e.g., "`tabulate` lacks a mechanism to enforce column widths on separate tables").
     4.  **Propose Alternatives**: The AI will research and propose one or two alternative tools that appear to have the required features, explaining how they would solve the specific problem.
     5.  **User Decision**: The user will make the final decision on whether to switch tools or attempt a different workaround.
+7.6. **Systemic Bug Eradication Protocol.** This protocol is triggered when a bug is suspected to be systemic (i.e., likely to exist in multiple, architecturally similar modules).
+    1.  **Initiation**: The AI or user identifies a bug as potentially systemic.
+    2.  **Define Pattern**: The specific bug pattern is clearly defined (e.g., "a parser using a generic key to look up a specific rule").
+    3.  **Identify Scope**: The AI will provide a complete list of all modules that follow the same architectural pattern and are therefore candidates for the same bug.
+    4.  **Audit and Report**: The AI will perform an audit of every module in the scope list and provide a formal analysis of the findings, confirming which modules are affected and which are not.
+    5.  **Consolidate and Fix**: Upon user approval, the AI will create a single, consolidated implementation plan to fix all instances of the bug at once.

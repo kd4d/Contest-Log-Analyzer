@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-18
-# Version: 0.38.0-Beta
+# Date: 2025-08-31
+# Version: 0.55.9-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.55.9-Beta] - 2025-08-31
+### Changed
+# - Updated band sorting logic to use the new, comprehensive `_HAM_BANDS`
+#   list from the ContestLog class.
 ## [0.38.0-Beta] - 2025-08-18
 ### Added
 # - Added call to the save_debug_data helper function to dump the source
@@ -102,7 +106,7 @@ class Report(ContestReport):
         
         bands_to_plot = valid_bands if is_single_band else ['All Bands'] + sorted(
             valid_bands,
-            key=lambda b: [band[1] for band in ContestLog._HF_BANDS].index(b)
+            key=lambda b: ContestLog._HAM_BANDS.index(b) if b in ContestLog._HAM_BANDS else -1
         )
         
         created_files = []

@@ -1,10 +1,9 @@
 # Contest Log Analyzer/contest_tools/contest_specific_annotations/naqp_parser.py
 #
-# Version: 0.52.12-Beta
-# Date: 2025-08-26
-#
-# Purpose: Provides a custom, contest-specific parser for the NAQP contest
-#          to handle its specific exchange format.
+# Author: Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
+# Date: 2025-08-31
+# Version: 0.56.22-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -14,96 +13,102 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+# Purpose: This module provides a custom parser for the North American QSO Party
+#          (NAQP) contests.
+#
 # --- Revision History ---
-## [0.52.12-Beta] - 2025-08-26
+## [0.56.22-Beta] - 2025-08-31
+### Fixed
+# - Added the `RawQSO` field to the parser's output to ensure it provides
+#   the necessary data for downstream diagnostic logging.
+## [0.56.16-Beta] - 2025-08-31
+### Fixed
+# - Corrected a logic error where the parser used a generic key to look
+#   up parsing rules. It now pre-scans the header to get the specific
+#   contest ID (e.g., NAQP-CW) and uses it to retrieve the correct rules.
+## [0.55.11-Beta] - 2025-08-31
 ### Changed
-# - Parser now includes the raw, cleaned QSO: line in its output
-#   under the 'RawQSO' key to support enhanced diagnostics.
-## [0.35.8-Beta] - 2025-08-13
-### Added
-# - Initial release of the custom parser for the NAQP contest to restore
-#   correct parsing functionality.
+# - Refactored to use the new, centralized `parse_qso_common_fields`
+#   helper from the main cabrillo_parser, eliminating duplicated logic.
+## [0.32.7-Beta] - 2025-08-12
+### Changed
+# - Updated regex to correctly handle single-digit reports (e.g., "59")
+#   in SSB logs, in addition to three-digit RSTs.
+## [0.32.1-Beta] - 2025-08-11
+# - Initial release of Version 0.32.1-Beta.
 import pandas as pd
 import re
-import logging
 from typing import Dict, Any, List, Tuple
+import os
+import logging
 
 from ..contest_definitions import ContestDefinition
+from ..cabrillo_parser import parse_qso_common_fields
 
 def parse_log(filepath: str, contest_definition: ContestDefinition) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """
-    Custom parser for the NAQP contest.
+    Custom parser for the North American QSO Party (NAQP) contest.
     """
     log_metadata: Dict[str, Any] = {}
     qso_records: List[Dict[str, Any]] = []
-    
-    # --- Step 1: Get the parsing rule for the specific contest mode ---
-    contest_name_from_log = ""
+
     try:
         with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
-            for i, line in enumerate(f):
-                if i > 30: break # Limit scan to header
-                line = line.strip().upper()
-                if line.startswith('CONTEST:'):
-                    contest_name_from_log = line.split(':', 1)[1].strip()
-                    break
-    except Exception:
-        pass
+            lines = f.readlines()
+    except Exception as e:
+        raise ValueError(f"Error reading Cabrillo file {filepath}: {e}")
 
-    if not contest_name_from_log:
-        raise ValueError(f"Could not find CONTEST: tag in header of {filepath}")
+    # --- Pre-scan header to determine the specific contest ID (e.g., NAQP-CW) ---
+    contest_id_from_header = ''
+    for line in lines[:30]:
+        if line.upper().startswith('CONTEST:'):
+            contest_id_from_header = line.split(':', 1)[1].strip()
+            log_metadata['ContestName'] = contest_id_from_header
+            break
+            
+    if not contest_id_from_header:
+        raise ValueError("CONTEST: tag not found in Cabrillo header.")
 
-    parsing_rule = contest_definition.exchange_parsing_rules.get(contest_name_from_log)
-    if not parsing_rule:
-        raise ValueError(f"Parsing rule for '{contest_name_from_log}' not found in JSON definition.")
-        
-    qso_regex = re.compile(parsing_rule['regex'])
-    qso_groups = parsing_rule['groups']
-    common_fields_regex = re.compile(contest_definition.qso_common_fields_regex)
+    rule_info = contest_definition.exchange_parsing_rules.get(contest_id_from_header)
+    if not rule_info:
+        raise ValueError(f"Parsing rule '{contest_id_from_header}' not found in JSON definition.")
 
-    # --- Step 2: Parse the file line-by-line ---
-    with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
-        lines = f.readlines()
+    exchange_regex = re.compile(rule_info.get('regex', ''))
+    exchange_groups = rule_info.get('groups', [])
 
     for line in lines:
-        sanitized_line = line.replace('\u00a0', ' ').strip()
-        if not sanitized_line:
+        cleaned_line = line.replace('\u00a0', ' ').strip()
+        line_to_process = cleaned_line.upper() if cleaned_line.upper().startswith('QSO:') else cleaned_line
+        
+        if not line_to_process or line_to_process.startswith(('END-OF-LOG:', 'START-OF-LOG:')):
             continue
-
-        line_to_process = sanitized_line
-        if sanitized_line.upper().startswith('QSO:'):
-            line_to_process = sanitized_line.upper()
             
         if line_to_process.startswith('QSO:'):
-            common_match = common_fields_regex.match(line_to_process)
-            if not common_match:
-                logging.warning(f"Skipping malformed QSO line: {line_to_process}")
+            common_data = parse_qso_common_fields(line_to_process)
+            if not common_data:
                 continue
+
+            exchange_rest = common_data.pop('ExchangeRest', '').strip()
             
-            common_data = dict(zip(contest_definition.qso_common_field_names, common_match.groups()))
-            exchange_rest = common_data.get('ExchangeRest','').strip()
-            
-            # For NAQP, the sent exchange is part of the "rest"
-            full_exchange_string = f"{common_data.get('MyCallRaw','')} {exchange_rest}"
-            
-            qso_match = qso_regex.match(full_exchange_string)
-            if qso_match:
-                qso_data = dict(zip(qso_groups, qso_match.groups()))
-                qso_data.update(common_data)
-                qso_data['RawQSO'] = line_to_process
-                qso_records.append(qso_data)
+            exchange_match = exchange_regex.match(exchange_rest)
+            if exchange_match:
+                exchange_data = dict(zip(exchange_groups, exchange_match.groups()))
+                common_data.update(exchange_data)
+                common_data['RawQSO'] = line_to_process
+                qso_records.append(common_data)
             else:
-                logging.warning(f"Skipping QSO line that did not match '{contest_name_from_log}' rule: {line_to_process}")
-        
-        elif not line_to_process.startswith('START-OF-LOG') and not line_to_process.startswith('END-OF-LOG'):
+                logging.warning(f"Skipping NAQP QSO line (unrecognized exchange): {line_to_process}")
+
+        else: # It's a header line
             for cabrillo_tag, df_key in contest_definition.header_field_map.items():
-                if line_to_process.upper().startswith(f"{cabrillo_tag}:"):
+                if line_to_process.startswith(f"{cabrillo_tag}:"):
                     value = line_to_process[len(f"{cabrillo_tag}:"):].strip()
                     log_metadata[df_key] = value
                     break
 
     if not qso_records:
-        raise ValueError(f"Custom parser found no valid QSO lines in Cabrillo file: {filepath}")
-
+        raise ValueError(f"No valid QSO lines found in Cabrillo file: {filepath}")
+    
     df = pd.DataFrame(qso_records)
     return df, log_metadata

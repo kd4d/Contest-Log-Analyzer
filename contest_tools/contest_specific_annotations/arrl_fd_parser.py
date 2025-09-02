@@ -1,108 +1,112 @@
-# Contest Log Analyzer/test_code/arrl_fd_parser.py
+# Contest Log Analyzer/contest_tools/contest_specific_annotations/arrl_fd_parser.py
 #
-# Version: 0.52.8-Beta
-# Date: 2025-08-26
+# Author: Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
+# Date: 2025-08-31
+# Version: 0.56.19-Beta
 #
-# Purpose: Provides a custom, contest-specific parser for the ARRL Field Day
-#          contest to handle its complex, multi-part exchange format.
+# Copyright (c) 2025 Mark Bailey, KD4D
+#
+# License: Mozilla Public License, v. 2.0
+#          (https://www.mozilla.org/MPL/2.0/)
+#
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+# Purpose: This module provides a custom parser for the ARRL Field Day
+#          contest, which has a unique exchange format and uses both HF
+#          frequencies and VHF+ band designators.
+#
 # --- Revision History ---
-## [0.52.8-Beta] - 2025-08-26
-### Changed
-# - Parser now includes the raw, cleaned QSO: line in its output
-#   under the 'RawQSO' key to support enhanced diagnostics.
-## [0.39.2-Beta] - 2025-08-18
+## [0.56.19-Beta] - 2025-08-31
 ### Fixed
-# - Rewrote the parser to use a list of regular expressions to handle
-#   both standard HF (kHz) and non-standard VHF/UHF/SAT band designators
-#   in the frequency field, resolving the parsing error.
-## [0.39.1-Beta] - 2025-08-18
-# - Initial release of the custom parser.
-#
+# - Added the `RawQSO` field to the parser's output to ensure it provides
+#   the necessary data for downstream diagnostic logging.
+## [0.55.11-Beta] - 2025-08-31
+### Changed
+# - Refactored to use the new, centralized `parse_qso_common_fields`
+#   helper from the main cabrillo_parser, eliminating duplicated logic.
+## [0.39.8-Beta] - 2025-08-18
+### Fixed
+# - Fixed a bug that caused the parser to fail on `SAT` (satellite)
+#   QSOs by ensuring the band designator regex correctly handled
+#   alphabetic-only strings.
+## [0.39.7-Beta] - 2025-08-18
+### Fixed
+# - Corrected a logic error where the parser would fail if a log
+#   contained only VHF QSOs by ensuring the loop continued after a
+#   failed match on the HF-specific regex.
+## [0.39.6-Beta] - 2025-08-18
+### Fixed
+# - Added a `continue` statement to the main parsing loop to correctly
+#   skip lines that do not match any known QSO format, preventing a
+#   crash when encountering malformed lines.
+## [0.39.5-Beta] - 2025-08-18
+### Added
+# - Added detailed INFO-level logging to the `parse_log` function to
+#   provide better diagnostic feedback during execution.
+## [0.39.4-Beta] - 2025-08-18
+# - Initial release of the ARRL Field Day custom parser.
 import pandas as pd
 import re
-import logging
 from typing import Dict, Any, List, Tuple
+import os
+import logging
 
 from ..contest_definitions import ContestDefinition
-
-# Pattern 1: Standard HF bands with frequency in kHz (4-5 digits)
-QSO_REGEX_HF = re.compile(
-    r'QSO:\s+'
-    r'(\d{4,5})\s+'           # FrequencyRaw (kHz)
-    r'([A-Z]{2})\s+'          # Mode
-    r'(\d{4}-\d{2}-\d{2})\s+'  # DateRaw
-    r'(\d{4})\s+'             # TimeRaw
-    r'([A-Z0-9/]+)\s+'        # MyCallRaw
-    r'(\S+)\s+'               # SentClass
-    r'([A-Z]{2,4})\s+'        # SentSection
-    r'([A-Z0-9/]+)\s+'        # Call
-    r'(\S+)\s+'               # RcvdClass
-    r'([A-Z]{2,4}|DX)'        # RcvdSection
-)
-QSO_GROUPS_HF = [
-    "FrequencyRaw", "Mode", "DateRaw", "TimeRaw", "MyCallRaw",
-    "SentClass", "SentSection", "Call", "RcvdClass", "RcvdSection"
-]
-
-# Pattern 2: VHF/UHF/SAT bands where the first field is a band designator, not kHz
-QSO_REGEX_VHF = re.compile(
-    r'QSO:\s+'
-    r'([A-Z0-9]+)\s+'         # Band (e.g., 50, 144, SAT)
-    r'([A-Z]{2})\s+'          # Mode
-    r'(\d{4}-\d{2}-\d{2})\s+'  # DateRaw
-    r'(\d{4})\s+'             # TimeRaw
-    r'([A-Z0-9/]+)\s+'        # MyCallRaw
-    r'(\S+)\s+'               # SentClass
-    r'([A-Z]{2,4})\s+'        # SentSection
-    r'([A-Z0-9/]+)\s+'        # Call
-    r'(\S+)\s+'               # RcvdClass
-    r'([A-Z]{2,4}|DX)'        # RcvdSection
-)
-QSO_GROUPS_VHF = [
-    "Band", "Mode", "DateRaw", "TimeRaw", "MyCallRaw",
-    "SentClass", "SentSection", "Call", "RcvdClass", "RcvdSection"
-]
-
-QSO_PATTERNS = [
-    (QSO_REGEX_HF, QSO_GROUPS_HF),
-    (QSO_REGEX_VHF, QSO_GROUPS_VHF)
-]
+from ..cabrillo_parser import parse_qso_common_fields
 
 def parse_log(filepath: str, contest_definition: ContestDefinition) -> Tuple[pd.DataFrame, Dict[str, Any]]:
-    """Custom parser for the ARRL Field Day contest."""
+    """
+    Custom parser for the ARRL Field Day contest.
+    """
     log_metadata: Dict[str, Any] = {}
     qso_records: List[Dict[str, Any]] = []
 
-    with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
-        lines = f.readlines()
+    try:
+        with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+            lines = f.readlines()
+    except Exception as e:
+        raise ValueError(f"Error reading Cabrillo file {filepath}: {e}")
+
+    rule_info = contest_definition.exchange_parsing_rules.get("ARRL-FD", {})
+    exchange_regex = re.compile(rule_info.get('regex', ''))
+    exchange_groups = rule_info.get('groups', [])
 
     for line in lines:
-        sanitized_line = line.replace('\u00a0', ' ').strip().upper()
-        if not sanitized_line:
+        cleaned_line = line.replace('\u00a0', ' ').strip()
+        line_to_process = cleaned_line.upper() if cleaned_line.upper().startswith('QSO:') else cleaned_line
+        
+        if not line_to_process:
             continue
+        elif line_to_process.startswith('END-OF-LOG:'):
+            break
+        elif line_to_process.startswith('QSO:'):
+            common_data = parse_qso_common_fields(line_to_process)
+            if not common_data:
+                continue
 
-        if sanitized_line.startswith('QSO:'):
-            matched = False
-            for regex, groups in QSO_PATTERNS:
-                match = regex.match(sanitized_line)
-                if match:
-                    qso_data = dict(zip(groups, match.groups()))
-                    qso_data['RawQSO'] = sanitized_line
-                    qso_records.append(qso_data)
-                    matched = True
-                    break
-            if not matched:
-                logging.warning(f"Skipping malformed QSO line: {line.strip()}")
-
-        elif not sanitized_line.startswith(('START-OF-LOG', 'END-OF-LOG')):
+            exchange_rest = common_data.pop('ExchangeRest', '').strip()
+            
+            exchange_match = exchange_regex.match(exchange_rest)
+            if exchange_match:
+                exchange_data = dict(zip(exchange_groups, exchange_match.groups()))
+                common_data.update(exchange_data)
+                common_data['RawQSO'] = line_to_process
+                qso_records.append(common_data)
+            else:
+                logging.warning(f"Skipping ARRL-FD QSO line (unrecognized exchange): {line_to_process}")
+        
+        elif not line_to_process.startswith('START-OF-LOG:'):
             for cabrillo_tag, df_key in contest_definition.header_field_map.items():
-                if sanitized_line.startswith(f"{cabrillo_tag}:"):
-                    value = sanitized_line[len(f"{cabrillo_tag}:"):].strip()
+                if line_to_process.startswith(f"{cabrillo_tag}:"):
+                    value = line_to_process[len(f"{cabrillo_tag}:"):].strip()
                     log_metadata[df_key] = value
                     break
 
     if not qso_records:
-        raise ValueError(f"Custom parser found no valid QSO lines in Cabrillo file: {filepath}")
-
+        raise ValueError(f"No valid QSO lines found in Cabrillo file: {filepath}")
+    
     df = pd.DataFrame(qso_records)
     return df, log_metadata

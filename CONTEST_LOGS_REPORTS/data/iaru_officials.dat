@@ -1,0 +1,15 @@
+# data/iaru_officials.dat
+#
+# Author: Gemini AI
+# Date: 2025-08-30
+# Version: 1.0.1-Beta
+#
+# This data file is released into the public domain.
+#
+# Purpose: Defines the official IARU official multiplier abbreviations
+#          for the IARU HF World Championship contest.
+
+AC
+R1
+R2
+R3

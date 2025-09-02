@@ -1,7 +1,7 @@
 {
   "_filename": "contest_tools/contest_definitions/arrl_fd.json",
-  "_version": "0.39.2-Beta",
-  "_date": "2025-08-21",
+  "_version": "0.56.15-Beta",
+  "_date": "2025-08-31",
   "contest_name": "ARRL-FIELD-DAY",
   "valid_bands": [
     "160M", "80M", "40M", "20M", "15M", "10M", 
@@ -12,6 +12,12 @@
   "enable_adif_export": true,
   "custom_parser_module": "arrl_fd_parser",
   "custom_multiplier_resolver": "arrl_fd_multiplier_resolver",
+  "exchange_parsing_rules": {
+    "ARRL-FD": {
+      "regex": "([A-Z0-9]+)\\s+([A-Z]{2,4})\\s+([A-Z0-9/]+)\\s+([A-Z0-9]+)\\s+([A-Z]{2,4})",
+      "groups": ["SentClass", "SentSection", "Call", "RcvdClass", "RcvdSection"]
+    }
+  },
   "default_qso_columns": [
     "ContestName", "MyCall", "Frequency", "Mode", "Datetime",
     "SentClass", "SentSection",

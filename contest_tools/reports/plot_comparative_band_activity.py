@@ -1,12 +1,16 @@
 # Contest Log Analyzer/contest_tools/reports/plot_comparative_band_activity.py
 #
-# Version: 0.41.3-Beta
-# Date: 2025-08-20
+# Version: 0.55.9-Beta
+# Date: 2025-08-31
 #
 # Purpose: A plot report that generates a comparative "butterfly" chart to
 #          visualize the band activity of two logs side-by-side.
 #
 # --- Revision History ---
+## [0.55.9-Beta] - 2025-08-31
+### Changed
+# - Updated band sorting logic to use the new, comprehensive `_HAM_BANDS`
+#   list from the ContestLog class.
 ## [0.41.3-Beta] - 2025-08-20
 ### Changed
 # - Per-mode plots are now only generated if more than one mode is present
@@ -115,7 +119,7 @@ class Report(ContestReport):
         time_bins = pd.date_range(start=min_time, end=max_time, freq='15min', tz='UTC')
 
         all_bands_in_logs = pd.concat([dfs[call1]['Band'], dfs[call2]['Band']]).dropna().unique()
-        canonical_band_order = [band[1] for band in ContestLog._HF_BANDS]
+        canonical_band_order = ContestLog._HAM_BANDS
         all_bands = sorted(list(all_bands_in_logs), key=lambda b: canonical_band_order.index(b) if b in canonical_band_order else -1)
         
         if not all_bands:
@@ -201,7 +205,7 @@ class Report(ContestReport):
         """Orchestrates the generation of the combined plot and per-mode plots."""
         if len(self.logs) != 2:
             return f"Error: Report '{self.report_name}' requires exactly two logs."
-        
+
         log1, log2 = self.logs[0], self.logs[1]
         created_files = []
 
@@ -211,7 +215,7 @@ class Report(ContestReport):
 
         if df1.empty or df2.empty:
             return "Skipping report: At least one log has no valid, non-dupe QSO data."
-        
+
         df1['Datetime'] = df1['Datetime'].dt.tz_localize('UTC')
         df2['Datetime'] = df2['Datetime'].dt.tz_localize('UTC')
         

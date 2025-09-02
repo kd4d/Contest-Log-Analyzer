@@ -1,7 +1,7 @@
 {
   "_filename": "contest_tools/contest_definitions/_common_cabrillo_fields.json",
-  "_version": "0.52.5-Beta",
-  "_date": "2025-08-26",
+  "_version": "0.55.12-Beta",
+  "_date": "2025-08-31",
   "cabrillo_version": "3.0",
   "header_field_map": {
     "CALLSIGN": "MyCall",
@@ -22,8 +22,6 @@
     "ADDRESS-POSTALCODE": "AddressPostalCode",
     "ADDRESS-COUNTRY": "AddressCountry"
   },
-  "qso_common_fields_regex": "QSO:\\s+(\\d{4,5})\\s+([A-Z]{2})\\s+(\\d{4}-\\d{2}-\\d{2})\\s+(\\d{4})\\s+([A-Z0-9/]+)\\s+(.*)",
-  "qso_common_field_names": ["FrequencyRaw", "Mode", "DateRaw", "TimeRaw", "MyCallRaw", "ExchangeRest"],
   "default_qso_columns": [
     "ContestName", "CategoryOverlay", "CategoryOperator", "CategoryTransmitter", "MyCall",
     "Frequency", "Mode", "Datetime", 

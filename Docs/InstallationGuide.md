@@ -1,10 +1,16 @@
 # Contest Log Analyzer - Installation Guide
 
-**Version: 0.47.4-Beta**
-**Date: 2025-08-28**
+**Version: 0.56.29-Beta**
+**Date: 2025-09-01**
 
 ---
 ### --- Revision History ---
+## [0.56.29-Beta] - 2025-09-01
+### Fixed
+# - Added the missing `prettytable` and `tabulate` libraries to the
+#   conda installation command.
+# - Added the missing `iaru_officials.dat` file to the list of
+#   required data files.
 ## [0.47.4-Beta] - 2025-08-28
 ### Changed
 # - Added the mandatory `imageio-ffmpeg` package to the conda install
@@ -60,33 +66,33 @@ Before you begin, ensure you have the following software installed on your syste
 
 ### Step 1: Clone the Repository
 Open a terminal or command prompt, navigate to the directory where you want to store the project, and clone the remote Git repository.
-__CODE_BLOCK__
+```
 git clone [https://github.com/user/Contest-Log-Analyzer.git](https://github.com/user/Contest-Log-Analyzer.git)
 cd Contest-Log-Analyzer
-__CODE_BLOCK__
+```
 This will create the project directory (`Contest-Log-Analyzer`) on your local machine.
 ### Step 2: Create and Activate the Conda Environment
 It is a best practice to create an isolated environment for the project's dependencies. This prevents conflicts with other Python projects on your system.
-__CODE_BLOCK__
+```
 # Create an environment named "cla" with Python 3.11
 conda create --name cla python=3.11
 
 # Activate the new environment
 conda activate cla
-__CODE_BLOCK__
+```
 
 ### Step 3: Install Libraries with Conda
 With the `cla` environment active, use the following single command to install all required libraries from the recommended `conda-forge` channel. This includes `ffmpeg` for video creation.
-__CODE_BLOCK__
-conda install -c conda-forge pandas numpy matplotlib seaborn imageio imageio-ffmpeg ffmpeg
-__CODE_BLOCK__
+```
+conda install -c conda-forge pandas numpy matplotlib seaborn imageio imageio-ffmpeg ffmpeg prettytable tabulate
+```
 
 ### Step 4: Set Up the Data and Reports Directory
 The application requires a specific directory structure for its operation. You must create a main directory that will contain your log files, required data files, and the output reports. This directory can be anywhere on your system, but it is recommended to place it outside of the source code directory.
 
 For example, create a main folder `C:\Users\devnu\Desktop\CLA_Data`. Inside this folder, you must create the following subdirectories:
 
-__CODE_BLOCK__
+```
 CLA_Data/
 |
 +-- data/
@@ -94,11 +100,10 @@ CLA_Data/
 +-- logs/
 |
 +-- reports/
-__CODE_BLOCK__
+```
 
 ### Step 5: Set the Environment Variable
 You must set a system environment variable named **`CONTEST_LOGS_REPORTS`** that points to the main data directory you created in the previous step.
-
 **For Windows:**
 1.  Open the Start Menu and search for "Edit the system environment variables."
 2.  In the System Properties window, click the "Environment Variables..." button.
@@ -106,7 +111,6 @@ You must set a system environment variable named **`CONTEST_LOGS_REPORTS`** that
 4.  For "Variable name," enter: `CONTEST_LOGS_REPORTS`
 5.  For "Variable value," enter the full path to your main directory (e.g., `C:\Users\devnu\Desktop\CLA_Data`).
 6.  Click OK to close all windows. You must **restart** your terminal or command prompt for the change to take effect.
-
 ### Step 6: Obtain and Place Data Files
 The analyzer relies on several external data files. Download the following files and place them inside the **`data/`** subdirectory you created in Step 4.
 
@@ -116,16 +120,17 @@ The analyzer relies on several external data files. Download the following files
 * `NAQPmults.dat`: Required for NAQP and CQ 160-Meter contests.
 * `SweepstakesSections.dat`: Required for ARRL Sweepstakes and ARRL Field Day.
 * `band_allocations.dat`: Required for all contests to perform frequency validation.
+* `iaru_officials.dat`: Required for the IARU HF World Championship contest.
 ---
 ## 3. Running the Analyzer
 To verify the installation, run the program from the project's source code directory. Ensure your `cla` conda environment is active.
 
-__CODE_BLOCK__
+```
 # Make sure your conda environment is active
 conda activate cla
 
 # Run the script from the main project directory
 (cla) C:\Users\devnu\Desktop\Contest-Log-Analyzer>python main_cli.py --report score_report ..\CLA_Data\logs\2025\NAQP-CW\aug\k3aj.log
-__CODE_BLOCK__
+```
 
 If the installation is successful, you will see an output message indicating that the report was saved, and you will find a new `.txt` file in your `CLA_Data\reports` subdirectory.
