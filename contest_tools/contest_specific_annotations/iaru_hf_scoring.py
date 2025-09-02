@@ -1,8 +1,8 @@
 # Contest Log Analyzer/contest_tools/contest_specific_annotations/iaru_hf_scoring.py
 #
 # Author: Gemini AI
-# Date: 2025-08-30
-# Version: 0.55.6-Beta
+# Date: 2025-09-02
+# Version: 0.57.14-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,11 +17,15 @@
 #          Championship contest.
 #
 # --- Revision History ---
+## [0.57.14-Beta] - 2025-09-02
+### Fixed
+# - Corrected scoring logic to use the exchanged multiplier from the
+#   `Mult_Zone` column instead of the station's geographical `ITUZone`,
+#   ensuring points are awarded based on the actual contest exchange.
 ## [0.55.6-Beta] - 2025-08-30
 ### Changed
 # - Added the standard copyright and MPL 2.0 license block to the header
 #   to conform to project standards.
-
 import pandas as pd
 from typing import Dict, Any
 
@@ -39,7 +43,7 @@ def _calculate_qso_points(row: pd.Series, my_continent: str, my_itu_zone: int) -
         return 1
 
     worked_continent = row.get('Continent')
-    worked_itu_zone = row.get('ITUZone')
+    worked_itu_zone = pd.to_numeric(row.get('Mult_Zone'), errors='coerce')
 
     # If location data is missing for the worked station, no points can be awarded.
     if pd.isna(worked_continent) or pd.isna(worked_itu_zone):
