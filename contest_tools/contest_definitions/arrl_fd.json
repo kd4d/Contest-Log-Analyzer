@@ -1,6 +1,6 @@
 {
   "_filename": "contest_tools/contest_definitions/arrl_fd.json",
-  "_version": "0.57.16-Beta",
+  "_version": "0.57.38-Beta",
   "_date": "2025-09-02",
   "contest_name": "ARRL-FIELD-DAY",
   "valid_bands": [
@@ -9,7 +9,13 @@
   ],
   "dupe_check_scope": "per_band",
   "score_formula": "total_points",
-  "multiplier_rules": [],
+  "multiplier_rules": [
+    {
+      "name": "Sections",
+      "value_column": "Mult_Section",
+      "totaling_method": "once_per_log"
+    }
+  ],
   "enable_adif_export": true,
   "custom_parser_module": "arrl_fd_parser",
   "custom_multiplier_resolver": "arrl_fd_multiplier_resolver",

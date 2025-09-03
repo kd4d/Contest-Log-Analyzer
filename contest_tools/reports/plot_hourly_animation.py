@@ -1,13 +1,11 @@
 # Contest Log Analyzer/contest_tools/reports/plot_hourly_animation.py
 #
-# Version: 0.56.25-Beta
-# Date: 2025-08-31
+# Version: 0.57.40-Beta
+# Date: 2025-09-03
 #
 # Purpose: A plot report that generates a series of hourly images and compiles
-#          them into an animated video showing contest progression.
-#          It also
-#          creates a standalone interactive HTML version of the chart.
-#
+#          them into an animated video showing contest progression. #          It also
+#          creates a standalone interactive HTML version of the chart. #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
 # License: Mozilla Public License, v. 2.0
@@ -15,8 +13,17 @@
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
-# --- Revision History ---
+# file, You can obtain one at http://mozilla.org/MPL/2.0/. # --- Revision History ---
+## [0.57.40-Beta] - 2025-09-03
+### Fixed
+# - Modified the video generation to use the system's temporary
+#   directory for frame creation, preventing file-locking errors
+#   caused by cloud sync services like OneDrive.
+## [0.57.39-Beta] - 2025-09-03
+### Fixed
+# - Applied the resilient retry logic to the initial cleanup call at the
+#   start of the video generation function. This prevents a crash if
+#   the temporary directory is locked from a previous failed run.
 ## [0.56.25-Beta] - 2025-08-31
 ### Fixed
 # - Replaced the cleanup logic with a resilient 10-second retry loop to
@@ -25,7 +32,7 @@
 ## [0.56.8-Beta] - 2025-08-31
 ### Fixed
 # - Updated band sorting logic to use the refactored _HAM_BANDS
-#   variable from the ContestLog class, fixing an AttributeError.
+#   variable from the ContestLog class.
 ## [0.38.2-Beta] - 2025-08-18
 ### Fixed
 # - Corrected a TypeError in the animation's debug data generation by
@@ -86,6 +93,7 @@ import matplotlib.gridspec as gridspec
 import colorsys
 import time
 import errno
+import tempfile
 from typing import List, Dict
 
 from ..contest_log import ContestLog
@@ -224,150 +232,148 @@ class Report(ContestReport):
         }
 
     def _generate_video(self, data: Dict, output_path: str, debug_data_flag: bool):
-        frame_dir = os.path.join(output_path, "temp_frames")
-        if os.path.exists(frame_dir): shutil.rmtree(frame_dir)
-        os.makedirs(frame_dir)
+        frame_dir = tempfile.mkdtemp(prefix="cla_frames_")
 
-        logging.info(f"Generating {len(data['master_index'])} frames for animation video...")
-        
-        total_frames = len(data['master_index'])
-        first_log_meta = self.logs[0].get_metadata()
-        contest_name = first_log_meta.get('ContestName', 'Unknown Contest')
-        year = self.logs[0].get_processed_data()['Date'].iloc[0].split('-')[0]
-        event_id = first_log_meta.get('EventID', '')
-        calls = list(data['log_data'].keys())
-        num_logs = len(calls)
-
-        for i, hour in enumerate(data['master_index']):
-            # --- Save Debug Data for this frame ---
-            frame_debug_data = {
-                'hour_timestamp': hour.isoformat(),
-                'hour_index': i + 1,
-                'logs': {}
-            }
-            for call in calls:
-                # Data for Top Chart (Cumulative Totals)
-                top_chart_data = {
-                    'score': data['log_data'][call]['cum_score'].get(hour, 0),
-                    'qsos': data['log_data'][call]['cum_qso'].get(hour, 0)
-                }
-
-                # Data for Bottom-Left Chart (Hourly Rates)
-                hourly_rate_data = {}
-                try:
-                    hourly_slice = data['log_data'][call]['hourly_run_sp'].loc[hour]
-                    if not hourly_slice.empty:
-                        # Manually build a nested dictionary to avoid tuple keys
-                        for index, run_counts in hourly_slice.iterrows():
-                            band, mode = index
-                            if band not in hourly_rate_data:
-                                hourly_rate_data[band] = {}
-                            hourly_rate_data[band][mode] = run_counts.to_dict()
-                except KeyError:
-                    pass 
-
-                # Data for Bottom-Right Chart (Cumulative by Band)
-                cum_by_band_data = {}
-                try:
-                    cum_slice = data['log_data'][call]['cum_qso_per_band_breakdown'].loc[hour]
-                    if not cum_slice.empty:
-                        cum_by_band_data = {band: cum_slice[band].to_dict() for band in cum_slice.index.get_level_values(0).unique()}
-                except KeyError:
-                    pass
-                
-                frame_debug_data['logs'][call] = {
-                    'top_chart_cumulative_totals': top_chart_data,
-                    'bottom_left_hourly_rates': hourly_rate_data,
-                    'bottom_right_cumulative_by_band': cum_by_band_data
-                }
-            
-            debug_filename = f"{self.report_id}_{'_vs_'.join(sorted(calls))}_frame_{i:03d}.txt"
-            save_debug_data(debug_data_flag, output_path, frame_debug_data, custom_filename=debug_filename)
-
-            fig_mpl = plt.figure(figsize=(self.IMAGE_WIDTH_PX / self.DPI, self.IMAGE_HEIGHT_PX / self.DPI), dpi=self.DPI)
-            
-            gs_main = fig_mpl.add_gridspec(3, 1, height_ratios=[1, 10, 1.2], hspace=0.8)
-            
-            ax_top_legend = fig_mpl.add_subplot(gs_main[0])
-            ax_bottom_legend = fig_mpl.add_subplot(gs_main[2])
-            ax_top_legend.axis('off'); ax_bottom_legend.axis('off')
-            
-            top_chart_ratio = 0.12 * num_logs
-            top_chart_ratio = max(0.15, min(top_chart_ratio, 0.45))
-            
-            gs_plots = gridspec.GridSpecFromSubplotSpec(2, 1, subplot_spec=gs_main[1], height_ratios=[top_chart_ratio, 1 - top_chart_ratio], hspace=0.9)
-            ax_top = fig_mpl.add_subplot(gs_plots[0])
-            gs_bottom_plots = gridspec.GridSpecFromSubplotSpec(1, 2, subplot_spec=gs_plots[1], width_ratios=[3, 2], wspace=0.15)
-            ax_bottom_left = fig_mpl.add_subplot(gs_bottom_plots[0, 0])
-            ax_bottom_right = fig_mpl.add_subplot(gs_bottom_plots[0, 1])
-
-            fig_mpl.suptitle(f"{year} {event_id} {contest_name}\nHour {i + 1} of {total_frames}")
-
-            ax_qso = ax_top; ax_score = ax_top.twiny()
-            for j, call in enumerate(calls):
-                score = data['log_data'][call]['cum_score'].get(hour, 0)
-                qsos = data['log_data'][call]['cum_qso'].get(hour, 0)
-                bar_color = self.CALLSIGN_COLORS[j % len(self.CALLSIGN_COLORS)]
-                
-                ax_score.barh(j + 0.2, score, height=0.4, align='center', color=bar_color, label=call)
-                ax_score.text(score, j + 0.2, f' {score:,.0f}', va='center', ha='left')
-                ax_qso.barh(j - 0.2, qsos, height=0.4, align='center', color=bar_color, alpha=0.6)
-                ax_qso.text(qsos, j - 0.2, f' {qsos:,.0f}', va='center', ha='left')
-            
-            ax_qso.set_yticks(range(len(calls))); ax_qso.set_yticklabels([]); ax_qso.tick_params(axis='y', length=0)
-            ax_qso.set_xlim(0, data['max_final_qso']); ax_qso.set_xlabel("Cumulative QSOs")
-            ax_score.set_xlim(0, data['max_final_score']); ax_score.set_xlabel("Cumulative Score")
-            ax_score.xaxis.set_ticks_position('top'); ax_score.xaxis.set_label_position('top')
-            ax_score.xaxis.set_major_formatter(mticker.StrMethodFormatter('{x:,.0f}'))
-            ax_top_legend.legend(*ax_score.get_legend_handles_labels(), loc='center', ncol=num_logs, title="Callsign", fontsize='medium')
-
-            x_labels_hourly = [f"{b}-{m}" for b in data['bands'] for m in data['modes']]
-            bar_width_hourly = 0.8 / len(calls)
-            for j, call in enumerate(calls):
-                color_shades = _get_color_shades(self.CALLSIGN_COLORS[j % len(self.CALLSIGN_COLORS)])
-                bottoms = [0] * len(x_labels_hourly)
-                for run_state in ['Run', 'S&P', 'Unknown']:
-                    y_values = []
-                    for band in data['bands']:
-                        for mode in data['modes']:
-                            try: count = data['log_data'][call]['hourly_run_sp'].loc[(hour, band, mode), run_state]
-                            except KeyError: count = 0
-                            y_values.append(count)
-                    
-                    ax_bottom_left.bar([x + j * bar_width_hourly for x in range(len(x_labels_hourly))], y_values,
-                                       width=bar_width_hourly, bottom=bottoms, color=color_shades[run_state], alpha=0.8)
-                    bottoms = [b + y for b, y in zip(bottoms, y_values)]
-            
-            ax_bottom_left.set_xticks([x + (bar_width_hourly * (num_logs-1) / 2) for x in range(len(x_labels_hourly))])
-            ax_bottom_left.set_xticklabels(x_labels_hourly, rotation=45, ha='right')
-            ax_bottom_left.set_ylabel("QSOs per Hour"); ax_bottom_left.set_ylim(0, data['max_hourly_rate'] * 1.1); ax_bottom_left.grid(False)
-
-            bar_width_cum = 0.8 / num_logs
-            band_indices = range(len(data['bands']))
-            for j, call in enumerate(calls):
-                color_shades = _get_color_shades(self.CALLSIGN_COLORS[j % len(self.CALLSIGN_COLORS)])
-                bottoms = [0] * len(data['bands'])
-                current_band_totals = data['log_data'][call]['cum_qso_per_band_breakdown'].loc[hour]
-                for run_state in ['Run', 'S&P', 'Unknown']:
-                    y_values = [current_band_totals.get((band, run_state), 0) for band in data['bands']]
-                    ax_bottom_right.bar([x - (bar_width_cum * (num_logs - 1) / 2) + j * bar_width_cum for x in band_indices], y_values, width=bar_width_cum, bottom=bottoms, color=color_shades[run_state], alpha=0.8)
-                    bottoms = [b + y for b, y in zip(bottoms, y_values)]
-
-            ax_bottom_right.set_title("Cumulative QSOs by Band", fontsize=10)
-            ax_bottom_right.set_ylabel("Total QSOs"); ax_bottom_right.set_xticks(band_indices)
-            ax_bottom_right.set_xticklabels(data['bands']); ax_bottom_right.set_ylim(0, data['max_cum_qso_on_band'] * 1.1)
-            
-            sample_shades = _get_color_shades(self.CALLSIGN_COLORS[0])
-            legend_handles = [plt.Rectangle((0,0),1,1, fc=sample_shades[s]) for s in ['Run', 'S&P', 'Unknown']]
-            ax_bottom_legend.legend(legend_handles, ['Run', 'S&P', 'Unknown'], title="QSO Type", loc='center', ncol=3)
-
-            frame_path = os.path.join(frame_dir, f"frame_{i:03d}.png")
-            plt.savefig(frame_path)
-            plt.close(fig_mpl)
-
-        logging.info("Compiling video...")
-        video_filepath = os.path.join(output_path, f"{self.report_id}_{'_vs_'.join(sorted(calls))}.mp4")
         try:
+            logging.info(f"Generating {len(data['master_index'])} frames for animation video in temp dir: {frame_dir}...")
+            
+            total_frames = len(data['master_index'])
+            first_log_meta = self.logs[0].get_metadata()
+            contest_name = first_log_meta.get('ContestName', 'Unknown Contest')
+            year = self.logs[0].get_processed_data()['Date'].iloc[0].split('-')[0]
+            event_id = first_log_meta.get('EventID', '')
+            calls = list(data['log_data'].keys())
+            num_logs = len(calls)
+    
+            for i, hour in enumerate(data['master_index']):
+                # --- Save Debug Data for this frame ---
+                frame_debug_data = {
+                    'hour_timestamp': hour.isoformat(),
+                    'hour_index': i + 1,
+                    'logs': {}
+                }
+                for call in calls:
+                    # Data for Top Chart (Cumulative Totals)
+                    top_chart_data = {
+                        'score': data['log_data'][call]['cum_score'].get(hour, 0),
+                        'qsos': data['log_data'][call]['cum_qso'].get(hour, 0)
+                    }
+    
+                    # Data for Bottom-Left Chart (Hourly Rates)
+                    hourly_rate_data = {}
+                    try:
+                        hourly_slice = data['log_data'][call]['hourly_run_sp'].loc[hour]
+                        if not hourly_slice.empty:
+                            # Manually build a nested dictionary to avoid tuple keys
+                            for index, run_counts in hourly_slice.iterrows():
+                                band, mode = index
+                                if band not in hourly_rate_data:
+                                    hourly_rate_data[band] = {}
+                                hourly_rate_data[band][mode] = run_counts.to_dict()
+                    except KeyError:
+                        pass 
+    
+                    # Data for Bottom-Right Chart (Cumulative by Band)
+                    cum_by_band_data = {}
+                    try:
+                        cum_slice = data['log_data'][call]['cum_qso_per_band_breakdown'].loc[hour]
+                        if not cum_slice.empty:
+                            cum_by_band_data = {band: cum_slice[band].to_dict() for band in cum_slice.index.get_level_values(0).unique()}
+                    except KeyError:
+                        pass
+                    
+                    frame_debug_data['logs'][call] = {
+                        'top_chart_cumulative_totals': top_chart_data,
+                        'bottom_left_hourly_rates': hourly_rate_data,
+                        'bottom_right_cumulative_by_band': cum_by_band_data
+                    }
+                
+                debug_filename = f"{self.report_id}_{'_vs_'.join(sorted(calls))}_frame_{i:03d}.txt"
+                save_debug_data(debug_data_flag, output_path, frame_debug_data, custom_filename=debug_filename)
+    
+                fig_mpl = plt.figure(figsize=(self.IMAGE_WIDTH_PX / self.DPI, self.IMAGE_HEIGHT_PX / self.DPI), dpi=self.DPI)
+                
+                gs_main = fig_mpl.add_gridspec(3, 1, height_ratios=[1, 10, 1.2], hspace=0.8)
+                
+                ax_top_legend = fig_mpl.add_subplot(gs_main[0])
+                ax_bottom_legend = fig_mpl.add_subplot(gs_main[2])
+                ax_top_legend.axis('off'); ax_bottom_legend.axis('off')
+                
+                top_chart_ratio = 0.12 * num_logs
+                top_chart_ratio = max(0.15, min(top_chart_ratio, 0.45))
+                
+                gs_plots = gridspec.GridSpecFromSubplotSpec(2, 1, subplot_spec=gs_main[1], height_ratios=[top_chart_ratio, 1 - top_chart_ratio], hspace=0.9)
+                ax_top = fig_mpl.add_subplot(gs_plots[0])
+                gs_bottom_plots = gridspec.GridSpecFromSubplotSpec(1, 2, subplot_spec=gs_plots[1], width_ratios=[3, 2], wspace=0.15)
+                ax_bottom_left = fig_mpl.add_subplot(gs_bottom_plots[0, 0])
+                ax_bottom_right = fig_mpl.add_subplot(gs_bottom_plots[0, 1])
+    
+                fig_mpl.suptitle(f"{year} {event_id} {contest_name}\nHour {i + 1} of {total_frames}")
+    
+                ax_qso = ax_top; ax_score = ax_top.twiny()
+                for j, call in enumerate(calls):
+                    score = data['log_data'][call]['cum_score'].get(hour, 0)
+                    qsos = data['log_data'][call]['cum_qso'].get(hour, 0)
+                    bar_color = self.CALLSIGN_COLORS[j % len(self.CALLSIGN_COLORS)]
+                    
+                    ax_score.barh(j + 0.2, score, height=0.4, align='center', color=bar_color, label=call)
+                    ax_score.text(score, j + 0.2, f' {score:,.0f}', va='center', ha='left')
+                    ax_qso.barh(j - 0.2, qsos, height=0.4, align='center', color=bar_color, alpha=0.6)
+                    ax_qso.text(qsos, j - 0.2, f' {qsos:,.0f}', va='center', ha='left')
+                
+                ax_qso.set_yticks(range(len(calls))); ax_qso.set_yticklabels([]); ax_qso.tick_params(axis='y', length=0)
+                ax_qso.set_xlim(0, data['max_final_qso']); ax_qso.set_xlabel("Cumulative QSOs")
+                ax_score.set_xlim(0, data['max_final_score']); ax_score.set_xlabel("Cumulative Score")
+                ax_score.xaxis.set_ticks_position('top'); ax_score.xaxis.set_label_position('top')
+                ax_score.xaxis.set_major_formatter(mticker.StrMethodFormatter('{x:,.0f}'))
+                ax_top_legend.legend(*ax_score.get_legend_handles_labels(), loc='center', ncol=num_logs, title="Callsign", fontsize='medium')
+    
+                x_labels_hourly = [f"{b}-{m}" for b in data['bands'] for m in data['modes']]
+                bar_width_hourly = 0.8 / len(calls)
+                for j, call in enumerate(calls):
+                    color_shades = _get_color_shades(self.CALLSIGN_COLORS[j % len(self.CALLSIGN_COLORS)])
+                    bottoms = [0] * len(x_labels_hourly)
+                    for run_state in ['Run', 'S&P', 'Unknown']:
+                        y_values = []
+                        for band in data['bands']:
+                            for mode in data['modes']:
+                                try: count = data['log_data'][call]['hourly_run_sp'].loc[(hour, band, mode), run_state]
+                                except KeyError: count = 0
+                                y_values.append(count)
+                        
+                        ax_bottom_left.bar([x + j * bar_width_hourly for x in range(len(x_labels_hourly))], y_values,
+                                           width=bar_width_hourly, bottom=bottoms, color=color_shades[run_state], alpha=0.8)
+                        bottoms = [b + y for b, y in zip(bottoms, y_values)]
+                
+                ax_bottom_left.set_xticks([x + (bar_width_hourly * (num_logs-1) / 2) for x in range(len(x_labels_hourly))])
+                ax_bottom_left.set_xticklabels(x_labels_hourly, rotation=45, ha='right')
+                ax_bottom_left.set_ylabel("QSOs per Hour"); ax_bottom_left.set_ylim(0, data['max_hourly_rate'] * 1.1); ax_bottom_left.grid(False)
+    
+                bar_width_cum = 0.8 / num_logs
+                band_indices = range(len(data['bands']))
+                for j, call in enumerate(calls):
+                    color_shades = _get_color_shades(self.CALLSIGN_COLORS[j % len(self.CALLSIGN_COLORS)])
+                    bottoms = [0] * len(data['bands'])
+                    current_band_totals = data['log_data'][call]['cum_qso_per_band_breakdown'].loc[hour]
+                    for run_state in ['Run', 'S&P', 'Unknown']:
+                        y_values = [current_band_totals.get((band, run_state), 0) for band in data['bands']]
+                        ax_bottom_right.bar([x - (bar_width_cum * (num_logs - 1) / 2) + j * bar_width_cum for x in band_indices], y_values, width=bar_width_cum, bottom=bottoms, color=color_shades[run_state], alpha=0.8)
+                        bottoms = [b + y for b, y in zip(bottoms, y_values)]
+    
+                ax_bottom_right.set_title("Cumulative QSOs by Band", fontsize=10)
+                ax_bottom_right.set_ylabel("Total QSOs"); ax_bottom_right.set_xticks(band_indices)
+                ax_bottom_right.set_xticklabels(data['bands']); ax_bottom_right.set_ylim(0, data['max_cum_qso_on_band'] * 1.1)
+                
+                sample_shades = _get_color_shades(self.CALLSIGN_COLORS[0])
+                legend_handles = [plt.Rectangle((0,0),1,1, fc=sample_shades[s]) for s in ['Run', 'S&P', 'Unknown']]
+                ax_bottom_legend.legend(legend_handles, ['Run', 'S&P', 'Unknown'], title="QSO Type", loc='center', ncol=3)
+    
+                frame_path = os.path.join(frame_dir, f"frame_{i:03d}.png")
+                plt.savefig(frame_path)
+                plt.close(fig_mpl)
+    
+            logging.info("Compiling video...")
+            video_filepath = os.path.join(output_path, f"{self.report_id}_{'_vs_'.join(sorted(calls))}.mp4")
             with imageio.get_writer(video_filepath, fps=self.FPS) as writer:
                 for i in range(total_frames):
                     frame_file = os.path.join(frame_dir, f"frame_{i:03d}.png")

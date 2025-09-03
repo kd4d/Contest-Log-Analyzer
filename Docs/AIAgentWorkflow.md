@@ -1,10 +1,29 @@
 # AIAgentWorkflow.md
 
-**Version: 0.57.1-Beta**
-**Date: 2025-09-01**
+**Version: 0.59.0-Beta**
+**Date: 2025-09-03**
 
 ---
 ### --- Revision History ---
+## [0.59.0-Beta] - 2025-09-03
+### Added
+# - Added Protocol 7.6 (Systemic Bug Eradication Protocol) to formalize
+#   the process of auditing for and fixing systemic bugs.
+# - Added a mandatory "Request Diagnostic Output" step to Protocol 6.3
+#   (Error Analysis Protocol) to improve diagnostic efficiency.
+### Changed
+# - Strengthened Principle 9 (Surgical Modification) to explicitly forbid
+#   unauthorized stylistic refactoring and define a process for proposing such changes.
+# - Clarified Protocol 2.7 (Approval) to require the exact, literal string `Approved`.
+# - Clarified Protocol 4.4 (Confirmed File Delivery Protocol) to require
+#   the exact, literal string `Acknowledged`.
+## [0.58.0-Beta] - 2025-09-02
+### Changed
+# - Strengthened Principle 9 (Surgical Modification) to explicitly forbid
+#   unauthorized refactoring and define a process for proposing changes.
+# - Clarified Protocol 2.7 (Approval) to require the exact, literal string `Approved`.
+# - Clarified Protocol 4.4 (Confirmed File Delivery Protocol) to require
+#   the exact, literal string `Acknowledged`.
 ## [0.57.1-Beta] - 2025-09-01
 ### Changed
 # - Clarified Protocol 3.2.1 to explicitly state that "bundles" are
@@ -213,7 +232,7 @@ These are the foundational rules that govern all interactions and analyses.
 6.  **Prefer Logic in Code, Not Data.** The project's design philosophy is to keep the `.json` definition files as simple, declarative maps. All complex, conditional, or contest-specific logic should be implemented in dedicated Python modules.
 7.  **Assume Bugs are Systemic.** When a bug is identified in one module, the default assumption is that the same flaw exists in all other similar modules. The AI must perform a global search for that specific bug pattern and fix all instances at once.
 8.  **Reports Must Be Non-Destructive.** Specialist report scripts must **never** modify the original `ContestLog` objects they receive. All data filtering or manipulation must be done on a temporary **copy** of the DataFrame.
-9.  **Principle of Surgical Modification.** All file modifications must be treated as surgical operations. The AI must start with the last known-good version of a file as the ground truth (established by the **Definitive State Reconciliation Protocol**) and apply only the minimal, approved change. Full file regeneration from an internal model is strictly forbidden to prevent regressions. **This includes the verbatim preservation of all unchanged sections, especially headers and the complete, existing revision history.** This principle explicitly forbids stylistic refactoring (e.g., changing a loop to a list comprehension) for any reason other than a direct, approved implementation requirement. Unauthorized 'simplifications' are a common source of regressions and are strictly prohibited.
+9.  **Principle of Surgical Modification.** All file modifications must be treated as surgical operations. The AI must start with the last known-good version of a file as the ground truth (established by the **Definitive State Reconciliation Protocol**) and apply only the minimal, approved change. Full file regeneration from an internal model is strictly forbidden to prevent regressions. **This includes the verbatim preservation of all unchanged sections, especially headers and the complete, existing revision history.** This principle explicitly forbids stylistic refactoring (e.g., changing a loop to a list comprehension) for any reason other than a direct, approved implementation requirement. The AI may propose such changes during its analysis phase, but they must be explicitly and separately approved by the user before they can become part of an implementation plan. Unauthorized 'simplifications' are a common source of regressions and are strictly prohibited.
 10. **Primacy of Official Rules.** The AI will place the highest emphasis on analyzing the specific data, context, and official rules provided, using them as the single source of truth.
 11. **The Log is the Ground Truth.** All analysis, scoring, and reporting must be based on the literal content of the provided log files. The analyzer's function is not to correct potentially erroneous data (e.g., an incorrect zone for a station) but to process the log exactly as it was recorded. Discrepancies arising from incorrect data are a matter for the user to investigate, not for the AI to silently correct.
 12. **Citation of Official Rules.** When researching contest rules, the AI will prioritize finding and citing the **official rules from the sponsoring organization**.
@@ -288,7 +307,7 @@ This workflow is a formal state machine that governs all development tasks, from
         * **Mental Walkthrough Confirmation**: A statement affirming that a mental walkthrough of the logic will be performed before generating the file.
         * **State Confirmation Procedure**: An affirmation that the mandatory confirmation prompt (as defined in Protocol 4.4) will be included with the file delivery.
 2.6. **Plan Refinement**: The user reviews the plan and may request changes or refinements. The AI provides a revised plan, repeating this step as necessary.
-2.7. **Approval**: The user provides explicit approval of the final implementation plan (e.g., "Approved"). Instructions, clarifications, or new requirements provided after a plan has been proposed do not constitute approval; they will be treated as requests for plan refinement under Protocol 2.6.
+2.7. **Approval**: The user provides explicit approval of the final implementation plan. Instructions, clarifications, or new requirements provided after a plan has been proposed do not constitute approval; they will be treated as requests for plan refinement under Protocol 2.6. The AI will only proceed to the Execution state upon receiving the **exact, literal string `Approved`**.
 2.8. **Execution**: Upon approval, the AI will proceed with the **Confirmed File Delivery Protocol (4.4)**.
 2.8.1. **Post-Execution Refinement Protocol.** If a user acknowledges a file delivery but subsequently reports that the fix is incomplete or incorrect, the task is not considered complete. The workflow immediately returns to **Protocol 2.2 (Analysis and Discussion)**. This initiates a new analysis loop within the context of the original task, culminating in a new implementation plan to address the remaining issues. The task is only complete after **Protocol 2.9 (Propose Verification Command)** is successfully executed for the *final, correct* implementation.
 2.9. **Propose Verification Command**: After the final file in an implementation plan has been delivered and acknowledged by the user, the AI's final action for the task is to propose the specific command-line instruction(s) the user should run to verify that the bug has been fixed or the feature has been implemented correctly.
@@ -342,7 +361,7 @@ This workflow is a formal state machine that governs all development tasks, from
 4.4. **Confirmed File Delivery Protocol.** This protocol is used for all standard file modifications.
     1.  The AI delivers the first file from the approved implementation plan.
     2.  The AI appends the mandatory confirmation prompt to the end of the same response.
-    3.  The user provides an "Acknowledged" response.
+    3.  The user provides the **exact, literal string `Acknowledged`** as a response.
     4.  The AI proceeds to deliver the next file, repeating the process until all files from the plan have been delivered and individually acknowledged.
 ---
 ## Part III: Project-Specific Implementation Patterns

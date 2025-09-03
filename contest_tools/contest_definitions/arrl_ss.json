@@ -1,7 +1,7 @@
 {
   "_filename": "contest_tools/contest_definitions/arrl_ss.json",
-  "_version": "0.53.0-Beta",
-  "_date": "2025-08-27",
+  "_version": "0.57.30-Beta",
+  "_date": "2025-09-02",
   "contest_name": "ARRL-SS",
   "valid_bands": [
     "160M",
@@ -50,7 +50,14 @@
       ]
     }
   },
-  "multiplier_rules": [],
+  "multiplier_rules": [
+    {
+      "name": "Sections",
+      "value_column": "Mult1",
+      "name_column": "Mult1Name",
+      "totaling_method": "once_per_log"
+    }
+  ],
   "default_qso_columns": [
     "ContestName",
     "MyCall",
