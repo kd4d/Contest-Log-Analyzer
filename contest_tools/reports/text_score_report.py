@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-09-02
-# Version: 0.57.15-Beta
+# Version: 0.57.18-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.57.18-Beta] - 2025-09-02
+### Fixed
+# - Corrected a bug in the per-band/mode summary calculation that ignored
+#   the `applies_to` key in multiplier rules. The logic now correctly
+#   handles asymmetric contests like ARRL DX, preventing double-counting.
 ## [0.57.15-Beta] - 2025-09-02
 ### Added
 # - Added logic to support a new `total_points` score formula for
@@ -267,6 +272,7 @@ class Report(ContestReport):
         df_full = log.get_processed_data()
         contest_def = log.contest_definition
         multiplier_rules = contest_def.multiplier_rules
+        log_location_type = getattr(log, '_my_location_type', None)
         
         # Start with a DataFrame of non-duplicate QSOs
         df_net = df_full[df_full['Dupe'] == False].copy()
@@ -278,7 +284,6 @@ class Report(ContestReport):
         # --- Pre-computation for all multiplier types ---
         per_band_mult_counts = {}
         first_worked_mult_counts = {}
-        log_location_type = getattr(log, '_my_location_type', None)
         
         for rule in multiplier_rules:
             mult_col = rule['value_column']
@@ -312,9 +317,14 @@ class Report(ContestReport):
                 band_mode_summary['Points'] = group_df['QSOPoints'].sum()
                 
                 for rule in multiplier_rules:
-                    m_col = rule['value_column']
                     m_name = rule['name']
+                    m_col = rule['value_column']
                     
+                    applies_to = rule.get('applies_to')
+                    if applies_to and log_location_type and applies_to != log_location_type:
+                        band_mode_summary[m_name] = 0
+                        continue
+
                     if rule.get('totaling_method') == 'once_per_log':
                         band_mode_summary[m_name] = first_worked_mult_counts.get(m_col, {}).get((band, mode), 0)
                     else:
