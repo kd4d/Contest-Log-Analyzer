@@ -1,11 +1,12 @@
 # Contest Log Analyzer/contest_tools/reports/text_score_report.py
 #
 # Purpose: A text report that generates a detailed score summary for each
-#          log, broken down by band. #
+#          log, broken down by band.
+#
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-09-03
-# Version: 0.57.20-Beta
+# Version: 0.57.21-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,6 +17,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.57.21-Beta] - 2025-09-03
+### Fixed
+# - Corrected the per-band/mode summary logic to properly handle the
+#   'once_per_mode' totaling method. This fixes a regression where
+#   the same multiplier counts were shown for all modes.
 ## [0.57.20-Beta] - 2025-09-03
 ### Changed
 # - Modified the report to be score-formula-aware. It will no
@@ -340,7 +346,10 @@ class Report(ContestReport):
 
                     if rule.get('totaling_method') == 'once_per_log':
                         band_mode_summary[m_name] = first_worked_mult_counts.get(m_col, {}).get((band, mode), 0)
-                    else:
+                    elif rule.get('totaling_method') == 'once_per_mode':
+                        df_valid_mults_per_mode = group_df[group_df[m_col].notna() & (group_df[m_col] != 'Unknown')]
+                        band_mode_summary[m_name] = df_valid_mults_per_mode[m_col].nunique()
+                    else: # Default to sum_by_band
                         band_counts_series = per_band_mult_counts.get(m_col)
                         if band_counts_series is not None:
                             band_mode_summary[m_name] = band_counts_series.get(band, 0)
