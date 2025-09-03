@@ -1,9 +1,16 @@
 # Contest Log Analyzer
 
-**Version: 0.55.0-Beta**
-**Date: 2025-08-29**
+**Version: 0.55.1-Beta**
+**Date: 2025-09-03**
 
-A Python-based tool for in-depth analysis and comparison of amateur radio contest logs. This application processes standard Cabrillo files to generate detailed reports, charts, and visualizations, providing deep insights into operator strategy and performance.
+---
+### --- Revision History ---
+## [0.55.1-Beta] - 2025-09-03
+### Changed
+# - Synchronized the "Available Reports" list with the current codebase
+#   by correcting one report ID and adding a missing report name.
+## [0.55.0-Beta] - 2025-08-29
+# - Initial release.
 ---
 ## Key Features
 
@@ -70,7 +77,7 @@ All generated files are saved to a structured directory under `reports/YYYY/CONT
 #### **Chart Reports (`charts/`)**
 * `chart_point_contribution`: Point Contribution Breakdown
 * `chart_point_contribution_single`: Point Contribution Breakdown (Single Log)
-* `qso_breakdown_chart`: QSO Breakdown Chart
+* `chart_qso_breakdown`: QSO Breakdown Chart
 
 #### **Plot Reports (`plots/`)**
 * `band_activity_heatmap`: Band Activity Heatmap

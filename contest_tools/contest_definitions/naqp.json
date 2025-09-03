@@ -1,7 +1,7 @@
 {
   "_filename": "contest_tools/contest_definitions/naqp.json",
-  "_version": "0.40.8-Beta",
-  "_date": "2025-08-27",
+  "_version": "0.57.37-Beta",
+  "_date": "2025-09-02",
   "contest_name": "NAQP",
   "valid_bands": [
     "160M",

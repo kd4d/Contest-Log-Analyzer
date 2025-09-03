@@ -1,7 +1,7 @@
 {
   "_filename": "contest_tools/contest_definitions/cq_160.json",
-  "_version": "0.56.10-Beta",
-  "_date": "2025-08-31",
+  "_version": "0.57.35-Beta",
+  "_date": "2025-09-02",
   "contest_name": "CQ-160",
   "enable_adif_export": true,
   "custom_parser_module": "cq_160_parser",
@@ -70,9 +70,9 @@
   "default_qso_columns": [
     "ContestName", "CategoryOverlay", "CategoryOperator", "CategoryTransmitter", "MyCall",
     "Frequency", "Mode", "Datetime",
-    "RST", "RS", "SentLocation", "SentZone",
+    "SentRST", "SentRS", "SentLocation", "SentZone",
     "Call",
-    "RcvdLocation", "RcvdZone", "Transmitter",
+    "RST", "RS", "RcvdLocation", "RcvdZone", "Transmitter",
     "Band", "Date", "Hour", "Dupe",
     "DXCCName", "DXCCPfx", "CQZone", "ITUZone", "Continent", "WAEName", "WAEPfx", "Lat", "Lon", "Tzone",
     "Run", "QSOPoints",

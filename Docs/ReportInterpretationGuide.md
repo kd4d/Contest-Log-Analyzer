@@ -1,10 +1,14 @@
 # Report Interpretation Guide
 
-**Version: 0.54.2-Beta**
-**Date: 2025-08-29**
+**Version: 0.54.3-Beta**
+**Date: 2025-09-03**
 
 ---
 ### --- Revision History ---
+## [0.54.3-Beta] - 2025-09-03
+### Changed
+# - Corrected the report ID for the QSO Breakdown Chart to align with the
+#   source code.
 ## [0.54.2-Beta] - 2025-08-29
 ### Added
 # - Added a new "HTML Reports" section to describe the
@@ -140,7 +144,7 @@ This plot shows a comparison of two logs (e.g., Station A minus Station B).
 * **Strategic Insight**: This plot tells a clear story about how the contest was won or lost, breaking down whether the advantage came from running or S&P.
 ---
 
-### QSO Breakdown Chart (`qso_breakdown_chart`)
+### QSO Breakdown Chart (`chart_qso_breakdown`)
 
 This chart provides a visual companion to the `qso_comparison` text report, breaking down the unique and common QSOs on each band.
 #### How to Interpret This Chart
@@ -193,7 +197,7 @@ This report generates an MP4 video that visualizes the contest progression betwe
 * **Top Chart (Cumulative Totals)**: This horizontal bar chart shows the overall "horse race."
     * The top bar for each station shows the cumulative score.
     * The bottom bar shows the cumulative QSO count.
-    * The scales are independent, allowing you to see how QSO count translates into score over time.
+* The scales are independent, allowing you to see how QSO count translates into score over time.
 * **Bottom-Left Chart (Hourly Rates)**: This vertical bar chart shows the moment-to-moment action.
     * It displays the number of QSOs made in the current hour, broken down by band and mode.
     * The bars are stacked and color-coded by Run/S&P/Unknown status, showing *how* the QSOs were made.
@@ -205,9 +209,7 @@ This report generates an MP4 video that visualizes the contest progression betwe
 ## 5. HTML Reports
 
 HTML reports provide rich, interactive data summaries in a modern web format.
-
 ### HTML QSO Comparison Report (`html_qso_comparison`)
 This report presents a comprehensive, multi-log comparison of QSO statistics in a clean, web-based format. It provides a detailed breakdown of Total, Unique, and Common QSOs for each log, further categorized by Run, S&P, and Unknown status. The report generates a summary table for "All Bands" and individual tables for each band with activity.
-
 #### How to Interpret This Report
 This report provides the same detailed data as the `qso_comparison` text report but in a more readable and visually organized layout, making it easier to compare performance across multiple stations and bands.
