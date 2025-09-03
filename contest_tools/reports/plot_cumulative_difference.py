@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-26
-# Version: 0.52.2-Beta
+# Date: 2025-09-03
+# Version: 0.57.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.57.5-Beta] - 2025-09-03
+### Changed
+# - Updated the chart title to the standard two-line format to conform
+#   to the official CLA Reports Style Guide.
 ## [0.52.2-Beta] - 2025-08-26
 ### Changed
 # - Report now generates individual plots by mode (CW, PH, DG) for both
@@ -182,14 +186,14 @@ class Report(ContestReport):
         
         metric_name = "Points" if metric == 'points' else "QSOs"
         band_text = log1.contest_definition.valid_bands[0].replace('M', ' Meters') if is_single_band else band_filter.replace('M', ' Meters')
-        mode_text = f" - {mode_filter}" if mode_filter else ""
+        mode_text = f" ({mode_filter})" if mode_filter else ""
+        callsign_str = f"{call1} vs. {call2}"
 
-        title_line1 = f"{event_id} {year} {contest_name}".strip()
-        title_line2 = f"Cumulative {metric_name} Difference ({band_text}{mode_text})"
-        sub_title = f"{call1} minus {call2}"
+        title_line1 = f"{self.report_name} - {metric_name}{mode_text}"
+        title_line2 = f"{year} {event_id} {contest_name} - {callsign_str}".strip().replace("  ", " ")
+        final_title = f"{title_line1}\n{title_line2}"
         
-        fig.suptitle(f"{title_line1}\n{title_line2}", fontsize=16, fontweight='bold')
-        ax1.set_title(sub_title, fontsize=12)
+        fig.suptitle(final_title, fontsize=16, fontweight='bold')
 
         ax1.set_ylabel(f"Overall Diff ({metric_name})")
         ax2.set_ylabel(f"Run Diff")

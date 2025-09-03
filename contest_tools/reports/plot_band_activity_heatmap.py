@@ -1,11 +1,15 @@
 # Contest Log Analyzer/contest_tools/reports/plot_band_activity_heatmap.py
 #
-# Version: 0.56.7-Beta
-# Date: 2025-08-31
+# Version: 0.57.0-Beta
+# Date: 2025-09-03
 #
 # Purpose: A plot report that generates a heatmap of band activity over time.
 #
 # --- Revision History ---
+## [0.57.0-Beta] - 2025-09-03
+### Changed
+# - Updated the chart title to the standard two-line format to conform
+#   to the official CLA Reports Style Guide.
 ## [0.56.7-Beta] - 2025-08-31
 ### Changed
 # - Updated band sorting logic to use the refactored _HAM_BANDS
@@ -130,7 +134,15 @@ class Report(ContestReport):
                 linewidths=.5
             )
             
-            ax.set_title(f"{self.report_name} for {callsign}\n{contest_name}", fontsize=16, fontweight='bold')
+            # --- Standard Two-Line Title ---
+            year = df_full['Date'].dropna().iloc[0].split('-')[0] if not df_full.empty and not df_full['Date'].dropna().empty else "----"
+            event_id = metadata.get('EventID', '')
+            
+            title_line1 = self.report_name
+            title_line2 = f"{year} {contest_name} {event_id} - {callsign}".strip()
+            final_title = f"{title_line1}\n{title_line2}"
+            ax.set_title(final_title, fontsize=16, fontweight='bold')
+
             ax.set_xlabel("Contest Time (UTC)")
             ax.set_ylabel("Band")
             

@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-26
-# Version: 0.52.4-Beta
+# Date: 2025-09-03
+# Version: 0.57.7-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.57.7-Beta] - 2025-09-03
+### Changed
+# - Updated the chart title to the standard two-line format to conform
+#   to the official CLA Reports Style Guide.
 ## [0.52.4-Beta] - 2025-08-26
 ### Changed
 # - Report now generates individual plots by mode (CW, PH, DG) for both
@@ -94,6 +98,7 @@ class Report(ContestReport):
         
         if not all_created_files:
             return "No QSO rate plots were generated."
+
         return "QSO rate plots saved to:\n" + "\n".join([f"  - {fp}" for fp in all_created_files])
 
     def _orchestrate_plot_generation(self, dfs: List[pd.DataFrame], output_path: str, mode_filter: str, **kwargs) -> List[str]:
@@ -184,12 +189,14 @@ class Report(ContestReport):
         
         is_single_band = len(self.logs[0].contest_definition.valid_bands) == 1
         band_text = self.logs[0].contest_definition.valid_bands[0].replace('M', ' Meters') if is_single_band else band_filter.replace('M', ' Meters')
-        mode_text = f" - {mode_filter}" if mode_filter else ""
+        mode_text = f" ({mode_filter})" if mode_filter else ""
+        callsign_str = ", ".join(all_calls)
+
+        title_line1 = f"{self.report_name}{mode_text}"
+        title_line2 = f"{year} {event_id} {contest_name} - {callsign_str}".strip().replace("  ", " ")
+        final_title = f"{title_line1}\n{title_line2}"
         
-        title_line1 = f"{event_id} {year} {contest_name}".strip()
-        title_line2 = f"Cumulative {metric_name} ({band_text}{mode_text})"
-        
-        ax.set_title(f"{title_line1}\n{title_line2}", fontsize=16, fontweight='bold')
+        ax.set_title(final_title, fontsize=16, fontweight='bold')
         ax.set_xlabel("Contest Time")
         ax.set_ylabel(f"Cumulative {metric_name}")
         

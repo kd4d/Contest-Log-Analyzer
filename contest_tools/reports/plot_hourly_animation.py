@@ -1,6 +1,6 @@
 # Contest Log Analyzer/contest_tools/reports/plot_hourly_animation.py
 #
-# Version: 0.57.40-Beta
+# Version: 0.58.0-Beta
 # Date: 2025-09-03
 #
 # Purpose: A plot report that generates a series of hourly images and compiles
@@ -14,6 +14,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/. # --- Revision History ---
+## [0.58.0-Beta] - 2025-09-03
+### Changed
+# - Updated the chart title to the standard three-line format to conform
+#   to the official CLA Reports Style Guide.
 ## [0.57.40-Beta] - 2025-09-03
 ### Fixed
 # - Modified the video generation to use the system's temporary
@@ -244,6 +248,7 @@ class Report(ContestReport):
             event_id = first_log_meta.get('EventID', '')
             calls = list(data['log_data'].keys())
             num_logs = len(calls)
+            callsign_str = ", ".join(calls)
     
             for i, hour in enumerate(data['master_index']):
                 # --- Save Debug Data for this frame ---
@@ -308,7 +313,12 @@ class Report(ContestReport):
                 ax_bottom_left = fig_mpl.add_subplot(gs_bottom_plots[0, 0])
                 ax_bottom_right = fig_mpl.add_subplot(gs_bottom_plots[0, 1])
     
-                fig_mpl.suptitle(f"{year} {event_id} {contest_name}\nHour {i + 1} of {total_frames}")
+                # --- Standard Three-Line Title ---
+                title_line1 = self.report_name
+                title_line2 = f"{year} {event_id} {contest_name} - {callsign_str}".strip()
+                title_line3 = f"Hour {i + 1} of {total_frames}"
+                final_title = f"{title_line1}\n{title_line2}\n{title_line3}"
+                fig_mpl.suptitle(final_title)
     
                 ax_qso = ax_top; ax_score = ax_top.twiny()
                 for j, call in enumerate(calls):

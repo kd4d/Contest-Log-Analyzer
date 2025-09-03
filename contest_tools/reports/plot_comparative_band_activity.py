@@ -1,12 +1,16 @@
 # Contest Log Analyzer/contest_tools/reports/plot_comparative_band_activity.py
 #
-# Version: 0.55.9-Beta
-# Date: 2025-08-31
+# Version: 0.57.1-Beta
+# Date: 2025-09-03
 #
 # Purpose: A plot report that generates a comparative "butterfly" chart to
 #          visualize the band activity of two logs side-by-side.
 #
 # --- Revision History ---
+## [0.57.1-Beta] - 2025-09-03
+### Changed
+# - Updated the chart title to the standard two-line format to conform
+#   to the official CLA Reports Style Guide.
 ## [0.55.9-Beta] - 2025-08-31
 ### Changed
 # - Updated band sorting logic to use the new, comprehensive `_HAM_BANDS`
@@ -113,13 +117,12 @@ class Report(ContestReport):
         
         if df1_slice.empty and df2_slice.empty:
             return f"Skipping {mode_filter or 'combined'} plot: No QSO data in slice."
-
         min_time = min(df['Datetime'].min() for df in dfs.values() if not df.empty).floor('h')
         max_time = max(df['Datetime'].max() for df in dfs.values() if not df.empty).ceil('h')
         time_bins = pd.date_range(start=min_time, end=max_time, freq='15min', tz='UTC')
 
         all_bands_in_logs = pd.concat([dfs[call1]['Band'], dfs[call2]['Band']]).dropna().unique()
-        canonical_band_order = ContestLog._HAM_BANDS
+        canonical_band_order = [band[1] for band in ContestLog._HAM_BANDS]
         all_bands = sorted(list(all_bands_in_logs), key=lambda b: canonical_band_order.index(b) if b in canonical_band_order else -1)
         
         if not all_bands:
@@ -177,14 +180,15 @@ class Report(ContestReport):
         event_id = metadata.get('EventID', '')
         
         mode_title_str = f" ({mode_filter})" if mode_filter else ""
+        callsign_str = f"{call1} vs. {call2}"
+
         title_line1 = f"{self.report_name}{mode_title_str}"
-        title_line2 = f"{event_id} {year} {contest_name}".strip()
-        title_line3 = f"{call1} (Up) vs. {call2} (Down)"
-        final_title = f"{title_line1}\n{title_line2}\n{title_line3}"
+        title_line2 = f"{year} {event_id} {contest_name} - {callsign_str}".strip().replace("  ", " ")
+        final_title = f"{title_line1}\n{title_line2}"
         
         fig.suptitle(final_title, fontsize=16, fontweight='bold')
         axes[-1].set_xlabel("Contest Time (UTC)")
-        fig.supylabel("QSOs per Hour (Normalized)")
+        fig.supylabel("QSOs per Hour")
         fig.tight_layout(rect=[0.03, 0.03, 1, 0.95])
 
         # --- 5. Save File ---

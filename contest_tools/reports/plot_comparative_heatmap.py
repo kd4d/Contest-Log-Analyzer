@@ -1,7 +1,7 @@
 # Contest Log Analyzer/contest_tools/reports/plot_comparative_heatmap.py
 #
-# Version: 0.40.4-Beta
-# Date: 2025-08-19
+# Version: 0.57.3-Beta
+# Date: 2025-09-03
 #
 # Purpose: A plot report that generates a comparative, split-cell heatmap to
 #          visualize the band activity of two logs side-by-side.
@@ -16,6 +16,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+## [0.57.3-Beta] - 2025-09-03
+### Changed
+# - Updated instantiation of the ComparativeHeatmapChart helper to pass
+#   the report_name, enabling standardized two-line title formatting.
 ## [0.40.4-Beta] - 2025-08-19
 ### Fixed
 # - Corrected a TypeError during debug data generation by converting
@@ -125,7 +129,7 @@ class Report(ContestReport):
 
             heatmap_chart = ComparativeHeatmapChart(
                 data1=data1_part, data2=data2_part, call1=call1, call2=call2,
-                metadata=metadata, output_filename=filepath, part_info=final_part_info
+                metadata=metadata, output_filename=filepath, report_name=self.report_name, part_info=final_part_info
             )
             
             return heatmap_chart.plot()
@@ -184,4 +188,5 @@ class Report(ContestReport):
 
         if not created_files:
             return f"Report '{self.report_name}' was generated, but no files were created."
+
         return f"Plot report(s) saved to relevant subdirectories in:\n  - {output_path}"
