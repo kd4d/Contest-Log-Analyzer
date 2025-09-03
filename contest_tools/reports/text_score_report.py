@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-01
-# Version: 0.57.11-Beta
+# Date: 2025-09-02
+# Version: 0.57.15-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,12 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.57.11-Beta] - 2025-09-01
-### Fixed
-# - Overhauled `_calculate_all_scores` to fix multiplier calculations.
-# - Per-band/mode rows now correctly credit only the first mode to work
-#   a new multiplier on a given band. The TOTAL row is now a direct sum
-#   of these corrected per-band values.
+## [0.57.15-Beta] - 2025-09-02
+### Added
+# - Added logic to support a new `total_points` score formula for
+#   contests without multipliers, like ARRL Field Day.
 ## [0.56.3-Beta] - 2025-08-31
 ### Changed
 # - Updated the band sorting logic to use the refactored _HAM_BANDS
@@ -269,71 +267,99 @@ class Report(ContestReport):
         df_full = log.get_processed_data()
         contest_def = log.contest_definition
         multiplier_rules = contest_def.multiplier_rules
-        log_location_type = getattr(log, '_my_location_type', None)
-
+        
+        # Start with a DataFrame of non-duplicate QSOs
         df_net = df_full[df_full['Dupe'] == False].copy()
+        
+        # If the contest rules require it, filter out zero-point QSOs for all counts
         if not contest_def.mults_from_zero_point_qsos:
             df_net = df_net[df_net['QSOPoints'] > 0].copy()
+        
+        # --- Pre-computation for all multiplier types ---
+        per_band_mult_counts = {}
+        first_worked_mult_counts = {}
+        log_location_type = getattr(log, '_my_location_type', None)
+        
+        for rule in multiplier_rules:
+            mult_col = rule['value_column']
+            if mult_col not in df_net.columns: continue
 
-        # --- Part 1: Per-Band/Mode Summary Calculation (for report body) ---
-        summary_data = []
-        all_bands_mult_totals = {} # To store correct per-band totals for later summation
-
-        if not df_net.empty:
-            sorted_bands = sorted(df_net['Band'].unique(), key=lambda b: [band[1] for band in ContestLog._HAM_BANDS].index(b))
+            df_valid_mults = df_net[df_net[mult_col].notna() & (df_net[mult_col] != 'Unknown')]
             
-            for band in sorted_bands:
-                df_band = df_net[df_net['Band'] == band]
-                seen_mults_on_band = {rule['value_column']: set() for rule in multiplier_rules}
+            if rule.get('totaling_method') == 'once_per_log':
+                df_sorted = df_valid_mults.sort_values(by='Datetime')
+                overall_seen_mults = set()
+                new_mults_per_band_mode = {}
                 
-                sorted_modes = sorted(df_band['Mode'].unique())
-                for mode in sorted_modes:
-                    df_band_mode = df_band[df_band['Mode'] == mode]
-                    summary = {'Band': band, 'Mode': mode}
-                    summary['QSOs'] = len(df_band_mode)
-                    summary['Points'] = df_band_mode['QSOPoints'].sum()
+                band_mode_groups = df_sorted.groupby(['Band', 'Mode'])
+                for (band, mode), group_df in band_mode_groups:
+                    mults_in_group = set(group_df[mult_col].unique())
+                    new_mults = mults_in_group - overall_seen_mults
+                    new_mults_per_band_mode[(band, mode)] = len(new_mults)
+                    overall_seen_mults.update(new_mults)
+                first_worked_mult_counts[mult_col] = new_mults_per_band_mode
+            else:
+                pivot = calculate_multiplier_pivot(df_valid_mults, mult_col, group_by_call=False)
+                per_band_mult_counts[mult_col] = (pivot > 0).sum(axis=0)
+
+        # --- Per-Band/Mode Summary Calculation ---
+        summary_data = []
+        if not df_net.empty:
+            band_mode_groups = df_net.groupby(['Band', 'Mode'])
+            for (band, mode), group_df in band_mode_groups:
+                band_mode_summary = {'Band': band, 'Mode': mode}
+                band_mode_summary['QSOs'] = len(group_df)
+                band_mode_summary['Points'] = group_df['QSOPoints'].sum()
+                
+                for rule in multiplier_rules:
+                    m_col = rule['value_column']
+                    m_name = rule['name']
                     
-                    for rule in multiplier_rules:
-                        m_name = rule['name']
-                        m_col = rule['value_column']
-                        
-                        if m_col in df_band_mode.columns:
-                            current_mode_mults = set(df_band_mode[m_col].dropna().unique())
-                            if 'Unknown' in current_mode_mults:
-                                current_mode_mults.remove('Unknown')
-                            
-                            new_mults = current_mode_mults - seen_mults_on_band[m_col]
-                            summary[m_name] = len(new_mults)
-                            seen_mults_on_band[m_col].update(current_mode_mults)
+                    if rule.get('totaling_method') == 'once_per_log':
+                        band_mode_summary[m_name] = first_worked_mult_counts.get(m_col, {}).get((band, mode), 0)
+                    else:
+                        band_counts_series = per_band_mult_counts.get(m_col)
+                        if band_counts_series is not None:
+                            band_mode_summary[m_name] = band_counts_series.get(band, 0)
                         else:
-                            summary[m_name] = 0
-                            
-                    summary['AVG'] = (summary['Points'] / summary['QSOs']) if summary['QSOs'] > 0 else 0
-                    summary_data.append(summary)
+                            band_mode_summary[m_name] = 0
 
-                # Store the final per-band unique counts for the grand total calculation
-                all_bands_mult_totals[band] = {m_col: len(seen_set) for m_col, seen_set in seen_mults_on_band.items()}
-
-        # --- Part 2: TOTAL Summary Calculation ---
+                band_mode_summary['AVG'] = (band_mode_summary['Points'] / band_mode_summary['QSOs']) if band_mode_summary['QSOs'] > 0 else 0
+                summary_data.append(band_mode_summary)
+                
+        # --- TOTAL Summary Calculation ---
         total_summary = {'Band': 'TOTAL', 'Mode': ''}
         total_summary['QSOs'] = df_net.shape[0]
         total_summary['Points'] = df_net['QSOPoints'].sum()
-        total_summary['AVG'] = (total_summary['Points'] / total_summary['QSOs']) if total_summary['QSOs'] > 0 else 0
-        
+
         total_multiplier_count = 0
         for rule in multiplier_rules:
             mult_name = rule['name']
             mult_col = rule['value_column']
+
+            applies_to = rule.get('applies_to')
+            if applies_to and log_location_type and applies_to != log_location_type:
+                total_summary[mult_name] = 0
+                continue
             
-            # Sum the unique per-band totals calculated in Part 1
-            total_mults_for_rule = sum(band_data.get(mult_col, 0) for band, band_data in all_bands_mult_totals.items())
+            if mult_col in df_net.columns:
+                df_valid_mults = df_net[df_net[mult_col].notna() & (df_net[mult_col] != 'Unknown')]
 
-            total_summary[mult_name] = total_mults_for_rule
-            total_multiplier_count += total_mults_for_rule
-
-        # --- Part 3: Final Score Calculation ---
+                if rule.get('totaling_method') == 'once_per_log':
+                    total_mults_for_rule = df_valid_mults[mult_col].nunique()
+                else:
+                    total_mults_for_rule = per_band_mult_counts.get(mult_col, pd.Series()).sum()
+            
+                total_summary[mult_name] = total_mults_for_rule
+                total_multiplier_count += total_mults_for_rule
+            
+        total_summary['AVG'] = (total_summary['Points'] / total_summary['QSOs']) if total_summary['QSOs'] > 0 else 0
+        
+        # --- Data-driven score calculation ---
         if contest_def.score_formula == 'qsos_times_mults':
             final_score = total_summary['QSOs'] * total_multiplier_count
+        elif contest_def.score_formula == 'total_points':
+            final_score = total_summary['Points']
         else: # Default to points_times_mults
             final_score = total_summary['Points'] * total_multiplier_count
         
