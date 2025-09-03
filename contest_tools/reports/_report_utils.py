@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-22
-# Version: 0.47.1-Beta
+# Date: 2025-09-03
+# Version: 0.47.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.47.2-Beta] - 2025-09-03
+### Changed
+# - Modified the ComparativeHeatmapChart class to accept a report_name
+#   parameter to support the standardized two-line title format.
 ## [0.47.1-Beta] - 2025-08-22
 ### Changed
 # - Enhanced the calculate_multiplier_pivot() shared utility to support
@@ -265,13 +269,14 @@ class DonutChartComponent:
 class ComparativeHeatmapChart:
     """Helper class to generate a 'split cell' comparative heatmap."""
     
-    def __init__(self, data1, data2, call1, call2, metadata: Dict[str, Any], output_filename: str, part_info: str = ""):
+    def __init__(self, data1, data2, call1, call2, metadata: Dict[str, Any], output_filename: str, report_name: str, part_info: str = ""):
         self.data1 = data1
         self.data2 = data2
         self.call1 = call1
         self.call2 = call2
         self.metadata = metadata
         self.output_filename = output_filename
+        self.report_name = report_name
         self.part_info = part_info
 
     def plot(self):
@@ -350,9 +355,11 @@ class ComparativeHeatmapChart:
         contest_name = self.metadata.get('ContestName', '')
         event_id = self.metadata.get('EventID', '')
         
-        title_line1 = f"{event_id} {year} {contest_name}".strip()
-        title_line2 = f"Comparative Band Activity Heatmap {self.part_info}".strip()
-        fig.suptitle(f"{title_line1}\n{title_line2}", fontsize=16, fontweight='bold', y=0.99)
+        callsign_str = f"{self.call1} vs. {self.call2}"
+        title_line1 = f"{self.report_name} {self.part_info}".strip()
+        title_line2 = f"{year} {event_id} {contest_name} - {callsign_str}".strip().replace("  ", " ")
+        final_title = f"{title_line1}\n{title_line2}"
+        fig.suptitle(final_title, fontsize=16, fontweight='bold', y=0.99)
         
         medium_color = cmap(0.5)
         legend_patches = [

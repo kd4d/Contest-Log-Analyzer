@@ -1,12 +1,16 @@
 # Contest Log Analyzer/contest_tools/reports/plot_comparative_run_sp.py
 #
-# Version: 0.56.7-Beta
-# Date: 2025-08-31
+# Version: 0.57.4-Beta
+# Date: 2025-09-03
 #
 # Purpose: A plot report that generates a "paired timeline" chart, visualizing
 #          the operating style (Run, S&P, or Mixed) of two operators over time.
 #
 # --- Revision History ---
+## [0.57.4-Beta] - 2025-09-03
+### Changed
+# - Updated the chart title to the standard two-line format to conform
+#   to the official CLA Reports Style Guide.
 ## [0.56.7-Beta] - 2025-08-31
 ### Fixed
 # - Updated band sorting logic to use the refactored _HAM_BANDS
@@ -202,8 +206,10 @@ class Report(ContestReport):
         event_id = log1_meta.get('EventID', '')
         
         mode_title_str = f" ({mode_filter})" if mode_filter else ""
+        callsign_str = f"{call1} vs. {call2}"
+        
         title_line1 = f"{self.report_name}{mode_title_str}{page_title_suffix}"
-        title_line2 = f"{event_id} {year} {contest_name}".strip()
+        title_line2 = f"{year} {event_id} {contest_name} - {callsign_str}".strip().replace("  ", " ")
         final_title = f"{title_line1}\n{title_line2}"
         fig.suptitle(final_title, fontsize=16, fontweight='bold')
         
@@ -232,6 +238,7 @@ class Report(ContestReport):
         """Orchestrates the generation of the combined plot and per-mode plots."""
         if len(self.logs) != 2:
             return f"Error: Report '{self.report_name}' requires exactly two logs."
+
         BANDS_PER_PAGE = 8
         log1, log2 = self.logs[0], self.logs[1]
         created_files = []
@@ -241,6 +248,7 @@ class Report(ContestReport):
 
         if df1.empty or df2.empty:
             return f"Skipping '{self.report_name}': At least one log has no valid QSOs."
+
         df1['Datetime'] = pd.to_datetime(df1['Datetime']).dt.tz_localize('UTC')
         df2['Datetime'] = pd.to_datetime(df2['Datetime']).dt.tz_localize('UTC')
         
@@ -264,6 +272,7 @@ class Report(ContestReport):
 
         if not created_files:
             return f"Report '{self.report_name}' did not generate any files."
+
         return f"Report file(s) saved to:\n" + "\n".join([f"  - {fp}" for fp in created_files])
 
     def _run_plot_for_slice(self, df1, df2, log1, log2, output_path, bands_per_page, mode_filter, **kwargs):
