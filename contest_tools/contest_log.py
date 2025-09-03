@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-01
-# Version: 0.57.12-Beta
+# Date: 2025-09-03
+# Version: 0.57.13-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.57.13-Beta] - 2025-09-03
+### Changed
+# - Modified the generic ADIF exporter to convert the internal 'PH'
+#   mode to 'SSB' for improved N1MM compatibility.
 ## [0.57.12-Beta] - 2025-09-01
 ### Changed
 # - Changed the ADIF timestamp offset for identical timestamps to a
@@ -536,7 +540,17 @@ class ContestLog:
                 record.append(adif_format('FREQ_RX', freq_mhz))
 
             record.append(adif_format('CONTEST_ID', self.metadata.get('ContestName')))
-            record.append(adif_format('MODE', row.get('Mode')))
+            
+            # Get the mode from the DataFrame row
+            mode = row.get('Mode')
+            # Check if the mode is one of the standard phone modes
+            if mode in ['PH', 'USB', 'LSB', 'SSB']:
+                output_mode = 'SSB'
+            else:
+                # Otherwise, use the mode as-is (e.g., for CW, DG)
+                output_mode = mode
+            # Append the formatted ADIF tag to the record
+            record.append(adif_format('MODE', output_mode))
             
             rst_rcvd = row.get('RST') if pd.notna(row.get('RST')) else row.get('RS')
             record.append(adif_format('RST_RCVD', rst_rcvd))
@@ -549,8 +563,8 @@ class ContestLog:
             record.append(adif_format('ITUZ', row.get('ITUZone')))
             
             if pd.notna(row.get('RcvdLocation')):
-                 record.append(adif_format('STATE', row.get('RcvdLocation')))
-                 record.append(adif_format('ARRL_SECT', row.get('RcvdLocation')))
+                record.append(adif_format('STATE', row.get('RcvdLocation')))
+                record.append(adif_format('ARRL_SECT', row.get('RcvdLocation')))
 
             # --- Custom CLA Tags ---
             record.append(adif_format('APP_CLA_QSO_POINTS', row.get('QSOPoints')))
