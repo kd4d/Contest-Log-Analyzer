@@ -5,7 +5,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-09-03
-# Version: 0.57.19-Beta
+# Version: 0.57.20-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -14,7 +14,13 @@
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
-# file, You can obtain one at http://mozilla.org/MPL/2.0/. # --- Revision History ---
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+# --- Revision History ---
+## [0.57.20-Beta] - 2025-09-03
+### Changed
+# - Modified the report to be score-formula-aware. It will no
+#   longer display multiplier columns for contests like ARRL Field Day
+#   that do not use multipliers in the final score.
 ## [0.57.19-Beta] - 2025-09-03
 ### Fixed
 # - Corrected the total multiplier calculation in `_calculate_all_scores`
@@ -128,7 +134,11 @@ class Report(ContestReport):
             summary_data, total_summary, final_score = self._calculate_all_scores(log, output_path, **kwargs)
             
             # --- Formatting ---
-            mult_names = [rule['name'] for rule in log.contest_definition.multiplier_rules]
+            if log.contest_definition.score_formula == 'total_points':
+                mult_names = []
+            else:
+                mult_names = [rule['name'] for rule in log.contest_definition.multiplier_rules]
+            
             col_order = ['Band', 'Mode', 'QSOs'] + mult_names + ['Points', 'AVG']
             col_widths = {key: len(str(key)) for key in col_order}
 

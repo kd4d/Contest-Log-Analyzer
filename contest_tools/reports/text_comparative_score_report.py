@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-31
-# Version: 0.56.2-Beta
+# Date: 2025-09-03
+# Version: 0.56.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,11 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0.
 # --- Revision History ---
+## [0.56.3-Beta] - 2025-09-03
+### Changed
+# - Modified the report to be score-formula-aware. It no longer
+#   displays multiplier columns for contests (like ARRL Field Day) that
+#   do not use multipliers in their final score.
 ## [0.56.2-Beta] - 2025-08-31
 ### Changed
 # - Updated the band sorting logic to use the refactored _HAM_BANDS
@@ -78,7 +83,11 @@ class Report(ContestReport):
         total_summaries = [self._calculate_totals(log) for log in self.logs]
         
         # --- Define Column Order and Header Formatting ---
-        mult_names = [rule['name'] for rule in contest_def.multiplier_rules]
+        if contest_def.score_formula == 'total_points':
+            mult_names = []
+        else:
+            mult_names = [rule['name'] for rule in contest_def.multiplier_rules]
+            
         col_order = ['Callsign', 'On-Time', 'QSOs'] + mult_names + ['Points', 'AVG']
 
         has_on_time = any(s[0].get('On-Time') and s[0].get('On-Time') != 'N/A' for s in total_summaries)
