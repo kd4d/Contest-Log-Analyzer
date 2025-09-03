@@ -1,12 +1,11 @@
 # Contest Log Analyzer/contest_tools/reports/text_score_report.py
 #
 # Purpose: A text report that generates a detailed score summary for each
-#          log, broken down by band.
-#
+#          log, broken down by band. #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-02
-# Version: 0.57.18-Beta
+# Date: 2025-09-03
+# Version: 0.57.19-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -15,8 +14,12 @@
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
-# --- Revision History ---
+# file, You can obtain one at http://mozilla.org/MPL/2.0/. # --- Revision History ---
+## [0.57.19-Beta] - 2025-09-03
+### Fixed
+# - Corrected the total multiplier calculation in `_calculate_all_scores`
+#   to properly handle the 'once_per_mode' totaling method. This fixes
+#   a regression that caused incorrect scores for the ARRL 10-Meter contest.
 ## [0.57.18-Beta] - 2025-09-02
 ### Fixed
 # - Corrected a bug in the per-band/mode summary calculation that ignored
@@ -135,7 +138,7 @@ class Report(ContestReport):
                     if key in col_widths:
                         val_len = len(f"{value:,.0f}") if isinstance(value, (int, float)) and key not in ['AVG'] else len(str(value))
                         if isinstance(value, float) and key == 'AVG':
-                           val_len = len(f"{value:.2f}")
+                            val_len = len(f"{value:.2f}")
                         col_widths[key] = max(col_widths.get(key, 0), val_len)
 
             year = df_full['Date'].iloc[0].split('-')[0] if not df_full.empty and not df_full['Date'].dropna().empty else "----"
@@ -357,7 +360,10 @@ class Report(ContestReport):
 
                 if rule.get('totaling_method') == 'once_per_log':
                     total_mults_for_rule = df_valid_mults[mult_col].nunique()
-                else:
+                elif rule.get('totaling_method') == 'once_per_mode':
+                    mode_mults = df_valid_mults.groupby('Mode')[mult_col].nunique()
+                    total_mults_for_rule = mode_mults.sum()
+                else: # Default to sum_by_band
                     total_mults_for_rule = per_band_mult_counts.get(mult_col, pd.Series()).sum()
             
                 total_summary[mult_name] = total_mults_for_rule

@@ -1,12 +1,11 @@
 # Contest Log Analyzer/contest_tools/reports/text_multipliers_by_hour.py
 #
 # Purpose: A data-driven text report that generates an hourly summary of new
-#          multipliers worked for a specific multiplier type.
-#
+#          multipliers worked for a specific multiplier type. #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-16
-# Version: 0.37.2-Beta
+# Date: 2025-09-03
+# Version: 0.37.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +16,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.37.3-Beta] - 2025-09-03
+### Fixed
+# - Corrected multiplier tracking logic to handle the 'once_per_mode'
+#   totaling method and to correctly filter data by the mode it is
+#   being run for. This fixes a bug with the ARRL 10-Meter contest.
 ## [0.37.2-Beta] - 2025-08-16
 ### Fixed
 # - Corrected the conditional check to use 'once_per_log' to match the
@@ -56,9 +60,10 @@ class Report(ContestReport):
         Generates the report content.
         """
         mult_name = kwargs.get('mult_name')
+        mode_filter = kwargs.get('mode_filter')
+
         if not mult_name:
             return f"Error: 'mult_name' argument is required for the '{self.report_name}' report."
-
         final_report_messages = []
         
         log_manager = getattr(self.logs[0], '_log_manager_ref', None)
@@ -73,6 +78,10 @@ class Report(ContestReport):
             contest_name = metadata.get('ContestName', 'UnknownContest')
             year = df_full['Date'].dropna().iloc[0].split('-')[0] if not df_full['Date'].dropna().empty else "----"
             
+            # --- Filter data by mode if specified ---
+            if mode_filter:
+                df_full = df_full[df_full['Mode'] == mode_filter].copy()
+
             mult_rule = None
             for rule in log.contest_definition.multiplier_rules:
                 if rule.get('name', '').lower() == mult_name.lower():
@@ -123,7 +132,7 @@ class Report(ContestReport):
                     else:
                         current_hour_mults = set(band_df[mult_column].unique())
                     
-                    if totaling_method == 'once_per_log':
+                    if totaling_method in ['once_per_log', 'once_per_mode']:
                         new_mults = current_hour_mults - worked_mults_overall
                         worked_mults_overall.update(current_hour_mults)
                     else: # Default to sum_by_band
@@ -144,8 +153,9 @@ class Report(ContestReport):
             table_width = len(header1)
             separator = "-" * table_width
             
+            mode_title_str = f" ({mode_filter})" if mode_filter else ""
             title1 = f"--- {self.report_name} ---"
-            title2 = f"{year} {contest_name} - {callsign} ({mult_name})"
+            title2 = f"{year} {contest_name} - {callsign} ({mult_name}{mode_title_str})"
             
             report_lines = []
             header_width = max(table_width, len(title1), len(title2))
@@ -184,7 +194,9 @@ class Report(ContestReport):
 
             report_content = "\n".join(report_lines) + "\n"
             os.makedirs(output_path, exist_ok=True)
-            filename = f"{self.report_id}_{mult_name.lower()}_{callsign}.txt"
+            
+            mode_file_str = f"_{mode_filter.lower()}" if mode_filter else ""
+            filename = f"{self.report_id}_{mult_name.lower()}{mode_file_str}_{callsign}.txt"
             filepath = os.path.join(output_path, filename)
             with open(filepath, 'w', encoding='utf-8') as f:
                 f.write(report_content)
