@@ -1,10 +1,14 @@
 # AIAgentWorkflow.md
 
-**Version: 0.59.0-Beta**
+**Version: 0.59.1-Beta**
 **Date: 2025-09-03**
 
 ---
 ### --- Revision History ---
+## [0.59.1-Beta] - 2025-09-03
+### Changed
+# - Corrected an internal documentation reference to point to the correct
+#   user guide filename.
 ## [0.59.0-Beta] - 2025-09-03
 ### Added
 # - Added Protocol 7.6 (Systemic Bug Eradication Protocol) to formalize
@@ -218,7 +222,7 @@ This document is the definitive technical specification for the AI agent's behav
 
 **The primary audience for this document is the Gemini AI agent.** It is a machine-readable set of rules and protocols.
 
-For a narrative, human-focused explanation of this workflow, please see `Docs/WorkflowUserGuide.md`.
+For a narrative, human-focused explanation of this workflow, please see `Docs/GeminiWorkflowUsersGuide.md`.
 ---
 ## Part I: Core Principles
 

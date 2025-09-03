@@ -1,10 +1,14 @@
 # Contest Log Analyzer - Workflow User Guide
 
-**Version: 0.58.1-Beta**
-**Date: 2025-09-02**
+**Version: 0.58.2-Beta**
+**Date: 2025-09-03**
 
 ---
 ### --- Revision History ---
+## [0.58.2-Beta] - 2025-09-03
+### Changed
+# - Added clarification that the `Approved` and `Acknowledged` commands
+#   must be the exact, literal strings to align with the main technical spec.
 ## [0.58.1-Beta] - 2025-09-02
 ### Changed
 # - Updated command keywords in Section 3 to use backticks (`Approved`)
@@ -26,7 +30,8 @@
 
 ## 1. Introduction
 
-This document provides a human-friendly, narrative guide to the collaborative workflow used for this project. Its purpose is to explain the "why" behind the process and clarify your role in our interactions. The full, definitive set of rules that the AI agent follows is in `Docs/AIAgentWorkflow.md`. Think of that as the AI's technical specification, and this document as the quick-start guide for the human user.
+This document provides a human-friendly, narrative guide to the collaborative workflow used for this project. Its purpose is to explain the "why" behind the process and clarify your role in our interactions.
+The full, definitive set of rules that the AI agent follows is in `Docs/AIAgentWorkflow.md`. Think of that as the AI's technical specification, and this document as the quick-start guide for the human user.
 ---
 ## 2. The Core Idea: A State Machine
 
@@ -47,12 +52,12 @@ As the user, you drive the state machine forward with a few key phrases. Using t
 
 ### When the AI provides an Implementation Plan...
 Your required response is `Approved`.
-* **What it means**: You are giving the final go-ahead for the plan as written. This "locks in" the plan, and the AI will proceed to execute it exactly.
+* **What it means**: You are giving the final go-ahead for the plan as written. This "locks in" the plan, and the AI will proceed to execute it exactly. The AI is required by protocol to only accept the **exact, literal string** `Approved` to move forward.
 * **Important**: If you provide any other feedback, questions, or new instructions at this stage, the AI is required by protocol to treat it as a **request for plan refinement**. It will generate a new plan incorporating your feedback and wait for a new `Approved` response.
 
 ### When the AI delivers a file...
 Your required response is `Acknowledged`.
-* **What it means**: You are confirming that you have received the file and that it is correct as delivered. This completes the transaction for that file, updating the project's official state.
+* **What it means**: You are confirming that you have received the file and that it is correct as delivered. This completes the transaction for that file, updating the project's official state. The AI is required by protocol to only accept the **exact, literal string** `Acknowledged` to proceed.
 * **Why it's per-file**: This step-by-step confirmation is a critical data integrity check. It ensures that every single file modification is mutually confirmed before the project's "definitive state" is updated.
 ---
 ## 4. Handling Problems
@@ -60,7 +65,6 @@ Your required response is `Acknowledged`.
 The workflow includes protocols for handling common issues.
 ### Common Issues
 * **Context Loss**: If the AI seems to have forgotten previous steps or is repeating itself, you can say it has **lost context**. Per its highest-priority principle, it must halt everything and request a **Definitive State Initialization**.
-
 ### User-Initiated Protocols
 You can initiate several key protocols to manage the project state:
 * **Definitive State Initialization**: This is a "hard reset" of the project state. You request this and then provide fresh copies of all project files in `*_bundle.txt` files. This purges the AI's memory and re-establishes the absolute ground truth of the project.

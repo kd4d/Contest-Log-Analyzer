@@ -1,10 +1,14 @@
 # Contest Log Analyzer - User Guide
 
-**Version: 0.56.30-Beta**
-**Date: 2025-09-01**
+**Version: 0.56.31-Beta**
+**Date: 2025-09-03**
 
 ---
 ### --- Revision History ---
+## [0.56.31-Beta] - 2025-09-03
+### Changed
+# - Corrected the report ID for the QSO Breakdown Chart to align with the
+#   source code.
 ## [0.56.30-Beta] - 2025-09-01
 ### Fixed
 # - Added the missing `iaru_officials.dat` file to the list of
@@ -63,6 +67,7 @@ The Contest Log Analyzer is a powerful command-line tool designed for amateur ra
 * Generate detailed reports and charts that compare your log against one or more others.
 * Analyze performance on a band-by-band basis to identify strengths and weaknesses.
 * Calculate contest-specific QSO points for supported contests.
+
 The ultimate goal of this program is to help you understand your contest operation in minute detail, identify missed opportunities, and improve your strategy for the next event.
 ---
 
@@ -154,7 +159,7 @@ Use the `Report ID` with the `--report` command-line option.
 #### **Chart Reports (`charts/`)**
 * `chart_point_contribution`: Point Contribution Breakdown (Comparative)
 * `chart_point_contribution_single`: Point Contribution Breakdown (Single Log)
-* `qso_breakdown_chart`: QSO Breakdown by Run/S&P
+* `chart_qso_breakdown`: QSO Breakdown by Run/S&P
 
 #### **Plot Reports (`plots/`)**
 * `band_activity_heatmap`: Band Activity Heatmap
