@@ -7,8 +7,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-16
-# Version: 0.37.0-Beta
+# Date: 2025-09-04
+# Version: 0.37.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,10 +19,13 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.37.1-Beta] - 2025-09-04
+### Fixed
+# - Added a resilient retry loop to the archive function to handle
+#   transient file locks from cloud sync services like OneDrive.
 ## [0.37.0-Beta] - 2025-08-16
 ### Added
 # - Initial release of the automated regression test script.
-
 import os
 import sys
 import argparse
@@ -30,6 +33,8 @@ import datetime
 import subprocess
 import shutil
 import difflib
+import time
+import errno
 
 def get_report_dirs():
     """Gets and validates the root, reports, and data directories."""
@@ -52,13 +57,22 @@ def archive_baseline_reports(reports_dir: str) -> str:
     timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H%M')
     archive_dir = f"{reports_dir}_{timestamp}"
     
-    try:
-        shutil.move(reports_dir, archive_dir)
-        print(f"SUCCESS: Archived existing reports to '{archive_dir}'")
-        return archive_dir
-    except Exception as e:
-        print(f"FATAL: Could not archive reports directory: {e}")
-        sys.exit(1)
+    for i in range(10):  # Attempt for up to 10 seconds
+        try:
+            shutil.move(reports_dir, archive_dir)
+            print(f"SUCCESS: Archived existing reports to '{archive_dir}'")
+            return archive_dir
+        except OSError as e:
+            if e.errno == errno.EACCES and i < 9:
+                print(f"  - Archive failed (Access Denied). Retrying in 1 second...")
+                time.sleep(1)
+                continue
+            else:
+                print(f"FATAL: Could not archive reports directory: {e}")
+                sys.exit(1)
+        except Exception as e:
+            print(f"FATAL: An unexpected error occurred during archiving: {e}")
+            sys.exit(1)
 
 def compare_outputs(new_items: set, reports_dir: str, archive_dir: str, ignore_whitespace: bool) -> list:
     """Compares new files against the baseline and returns a list of failures."""
