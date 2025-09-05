@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-10
-# Version: 0.31.43-Beta
+# Date: 2025-09-05
+# Version: 0.60.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,6 +16,15 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.60.2-Beta] - 2025-09-05
+### Fixed
+# - Corrected the scoring logic to properly handle same-country contacts
+#   within North America, which should be worth 0 points.
+### Changed
+# - Reordered the conditional logic to check for the most specific
+#   cases first, improving both efficiency and clarity.
+# - Refactored general scoring rules into a more readable if/else
+#   structure.
 ## [0.31.43-Beta] - 2025-08-10
 ### Changed
 # - Refactored scoring logic to use the 'Continent' field ('NA') instead
@@ -30,32 +39,34 @@ def _calculate_single_qso_points(row: pd.Series, my_continent: str, my_dxcc_name
     """
     Calculates the point value for a single QSO based on CQ WW rules.
     """
-    # Rule: Dupes and contacts with own station are always 0 points.
+    # Rule 0: Dupes are always worth 0 points.
     if row['Dupe']:
         return 0
 
     worked_continent = row.get('Continent')
     worked_dxcc_name = row.get('DXCCName')
 
-    # Rule: Contacts between stations in North America are worth 2 points.
-    # This is a special case that overrides other same-continent rules.
+    # Rule 1 (Most Specific): Contacts between stations in the same country are worth 0 points.
+    if worked_dxcc_name == my_dxcc_name:
+        return 0
+    
+    # Rule 2 (Regional Exception): Contacts between stations in different countries within North America are worth 2 points.
     if my_continent == 'NA' and worked_continent == 'NA':
         return 2
 
-    # Rule: Contacts between stations on different continents are worth 3 points.
+    # Rules 3 & 4 Combined (General):
     if worked_continent and worked_continent != my_continent:
+        # Different continents are worth 3 points.
         return 3
-
-    # Rule: Contacts between stations on the same continent but in different countries are 1 point.
-    if worked_continent and worked_continent == my_continent and worked_dxcc_name != my_dxcc_name:
-        return 1
-
-    # Rule: Contacts between stations in the same country are worth 0 points.
-    if worked_dxcc_name == my_dxcc_name:
-        return 0
-        
-    # Fallback case, should not be reached often
+    else:
+        # By elimination, this is a same-continent, different-country contact (1 point),
+        # or a QSO with missing data (which will fall through).
+        if worked_continent:
+            return 1
+    
+    # Fallback case for any QSOs that slip through (e.g., missing location data).
     return 0
+
 
 def calculate_points(df: pd.DataFrame, my_call_info: Dict[str, Any]) -> pd.Series:
     """
