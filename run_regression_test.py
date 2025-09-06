@@ -7,8 +7,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-04
-# Version: 0.37.1-Beta
+# Date: 2025-09-06
+# Version: 0.38.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,6 +19,12 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.38.0-Beta] - 2025-09-06
+### Added
+# - Added content-aware comparison logic for _processed.csv files, which
+#   sorts the data before comparing to prevent false positives.
+# - Added content-aware comparison logic for .adi files, which parses
+#   the file and compares the data structure to prevent false positives.
 ## [0.37.1-Beta] - 2025-09-04
 ### Fixed
 # - Added a resilient retry loop to the archive function to handle
@@ -35,6 +41,35 @@ import shutil
 import difflib
 import time
 import errno
+import pandas as pd
+import re
+import json
+from typing import List, Dict
+
+def _parse_adif_for_comparison(filepath: str) -> List[Dict[str, str]]:
+    """Parses an ADIF file into a sorted list of dictionaries for comparison."""
+    try:
+        with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+            content = f.read()
+    except Exception:
+        return []
+
+    header_end_match = re.search(r'<EOH>', content, re.IGNORECASE)
+    records_content = content[header_end_match.end():] if header_end_match else content
+    qso_records = re.split(r'<EOR>', records_content, flags=re.IGNORECASE)
+    
+    all_qsos_data = []
+    adif_tag_pattern = re.compile(r'<([A-Z0-9_]+):\d+>([^<]*)', re.IGNORECASE)
+
+    for record_str in qso_records:
+        if record_str.strip():
+            # Sort tags alphabetically within each record for a canonical representation
+            qso_data = dict(sorted(adif_tag_pattern.findall(record_str.upper())))
+            if qso_data:
+                all_qsos_data.append(qso_data)
+    
+    # Sort all QSOs by TIME_ON and CALL to ensure a canonical order for the entire file
+    return sorted(all_qsos_data, key=lambda x: (x.get('TIME_ON', ''), x.get('CALL', '')))
 
 def get_report_dirs():
     """Gets and validates the root, reports, and data directories."""
@@ -83,11 +118,49 @@ def compare_outputs(new_items: set, reports_dir: str, archive_dir: str, ignore_w
         baseline_path = os.path.join(archive_dir, relative_path)
 
         if not os.path.exists(baseline_path):
-            if item_path.endswith(('.png', '.mp4', '.txt')):
+            if item_path.endswith(('.png', '.mp4', '.txt', '.adi', '_processed.csv')):
                 failures.append(f"Missing Baseline: {relative_path}")
             continue
 
-        if item_path.endswith('.txt'):
+        if item_path.endswith('_processed.csv'):
+            try:
+                df_new = pd.read_csv(item_path, dtype=str).fillna('')
+                df_base = pd.read_csv(baseline_path, dtype=str).fillna('')
+                
+                sort_keys = ['Datetime', 'Call']
+                if not all(k in df_new.columns for k in sort_keys):
+                    sort_keys = [k for k in sort_keys if k in df_new.columns]
+                
+                df_new = df_new.sort_values(by=sort_keys).reset_index(drop=True)
+                df_base = df_base.sort_values(by=sort_keys).reset_index(drop=True)
+
+                if not df_new.equals(df_base):
+                    diff = list(difflib.unified_diff(
+                        df_base.to_string().splitlines(keepends=True),
+                        df_new.to_string().splitlines(keepends=True),
+                        fromfile=f'a/{relative_path}', tofile=f'b/{relative_path}'
+                    ))
+                    failures.append(f"File: {relative_path}\n" + "".join(diff))
+            except Exception as e:
+                failures.append(f"File: {relative_path}\nERROR during CSV diff: {e}")
+
+        elif item_path.endswith('.adi'):
+            try:
+                qsos_new = _parse_adif_for_comparison(item_path)
+                qsos_base = _parse_adif_for_comparison(baseline_path)
+
+                if qsos_new != qsos_base:
+                    str_new = json.dumps(qsos_new, indent=2)
+                    str_base = json.dumps(qsos_base, indent=2)
+                    diff = list(difflib.unified_diff(
+                        str_base.splitlines(keepends=True), str_new.splitlines(keepends=True),
+                        fromfile=f'a/{relative_path}', tofile=f'b/{relative_path}'
+                    ))
+                    failures.append(f"File: {relative_path}\n" + "".join(diff))
+            except Exception as e:
+                failures.append(f"File: {relative_path}\nERROR during ADIF diff: {e}")
+
+        elif item_path.endswith('.txt'):
             try:
                 with open(item_path, 'r', encoding='utf-8') as f_new:
                     lines_new = f_new.readlines()
@@ -107,7 +180,7 @@ def compare_outputs(new_items: set, reports_dir: str, archive_dir: str, ignore_w
                     failures.append(f"File: {relative_path}\n" + "".join(diff))
             except Exception as e:
                 failures.append(f"File: {relative_path}\nERROR during diff: {e}")
-                
+            
     return failures
 
 def main():
@@ -175,7 +248,7 @@ def main():
                 print(f"--- FAILED: {command} ---")
                 for failure in failures:
                     print(failure)
-                    print("---")
+                print("---")
 
     print(f"\n--- Regression Test Complete ---")
     print(f"Full test execution log saved to: {run_log_filepath}")
