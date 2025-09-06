@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-03
-# Version: 0.57.13-Beta
+# Date: 2025-09-05
+# Version: 0.60.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.60.3-Beta] - 2025-09-05
+### Changed
+# - Updated the ADIF timestamp offset to 2 seconds.
+# - Replaced the ADIF timestamping logic with a robust `while` loop to
+#   correctly handle high QSO rates and prevent rollover collisions.
 ## [0.57.13-Beta] - 2025-09-03
 ### Changed
 # - Modified the generic ADIF exporter to convert the internal 'PH'
@@ -113,7 +118,7 @@ class ContestLog:
     """
     High-level broker class to manage a single amateur radio contest log.
     """
-    _ADIF_TIMESTAMP_OFFSET_SECONDS = 5
+    _ADIF_TIMESTAMP_OFFSET_SECONDS = 2
     
     _HAM_BANDS = [
         (( 1800.,  2000.), '160M'),
@@ -502,9 +507,12 @@ class ContestLog:
 
         # --- Add per-second offset to identical timestamps for N1MM compatibility ---
         if 'Datetime' in df_to_export.columns and not df_to_export.empty:
-            offsets = df_to_export.groupby('Datetime').cumcount()
-            time_deltas = pd.to_timedelta(offsets * self._ADIF_TIMESTAMP_OFFSET_SECONDS, unit='s')
-            df_to_export['Datetime'] = df_to_export['Datetime'] + time_deltas
+            # Loop until all timestamps are unique, handling rollovers.
+            while df_to_export['Datetime'].duplicated().any():
+                offsets = df_to_export.groupby('Datetime').cumcount()
+                time_deltas = pd.to_timedelta(offsets * self._ADIF_TIMESTAMP_OFFSET_SECONDS, unit='s')
+                # Only apply the offset to the rows that are part of a duplicate group
+                df_to_export.loc[df_to_export['Datetime'].duplicated(keep=False), 'Datetime'] += time_deltas
             df_to_export.sort_values(by='Datetime', inplace=True)
 
         # --- ADIF Helper Functions ---
