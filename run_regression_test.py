@@ -7,8 +7,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-06
-# Version: 0.38.0-Beta
+# Date: 2025-09-07
+# Version: 0.39.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,6 +19,15 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.39.0-Beta] - 2025-09-07
+### Changed
+# - Replaced the archiving logic with a robust "copy then delete"
+#   strategy that includes an error handler to automatically remove
+#   read-only attributes, solving failures caused by OneDrive/Git.
+## [0.38.1-Beta] - 2025-09-07
+### Fixed
+# - Replaced shutil.move with os.rename and added a pre-emptive check
+#   to prevent a race condition during the archiving step.
 ## [0.38.0-Beta] - 2025-09-06
 ### Added
 # - Added content-aware comparison logic for _processed.csv files, which
@@ -44,7 +53,20 @@ import errno
 import pandas as pd
 import re
 import json
+import stat
 from typing import List, Dict
+
+def _handle_rmtree_readonly(func, path, exc_info):
+    """
+    Error handler for shutil.rmtree that handles read-only files and directories.
+    """
+    exc_type, exc_value, exc_tb = exc_info
+    if isinstance(exc_value, PermissionError):
+        # Remove the read-only attribute and retry the operation
+        os.chmod(path, stat.S_IWRITE)
+        func(path)
+    else:
+        raise
 
 def _parse_adif_for_comparison(filepath: str) -> List[Dict[str, str]]:
     """Parses an ADIF file into a sorted list of dictionaries for comparison."""
@@ -84,30 +106,70 @@ def get_report_dirs():
     return root_dir, reports_dir
 
 def archive_baseline_reports(reports_dir: str) -> str:
-    """Renames the existing reports directory to create a timestamped archive."""
+    """Archives the existing reports directory using a resilient copy-then-delete strategy."""
     if not os.path.exists(reports_dir):
         print(f"INFO: No existing reports directory found at '{reports_dir}'. Baseline will be empty.")
         return ""
         
     timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H%M')
-    archive_dir = f"{reports_dir}_{timestamp}"
-    
-    for i in range(10):  # Attempt for up to 10 seconds
+    archive_dir_final = f"{reports_dir}_{timestamp}"
+    archive_dir_tmp = f"{archive_dir_final}.tmp"
+
+    # --- Pre-emptive check for inconsistent state ---
+    if os.path.exists(archive_dir_final) or os.path.exists(archive_dir_tmp):
+        print(f"FATAL: A final or temporary archive directory already exists.")
+        print("       This indicates a previous run failed. Please manually clean up the directory.")
+        sys.exit(1)
+
+    # --- Phase 1: Robust Copy to Temporary Directory ---
+    print(f"Step 1: Copying source to temporary directory '{os.path.basename(archive_dir_tmp)}'...")
+    copy_success = False
+    for i in range(10): # Retry for up to 10 seconds
         try:
-            shutil.move(reports_dir, archive_dir)
-            print(f"SUCCESS: Archived existing reports to '{archive_dir}'")
-            return archive_dir
+            shutil.copytree(reports_dir, archive_dir_tmp)
+            copy_success = True
+            print(" -> Copy successful.")
+            break
+        except FileExistsError:
+            print(f"  - Cleaning up partial temporary directory...")
+            shutil.rmtree(archive_dir_tmp, onerror=_handle_rmtree_readonly)
+            time.sleep(1)
         except OSError as e:
-            if e.errno == errno.EACCES and i < 9:
-                print(f"  - Archive failed (Access Denied). Retrying in 1 second...")
+            if e.errno == errno.EACCES: # Permission denied
+                print(f"  - Copy failed (Access Denied). Retrying in 1 second...")
                 time.sleep(1)
-                continue
             else:
-                print(f"FATAL: Could not archive reports directory: {e}")
+                print(f"FATAL: An unhandled OS error occurred during copy: {e}")
                 sys.exit(1)
         except Exception as e:
-            print(f"FATAL: An unexpected error occurred during archiving: {e}")
+            print(f"FATAL: An unexpected error occurred during copy: {e}")
             sys.exit(1)
+            
+    if not copy_success:
+        print("FATAL: Could not copy source directory after multiple retries. Aborting.")
+        sys.exit(1)
+        
+    # --- Phase 2: Atomic Rename ---
+    print(f"Step 2: Renaming temporary directory to final destination...")
+    try:
+        os.rename(archive_dir_tmp, archive_dir_final)
+        print(f" -> Rename successful. Archive is now at: {os.path.basename(archive_dir_final)}")
+    except Exception as e:
+        print(f"FATAL: Could not rename temporary directory: {e}")
+        print(f"       The original data is safe, and a complete copy exists at '{archive_dir_tmp}'")
+        sys.exit(1)
+        
+    # --- Phase 3: Resilient Delete of Original ---
+    print(f"Step 3: Deleting original source directory '{os.path.basename(reports_dir)}'...")
+    try:
+        shutil.rmtree(reports_dir, onerror=_handle_rmtree_readonly)
+        print(" -> Deletion successful.")
+    except Exception as e:
+        print(f"WARNING: An unexpected error occurred during delete: {e}")
+        print(f"WARNING: Failed to delete '{reports_dir}'. Please remove it manually.")
+    
+    return archive_dir_final
+
 
 def compare_outputs(new_items: set, reports_dir: str, archive_dir: str, ignore_whitespace: bool) -> list:
     """Compares new files against the baseline and returns a list of failures."""
