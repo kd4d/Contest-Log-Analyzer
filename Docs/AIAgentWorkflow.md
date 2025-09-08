@@ -1,10 +1,16 @@
 # AIAgentWorkflow.md
 
-**Version: 0.59.1-Beta**
-**Date: 2025-09-03**
+**Version: 0.60.0-Beta**
+**Date: 2025-09-08**
 
 ---
 ### --- Revision History ---
+## [0.60.0-Beta] - 2025-09-08
+### Added
+# - Added Principle 15 (Principle of Centralized Configuration) to mandate
+#   that configuration is read in one place and passed as parameters.
+# - Added Protocol 6.8 (External System Interference Protocol) to formalize
+#   the process for diagnosing errors caused by external tools like Git or OneDrive.
 ## [0.59.1-Beta] - 2025-09-03
 ### Changed
 # - Corrected an internal documentation reference to point to the correct
@@ -245,6 +251,7 @@ These are the foundational rules that govern all interactions and analyses.
     * Is this a **Data Integrity Error** that should be corrected in the data file?
     * Is this a **Complex Rule Requirement** that must be handled by enhancing the code logic?
 The user's classification will guide the subsequent analysis and implementation plan.
+15. **Principle of Centralized Configuration.** Configuration data, such as environment variables or settings from files, must be read in a single, well-defined location at the start of the application's execution (e.g., `main_cli.py`). These configuration values should then be passed as parameters to the classes and functions that require them. Modules and classes should not read environment variables directly.
 ---
 ## Part II: Standard Operating Protocols
 
@@ -435,6 +442,10 @@ These protocols are for troubleshooting, error handling, and non-standard situat
     1.  **Initiation:** The user provides a simplified, ground-truth data file (e.g., a JSON or text file containing only the essential data points).
     2.  **Prioritization:** The AI must treat this new file as the highest-priority source of truth for the specific data it contains.
     3.  **Analysis:** The AI will use the simplified file to debug its own logic and resolve the discrepancy. The goal is to make the primary analysis tool's output match the ground truth provided in the simplified file.
+6.8. **External System Interference Protocol.** This protocol is triggered when a file system error (e.g., `PermissionError`) is repeatable but cannot be traced to the script's own logic.
+    1.  **Hypothesize External Cause:** The AI must explicitly consider and list potential external systems as the root cause (e.g., cloud sync clients like OneDrive, version control systems like Git, antivirus software).
+    2.  **Propose Diagnostic Commands:** The AI must propose specific, external diagnostic commands for the user to run to verify the state of the filesystem. Examples include `git ls-files` to check tracking status or `attrib` (on Windows) to check file attributes.
+    3.  **Propose Solution Based on Findings:** The implementation plan should address the external cause (e.g., adding a path to `.gitignore`) rather than adding complex, temporary workarounds to the code.
 ### 7. Miscellaneous Protocols
 
 7.1. **Technical Debt Cleanup Protocol.** When code becomes convoluted, a **Technical Debt Cleanup Sprint** will be conducted to refactor the code for clarity, consistency, and maintainability.
