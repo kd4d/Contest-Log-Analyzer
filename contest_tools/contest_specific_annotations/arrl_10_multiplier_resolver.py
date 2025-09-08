@@ -1,7 +1,7 @@
 # Contest Log Analyzer/contest_tools/contest_specific_annotations/arrl_10_multiplier_resolver.py
 #
-# Version: 0.38.3-Beta
-# Date: 2025-08-27
+# Version: 0.62.0-Beta
+# Date: 2025-09-08
 #
 # Purpose: Provides contest-specific logic to resolve ARRL 10 Meter contest
 #          multipliers by parsing the asymmetric received exchange.
@@ -15,6 +15,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.62.0-Beta] - 2025-09-08
+### Changed
+# - Updated script to read the new CONTEST_INPUT_DIR environment variable.
 ## [0.38.3-Beta] - 2025-08-27
 ### Fixed
 # - Corrected DXCC multiplier logic to use the prefix (DXCCPfx) instead
@@ -136,7 +139,7 @@ def resolve_multipliers(df: pd.DataFrame, my_call_info: Dict[str, Any]) -> pd.Da
         return df
 
     # Initialize section-aware alias lookup
-    root_dir = os.environ.get('CONTEST_LOGS_REPORTS', '').strip().strip('"').strip("'")
+    root_dir = os.environ.get('CONTEST_INPUT_DIR', '').strip().strip('"').strip("'")
     data_dir = os.path.join(root_dir, 'data')
     alias_lookup = AliasLookup(data_dir, 'arrl_10_mults.dat')
 

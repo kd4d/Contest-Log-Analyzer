@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-21
-# Version: 0.39.0-Beta
+# Date: 2025-09-08
+# Version: 0.62.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,14 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.62.0-Beta] - 2025-09-08
+### Changed
+# - Replaced the single CONTEST_LOGS_REPORTS environment variable with
+#   two new variables (CONTEST_INPUT_DIR and CONTEST_REPORTS_DIR) to
+#   separate input data from output artifacts.
+### Added
+# - Added a check to prevent the reports directory from being located in
+#   a OneDrive folder to avoid file-locking issues.
 ## [0.39.0-Beta] - 2025-08-21
 ### Added
 # - Added a --debug-mults flag to generate diagnostic files for debugging
@@ -53,8 +61,9 @@ def handle_error(error_type: str, problem: str, solution: str, path: str = ""):
 def print_usage_guide():
     """Prints the command-line usage guide."""
     print("\nUsage: python main_cli.py --report <ReportID|all|chart|text|plot> <LogFilePath1> [<LogFile2>...] [options]")
-    print("\nNote: The CONTEST_LOGS_REPORTS environment variable must be set to the root directory")
-    print("      containing your 'Logs', 'data', and 'reports' subdirectories.")
+    print("\nNote: Two environment variables must be set:")
+    print("      - CONTEST_INPUT_DIR:  Root directory containing your 'Logs' and 'data' subdirectories.")
+    print("      - CONTEST_REPORTS_DIR: Root directory where the 'reports' output folder will be created.")
     print("\nOptions:")
     print("  --verbose               Enable verbose status reporting.")
     print("  --include-dupes         Include duplicate QSOs in calculations.")
@@ -91,29 +100,39 @@ def main():
 
     setup_logging(args.verbose)
 
-    raw_root_dir = os.environ.get('CONTEST_LOGS_REPORTS')
-    if not raw_root_dir:
+    # --- Read and Validate Environment Variables ---
+    raw_input_dir = os.environ.get('CONTEST_INPUT_DIR')
+    raw_reports_dir = os.environ.get('CONTEST_REPORTS_DIR')
+
+    if not raw_input_dir or not raw_reports_dir:
         handle_error(
             "CONFIGURATION ERROR",
-            "The CONTEST_LOGS_REPORTS environment variable is not set.",
-            "Please set this variable to point to the root directory that contains your 'Logs' and 'data' subdirectories."
+            "One or more required environment variables are not set.",
+            "Please set both CONTEST_INPUT_DIR and CONTEST_REPORTS_DIR."
         )
-    
-    root_dir = raw_root_dir.strip().strip('"').strip("'")
-    
-    data_dir = os.path.join(root_dir, 'data')
+
+    root_input_dir = raw_input_dir.strip().strip('"').strip("'")
+    root_reports_dir = raw_reports_dir.strip().strip('"').strip("'")
+
+    # --- OneDrive Check ---
+    if 'onedrive' in root_reports_dir.lower():
+        handle_error(
+            "CONFIGURATION ERROR",
+            "The reports directory cannot be located inside a OneDrive folder.",
+            "Please set CONTEST_REPORTS_DIR to a local path (e.g., C:\\Users\\YourUser\\HamRadio\\CLA) to prevent file locking issues."
+        )
+
+    data_dir = os.path.join(root_input_dir, 'data')
     if not os.path.isdir(data_dir):
         handle_error(
             "CONFIGURATION ERROR",
-            "The required 'data' subdirectory was not found.",
-            "Please ensure a 'data' directory exists inside your root directory.",
+            "The required 'data' subdirectory was not found in your input directory.",
+            "Please ensure a 'data' directory exists inside your CONTEST_INPUT_DIR path.",
             path=data_dir
         )
-    os.environ['CONTEST_DATA_DIR'] = data_dir
-    
-    reports_dir = os.path.join(root_dir, 'reports')
-    logs_dir = os.path.join(root_dir, 'Logs')
 
+    logs_dir = os.path.join(root_input_dir, 'Logs')
+    
     if unknown:
         handle_error("ARGUMENT ERROR", f"Unrecognized arguments: {' '.join(unknown)}", "Please check your spelling and refer to the usage guide.")
 
@@ -129,7 +148,7 @@ def main():
         handle_error("ARGUMENT ERROR", "The --report argument is required.", "Please specify which report to generate (e.g., --report summary).")
 
     report_id_lower = args.report_id.lower()
-    if report_id_lower not in ['all', 'chart', 'text', 'plot'] and args.report_id not in AVAILABLE_REPORTS:
+    if report_id_lower not in ['all', 'chart', 'text', 'plot', 'animation', 'html'] and args.report_id not in AVAILABLE_REPORTS:
         handle_error("ARGUMENT ERROR", f"The report ID '{args.report_id}' was not found.", "Please choose a valid Report ID from the 'Available Reports' list below.")
         
     logging.info("\n--- Contest Log Analyzer ---")
@@ -148,7 +167,7 @@ def main():
 
     try:
         log_manager.finalize_loading()
-        generator = ReportGenerator(logs=log_manager.get_logs(), root_output_dir=reports_dir)
+        generator = ReportGenerator(logs=log_manager.get_logs(), root_output_dir=root_reports_dir)
         generator.run_reports(args.report_id, **report_kwargs)
     except ValueError as e:
         handle_error(

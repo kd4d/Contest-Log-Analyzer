@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-11
-# Version: 0.30.42-Beta
+# Date: 2025-09-08
+# Version: 0.62.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.62.0-Beta] - 2025-09-08
+### Changed
+# - Updated script to read the new CONTEST_INPUT_DIR environment variable.
 ## [0.30.42-Beta] - 2025-08-11
 ### Fixed
 # - Added a special check to the longest prefix match logic to prevent
@@ -309,14 +312,14 @@ class CtyLookup:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="CTY.DAT lookup tool.")
     parser.add_argument('callsign_file', nargs='?', default=None,
-                        help="Optional path to a file containing callsigns to look up, one per line.")
+                         help="Optional path to a file containing callsigns to look up, one per line.")
     args = parser.parse_args()
 
     setup_logging(verbose=True)
 
-    root_dir = os.environ.get('CONTEST_LOGS_REPORTS')
+    root_dir = os.environ.get('CONTEST_INPUT_DIR')
     if not root_dir:
-        logging.critical("CONTEST_LOGS_REPORTS environment variable not set.")
+        logging.critical("CONTEST_INPUT_DIR environment variable not set.")
         sys.exit(1)
     
     data_dir = os.path.join(root_dir.strip().strip('"').strip("'"), 'data')
