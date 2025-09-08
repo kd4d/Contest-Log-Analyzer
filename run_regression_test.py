@@ -7,8 +7,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-16
-# Version: 0.37.0-Beta
+# Date: 2025-09-07
+# Version: 0.39.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,10 +19,28 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.39.0-Beta] - 2025-09-07
+### Changed
+# - Replaced the archiving logic with a robust "copy then delete"
+#   strategy that includes an error handler to automatically remove
+#   read-only attributes, solving failures caused by OneDrive/Git.
+## [0.38.1-Beta] - 2025-09-07
+### Fixed
+# - Replaced shutil.move with os.rename and added a pre-emptive check
+#   to prevent a race condition during the archiving step.
+## [0.38.0-Beta] - 2025-09-06
+### Added
+# - Added content-aware comparison logic for _processed.csv files, which
+#   sorts the data before comparing to prevent false positives.
+# - Added content-aware comparison logic for .adi files, which parses
+#   the file and compares the data structure to prevent false positives.
+## [0.37.1-Beta] - 2025-09-04
+### Fixed
+# - Added a resilient retry loop to the archive function to handle
+#   transient file locks from cloud sync services like OneDrive.
 ## [0.37.0-Beta] - 2025-08-16
 ### Added
 # - Initial release of the automated regression test script.
-
 import os
 import sys
 import argparse
@@ -30,6 +48,50 @@ import datetime
 import subprocess
 import shutil
 import difflib
+import time
+import errno
+import pandas as pd
+import re
+import json
+import stat
+from typing import List, Dict
+
+def _handle_rmtree_readonly(func, path, exc_info):
+    """
+    Error handler for shutil.rmtree that handles read-only files and directories.
+    """
+    exc_type, exc_value, exc_tb = exc_info
+    if isinstance(exc_value, PermissionError):
+        # Remove the read-only attribute and retry the operation
+        os.chmod(path, stat.S_IWRITE)
+        func(path)
+    else:
+        raise
+
+def _parse_adif_for_comparison(filepath: str) -> List[Dict[str, str]]:
+    """Parses an ADIF file into a sorted list of dictionaries for comparison."""
+    try:
+        with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+            content = f.read()
+    except Exception:
+        return []
+
+    header_end_match = re.search(r'<EOH>', content, re.IGNORECASE)
+    records_content = content[header_end_match.end():] if header_end_match else content
+    qso_records = re.split(r'<EOR>', records_content, flags=re.IGNORECASE)
+    
+    all_qsos_data = []
+    adif_tag_pattern = re.compile(r'<([A-Z0-9_]+):\d+>([^<]*)', re.IGNORECASE)
+
+    for record_str in qso_records:
+        if record_str.strip():
+            # Sort tags alphabetically within each record for a canonical representation
+            qso_data = dict(sorted(adif_tag_pattern.findall(record_str.upper())))
+            if qso_data:
+                all_qsos_data.append(qso_data)
+    
+    # Sort all QSOs by TIME_ON and CALL to ensure a canonical order for the entire file
+    return sorted(all_qsos_data, key=lambda x: (x.get('TIME_ON', ''), x.get('CALL', '')))
 
 def get_report_dirs():
     """Gets and validates the root, reports, and data directories."""
@@ -44,21 +106,70 @@ def get_report_dirs():
     return root_dir, reports_dir
 
 def archive_baseline_reports(reports_dir: str) -> str:
-    """Renames the existing reports directory to create a timestamped archive."""
+    """Archives the existing reports directory using a resilient copy-then-delete strategy."""
     if not os.path.exists(reports_dir):
         print(f"INFO: No existing reports directory found at '{reports_dir}'. Baseline will be empty.")
         return ""
         
     timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H%M')
-    archive_dir = f"{reports_dir}_{timestamp}"
-    
-    try:
-        shutil.move(reports_dir, archive_dir)
-        print(f"SUCCESS: Archived existing reports to '{archive_dir}'")
-        return archive_dir
-    except Exception as e:
-        print(f"FATAL: Could not archive reports directory: {e}")
+    archive_dir_final = f"{reports_dir}_{timestamp}"
+    archive_dir_tmp = f"{archive_dir_final}.tmp"
+
+    # --- Pre-emptive check for inconsistent state ---
+    if os.path.exists(archive_dir_final) or os.path.exists(archive_dir_tmp):
+        print(f"FATAL: A final or temporary archive directory already exists.")
+        print("       This indicates a previous run failed. Please manually clean up the directory.")
         sys.exit(1)
+
+    # --- Phase 1: Robust Copy to Temporary Directory ---
+    print(f"Step 1: Copying source to temporary directory '{os.path.basename(archive_dir_tmp)}'...")
+    copy_success = False
+    for i in range(10): # Retry for up to 10 seconds
+        try:
+            shutil.copytree(reports_dir, archive_dir_tmp)
+            copy_success = True
+            print(" -> Copy successful.")
+            break
+        except FileExistsError:
+            print(f"  - Cleaning up partial temporary directory...")
+            shutil.rmtree(archive_dir_tmp, onerror=_handle_rmtree_readonly)
+            time.sleep(1)
+        except OSError as e:
+            if e.errno == errno.EACCES: # Permission denied
+                print(f"  - Copy failed (Access Denied). Retrying in 1 second...")
+                time.sleep(1)
+            else:
+                print(f"FATAL: An unhandled OS error occurred during copy: {e}")
+                sys.exit(1)
+        except Exception as e:
+            print(f"FATAL: An unexpected error occurred during copy: {e}")
+            sys.exit(1)
+            
+    if not copy_success:
+        print("FATAL: Could not copy source directory after multiple retries. Aborting.")
+        sys.exit(1)
+        
+    # --- Phase 2: Atomic Rename ---
+    print(f"Step 2: Renaming temporary directory to final destination...")
+    try:
+        os.rename(archive_dir_tmp, archive_dir_final)
+        print(f" -> Rename successful. Archive is now at: {os.path.basename(archive_dir_final)}")
+    except Exception as e:
+        print(f"FATAL: Could not rename temporary directory: {e}")
+        print(f"       The original data is safe, and a complete copy exists at '{archive_dir_tmp}'")
+        sys.exit(1)
+        
+    # --- Phase 3: Resilient Delete of Original ---
+    print(f"Step 3: Deleting original source directory '{os.path.basename(reports_dir)}'...")
+    try:
+        shutil.rmtree(reports_dir, onerror=_handle_rmtree_readonly)
+        print(" -> Deletion successful.")
+    except Exception as e:
+        print(f"WARNING: An unexpected error occurred during delete: {e}")
+        print(f"WARNING: Failed to delete '{reports_dir}'. Please remove it manually.")
+    
+    return archive_dir_final
+
 
 def compare_outputs(new_items: set, reports_dir: str, archive_dir: str, ignore_whitespace: bool) -> list:
     """Compares new files against the baseline and returns a list of failures."""
@@ -69,11 +180,49 @@ def compare_outputs(new_items: set, reports_dir: str, archive_dir: str, ignore_w
         baseline_path = os.path.join(archive_dir, relative_path)
 
         if not os.path.exists(baseline_path):
-            if item_path.endswith(('.png', '.mp4', '.txt')):
+            if item_path.endswith(('.png', '.mp4', '.txt', '.adi', '_processed.csv')):
                 failures.append(f"Missing Baseline: {relative_path}")
             continue
 
-        if item_path.endswith('.txt'):
+        if item_path.endswith('_processed.csv'):
+            try:
+                df_new = pd.read_csv(item_path, dtype=str).fillna('')
+                df_base = pd.read_csv(baseline_path, dtype=str).fillna('')
+                
+                sort_keys = ['Datetime', 'Call']
+                if not all(k in df_new.columns for k in sort_keys):
+                    sort_keys = [k for k in sort_keys if k in df_new.columns]
+                
+                df_new = df_new.sort_values(by=sort_keys).reset_index(drop=True)
+                df_base = df_base.sort_values(by=sort_keys).reset_index(drop=True)
+
+                if not df_new.equals(df_base):
+                    diff = list(difflib.unified_diff(
+                        df_base.to_string().splitlines(keepends=True),
+                        df_new.to_string().splitlines(keepends=True),
+                        fromfile=f'a/{relative_path}', tofile=f'b/{relative_path}'
+                    ))
+                    failures.append(f"File: {relative_path}\n" + "".join(diff))
+            except Exception as e:
+                failures.append(f"File: {relative_path}\nERROR during CSV diff: {e}")
+
+        elif item_path.endswith('.adi'):
+            try:
+                qsos_new = _parse_adif_for_comparison(item_path)
+                qsos_base = _parse_adif_for_comparison(baseline_path)
+
+                if qsos_new != qsos_base:
+                    str_new = json.dumps(qsos_new, indent=2)
+                    str_base = json.dumps(qsos_base, indent=2)
+                    diff = list(difflib.unified_diff(
+                        str_base.splitlines(keepends=True), str_new.splitlines(keepends=True),
+                        fromfile=f'a/{relative_path}', tofile=f'b/{relative_path}'
+                    ))
+                    failures.append(f"File: {relative_path}\n" + "".join(diff))
+            except Exception as e:
+                failures.append(f"File: {relative_path}\nERROR during ADIF diff: {e}")
+
+        elif item_path.endswith('.txt'):
             try:
                 with open(item_path, 'r', encoding='utf-8') as f_new:
                     lines_new = f_new.readlines()
@@ -93,7 +242,7 @@ def compare_outputs(new_items: set, reports_dir: str, archive_dir: str, ignore_w
                     failures.append(f"File: {relative_path}\n" + "".join(diff))
             except Exception as e:
                 failures.append(f"File: {relative_path}\nERROR during diff: {e}")
-                
+            
     return failures
 
 def main():
@@ -161,7 +310,7 @@ def main():
                 print(f"--- FAILED: {command} ---")
                 for failure in failures:
                     print(failure)
-                    print("---")
+                print("---")
 
     print(f"\n--- Regression Test Complete ---")
     print(f"Full test execution log saved to: {run_log_filepath}")

@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-01
-# Version: 0.57.12-Beta
+# Date: 2025-09-06
+# Version: 0.61.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,19 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.61.0-Beta] - 2025-09-06
+### Added
+# - Added a custom <APP_CLA_CQZ> tag to the generic ADIF exporter to
+#   preserve the CTY-derived geographical zone for diagnostics.
+## [0.60.3-Beta] - 2025-09-05
+### Changed
+# - Updated the ADIF timestamp offset to 2 seconds.
+# - Replaced the ADIF timestamping logic with a robust `while` loop to
+#   correctly handle high QSO rates and prevent rollover collisions.
+## [0.57.13-Beta] - 2025-09-03
+### Changed
+# - Modified the generic ADIF exporter to convert the internal 'PH'
+#   mode to 'SSB' for improved N1MM compatibility.
 ## [0.57.12-Beta] - 2025-09-01
 ### Changed
 # - Changed the ADIF timestamp offset for identical timestamps to a
@@ -109,7 +122,7 @@ class ContestLog:
     """
     High-level broker class to manage a single amateur radio contest log.
     """
-    _ADIF_TIMESTAMP_OFFSET_SECONDS = 5
+    _ADIF_TIMESTAMP_OFFSET_SECONDS = 2
     
     _HAM_BANDS = [
         (( 1800.,  2000.), '160M'),
@@ -403,7 +416,7 @@ class ContestLog:
                     
                     self.qsos_df.loc[wae_mask, dest_col] = self.qsos_df.loc[wae_mask, 'WAEPfx']
                     self.qsos_df.loc[~wae_mask, dest_col] = self.qsos_df.loc[~wae_mask, 'DXCCPfx']
-                    
+ 
                     if dest_name_col:
                         self.qsos_df.loc[wae_mask, dest_name_col] = self.qsos_df.loc[wae_mask, 'WAEName']
                         self.qsos_df.loc[~wae_mask, dest_name_col] = self.qsos_df.loc[~wae_mask, 'DXCCName']
@@ -498,9 +511,12 @@ class ContestLog:
 
         # --- Add per-second offset to identical timestamps for N1MM compatibility ---
         if 'Datetime' in df_to_export.columns and not df_to_export.empty:
-            offsets = df_to_export.groupby('Datetime').cumcount()
-            time_deltas = pd.to_timedelta(offsets * self._ADIF_TIMESTAMP_OFFSET_SECONDS, unit='s')
-            df_to_export['Datetime'] = df_to_export['Datetime'] + time_deltas
+            # Loop until all timestamps are unique, handling rollovers.
+            while df_to_export['Datetime'].duplicated().any():
+                offsets = df_to_export.groupby('Datetime').cumcount()
+                time_deltas = pd.to_timedelta(offsets * self._ADIF_TIMESTAMP_OFFSET_SECONDS, unit='s')
+                # Only apply the offset to the rows that are part of a duplicate group
+                df_to_export.loc[df_to_export['Datetime'].duplicated(keep=False), 'Datetime'] += time_deltas
             df_to_export.sort_values(by='Datetime', inplace=True)
 
         # --- ADIF Helper Functions ---
@@ -536,7 +552,17 @@ class ContestLog:
                 record.append(adif_format('FREQ_RX', freq_mhz))
 
             record.append(adif_format('CONTEST_ID', self.metadata.get('ContestName')))
-            record.append(adif_format('MODE', row.get('Mode')))
+            
+            # Get the mode from the DataFrame row
+            mode = row.get('Mode')
+            # Check if the mode is one of the standard phone modes
+            if mode in ['PH', 'USB', 'LSB', 'SSB']:
+                output_mode = 'SSB'
+            else:
+                # Otherwise, use the mode as-is (e.g., for CW, DG)
+                output_mode = mode
+            # Append the formatted ADIF tag to the record
+            record.append(adif_format('MODE', output_mode))
             
             rst_rcvd = row.get('RST') if pd.notna(row.get('RST')) else row.get('RS')
             record.append(adif_format('RST_RCVD', rst_rcvd))
@@ -548,9 +574,12 @@ class ContestLog:
             record.append(adif_format('CQZ', row.get('CQZone')))
             record.append(adif_format('ITUZ', row.get('ITUZone')))
             
+            # Add custom CLA tag for CTY-derived CQ Zone for diagnostics
+            record.append(adif_format('APP_CLA_CQZ', row.get('CQZone')))
+            
             if pd.notna(row.get('RcvdLocation')):
-                 record.append(adif_format('STATE', row.get('RcvdLocation')))
-                 record.append(adif_format('ARRL_SECT', row.get('RcvdLocation')))
+                record.append(adif_format('STATE', row.get('RcvdLocation')))
+                record.append(adif_format('ARRL_SECT', row.get('RcvdLocation')))
 
             # --- Custom CLA Tags ---
             record.append(adif_format('APP_CLA_QSO_POINTS', row.get('QSOPoints')))

@@ -1,7 +1,7 @@
 {
   "_filename": "contest_tools/contest_definitions/naqp.json",
-  "_version": "0.57.37-Beta",
-  "_date": "2025-09-02",
+  "_version": "0.57.39-Beta",
+  "_date": "2025-09-04",
   "contest_name": "NAQP",
   "valid_bands": [
     "160M",
@@ -16,6 +16,7 @@
   "enable_adif_export": true,
   "is_naqp_ruleset": true,
   "custom_multiplier_resolver": "naqp_multiplier_resolver",
+  "custom_adif_exporter": "naqp_adif",
   "mutually_exclusive_mults": [
     [
       "Mult_STPROV",
@@ -25,7 +26,7 @@
   "contest_specific_event_id_resolver": "naqp_event_id_resolver",
   "exchange_parsing_rules": {
     "NAQP-CW": {
-      "regex": "([A-Z0-9]+)\\s+([A-Z]{2,4})\\s+([A-Z0-9/]+)\\s+([A-Z0-9]+)\\s+([A-Z]{2,4})(?:\\s+(\\d))?",
+      "regex": "([A-Z0-9]+)\\s+([A-Z0-9/]+)\\s+([A-Z0-9/]+)\\s+([A-Z0-9]+)\\s+([A-Z0-9/]+)(?:\\s+(\\d))?",
       "groups": [
         "SentName",
         "SentLocation",
@@ -36,7 +37,7 @@
       ]
     },
     "NAQP-PH": {
-      "regex": "([A-Z0-9]+)\\s+([A-Z]{2,4})\\s+([A-Z0-9/]+)\\s+([A-Z0-9]+)\\s+([A-Z]{2,4})(?:\\s+(\\d))?",
+      "regex": "([A-Z0-9]+)\\s+([A-Z0-9/]+)\\s+([A-Z0-9/]+)\\s+([A-Z0-9]+)\\s+([A-Z0-9/]+)(?:\\s+(\\d))?",
       "groups": [
         "SentName",
         "SentLocation",
@@ -47,7 +48,7 @@
       ]
     },
     "NAQP-RTTY": {
-      "regex": "([A-Z0-9]+)\\s+([A-Z]{2,4})\\s+([A-Z0-9/]+)\\s+([A-Z0-9]+)\\s+([A-Z]{2,4})(?:\\s+(\\d))?",
+      "regex": "([A-Z0-9]+)\\s+([A-Z0-9/]+)\\s+([A-Z0-9/]+)\\s+([A-Z0-9]+)\\s+([A-Z0-9/]+)(?:\\s+(\\d))?",
       "groups": [
         "SentName",
         "SentLocation",

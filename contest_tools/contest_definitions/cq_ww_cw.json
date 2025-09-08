@@ -1,10 +1,11 @@
 {
   "_filename": "contest_tools/contest_definitions/cq_ww_cw.json",
-  "_version": "0.30.34-Beta",
-  "_date": "2025-08-21",
+  "_version": "0.30.35-Beta",
+  "_date": "2025-09-06",
   "contest_name": "CQ-WW-CW",
   "mults_from_zero_point_qsos": true,
   "enable_adif_export": true,
+  "custom_adif_exporter": "cq_ww_adif",
   "contest_period": {
     "start_day": "Saturday",
     "start_time": "00:00:00 UTC",
