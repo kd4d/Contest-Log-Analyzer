@@ -1,10 +1,14 @@
 # WPX Prefix Lookup Specification
 
-**Version: 0.31.60-Beta**
-**Date: 2025-08-24**
+**Version: 0.70.0-Beta**
+**Date: 2025-09-09**
 
 ---
 ### --- Revision History ---
+## [0.70.0-Beta] - 2025-09-09
+### Changed
+# - Updated the "Strip Suffixes" rule in Section 2.1 to include the
+#   complete list of suffixes (/A, /E, /J) to match the code baseline.
 ## [0.31.60-Beta] - 2025-08-24
 ### Changed
 # - Updated the "Data Flow" section to reflect the module's refactoring
@@ -36,7 +40,7 @@ This section defines the formal, step-by-step logic for determining a valid WPX 
 
 ### 2.1. Pre-processing
 The algorithm begins by cleaning the raw callsign string.
-1.  **Strip Suffixes**: Common non-prefix suffixes like `/P`, `/M`, `/QRP`, etc., are removed.
+1.  **Strip Suffixes**: Common non-prefix suffixes (`/P`, `/M`, `/A`, `/E`, `/J`, `/B`, `/QRP`) are removed.
 2.  **Maritime Mobile**: The call is checked for `/MM`. If present, the call is immediately classified as having an "Unknown" prefix, and the process terminates.
 
 ### 2.2. Portable Call Logic
@@ -47,7 +51,7 @@ If the cleaned callsign contains a `/`, it is processed by the portable call heu
 
 ### 2.3. Standard Prefix Calculation
 If the call is not a portable, the following logic is used:
-1.  **Default Prefix**: The default prefix is calculated as "everything up to and including the last digit" (e.g., `K3LR` -> `K3`, `WX3B` -> `WX3`). A fallback rule creates a prefix for calls with no numbers (e.g., `PA` -> `PA0`).
+1.  **Default Prefix**: The default prefix is calculated as "everything up to and including the last digit" (e.g., `K3LR` -> `K3`). A fallback rule creates a prefix for calls with no numbers (e.g., `PA` -> `PA0`).
 2.  **DXCCPfx Override**: The algorithm then checks the `DXCCPfx` value for the callsign (provided by `get_cty.py`). If the `DXCCPfx` is a longer, more specific prefix than the default (e.g., for call `R1FJ`, the default is `R1` but the `DXCCPfx` is `R1F`), the **`DXCCPfx` is used as the final prefix**. This is the highest-priority rule for standard calls.
 3.  **Final Validation**: If the final calculated prefix is only a single digit, it is invalidated and classified as "Unknown".
 ---
@@ -72,4 +76,3 @@ This is the main function called by the log processing engine. It implements the
 This script is the central orchestrator for all log processing. Its `apply_contest_specific_annotations` method reads the `custom_multiplier_resolver` key from the relevant `.json` file. It then uses this key to dynamically import and execute the `resolve_multipliers` function from the `cq_wpx_prefix.py` module. This happens early in the annotation sequence, before standard multiplier rules are processed.
 #### `get_cty.py`
 This utility is fundamental to the overall log processing pipeline. The prefix is derived from a combination of the callsign string itself and its associated `DXCCPfx` value, which is provided by the `get_cty.py` utility. The `DXCCPfx` serves as a critical override in the logic.
----
