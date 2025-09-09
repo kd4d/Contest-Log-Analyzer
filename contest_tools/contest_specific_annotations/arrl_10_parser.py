@@ -2,8 +2,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-31
-# Version: 0.56.17-Beta
+# Date: 2025-09-08
+# Version: 0.62.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,7 +17,10 @@
 # Purpose: This module provides a custom parser for the ARRL 10-Meter Contest.
 #
 # --- Revision History ---
-## [0.56.17-Beta] - 2025-08-31
+## [0.62.3-Beta] - 2025-09-08
+### Changed
+# - Updated script to read the new CONTEST_INPUT_DIR environment variable.
+## [0.56.22-Beta] - 2025-08-31
 ### Fixed
 # - Added the `RawQSO` field to the parser's output to ensure it provides
 #   the necessary data for downstream diagnostic logging.
@@ -74,7 +77,7 @@ def parse_log(filepath: str, contest_definition: ContestDefinition) -> Tuple[pd.
     if not logger_call:
         raise ValueError("CALLSIGN: tag not found in Cabrillo header.")
         
-    root_dir = os.environ.get('CONTEST_LOGS_REPORTS').strip().strip('"').strip("'")
+    root_dir = os.environ.get('CONTEST_INPUT_DIR').strip().strip('"').strip("'")
     data_dir = os.path.join(root_dir, 'data')
     cty_dat_path = os.path.join(data_dir, 'cty.dat')
     cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)
@@ -101,7 +104,7 @@ def parse_log(filepath: str, contest_definition: ContestDefinition) -> Tuple[pd.
             common_data = parse_qso_common_fields(line_to_process)
             if not common_data:
                 continue
-                
+            
             exchange_rest = common_data.pop('ExchangeRest', '').strip()
             
             exchange_match = exchange_regex.match(exchange_rest)

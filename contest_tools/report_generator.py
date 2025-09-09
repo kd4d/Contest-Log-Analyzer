@@ -7,8 +7,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-26
-# Version: 0.51.3-Beta
+# Date: 2025-09-08
+# Version: 0.62.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,6 +20,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 # --- Revision History ---
+## [0.62.3-Beta] - 2025-09-08
+### Fixed
+# - Corrected path construction logic to include the top-level 'reports'
+#   subdirectory, making it consistent with log_manager.py.
 ## [0.51.3-Beta] - 2025-08-26
 ### Added
 # - Added a new `html_output_dir` and logic to support the 'html'
@@ -93,7 +97,7 @@ class ReportGenerator:
         callsign_combo_id = '_'.join(all_calls)
 
         # --- Construct Final Path ---
-        self.base_output_dir = os.path.join(root_output_dir, year, contest_name, event_id, callsign_combo_id)
+        self.base_output_dir = os.path.join(root_output_dir, 'reports', year, contest_name, event_id, callsign_combo_id)
         self.text_output_dir = os.path.join(self.base_output_dir, "text")
         self.plots_output_dir = os.path.join(self.base_output_dir, "plots")
         self.charts_output_dir = os.path.join(self.base_output_dir, "charts")

@@ -7,8 +7,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-07
-# Version: 0.39.0-Beta
+# Date: 2025-09-08
+# Version: 0.62.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,6 +19,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.62.0-Beta] - 2025-09-08
+### Changed
+# - Updated script to use the new CONTEST_REPORTS_DIR environment variable.
 ## [0.39.0-Beta] - 2025-09-07
 ### Changed
 # - Replaced the archiving logic with a robust "copy then delete"
@@ -94,10 +97,10 @@ def _parse_adif_for_comparison(filepath: str) -> List[Dict[str, str]]:
     return sorted(all_qsos_data, key=lambda x: (x.get('TIME_ON', ''), x.get('CALL', '')))
 
 def get_report_dirs():
-    """Gets and validates the root, reports, and data directories."""
-    root_env = os.environ.get('CONTEST_LOGS_REPORTS')
+    """Gets and validates the root reports directory."""
+    root_env = os.environ.get('CONTEST_REPORTS_DIR')
     if not root_env:
-        print("FATAL: CONTEST_LOGS_REPORTS environment variable is not set. Exiting.")
+        print("FATAL: CONTEST_REPORTS_DIR environment variable is not set. Exiting.")
         sys.exit(1)
     
     root_dir = root_env.strip().strip('"').strip("'")

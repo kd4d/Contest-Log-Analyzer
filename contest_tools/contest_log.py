@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-06
-# Version: 0.61.0-Beta
+# Date: 2025-09-08
+# Version: 0.62.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.62.0-Beta] - 2025-09-08
+### Changed
+# - Updated script to read the new CONTEST_INPUT_DIR environment variable.
 ## [0.61.0-Beta] - 2025-09-06
 ### Added
 # - Added a custom <APP_CLA_CQZ> tag to the generic ADIF exporter to
@@ -338,7 +341,7 @@ class ContestLog:
         if is_asymmetric:
             my_call = self.metadata.get('MyCall')
             if my_call:
-                root_dir = os.environ.get('CONTEST_LOGS_REPORTS').strip().strip('"').strip("'")
+                root_dir = os.environ.get('CONTEST_INPUT_DIR').strip().strip('"').strip("'")
                 data_dir = os.path.join(root_dir, 'data')
                 cty_dat_path = os.path.join(data_dir, 'cty.dat')
                 cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)
@@ -443,7 +446,7 @@ class ContestLog:
             return
             
         try:
-            root_dir = os.environ.get('CONTEST_LOGS_REPORTS').strip().strip('"').strip("'")
+            root_dir = os.environ.get('CONTEST_INPUT_DIR').strip().strip('"').strip("'")
             data_dir = os.path.join(root_dir, 'data')
             cty_dat_path = os.path.join(data_dir, 'cty.dat')
             cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)

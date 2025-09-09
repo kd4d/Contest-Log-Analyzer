@@ -1,8 +1,8 @@
 # Contest Log Analyzer/contest_tools/contest_specific_annotations/iaru_hf_multiplier_resolver.py
 #
 # Author: Gemini AI
-# Date: 2025-08-30
-# Version: 0.55.6-Beta
+# Date: 2025-09-08
+# Version: 0.62.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,6 +19,9 @@
 #          ITU Zones, IARU HQ Stations, and IARU Officials.
 #
 # --- Revision History ---
+## [0.62.2-Beta] - 2025-09-08
+### Changed
+# - Updated script to read the new CONTEST_INPUT_DIR environment variable.
 ## [0.55.6-Beta] - 2025-08-30
 ### Changed
 # - Added the standard copyright and MPL 2.0 license block to the header
@@ -44,7 +47,7 @@ def _load_officials_set() -> Set[str]:
         return _OFFICIALS_SET_CACHE
 
     try:
-        root_dir = os.environ.get('CONTEST_LOGS_REPORTS').strip().strip('"').strip("'")
+        root_dir = os.environ.get('CONTEST_INPUT_DIR').strip().strip('"').strip("'")
         data_dir = os.path.join(root_dir, 'data')
         filepath = os.path.join(data_dir, 'iaru_officials.dat')
         with open(filepath, 'r', encoding='utf-8') as f:

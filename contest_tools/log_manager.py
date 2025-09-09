@@ -7,8 +7,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-30
-# Version: 0.55.5-Beta
+# Date: 2025-09-08
+# Version: 0.62.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,6 +19,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.62.2-Beta] - 2025-09-08
+### Changed
+# - Updated script to read the new CONTEST_REPORTS_DIR environment variable.
 ## [0.55.5-Beta] - 2025-08-30
 ### Added
 # - Added a hook to the `finalize_loading` method to support a new
@@ -123,7 +126,7 @@ class LogManager:
         if not self.logs:
             return
             
-        root_dir = os.environ.get('CONTEST_LOGS_REPORTS').strip().strip('"').strip("'")
+        root_dir = os.environ.get('CONTEST_REPORTS_DIR').strip().strip('"').strip("'")
         first_log = self.logs[0]
         contest_name = first_log.get_metadata().get('ContestName', 'UnknownContest').replace(' ', '_')
         

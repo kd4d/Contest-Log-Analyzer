@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-22
-# Version: 0.33.4-Beta
+# Date: 2025-09-08
+# Version: 0.62.4-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,6 +16,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.62.4-Beta] - 2025-09-08
+### Changed
+# - Updated script to read the new CONTEST_INPUT_DIR environment variable.
 ## [0.33.4-Beta] - 2025-08-22
 ### Fixed
 # - Corrected a SyntaxError in a logging f-string by refactoring the
@@ -101,7 +104,7 @@ def calculate_points(df: pd.DataFrame, my_call_info: Dict[str, Any]) -> pd.Serie
 
     my_location_type = "W/VE" if my_entity_name in ["United States", "Canada"] else "DX"
 
-    root_dir = os.environ.get('CONTEST_LOGS_REPORTS').strip().strip('"').strip("'")
+    root_dir = os.environ.get('CONTEST_INPUT_DIR').strip().strip('"').strip("'")
     data_dir = os.path.join(root_dir, 'data')
     lookup = StateAndProvinceLookup(data_dir)
 
