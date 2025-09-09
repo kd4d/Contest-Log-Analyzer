@@ -1,0 +1,3 @@
+set CONTEST_INPUT_DIR=CONTEST_LOGS_REPORTS
+set CONTEST_REPORTS_DIR=C:\Users\mbdev\Hamradio\CLA
+activate cla

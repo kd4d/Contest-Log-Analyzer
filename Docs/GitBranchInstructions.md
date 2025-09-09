@@ -35,9 +35,7 @@
 # - Added Section 8 to explain file management with `.gitignore` and `git rm`.
 ---
 
-The feature branch workflow is a standard practice that keeps your `master` branch clean and stable. It lets you work on new features in an isolated environment without affecting the main codebase. Once a feature is complete and tested, it's merged back into `master`.
-
-The Git commands are the same whether you're using Windows Shell (Command Prompt, PowerShell) or a Bash shell.
+The feature branch workflow is a standard practice that keeps your `master` branch clean and stable. It lets you work on new features in an isolated environment without affecting the main codebase. Once a feature is complete and tested, it's merged back into `master`. The Git commands are the same whether you're using Windows Shell (Command Prompt, PowerShell) or a Bash shell.
 ***
 
 ## 1. Start from `master`
@@ -55,9 +53,7 @@ git pull
 
 ## 2. Create and Switch to a Feature Branch
 
-Now, you'll create a new branch for your feature. Branch names should be short and descriptive, like `login-form` or `user-profile-page`.
-
-This command creates a **new branch** and **immediately switches** to it.
+Now, you'll create a new branch for your feature. Branch names should be short and descriptive, like `login-form` or `user-profile-page`. This command creates a **new branch** and **immediately switches** to it.
 ```
 # The -c flag stands for "create"
 git switch -c new-feature-name
@@ -69,9 +65,7 @@ git switch -c new-feature-name
 
 ## 3. Develop the Feature: Add and Commit
 
-This is where you'll do your work—writing code, adding files, and fixing bugs. As you complete small, logical chunks of work, you should **commit** them.
-
-The process for each commit is the same:
+This is where you'll do your work—writing code, adding files, and fixing bugs. As you complete small, logical chunks of work, you should **commit** them. The process for each commit is the same:
 1.  **Stage** your changes (`git add`).
 2.  **Commit** them with a clear message (`git commit`).
 ```
@@ -132,7 +126,7 @@ git branch -d new-feature-name
 git push origin --delete new-feature-name
 ```
 
-That's the complete lifecycle! 🚀 You've successfully created a feature, developed it in isolation, and safely merged it into the main project.
+That's the complete lifecycle! You've successfully created a feature, developed it in isolation, and safely merged it into the main project.
 ---
 ## 7. Correcting Mistakes (`git revert`)
 
@@ -201,10 +195,8 @@ git log --graph --oneline --all
 * `--oneline`: Condenses each commit to a single line for readability.
 * `--all`: Shows the history of all branches.
 This is so useful that many developers create a global Git alias for it, like `git lg`.
-
 ### Listing Branches
 To see a simple list of all local and remote-tracking branches without the commit history, use `git branch -a`.
-
 ```
 git branch -a
 ```
@@ -224,10 +216,8 @@ After running this once, you can simply use `git push` from that branch in the f
 ## 11. Handling Merge & Rebase Conflicts
 
 A conflict occurs when changes in the `master` branch and your feature branch affect the same lines in the same file. Git will pause the operation and ask you to resolve the conflict manually.
-
 * **Merge Conflict:** A `git merge` conflict happens all at once. You resolve all conflicting files, make a single new commit, and the merge is done.
 * **Rebase Conflict:** A `git rebase` conflict is different. Git replays your commits one by one on top of the target branch. If a conflict occurs, the rebase pauses. You must resolve the conflict for that specific commit, and then continue. You may have to repeat this process for multiple commits.
-
 The resolution process is similar for both:
 1.  Git will stop and tell you which files have conflicts.
 2.  Open the conflicting file. You will see markers like:
