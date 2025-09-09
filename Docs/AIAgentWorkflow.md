@@ -1,10 +1,26 @@
 # AIAgentWorkflow.md
 
-**Version: 0.60.0-Beta**
-**Date: 2025-09-08**
+**Version: 0.61.0-Beta**
+**Date: 2025-09-09**
 
 ---
 ### --- Revision History ---
+## [0.61.0-Beta] - 2025-09-09
+### Added
+# - Added a mandatory self-verification step to Protocol 2.5 (Implementation Plan)
+#   and Protocol 6.3 (Error Analysis Protocol) to improve compliance.
+## [0.60.3-Beta] - 2025-09-09
+### Changed
+# - Modified Protocol 3.2.4 to require a unique `cla-bundle` specifier
+#   for markdown file delivery to improve robustness.
+## [0.60.2-Beta] - 2025-09-09
+### Added
+# - Added Protocol 3.2.6 (Post-Delivery Protocol Verification) to require
+#   a mandatory self-verification check after every file delivery.
+## [0.60.1-Beta] - 2025-09-09
+### Changed
+# - Strengthened Protocol 7.6 (Systemic Bug Eradication Protocol) to
+#   require the AI to explicitly state the search method used for an audit.
 ## [0.60.0-Beta] - 2025-09-08
 ### Added
 # - Added Principle 15 (Principle of Centralized Configuration) to mandate
@@ -317,6 +333,7 @@ This workflow is a formal state machine that governs all development tasks, from
         * **Expected Outcome**: A clear statement describing the desired state or behavior after the changes are applied.
         * **Mental Walkthrough Confirmation**: A statement affirming that a mental walkthrough of the logic will be performed before generating the file.
         * **State Confirmation Procedure**: An affirmation that the mandatory confirmation prompt (as defined in Protocol 4.4) will be included with the file delivery.
+    5.  **Post-Generation Verification.** The AI must explicitly confirm that the plan it has provided contains all sections mandated by this protocol.
 2.6. **Plan Refinement**: The user reviews the plan and may request changes or refinements. The AI provides a revised plan, repeating this step as necessary.
 2.7. **Approval**: The user provides explicit approval of the final implementation plan. Instructions, clarifications, or new requirements provided after a plan has been proposed do not constitute approval; they will be treated as requests for plan refinement under Protocol 2.6. The AI will only proceed to the Execution state upon receiving the **exact, literal string `Approved`**.
 2.8. **Execution**: Upon approval, the AI will proceed with the **Confirmed File Delivery Protocol (4.4)**.
@@ -330,10 +347,11 @@ This workflow is a formal state machine that governs all development tasks, from
     1.  **Single File Per Response**: Only one file will be delivered in a single response. The "bundle" terminology (e.g., `project_bundle.txt`) refers exclusively to the user-provided files used for a Definitive State Initialization; all file deliveries from the AI are strictly individual.
     2.  **Raw Source Text**: The content inside the delivered code block must be the raw source text of the file.
     3.  **Code File Delivery**: For code files (e.g., `.py`, `.json`), the content will be delivered in a standard fenced code block with the appropriate language specifier.
-    4.  **Markdown File Delivery**: To prevent the user interface from rendering markdown and to provide a "Copy" button, the entire raw content of a documentation file (`.md`) must be delivered inside a single, plaintext-specified code block.
+    4.  **Markdown File Delivery**: To prevent the user interface from rendering markdown and to provide a "Copy" button, the entire raw content of a documentation file (`.md`) must be delivered inside a single, **`cla-bundle`**-specified code block.
         * **Internal Code Fences**: Any internal markdown code fences (__CODE_BLOCK__) must be replaced with the `__CODE_BLOCK__` placeholder.
         * **Clarification**: This substitution is a requirement of the AI's web interface. The user will provide files back with standard markdown fences (`__CODE_BLOCK__`), which is the expected behavior.
     5.  **Remove Citation Tags**: All internal AI development citation tags must be removed from the content before the file is delivered. The tag is a literal text sequence: an open square bracket, the string "cite: ", one or more digits, and a close square bracket (e.g.,). This pattern does not include Markdown backticks.
+    6.  **Post-Delivery Protocol Verification.** Immediately following any file delivery, the AI must explicitly state which sub-protocol from Section 3.2 it followed and confirm that its last output was fully compliant.
 3.3. **File and Checksum Verification.**
     1.  **Line Endings:** The user's file system uses Windows CRLF (`\r\n`). The AI must correctly handle this conversion when calculating checksums.
     2.  **Concise Reporting:** The AI will either state that **all checksums agree** or will list the **specific files that show a mismatch**.
@@ -420,6 +438,7 @@ These protocols are for troubleshooting, error handling, and non-standard situat
     2.  **Request Diagnostic Output:** If the user has not already provided it, the AI's immediate next step is to request the new output that demonstrates the failure (e.g., the incorrect text report or a screenshot). This output becomes the new ground truth for the re-analysis.
     3.  **Identify the Root Cause:** Explain the specific flaw in the internal process or logic that led to the error. This includes identifying which specific principles or protocols were violated.
     4.  **Propose a Corrective Action:** Describe the specific, procedural change that will be implemented to prevent the error from recurring.
+    5.  **Post-Analysis Verification.** The AI must explicitly confirm that the analysis it has provided contains all the steps mandated by this protocol.
 6.4. **Corrupted User Input Protocol.** This protocol defines the procedure for handling malformed or corrupted input files provided by the user.
     1.  Halt the current task immediately.
     2.  Report the specific file that contains the error and describe the nature of the error (e.g., "Cabrillo parsing failed on line X" or "Bundle is missing a file header").
@@ -464,6 +483,6 @@ These protocols are for troubleshooting, error handling, and non-standard situat
 7.6. **Systemic Bug Eradication Protocol.** This protocol is triggered when a bug is suspected to be systemic (i.e., likely to exist in multiple, architecturally similar modules).
     1.  **Initiation**: The AI or user identifies a bug as potentially systemic.
     2.  **Define Pattern**: The specific bug pattern is clearly defined (e.g., "a parser using a generic key to look up a specific rule").
-    3.  **Identify Scope**: The AI will provide a complete list of all modules that follow the same architectural pattern and are therefore candidates for the same bug.
+    3.  **Identify Scope and Method**: The AI will provide a complete list of all modules that follow the same architectural pattern and are therefore candidates for the same bug. To ensure completeness, the AI **must explicitly state the exact search method used** (e.g., the literal search string or regular expression used for a global text search) to generate this list.
     4.  **Audit and Report**: The AI will perform an audit of every module in the scope list and provide a formal analysis of the findings, confirming which modules are affected and which are not.
     5.  **Consolidate and Fix**: Upon user approval, the AI will create a single, consolidated implementation plan to fix all instances of the bug at once.
