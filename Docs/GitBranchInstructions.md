@@ -1,10 +1,14 @@
 # Git Feature Branch Workflow
 
-**Version: 0.56.28-Beta**
-**Date: 2025-09-01**
+**Version: 0.71.0-Beta**
+**Date: 2025-09-10**
 
 ---
 ### --- Revision History ---
+## [0.71.0-Beta] - 2025-09-10
+### Added
+# - Added a subsection to Section 9 explaining how to remove stale
+#   remote-tracking branches using `git fetch --prune`.
 ## [0.56.28-Beta] - 2025-09-01
 ### Added
 # - Added a subsection to Section 9 to explain the `git branch -a` command.
@@ -53,7 +57,8 @@ git pull
 
 ## 2. Create and Switch to a Feature Branch
 
-Now, you'll create a new branch for your feature. Branch names should be short and descriptive, like `login-form` or `user-profile-page`. This command creates a **new branch** and **immediately switches** to it.
+Now, you'll create a new branch for your feature. Branch names should be short and descriptive, like `login-form` or `user-profile-page`.
+This command creates a **new branch** and **immediately switches** to it.
 ```
 # The -c flag stands for "create"
 git switch -c new-feature-name
@@ -202,6 +207,13 @@ git branch -a
 ```
 
 * `-a`: Shows all branches, including those that only exist on the remote repository.
+### Pruning Stale Branches
+If `git branch -a` shows a remote branch that you know has been deleted from the server, your local repository has a "stale" remote-tracking branch. You can clean this up by synchronizing with the remote using the `--prune` option.
+```
+# Fetch the latest changes and remove any stale remote-tracking branches
+git fetch --prune
+```
+After running this command, the stale branch will no longer appear in your `git branch -a` list.
 ---
 ## 10. Pushing a Feature Branch
 
