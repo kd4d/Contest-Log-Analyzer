@@ -2,8 +2,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-31
-# Version: 0.56.20-Beta
+# Date: 2025-09-10
+# Version: 0.70.27-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,6 +19,10 @@
 #          province, or "DX".
 #
 # --- Revision History ---
+## [0.70.27-Beta] - 2025-09-10
+### Changed
+# - Updated `parse_log` signature to accept `root_input_dir` to align
+#   with the standardized parser contract, fixing a TypeError.
 ## [0.56.20-Beta] - 2025-08-31
 ### Fixed
 # - Added the `RawQSO` field to the parser's output to ensure it provides
@@ -60,7 +64,7 @@ import logging
 from ..contest_definitions import ContestDefinition
 from ..cabrillo_parser import parse_qso_common_fields
 
-def parse_log(filepath: str, contest_definition: ContestDefinition) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+def parse_log(filepath: str, contest_definition: ContestDefinition, root_input_dir: str) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """
     Custom parser for the CQ 160-Meter Contest.
     """

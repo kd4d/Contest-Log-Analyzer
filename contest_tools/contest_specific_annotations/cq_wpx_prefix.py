@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-23
-# Version: 0.48.0-Beta
+# Date: 2025-09-10
+# Version: 0.70.12-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,6 +16,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.70.12-Beta] - 2025-09-10
+### Changed
+# - Updated `resolve_multipliers` signature to accept `root_input_dir`
+#   to align with the standardized resolver contract, fixing a TypeError.
 ## [0.48.0-Beta] - 2025-08-23
 ### Changed
 # - Refactored module to be a `custom_multiplier_resolver`.
@@ -170,7 +174,7 @@ def _get_prefix(row: pd.Series) -> str:
     logging.info(f"  - Result: '{prefix_result}' (Final)")
     return prefix_result
 
-def resolve_multipliers(df: pd.DataFrame, my_location_type: str) -> pd.DataFrame:
+def resolve_multipliers(df: pd.DataFrame, my_location_type: str, root_input_dir: str) -> pd.DataFrame:
     """
     Calculates the WPX prefix for each QSO, adding two new columns:
     - `WPXPfx`: A non-sparse column with the prefix for every QSO.

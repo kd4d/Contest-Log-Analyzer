@@ -7,8 +7,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-08
-# Version: 0.62.0-Beta
+# Date: 2025-09-09
+# Version: 0.70.9-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,6 +19,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.70.9-Beta] - 2025-09-09
+### Changed
+# - Refactored script to read environment variables in one location and
+#   pass them as parameters, in compliance with Principle 15.
 ## [0.62.0-Beta] - 2025-09-08
 ### Changed
 # - Updated script to use the new CONTEST_REPORTS_DIR environment variable.
@@ -96,9 +100,9 @@ def _parse_adif_for_comparison(filepath: str) -> List[Dict[str, str]]:
     # Sort all QSOs by TIME_ON and CALL to ensure a canonical order for the entire file
     return sorted(all_qsos_data, key=lambda x: (x.get('TIME_ON', ''), x.get('CALL', '')))
 
-def get_report_dirs():
+def get_report_dirs(root_reports_dir: str):
     """Gets and validates the root reports directory."""
-    root_env = os.environ.get('CONTEST_REPORTS_DIR')
+    root_env = root_reports_dir
     if not root_env:
         print("FATAL: CONTEST_REPORTS_DIR environment variable is not set. Exiting.")
         sys.exit(1)
@@ -257,7 +261,12 @@ def main():
     )
     args = parser.parse_args()
 
-    root_dir, reports_dir = get_report_dirs()
+    root_reports_dir_env = os.environ.get('CONTEST_REPORTS_DIR')
+    if not root_reports_dir_env:
+        print("FATAL: CONTEST_REPORTS_DIR environment variable is not set. Exiting.")
+        sys.exit(1)
+
+    root_dir, reports_dir = get_report_dirs(root_reports_dir_env)
     
     # 1. Archive existing reports
     print("\n--- Step 1: Archiving Baseline Reports ---")

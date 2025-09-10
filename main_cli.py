@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-08
-# Version: 0.62.0-Beta
+# Date: 2025-09-09
+# Version: 0.70.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.70.0-Beta] - 2025-09-09
+### Changed
+# - Refactored script to read environment variables in one location and
+#   pass them as parameters to LogManager, in compliance with Principle 15.
 ## [0.62.0-Beta] - 2025-09-08
 ### Changed
 # - Replaced the single CONTEST_LOGS_REPORTS environment variable with
@@ -62,7 +66,7 @@ def print_usage_guide():
     """Prints the command-line usage guide."""
     print("\nUsage: python main_cli.py --report <ReportID|all|chart|text|plot> <LogFilePath1> [<LogFile2>...] [options]")
     print("\nNote: Two environment variables must be set:")
-    print("      - CONTEST_INPUT_DIR:  Root directory containing your 'Logs' and 'data' subdirectories.")
+    print("       - CONTEST_INPUT_DIR:  Root directory containing your 'Logs' and 'data' subdirectories.")
     print("      - CONTEST_REPORTS_DIR: Root directory where the 'reports' output folder will be created.")
     print("\nOptions:")
     print("  --verbose               Enable verbose status reporting.")
@@ -70,7 +74,7 @@ def print_usage_guide():
     print("  --mult-name <name>      Specify multiplier for reports (e.g., 'Countries', 'Zones').")
     print("  --metric <qsos|points>  Specify metric for difference plots (defaults to 'qsos').")
     print("  --debug-data            Save source data for visual reports to a text file.")
-    print("  --debug-mults           Save intermediate multiplier lists from text reports for debugging.")
+    print("   --debug-mults           Save intermediate multiplier lists from text reports for debugging.")
     
     print("\nAvailable Reports:")
     max_id_len = max(len(rid) for rid in AVAILABLE_REPORTS.keys())
@@ -155,7 +159,7 @@ def main():
     log_manager = LogManager()
     
     for path in full_log_paths:
-        log_manager.load_log(path)
+        log_manager.load_log(path, root_input_dir)
     
     report_kwargs = {
         'include_dupes': args.include_dupes,
@@ -166,7 +170,7 @@ def main():
     }
 
     try:
-        log_manager.finalize_loading()
+        log_manager.finalize_loading(root_reports_dir)
         generator = ReportGenerator(logs=log_manager.get_logs(), root_output_dir=root_reports_dir)
         generator.run_reports(args.report_id, **report_kwargs)
     except ValueError as e:

@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-08
-# Version: 0.62.1-Beta
+# Date: 2025-09-09
+# Version: 0.70.4-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.70.4-Beta] - 2025-09-09
+### Changed
+# - Refactored to accept `root_input_dir` as a parameter during
+#   instantiation, in compliance with Principle 15.
 ## [0.62.1-Beta] - 2025-09-08
 ### Changed
 # - Updated script to read the new CONTEST_INPUT_DIR environment variable.
@@ -33,14 +37,14 @@ class BandAllocator:
     """
     Manages and validates frequencies against the band_allocations.dat file.
     """
-    def __init__(self):
+    def __init__(self, root_input_dir: str):
         self._band_ranges: List[Tuple[int, int]] = []
-        self._load_allocations()
+        self._load_allocations(root_input_dir)
 
-    def _load_allocations(self):
+    def _load_allocations(self, root_input_dir: str):
         """Loads and parses the band_allocations.dat file."""
         try:
-            root_dir = os.environ.get('CONTEST_INPUT_DIR').strip().strip('"').strip("'")
+            root_dir = root_input_dir.strip().strip('"').strip("'")
             data_dir = os.path.join(root_dir, 'data')
             dat_filepath = os.path.join(data_dir, 'band_allocations.dat')
 

@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-08
-# Version: 0.62.0-Beta
+# Date: 2025-09-10
+# Version: 0.70.21-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.70.21-Beta] - 2025-09-10
+### Changed
+# - Updated `resolve_multipliers` signature to accept `root_input_dir` to align
+#   with the standardized resolver contract, fixing a TypeError.
 ## [0.62.0-Beta] - 2025-09-08
 ### Changed
 # - Updated script to read the new CONTEST_INPUT_DIR environment variable.
@@ -44,7 +48,7 @@ import logging
 from ..core_annotations._core_utils import AliasLookup
 from typing import Dict
 
-def resolve_multipliers(df: pd.DataFrame, my_location_type: str) -> pd.DataFrame:
+def resolve_multipliers(df: pd.DataFrame, my_location_type: str, root_input_dir: str) -> pd.DataFrame:
     """
     Resolves multipliers for ARRL DX based on the logger's location, prioritizing
     the received exchange over the callsign's prefix according to refined rules.
@@ -52,8 +56,7 @@ def resolve_multipliers(df: pd.DataFrame, my_location_type: str) -> pd.DataFrame
     if df.empty:
         return df
 
-    root_dir = os.environ.get('CONTEST_INPUT_DIR').strip().strip('"').strip("'")
-    data_dir = os.path.join(root_dir, 'data')
+    data_dir = os.path.join(root_input_dir, 'data')
     lookup = AliasLookup(data_dir, 'ARRLDXmults.dat')
 
     # Initialize new columns

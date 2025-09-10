@@ -2,8 +2,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-08
-# Version: 0.62.3-Beta
+# Date: 2025-09-10
+# Version: 0.70.16-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,10 @@
 #          has a highly asymmetric exchange format.
 #
 # --- Revision History ---
+## [0.70.16-Beta] - 2025-09-10
+### Changed
+# - Updated `parse_log` signature to accept `root_input_dir` to align
+#   with the standardized parser contract, fixing a TypeError.
 ## [0.62.3-Beta] - 2025-09-08
 ### Changed
 # - Updated script to read the new CONTEST_INPUT_DIR environment variable.
@@ -66,7 +70,7 @@ from ..contest_definitions import ContestDefinition
 from ..cabrillo_parser import parse_qso_common_fields
 from ..core_annotations import CtyLookup
 
-def parse_log(filepath: str, contest_definition: ContestDefinition) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+def parse_log(filepath: str, contest_definition: ContestDefinition, root_input_dir: str) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """
     Custom parser for the ARRL DX Contest (CW and SSB).
     """
@@ -88,13 +92,13 @@ def parse_log(filepath: str, contest_definition: ContestDefinition) -> Tuple[pd.
         
         if logger_call and contest_id_from_header:
             break
-    
+
     if not logger_call:
         raise ValueError("CALLSIGN: tag not found in Cabrillo header.")
     if not contest_id_from_header:
         raise ValueError("CONTEST: tag not found in Cabrillo header.")
         
-    root_dir = os.environ.get('CONTEST_INPUT_DIR').strip().strip('"').strip("'")
+    root_dir = root_input_dir.strip().strip('"').strip("'")
     data_dir = os.path.join(root_dir, 'data')
     cty_dat_path = os.path.join(data_dir, 'cty.dat')
     cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)
@@ -114,7 +118,7 @@ def parse_log(filepath: str, contest_definition: ContestDefinition) -> Tuple[pd.
     for line in lines:
         cleaned_line = line.replace('\u00a0', ' ').strip()
         line_to_process = cleaned_line.upper() if cleaned_line.upper().startswith('QSO:') else cleaned_line
-        
+
         if not line_to_process or line_to_process.startswith(('END-OF-LOG:', 'START-OF-LOG:')):
             continue
             
