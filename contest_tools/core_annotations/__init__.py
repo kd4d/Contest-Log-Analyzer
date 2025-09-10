@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-08
-# Version: 0.62.1-Beta
+# Date: 2025-09-09
+# Version: 0.70.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.70.3-Beta] - 2025-09-09
+### Changed
+# - Refactored `process_dataframe_for_cty_data` to accept `root_input_dir`
+#   as a parameter, in compliance with Principle 15.
 ## [0.62.1-Beta] - 2025-09-08
 ### Changed
 # - Updated script to read the new CONTEST_INPUT_DIR environment variable.
@@ -40,7 +44,7 @@ from .get_cty import CtyLookup
 from .run_s_p import process_contest_log_for_run_s_p
 from ._band_allocator import BandAllocator
 
-def process_dataframe_for_cty_data(df: pd.DataFrame) -> pd.DataFrame:
+def process_dataframe_for_cty_data(df: pd.DataFrame, root_input_dir: str) -> pd.DataFrame:
     """
     Applies universal DXCC and WAE lookup to a DataFrame of QSO records.
     """
@@ -50,9 +54,10 @@ def process_dataframe_for_cty_data(df: pd.DataFrame) -> pd.DataFrame:
     if 'Call' not in df.columns:
         raise KeyError("DataFrame must contain a 'Call' column for CTY data lookup.")
 
-    root_dir = os.environ.get('CONTEST_INPUT_DIR')
+    root_dir = root_input_dir
+    
     if not root_dir:
-        raise ValueError("Environment variable CONTEST_INPUT_DIR is not set.")
+        raise ValueError("Parameter `root_input_dir` is not set.")
     
     data_dir = os.path.join(root_dir.strip().strip('"').strip("'"), 'data')
     cty_dat_file_path = os.path.join(data_dir, 'cty.dat')

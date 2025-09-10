@@ -7,8 +7,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-08
-# Version: 0.62.2-Beta
+# Date: 2025-09-09
+# Version: 0.70.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,6 +19,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.70.1-Beta] - 2025-09-09
+### Changed
+# - Refactored methods to accept path variables as parameters instead of
+#   reading environment variables directly, in compliance with Principle 15.
 ## [0.62.2-Beta] - 2025-09-08
 ### Changed
 # - Updated script to read the new CONTEST_REPORTS_DIR environment variable.
@@ -61,7 +65,7 @@ class LogManager:
         self.logs = []
         self.master_time_index = None
 
-    def load_log(self, cabrillo_filepath: str):
+    def load_log(self, cabrillo_filepath: str, root_input_dir: str):
         """
         Loads and processes a single Cabrillo log file.
         """
@@ -73,7 +77,7 @@ class LogManager:
                 logging.warning(f"  - Could not determine contest name from file header. Skipping.")
                 return
 
-            log = ContestLog(contest_name=contest_name, cabrillo_filepath=cabrillo_filepath)
+            log = ContestLog(contest_name=contest_name, cabrillo_filepath=cabrillo_filepath, root_input_dir=root_input_dir)
             log.apply_annotations()
             
             setattr(log, '_log_manager_ref', self)
@@ -85,7 +89,7 @@ class LogManager:
         except Exception as e:
             logging.error(f"Error loading log {cabrillo_filepath}: {e}")
 
-    def finalize_loading(self):
+    def finalize_loading(self, root_reports_dir: str):
         """
         Should be called after all logs are loaded to perform final,
         cross-log processing steps like creating the master time index and
@@ -126,7 +130,8 @@ class LogManager:
         if not self.logs:
             return
             
-        root_dir = os.environ.get('CONTEST_REPORTS_DIR').strip().strip('"').strip("'")
+        # The root directory is now passed in as a parameter.
+        root_dir = root_reports_dir
         first_log = self.logs[0]
         contest_name = first_log.get_metadata().get('ContestName', 'UnknownContest').replace(' ', '_')
         
@@ -142,7 +147,7 @@ class LogManager:
 
         output_dir = os.path.join(root_dir, 'reports', year, contest_name, event_id, callsign_combo_id)
         os.makedirs(output_dir, exist_ok=True)
-            
+        
         for log in self.logs:
             base_filename = os.path.splitext(os.path.basename(log.filepath))[0]
             

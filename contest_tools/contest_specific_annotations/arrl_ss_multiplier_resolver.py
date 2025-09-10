@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-08
-# Version: 0.62.0-Beta
+# Date: 2025-09-10
+# Version: 0.70.23-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.70.23-Beta] - 2025-09-10
+### Changed
+# - Updated `resolve_multipliers` signature to accept `root_input_dir`
+#   and refactored its body to use the parameter, in compliance with Principle 15.
 ## [0.62.0-Beta] - 2025-09-08
 ### Changed
 # - Updated script to read the new CONTEST_INPUT_DIR environment variable.
@@ -98,7 +102,7 @@ class SectionAliasLookup:
         
         return "Unknown", None
 
-def resolve_multipliers(df: pd.DataFrame, my_location_type: Optional[str]) -> pd.DataFrame:
+def resolve_multipliers(df: pd.DataFrame, my_location_type: Optional[str], root_input_dir: str) -> pd.DataFrame:
     """
     Resolves the final Section multiplier for ARRL Sweepstakes QSOs.
     """
@@ -107,8 +111,7 @@ def resolve_multipliers(df: pd.DataFrame, my_location_type: Optional[str]) -> pd
         df['Mult1Name'] = None
         return df
 
-    root_dir = os.environ.get('CONTEST_INPUT_DIR').strip().strip('"').strip("'")
-    data_dir = os.path.join(root_dir, 'data')
+    data_dir = os.path.join(root_input_dir, 'data')
     alias_lookup = SectionAliasLookup(data_dir)
     
     # Apply the lookup and expand the resulting tuple into two new columns

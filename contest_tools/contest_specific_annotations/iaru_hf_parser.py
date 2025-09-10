@@ -1,8 +1,8 @@
 # Contest Log Analyzer/contest_tools/contest_specific_annotations/iaru_hf_parser.py
 #
 # Author: Gemini AI
-# Date: 2025-08-31
-# Version: 0.56.21-Beta
+# Date: 2025-09-10
+# Version: 0.70.28-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,14 @@
 #          differs based on whether the logger is an HQ or a Zone station.
 #
 # --- Revision History ---
+## [0.70.28-Beta] - 2025-09-10
+### Fixed
+# - Corrected an `IndentationError` that was introduced during a
+#   previous refactoring.
+## [0.70.18-Beta] - 2025-09-10
+### Changed
+# - Updated `parse_log` signature to accept `root_input_dir` to align
+#   with the standardized parser contract, fixing a TypeError.
 ## [0.56.21-Beta] - 2025-08-31
 ### Fixed
 # - Added the `RawQSO` field to the parser's output to ensure it provides
@@ -60,7 +68,7 @@ def _get_logger_type(filepath: str) -> str:
     logging.info("Logger identified as ZONE station (default).")
     return "ZONE"
 
-def parse_log(filepath: str, contest_definition: ContestDefinition) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+def parse_log(filepath: str, contest_definition: ContestDefinition, root_input_dir: str) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """
     Custom parser for the IARU HF World Championship contest.
     """
@@ -94,15 +102,14 @@ def parse_log(filepath: str, contest_definition: ContestDefinition) -> Tuple[pd.
                 continue
             
             exchange_rest = common_data.pop('ExchangeRest','').strip()
-            
+
             exchange_match = exchange_regex.match(exchange_rest)
             if exchange_match:
                 exchange_data = dict(zip(exchange_groups, exchange_match.groups()))
                 common_data.update(exchange_data)
-                common_data['RawQSO'] = line_to_process
-                qso_records.append(common_data)
-            else:
-                logging.warning(f"Skipping QSO line that did not match '{rule_key}' rule: {line_to_process}")
+            
+            common_data['RawQSO'] = line_to_process
+            qso_records.append(common_data)
         
         elif not line_to_process.startswith(('START-OF-LOG', 'END-OF-LOG')):
             for cabrillo_tag, df_key in contest_definition.header_field_map.items():

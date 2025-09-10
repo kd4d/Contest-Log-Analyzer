@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-08
-# Version: 0.62.0-Beta
+# Date: 2025-09-09
+# Version: 0.70.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.70.2-Beta] - 2025-09-09
+### Changed
+# - Refactored to accept `root_input_dir` as a parameter and pass it to
+#   helper utilities, in compliance with Principle 15.
 ## [0.62.0-Beta] - 2025-09-08
 ### Changed
 # - Updated script to read the new CONTEST_INPUT_DIR environment variable.
@@ -154,7 +158,7 @@ class ContestLog:
                 return band_name
         return 'Invalid'
 
-    def __init__(self, contest_name: str, cabrillo_filepath: Optional[str] = None):
+    def __init__(self, contest_name: str, cabrillo_filepath: Optional[str] = None, root_input_dir: Optional[str] = None):
         self.contest_name = contest_name
         self.qsos_df: pd.DataFrame = pd.DataFrame()
         self.metadata: Dict[str, Any] = {}
@@ -162,7 +166,10 @@ class ContestLog:
         self.filepath = cabrillo_filepath
         self._my_location_type: Optional[str] = None # W/VE or DX
         self._log_manager_ref = None
-        self.band_allocator = BandAllocator()
+        self.root_input_dir = root_input_dir
+        if root_input_dir is None:
+            raise ValueError("ContestLog requires a root_input_dir.")
+        self.band_allocator = BandAllocator(root_input_dir)
 
         try:
             self.contest_definition = ContestDefinition.from_json(contest_name)
@@ -179,7 +186,7 @@ class ContestLog:
         if custom_parser_name:
             try:
                 parser_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{custom_parser_name}")
-                raw_df, metadata = parser_module.parse_log(cabrillo_filepath, self.contest_definition)
+                raw_df, metadata = parser_module.parse_log(cabrillo_filepath, self.contest_definition, self.root_input_dir)
                 logging.info(f"Using custom parser module: '{custom_parser_name}'")
             except Exception as e:
                 logging.error(f"Could not run custom parser '{custom_parser_name}': {e}. Halting.")
@@ -319,13 +326,14 @@ class ContestLog:
         gaps = df['Datetime'].diff()
         off_time_gaps = gaps[gaps > min_off_time]
         total_off_time = off_time_gaps.sum()
-        
+
         on_time = total_duration - total_off_time
 
         total_seconds = on_time.total_seconds()
         hours = int(total_seconds // 3600)
         minutes = int((total_seconds % 3600) // 60)
         on_time_str = f"{hours:02d}:{minutes:02d}"
+        
         
         category = self.metadata.get('CategoryOperator', 'SINGLE-OP').upper()
         if 'MULTI' in category:
@@ -341,7 +349,7 @@ class ContestLog:
         if is_asymmetric:
             my_call = self.metadata.get('MyCall')
             if my_call:
-                root_dir = os.environ.get('CONTEST_INPUT_DIR').strip().strip('"').strip("'")
+                root_dir = self.root_input_dir
                 data_dir = os.path.join(root_dir, 'data')
                 cty_dat_path = os.path.join(data_dir, 'cty.dat')
                 cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)
@@ -363,7 +371,7 @@ class ContestLog:
 
         try:
             logging.info("Applying Universal DXCC/Zone lookup...")
-            self.qsos_df = process_dataframe_for_cty_data(self.qsos_df)
+            self.qsos_df = process_dataframe_for_cty_data(self.qsos_df, self.root_input_dir)
             logging.info("Universal DXCC/Zone lookup complete.")
         except Exception as e:
             logging.error(f"Error during Universal DXCC/Zone lookup: {e}. Skipping.")
@@ -382,7 +390,7 @@ class ContestLog:
         if resolver_name:
             try:
                 resolver_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{resolver_name}")
-                self.qsos_df = resolver_module.resolve_multipliers(self.qsos_df, self._my_location_type)
+                self.qsos_df = resolver_module.resolve_multipliers(self.qsos_df, self._my_location_type, self.root_input_dir)
                 logging.info(f"Successfully applied '{resolver_name}' multiplier resolver.")
             except Exception as e:
                 logging.warning(f"Could not run '{resolver_name}' multiplier resolver: {e}")
@@ -446,7 +454,7 @@ class ContestLog:
             return
             
         try:
-            root_dir = os.environ.get('CONTEST_INPUT_DIR').strip().strip('"').strip("'")
+            root_dir = self.root_input_dir
             data_dir = os.path.join(root_dir, 'data')
             cty_dat_path = os.path.join(data_dir, 'cty.dat')
             cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)

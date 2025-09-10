@@ -1,8 +1,8 @@
 # Contest Log Analyzer/contest_tools/contest_specific_annotations/iaru_hf_multiplier_resolver.py
 #
 # Author: Gemini AI
-# Date: 2025-09-08
-# Version: 0.62.2-Beta
+# Date: 2025-09-10
+# Version: 0.70.25-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,6 +19,10 @@
 #          ITU Zones, IARU HQ Stations, and IARU Officials.
 #
 # --- Revision History ---
+## [0.70.25-Beta] - 2025-09-10
+### Changed
+# - Updated `resolve_multipliers` and `_load_officials_set` to accept
+#   `root_input_dir` as a parameter, in compliance with Principle 15.
 ## [0.62.2-Beta] - 2025-09-08
 ### Changed
 # - Updated script to read the new CONTEST_INPUT_DIR environment variable.
@@ -40,14 +44,14 @@ from typing import Dict, Any, Set, Tuple
 # Global cache for the officials set to avoid re-reading the file
 _OFFICIALS_SET_CACHE: Set[str] = set()
 
-def _load_officials_set() -> Set[str]:
+def _load_officials_set(root_input_dir: str) -> Set[str]:
     """Loads the iaru_officials.dat file into a set for fast lookups."""
     global _OFFICIALS_SET_CACHE
     if _OFFICIALS_SET_CACHE:
         return _OFFICIALS_SET_CACHE
 
     try:
-        root_dir = os.environ.get('CONTEST_INPUT_DIR').strip().strip('"').strip("'")
+        root_dir = root_input_dir.strip().strip('"').strip("'")
         data_dir = os.path.join(root_dir, 'data')
         filepath = os.path.join(data_dir, 'iaru_officials.dat')
         with open(filepath, 'r', encoding='utf-8') as f:
@@ -83,7 +87,7 @@ def _resolve_row(row: pd.Series, officials_set: Set[str]) -> pd.Series:
 
     return pd.Series([mult_zone, mult_hq, mult_official])
 
-def resolve_multipliers(df: pd.DataFrame, my_location_type: str) -> pd.DataFrame:
+def resolve_multipliers(df: pd.DataFrame, my_location_type: str, root_input_dir: str) -> pd.DataFrame:
     """
     Resolves multipliers for the IARU HF World Championship by parsing the
     RcvdMult column and populating the three distinct multiplier columns.
@@ -95,7 +99,7 @@ def resolve_multipliers(df: pd.DataFrame, my_location_type: str) -> pd.DataFrame
         df['Mult_Official'] = pd.NA
         return df
 
-    officials_set = _load_officials_set()
+    officials_set = _load_officials_set(root_input_dir)
     
     df[['Mult_Zone', 'Mult_HQ', 'Mult_Official']] = df.apply(
         _resolve_row,
