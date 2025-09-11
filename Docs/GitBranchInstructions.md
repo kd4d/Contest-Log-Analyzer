@@ -1,10 +1,14 @@
 # Git Feature Branch Workflow
 
-**Version: 0.71.0-Beta**
-**Date: 2025-09-10**
+**Version: 0.71.1-Beta**
+**Date: 2025-09-11**
 
 ---
 ### --- Revision History ---
+## [0.71.1-Beta] - 2025-09-11
+### Fixed
+# - Removed all stylistic `***` horizontal rules to fix a `Too deeply nested`
+#   LaTeX error during PDF generation with pandoc.
 ## [0.71.0-Beta] - 2025-09-10
 ### Added
 # - Added a subsection to Section 9 explaining how to remove stale
@@ -40,7 +44,6 @@
 ---
 
 The feature branch workflow is a standard practice that keeps your `master` branch clean and stable. It lets you work on new features in an isolated environment without affecting the main codebase. Once a feature is complete and tested, it's merged back into `master`. The Git commands are the same whether you're using Windows Shell (Command Prompt, PowerShell) or a Bash shell.
-***
 
 ## 1. Start from `master`
 
@@ -53,8 +56,6 @@ git switch master
 git pull
 ```
 
-***
-
 ## 2. Create and Switch to a Feature Branch
 
 Now, you'll create a new branch for your feature. Branch names should be short and descriptive, like `login-form` or `user-profile-page`.
@@ -65,8 +66,6 @@ git switch -c new-feature-name
 ```
 
 *You can now work safely on this branch. Think of it as a separate copy of the project where your changes won't affect anyone else until you're ready.*
-
-***
 
 ## 3. Develop the Feature: Add and Commit
 
@@ -84,7 +83,6 @@ git commit -m "feat: Add user login form component"
 ```
 
 You can (and should) have many commits on your feature branch. Committing often creates a clear history of your work and makes it easier to undo changes if something goes wrong.
-***
 
 ## 4. Keep Your Branch Synced (Optional but Recommended)
 
@@ -98,7 +96,6 @@ git rebase origin/master
 ```
 
 The **`rebase`** command keeps your project history clean and linear.
-***
 
 ## 5. Merge Your Feature into `master`
 
@@ -115,7 +112,6 @@ git merge --no-ff new-feature-name
 ```
 
 Using **`--no-ff`** (no fast-forward) is a crucial best practice. It creates a "merge commit" that ties the history of your feature branch together.
-***
 
 ## 6. Push and Clean Up
 
@@ -132,7 +128,7 @@ git push origin --delete new-feature-name
 ```
 
 That's the complete lifecycle! You've successfully created a feature, developed it in isolation, and safely merged it into the main project.
----
+
 ## 7. Correcting Mistakes (`git revert`)
 
 The safest way to undo a commit that has been shared is `git revert`. This command creates a *new commit* that is the exact inverse of the commit you want to undo.
@@ -143,7 +139,7 @@ The safest way to undo a commit that has been shared is `git revert`. This comma
 # Create a new commit that undoes the changes from the bad commit
 git revert a1b2c3d4
 ```
----
+
 ## 8. Managing Files
 
 ### Ignoring Untracked Files (`.gitignore`)
@@ -188,7 +184,6 @@ git show <commit-hash> -- path/to/your/file.ext
 git diff -- path/to/your/file.ext
 ```
 
----
 ## 9. Visualizing the History (`git log`)
 
 To see the results of your branching and merging, you can use `git log` with a few flags to create a clean, graphical view.
@@ -214,7 +209,7 @@ If `git branch -a` shows a remote branch that you know has been deleted from the
 git fetch --prune
 ```
 After running this command, the stale branch will no longer appear in your `git branch -a` list.
----
+
 ## 10. Pushing a Feature Branch
 
 Before you merge, you often need to push your feature branch to the remote repository for backup, collaboration, or to create a pull request.
@@ -224,7 +219,7 @@ git push -u origin new-feature-name
 ```
 
 After running this once, you can simply use `git push` from that branch in the future.
----
+
 ## 11. Handling Merge & Rebase Conflicts
 
 A conflict occurs when changes in the `master` branch and your feature branch affect the same lines in the same file. Git will pause the operation and ask you to resolve the conflict manually.
@@ -246,7 +241,7 @@ The resolution process is similar for both:
     * If you were merging: `git commit`
     * If you were rebasing: `git rebase --continue`
     * **If a rebase goes wrong, you can always cancel it safely with `git rebase --abort`**. This will return you to the state before the rebase began.
----
+
 ## 12. Temporarily Saving Changes (`git stash`)
 
 If you have uncommitted changes but need to switch branches immediately, use `git stash`.
@@ -264,7 +259,7 @@ git stash pop
 
 * `git stash pop` applies the most recent stash and removes it from your stash list.
 * `git stash list` shows all of your saved stashes.
----
+
 ## 13. Cleaning Up Commits
 
 Before you merge your feature branch, it's good practice to clean up your commit history.
@@ -285,7 +280,7 @@ Interactive rebase is a powerful tool for rewriting history. You can use it to *
 git rebase -i origin/master
 ```
 This command opens an editor with a list of your branch's commits. You can change the command next to each commit (e.g., from `pick` to `squash` or `reword`) to clean up your history before it's merged.
----
+
 ## 14. Tagging a Release
 
 When you are ready to create a release, you use tags to mark a specific point in history.
