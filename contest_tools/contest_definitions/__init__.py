@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-31
-# Version: 0.56.26-Beta
+# Date: 2025-09-12
+# Version: 0.56.27-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0.
 # --- Revision History ---
+## [0.56.27-Beta] - 2025-09-12
+### Fixed
+# - Corrected filename generation to replace spaces with underscores,
+#   fixing a bug where contest names like "WAE CW" could not be found.
 ## [0.56.26-Beta] - 2025-08-31
 ### Fixed
 # - Added the missing `custom_adif_exporter` property to the class,
@@ -83,8 +87,8 @@ class ContestDefinition:
         with open(common_file_path, 'r', encoding='utf-8') as f:
             merged_data = json.load(f)
 
-        base_contest_name = contest_name.rsplit('-', 1)[0].lower().replace('-', '_')
-        specific_contest_name = contest_name.lower().replace('-', '_')
+        base_contest_name = contest_name.rsplit('-', 1)[0].lower().replace('-', '_').replace(' ', '_')
+        specific_contest_name = contest_name.lower().replace('-', '_').replace(' ', '_')
         
         generic_file_path = os.path.join(current_dir, f"{base_contest_name}.json")
         specific_file_path = os.path.join(current_dir, f"{specific_contest_name}.json")

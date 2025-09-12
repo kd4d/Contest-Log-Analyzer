@@ -1,0 +1,67 @@
+{
+  "_filename": "contest_tools/contest_definitions/wae_cw.json",
+  "_version": "0.76.0-Beta",
+  "_date": "2025-09-12",
+  "contest_name": "WAE-CW",
+  "valid_bands": [
+    "80M",
+    "40M",
+    "20M",
+    "15M",
+    "10M"
+  ],
+  "operating_time_rules": {
+    "min_off_time_minutes": 60,
+    "single_op_max_hours": 36
+  },
+  "dupe_check_scope": "per_band",
+  "custom_parser_module": "wae_parser",
+  "custom_multiplier_resolver": "wae_multiplier_resolver",
+  "time_series_calculator": "wae_calculator",
+  "points_header_label": "QSO+QTC Pts",
+  "score_formula": "custom",
+  "multiplier_rules": [
+    {
+      "name": "WAE Countries",
+      "applies_to": "DX",
+      "value_column": "Mult1",
+      "name_column": "Mult1Name",
+      "totaling_method": "weighted_sum_by_band"
+    },
+    {
+      "name": "DXCC",
+      "applies_to": "W/VE",
+      "value_column": "Mult1",
+      "name_column": "Mult1Name",
+      "totaling_method": "weighted_sum_by_band"
+    },
+    {
+      "name": "Call Areas",
+      "applies_to": "W/VE",
+      "value_column": "Mult2",
+      "name_column": "Mult2Name",
+      "totaling_method": "weighted_sum_by_band"
+    }
+  ],
+  "exchange_parsing_rules": {
+    "WAE-CW": {
+      "regex": "(\\d{3})\\s+(\\d+)\\s+([A-Z0-9/]+)\\s+(\\d{3})\\s+(\\d+)",
+      "groups": [
+        "SentRST",
+        "SentSerial",
+        "Call",
+        "RST",
+        "RcvdSerial"
+      ]
+    }
+  },
+  "default_qso_columns": [
+    "ContestName", "MyCall", "Frequency", "Mode", "Datetime",
+    "SentRST", "SentSerial",
+    "Call", "RST", "RcvdSerial",
+    "Band", "Date", "Hour", "Dupe",
+    "DXCCName", "DXCCPfx", "CQZone", "ITUZone", "Continent", "WAEName", "WAEPfx",
+    "Run", "QSOPoints",
+    "Mult1", "Mult1Name", "Mult2", "Mult2Name"
+  ]
+}
