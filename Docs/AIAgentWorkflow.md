@@ -1,10 +1,18 @@
 # AIAgentWorkflow.md
 
-**Version: 0.63.0-Beta**
-**Date: 2025-09-11**
+**Version: 0.64.0-Beta**
+**Date: 2025-09-12**
 
 ---
 ### --- Revision History ---
+## [0.64.0-Beta] - 2025-09-12
+### Added
+# - Added a mandatory "Surgical Change Verification (`diff`)" section
+#   to Protocol 2.5 (Implementation Plan) to make adherence to
+#   Principle 9 (Surgical Modification) verifiable.
+### Changed
+# - Rephrased the "Surgical Modification Adherence Confirmation" step
+#   in Protocol 2.5 to refer to the new `diff` section.
 ## [0.63.0-Beta] - 2025-09-11
 ### Added
 # - Added a new step to Protocol 6.3 (Error Analysis Protocol) to
@@ -338,15 +346,16 @@ This workflow is a formal state machine that governs all development tasks, from
 2.5. **Implementation Plan**: The user requests an implementation plan. The AI's response must be a comprehensive document containing the following sections for each file to be modified:
     1.  **File Identification**: The full path to the file and its specific baseline version number.
     2.  **Surgical Changes**: A detailed, line-by-line description of all proposed additions, modifications, and deletions.
-    3.  **Affected Modules Checklist**: A list of all other modules that follow a similar architectural pattern to the file being modified (e.g., all custom parsers, all score reports). The AI must confirm that these modules have been checked and will be updated if necessary to keep them consistent with the proposed change. This makes the application of Principle 7 (Assume Bugs are Systemic) explicit.
-    4.  **Pre-Flight Check**:
+    3.  **Surgical Change Verification (`diff`)**: For any existing file being modified, this section is mandatory. It must contain a `diff` output comparing the original baseline file against the proposed new version. This `diff` serves as the definitive, verifiable contract for the change. This section is not applicable for new files.
+    4.  **Affected Modules Checklist**: A list of all other modules that follow a similar architectural pattern to the file being modified (e.g., all custom parsers, all score reports). The AI must confirm that these modules have been checked and will be updated if necessary to keep them consistent with the proposed change. This makes the application of Principle 7 (Assume Bugs are Systemic) explicit.
+    5.  **Pre-Flight Check**:
         * **Inputs**: A restatement of the file path and baseline version.
         * **Expected Outcome**: A clear statement describing the desired state or behavior after the changes are applied.
         * **Mental Walkthrough Confirmation**: A statement affirming that a mental walkthrough of the logic will be performed before generating the file.
         * **State Confirmation Procedure**: An affirmation that the mandatory confirmation prompt (as defined in Protocol 4.4) will be included with the file delivery.
-        * **Surgical Modification Adherence Confirmation**: I confirm that my internal process for generating the file will be literal text manipulation of the baseline, not logical regeneration. This guarantees that all unchanged parts of the file will be preserved verbatim, ensuring 100% compliance with Principle 9.
+        * **Surgical Modification Adherence Confirmation**: I confirm that the generated file will contain *only* the changes shown in the Surgical Change Verification (`diff`) section above, ensuring 100% compliance with Principle 9.
         * **Syntax Validation Confirmation**: For all Python files (`.py`), I will perform an automated syntax validation check on the generated file content before delivery to prevent syntax errors such as `IndentationError`.
-    5.  **Post-Generation Verification.** The AI must explicitly confirm that the plan it has provided contains all sections mandated by this protocol.
+    6.  **Post-Generation Verification.** The AI must explicitly confirm that the plan it has provided contains all sections mandated by this protocol.
 2.6. **Plan Refinement**: The user reviews the plan and may request changes or refinements. The AI provides a revised plan, repeating this step as necessary.
 2.7. **Approval**: The user provides explicit approval of the final implementation plan. Instructions, clarifications, or new requirements provided after a plan has been proposed do not constitute approval; they will be treated as requests for plan refinement under Protocol 2.6. The AI will only proceed to the Execution state upon receiving the **exact, literal string `Approved`**.
 2.8. **Execution**: Upon approval, the AI will proceed with the **Confirmed File Delivery Protocol (4.4)**.
