@@ -1,11 +1,11 @@
 # Contest Log Analyzer/contest_tools/reports/plot_hourly_animation.py
 #
-# Version: 0.58.0-Beta
-# Date: 2025-09-03
+# Version: 0.80.3-Beta
+# Date: 2025-09-12
 #
 # Purpose: A plot report that generates a series of hourly images and compiles
-#          them into an animated video showing contest progression. #          It also
-#          creates a standalone interactive HTML version of the chart. #
+#          them into an animated video showing contest progression.
+#          It also creates a standalone interactive HTML version of the chart.
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
 # License: Mozilla Public License, v. 2.0
@@ -13,7 +13,12 @@
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
-# file, You can obtain one at http://mozilla.org/MPL/2.0/. # --- Revision History ---
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+# --- Revision History ---
+## [0.80.3-Beta] - 2025-09-12
+### Fixed
+# - Corrected the band sorting logic to use a robust, two-step pattern
+#   to prevent a ValueError during report generation.
 ## [0.58.0-Beta] - 2025-09-03
 ### Changed
 # - Updated the chart title to the standard three-line format to conform
@@ -110,7 +115,7 @@ def _get_color_shades(base_rgb):
     return {
         'Run': colorsys.hls_to_rgb(h, max(0, l * 0.65), s),      # Darker
         'S&P': colorsys.hls_to_rgb(h, min(1, l * 1.2 + 0.1), s), # Lighter
-        'Unknown': '#FF0000',                                  # Bright Red
+        'Unknown': '#FF0000',                                   # Bright Red
     }
 
 class Report(ContestReport):
@@ -212,7 +217,8 @@ class Report(ContestReport):
         if all_cum_per_band_dfs:
             final_band_totals = pd.concat([df.iloc[[-1]] for df in all_cum_per_band_dfs])
             if not final_band_totals.empty:
-                bands = sorted(combined_df['Band'].unique(), key=lambda b: [band[1] for band in ContestLog._HAM_BANDS].index(b))
+                canonical_band_order = [band[1] for band in ContestLog._HAM_BANDS]
+                bands = sorted(combined_df['Band'].unique(), key=lambda b: canonical_band_order.index(b) if b in canonical_band_order else -1)
                 max_val = 0
                 for band in bands:
                     band_cols = [col for col in final_band_totals.columns if col[0] == band]
@@ -249,7 +255,7 @@ class Report(ContestReport):
             calls = list(data['log_data'].keys())
             num_logs = len(calls)
             callsign_str = ", ".join(calls)
-    
+            
             for i, hour in enumerate(data['master_index']):
                 # --- Save Debug Data for this frame ---
                 frame_debug_data = {
@@ -257,6 +263,7 @@ class Report(ContestReport):
                     'hour_index': i + 1,
                     'logs': {}
                 }
+                
                 for call in calls:
                     # Data for Top Chart (Cumulative Totals)
                     top_chart_data = {

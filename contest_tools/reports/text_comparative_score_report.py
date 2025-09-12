@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-03
-# Version: 0.56.3-Beta
+# Date: 2025-09-12
+# Version: 0.80.9-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0.
 # --- Revision History ---
+## [0.80.9-Beta] - 2025-09-12
+### Fixed
+# - Corrected a NameError by defining the `canonical_band_order` list
+#   before it was used in a sorting key.
 ## [0.56.3-Beta] - 2025-09-03
 ### Changed
 # - Modified the report to be score-formula-aware. It no longer
@@ -93,7 +97,7 @@ class Report(ContestReport):
         has_on_time = any(s[0].get('On-Time') and s[0].get('On-Time') != 'N/A' for s in total_summaries)
         if not has_on_time:
             col_order.remove('On-Time')
-            
+        
         header_map = {col: col.replace(' ', '\n') for col in col_order}
 
         # --- Report Lines List ---
@@ -197,6 +201,7 @@ class Report(ContestReport):
         summary = {'Callsign': callsign}
         summary['QSOs'] = len(df_band_mode)
         summary['Points'] = df_band_mode['QSOPoints'].sum()
+        
         log_location_type = getattr(log, '_my_location_type', None)
         
         for rule in multiplier_rules:
@@ -259,11 +264,13 @@ class Report(ContestReport):
                 band_mults = df_valid_mults.groupby('Band')[mult_col].nunique()
                 total_summary[mult_name] = band_mults.sum()
                 total_multiplier_count += band_mults.sum()
-
+        
         total_summary['AVG'] = (total_summary['Points'] / total_summary['QSOs']) if total_summary['QSOs'] > 0 else 0
         
         if contest_def.score_formula == 'qsos_times_mults':
             final_score = total_summary['QSOs'] * total_multiplier_count
+        elif contest_def.score_formula == 'total_points':
+            final_score = total_summary['Points']
         else: # Default to points_times_mults
             final_score = total_summary['Points'] * total_multiplier_count
         

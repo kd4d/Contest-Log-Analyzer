@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-31
-# Version: 0.55.9-Beta
+# Date: 2025-09-12
+# Version: 0.80.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.80.5-Beta] - 2025-09-12
+### Fixed
+# - Corrected the band sorting logic to use a robust, two-step pattern
+#   to prevent a ValueError during report generation.
 ## [0.55.9-Beta] - 2025-08-31
 ### Changed
 # - Updated band sorting logic to use the new, comprehensive `_HAM_BANDS`
@@ -68,7 +72,8 @@ class Report(ContestReport):
         debug_filename = f"{self.report_id}_{callsign}.txt"
         save_debug_data(debug_data_flag, output_path, df, custom_filename=debug_filename)
 
-        bands = sorted(df['Band'].unique(), key=lambda b: ContestLog._HAM_BANDS.index(b) if b in ContestLog._HAM_BANDS else -1)
+        canonical_band_order = [band[1] for band in ContestLog._HAM_BANDS]
+        bands = sorted(df['Band'].unique(), key=lambda b: canonical_band_order.index(b) if b in canonical_band_order else -1)
         num_bands = len(bands)
         
         # --- Dynamic Layout ---

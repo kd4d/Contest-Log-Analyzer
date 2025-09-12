@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-09-12
-# Version: 0.70.6-Beta
+# Version: 0.80.10-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,13 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.80.10-Beta] - 2025-09-12
+### Changed
+# - Modified the score calculator's exception handling to re-raise
+#   exceptions, forcing a program halt to get a definitive traceback.
+### Fixed
+# - Reverted an incorrect, unauthorized change to the _HAM_BANDS data
+#   structure, fixing a systemic ValueError in multiple reports.
 ## [0.70.6-Beta] - 2025-09-12
 ### Fixed
 # - Corrected the fallback logic for scoring module lookup to robustly
@@ -190,6 +197,7 @@ class ContestLog:
         self.filepath = cabrillo_filepath
         self._my_location_type: Optional[str] = None # W/VE or DX
         self._log_manager_ref = None
+        
         self.root_input_dir = root_input_dir
         if root_input_dir is None:
             raise ValueError("ContestLog requires a root_input_dir.")
@@ -304,6 +312,7 @@ class ContestLog:
 
         raw_df.drop(columns=['FrequencyRaw', 'DateRaw', 'TimeRaw', 'MyCallRaw', 'RawQSO'], inplace=True, errors='ignore')
         self.qsos_df = raw_df.reindex(columns=self.contest_definition.default_qso_columns)
+        
         self._check_dupes()
 
     def _check_dupes(self):
@@ -439,11 +448,11 @@ class ContestLog:
             self.time_series_score_df = calculator_instance.calculate(self)
             logging.info("Time-series score calculation complete.")
         except (ImportError, AttributeError) as e:
-            logging.error(f"Could not find or run score calculator '{class_name}' in '{calculator_name}.py': {e}")
-            self.time_series_score_df = pd.DataFrame()
+            logging.exception(f"Failed to load or find score calculator '{class_name}'. See traceback.")
+            raise e
         except Exception as e:
-            logging.error(f"An unexpected error occurred during time-series score calculation: {e}")
-            self.time_series_score_df = pd.DataFrame()
+            logging.exception(f"An unexpected error occurred in score calculator '{class_name}'. See traceback.")
+            raise e
 
     def apply_contest_specific_annotations(self):
         logging.info("Applying contest-specific annotations (Multipliers & Scoring)...")
@@ -489,7 +498,7 @@ class ContestLog:
                     
                     self.qsos_df.loc[wae_mask, dest_col] = self.qsos_df.loc[wae_mask, 'WAEPfx']
                     self.qsos_df.loc[~wae_mask, dest_col] = self.qsos_df.loc[~wae_mask, 'DXCCPfx']
- 
+                    
                     if dest_name_col:
                         self.qsos_df.loc[wae_mask, dest_name_col] = self.qsos_df.loc[wae_mask, 'WAEName']
                         self.qsos_df.loc[~wae_mask, dest_name_col] = self.qsos_df.loc[~wae_mask, 'DXCCName']
