@@ -2,7 +2,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-09-12
-# Version: 1.0.1-Beta
+# Version: 1.0.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,13 @@
 #          scoring rules like QTCs or weighted multipliers.
 #
 # --- Revision History ---
+## [1.0.3-Beta] - 2025-09-12
+### Fixed
+# - Renamed 'total_score' column to 'score' for consistency with reports.
+## [1.0.2-Beta] - 2025-09-12
+### Changed
+# - Rewrote calculate method to return a detailed DataFrame with score
+#   and QSO count breakdowns by operating style (Run vs. S&P).
 ## [1.0.1-Beta] - 2025-09-12
 ### Changed
 # - Renamed class to `StandardCalculator` to align with the new,
@@ -36,30 +43,44 @@ if TYPE_CHECKING:
 class StandardCalculator(TimeSeriesCalculator):
     """
     Default calculator for standard contests. The score is a simple
-    cumulative sum of QSO points over time.
+    cumulative sum of QSO points over time, broken down by operating style.
     """
     def calculate(self, log: 'ContestLog') -> pd.DataFrame:
         """
-        Calculates a cumulative, time-series score based on QSO points.
+        Calculates a cumulative, time-series score based on QSO points,
+        with a breakdown for Run vs. S&P+Unknown operating styles.
         """
         df = log.get_processed_data()
-        
-        if df.empty or 'QSOPoints' not in df.columns or 'Datetime' not in df.columns:
-            return pd.DataFrame(columns=['score'])
+        master_index = getattr(log, '_log_manager_ref', None).master_time_index
 
-        # Ensure we're working with a clean, sorted DataFrame
+        required_cols = ['QSOPoints', 'Datetime', 'Run', 'Call']
+        if df.empty or not all(c in df.columns for c in required_cols) or master_index is None:
+            return pd.DataFrame()
+
         df_sorted = df.dropna(subset=['Datetime', 'QSOPoints']).sort_values(by='Datetime')
         
-        if df_sorted.empty:
-            return pd.DataFrame(columns=['score'])
-            
-        # Set datetime as the index for time-series operations
-        ts_df = df_sorted.set_index('Datetime')
+        # Create masks for operating style
+        is_run = df_sorted['Run'] == 'Run'
+        is_sp_unk = ~is_run
         
-        # Calculate the cumulative sum of points
-        cumulative_score = ts_df['QSOPoints'].cumsum()
+        # --- Calculate Cumulative Counts and Scores for each category ---
         
-        # Return a DataFrame with the final score column
-        time_series_score_df = pd.DataFrame({'score': cumulative_score})
+        # QSO Counts
+        run_qso_count = df_sorted[is_run].set_index('Datetime')['Call'].resample('h').count().cumsum()
+        sp_unk_qso_count = df_sorted[is_sp_unk].set_index('Datetime')['Call'].resample('h').count().cumsum()
         
-        return time_series_score_df
+        # Scores
+        run_score = df_sorted[is_run].set_index('Datetime')['QSOPoints'].resample('h').sum().cumsum()
+        sp_unk_score = df_sorted[is_sp_unk].set_index('Datetime')['QSOPoints'].resample('h').sum().cumsum()
+
+        # --- Assemble Final DataFrame and align to master index ---
+        result_df = pd.DataFrame({
+            'run_qso_count': run_qso_count,
+            'sp_unk_qso_count': sp_unk_qso_count,
+            'run_score': run_score,
+            'sp_unk_score': sp_unk_score,
+        }).reindex(master_index, method='ffill').fillna(0)
+        
+        result_df['score'] = result_df['run_score'] + result_df['sp_unk_score']
+        
+        return result_df.astype(int)

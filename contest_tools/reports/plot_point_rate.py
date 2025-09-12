@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-03
-# Version: 0.57.6-Beta
+# Date: 2025-09-12
+# Version: 0.57.7-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,12 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.57.7-Beta] - 2025-09-12
+### Changed
+# - Refactored report to use the new, pre-calculated time_series_score_df
+#   from the ContestLog object, removing all internal calculation logic.
+# - The Y-axis label is now data-driven, using the `points_header_label`
+#   from the contest's JSON definition.
 ## [0.57.6-Beta] - 2025-09-03
 ### Changed
 # - Updated the chart title to the standard two-line format to conform
@@ -142,9 +148,9 @@ class Report(ContestReport):
         summary_data = []
         all_series = []
         
-        value_column = 'QSOPoints'
-        agg_func = 'sum'
-        metric_name = "Points"
+        metric_name = self.logs[0].contest_definition.points_header_label
+        if not metric_name:
+            metric_name = "Points"
 
         for i, df in enumerate(dfs):
             log = self.logs[i]
@@ -154,15 +160,13 @@ class Report(ContestReport):
             if band_filter != "All":
                 df = df[df['Band'] == band_filter]
             
-            if df.empty or value_column not in df.columns:
+            if df.empty:
                 continue
+
+            # NEW LOGIC: Use the pre-calculated time-series score
+            cumulative_rate = log.time_series_score_df['score']
             
-            df_cleaned = df.dropna(subset=['Datetime', value_column]).set_index('Datetime')
-            df_cleaned.index = df_cleaned.index.tz_localize('UTC')
-            
-            hourly_rate = df_cleaned.resample('h')[value_column].agg(agg_func)
-            cumulative_rate = hourly_rate.cumsum()
-            
+            # Re-index to master timeline for alignment
             master_time_index = log._log_manager_ref.master_time_index
             if master_time_index is not None:
                 cumulative_rate = cumulative_rate.reindex(master_time_index, method='pad').fillna(0)
@@ -172,7 +176,7 @@ class Report(ContestReport):
             cumulative_rate.name = call
             all_series.append(cumulative_rate)
 
-            total_value = df[value_column].sum()
+            total_value = df['QSOPoints'].sum()
 
             summary_data.append([
                 call,

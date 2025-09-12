@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-03
-# Version: 0.57.5-Beta
+# Date: 2025-09-12
+# Version: 0.57.7-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,16 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.57.7-Beta] - 2025-09-12
+### Changed
+# - Refactored the 'points' metric to use the new detailed time-series
+#   DataFrame, restoring the full three-panel plot (Overall, Run, S&P).
+## [0.57.6-Beta] - 2025-09-12
+### Changed
+# - Refactored the 'points' metric to use the new pre-calculated
+#   time_series_score_df from the ContestLog object, simplifying the logic
+#   and making it compatible with the new architecture. The plot for 'points'
+#   now shows a single 'Overall Difference' panel.
 ## [0.57.5-Beta] - 2025-09-03
 ### Changed
 # - Updated the chart title to the standard two-line format to conform
@@ -89,9 +99,9 @@ class Report(ContestReport):
     report_type: str = "plot"
     supports_pairwise = True
     
-    def _prepare_data_for_plot(self, log: ContestLog, df: pd.DataFrame, value_column: str, agg_func: str, band_filter: str) -> pd.DataFrame:
+    def _prepare_qso_data_for_plot(self, log: ContestLog, df: pd.DataFrame, band_filter: str) -> pd.DataFrame:
         """
-        Prepares a single log's data for plotting by grouping, aggregating,
+        Prepares a single log's QSO data for plotting by grouping, aggregating,
         and aligning to the master time index.
         """
         if band_filter != "All":
@@ -104,8 +114,8 @@ class Report(ContestReport):
             cumulative_data = pd.DataFrame(empty_data, index=master_time_index)
             return cumulative_data
 
-        df_cleaned = df.dropna(subset=['Datetime', 'Run', value_column])
-        rate_data = df_cleaned.groupby([df_cleaned['Datetime'].dt.floor('h'), 'Run'])[value_column].agg(agg_func).unstack(fill_value=0)
+        df_cleaned = df.dropna(subset=['Datetime', 'Run', 'Call'])
+        rate_data = df_cleaned.groupby([df_cleaned['Datetime'].dt.floor('h'), 'Run'])['Call'].count().unstack(fill_value=0)
 
         for col in ['Run', 'S&P', 'Unknown']:
             if col not in rate_data.columns:
@@ -133,68 +143,53 @@ class Report(ContestReport):
         log1, log2 = self.logs[0], self.logs[1]
         call1 = log1.get_metadata().get('MyCall', 'Log1')
         call2 = log2.get_metadata().get('MyCall', 'Log2')
-
-        value_column = 'QSOPoints' if metric == 'points' else 'Call'
-        agg_func = 'sum' if metric == 'points' else 'count'
+        master_time_index = log1._log_manager_ref.master_time_index
         
-        data1 = self._prepare_data_for_plot(log1, df1_slice, value_column, agg_func, band_filter)
-        data2 = self._prepare_data_for_plot(log2, df2_slice, value_column, agg_func, band_filter)
-
-        # --- Calculate Differences from Cumulative Data ---
-        run_diff = data1['Run'] - data2['Run']
-        sp_unk_diff = data1['S&P+Unknown'] - data2['S&P+Unknown']
-        overall_diff = run_diff + sp_unk_diff
-
-        # --- Save Debug Data ---
-        debug_df = pd.DataFrame({
-            f'run_{call1}': data1['Run'], f'sp_unk_{call1}': data1['S&P+Unknown'],
-            f'run_{call2}': data2['Run'], f'sp_unk_{call2}': data2['S&P+Unknown'],
-            'run_diff': run_diff, 'sp_unk_diff': sp_unk_diff, 'overall_diff': overall_diff
-        })
-        
-        is_single_band = len(log1.contest_definition.valid_bands) == 1
-        filename_band = log1.contest_definition.valid_bands[0].lower() if is_single_band else band_filter.lower().replace('m', '')
-        mode_suffix = f"_{mode_filter.lower()}" if mode_filter else ""
-        debug_filename = f"{self.report_id}_{metric}{mode_suffix}_{filename_band}_{call1}_vs_{call2}.txt"
-        save_debug_data(debug_data_flag, output_path, debug_df, custom_filename=debug_filename)
-        
-        # --- Plotting ---
         sns.set_theme(style="whitegrid")
         fig = plt.figure(figsize=(12, 9))
+        gs = fig.add_gridspec(5, 1)
+        ax1 = fig.add_subplot(gs[0:3, 0])
+        ax2 = fig.add_subplot(gs[3, 0], sharex=ax1)
+        ax3 = fig.add_subplot(gs[4, 0], sharex=ax1)
         
-        # Check if there is any actual difference to plot
+        if metric == 'points':
+            metric_name = log1.contest_definition.points_header_label or "Points"
+            
+            score1_ts = log1.time_series_score_df.reindex(master_time_index, method='pad').fillna(0)
+            score2_ts = log2.time_series_score_df.reindex(master_time_index, method='pad').fillna(0)
+
+            run_diff = score1_ts['run_score'] - score2_ts['run_score']
+            sp_unk_diff = score1_ts['sp_unk_score'] - score2_ts['sp_unk_score']
+            overall_diff = score1_ts['total_score'] - score2_ts['total_score']
+            
+            debug_df = pd.concat([score1_ts.add_suffix(f'_{call1}'), score2_ts.add_suffix(f'_{call2}')], axis=1)
+
+        else: # metric == 'qsos'
+            metric_name = "QSOs"
+            data1 = self._prepare_qso_data_for_plot(log1, df1_slice, band_filter)
+            data2 = self._prepare_qso_data_for_plot(log2, df2_slice, band_filter)
+
+            run_diff = data1['Run'] - data2['Run']
+            sp_unk_diff = data1['S&P+Unknown'] - data2['S&P+Unknown']
+            overall_diff = run_diff + sp_unk_diff
+            
+            debug_df = pd.DataFrame({
+                f'run_{call1}': data1['Run'], f'sp_unk_{call1}': data1['S&P+Unknown'],
+                f'run_{call2}': data2['Run'], f'sp_unk_{call2}': data2['S&P+Unknown'],
+                'run_diff': run_diff, 'sp_unk_diff': sp_unk_diff, 'overall_diff': overall_diff
+            })
+        
+        # --- Plotting ---
         if overall_diff.abs().sum() == 0:
             logging.info(f"Skipping {band_filter} difference plot: no data available for this band.")
             plt.close(fig)
             return None
 
-        gs = fig.add_gridspec(5, 1)
-        
-        ax1 = fig.add_subplot(gs[0:3, 0])
-        ax2 = fig.add_subplot(gs[3, 0], sharex=ax1)
-        ax3 = fig.add_subplot(gs[4, 0], sharex=ax1)
-
         ax1.plot(overall_diff.index, overall_diff, marker='o', markersize=4)
         ax2.plot(run_diff.index, run_diff, marker='o', markersize=4, color='green')
         ax3.plot(sp_unk_diff.index, sp_unk_diff, marker='o', markersize=4, color='purple')
-
-        # --- Formatting ---
-        metadata = log1.get_metadata()
-        year = get_valid_dataframe(log1)['Date'].dropna().iloc[0].split('-')[0] if not get_valid_dataframe(log1).empty else "----"
-        contest_name = metadata.get('ContestName', '')
-        event_id = metadata.get('EventID', '')
         
-        metric_name = "Points" if metric == 'points' else "QSOs"
-        band_text = log1.contest_definition.valid_bands[0].replace('M', ' Meters') if is_single_band else band_filter.replace('M', ' Meters')
-        mode_text = f" ({mode_filter})" if mode_filter else ""
-        callsign_str = f"{call1} vs. {call2}"
-
-        title_line1 = f"{self.report_name} - {metric_name}{mode_text}"
-        title_line2 = f"{year} {event_id} {contest_name} - {callsign_str}".strip().replace("  ", " ")
-        final_title = f"{title_line1}\n{title_line2}"
-        
-        fig.suptitle(final_title, fontsize=16, fontweight='bold')
-
+        # --- Formatting & Saving ---
         ax1.set_ylabel(f"Overall Diff ({metric_name})")
         ax2.set_ylabel(f"Run Diff")
         ax3.set_ylabel(f"S&P+Unk Diff")
@@ -206,9 +201,29 @@ class Report(ContestReport):
         
         plt.setp(ax1.get_xticklabels(), visible=False)
         plt.setp(ax2.get_xticklabels(), visible=False)
+
+        metadata = log1.get_metadata()
+        year = get_valid_dataframe(log1)['Date'].dropna().iloc[0].split('-')[0] if not get_valid_dataframe(log1).empty else "----"
+        contest_name = metadata.get('ContestName', '')
+        event_id = metadata.get('EventID', '')
+        
+        is_single_band = len(log1.contest_definition.valid_bands) == 1
+        band_text = log1.contest_definition.valid_bands[0].replace('M', ' Meters') if is_single_band else band_filter.replace('M', ' Meters')
+        mode_text = f" ({mode_filter})" if mode_filter else ""
+        callsign_str = f"{call1} vs. {call2}"
+
+        title_line1 = f"{self.report_name} - {metric_name}{mode_text}"
+        title_line2 = f"{year} {event_id} {contest_name} - {callsign_str}".strip().replace("  ", " ")
+        final_title = f"{title_line1}\n{title_line2}"
+        
+        fig.suptitle(final_title, fontsize=16, fontweight='bold')
         fig.tight_layout(rect=[0, 0.03, 1, 0.93])
 
-        # --- Save File ---
+        filename_band = log1.contest_definition.valid_bands[0].lower() if is_single_band else band_filter.lower().replace('m', '')
+        mode_suffix = f"_{mode_filter.lower()}" if mode_filter else ""
+        debug_filename = f"{self.report_id}_{metric}{mode_suffix}_{filename_band}_{call1}_vs_{call2}.txt"
+        save_debug_data(debug_data_flag, output_path, debug_df, custom_filename=debug_filename)
+        
         create_output_directory(output_path)
         filename = f"{self.report_id}_{metric}{mode_suffix}_{filename_band}_{call1}_vs_{call2}.png"
         filepath = os.path.join(output_path, filename)

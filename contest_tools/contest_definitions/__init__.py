@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-09-12
-# Version: 0.56.28-Beta
+# Version: 0.56.29-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0.
 # --- Revision History ---
+## [0.56.29-Beta] - 2025-09-12
+### Added
+# - Added the `points_header_label` property to expose the data-driven
+#   label for score/points columns in reports.
 ## [0.56.28-Beta] - 2025-09-12
 ### Added
 # - Added the `time_series_calculator` property to support the new,
@@ -177,6 +181,10 @@ class ContestDefinition:
     @property
     def time_series_calculator(self) -> Optional[str]:
         return self._data.get('time_series_calculator')
+        
+    @property
+    def points_header_label(self) -> Optional[str]:
+        return self._data.get('points_header_label')
 
     @property
     def contest_period(self) -> Optional[Dict[str, str]]:
