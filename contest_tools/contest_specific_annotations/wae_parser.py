@@ -2,7 +2,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-09-12
-# Version: 1.0.0-Beta
+# Version: 1.0.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,10 @@
 #          records from the Cabrillo log.
 #
 # --- Revision History ---
+## [1.0.1-Beta] - 2025-09-12
+### Fixed
+# - Replaced the brittle .split()-based QTC parsing with a robust regular
+#   expression to correctly handle formatting variations.
 ## [1.0.0-Beta] - 2025-09-12
 # - Initial release.
 #
@@ -30,7 +34,8 @@ import logging
 from ..contest_definitions import ContestDefinition
 from ..cabrillo_parser import parse_qso_common_fields
 
-QTC_PATTERN = re.compile(r'QTC:\s+(.*)')
+# A robust regex to capture all 10 fields of a QTC line, tolerant of whitespace.
+QTC_LINE_RE = re.compile(r"QTC:\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)")
 QTC_FIELD_NAMES = [
     'QTC_QRG', 'QTC_MODE', 'QTC_DATE', 'QTC_TIME', 'QTC_CALL_RX', 'QTC_GRP',
     'QTC_CALL_TX', 'QTC_TIME_QSO', 'QTC_CALL_QSO', 'QTC_NR_QSO'
@@ -78,13 +83,11 @@ def parse_log(filepath: str, contest_definition: ContestDefinition, root_input_d
                 qso_records.append(common_data)
 
         elif line_to_process.startswith('QTC:'):
-            match = QTC_PATTERN.match(line_to_process)
+            match = QTC_LINE_RE.match(line_to_process)
             if match:
-                qtc_content = match.group(1).split()
-                if len(qtc_content) == len(QTC_FIELD_NAMES):
-                    qtc_records.append(dict(zip(QTC_FIELD_NAMES, qtc_content)))
-                else:
-                    logging.warning(f"Malformed QTC line skipped: {line_to_process}")
+                qtc_records.append(dict(zip(QTC_FIELD_NAMES, match.groups())))
+            else:
+                logging.warning(f"Malformed QTC line skipped: {line_to_process}")
         else:
             # It's a header line
             for cabrillo_tag, df_key in contest_definition.header_field_map.items():

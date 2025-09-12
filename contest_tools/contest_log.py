@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-09
-# Version: 0.70.2-Beta
+# Date: 2025-09-12
+# Version: 0.70.6-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,28 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.70.6-Beta] - 2025-09-12
+### Fixed
+# - Corrected the fallback logic for scoring module lookup to robustly
+#   handle contest names with spaces (e.g., "WAE CW").
+## [0.70.5-Beta] - 2025-09-12
+### Fixed
+# - Corrected the scoring module lookup to handle contest names with spaces.
+## [0.70.4-Beta] - 2025-09-12
+### Fixed
+# - Corrected the scoring module lookup to handle contest names with spaces.
+# - Simplified the score calculator class name generation to a robust
+#   snake_case to CamelCase convention.
+## [0.70.3-Beta] - 2025-09-12
+### Added
+# - Added `qtcs_df` and `time_series_score_df` attributes to the class.
+# - Added the `_pre_calculate_time_series_score` method to orchestrate
+#   the new, pluggable score calculator architecture.
+### Changed
+# - Modified `_ingest_cabrillo_data` to handle custom parsers that can
+#   return a separate DataFrame for QTCs.
+# - The `apply_annotations` method now calls the new score calculator at
+#   the end of its processing pipeline.
 ## [0.70.2-Beta] - 2025-09-09
 ### Changed
 # - Refactored to accept `root_input_dir` as a parameter and pass it to
@@ -161,6 +183,8 @@ class ContestLog:
     def __init__(self, contest_name: str, cabrillo_filepath: Optional[str] = None, root_input_dir: Optional[str] = None):
         self.contest_name = contest_name
         self.qsos_df: pd.DataFrame = pd.DataFrame()
+        self.qtcs_df: pd.DataFrame = pd.DataFrame()
+        self.time_series_score_df: pd.DataFrame = pd.DataFrame()
         self.metadata: Dict[str, Any] = {}
         self.dupe_sets: Dict[str, Set[Tuple[str, str]]] = {}
         self.filepath = cabrillo_filepath
@@ -186,7 +210,16 @@ class ContestLog:
         if custom_parser_name:
             try:
                 parser_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{custom_parser_name}")
-                raw_df, metadata = parser_module.parse_log(cabrillo_filepath, self.contest_definition, self.root_input_dir)
+                
+                # The custom parser's return signature determines how we unpack
+                parser_output = parser_module.parse_log(cabrillo_filepath, self.contest_definition, self.root_input_dir)
+                
+                if len(parser_output) == 3:
+                    raw_df, self.qtcs_df, metadata = parser_output
+                else:
+                    raw_df, metadata = parser_output
+                    self.qtcs_df = pd.DataFrame() # Ensure it's initialized
+                
                 logging.info(f"Using custom parser module: '{custom_parser_name}'")
             except Exception as e:
                 logging.error(f"Could not run custom parser '{custom_parser_name}': {e}. Halting.")
@@ -293,7 +326,7 @@ class ContestLog:
             for band in self.qsos_df['Band'].unique():
                 if band == 'Invalid' or not band:
                     continue
-                
+            
                 self.dupe_sets[band] = set()
                 band_indices = self.qsos_df[self.qsos_df['Band'] == band].index
                 
@@ -382,6 +415,35 @@ class ContestLog:
             self.metadata['OperatingTime'] = self._calculate_operating_time()
         except Exception as e:
             logging.error(f"Error during on-time calculation: {e}. Skipping.")
+        
+        # This is the final step in the processing pipeline
+        self._pre_calculate_time_series_score()
+
+    def _pre_calculate_time_series_score(self):
+        """
+        Dynamically selects and runs the appropriate time-series score calculator.
+        """
+        calculator_name = self.contest_definition.time_series_calculator
+        if not calculator_name:
+            calculator_name = "standard_calculator" # Default for all standard contests
+            class_name = "StandardCalculator"
+        else:
+            # Convention: snake_case module -> CamelCase class
+            class_name = "".join([part.capitalize() for part in calculator_name.split('_')])
+
+        try:
+            logging.info(f"Running time-series score calculator: '{calculator_name}'...")
+            module = importlib.import_module(f"contest_tools.score_calculators.{calculator_name}")
+            CalculatorClass = getattr(module, class_name)
+            calculator_instance = CalculatorClass()
+            self.time_series_score_df = calculator_instance.calculate(self)
+            logging.info("Time-series score calculation complete.")
+        except (ImportError, AttributeError) as e:
+            logging.error(f"Could not find or run score calculator '{class_name}' in '{calculator_name}.py': {e}")
+            self.time_series_score_df = pd.DataFrame()
+        except Exception as e:
+            logging.error(f"An unexpected error occurred during time-series score calculation: {e}")
+            self.time_series_score_df = pd.DataFrame()
 
     def apply_contest_specific_annotations(self):
         logging.info("Applying contest-specific annotations (Multipliers & Scoring)...")
@@ -467,12 +529,15 @@ class ContestLog:
 
         scoring_module = None
         try:
-            module_name_specific = self.contest_name.lower().replace('-', '_')
+            module_name_specific = self.contest_name.lower().replace('-', '_').replace(' ', '_')
             scoring_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{module_name_specific}_scoring")
         except ImportError:
             try:
-                base_contest_name = self.contest_name.rsplit('-', 1)[0]
-                module_name_generic = base_contest_name.lower().replace('-', '_')
+                if '-' in self.contest_name:
+                    base_contest_name = self.contest_name.rsplit('-', 1)[0]
+                else:
+                    base_contest_name = self.contest_name.split(' ')[0]
+                module_name_generic = base_contest_name.lower().replace('-', '_').replace(' ', '_')
                 scoring_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{module_name_generic}_scoring")
             except (ImportError, IndexError):
                 logging.warning(f"No scoring module found for contest '{self.contest_name}'. Points will be 0.")

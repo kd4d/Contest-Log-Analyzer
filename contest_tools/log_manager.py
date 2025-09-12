@@ -7,8 +7,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-09
-# Version: 0.70.1-Beta
+# Date: 2025-09-12
+# Version: 0.70.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,6 +19,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.70.2-Beta] - 2025-09-12
+### Fixed
+# - Corrected an order-of-operations bug by setting the _log_manager_ref
+#   on the ContestLog object *before* calling apply_annotations. This
+#   ensures score calculators can access the master time index.
 ## [0.70.1-Beta] - 2025-09-09
 ### Changed
 # - Refactored methods to accept path variables as parameters instead of
@@ -78,9 +83,11 @@ class LogManager:
                 return
 
             log = ContestLog(contest_name=contest_name, cabrillo_filepath=cabrillo_filepath, root_input_dir=root_input_dir)
-            log.apply_annotations()
             
+            # Set the back-reference BEFORE running annotations that might need it.
             setattr(log, '_log_manager_ref', self)
+            
+            log.apply_annotations()
             
             self.logs.append(log)
             
