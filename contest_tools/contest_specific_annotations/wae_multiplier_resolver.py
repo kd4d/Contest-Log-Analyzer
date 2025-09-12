@@ -2,7 +2,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-09-12
-# Version: 1.0.0-Beta
+# Version: 1.0.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,10 @@
 #          EU vs. non-EU stations and the special call area district logic.
 #
 # --- Revision History ---
+## [1.0.1-Beta] - 2025-09-12
+### Fixed
+# - Pre-initialized multiplier columns with dtype='object' to prevent
+#   a pandas FutureWarning.
 ## [1.0.0-Beta] - 2025-09-12
 # - Initial release.
 #
@@ -25,7 +29,7 @@ import pandas as pd
 import re
 from typing import Dict, Any, Optional
 
-# [cite_start]Prefixes for which call area districts count as multipliers [cite: 3586]
+# Prefixes for which call area districts count as multipliers
 SPECIAL_DISTRICT_PREFIXES = {'K', 'W', 'VE', 'VK', 'ZL', 'ZS', 'JA', 'BY', 'PY', 'RA'}
 
 def _get_call_area_district(row: pd.Series) -> Optional[str]:
@@ -69,31 +73,27 @@ def resolve_multipliers(df: pd.DataFrame, my_location_type: str, root_input_dir:
     if df.empty:
         return df
 
+    # Pre-initialize columns with a compatible dtype to prevent FutureWarnings
+    for col in ['Mult1', 'Mult1Name', 'Mult2', 'Mult2Name']:
+        df[col] = pd.NA
+        df[col] = df[col].astype('object')
+
     # --- Rule Set for DX Loggers ---
     if my_location_type == 'DX':
-        # [cite_start]Multipliers are WAE countries only [cite: 3584]
+        # Multipliers are WAE countries only
         df['Mult1'] = df['WAEPfx']
         df['Mult1Name'] = df['WAEName']
-        df['Mult2'] = pd.NA
-        df['Mult2Name'] = pd.NA
 
     # --- Rule Set for EU Loggers ---
     elif my_location_type == 'W/VE': # Note: W/VE here means European
-        # [cite_start]Multiplier 1: Non-European DXCC entities [cite: 3585]
+        # Multiplier 1: Non-European DXCC entities
         non_eu_mask = df['Continent'] != 'EU'
         df.loc[non_eu_mask, 'Mult1'] = df.loc[non_eu_mask, 'DXCCPfx']
         df.loc[non_eu_mask, 'Mult1Name'] = df.loc[non_eu_mask, 'DXCCName']
 
-        # [cite_start]Multiplier 2: Special Call Area Districts [cite: 3586]
+        # Multiplier 2: Special Call Area Districts
         districts = df.apply(_get_call_area_district, axis=1)
         df['Mult2'] = districts
         df['Mult2Name'] = districts # For districts, the name is the same as the ID
     
-    else:
-        # Default case if location type is unknown
-        df['Mult1'] = pd.NA
-        df['Mult1Name'] = pd.NA
-        df['Mult2'] = pd.NA
-        df['Mult2Name'] = pd.NA
-
     return df
