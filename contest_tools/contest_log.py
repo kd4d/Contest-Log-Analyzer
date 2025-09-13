@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-09-13
-# Version: 0.85.7-Beta
+# Version: 0.85.14-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,19 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.85.14-Beta] - 2025-09-13
+### Fixed
+# - Removed a redundant, self-referential import statement that caused
+#   a circular import error.
+## [0.85.12-Beta] - 2025-09-13
+### Changed
+# - Decoupled the time-series score calculation by removing the call
+#   to _pre_calculate_time_series_score() from this module. The
+#   LogManager is now responsible for triggering this step.
+## [0.85.8-Beta] - 2025-09-13
+### Fixed
+# - Pre-cast multiplier columns to 'object' dtype to prevent a pandas
+#   FutureWarning when inserting string-based multiplier values.
 ## [0.85.7-Beta] - 2025-09-13
 ### Added
 # - Added `qtcs_df` and `time_series_score_df` attributes to the class.
@@ -417,6 +430,12 @@ class ContestLog:
             logging.warning("No QSOs loaded. Cannot apply annotations.")
             return
 
+        # Pre-cast multiplier columns to 'object' to prevent dtype warnings when
+        # string-based multipliers (e.g., from WAE/DXCC) are inserted later.
+        for col in ['Mult1', 'Mult1Name', 'Mult2', 'Mult2Name']:
+            if col in self.qsos_df.columns:
+                self.qsos_df[col] = self.qsos_df[col].astype('object')
+
         try:
             logging.info("Applying Run/S&P annotation...")
             self.qsos_df = process_contest_log_for_run_s_p(self.qsos_df)
@@ -438,9 +457,6 @@ class ContestLog:
         except Exception as e:
             logging.error(f"Error during on-time calculation: {e}. Skipping.")
         
-        # This is the final step in the processing pipeline
-        self._pre_calculate_time_series_score()
-
     def _pre_calculate_time_series_score(self):
         """
         Dynamically selects and runs the appropriate time-series score calculator.

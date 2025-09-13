@@ -1,6 +1,6 @@
 {
   "_filename": "contest_tools/contest_definitions/wae_ssb.json",
-  "_version": "0.85.5-Beta",
+  "_version": "0.85.3-Beta",
   "_date": "2025-09-13",
   "contest_name": "WAE-SSB",
   "valid_bands": [
@@ -23,23 +23,9 @@
   "multiplier_rules": [
     {
       "name": "WAE Countries",
-      "applies_to": "DX",
+      "source": "wae_dxcc",
       "value_column": "Mult1",
       "name_column": "Mult1Name",
-      "totaling_method": "weighted_sum_by_band"
-    },
-    {
-      "name": "DXCC",
-      "applies_to": "W/VE",
-      "value_column": "Mult1",
-      "name_column": "Mult1Name",
-      "totaling_method": "weighted_sum_by_band"
-    },
-    {
-      "name": "Call Areas",
-      "applies_to": "W/VE",
-      "value_column": "Mult2",
-      "name_column": "Mult2Name",
       "totaling_method": "weighted_sum_by_band"
     }
   ],

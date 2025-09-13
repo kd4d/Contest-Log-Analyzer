@@ -1,8 +1,8 @@
 # Contest Log Analyzer/contest_tools/contest_specific_annotations/wae_multiplier_resolver.py
 #
 # Author: Gemini AI
-# Date: 2025-09-12
-# Version: 1.0.1-Beta
+# Date: 2025-09-13
+# Version: 0.85.4-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,15 @@
 #          EU vs. non-EU stations and the special call area district logic.
 #
 # --- Revision History ---
+## [0.85.4-Beta] - 2025-09-13
+### Changed
+# - Refactored module to only handle the special-case Mult2 (Call Area)
+#   multiplier for European stations. Mult1 is now handled by the
+#   'wae_dxcc' source key in the contest definition.
+## [0.85.0-Beta] - 2025-09-13
+### Fixed
+# - Corrected a logical inversion where the rules for European and
+#   non-European stations were swapped.
 ## [1.0.1-Beta] - 2025-09-12
 ### Fixed
 # - Pre-initialized multiplier columns with dtype='object' to prevent
@@ -75,25 +84,20 @@ def resolve_multipliers(df: pd.DataFrame, my_location_type: str, root_input_dir:
 
     # Pre-initialize columns with a compatible dtype to prevent FutureWarnings
     for col in ['Mult1', 'Mult1Name', 'Mult2', 'Mult2Name']:
-        df[col] = pd.NA
-        df[col] = df[col].astype('object')
+        if col not in df.columns:
+            df[col] = pd.NA
+            df[col] = df[col].astype('object')
 
-    # --- Rule Set for DX Loggers ---
+    # This resolver now ONLY handles the special case for European loggers
+    # working specific DX stations for call-area multipliers (Mult2).
+    # The primary multiplier (Mult1) is handled by the 'wae_dxcc' source
+    # key in contest_log.py.
     if my_location_type == 'DX':
-        # Multipliers are WAE countries only
-        df['Mult1'] = df['WAEPfx']
-        df['Mult1Name'] = df['WAEName']
-
-    # --- Rule Set for EU Loggers ---
-    elif my_location_type == 'W/VE': # Note: W/VE here means European
-        # Multiplier 1: Non-European DXCC entities
-        non_eu_mask = df['Continent'] != 'EU'
-        df.loc[non_eu_mask, 'Mult1'] = df.loc[non_eu_mask, 'DXCCPfx']
-        df.loc[non_eu_mask, 'Mult1Name'] = df.loc[non_eu_mask, 'DXCCName']
-
-        # Multiplier 2: Special Call Area Districts
-        districts = df.apply(_get_call_area_district, axis=1)
-        df['Mult2'] = districts
-        df['Mult2Name'] = districts # For districts, the name is the same as the ID
-    
+        # Filter for QSOs with non-European stations
+        non_eu_df = df[df['Continent'] != 'EU'].copy()
+        if not non_eu_df.empty:
+            districts = non_eu_df.apply(_get_call_area_district, axis=1)
+            df.loc[districts.index, 'Mult2'] = districts
+            df.loc[districts.index, 'Mult2Name'] = districts
+            
     return df

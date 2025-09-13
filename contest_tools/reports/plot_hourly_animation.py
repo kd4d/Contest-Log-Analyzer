@@ -1,6 +1,6 @@
 # Contest Log Analyzer/contest_tools/reports/plot_hourly_animation.py
 #
-# Version: 0.85.10-Beta
+# Version: 0.85.11-Beta
 # Date: 2025-09-13
 #
 # Purpose: A plot report that generates a series of hourly images and compiles
@@ -15,6 +15,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.85.11-Beta] - 2025-09-13
+### Fixed
+# - Resolved a TypeError by explicitly localizing the timezone-naive
+#   index of an intermediate DataFrame to UTC before reindexing.
 ## [0.85.10-Beta] - 2025-09-13
 ### Changed
 # - Refactored the _prepare_data method to source its cumulative score
@@ -177,6 +181,11 @@ class Report(ContestReport):
                     hourly_run_sp[state] = 0
             
             cum_qso_per_band_breakdown = log_df.groupby([log_df['Datetime'].dt.floor('h'), 'Band', 'Run']).size().unstack(level=['Band', 'Run'], fill_value=0).cumsum()
+            
+            # Ensure the index is timezone-aware to match the master_index
+            if cum_qso_per_band_breakdown.index.tz is None:
+                cum_qso_per_band_breakdown.index = cum_qso_per_band_breakdown.index.tz_localize('UTC')
+
             cum_qso_per_band_breakdown = cum_qso_per_band_breakdown.reindex(master_index, method='ffill').fillna(0)
 
             log_data[call] = {
