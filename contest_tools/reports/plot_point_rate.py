@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-12
-# Version: 0.57.7-Beta
+# Date: 2025-09-13
+# Version: 0.85.9-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,12 +17,18 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.57.7-Beta] - 2025-09-12
+## [0.85.9-Beta] - 2025-09-13
 ### Changed
 # - Refactored report to use the new, pre-calculated time_series_score_df
 #   from the ContestLog object, removing all internal calculation logic.
 # - The Y-axis label is now data-driven, using the `points_header_label`
 #   from the contest's JSON definition.
+## [0.57.7-Beta] - 2025-09-12
+### Changed
+# - Refactored the 'points' metric to use the new pre-calculated
+#   time_series_score_df from the ContestLog object, simplifying the logic
+#   and making it compatible with the new architecture. The plot for 'points'
+#   now shows a single 'Overall Difference' panel.
 ## [0.57.6-Beta] - 2025-09-03
 ### Changed
 # - Updated the chart title to the standard two-line format to conform

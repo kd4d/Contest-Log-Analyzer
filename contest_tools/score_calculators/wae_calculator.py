@@ -1,8 +1,8 @@
 # Contest Log Analyzer/contest_tools/score_calculators/wae_calculator.py
 #
 # Author: Gemini AI
-# Date: 2025-09-12
-# Version: 1.0.4-Beta
+# Date: 2025-09-13
+# Version: 0.85.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,25 +17,9 @@
 #          score calculator for the Worked All Europe (WAE) Contest.
 #
 # --- Revision History ---
-## [1.0.4-Beta] - 2025-09-12
-### Fixed
-# - Renamed 'total_score' column to 'score' for consistency with reports.
-## [1.0.3-Beta] - 2025-09-12
-### Changed
-# - Rewrote calculate method to return a detailed DataFrame with score
-#   and QSO count breakdowns by operating style (Run vs. S&P), using a
-#   score apportionment model for the non-linear WAE score.
-## [1.0.2-Beta] - 2025-09-12
-### Added
-# - Added logic to derive a 'Band' column from the QTC frequency,
-#   making the QTC data fully analyzable on a per-band basis.
-## [1.0.1-Beta] - 2025-09-12
-### Changed
-# - Renamed class to `WaeCalculator` to align with the new, simplified
-#   naming convention.
-## [1.0.0-Beta] - 2025-09-12
+## [0.85.2-Beta] - 2025-09-13
 # - Initial release.
-
+#
 import pandas as pd
 import numpy as np
 from typing import TYPE_CHECKING
@@ -59,7 +43,8 @@ class WaeCalculator(TimeSeriesCalculator):
         """
         qsos_df = log.get_processed_data()
         qtcs_df = getattr(log, 'qtcs_df', pd.DataFrame()).copy()
-        master_index = getattr(log, '_log_manager_ref', None).master_time_index
+        log_manager = getattr(log, '_log_manager_ref', None)
+        master_index = getattr(log_manager, 'master_time_index', None)
 
         if master_index is None or qsos_df.empty:
             return pd.DataFrame()

@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-03
-# Version: 0.47.2-Beta
+# Date: 2025-09-13
+# Version: 0.85.16-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.85.16-Beta] - 2025-09-13
+### Fixed
+# - Added a check for pandas Timestamp objects to the NpEncoder class to
+#   prevent a TypeError during JSON serialization of debug data.
 ## [0.47.2-Beta] - 2025-09-03
 ### Changed
 # - Modified the ComparativeHeatmapChart class to accept a report_name
@@ -141,6 +145,8 @@ class NpEncoder(json.JSONEncoder):
             return float(obj)
         if isinstance(obj, np.ndarray):
             return obj.tolist()
+        if isinstance(obj, pd.Timestamp):
+            return obj.isoformat()
         return super(NpEncoder, self).default(obj)
 
 def get_valid_dataframe(log: ContestLog, include_dupes: bool = False) -> pd.DataFrame:

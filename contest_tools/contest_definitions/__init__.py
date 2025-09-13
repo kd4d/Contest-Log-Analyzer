@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-12
-# Version: 0.56.29-Beta
+# Date: 2025-09-13
+# Version: 0.85.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0.
 # --- Revision History ---
+## [0.85.3-Beta] - 2025-09-13
+### Added
+# - Added `time_series_calculator` and `points_header_label` properties
+#   to support the new pluggable score calculator architecture.
 ## [0.56.29-Beta] - 2025-09-12
 ### Added
 # - Added the `points_header_label` property to expose the data-driven

@@ -1,8 +1,8 @@
 # Contest Log Analyzer/contest_tools/score_calculators/standard_calculator.py
 #
 # Author: Gemini AI
-# Date: 2025-09-12
-# Version: 1.0.3-Beta
+# Date: 2025-09-13
+# Version: 0.85.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,20 +18,9 @@
 #          scoring rules like QTCs or weighted multipliers.
 #
 # --- Revision History ---
-## [1.0.3-Beta] - 2025-09-12
-### Fixed
-# - Renamed 'total_score' column to 'score' for consistency with reports.
-## [1.0.2-Beta] - 2025-09-12
-### Changed
-# - Rewrote calculate method to return a detailed DataFrame with score
-#   and QSO count breakdowns by operating style (Run vs. S&P).
-## [1.0.1-Beta] - 2025-09-12
-### Changed
-# - Renamed class to `StandardCalculator` to align with the new,
-#   simplified naming convention.
-## [1.0.0-Beta] - 2025-09-12
+## [0.85.1-Beta] - 2025-09-13
 # - Initial release.
-
+#
 import pandas as pd
 from typing import TYPE_CHECKING
 
@@ -51,7 +40,8 @@ class StandardCalculator(TimeSeriesCalculator):
         with a breakdown for Run vs. S&P+Unknown operating styles.
         """
         df = log.get_processed_data()
-        master_index = getattr(log, '_log_manager_ref', None).master_time_index
+        log_manager = getattr(log, '_log_manager_ref', None)
+        master_index = getattr(log_manager, 'master_time_index', None)
 
         required_cols = ['QSOPoints', 'Datetime', 'Run', 'Call']
         if df.empty or not all(c in df.columns for c in required_cols) or master_index is None:

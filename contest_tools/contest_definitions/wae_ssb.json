@@ -1,7 +1,7 @@
 {
   "_filename": "contest_tools/contest_definitions/wae_ssb.json",
-  "_version": "0.76.0-Beta",
-  "_date": "2025-09-12",
+  "_version": "0.85.5-Beta",
+  "_date": "2025-09-13",
   "contest_name": "WAE-SSB",
   "valid_bands": [
     "80M",
@@ -62,6 +62,7 @@
     "Band", "Date", "Hour", "Dupe",
     "DXCCName", "DXCCPfx", "CQZone", "ITUZone", "Continent", "WAEName", "WAEPfx",
     "Run", "QSOPoints",
+    "qtcs_df",
     "Mult1", "Mult1Name", "Mult2", "Mult2Name"
   ]
 }

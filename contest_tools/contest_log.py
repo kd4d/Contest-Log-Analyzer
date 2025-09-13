@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-12
-# Version: 0.80.10-Beta
+# Date: 2025-09-13
+# Version: 0.85.7-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,18 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.85.7-Beta] - 2025-09-13
+### Added
+# - Added `qtcs_df` and `time_series_score_df` attributes to the class.
+# - Added the `_pre_calculate_time_series_score` method to orchestrate
+#   the new, pluggable score calculator architecture.
+### Changed
+# - Modified `_ingest_cabrillo_data` to handle custom parsers that can
+#   return a separate DataFrame for QTCs.
+# - The `apply_annotations` method now calls the new score calculator at
+#   the end of its processing pipeline.
+# - Modified the score calculator's exception handling to re-raise
+#   exceptions, forcing a program halt to get a definitive traceback.
 ## [0.80.10-Beta] - 2025-09-12
 ### Changed
 # - Modified the score calculator's exception handling to re-raise
@@ -396,6 +408,7 @@ class ContestLog:
                 cty_dat_path = os.path.join(data_dir, 'cty.dat')
                 cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)
                 info = cty_lookup.get_cty_DXCC_WAE(my_call)._asdict()
+                
                 self._my_location_type = "W/VE" if info['DXCCName'] in ["United States", "Canada"] else "DX"
                 logging.info(f"Logger location type determined as: {self._my_location_type}")
 

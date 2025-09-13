@@ -1,10 +1,13 @@
 # Contest Log Analyzer - User Guide
 
-**Version: 0.62.0-Beta**
-**Date: 2025-09-08**
+**Version: 0.85.13-Beta**
+**Date: 2025-09-13**
 
 ---
 ### --- Revision History ---
+## [0.85.13-Beta] - 2025-09-13
+### Changed
+# - Added WAE CW and WAE SSB to the list of supported contests.
 ## [0.62.0-Beta] - 2025-09-08
 ### Changed
 # - Updated documentation to reflect the new two-directory and two-environment-variable
@@ -115,24 +118,24 @@ The program is run from your command prompt or terminal using `main_cli.py`.
 #### **Examples**
 
 * **Generate all available reports for two logs:**
-__CODE_BLOCK__
+```
 python main_cli.py --report all 2025/cq-160-cw/kd4d.log 2025/cq-160-cw/n0ni.log
-__CODE_BLOCK__
+```
 
 * **Generate only the text reports for two logs:**
-__CODE_BLOCK__
+```
 python main_cli.py --report text 2025/cq-160-cw/kd4d.log 2025/cq-160-cw/n0ni.log
-__CODE_BLOCK__
+```
 
 * **Generate a specific report (Score Summary) for a single log:**
-__CODE_BLOCK__
+```
 python main_cli.py --report score_report 2025/cq-160-cw/kd4d.log
-__CODE_BLOCK__
+```
 
 * **Generate a Missed Multipliers report for CQ WW Zones:**
-__CODE_BLOCK__
+```
 python main_cli.py --report missed_multipliers --mult-name Zones 2024/cq-ww-cw/k3lr.log 2024/cq-ww-cw/kc1xx.log
-__CODE_BLOCK__
+```
 ---
 
 ## 4. Supported Contests
@@ -148,6 +151,8 @@ The analyzer uses the `CONTEST:` field in your Cabrillo file header to automatic
 * CQ World Wide DX (CW & SSB)
 * IARU HF World Championship
 * North American QSO Party (NAQP) (CW & SSB)
+* WAE CW
+* WAE SSB
 
 ---
 

@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-12
-# Version: 0.57.7-Beta
+# Date: 2025-09-13
+# Version: 0.85.8-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,12 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.85.8-Beta] - 2025-09-13
+### Changed
+# - Refactored the 'points' metric to use the new detailed time-series
+#   DataFrame from the score calculator architecture.
+# - Added logic to generate a simplified, single-panel plot for the WAE
+#   contest to correctly handle its non-linear scoring model.
 ## [0.57.7-Beta] - 2025-09-12
 ### Changed
 # - Refactored the 'points' metric to use the new detailed time-series
@@ -130,7 +136,7 @@ class Report(ContestReport):
             
         if master_time_index is not None:
             cumulative_data = cumulative_data.reindex(master_time_index, method='pad').fillna(0)
-            
+        
         return cumulative_data[['Run', 'S&P+Unknown']]
 
 
@@ -154,16 +160,21 @@ class Report(ContestReport):
         
         if metric == 'points':
             metric_name = log1.contest_definition.points_header_label or "Points"
-            
             score1_ts = log1.time_series_score_df.reindex(master_time_index, method='pad').fillna(0)
             score2_ts = log2.time_series_score_df.reindex(master_time_index, method='pad').fillna(0)
-
-            run_diff = score1_ts['run_score'] - score2_ts['run_score']
-            sp_unk_diff = score1_ts['sp_unk_score'] - score2_ts['sp_unk_score']
-            overall_diff = score1_ts['total_score'] - score2_ts['total_score']
-            
+            if log1.contest_definition.contest_name.startswith('WAE'):
+                # WAE has non-linear scoring, so only show the overall difference
+                fig.delaxes(ax2)
+                fig.delaxes(ax3)
+                gs.set_height_ratios([1])
+                overall_diff = score1_ts['score'] - score2_ts['score']
+                run_diff = pd.Series(0, index=overall_diff.index)
+                sp_unk_diff = pd.Series(0, index=overall_diff.index)
+            else:
+                run_diff = score1_ts['run_score'] - score2_ts['run_score']
+                sp_unk_diff = score1_ts['sp_unk_score'] - score2_ts['sp_unk_score']
+                overall_diff = score1_ts['score'] - score2_ts['score']
             debug_df = pd.concat([score1_ts.add_suffix(f'_{call1}'), score2_ts.add_suffix(f'_{call2}')], axis=1)
-
         else: # metric == 'qsos'
             metric_name = "QSOs"
             data1 = self._prepare_qso_data_for_plot(log1, df1_slice, band_filter)
@@ -180,27 +191,32 @@ class Report(ContestReport):
             })
         
         # --- Plotting ---
-        if overall_diff.abs().sum() == 0:
+        if overall_diff.abs().sum() == 0 and run_diff.abs().sum() == 0 and sp_unk_diff.abs().sum() == 0:
             logging.info(f"Skipping {band_filter} difference plot: no data available for this band.")
             plt.close(fig)
             return None
 
         ax1.plot(overall_diff.index, overall_diff, marker='o', markersize=4)
-        ax2.plot(run_diff.index, run_diff, marker='o', markersize=4, color='green')
-        ax3.plot(sp_unk_diff.index, sp_unk_diff, marker='o', markersize=4, color='purple')
+        if ax2.get_figure() == fig: # Check if ax2 still exists
+            ax2.plot(run_diff.index, run_diff, marker='o', markersize=4, color='green')
+        if ax3.get_figure() == fig: # Check if ax3 still exists
+            ax3.plot(sp_unk_diff.index, sp_unk_diff, marker='o', markersize=4, color='purple')
         
         # --- Formatting & Saving ---
         ax1.set_ylabel(f"Overall Diff ({metric_name})")
-        ax2.set_ylabel(f"Run Diff")
-        ax3.set_ylabel(f"S&P+Unk Diff")
-        ax3.set_xlabel("Contest Time")
+        if ax2.get_figure() == fig:
+            ax2.set_ylabel(f"Run Diff")
+        if ax3.get_figure() == fig:
+            ax3.set_ylabel(f"S&P+Unk Diff")
+            ax3.set_xlabel("Contest Time")
 
-        for ax in [ax1, ax2, ax3]:
+        for ax in [ax for ax in [ax1, ax2, ax3] if ax.get_figure() == fig]:
             ax.grid(True, which='both', linestyle='--')
             ax.axhline(0, color='black', linewidth=0.8, linestyle='-')
         
-        plt.setp(ax1.get_xticklabels(), visible=False)
-        plt.setp(ax2.get_xticklabels(), visible=False)
+        if ax2.get_figure() == fig:
+            plt.setp(ax1.get_xticklabels(), visible=False)
+            plt.setp(ax2.get_xticklabels(), visible=False)
 
         metadata = log1.get_metadata()
         year = get_valid_dataframe(log1)['Date'].dropna().iloc[0].split('-')[0] if not get_valid_dataframe(log1).empty else "----"
@@ -232,14 +248,14 @@ class Report(ContestReport):
 
         return filepath
 
-    def _orchestrate_plot_generation(self, df1, df2, output_path, mode_filter, **kwargs):
+    def _orchestrate_plot_generation(self, dfs: List[pd.DataFrame], output_path: str, mode_filter: str, **kwargs):
         """Helper to generate the full set of plots for a given data slice."""
-        if df1.empty or df2.empty:
+        if any(df.empty for df in dfs):
             return []
 
         bands = self.logs[0].contest_definition.valid_bands
         is_single_band = len(bands) == 1
-        bands_to_plot = [bands[0]] if is_single_band else ['All'] + bands
+        bands_to_plot = ['All'] if is_single_band else ['All'] + bands
         
         created_files = []
         
@@ -254,8 +270,8 @@ class Report(ContestReport):
                         save_path = os.path.join(output_path, band)
                 
                 filepath = self._generate_single_plot(
-                    df1_slice=df1,
-                    df2_slice=df2,
+                    df1_slice=dfs[0],
+                    df2_slice=dfs[1],
                     output_path=save_path,
                     band_filter=band,
                     mode_filter=mode_filter,
@@ -286,7 +302,7 @@ class Report(ContestReport):
 
         # 1. Generate plots for "All Modes"
         all_created_files.extend(
-            self._orchestrate_plot_generation(df1_full, df2_full, output_path, mode_filter=None, **kwargs)
+            self._orchestrate_plot_generation(dfs=[df1_full, df2_full], output_path=output_path, mode_filter=None, **kwargs)
         )
 
         # 2. Generate plots for each mode if applicable
@@ -294,11 +310,10 @@ class Report(ContestReport):
         if len(modes_present) > 1:
             for mode in ['CW', 'PH', 'DG']:
                 if mode in modes_present:
-                    df1_slice = df1_full[df1_full['Mode'] == mode]
-                    df2_slice = df2_full[df2_full['Mode'] == mode]
+                    sliced_dfs = [df[df['Mode'] == mode] for df in [df1_full, df2_full]]
                     
                     all_created_files.extend(
-                        self._orchestrate_plot_generation(df1_slice, df2_slice, output_path, mode_filter=mode, **kwargs)
+                        self._orchestrate_plot_generation(sliced_dfs, output_path, mode_filter=mode, **kwargs)
                     )
         
         if not all_created_files:

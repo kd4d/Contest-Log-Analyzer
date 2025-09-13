@@ -1,10 +1,42 @@
 # AIAgentWorkflow.md
 
-**Version: 0.64.0-Beta**
-**Date: 2025-09-12**
+**Version: 0.69.0-Beta**
+**Date: 2025-09-13**
 
 ---
 ### --- Revision History ---
+## [0.69.0-Beta] - 2025-09-13
+### Changed
+# - Restored the detailed, six-part list of required sections to
+#   Protocol 2.5 (Implementation Plan), including the full Pre-Flight
+#   Check. This corrects a regression from v0.68.0-Beta.
+## [0.68.0-Beta] - 2025-09-13
+### Added
+# - Added Protocol 4.5 (Standardized Keyword Prompts) to mandate a
+#   consistent `Please <ACTION> by providing the prompt <PROMPT>.` format.
+### Changed
+# - Rewrote Protocol 2.5 (Implementation Plan) to be delivered as a
+#   standalone `.md` file, confirmed with a `Ready` keyword.
+# - Updated Protocols 2.7, 4.4, 6.3, and 6.9 to be consistent with the
+#   new standardized prompt and plan delivery protocols.
+## [0.67.0-Beta] - 2025-09-13
+### Changed
+# - Clarified the Task Execution Workflow in Section 2 with a detailed
+#   preamble describing the mandatory, user-gated state machine sequence
+#   (Approved -> Context Lock-In -> Confirmed -> Delivery).
+## [0.66.0-Beta] - 2025-09-13
+### Added
+# - Added Protocol 6.9 (Context Lock-In Protocol) as a proactive
+#   safeguard against context loss. It requires the AI to state its
+#   context and the user to confirm with `Confirmed` before any
+#   state-altering action can proceed.
+## [0.65.0-Beta] - 2025-09-13
+### Changed
+# - Amended Protocol 2.5 (Implementation Plan) to mandate a more robust
+#   delivery format. The plan's sections must now use bolded headers
+#   instead of a markdown list, and the embedded `diff` verification
+#   must be enclosed in a `diff`-specified code block to prevent
+#   UI rendering errors.
 ## [0.64.0-Beta] - 2025-09-12
 ### Added
 # - Added a mandatory "Surgical Change Verification (`diff`)" section
@@ -333,6 +365,18 @@ These are the step-by-step procedures for common, day-to-day development tasks.
     * `data/`: Required data files (e.g., `cty.dat`).
 ### 2. Task Execution Workflow
 This workflow is a formal state machine that governs all development tasks, from initial request to final completion.
+
+> **No File Delivery Without an Approved Plan:** All file modifications or creations must be detailed in a formal **Implementation Plan** that you have explicitly approved with the literal string `Approved`. I will not deliver any file that is not part of such a plan.
+>
+> **The Mandatory Lock-In Sequence:** Your `Approved` command will immediately trigger the **Context Lock-In Protocol**. The sequence for every task involving file delivery is as follows:
+> 1.  I provide an **Implementation Plan**.
+> 2.  You respond with `Approved`.
+> 3.  I respond with the mandatory **Context Lock-In Statement**.
+> 4.  You respond with `Confirmed`.
+> 5.  Only then will I begin delivering the files as specified in the plan, following the **Confirmed File Delivery Protocol**.
+>
+> This sequence is the standard operating procedure for all tasks.
+
 2.1. **Task Initiation**: The user provides a problem, feature request, or document update and requests an analysis. Before proceeding, the AI must verify that a session version series (as defined in Protocol 1.6) has been established. If it has not, the AI must ask for it before providing any analysis.
 2.2. **Analysis and Discussion**: The AI provides an initial analysis. The user and AI may discuss the analysis to refine the understanding of the problem.
 2.3. **Visual Prototype Protocol.** This protocol is used to resolve ambiguity in tasks involving complex visual layouts or new, hard-to-describe logic before a full implementation is planned.
@@ -343,19 +387,22 @@ This workflow is a formal state machine that governs all development tasks, from
     5.  **Review and Iteration:** The user reviews the prototype's output and provides feedback. This step can be repeated until the prototype is correct.
     6.  **Approval:** The user gives explicit approval of the final prototype. This approval serves as the visual and logical ground truth for the subsequent implementation plan.
 2.4. **Baseline Consistency Check.** Before presenting an implementation plan, the AI must perform and explicitly state the completion of a "Baseline Consistency Check." This check verifies that all proposed actions (e.g., adding a function, changing a variable, removing a line) are logically possible and consistent with the current, definitive state of the files to be modified.
-2.5. **Implementation Plan**: The user requests an implementation plan. The AI's response must be a comprehensive document containing the following sections for each file to be modified:
-    1.  **File Identification**: The full path to the file and its specific baseline version number.
-    2.  **Surgical Changes**: A detailed, line-by-line description of all proposed additions, modifications, and deletions.
-    3.  **Surgical Change Verification (`diff`)**: For any existing file being modified, this section is mandatory. It must contain a `diff` output comparing the original baseline file against the proposed new version. This `diff` serves as the definitive, verifiable contract for the change. This section is not applicable for new files.
-    4.  **Affected Modules Checklist**: A list of all other modules that follow a similar architectural pattern to the file being modified (e.g., all custom parsers, all score reports). The AI must confirm that these modules have been checked and will be updated if necessary to keep them consistent with the proposed change. This makes the application of Principle 7 (Assume Bugs are Systemic) explicit.
-    5.  **Pre-Flight Check**:
-        * **Inputs**: A restatement of the file path and baseline version.
-        * **Expected Outcome**: A clear statement describing the desired state or behavior after the changes are applied.
-        * **Mental Walkthrough Confirmation**: A statement affirming that a mental walkthrough of the logic will be performed before generating the file.
-        * **State Confirmation Procedure**: An affirmation that the mandatory confirmation prompt (as defined in Protocol 4.4) will be included with the file delivery.
-        * **Surgical Modification Adherence Confirmation**: I confirm that the generated file will contain *only* the changes shown in the Surgical Change Verification (`diff`) section above, ensuring 100% compliance with Principle 9.
-        * **Syntax Validation Confirmation**: For all Python files (`.py`), I will perform an automated syntax validation check on the generated file content before delivery to prevent syntax errors such as `IndentationError`.
-    6.  **Post-Generation Verification.** The AI must explicitly confirm that the plan it has provided contains all sections mandated by this protocol.
+2.5. **Implementation Plan**: To bypass UI rendering issues, all Implementation Plans will be delivered as a single `implementation_plan.md` file.
+    1.  The AI will state its readiness and ask the user to confirm they are ready to receive the file. The prompt will follow **Protocol 4.5** and require the keyword `Ready`.
+    2.  Upon receiving the `Ready` keyword, the AI will deliver the `implementation_plan.md` file using the `cla-bundle` protocol.
+    3.  The plan itself must be a comprehensive document containing the following sections for each file to be modified, formatted with bolded headers:
+        **1.  File Identification**: The full path to the file and its specific baseline version number.
+        **2.  Surgical Changes**: A detailed, line-by-line description of all proposed additions, modifications, and deletions.
+        **3.  Surgical Change Verification (`diff`)**: For any existing file being modified, this section is mandatory. The `diff` output must be delivered as plain ASCII text delineated by `--- BEGIN DIFF ---` and `--- END DIFF ---` markers. This section is not applicable for new files.
+        **4.  Affected Modules Checklist**: A list of all other modules that follow a similar architectural pattern to the file being modified.
+        **5.  Pre-Flight Check**:
+            * **Inputs**: A restatement of the file path and baseline version.
+            * **Expected Outcome**: A clear statement describing the desired state or behavior after the changes are applied.
+            * **Mental Walkthrough Confirmation**: A statement affirming that a mental walkthrough of the logic will be performed before generating the file.
+            * **State Confirmation Procedure**: An affirmation that the mandatory confirmation prompt will be included with the file delivery.
+            * **Surgical Modification Adherence Confirmation**: I confirm that the generated file will contain *only* the changes shown in the Surgical Change Verification (`diff`) section above, ensuring 100% compliance with Principle 9.
+            * **Syntax Validation Confirmation**: For all Python files (`.py`), I will perform an automated syntax validation check.
+        **6.  Post-Generation Verification.** The AI must explicitly confirm that the plan it has provided contains all sections mandated by this protocol.
 2.6. **Plan Refinement**: The user reviews the plan and may request changes or refinements. The AI provides a revised plan, repeating this step as necessary.
 2.7. **Approval**: The user provides explicit approval of the final implementation plan. Instructions, clarifications, or new requirements provided after a plan has been proposed do not constitute approval; they will be treated as requests for plan refinement under Protocol 2.6. The AI will only proceed to the Execution state upon receiving the **exact, literal string `Approved`**.
 2.8. **Execution**: Upon approval, the AI will proceed with the **Confirmed File Delivery Protocol (4.4)**.
@@ -412,9 +459,13 @@ This workflow is a formal state machine that governs all development tasks, from
 4.4. **Confirmed File Delivery Protocol.** This protocol is used for all standard file modifications.
     1.  The AI delivers the first file from the approved implementation plan.
     2.  The AI appends the mandatory execution verification statement to the same response: "**I have verified that the file just delivered was generated by applying only the approved surgical changes to the baseline text, in compliance with Principle 9.**"
-    3.  The AI appends the mandatory confirmation prompt to the end of the same response.
+    3.  The AI appends the mandatory confirmation prompt to the end of the same response, formatted according to **Protocol 4.5**.
     4.  The user provides the **exact, literal string `Acknowledged`** as a response.
     5.  The AI proceeds to deliver the next file, repeating the process until all files from the plan have been delivered and individually acknowledged.
+4.5. **Standardized Keyword Prompts.** To ensure all prompts for user action are clear and unambiguous, they must follow the exact format below:
+    `Please <ACTION> by providing the prompt <PROMPT>.`
+    * **`<ACTION>`**: A concise description of the action being requested (e.g., "approve the plan", "confirm the delivery").
+    * **`<PROMPT>`**: The exact, literal, case-sensitive keyword required (e.g., `Approved`, `Acknowledged`, `Confirmed`, `Ready`).
 ---
 ## Part III: Project-Specific Implementation Patterns
 
@@ -460,7 +511,7 @@ These protocols are for troubleshooting, error handling, and non-standard situat
     1.  **Acknowledge the Error:** State clearly that a mistake was made.
     2.  **Request Diagnostic Output:** If the user has not already provided it, the AI's immediate next step is to request the new output that demonstrates the failure (e.g., the incorrect text report or a screenshot). This output becomes the new ground truth for the re-analysis.
     3.  **Identify the Root Cause:** Explain the specific flaw in the internal process or logic that led to the error. This includes identifying which specific principles or protocols were violated.
-    4.  **Propose a Corrective Action:** Describe the specific, procedural change that will be implemented to prevent the error from recurring.
+    4.  **Propose a Corrective Action:** Describe the specific, procedural change that will be implemented to prevent the error from recurring. If this change involves a new implementation plan, the AI must state this and then initiate the file-based delivery process defined in **Protocol 2.5**.
     5.  **Post-Analysis Verification.** The AI must explicitly confirm that the analysis it has provided contains all the steps mandated by this protocol.
     6.  **Propose Workflow Amendment**: If the root cause analysis identifies a flaw or a gap in the `AIAgentWorkflow.md` protocols themselves, I must immediately propose a separate implementation plan to amend the workflow document to prevent that class of error from recurring.
 6.4. **Corrupted User Input Protocol.** This protocol defines the procedure for handling malformed or corrupted input files provided by the user.
@@ -489,6 +540,14 @@ These protocols are for troubleshooting, error handling, and non-standard situat
     1.  **Hypothesize External Cause:** The AI must explicitly consider and list potential external systems as the root cause (e.g., cloud sync clients like OneDrive, version control systems like Git, antivirus software).
     2.  **Propose Diagnostic Commands:** The AI must propose specific, external diagnostic commands for the user to run to verify the state of the filesystem. Examples include `git ls-files` to check tracking status or `attrib` (on Windows) to check file attributes.
     3.  **Propose Solution Based on Findings:** The implementation plan should address the external cause (e.g., adding a path to `.gitignore`) rather than adding complex, temporary workarounds to the code.
+6.9. **Context Lock-In Protocol.** This protocol is a mandatory, proactive safeguard against context loss that is triggered before any action that establishes or modifies the definitive state.
+    1.  **Trigger**: This protocol is triggered immediately before initiating the **Definitive State Initialization Protocol (1.4)** or executing an **Implementation Plan (2.5)**.
+    2.  **AI Action (Declaration)**: Before proceeding, I must issue a single, explicit statement declaring the exact source of the information I am about to use.
+        * For a new initialization: *"I am establishing a new definitive state based ONLY on the bundle files you have provided in the immediately preceding turn. I will not reference any prior chat history for file content. Please confirm to proceed."*
+        * For executing a plan: *"I am about to generate files based on the Implementation Plan you approved, using the baseline versions specified in that plan. Please confirm to proceed."*
+    3.  **User Action (The Forcing Function)**: You must validate this statement.
+        * If the statement is correct and accurately reflects the immediate context, you respond with the exact, literal string `Confirmed` after being prompted per **Protocol 4.5**.
+        * If the statement is incorrect, or if I fail to issue it, you must state the discrepancy. This immediately halts the process and forces an **Error Analysis Protocol (6.3)**.
 ### 7. Miscellaneous Protocols
 
 7.1. **Technical Debt Cleanup Protocol.** When code becomes convoluted, a **Technical Debt Cleanup Sprint** will be conducted to refactor the code for clarity, consistency, and maintainability.
@@ -510,4 +569,3 @@ These protocols are for troubleshooting, error handling, and non-standard situat
     3.  **Identify Scope and Method**: The AI will provide a complete list of all modules that follow the same architectural pattern and are therefore candidates for the same bug. To ensure completeness, the AI **must explicitly state the exact search method used** (e.g., the literal search string or regular expression used for a global text search) to generate this list.
     4.  **Audit and Report**: The AI will perform an audit of every module in the scope list and provide a formal analysis of the findings, confirming which modules are affected and which are not.
     5.  **Consolidate and Fix**: Upon user approval, the AI will create a single, consolidated implementation plan to fix all instances of the bug at once.
-	
