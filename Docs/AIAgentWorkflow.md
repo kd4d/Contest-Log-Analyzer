@@ -1,10 +1,15 @@
 # AIAgentWorkflow.md
 
-**Version: 0.69.0-Beta**
+**Version: 0.70.0-Beta**
 **Date: 2025-09-13**
 
 ---
 ### --- Revision History ---
+## [0.70.0-Beta] - 2025-09-13
+### Added
+# - Added Protocol 2.5.1 (Post-Plan-Delivery Prompt Protocol) to
+#   mandate that the AI must immediately prompt for plan approval after
+#   delivering an implementation plan file. This corrects a recurring AI process error.
 ## [0.69.0-Beta] - 2025-09-13
 ### Changed
 # - Restored the detailed, six-part list of required sections to
@@ -403,6 +408,7 @@ This workflow is a formal state machine that governs all development tasks, from
             * **Surgical Modification Adherence Confirmation**: I confirm that the generated file will contain *only* the changes shown in the Surgical Change Verification (`diff`) section above, ensuring 100% compliance with Principle 9.
             * **Syntax Validation Confirmation**: For all Python files (`.py`), I will perform an automated syntax validation check.
         **6.  Post-Generation Verification.** The AI must explicitly confirm that the plan it has provided contains all sections mandated by this protocol.
+**2.5.1. Post-Plan-Delivery Prompt Protocol.** Immediately after delivering an `implementation_plan.md` file and providing the post-delivery verification (per Protocol 3.2.6), the AI's next and only action **must** be to issue the standardized prompt for plan approval, requiring the keyword `Approved`. This protocol ensures a direct and mandatory transition to the Approval state (Protocol 2.7).
 2.6. **Plan Refinement**: The user reviews the plan and may request changes or refinements. The AI provides a revised plan, repeating this step as necessary.
 2.7. **Approval**: The user provides explicit approval of the final implementation plan. Instructions, clarifications, or new requirements provided after a plan has been proposed do not constitute approval; they will be treated as requests for plan refinement under Protocol 2.6. The AI will only proceed to the Execution state upon receiving the **exact, literal string `Approved`**.
 2.8. **Execution**: Upon approval, the AI will proceed with the **Confirmed File Delivery Protocol (4.4)**.
