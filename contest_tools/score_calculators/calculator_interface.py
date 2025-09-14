@@ -2,7 +2,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-09-13
-# Version: 0.85.0-Beta
+# Version: 0.86.4-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 #          time-series score calculator modules must implement.
 #
 # --- Revision History ---
+## [0.86.4-Beta] - 2025-09-13
+### Changed
+# - Updated the calculate() method signature to accept a pre-filtered,
+#   non-dupe DataFrame to enforce a cleaner data flow contract.
 ## [0.85.0-Beta] - 2025-09-13
 # - Initial release.
 #
@@ -34,13 +38,15 @@ class TimeSeriesCalculator(ABC):
     """
     
     @abstractmethod
-    def calculate(self, log: 'ContestLog') -> pd.DataFrame:
+    def calculate(self, log: 'ContestLog', df_non_dupes: pd.DataFrame) -> pd.DataFrame:
         """
         Calculates a cumulative, time-series score for the given log.
 
         Args:
             log (ContestLog): The ContestLog object containing all processed
                               QSO and QTC data.
+            df_non_dupes (pd.DataFrame): A DataFrame containing only the valid,
+                                       non-duplicate QSOs, fully annotated.
 
         Returns:
             pd.DataFrame: A DataFrame with a DatetimeIndex and columns for

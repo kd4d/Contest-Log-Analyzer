@@ -2,7 +2,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-09-13
-# Version: 0.87.1-Beta
+# Version: 0.86.4-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 #          score calculator for the Worked All Europe (WAE) Contest.
 #
 # --- Revision History ---
+## [0.86.4-Beta] - 2025-09-13
+### Changed
+# - Updated the calculate() method signature to accept a pre-filtered,
+#   non-dupe DataFrame to enforce a cleaner data flow contract.
 ## [0.87.1-Beta] - 2025-09-13
 ### Fixed
 # - Fixed a TypeError by localizing the timezone of the main QSO DataFrame
@@ -40,24 +44,23 @@ class WaeCalculator(TimeSeriesCalculator):
     """
     _BAND_WEIGHTS = {'80M': 4, '40M': 3, '20M': 2, '15M': 2, '10M': 2}
     
-    def calculate(self, log: 'ContestLog') -> pd.DataFrame:
+    def calculate(self, log: 'ContestLog', df_non_dupes: pd.DataFrame) -> pd.DataFrame:
         """
         Calculates a cumulative, time-series score for a WAE log.
         Score = (Total QSOs + Total QTCs) * Total Weighted Multipliers
         """
-        qsos_df = log.get_processed_data()
         qtcs_df = getattr(log, 'qtcs_df', pd.DataFrame()).copy()
         log_manager = getattr(log, '_log_manager_ref', None)
         master_index = getattr(log_manager, 'master_time_index', None)
 
-        if master_index is None or qsos_df.empty:
+        if master_index is None or df_non_dupes.empty:
             return pd.DataFrame()
 
         # Ensure the Datetime column is timezone-aware before processing
-        if qsos_df['Datetime'].dt.tz is None:
-            qsos_df['Datetime'] = qsos_df['Datetime'].dt.tz_localize('UTC')
+        if df_non_dupes['Datetime'].dt.tz is None:
+            df_non_dupes['Datetime'] = df_non_dupes['Datetime'].dt.tz_localize('UTC')
 
-        qsos_df_sorted = qsos_df.dropna(subset=['Datetime']).sort_values('Datetime')
+        qsos_df_sorted = df_non_dupes.dropna(subset=['Datetime']).sort_values('Datetime')
 
         # --- 1. Calculate Cumulative Contact Counts (QSOs + QTCs) ---
         ts_qso_count = pd.Series(1, index=qsos_df_sorted['Datetime']).resample('h').count().cumsum()

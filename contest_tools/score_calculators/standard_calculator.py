@@ -1,8 +1,8 @@
 # Contest Log Analyzer/contest_tools/score_calculators/standard_calculator.py
 #
 # Author: Gemini AI
-# Date: 2025-09-13
-# Version: 0.87.1-Beta
+# Date: 2025-09-14
+# Version: 0.86.7-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,24 @@
 #          scoring rules like QTCs or weighted multipliers.
 #
 # --- Revision History ---
+## [0.86.7-Beta] - 2025-09-14
+### Fixed
+# - Replaced the incompatible .expanding().apply() method with a manual
+#   loop to correctly perform a cumulative union of sets, fixing a DataError.
+## [0.86.6-Beta] - 2025-09-14
+### Fixed
+# - Corrected a ValueError by removing the non-scalar `fill_value` from
+#   the reindex call and handling NaN values afterward.
+## [0.86.5-Beta] - 2025-09-14
+### Fixed
+# - Re-introduced the timezone localization check that was accidentally
+#   removed, fixing a regression that caused a TypeError.
+## [0.86.4-Beta] - 2025-09-13
+### Changed
+# - Rewrote the calculate() method to use the new pre-filtered DataFrame
+#   and to correctly calculate the final score using multipliers.
+### Fixed
+# - Corrected logic to no longer include duplicate QSOs in its counts.
 ## [0.87.1-Beta] - 2025-09-13
 ### Fixed
 # - Fixed a TypeError by localizing the timezone of the internal DataFrame
@@ -38,53 +56,68 @@ class StandardCalculator(TimeSeriesCalculator):
     Default calculator for standard contests. The score is a simple
     cumulative sum of QSO points over time, broken down by operating style.
     """
-    def calculate(self, log: 'ContestLog') -> pd.DataFrame:
+    def calculate(self, log: 'ContestLog', df_non_dupes: pd.DataFrame) -> pd.DataFrame:
         """
-        Calculates a cumulative, time-series score based on QSO points,
-        with a breakdown for Run vs. S&P+Unknown operating styles.
+        Calculates a cumulative, time-series final score by multiplying
+        cumulative points by cumulative multipliers, with a breakdown for
+        Run vs. S&P+Unknown operating styles.
         """
-        df = log.get_processed_data()
         log_manager = getattr(log, '_log_manager_ref', None)
         master_index = getattr(log_manager, 'master_time_index', None)
 
         required_cols = ['QSOPoints', 'Datetime', 'Run', 'Call']
-        if df.empty or not all(c in df.columns for c in required_cols) or master_index is None:
+        if df_non_dupes.empty or not all(c in df_non_dupes.columns for c in required_cols) or master_index is None:
             return pd.DataFrame()
 
         # Ensure the Datetime column is timezone-aware before processing
-        if df['Datetime'].dt.tz is None:
-            df['Datetime'] = df['Datetime'].dt.tz_localize('UTC')
+        if df_non_dupes['Datetime'].dt.tz is None:
+            df_non_dupes['Datetime'] = df_non_dupes['Datetime'].dt.tz_localize('UTC')
 
-        df_sorted = df.dropna(subset=['Datetime', 'QSOPoints']).sort_values(by='Datetime')
+        df_sorted = df_non_dupes.dropna(subset=['Datetime', 'QSOPoints']).sort_values(by='Datetime')
         
-        # Create masks for operating style
-        is_run = df_sorted['Run'] == 'Run'
-        is_sp_unk = ~is_run
+        # --- Time-series calculation ---
+        hourly_groups = df_sorted.set_index('Datetime').groupby(pd.Grouper(freq='h'))
         
-        # --- Calculate Cumulative Counts and Scores for each category ---
+        # Cumulative QSO Points
+        cum_points_ts = hourly_groups['QSOPoints'].sum().cumsum().reindex(master_index, method='ffill').fillna(0)
+        run_points_ts = df_sorted[df_sorted['Run'] == 'Run'].set_index('Datetime')['QSOPoints'].resample('h').sum().cumsum().reindex(master_index, method='ffill').fillna(0)
+        sp_unk_points_ts = cum_points_ts - run_points_ts
         
-        # QSO Counts
-        run_qso_count = df_sorted[is_run].set_index('Datetime')['Call'].resample('h').count().cumsum()
-        sp_unk_qso_count = df_sorted[is_sp_unk].set_index('Datetime')['Call'].resample('h').count().cumsum()
+        # Cumulative QSO Counts
+        cum_qso_ts = hourly_groups.size().cumsum().reindex(master_index, method='ffill').fillna(0)
+        run_qso_ts = df_sorted[df_sorted['Run'] == 'Run'].set_index('Datetime')['Call'].resample('h').count().cumsum().reindex(master_index, method='ffill').fillna(0)
+        sp_unk_qso_ts = cum_qso_ts - run_qso_ts
         
-        # Scores
-        run_score = df_sorted[is_run].set_index('Datetime')['QSOPoints'].resample('h').sum().cumsum()
-        sp_unk_score = df_sorted[is_sp_unk].set_index('Datetime')['QSOPoints'].resample('h').sum().cumsum()
+        # Cumulative Multipliers
+        mult1_set = df_sorted.groupby(pd.Grouper(key='Datetime', freq='h'))['Mult1'].apply(set)
+        mult2_set = df_sorted.groupby(pd.Grouper(key='Datetime', freq='h'))['Mult2'].apply(set)
 
-        # --- Assemble Final DataFrame and align to master index ---
-        result_df_naive = pd.DataFrame({
-            'run_qso_count': run_qso_count,
-            'sp_unk_qso_count': sp_unk_qso_count,
-            'run_score': run_score,
-            'sp_unk_score': sp_unk_score,
-        })
-        
-        # Ensure the index is timezone-aware before reindexing
-        if result_df_naive.index.tz is None:
-            result_df_naive.index = result_df_naive.index.tz_localize('UTC')
+        all_mult_sets = (mult1_set | mult2_set).reindex(master_index)
+        all_mult_sets = all_mult_sets.apply(lambda x: x if isinstance(x, set) else set())
 
-        result_df = result_df_naive.reindex(master_index, method='ffill').fillna(0)
+        # Replace incompatible .expanding().apply() with a manual loop
+        cumulative_sets_list = []
+        running_set = set()
+        for current_set in all_mult_sets:
+            running_set.update(current_set)
+            cumulative_sets_list.append(running_set.copy())
         
-        result_df['score'] = result_df['run_score'] + result_df['sp_unk_score']
+        cumulative_mult_sets = pd.Series(cumulative_sets_list, index=master_index)
+        mult_count_ts = cumulative_mult_sets.apply(len)
+        
+        # Final Score Calculation
+        final_score_ts = cum_points_ts * mult_count_ts
+        run_ratio = (run_points_ts / cum_points_ts).fillna(0)
+        sp_unk_ratio = (sp_unk_points_ts / cum_points_ts).fillna(0)
+        run_score_ts = final_score_ts * run_ratio
+        sp_unk_score_ts = final_score_ts * sp_unk_ratio
+
+        result_df = pd.DataFrame({
+            'run_qso_count': run_qso_ts,
+            'sp_unk_qso_count': sp_unk_qso_ts,
+            'run_score': run_score_ts,
+            'sp_unk_score': sp_unk_score_ts,
+            'score': final_score_ts
+        }, index=master_index)
         
         return result_df.astype(int)

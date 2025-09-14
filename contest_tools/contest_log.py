@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-13
-# Version: 0.85.14-Beta
+# Date: 2025-09-14
+# Version: 0.86.8-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,14 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.86.8-Beta] - 2025-09-14
+### Fixed
+# - Corrected the root cause of the systemic timezone bug by localizing
+#   the Datetime column to UTC immediately after its creation.
+## [0.86.4-Beta] - 2025-09-13
+### Changed
+# - Modified _pre_calculate_time_series_score to pre-filter for dupes
+#   before passing the clean DataFrame to the calculator.
 ## [0.85.14-Beta] - 2025-09-13
 ### Fixed
 # - Removed a redundant, self-referential import statement that caused
@@ -235,7 +243,7 @@ class ContestLog:
 
         if cabrillo_filepath:
             self._ingest_cabrillo_data(cabrillo_filepath)
-            self._determine_own_location_type()
+        self._determine_own_location_type()
 
 
     def _ingest_cabrillo_data(self, cabrillo_filepath: str):
@@ -277,7 +285,7 @@ class ContestLog:
 
             # A QSO is valid if it has a valid frequency OR if it has a band but no numeric frequency.
             if (pd.notna(freq_val) and self.band_allocator.is_frequency_valid(freq_val)) or \
-               (pd.isna(freq_val) and pd.notna(band_val)):
+                (pd.isna(freq_val) and pd.notna(band_val)):
                 validated_qso_records.append(row.to_dict())
             else:
                 rejected_qso_count += 1
@@ -298,7 +306,7 @@ class ContestLog:
             raw_df.get('DateRaw', '') + ' ' + raw_df.get('TimeRaw', ''),
             format='%Y-%m-%d %H%M',
             errors='coerce'
-        )
+        ).dt.tz_localize('UTC')
         
         # If a 'Band' column wasn't provided by the parser, create it.
         if 'Band' not in raw_df.columns:
@@ -337,7 +345,7 @@ class ContestLog:
 
         raw_df.drop(columns=['FrequencyRaw', 'DateRaw', 'TimeRaw', 'MyCallRaw', 'RawQSO'], inplace=True, errors='ignore')
         self.qsos_df = raw_df.reindex(columns=self.contest_definition.default_qso_columns)
-        
+
         self._check_dupes()
 
     def _check_dupes(self):
@@ -356,6 +364,7 @@ class ContestLog:
                     self.qsos_df.loc[idx, 'Dupe'] = True
                 else:
                     all_bands_dupe_set.add(call)
+        
         else:
             for band in self.qsos_df['Band'].unique():
                 if band == 'Invalid' or not band:
@@ -372,6 +381,7 @@ class ContestLog:
                         continue
                     
                     qso_tuple = (call, mode)
+                    
                     if qso_tuple in self.dupe_sets[band]:
                         self.qsos_df.loc[idx, 'Dupe'] = True
                     else:
@@ -474,7 +484,9 @@ class ContestLog:
             module = importlib.import_module(f"contest_tools.score_calculators.{calculator_name}")
             CalculatorClass = getattr(module, class_name)
             calculator_instance = CalculatorClass()
-            self.time_series_score_df = calculator_instance.calculate(self)
+            
+            df_non_dupes = self.qsos_df[self.qsos_df['Dupe'] == False].copy()
+            self.time_series_score_df = calculator_instance.calculate(self, df_non_dupes)
             logging.info("Time-series score calculation complete.")
         except (ImportError, AttributeError) as e:
             logging.exception(f"Failed to load or find score calculator '{class_name}'. See traceback.")
@@ -519,6 +531,7 @@ class ContestLog:
                                 self.qsos_df[dest_name_col] = self.qsos_df[source_name_col]
                             else:
                                 logging.warning(f"Name column '{source_name_col}' not found for source '{source_col}'.")
+                    
                     else:
                         logging.warning(f"Source column '{source_col}' not found for multiplier '{rule.get('name')}'.")
 
@@ -669,6 +682,7 @@ class ContestLog:
             
             # Get the mode from the DataFrame row
             mode = row.get('Mode')
+            
             # Check if the mode is one of the standard phone modes
             if mode in ['PH', 'USB', 'LSB', 'SSB']:
                 output_mode = 'SSB'
@@ -706,6 +720,7 @@ class ContestLog:
                     record.append(adif_format(f"APP_CLA_{col.upper()}", row.get(col)))
 
             mult_flag_cols = [c for c in row.index if c.endswith('_IsNewMult')]
+            
             for col in mult_flag_cols:
                 if row.get(col) == 1:
                     record.append(adif_format(f"APP_CLA_{col.upper()}", 1))
