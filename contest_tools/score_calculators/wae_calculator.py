@@ -2,7 +2,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-09-13
-# Version: 0.85.2-Beta
+# Version: 0.87.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 #          score calculator for the Worked All Europe (WAE) Contest.
 #
 # --- Revision History ---
+## [0.87.1-Beta] - 2025-09-13
+### Fixed
+# - Fixed a TypeError by localizing the timezone of the main QSO DataFrame
+#   to UTC before performing time-based operations.
 ## [0.85.2-Beta] - 2025-09-13
 # - Initial release.
 #
@@ -48,6 +52,10 @@ class WaeCalculator(TimeSeriesCalculator):
 
         if master_index is None or qsos_df.empty:
             return pd.DataFrame()
+
+        # Ensure the Datetime column is timezone-aware before processing
+        if qsos_df['Datetime'].dt.tz is None:
+            qsos_df['Datetime'] = qsos_df['Datetime'].dt.tz_localize('UTC')
 
         qsos_df_sorted = qsos_df.dropna(subset=['Datetime']).sort_values('Datetime')
 

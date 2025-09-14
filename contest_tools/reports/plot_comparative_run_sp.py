@@ -1,12 +1,16 @@
 # Contest Log Analyzer/contest_tools/reports/plot_comparative_run_sp.py
 #
-# Version: 0.57.4-Beta
-# Date: 2025-09-03
+# Version: 0.87.2-Beta
+# Date: 2025-09-13
 #
 # Purpose: A plot report that generates a "paired timeline" chart, visualizing
 #          the operating style (Run, S&P, or Mixed) of two operators over time.
 #
 # --- Revision History ---
+## [0.87.2-Beta] - 2025-09-13
+### Fixed
+# - Removed redundant tz_localize calls, which caused a TypeError now
+#   that timezone awareness is handled upstream by the score calculators.
 ## [0.57.4-Beta] - 2025-09-03
 ### Changed
 # - Updated the chart title to the standard two-line format to conform
@@ -248,9 +252,6 @@ class Report(ContestReport):
 
         if df1.empty or df2.empty:
             return f"Skipping '{self.report_name}': At least one log has no valid QSOs."
-
-        df1['Datetime'] = pd.to_datetime(df1['Datetime']).dt.tz_localize('UTC')
-        df2['Datetime'] = pd.to_datetime(df2['Datetime']).dt.tz_localize('UTC')
         
         # --- 1. Generate the main "All Modes" plot ---
         filepath = self._run_plot_for_slice(df1, df2, log1, log2, output_path, BANDS_PER_PAGE, mode_filter=None, **kwargs)

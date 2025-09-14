@@ -1,6 +1,6 @@
 # Contest Log Analyzer/contest_tools/reports/plot_hourly_animation.py
 #
-# Version: 0.85.11-Beta
+# Version: 0.86.1-Beta
 # Date: 2025-09-13
 #
 # Purpose: A plot report that generates a series of hourly images and compiles
@@ -15,6 +15,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.86.1-Beta] - 2025-09-13
+### Fixed
+# - Removed a redundant tz_localize call, which caused a TypeError now
+#   that timezone awareness is handled upstream by the score calculators.
 ## [0.85.11-Beta] - 2025-09-13
 ### Fixed
 # - Resolved a TypeError by explicitly localizing the timezone-naive
@@ -159,8 +163,6 @@ class Report(ContestReport):
 
         if combined_df.empty: return None
 
-        combined_df['Datetime'] = pd.to_datetime(combined_df['Datetime']).dt.tz_localize('UTC')
-
         log_manager = getattr(self.logs[0], '_log_manager_ref', None)
         master_index = getattr(log_manager, 'master_time_index', None)
         if master_index is None: return None
@@ -292,7 +294,7 @@ class Report(ContestReport):
                 ax_top_legend = fig_mpl.add_subplot(gs_main[0])
                 ax_bottom_legend = fig_mpl.add_subplot(gs_main[2])
                 ax_top_legend.axis('off'); ax_bottom_legend.axis('off')
-                
+            
                 top_chart_ratio = 0.12 * num_logs
                 top_chart_ratio = max(0.15, min(top_chart_ratio, 0.45))
                 
@@ -354,6 +356,7 @@ class Report(ContestReport):
                     color_shades = _get_color_shades(self.CALLSIGN_COLORS[j % len(self.CALLSIGN_COLORS)])
                     bottoms = [0] * len(data['bands'])
                     current_band_totals = data['log_data'][call]['cum_qso_per_band_breakdown'].loc[hour]
+                    
                     for run_state in ['Run', 'S&P', 'Unknown']:
                         y_values = [current_band_totals.get((band, run_state), 0) for band in data['bands']]
                         ax_bottom_right.bar([x - (bar_width_cum * (num_logs - 1) / 2) + j * bar_width_cum for x in band_indices], y_values, width=bar_width_cum, bottom=bottoms, color=color_shades[run_state], alpha=0.8)

@@ -1,11 +1,15 @@
 # Contest Log Analyzer/contest_tools/reports/plot_band_activity_heatmap.py
 #
-# Version: 0.57.0-Beta
-# Date: 2025-09-03
+# Version: 0.87.2-Beta
+# Date: 2025-09-13
 #
 # Purpose: A plot report that generates a heatmap of band activity over time.
 #
 # --- Revision History ---
+## [0.87.2-Beta] - 2025-09-13
+### Fixed
+# - Removed a redundant tz_localize call, which caused a TypeError now
+#   that timezone awareness is handled upstream by the score calculators.
 ## [0.57.0-Beta] - 2025-09-03
 ### Changed
 # - Updated the chart title to the standard two-line format to conform
@@ -78,8 +82,6 @@ class Report(ContestReport):
                 msg = f"Skipping report for {callsign}: No valid QSOs with timestamps to report."
                 final_report_messages.append(msg)
                 continue
-
-            df['Datetime'] = df['Datetime'].dt.tz_localize('UTC')
 
             # --- 1. Data Preparation ---
             interval = '15min'

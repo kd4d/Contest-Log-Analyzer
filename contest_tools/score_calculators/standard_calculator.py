@@ -2,7 +2,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-09-13
-# Version: 0.85.1-Beta
+# Version: 0.87.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,10 @@
 #          scoring rules like QTCs or weighted multipliers.
 #
 # --- Revision History ---
+## [0.87.1-Beta] - 2025-09-13
+### Fixed
+# - Fixed a TypeError by localizing the timezone of the internal DataFrame
+#   to UTC before reindexing against the timezone-aware master index.
 ## [0.85.1-Beta] - 2025-09-13
 # - Initial release.
 #
@@ -47,6 +51,10 @@ class StandardCalculator(TimeSeriesCalculator):
         if df.empty or not all(c in df.columns for c in required_cols) or master_index is None:
             return pd.DataFrame()
 
+        # Ensure the Datetime column is timezone-aware before processing
+        if df['Datetime'].dt.tz is None:
+            df['Datetime'] = df['Datetime'].dt.tz_localize('UTC')
+
         df_sorted = df.dropna(subset=['Datetime', 'QSOPoints']).sort_values(by='Datetime')
         
         # Create masks for operating style
@@ -64,12 +72,18 @@ class StandardCalculator(TimeSeriesCalculator):
         sp_unk_score = df_sorted[is_sp_unk].set_index('Datetime')['QSOPoints'].resample('h').sum().cumsum()
 
         # --- Assemble Final DataFrame and align to master index ---
-        result_df = pd.DataFrame({
+        result_df_naive = pd.DataFrame({
             'run_qso_count': run_qso_count,
             'sp_unk_qso_count': sp_unk_qso_count,
             'run_score': run_score,
             'sp_unk_score': sp_unk_score,
-        }).reindex(master_index, method='ffill').fillna(0)
+        })
+        
+        # Ensure the index is timezone-aware before reindexing
+        if result_df_naive.index.tz is None:
+            result_df_naive.index = result_df_naive.index.tz_localize('UTC')
+
+        result_df = result_df_naive.reindex(master_index, method='ffill').fillna(0)
         
         result_df['score'] = result_df['run_score'] + result_df['sp_unk_score']
         

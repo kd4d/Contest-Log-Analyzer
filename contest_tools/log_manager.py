@@ -8,7 +8,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-09-13
-# Version: 0.85.6-Beta
+# Version: 0.87.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,6 +19,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.87.0-Beta] - 2025-09-13
+### Fixed
+# - Fixed a regression by adding a call to the `_pre_calculate_time_series_score`
+#   method for each log, ensuring score data is available for reports.
 ## [0.85.6-Beta] - 2025-09-13
 ### Fixed
 # - Corrected an order-of-operations bug by setting the _log_manager_ref
@@ -138,6 +142,13 @@ class LogManager:
                 raise ValueError(error_summary)
 
         self._create_master_time_index()
+
+        # --- Pre-calculate Time-Series Scores ---
+        # This must be done after the master time index is created but before
+        # any reports are generated.
+        logging.info("Pre-calculating time-series scores for all logs...")
+        for log in self.logs:
+            log._pre_calculate_time_series_score()
 
         if not self.logs:
             return

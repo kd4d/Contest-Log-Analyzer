@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-09-13
-# Version: 0.85.8-Beta
+# Version: 0.86.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.86.1-Beta] - 2025-09-13
+### Fixed
+# - Removed redundant tz_localize logic, which caused a TypeError now
+#   that timezone awareness is handled upstream by the score calculators.
 ## [0.85.8-Beta] - 2025-09-13
 ### Changed
 # - Refactored the 'points' metric to use the new detailed time-series
@@ -119,7 +123,7 @@ class Report(ContestReport):
             empty_data = {'Run': 0, 'S&P+Unknown': 0}
             cumulative_data = pd.DataFrame(empty_data, index=master_time_index)
             return cumulative_data
-
+        
         df_cleaned = df.dropna(subset=['Datetime', 'Run', 'Call'])
         rate_data = df_cleaned.groupby([df_cleaned['Datetime'].dt.floor('h'), 'Run'])['Call'].count().unstack(fill_value=0)
 
@@ -128,9 +132,6 @@ class Report(ContestReport):
                 rate_data[col] = 0
         
         rate_data['S&P+Unknown'] = rate_data['S&P'] + rate_data['Unknown']
-        
-        if not rate_data.empty:
-            rate_data.index = rate_data.index.tz_localize('UTC')
         
         cumulative_data = rate_data.cumsum()
             
@@ -208,7 +209,7 @@ class Report(ContestReport):
             ax2.set_ylabel(f"Run Diff")
         if ax3.get_figure() == fig:
             ax3.set_ylabel(f"S&P+Unk Diff")
-            ax3.set_xlabel("Contest Time")
+        ax3.set_xlabel("Contest Time")
 
         for ax in [ax for ax in [ax1, ax2, ax3] if ax.get_figure() == fig]:
             ax.grid(True, which='both', linestyle='--')
