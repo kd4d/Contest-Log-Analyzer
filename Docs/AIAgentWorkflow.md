@@ -1,10 +1,15 @@
 # AIAgentWorkflow.md
 
-**Version: 0.70.0-Beta**
-**Date: 2025-09-13**
+**Version: 0.86.0-Beta**
+**Date: 2025-09-14**
 
 ---
 ### --- Revision History ---
+## [0.86.0-Beta] - 2025-09-14
+### Changed
+# - Clarified Protocol 1.7 to describe the role of the
+#   CONTEST_INPUT_DIR environment variable and to correctly list the
+#   `Logs/` and `data/` subdirectories.
 ## [0.70.0-Beta] - 2025-09-13
 ### Added
 # - Added Protocol 2.5.1 (Post-Plan-Delivery Prompt Protocol) to
@@ -362,12 +367,14 @@ These are the step-by-step procedures for common, day-to-day development tasks.
 
 1.6. **Session Versioning Protocol.** At the start of a new development task, the user will state the current version series (e.g., 'We are working on Version 0.36.x-Beta'). All subsequent file modifications for this and related tasks must use this version series, incrementing the patch number as needed.
 1.7. **Project Structure Onboarding.** After a state initialization, the AI will confirm its understanding of the high-level project architecture.
-    * `contest_tools/`: The core application library.
-    * `contest_tools/reports/`: The "plug-in" directory for all report modules.
-    * `contest_tools/contest_definitions/`: Data-driven JSON definitions for each contest.
-    * `Docs/`: All user and developer documentation.
-    * `test_code/`: Utility and prototype scripts not part of the main application. These scripts are not held to the same change control and documentation standards (e.g., a revision history is not required).
-    * `data/`: Required data files (e.g., `cty.dat`).
+The `Logs/` and `data/` directories are located within a root path defined by the `CONTEST_INPUT_DIR` environment variable.
+* `contest_tools/`: The core application library.
+* `contest_tools/reports/`: The "plug-in" directory for all report modules.
+* `contest_tools/contest_definitions/`: Data-driven JSON definitions for each contest.
+* `Docs/`: All user and developer documentation.
+* `test_code/`: Utility and prototype scripts not part of the main application. These scripts are not held to the same change control and documentation standards (e.g., a revision history is not required).
+* `Logs/`: Contains all Cabrillo log files for analysis.
+* `data/`: Required data files (e.g., `cty.dat`).
 ### 2. Task Execution Workflow
 This workflow is a formal state machine that governs all development tasks, from initial request to final completion.
 
