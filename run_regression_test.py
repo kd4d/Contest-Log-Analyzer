@@ -7,8 +7,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-09
-# Version: 0.70.9-Beta
+# Date: 2025-09-14
+# Version: 0.86.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,6 +19,14 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.86.1-Beta] - 2025-09-14
+### Changed
+# - Improved CSV comparison to identify changed columns and provide a
+#   limited, 5-row sample of differences instead of a full file diff.
+## [0.86.0-Beta] - 2025-09-14
+### Added
+# - Added content-aware comparison logic for .json files to prevent
+#   spurious diffs caused by key order changes.
 ## [0.70.9-Beta] - 2025-09-09
 ### Changed
 # - Refactored script to read environment variables in one location and
@@ -190,26 +198,53 @@ def compare_outputs(new_items: set, reports_dir: str, archive_dir: str, ignore_w
             if item_path.endswith(('.png', '.mp4', '.txt', '.adi', '_processed.csv')):
                 failures.append(f"Missing Baseline: {relative_path}")
             continue
-
-        if item_path.endswith('_processed.csv'):
+        
+        elif item_path.endswith('.json'):
+            try:
+                with open(item_path, 'r', encoding='utf-8') as f_new:
+                    data_new = json.load(f_new)
+                with open(baseline_path, 'r', encoding='utf-8') as f_base:
+                    data_base = json.load(f_base)
+                
+                # Serialize to a canonical string format (sorted keys, indented)
+                str_new = json.dumps(data_new, sort_keys=True, indent=2).splitlines(keepends=True)
+                str_base = json.dumps(data_base, sort_keys=True, indent=2).splitlines(keepends=True)
+                
+                diff = list(difflib.unified_diff(
+                    str_base, str_new,
+                    fromfile=f'a/{relative_path}', tofile=f'b/{relative_path}'
+                ))
+                if diff:
+                    failures.append(f"File: {relative_path}\n" + "".join(diff))
+            except Exception as e:
+                failures.append(f"File: {relative_path}\nERROR during JSON diff: {e}")
+        elif item_path.endswith('_processed.csv'):
             try:
                 df_new = pd.read_csv(item_path, dtype=str).fillna('')
                 df_base = pd.read_csv(baseline_path, dtype=str).fillna('')
-                
+
                 sort_keys = ['Datetime', 'Call']
                 if not all(k in df_new.columns for k in sort_keys):
                     sort_keys = [k for k in sort_keys if k in df_new.columns]
-                
-                df_new = df_new.sort_values(by=sort_keys).reset_index(drop=True)
                 df_base = df_base.sort_values(by=sort_keys).reset_index(drop=True)
+                df_new = df_new.sort_values(by=sort_keys).reset_index(drop=True)
 
-                if not df_new.equals(df_base):
-                    diff = list(difflib.unified_diff(
-                        df_base.to_string().splitlines(keepends=True),
-                        df_new.to_string().splitlines(keepends=True),
-                        fromfile=f'a/{relative_path}', tofile=f'b/{relative_path}'
-                    ))
-                    failures.append(f"File: {relative_path}\n" + "".join(diff))
+                # Align columns for accurate comparison, handling added/removed columns
+                base_cols = set(df_base.columns)
+                new_cols = set(df_new.columns)
+                if base_cols != new_cols:
+                    added = sorted(list(new_cols - base_cols))
+                    removed = sorted(list(base_cols - new_cols))
+                    failures.append(f"File: {relative_path}\nCOLUMN MISMATCH:\n  - Added: {added}\n  - Removed: {removed}")
+                else:
+                    # Use pandas compare for an intelligent diff
+                    diff_df = df_base.compare(df_new)
+                    if not diff_df.empty:
+                        changed_cols = diff_df.columns.get_level_values(0).unique().tolist()
+                        failure_message = f"File: {relative_path}\nCHANGED COLUMNS: {changed_cols}\n\n"
+                        failure_message += "First 5 differing rows:\n"
+                        failure_message += diff_df.head(5).to_string()
+                        failures.append(failure_message)
             except Exception as e:
                 failures.append(f"File: {relative_path}\nERROR during CSV diff: {e}")
 
