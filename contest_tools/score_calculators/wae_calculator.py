@@ -1,8 +1,8 @@
 # Contest Log Analyzer/contest_tools/score_calculators/wae_calculator.py
 #
 # Author: Gemini AI
-# Date: 2025-09-13
-# Version: 0.86.4-Beta
+# Date: 2025-09-14
+# Version: 0.86.9-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 #          score calculator for the Worked All Europe (WAE) Contest.
 #
 # --- Revision History ---
+## [0.86.9-Beta] - 2025-09-14
+### Fixed
+# - Removed the redundant timezone localization check for the main QSO
+#   DataFrame, which caused a TypeError.
 ## [0.86.4-Beta] - 2025-09-13
 ### Changed
 # - Updated the calculate() method signature to accept a pre-filtered,
@@ -55,10 +59,6 @@ class WaeCalculator(TimeSeriesCalculator):
 
         if master_index is None or df_non_dupes.empty:
             return pd.DataFrame()
-
-        # Ensure the Datetime column is timezone-aware before processing
-        if df_non_dupes['Datetime'].dt.tz is None:
-            df_non_dupes['Datetime'] = df_non_dupes['Datetime'].dt.tz_localize('UTC')
 
         qsos_df_sorted = df_non_dupes.dropna(subset=['Datetime']).sort_values('Datetime')
 

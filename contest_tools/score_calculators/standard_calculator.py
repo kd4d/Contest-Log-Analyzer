@@ -2,7 +2,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-09-14
-# Version: 0.86.7-Beta
+# Version: 0.86.12-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,26 @@
 #          scoring rules like QTCs or weighted multipliers.
 #
 # --- Revision History ---
+## [0.86.12-Beta] - 2025-09-14
+### Fixed
+# - Corrected a TypeError by replacing an invalid `.fillna(set())` call
+#   with a valid `.apply()` method to handle hours with no multiplier
+#   activity.
+## [0.86.11-Beta] - 2025-09-14
+### Fixed
+# - Corrected a major regression in score calculation. The module now
+#   inspects the multiplier totaling_method from the contest
+#   definition and correctly applies either `sum_by_band` or
+#   `once_per_log` logic.
+## [0.86.10-Beta] - 2025-09-14
+### Changed
+# - Refactored multiplier logic to be data-driven. It now dynamically
+#   reads multiplier columns from the contest definition instead of
+#   using a hardcoded list, fixing a systemic bug.
+## [0.86.9-Beta] - 2025-09-14
+### Fixed
+# - Removed the redundant timezone localization check, which caused a
+#   TypeError when receiving an already-aware DataFrame.
 ## [0.86.7-Beta] - 2025-09-14
 ### Fixed
 # - Replaced the incompatible .expanding().apply() method with a manual
@@ -69,10 +89,6 @@ class StandardCalculator(TimeSeriesCalculator):
         if df_non_dupes.empty or not all(c in df_non_dupes.columns for c in required_cols) or master_index is None:
             return pd.DataFrame()
 
-        # Ensure the Datetime column is timezone-aware before processing
-        if df_non_dupes['Datetime'].dt.tz is None:
-            df_non_dupes['Datetime'] = df_non_dupes['Datetime'].dt.tz_localize('UTC')
-
         df_sorted = df_non_dupes.dropna(subset=['Datetime', 'QSOPoints']).sort_values(by='Datetime')
         
         # --- Time-series calculation ---
@@ -88,22 +104,44 @@ class StandardCalculator(TimeSeriesCalculator):
         run_qso_ts = df_sorted[df_sorted['Run'] == 'Run'].set_index('Datetime')['Call'].resample('h').count().cumsum().reindex(master_index, method='ffill').fillna(0)
         sp_unk_qso_ts = cum_qso_ts - run_qso_ts
         
-        # Cumulative Multipliers
-        mult1_set = df_sorted.groupby(pd.Grouper(key='Datetime', freq='h'))['Mult1'].apply(set)
-        mult2_set = df_sorted.groupby(pd.Grouper(key='Datetime', freq='h'))['Mult2'].apply(set)
+        # --- Multiplier Counting based on Contest Rules ---
+        multiplier_columns = [rule['value_column'] for rule in log.contest_definition.multiplier_rules]
+        totaling_method = log.contest_definition.multiplier_rules[0].get('totaling_method', 'sum_by_band') if log.contest_definition.multiplier_rules else 'sum_by_band'
 
-        all_mult_sets = (mult1_set | mult2_set).reindex(master_index)
-        all_mult_sets = all_mult_sets.apply(lambda x: x if isinstance(x, set) else set())
+        if totaling_method == 'sum_by_band':
+            mult_count_ts = pd.Series(0.0, index=master_index)
+            for mult_col in multiplier_columns:
+                if mult_col in df_sorted.columns:
+                    per_band_groups = df_sorted.groupby('Band')
+                    for band, group_df in per_band_groups:
+                        mult_set_ts = group_df.groupby(pd.Grouper(key='Datetime', freq='h'))[mult_col].apply(set).reindex(master_index)
+                        mult_set_ts = mult_set_ts.apply(lambda x: x if isinstance(x, set) else set())
+                        
+                        running_set = set()
+                        cumulative_sets_list = []
+                        for current_set in mult_set_ts:
+                            running_set.update(current_set)
+                            cumulative_sets_list.append(running_set.copy())
+                        
+                        mult_count_ts += pd.Series(cumulative_sets_list, index=master_index).apply(len)
+        else: # once_per_log or once_per_mode
+            all_mult_sets_list = []
+            for mult_col in multiplier_columns:
+                if mult_col in df_sorted.columns:
+                    mult_set_ts = df_sorted.groupby(pd.Grouper(key='Datetime', freq='h'))[mult_col].apply(set)
+                    all_mult_sets_list.append(mult_set_ts)
 
-        # Replace incompatible .expanding().apply() with a manual loop
-        cumulative_sets_list = []
-        running_set = set()
-        for current_set in all_mult_sets:
-            running_set.update(current_set)
-            cumulative_sets_list.append(running_set.copy())
-        
-        cumulative_mult_sets = pd.Series(cumulative_sets_list, index=master_index)
-        mult_count_ts = cumulative_mult_sets.apply(len)
+            if not all_mult_sets_list:
+                all_mult_sets = pd.Series([set()] * len(master_index), index=master_index)
+            else:
+                combined_series = pd.concat(all_mult_sets_list, axis=1).fillna(0)
+                all_mult_sets = combined_series.apply(lambda row: set.union(*[s for s in row if isinstance(s, set)]), axis=1)
+                all_mult_sets = all_mult_sets.reindex(master_index)
+
+            all_mult_sets = all_mult_sets.apply(lambda x: x if isinstance(x, set) else set())
+            running_set = set()
+            cumulative_sets_list = [running_set.update(s) or running_set.copy() for s in all_mult_sets]
+            mult_count_ts = pd.Series(cumulative_sets_list, index=master_index).apply(len)
         
         # Final Score Calculation
         final_score_ts = cum_points_ts * mult_count_ts
