@@ -1,4 +1,4 @@
-# Contest Log Analyzer/contest_tools/report_generator.py
+# Contest Log Analyzer/contest_tools/reports/report_generator.py
 #
 # Purpose: This class orchestrates the generation of reports. It takes a list
 #          of loaded ContestLog objects and user-specified options, then uses
@@ -7,8 +7,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-08
-# Version: 0.62.3-Beta
+# Date: 2025-09-13
+# Version: 0.86.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,6 +20,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 # --- Revision History ---
+## [0.86.3-Beta] - 2025-09-13
+### Changed
+# - Modified the run_reports method to be more robust by filtering the
+#   excluded reports into a new list before iterating.
 ## [0.62.3-Beta] - 2025-09-08
 ### Fixed
 # - Corrected path construction logic to include the top-level 'reports'
@@ -128,14 +132,16 @@ class ReportGenerator:
             logging.warning(f"No reports found for category '{report_id}'.")
             return
 
-        for r_id, ReportClass in reports_to_run:
-            first_log = self.logs[0]
-            contest_def = first_log.contest_definition
-            
-            if r_id in contest_def.excluded_reports:
-                logging.info(f"\nSkipping report '{ReportClass.report_name}': Excluded by contest definition.")
-                continue
+        first_log = self.logs[0]
+        contest_def = first_log.contest_definition
 
+        # Filter out excluded reports before iterating
+        final_reports_to_run = [
+            (r_id, RClass) for r_id, RClass in reports_to_run
+            if r_id not in contest_def.excluded_reports
+        ]
+
+        for r_id, ReportClass in final_reports_to_run:
             report_type = ReportClass.report_type
             if report_type == 'text': output_path = self.text_output_dir
             elif report_type == 'plot': output_path = self.plots_output_dir

@@ -1,7 +1,7 @@
 {
   "_filename": "contest_tools/contest_definitions/cq_wpx_cw.json",
-  "_version": "0.48.2-Beta",
-  "_date": "2025-08-23",
+  "_version": "0.86.3-Beta",
+  "_date": "2025-09-13",
   "contest_name": "CQ-WPX-CW",
   "mults_from_zero_point_qsos": true,
   "enable_adif_export": true,
@@ -35,6 +35,8 @@
   ],
   "excluded_reports": [
     "missed_multipliers",
-    "multiplier_summary"
+    "multiplier_summary",
+    "text_wae_score_report",
+    "text_wae_comparative_score_report"
   ]
 }

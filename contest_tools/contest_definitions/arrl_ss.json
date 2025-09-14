@@ -1,7 +1,7 @@
 {
   "_filename": "contest_tools/contest_definitions/arrl_ss.json",
-  "_version": "0.57.30-Beta",
-  "_date": "2025-09-02",
+  "_version": "0.86.3-Beta",
+  "_date": "2025-09-13",
   "contest_name": "ARRL-SS",
   "valid_bands": [
     "160M",
@@ -20,6 +20,10 @@
   "score_formula": "points_times_mults",
   "enable_adif_export": true,
   "custom_multiplier_resolver": "arrl_ss_multiplier_resolver",
+  "excluded_reports": [
+    "text_wae_score_report",
+    "text_wae_comparative_score_report"
+  ],
   "exchange_parsing_rules": {
     "ARRL-SS-CW": {
       "regex": "(\\d{1,4})\\s+([A-Z]{1,2})\\s+(\\d{2})\\s+([A-Z]{2,4})\\s+([A-Z0-9/]+)\\s+(\\d{1,4})\\s+([A-Z]{1,2})\\s+(\\d{2})\\s+([A-Z]{2,4})",

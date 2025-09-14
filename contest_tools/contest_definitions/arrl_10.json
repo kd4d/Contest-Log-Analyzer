@@ -1,7 +1,7 @@
 {
   "_filename": "contest_tools/contest_definitions/arrl_10.json",
-  "_version": "0.57.31-Beta",
-  "_date": "2025-09-02",
+  "_version": "0.86.3-Beta",
+  "_date": "2025-09-13",
   "contest_name": "ARRL-10",
   "valid_bands": [
     "10M"
@@ -11,6 +11,10 @@
   "enable_adif_export": true,
   "custom_parser_module": "arrl_10_parser",
   "custom_multiplier_resolver": "arrl_10_multiplier_resolver",
+  "excluded_reports": [
+    "text_wae_score_report",
+    "text_wae_comparative_score_report"
+  ],
   "mutually_exclusive_mults": [
     [
       "Mult_State",

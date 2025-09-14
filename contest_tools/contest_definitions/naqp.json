@@ -1,7 +1,7 @@
 {
   "_filename": "contest_tools/contest_definitions/naqp.json",
-  "_version": "0.57.39-Beta",
-  "_date": "2025-09-04",
+  "_version": "0.86.3-Beta",
+  "_date": "2025-09-13",
   "contest_name": "NAQP",
   "valid_bands": [
     "160M",
@@ -17,6 +17,10 @@
   "is_naqp_ruleset": true,
   "custom_multiplier_resolver": "naqp_multiplier_resolver",
   "custom_adif_exporter": "naqp_adif",
+  "excluded_reports": [
+    "text_wae_score_report",
+    "text_wae_comparative_score_report"
+  ],
   "mutually_exclusive_mults": [
     [
       "Mult_STPROV",
