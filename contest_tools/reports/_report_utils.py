@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-14
-# Version: 0.86.3-Beta
+# Date: 2025-09-15
+# Version: 0.86.4-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.86.4-Beta] - 2025-09-15
+### Changed
+# - Made `save_debug_data` content-aware. It now automatically saves
+#   JSON data with a .json extension, fixing a systemic bug.
 ## [0.86.3-Beta] - 2025-09-14
 ### Fixed
 # - Fixed a TypeError in the NpEncoder class by adding support for
@@ -422,17 +426,21 @@ def save_debug_data(debug_flag: bool, output_path: str, data, custom_filename: s
     debug_dir = Path(output_path) / "Debug"
     debug_dir.mkdir(parents=True, exist_ok=True)
 
+    # Determine filename and ensure correct extension based on content type
+    is_json_content = isinstance(data, dict)
     if custom_filename:
         filename = custom_filename
+        if is_json_content and filename.endswith('.txt'):
+            filename = filename[:-4] + '.json'
     else:
-        filename = "debug_data.txt" 
-    
+        filename = "debug_data.json" if is_json_content else "debug_data.txt"
+
     debug_filepath = debug_dir / filename
 
     content = ""
     if isinstance(data, pd.DataFrame):
         content = data.to_string()
-    elif isinstance(data, dict):
+    elif is_json_content:
         content = json.dumps(data, indent=4, cls=NpEncoder)
     else:
         content = str(data)
