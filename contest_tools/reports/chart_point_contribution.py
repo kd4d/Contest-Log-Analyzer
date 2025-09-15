@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-12
-# Version: 0.80.4-Beta
+# Date: 2025-09-14
+# Version: 0.86.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.86.2-Beta] - 2025-09-14
+### Changed
+# - Refactored to use the new centralized `DonutChartComponent.aggregate_data`
+#   static method. The debug file now contains aggregated data instead of
+#   the raw QSO list.
 ## [0.80.4-Beta] - 2025-09-12
 ### Fixed
 # - Corrected the band sorting logic to use a robust, two-step pattern
@@ -160,9 +165,11 @@ class Report(ContestReport):
             df = get_valid_dataframe(log)
             band_df = df if band == 'All Bands' else df[df['Band'] == band]
 
+            aggregated_data = DonutChartComponent.aggregate_data(band_df)
+
             # --- Save Debug Data ---
             debug_filename = f"{self.report_id}_{filename_band}_{all_calls[i]}.txt"
-            save_debug_data(debug_data_flag, output_path, band_df, custom_filename=debug_filename)
+            save_debug_data(debug_data_flag, output_path, aggregated_data, custom_filename=debug_filename)
             
             point_ratio = (band_log_points[i] / max_band_points) if max_band_points > 0 else 0
             
@@ -171,7 +178,7 @@ class Report(ContestReport):
             radius = 1.0 * np.sqrt(radius_ratio)
 
             component = DonutChartComponent(
-                df=band_df, 
+                aggregated_data=aggregated_data, 
                 title=log.get_metadata().get('MyCall', f'Log {i+1}'), 
                 radius=radius, 
                 is_not_to_scale=is_not_to_scale
@@ -183,6 +190,7 @@ class Report(ContestReport):
         year = get_valid_dataframe(self.logs[0])['Date'].dropna().iloc[0].split('-')[0]
         contest_name = metadata.get('ContestName', '')
         event_id = metadata.get('EventID', '')
+        
         band_title = self.logs[0].contest_definition.valid_bands[0].replace('M', ' Meters') if is_single_band else band.replace('M', ' Meters')
         
         title_line1 = f"{event_id} {year} {contest_name}".strip()

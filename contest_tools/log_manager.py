@@ -7,8 +7,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-13
-# Version: 0.87.0-Beta
+# Date: 2025-09-14
+# Version: 0.87.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,6 +19,16 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.87.2-Beta] - 2025-09-14
+### Fixed
+# - Fixed a regression in `_create_master_time_index` by using a
+#   periods-based calculation, resolving the 'extra hour' bug in all
+#   time-series reports.
+## [0.87.1-Beta] - 2025-09-14
+### Fixed
+# - Fixed a bug in `_create_master_time_index` that created an extra hour
+#   in the timeline by subtracting one second from the max time before
+#   applying the ceiling function.
 ## [0.87.0-Beta] - 2025-09-13
 ### Fixed
 # - Fixed a regression by adding a call to the `_pre_calculate_time_series_score`
@@ -233,8 +243,11 @@ class LogManager:
             return
 
         min_time = all_datetimes.min().floor('h')
-        max_time = all_datetimes.max().ceil('h')
-        self.master_time_index = pd.date_range(start=min_time, end=max_time, freq='h', tz='UTC')
+        max_time = all_datetimes.max().floor('h')
+        
+        # Calculate the number of hourly periods from the actual min/max times
+        periods = int((max_time - min_time).total_seconds() / 3600) + 1
+        self.master_time_index = pd.date_range(start=min_time, periods=periods, freq='h', tz='UTC')
         logging.info("Master time index created.")
 
 

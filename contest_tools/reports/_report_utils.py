@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-13
-# Version: 0.85.16-Beta
+# Date: 2025-09-14
+# Version: 0.86.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,15 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.86.3-Beta] - 2025-09-14
+### Fixed
+# - Fixed a TypeError in the NpEncoder class by adding support for
+#   serializing pandas Series objects.
+## [0.86.2-Beta] - 2025-09-14
+### Changed
+# - Refactored `DonutChartComponent` to accept pre-aggregated data and
+#   added a static method to centralize the aggregation logic. This
+#   ensures debug files contain the same data used to generate the plot.
 ## [0.85.16-Beta] - 2025-09-13
 ### Fixed
 # - Added a check for pandas Timestamp objects to the NpEncoder class to
@@ -59,7 +68,7 @@
 #   color scale, with and without the dot pattern, to be more intuitive.
 # - Implemented the standard two-line figure suptitle.
 # - Changed the thin horizontal cell divider to a black line.
-## [0.42.0-Beta] - 2025-08-19
+## [0.42.0-Beta] - 2025-08-20
 ### Changed
 # - Adjusted the figure aspect ratio to be taller (11 x 8.5) for better
 #   readability and printing.
@@ -147,6 +156,8 @@ class NpEncoder(json.JSONEncoder):
             return obj.tolist()
         if isinstance(obj, pd.Timestamp):
             return obj.isoformat()
+        if isinstance(obj, pd.Series):
+            return obj.to_dict()
         return super(NpEncoder, self).default(obj)
 
 def get_valid_dataframe(log: ContestLog, include_dupes: bool = False) -> pd.DataFrame:
@@ -187,7 +198,7 @@ def _prepare_time_series_data(log1: ContestLog, log2: Optional[ContestLog], metr
         if log is None:
             all_ts.append(None)
             continue
-            
+        
         df = get_valid_dataframe(log).copy()
         
         if metric_col is None: # Row count metric like 'qsos'
@@ -230,11 +241,23 @@ def _create_time_series_figure(log: ContestLog, report_name: str) -> tuple:
 class DonutChartComponent:
     """A factory class to create and draw a standardized donut chart component."""
     
-    def __init__(self, df: pd.DataFrame, title: str, radius: float, is_not_to_scale: bool):
-        self.df = df
+    def __init__(self, aggregated_data: Dict[str, Any], title: str, radius: float, is_not_to_scale: bool):
+        self.aggregated_data = aggregated_data
         self.title = title
         self.radius = radius
         self.is_not_to_scale = is_not_to_scale
+
+    @staticmethod
+    def aggregate_data(df: pd.DataFrame) -> Dict[str, Any]:
+        """Takes a raw DataFrame and returns a dictionary of aggregated data for the chart."""
+        if df.empty or 'QSOPoints' not in df.columns:
+            return {'point_counts': pd.Series(), 'total_points': 0, 'total_qsos': 0}
+
+        return {
+            'point_counts': df['QSOPoints'].value_counts(),
+            'total_points': df['QSOPoints'].sum(),
+            'total_qsos': len(df)
+        }
 
     def draw_on(self, fig, gridspec):
         subgrid = gridspec.subgridspec(2, 1, height_ratios=[3, 1], hspace=0.3)
@@ -242,9 +265,10 @@ class DonutChartComponent:
         ax_pie = fig.add_subplot(subgrid[0])
         ax_table = fig.add_subplot(subgrid[1])
         ax_table.axis('off')
-
-        point_counts = self.df['QSOPoints'].value_counts()
-        total_points = self.df['QSOPoints'].sum()
+        
+        point_counts = self.aggregated_data.get('point_counts', pd.Series())
+        total_points = self.aggregated_data.get('total_points', 0)
+        total_qsos = self.aggregated_data.get('total_qsos', 0)
         
         labels = [f'{val} Pts' for val in point_counts.index]
         sizes = point_counts.values
@@ -263,9 +287,9 @@ class DonutChartComponent:
             ax_pie.text(0, -self.radius - 0.3, "*Not to scale", ha='center', va='center', fontsize=10, color='red', alpha=0.7)
 
         table_data = [
-            ["Total QSOs", f"{len(self.df)}"],
+            ["Total QSOs", f"{total_qsos}"],
             ["Total Points", f"{total_points}"],
-            ["Avg Pts/QSO", f"{total_points / len(self.df):.2f}" if len(self.df) > 0 else "0.00"]
+            ["Avg Pts/QSO", f"{total_points / total_qsos:.2f}" if total_qsos > 0 else "0.00"]
         ]
         table = ax_table.table(cellText=table_data, colWidths=[0.4, 0.2], loc='center', cellLoc='center')
         table.auto_set_font_size(False)

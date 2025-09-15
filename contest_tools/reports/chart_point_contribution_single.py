@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-12
-# Version: 0.80.5-Beta
+# Date: 2025-09-14
+# Version: 0.86.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,15 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.86.3-Beta] - 2025-09-14
+### Fixed
+# - Removed an erroneous, top-level call to save_debug_data that was
+#   incorrectly saving the entire raw QSO list.
+## [0.86.2-Beta] - 2025-09-14
+### Changed
+# - Refactored to use the new centralized `DonutChartComponent.aggregate_data`
+#   static method. The debug file now contains aggregated data instead of
+#   the raw QSO list.
 ## [0.80.5-Beta] - 2025-09-12
 ### Fixed
 # - Corrected the band sorting logic to use a robust, two-step pattern
@@ -68,10 +77,6 @@ class Report(ContestReport):
         if df.empty or 'QSOPoints' not in df.columns or df['QSOPoints'].sum() == 0:
             return f"Skipping '{self.report_name}': No QSO points found for {callsign}."
 
-        # --- Save Debug Data ---
-        debug_filename = f"{self.report_id}_{callsign}.txt"
-        save_debug_data(debug_data_flag, output_path, df, custom_filename=debug_filename)
-
         canonical_band_order = [band[1] for band in ContestLog._HAM_BANDS]
         bands = sorted(df['Band'].unique(), key=lambda b: canonical_band_order.index(b) if b in canonical_band_order else -1)
         num_bands = len(bands)
@@ -99,6 +104,12 @@ class Report(ContestReport):
 
         for i, band in enumerate(bands):
             band_df = df[df['Band'] == band]
+            aggregated_data = DonutChartComponent.aggregate_data(band_df)
+
+            # --- Save Debug Data for this band ---
+            safe_band_name = band.lower().replace('m','').replace(' ', '_')
+            debug_band_filename = f"{self.report_id}_{callsign}_{safe_band_name}.txt"
+            save_debug_data(debug_data_flag, output_path, aggregated_data, custom_filename=debug_band_filename)
             
             point_ratio = (band_points[band] / max_band_points) if max_band_points > 0 else 0
             
@@ -107,7 +118,7 @@ class Report(ContestReport):
             radius = 1.0 * np.sqrt(radius_ratio)
 
             component = DonutChartComponent(
-                df=band_df, 
+                aggregated_data=aggregated_data, 
                 title=band, 
                 radius=radius, 
                 is_not_to_scale=is_not_to_scale
