@@ -1,10 +1,16 @@
 # AIAgentWorkflow.md
 
-**Version: 0.86.0-Beta**
-**Date: 2025-09-14**
+**Version: 0.86.1-Beta**
+**Date: 2025-09-15**
 
 ---
 ### --- Revision History ---
+## [0.86.1-Beta] - 2025-09-15
+### Changed
+# - Clarified Protocol 2.5 to describe the implementation plan delivery
+#   method more accurately (content within a code block).
+# - Strengthened Protocol 3.2.4 with explicit examples for substituting
+#   both opening and closing internal code fences.
 ## [0.86.0-Beta] - 2025-09-14
 ### Changed
 # - Clarified Protocol 1.7 to describe the role of the
@@ -399,9 +405,9 @@ This workflow is a formal state machine that governs all development tasks, from
     5.  **Review and Iteration:** The user reviews the prototype's output and provides feedback. This step can be repeated until the prototype is correct.
     6.  **Approval:** The user gives explicit approval of the final prototype. This approval serves as the visual and logical ground truth for the subsequent implementation plan.
 2.4. **Baseline Consistency Check.** Before presenting an implementation plan, the AI must perform and explicitly state the completion of a "Baseline Consistency Check." This check verifies that all proposed actions (e.g., adding a function, changing a variable, removing a line) are logically possible and consistent with the current, definitive state of the files to be modified.
-2.5. **Implementation Plan**: To bypass UI rendering issues, all Implementation Plans will be delivered as a single `implementation_plan.md` file.
+2.5. **Implementation Plan**: To bypass UI rendering issues, the **content** of all Implementation Plans will be delivered inside a single, `cla-bundle`-specified code block. This procedure simulates the delivery of an `implementation_plan.md` file and ensures the content can be copied as a single unit.
     1.  The AI will state its readiness and ask the user to confirm they are ready to receive the file. The prompt will follow **Protocol 4.5** and require the keyword `Ready`.
-    2.  Upon receiving the `Ready` keyword, the AI will deliver the `implementation_plan.md` file using the `cla-bundle` protocol.
+    2.  Upon receiving the `Ready` keyword, the AI will deliver the plan's content using the `cla-bundle` protocol.
     3.  The plan itself must be a comprehensive document containing the following sections for each file to be modified, formatted with bolded headers:
         **1.  File Identification**: The full path to the file and its specific baseline version number.
         **2.  Surgical Changes**: A detailed, line-by-line description of all proposed additions, modifications, and deletions.
@@ -430,8 +436,10 @@ This workflow is a formal state machine that governs all development tasks, from
     2.  **Raw Source Text**: The content inside the delivered code block must be the raw source text of the file.
     3.  **Code File Delivery**: For code files (e.g., `.py`, `.json`), the content will be delivered in a standard fenced code block with the appropriate language specifier.
     4.  **Markdown File Delivery**: To prevent the user interface from rendering markdown and to provide a "Copy" button, the entire raw content of a documentation file (`.md`) must be delivered inside a single, **`cla-bundle`**-specified code block.
-        * **Internal Code Fences**: Any internal markdown code fences (__CODE_BLOCK__) must be replaced with the `__CODE_BLOCK__` placeholder.
-        * **Clarification**: This substitution is a requirement of the AI's web interface. The user will provide files back with standard markdown fences (`__CODE_BLOCK__`), which is the expected behavior.
+        * **Internal Code Fence Substitution**: To prevent the `cla-bundle` block from terminating prematurely, **all** internal three-backtick code fences must be replaced with the `__CODE_BLOCK__` placeholder. This rule is absolute and applies to both opening and closing fences.
+        * **Example (Opening Fence)**: `__CODE_BLOCK__python` **must be replaced with** `__CODE_BLOCK__python`.
+        * **Example (Closing Fence)**: `__CODE_BLOCK__` **must be replaced with** `__CODE_BLOCK__`.
+        * **Clarification**: This substitution is a requirement of the AI's web interface. The user will provide files back with standard markdown fences, which is the expected behavior.
     5.  **Remove Citation Tags**: All internal AI development citation tags must be removed from the content before the file is delivered. The tag is a literal text sequence: an open square bracket, the string "cite: ", one or more digits, and a close square bracket (e.g.,). This pattern does not include Markdown backticks.
     6.  **Post-Delivery Protocol Verification.** Immediately following any file delivery, the AI must explicitly state which sub-protocol from Section 3.2 it followed and confirm that its last output was fully compliant.
 3.3. **File and Checksum Verification.**

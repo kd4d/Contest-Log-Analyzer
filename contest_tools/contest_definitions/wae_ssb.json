@@ -1,7 +1,7 @@
 {
   "_filename": "contest_tools/contest_definitions/wae_ssb.json",
-  "_version": "0.86.3-Beta",
-  "_date": "2025-09-13",
+  "_version": "0.87.1-Beta",
+  "_date": "2025-09-15",
   "contest_name": "WAE-SSB",
   "valid_bands": [
     "80M",
@@ -20,6 +20,7 @@
   "time_series_calculator": "wae_calculator",
   "points_header_label": "QSO+QTC Pts",
   "score_formula": "custom",
+  "mults_from_zero_point_qsos": false,
   "excluded_reports": [
     "score_report",
     "comparative_score_report"
