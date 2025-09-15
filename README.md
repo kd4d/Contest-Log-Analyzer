@@ -1,10 +1,14 @@
 # Contest Log Analyzer
 
-**Version: 0.55.1-Beta**
-**Date: 2025-09-03**
+**Version: 0.86.4-Beta**
+**Date: 2025-09-15**
 
 ---
 ### --- Revision History ---
+## [0.86.4-Beta] - 2025-09-15
+### Changed
+# - Synchronized the "Supported Contests" and "Available Reports"
+#   sections with the current project baseline.
 ## [0.55.1-Beta] - 2025-09-03
 ### Changed
 # - Synchronized the "Available Reports" list with the current codebase
@@ -53,7 +57,8 @@ python main_cli.py --report missed_multipliers --mult-name Zones Logs/2024/cq-ww
 ---
 ## Supported Contests
 
-The analyzer uses the `CONTEST:` field in the Cabrillo header to apply contest-specific rules. The following contests are currently supported:
+The analyzer uses the `CONTEST:` field in the Cabrillo header to apply contest-specific rules.
+The following contests are currently supported:
 
 * ARRL 10 Meter
 * ARRL DX (CW & SSB)
@@ -64,6 +69,7 @@ The analyzer uses the `CONTEST:` field in the Cabrillo header to apply contest-s
 * CQ World Wide DX (CW & SSB)
 * IARU HF World Championship
 * North American QSO Party (NAQP)
+* WAE (CW & SSB)
 ---
 ## Available Reports
 
@@ -90,17 +96,20 @@ All generated files are saved to a structured directory under `reports/YYYY/CONT
 
 #### **Text Reports (`text/`)**
 * `comparative_continent_summary`: Comparative Continent QSO Summary
+* `comparative_rate_sheet`: Comparative Rate Sheet
 * `comparative_score_report`: Comparative Score Report
 * `continent_breakdown`: Continent QSO Breakdown
 * `continent_summary`: Continent QSO Summary
 * `missed_multipliers`: Missed Multipliers Report
 * `multiplier_summary`: Multiplier Summary
 * `multipliers_by_hour`: Multipliers by Hour
-* `qso_comparison`: QSO Comparison Summary
+* `qso_comparison`: 
+QSO Comparison Summary
 * `rate_sheet`: Hourly Rate Sheet
-* `rate_sheet_comparison`: Comparative Rate Sheet
 * `score_report`: Score Summary
 * `summary`: QSO Summary
+* `text_wae_comparative_score_report`: WAE Comparative Score Report
+* `text_wae_score_report`: WAE Score Summary
 ---
 ## License
 
