@@ -1,8 +1,8 @@
 # Contest Log Analyzer/contest_tools/contest_specific_annotations/wae_multiplier_resolver.py
 #
 # Author: Gemini AI
-# Date: 2025-09-15
-# Version: 0.89.0-Beta
+# Date: 2025-09-16
+# Version: 0.87.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,22 @@
 #          EU vs. non-EU stations and the special call area district logic.
 #
 # --- Revision History ---
+## [0.87.5-Beta] - 2025-09-16
+### Added
+# - Added a high-priority logic block to the `_get_call_area_district`
+#   function to correctly handle the special RA8/RA9/RA0 multipliers for
+#   the UA9 (Asiatic Russia) DXCC entity.
+## [0.87.4-Beta] - 2025-09-16
+### Changed
+# - Rewrote the `_get_call_area_district` function to correctly implement
+#   the WAE multiplier rules. The new logic now uses the DXCCPfx for
+#   eligibility and correctly parses both standard and portable callsigns.
+## [0.87.1-Beta] - 2025-09-16
+### Changed
+# - Refactored module to be a self-contained, complete replacement for WAE
+#   multiplier logic, in accordance with the new architectural contract.
+# - The resolver now populates Mult1 with WAE/DXCC multipliers and Mult2
+#   with Call Area Districts, correctly enforcing mutual exclusivity.
 ## [0.89.0-Beta] - 2025-09-15
 ### Fixed
 # - Modified resolver to clear Mult1 when Mult2 is populated, making the multiplier types mutually exclusive to prevent double-counting.
@@ -44,40 +60,68 @@ import pandas as pd
 import re
 from typing import Dict, Any, Optional
 
-# Prefixes for which call area districts count as multipliers
-SPECIAL_DISTRICT_PREFIXES = {'K', 'W', 'VE', 'VK', 'ZL', 'ZS', 'JA', 'BY', 'PY', 'RA'}
+# The canonical prefixes used to construct the final multiplier ID.
+_CANONICAL_PREFIX_MAP = {
+    'K': 'K', 'VE': 'VE', 'VK': 'VK', 'ZL': 'ZL',
+    'ZS': 'ZS', 'JA': 'JA', 'BY': 'BY', 'PY': 'PY'
+}
+# The set of DXCC prefixes that are eligible for this special multiplier.
+# Note that callsigns like W1AW have a DXCCPfx of 'K'.
+ELIGIBLE_DXCC_PREFIXES = set(_CANONICAL_PREFIX_MAP.keys())
+
 
 def _get_call_area_district(row: pd.Series) -> Optional[str]:
     """
     Parses a callsign to find the call area district if it's from a
     special country for WAE multipliers.
     """
-    call = row.get('Call', '')
-    dxcc_pfx = row.get('DXCCPfx', '')
+    call = str(row.get('Call', ''))
+    portable_id = str(row.get('portableid', ''))
+    dxcc_pfx = str(row.get('DXCCPfx', ''))
 
-    if not call or not dxcc_pfx:
-        return None
-
-    # Check if the base DXCC prefix is one of the special ones
-    base_pfx = re.match(r'[A-Z]+', dxcc_pfx)
-    if not base_pfx or base_pfx.group(0) not in SPECIAL_DISTRICT_PREFIXES:
-        return None
-
-    # Handle the specific RA8, RA9, RA0 case
-    if base_pfx.group(0) == 'RA':
-        match = re.search(r'RA([890])', call)
-        if match:
-            return f"RA{match.group(1)}"
-        return None # Other RA districts don't count
-
-    # General case for other special prefixes
-    match = re.search(r'[A-Z]+(\d)', call)
-    if match:
-        district_num = match.group(1)
-        # Use the base prefix (e.g., 'W' for a 'K' call) for the multiplier ID
-        return f"{base_pfx.group(0)}{district_num}"
+    # --- Step 1: Handle high-priority UA9 (Asiatic Russia) case for RA8/9/0 ---
+    if dxcc_pfx == 'UA9':
+        digit = None
+        if len(portable_id) == 1 and portable_id.isdigit():
+            digit = portable_id
+        else:
+            match = re.match(r'[A-Z]+(\d)', call)
+            if match:
+                digit = match.group(1)
         
+        if digit in ['8', '9', '0']:
+            return f"UA9{digit}"
+        elif digit is not None: # It's a UA9 station but not 8, 9, or 0
+            return "UA99" # Fallback rule
+        else:
+            return None # No digit found
+
+    # --- Step 2: General Eligibility Check for other special prefixes ---
+    # A call is only eligible if its DXCC entity prefix is on the special list.
+    # This correctly excludes entities like KH6, KL, etc.
+    if dxcc_pfx not in ELIGIBLE_DXCC_PREFIXES:
+        return None
+
+    # --- Step 3: Determine Canonical Prefix ---
+    canonical_prefix = _CANONICAL_PREFIX_MAP.get(dxcc_pfx)
+
+    # --- Step 4: Find Call Area Digit (prioritizing portable suffix) ---
+    call_area_digit = None
+    if len(portable_id) == 1 and portable_id.isdigit():
+        call_area_digit = portable_id
+    else:
+        # Parse the main callsign for the first digit after letters.
+        # This correctly handles VK2004ABC -> 2
+        match = re.match(r'[A-Z]+(\d)', call)
+        if match:
+            call_area_digit = match.group(1)
+
+    # --- Step 5: Construct and Return Multiplier ---
+    if call_area_digit:
+        return f"{canonical_prefix}{call_area_digit}"
+    
     return None
+
 
 def resolve_multipliers(df: pd.DataFrame, my_location_type: str, root_input_dir: str) -> pd.DataFrame:
     """
@@ -94,19 +138,28 @@ def resolve_multipliers(df: pd.DataFrame, my_location_type: str, root_input_dir:
             df[col] = pd.NA
             df[col] = df[col].astype('object')
 
-    # This resolver now ONLY handles the special case for European loggers
-    # working specific DX stations for call-area multipliers (Mult2).
-    # The primary multiplier (Mult1) is handled by the 'wae_dxcc' source
-    # key in contest_log.py.
+    # --- Step 1: Populate Mult1 with WAE/DXCC for ALL applicable QSOs ---
+    # This logic is moved here from contest_log.py to make this resolver self-contained.
+    wae_mask = df['WAEName'].notna() & (df['WAEName'] != '')
+    
+    df.loc[wae_mask, 'Mult1'] = df.loc[wae_mask, 'WAEPfx']
+    df.loc[wae_mask, 'Mult1Name'] = df.loc[wae_mask, 'WAEName']
+    
+    df.loc[~wae_mask, 'Mult1'] = df.loc[~wae_mask, 'DXCCPfx']
+    df.loc[~wae_mask, 'Mult1Name'] = df.loc[~wae_mask, 'DXCCName']
+
+    # --- Step 2: Handle special case for EU loggers working specific DX for Mult2 ---
     if my_location_type == 'EU':
         # Filter for QSOs with non-European stations
         non_eu_df = df[df['Continent'] != 'EU'].copy()
         if not non_eu_df.empty:
             districts = non_eu_df.apply(_get_call_area_district, axis=1)
-            df.loc[districts.index, 'Mult2'] = districts
-            df.loc[districts.index, 'Mult2Name'] = districts
-            # Clear Mult1 where Mult2 was just populated to prevent double-counting
-            df.loc[districts.index, 'Mult1'] = pd.NA
-            df.loc[districts.index, 'Mult1Name'] = pd.NA
+            valid_districts = districts[districts.notna()]
+            
+            if not valid_districts.empty:
+                df.loc[valid_districts.index, 'Mult2'] = valid_districts
+                df.loc[valid_districts.index, 'Mult2Name'] = valid_districts
+                # --- Step 3: Clear Mult1 where Mult2 was populated to enforce exclusivity ---
+                df.loc[valid_districts.index, ['Mult1', 'Mult1Name']] = pd.NA
             
     return df

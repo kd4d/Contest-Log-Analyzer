@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-15
-# Version: 0.88.1-Beta
+# Date: 2025-09-16
+# Version: 0.87.6-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,15 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.87.6-Beta] - 2025-09-16
+### Changed
+# - Expanded the hard-coded bypass logic to include 'IARU-HF', continuing
+#   the phased rollout of the new multiplier resolver architecture.
+## [0.87.0-Beta] - 2025-09-16
+### Changed
+# - Added a hard-coded conditional to the generic multiplier processor to
+#   bypass it for the WAE contest. This is the first phase of the
+#   multiplier resolver architectural refactoring.
 ## [0.88.1-Beta] - 2025-09-15
 ### Changed
 # - Refactored the constructor to use a data-driven, pluggable system for
@@ -302,7 +311,7 @@ class ContestLog:
 
             # A QSO is valid if it has a valid frequency OR if it has a band but no numeric frequency.
             if (pd.notna(freq_val) and self.band_allocator.is_frequency_valid(freq_val)) or \
-                (pd.isna(freq_val) and pd.notna(band_val)):
+               (pd.isna(freq_val) and pd.notna(band_val)):
                 validated_qso_records.append(row.to_dict())
             else:
                 rejected_qso_count += 1
@@ -529,55 +538,61 @@ class ContestLog:
                 logging.warning(f"Could not run '{resolver_name}' multiplier resolver: {e}")
 
         multiplier_rules = self.contest_definition.multiplier_rules
-        if multiplier_rules:
-            logging.info("Calculating contest multipliers...")
-            for rule in multiplier_rules:
-                applies_to = rule.get('applies_to')
-                if applies_to and self._my_location_type and applies_to != self._my_location_type:
-                    continue
-
-                dest_col = rule.get('value_column')
-                dest_name_col = rule.get('name_column')
-                
-                if not dest_col: continue
-
-                if 'source_column' in rule:
-                    source_col = rule.get('source_column')
-                    if source_col in self.qsos_df.columns:
-                        self.qsos_df[dest_col] = self.qsos_df[source_col]
-                        
-                        if dest_name_col:
-                            source_name_col = rule.get('source_name_column', f"{source_col}Name")
-                            if source_name_col in self.qsos_df.columns:
-                                self.qsos_df[dest_name_col] = self.qsos_df[source_name_col]
-                            else:
-                                logging.warning(f"Name column '{source_name_col}' not found for source '{source_col}'.")
-                    
-                    else:
-                        logging.warning(f"Source column '{source_col}' not found for multiplier '{rule.get('name')}'.")
-
-                elif rule.get('source') == 'wae_dxcc':
-                    wae_mask = self.qsos_df['WAEName'].notna() & (self.qsos_df['WAEName'] != '')
-                    
-                    self.qsos_df.loc[wae_mask, dest_col] = self.qsos_df.loc[wae_mask, 'WAEPfx']
-                    self.qsos_df.loc[~wae_mask, dest_col] = self.qsos_df.loc[~wae_mask, 'DXCCPfx']
-                
-                    if dest_name_col:
-                        self.qsos_df.loc[wae_mask, dest_name_col] = self.qsos_df.loc[wae_mask, 'WAEName']
-                        self.qsos_df.loc[~wae_mask, dest_name_col] = self.qsos_df.loc[~wae_mask, 'DXCCName']
-                
-                elif rule.get('source') == 'calculation_module':
-                    try:
-                        module_name = rule['module_name']
-                        function_name = rule['function_name']
-                        
-                        module = importlib.import_module(f"contest_tools.contest_specific_annotations.{module_name}")
-                        calculation_func = getattr(module, function_name)
-                        
-                        self.qsos_df[dest_col] = calculation_func(self.qsos_df)
-                        logging.info(f"Successfully applied '{function_name}' from '{module_name}'.")
-                    except (ImportError, AttributeError, KeyError) as e:
-                        logging.warning(f"Could not run calculation module for rule '{rule.get('name')}': {e}")
+        
+        # --- Phased Rollout of Multiplier Architecture ---
+        # If a custom resolver was run for a migrated contest, skip the generic rules.
+        bypassed_contests = ['WAE', 'IARU-HF']
+        should_bypass = resolver_name and any(self.contest_name.startswith(c) for c in bypassed_contests)
+        
+        if multiplier_rules and not should_bypass:
+             logging.info("Calculating contest multipliers...")
+             for rule in multiplier_rules:
+                 applies_to = rule.get('applies_to')
+                 if applies_to and self._my_location_type and applies_to != self._my_location_type:
+                     continue
+ 
+                 dest_col = rule.get('value_column')
+                 dest_name_col = rule.get('name_column')
+                 
+                 if not dest_col: continue
+ 
+                 if 'source_column' in rule:
+                     source_col = rule.get('source_column')
+                     if source_col in self.qsos_df.columns:
+                         self.qsos_df[dest_col] = self.qsos_df[source_col]
+                         
+                         if dest_name_col:
+                             source_name_col = rule.get('source_name_column', f"{source_col}Name")
+                             if source_name_col in self.qsos_df.columns:
+                                 self.qsos_df[dest_name_col] = self.qsos_df[source_name_col]
+                             else:
+                                 logging.warning(f"Name column '{source_name_col}' not found for source '{source_col}'.")
+                     
+                     else:
+                         logging.warning(f"Source column '{source_col}' not found for multiplier '{rule.get('name')}'.")
+ 
+                 elif rule.get('source') == 'wae_dxcc':
+                     wae_mask = self.qsos_df['WAEName'].notna() & (self.qsos_df['WAEName'] != '')
+                     
+                     self.qsos_df.loc[wae_mask, dest_col] = self.qsos_df.loc[wae_mask, 'WAEPfx']
+                     self.qsos_df.loc[~wae_mask, dest_col] = self.qsos_df.loc[~wae_mask, 'DXCCPfx']
+                     
+                     if dest_name_col:
+                         self.qsos_df.loc[wae_mask, dest_name_col] = self.qsos_df.loc[wae_mask, 'WAEName']
+                         self.qsos_df.loc[~wae_mask, dest_name_col] = self.qsos_df.loc[~wae_mask, 'DXCCName']
+                 
+                 elif rule.get('source') == 'calculation_module':
+                     try:
+                         module_name = rule['module_name']
+                         function_name = rule['function_name']
+                         
+                         module = importlib.import_module(f"contest_tools.contest_specific_annotations.{module_name}")
+                         calculation_func = getattr(module, function_name)
+                         
+                         self.qsos_df[dest_col] = calculation_func(self.qsos_df)
+                         logging.info(f"Successfully applied '{function_name}' from '{module_name}'.")
+                     except (ImportError, AttributeError, KeyError) as e:
+                         logging.warning(f"Could not run calculation module for rule '{rule.get('name')}': {e}")
 
 
         # --- Scoring Calculation ---
