@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-09-16
-# Version: 0.87.6-Beta
+# Version: 0.88.4-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,15 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.88.4-Beta] - 2025-09-16
+### Fixed
+# - Corrected the conditional logic for the custom multiplier resolver call
+#   to include the WAE resolver, fixing a TypeError regression.
+## [0.88.2-Beta] - 2025-09-16
+### Changed
+# - Modified the custom multiplier resolver call to be conditional,
+#   passing the ContestDefinition object only to migrated resolvers. This
+#   enables a safe, phased rollout of the new architecture.
 ## [0.87.6-Beta] - 2025-09-16
 ### Changed
 # - Expanded the hard-coded bypass logic to include 'IARU-HF', continuing
@@ -532,7 +541,13 @@ class ContestLog:
         if resolver_name:
             try:
                 resolver_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{resolver_name}")
-                self.qsos_df = resolver_module.resolve_multipliers(self.qsos_df, self._my_location_type, self.root_input_dir)
+                # --- Phased Rollout: Pass contest_def only to migrated resolvers ---
+                # This list will grow as more resolvers are migrated to the new architecture.
+                if resolver_name in ["iaru_hf_multiplier_resolver", "wae_multiplier_resolver"]:
+                    self.qsos_df = resolver_module.resolve_multipliers(self.qsos_df, self._my_location_type, self.root_input_dir, self.contest_definition)
+                else:
+                    # Legacy call for non-migrated resolvers
+                    self.qsos_df = resolver_module.resolve_multipliers(self.qsos_df, self._my_location_type, self.root_input_dir)
                 logging.info(f"Successfully applied '{resolver_name}' multiplier resolver.")
             except Exception as e:
                 logging.warning(f"Could not run '{resolver_name}' multiplier resolver: {e}")

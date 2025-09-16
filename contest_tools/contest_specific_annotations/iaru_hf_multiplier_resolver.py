@@ -1,8 +1,8 @@
 # Contest Log Analyzer/contest_tools/contest_specific_annotations/iaru_hf_multiplier_resolver.py
 #
 # Author: Gemini AI
-# Date: 2025-09-10
-# Version: 0.70.25-Beta
+# Date: 2025-09-16
+# Version: 0.88.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,6 +19,12 @@
 #          ITU Zones, IARU HQ Stations, and IARU Officials.
 #
 # --- Revision History ---
+## [0.88.2-Beta] - 2025-09-16
+### Changed
+# - Refactored module to be compliant with the new, data-driven resolver
+#   architecture. The main function now accepts a ContestDefinition object
+#   and uses it as a "blueprint" to populate the correct columns.
+# - Reworked logic to be key-based instead of order-based for robustness.
 ## [0.70.25-Beta] - 2025-09-10
 ### Changed
 # - Updated `resolve_multipliers` and `_load_officials_set` to accept
@@ -39,7 +45,10 @@
 import pandas as pd
 import os
 import re
-from typing import Dict, Any, Set, Tuple
+import logging
+from typing import Dict, Any, Set, Tuple, Optional
+
+from ..contest_definitions import ContestDefinition
 
 # Global cache for the officials set to avoid re-reading the file
 _OFFICIALS_SET_CACHE: Set[str] = set()
@@ -62,12 +71,12 @@ def _load_officials_set(root_input_dir: str) -> Set[str]:
 
     return _OFFICIALS_SET_CACHE
 
-def _resolve_row(row: pd.Series, officials_set: Set[str]) -> pd.Series:
+def _resolve_row(row: pd.Series, officials_set: Set[str]) -> Dict[str, Optional[str]]:
     """
     Parses the received exchange for a single QSO and returns the categorized
     multiplier value.
     """
-    mult_zone, mult_hq, mult_official = pd.NA, pd.NA, pd.NA
+    mult_zone, mult_hq, mult_official = None, None, None
     
     # Get the clean multiplier value from the 'RcvdMult' column provided by the parser.
     exchange = row.get('RcvdMult')
@@ -85,26 +94,39 @@ def _resolve_row(row: pd.Series, officials_set: Set[str]) -> pd.Series:
         elif exchange.isalpha():
             mult_hq = exchange.upper()
 
-    return pd.Series([mult_zone, mult_hq, mult_official])
+    return {'zone': mult_zone, 'hq': mult_hq, 'official': mult_official}
 
-def resolve_multipliers(df: pd.DataFrame, my_location_type: str, root_input_dir: str) -> pd.DataFrame:
+def resolve_multipliers(df: pd.DataFrame, my_location_type: str, root_input_dir: str, contest_def: ContestDefinition) -> pd.DataFrame:
     """
     Resolves multipliers for the IARU HF World Championship by parsing the
     RcvdMult column and populating the three distinct multiplier columns.
     """
+    # This map provides a robust link between the rule name in the JSON
+    # and the key returned by the _resolve_row helper function.
+    RULE_TO_KEY_MAP = {
+        'Zones': 'zone',
+        'HQ Stations': 'hq',
+        'IARU Officials': 'official'
+    }
+
     if df.empty or 'RcvdMult' not in df.columns:
-        # Ensure columns exist even if there's nothing to process
-        df['Mult_Zone'] = pd.NA
-        df['Mult_HQ'] = pd.NA
-        df['Mult_Official'] = pd.NA
+        # Ensure columns defined in the blueprint exist even if there's nothing to process
+        for rule in contest_def.multiplier_rules:
+            col = rule.get('value_column')
+            if col and col not in df.columns:
+                df[col] = pd.NA
         return df
 
     officials_set = _load_officials_set(root_input_dir)
     
-    df[['Mult_Zone', 'Mult_HQ', 'Mult_Official']] = df.apply(
-        _resolve_row,
-        axis=1,
-        officials_set=officials_set
-    )
+    # Get the categorized multiplier data for all rows in a single pass.
+    categorized_mults = df.apply(_resolve_row, axis=1, officials_set=officials_set)
+
+    # Iterate through the rules from the JSON blueprint to assign data to the correct columns.
+    for rule in contest_def.multiplier_rules:
+        target_column = rule.get('value_column')
+        data_key = RULE_TO_KEY_MAP.get(rule.get('name'))
+        if target_column and data_key:
+            df[target_column] = categorized_mults.apply(lambda x: x.get(data_key))
     
     return df

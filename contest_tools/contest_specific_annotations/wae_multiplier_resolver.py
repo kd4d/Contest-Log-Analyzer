@@ -2,7 +2,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-09-16
-# Version: 0.87.5-Beta
+# Version: 0.88.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,11 @@
 #          EU vs. non-EU stations and the special call area district logic.
 #
 # --- Revision History ---
+## [0.88.3-Beta] - 2025-09-16
+### Changed
+# - Refactored module to be compliant with the new, data-driven resolver
+#   architecture. The function now accepts a ContestDefinition object
+#   and uses it as a "blueprint" to populate the correct columns.
 ## [0.87.5-Beta] - 2025-09-16
 ### Added
 # - Added a high-priority logic block to the `_get_call_area_district`
@@ -59,6 +64,7 @@
 import pandas as pd
 import re
 from typing import Dict, Any, Optional
+from ..contest_definitions import ContestDefinition
 
 # The canonical prefixes used to construct the final multiplier ID.
 _CANONICAL_PREFIX_MAP = {
@@ -123,32 +129,43 @@ def _get_call_area_district(row: pd.Series) -> Optional[str]:
     return None
 
 
-def resolve_multipliers(df: pd.DataFrame, my_location_type: str, root_input_dir: str) -> pd.DataFrame:
+def resolve_multipliers(df: pd.DataFrame, my_location_type: str, root_input_dir: str, contest_def: ContestDefinition) -> pd.DataFrame:
     """
     Resolves multipliers for the WAE Contest based on the logger's location.
-    - Mult1: WAE Country or DXCC
-    - Mult2: Call Area District
+    The target columns are read dynamically from the contest definition.
     """
     if df.empty:
         return df
 
+    # --- Dynamically get column names from the JSON blueprint ---
+    countries_rule = next((r for r in contest_def.multiplier_rules if r['name'] == 'Countries'), None)
+    call_areas_rule = next((r for r in contest_def.multiplier_rules if r['name'] == 'Call Areas'), None)
+
+    if not countries_rule or not call_areas_rule:
+        raise ValueError("WAE resolver could not find required multiplier rules in ContestDefinition.")
+
+    m1_col = countries_rule['value_column']
+    m1_name_col = countries_rule['name_column']
+    m2_col = call_areas_rule['value_column']
+    m2_name_col = call_areas_rule['name_column']
+
     # Pre-initialize columns with a compatible dtype to prevent FutureWarnings
-    for col in ['Mult1', 'Mult1Name', 'Mult2', 'Mult2Name']:
+    for col in [m1_col, m1_name_col, m2_col, m2_name_col]:
         if col not in df.columns:
             df[col] = pd.NA
             df[col] = df[col].astype('object')
 
-    # --- Step 1: Populate Mult1 with WAE/DXCC for ALL applicable QSOs ---
+    # --- Step 1: Populate Country multipliers for ALL applicable QSOs ---
     # This logic is moved here from contest_log.py to make this resolver self-contained.
     wae_mask = df['WAEName'].notna() & (df['WAEName'] != '')
     
-    df.loc[wae_mask, 'Mult1'] = df.loc[wae_mask, 'WAEPfx']
-    df.loc[wae_mask, 'Mult1Name'] = df.loc[wae_mask, 'WAEName']
+    df.loc[wae_mask, m1_col] = df.loc[wae_mask, 'WAEPfx']
+    df.loc[wae_mask, m1_name_col] = df.loc[wae_mask, 'WAEName']
     
-    df.loc[~wae_mask, 'Mult1'] = df.loc[~wae_mask, 'DXCCPfx']
-    df.loc[~wae_mask, 'Mult1Name'] = df.loc[~wae_mask, 'DXCCName']
+    df.loc[~wae_mask, m1_col] = df.loc[~wae_mask, 'DXCCPfx']
+    df.loc[~wae_mask, m1_name_col] = df.loc[~wae_mask, 'DXCCName']
 
-    # --- Step 2: Handle special case for EU loggers working specific DX for Mult2 ---
+    # --- Step 2: Handle special Call Area multipliers for EU loggers working specific DX ---
     if my_location_type == 'EU':
         # Filter for QSOs with non-European stations
         non_eu_df = df[df['Continent'] != 'EU'].copy()
@@ -157,9 +174,9 @@ def resolve_multipliers(df: pd.DataFrame, my_location_type: str, root_input_dir:
             valid_districts = districts[districts.notna()]
             
             if not valid_districts.empty:
-                df.loc[valid_districts.index, 'Mult2'] = valid_districts
-                df.loc[valid_districts.index, 'Mult2Name'] = valid_districts
-                # --- Step 3: Clear Mult1 where Mult2 was populated to enforce exclusivity ---
-                df.loc[valid_districts.index, ['Mult1', 'Mult1Name']] = pd.NA
+                df.loc[valid_districts.index, m2_col] = valid_districts
+                df.loc[valid_districts.index, m2_name_col] = valid_districts
+                # --- Step 3: Clear Country multiplier where Call Area multiplier was populated ---
+                df.loc[valid_districts.index, [m1_col, m1_name_col]] = pd.NA
             
     return df
