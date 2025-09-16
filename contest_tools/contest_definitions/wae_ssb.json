@@ -1,6 +1,6 @@
 {
   "_filename": "contest_tools/contest_definitions/wae_ssb.json",
-  "_version": "0.87.1-Beta",
+  "_version": "0.89.0-Beta",
   "_date": "2025-09-15",
   "contest_name": "WAE-SSB",
   "valid_bands": [
@@ -17,6 +17,7 @@
   "dupe_check_scope": "per_band",
   "custom_parser_module": "wae_parser",
   "custom_multiplier_resolver": "wae_multiplier_resolver",
+  "custom_location_resolver": "wae_location_resolver",
   "time_series_calculator": "wae_calculator",
   "points_header_label": "QSO+QTC Pts",
   "score_formula": "custom",
@@ -31,6 +32,12 @@
       "source": "wae_dxcc",
       "value_column": "Mult1",
       "name_column": "Mult1Name",
+      "totaling_method": "weighted_sum_by_band"
+    },
+    {
+      "name": "Call Area Districts",
+      "value_column": "Mult2",
+      "name_column": "Mult2Name",
       "totaling_method": "weighted_sum_by_band"
     }
   ],

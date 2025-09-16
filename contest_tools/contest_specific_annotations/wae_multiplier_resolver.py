@@ -1,8 +1,8 @@
 # Contest Log Analyzer/contest_tools/contest_specific_annotations/wae_multiplier_resolver.py
 #
 # Author: Gemini AI
-# Date: 2025-09-13
-# Version: 0.85.4-Beta
+# Date: 2025-09-15
+# Version: 0.89.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,12 @@
 #          EU vs. non-EU stations and the special call area district logic.
 #
 # --- Revision History ---
+## [0.89.0-Beta] - 2025-09-15
+### Fixed
+# - Modified resolver to clear Mult1 when Mult2 is populated, making the multiplier types mutually exclusive to prevent double-counting.
+## [0.88.2-Beta] - 2025-09-15
+### Fixed
+# - Corrected the primary conditional check from 'DX' to 'EU' to ensure multiplier logic runs for the correct station type.
 ## [0.85.4-Beta] - 2025-09-13
 ### Changed
 # - Refactored module to only handle the special-case Mult2 (Call Area)
@@ -92,12 +98,15 @@ def resolve_multipliers(df: pd.DataFrame, my_location_type: str, root_input_dir:
     # working specific DX stations for call-area multipliers (Mult2).
     # The primary multiplier (Mult1) is handled by the 'wae_dxcc' source
     # key in contest_log.py.
-    if my_location_type == 'DX':
+    if my_location_type == 'EU':
         # Filter for QSOs with non-European stations
         non_eu_df = df[df['Continent'] != 'EU'].copy()
         if not non_eu_df.empty:
             districts = non_eu_df.apply(_get_call_area_district, axis=1)
             df.loc[districts.index, 'Mult2'] = districts
             df.loc[districts.index, 'Mult2Name'] = districts
+            # Clear Mult1 where Mult2 was just populated to prevent double-counting
+            df.loc[districts.index, 'Mult1'] = pd.NA
+            df.loc[districts.index, 'Mult1Name'] = pd.NA
             
     return df

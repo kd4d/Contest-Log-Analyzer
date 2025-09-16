@@ -1,11 +1,12 @@
 {
   "_filename": "contest_tools/contest_definitions/arrl_dx_ssb.json",
-  "_version": "0.86.3-Beta",
-  "_date": "2025-09-13",
+  "_version": "0.88.0-Beta",
+  "_date": "2025-09-15",
   "contest_name": "ARRL-DX-SSB",
   "enable_adif_export": true,
   "custom_parser_module": "arrl_dx_parser",
   "mults_from_zero_point_qsos": false,
+  "custom_location_resolver": "arrl_dx_location_resolver",
   "custom_multiplier_resolver": "arrl_dx_multiplier_resolver",
   "multiplier_report_scope": "per_band",
   "excluded_reports": [

@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-13
-# Version: 0.85.3-Beta
+# Date: 2025-09-15
+# Version: 0.88.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0.
 # --- Revision History ---
+## [0.88.0-Beta] - 2025-09-15
+### Added
+# - Added the `custom_location_resolver` property to support the new,
+#   pluggable location resolver architecture.
 ## [0.85.3-Beta] - 2025-09-13
 ### Added
 # - Added `time_series_calculator` and `points_header_label` properties
@@ -186,6 +190,10 @@ class ContestDefinition:
     def time_series_calculator(self) -> Optional[str]:
         return self._data.get('time_series_calculator')
         
+    @property
+    def custom_location_resolver(self) -> Optional[str]:
+        return self._data.get('custom_location_resolver')
+
     @property
     def points_header_label(self) -> Optional[str]:
         return self._data.get('points_header_label')

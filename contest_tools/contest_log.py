@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-14
-# Version: 0.86.8-Beta
+# Date: 2025-09-15
+# Version: 0.88.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.88.1-Beta] - 2025-09-15
+### Changed
+# - Refactored the constructor to use a data-driven, pluggable system for
+#   determining the logger's location type (e.g., W/VE vs DX, EU vs DX).
+# - Renamed the generic `_determine_own_location_type` method to `_determine_own_location_type_legacy` to serve as a fallback.
 ## [0.86.8-Beta] - 2025-09-14
 ### Fixed
 # - Corrected the root cause of the systemic timezone bug by localizing
@@ -243,7 +248,19 @@ class ContestLog:
 
         if cabrillo_filepath:
             self._ingest_cabrillo_data(cabrillo_filepath)
-        self._determine_own_location_type()
+        
+        # Run a custom location resolver if defined for the contest.
+        resolver_name = self.contest_definition.custom_location_resolver
+        if resolver_name:
+            try:
+                resolver_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{resolver_name}")
+                self._my_location_type = resolver_module.resolve_location_type(self.metadata, self.root_input_dir)
+                logging.info(f"Custom logger location type determined as: '{self._my_location_type}' by {resolver_name}")
+            except Exception as e:
+                logging.warning(f"Could not run custom location resolver '{resolver_name}': {e}")
+        else:
+            # Fallback to old generic method for legacy asymmetric contests
+            self._determine_own_location_type_legacy()
 
 
     def _ingest_cabrillo_data(self, cabrillo_filepath: str):
@@ -420,7 +437,11 @@ class ContestLog:
 
         return f"{on_time_str} of {max_hours}:00 allowed"
         
-    def _determine_own_location_type(self):
+    def _determine_own_location_type_legacy(self):
+        """
+        DEPRECATED: Generic method for determining location for ARRL DX.
+        This will be replaced by the custom_location_resolver mechanism.
+        """
         is_asymmetric = any(rule.get('applies_to') for rule in self.contest_definition.multiplier_rules)
         
         if is_asymmetric:
@@ -433,7 +454,7 @@ class ContestLog:
                 info = cty_lookup.get_cty_DXCC_WAE(my_call)._asdict()
                 
                 self._my_location_type = "W/VE" if info['DXCCName'] in ["United States", "Canada"] else "DX"
-                logging.info(f"Logger location type determined as: {self._my_location_type}")
+                logging.info(f"LEGACY logger location type determined as: {self._my_location_type}")
 
     def apply_annotations(self):
         if self.qsos_df.empty:
@@ -540,7 +561,7 @@ class ContestLog:
                     
                     self.qsos_df.loc[wae_mask, dest_col] = self.qsos_df.loc[wae_mask, 'WAEPfx']
                     self.qsos_df.loc[~wae_mask, dest_col] = self.qsos_df.loc[~wae_mask, 'DXCCPfx']
-                    
+                
                     if dest_name_col:
                         self.qsos_df.loc[wae_mask, dest_name_col] = self.qsos_df.loc[wae_mask, 'WAEName']
                         self.qsos_df.loc[~wae_mask, dest_name_col] = self.qsos_df.loc[~wae_mask, 'DXCCName']
@@ -565,7 +586,7 @@ class ContestLog:
             logging.warning("'MyCall' not found in metadata. Cannot calculate QSO points.")
             self.qsos_df['QSOPoints'] = 0
             return
-            
+        
         try:
             root_dir = self.root_input_dir
             data_dir = os.path.join(root_dir, 'data')
