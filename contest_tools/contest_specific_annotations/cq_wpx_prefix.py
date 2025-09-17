@@ -4,8 +4,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-10
-# Version: 0.70.12-Beta
+# Date: 2025-09-16
+# Version: 0.88.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,6 +16,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.88.5-Beta] - 2025-09-16
+### Changed
+# - Refactored module to be compliant with the new, data-driven resolver
+#   architecture. The main function now accepts a ContestDefinition object
+#   and uses it to dynamically determine which columns to populate.
 ## [0.70.12-Beta] - 2025-09-10
 ### Changed
 # - Updated `resolve_multipliers` signature to accept `root_input_dir`
@@ -60,10 +65,6 @@
 # - Corrected the _get_prefix helper function to precisely implement the
 #   algorithm from WPXPrefixLookupAlgorithm.md, including the special
 #   Letter-Digit-Letter (LDL) case.
-## [0.31.49-Beta] - 2025-08-10
-### Changed
-# - Rewrote prefix calculation logic to be stateful, identifying only the
-#   first time each prefix is worked in the log.
 ## [0.30.0-Beta] - 2025-08-05
 # - Initial release of Version 0.30.0-Beta.
 # - Standardized all project files to a common baseline version.
@@ -71,6 +72,7 @@ import pandas as pd
 import re
 import logging
 from typing import Optional, Dict, Any
+from ..contest_definitions import ContestDefinition
 
 def _clean_callsign(call: str) -> str:
     """
@@ -174,21 +176,30 @@ def _get_prefix(row: pd.Series) -> str:
     logging.info(f"  - Result: '{prefix_result}' (Final)")
     return prefix_result
 
-def resolve_multipliers(df: pd.DataFrame, my_location_type: str, root_input_dir: str) -> pd.DataFrame:
+def resolve_multipliers(df: pd.DataFrame, my_location_type: str, root_input_dir: str, contest_def: ContestDefinition) -> pd.DataFrame:
     """
     Calculates the WPX prefix for each QSO, adding two new columns:
-    - `WPXPfx`: A non-sparse column with the prefix for every QSO.
-    - `Mult1`: A sparse column with the prefix only for the first time it was worked.
+    - A dense column with the prefix for every QSO (e.g., `WPXPfx`).
+    - A sparse column with the prefix only for the first time it was worked (e.g., `Mult1`).
+    The names of these columns are read dynamically from the contest definition.
     """
+    try:
+        rule = contest_def.multiplier_rules[0]
+        wpx_pfx_col = rule['value_column']
+        scoring_mult_col = rule['scoring_column']
+    except (AttributeError, KeyError, IndexError):
+        logging.error("Could not extract WPX column names from ContestDefinition. Aborting resolver.")
+        return df
+
     required_cols = ['Call', 'DXCCPfx', 'portableid', 'Datetime']
     for col in required_cols:
         if col not in df.columns:
-            df['Mult1'] = pd.NA
-            df['WPXPfx'] = pd.NA
+            df[wpx_pfx_col] = pd.NA
+            df[scoring_mult_col] = pd.NA
             return df
 
-    # --- Step 1: Create the non-sparse `WPXPfx` column ---
-    df['WPXPfx'] = df.apply(_get_prefix, axis=1)
+    # --- Step 1: Create the non-sparse prefix column ---
+    df[wpx_pfx_col] = df.apply(_get_prefix, axis=1)
     
     # --- Step 2: Create the sparse `Mult1` column for scoring ---
     df_sorted = df.sort_values(by='Datetime')
@@ -197,7 +208,7 @@ def resolve_multipliers(df: pd.DataFrame, my_location_type: str, root_input_dir:
     results_dict = {}
 
     for index, row in df_sorted.iterrows():
-        prefix = row.get('WPXPfx')
+        prefix = row.get(wpx_pfx_col)
         
         if pd.notna(prefix) and prefix != "Unknown":
             if prefix not in seen_prefixes:
@@ -209,6 +220,6 @@ def resolve_multipliers(df: pd.DataFrame, my_location_type: str, root_input_dir:
             results_dict[index] = None
 
     # Map the sparse results back to the original DataFrame
-    df['Mult1'] = df.index.map(results_dict)
+    df[scoring_mult_col] = df.index.map(results_dict)
     
     return df
