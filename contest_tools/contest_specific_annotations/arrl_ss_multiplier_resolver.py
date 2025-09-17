@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-10
-# Version: 0.70.23-Beta
+# Date: 2025-09-17
+# Version: 0.89.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.89.1-Beta] - 2025-09-17
+### Changed
+# - Refactored module to be data-driven, reading target column names
+#   from the ContestDefinition object instead of using hard-coded values.
+# - Updated function signature to the new four-argument standard.
 ## [0.70.23-Beta] - 2025-09-10
 ### Changed
 # - Updated `resolve_multipliers` signature to accept `root_input_dir`
@@ -43,6 +48,7 @@ import pandas as pd
 import os
 import re
 from typing import Dict, Tuple, Optional
+from ..contest_definitions import ContestDefinition
 
 class SectionAliasLookup:
     """Parses and provides lookups for the SweepstakesSections.dat file."""
@@ -102,20 +108,25 @@ class SectionAliasLookup:
         
         return "Unknown", None
 
-def resolve_multipliers(df: pd.DataFrame, my_location_type: Optional[str], root_input_dir: str) -> pd.DataFrame:
+def resolve_multipliers(df: pd.DataFrame, my_location_type: Optional[str], root_input_dir: str, contest_def: ContestDefinition) -> pd.DataFrame:
     """
     Resolves the final Section multiplier for ARRL Sweepstakes QSOs.
     """
+    # Dynamically get column names from the JSON blueprint
+    mult_rule = next((r for r in contest_def.multiplier_rules if r['name'] == 'Sections'), {})
+    value_col = mult_rule.get('value_column', 'Mult1')
+    name_col = mult_rule.get('name_column', 'Mult1Name')
+
     if df.empty or 'RcvdLocation' not in df.columns:
-        df['Mult1'] = "Unknown"
-        df['Mult1Name'] = None
+        df[value_col] = "Unknown"
+        df[name_col] = None
         return df
 
     data_dir = os.path.join(root_input_dir, 'data')
     alias_lookup = SectionAliasLookup(data_dir)
     
     # Apply the lookup and expand the resulting tuple into two new columns
-    df[['Mult1', 'Mult1Name']] = df['RcvdLocation'].apply(
+    df[[value_col, name_col]] = df['RcvdLocation'].apply(
         lambda x: pd.Series(alias_lookup.get_section(x))
     )
     
