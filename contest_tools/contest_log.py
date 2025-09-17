@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-09-17
-# Version: 0.89.1-Beta
+# Version: 0.89.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.89.2-Beta] - 2025-09-17
+### Changed
+# - Added the ARRL FD resolver to the list of migrated modules to ensure it
+#   receives the new four-argument function call.
 ## [0.89.1-Beta] - 2025-09-17
 ### Changed
 # - Added the ARRL SS resolver to the list of migrated modules to ensure it
@@ -563,7 +567,7 @@ class ContestLog:
                 resolver_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{resolver_name}")
                 # --- Phased Rollout: Pass contest_def only to migrated resolvers ---
                 # This list will grow as more resolvers are migrated to the new architecture.
-                if resolver_name in ["iaru_hf_multiplier_resolver", "wae_multiplier_resolver", "cq_wpx_prefix", "cq_160_multiplier_resolver", "naqp_multiplier_resolver", "arrl_ss_multiplier_resolver"]:
+                if resolver_name in ["iaru_hf_multiplier_resolver", "wae_multiplier_resolver", "cq_wpx_prefix", "cq_160_multiplier_resolver", "naqp_multiplier_resolver", "arrl_ss_multiplier_resolver", "arrl_fd_multiplier_resolver"]:
                     self.qsos_df = resolver_module.resolve_multipliers(self.qsos_df, self._my_location_type, self.root_input_dir, self.contest_definition)
                 else:
                     # Legacy call for non-migrated resolvers
