@@ -1,16 +1,25 @@
 # AIAgentWorkflow.md
 
-**Version: 0.89.0-Beta**
+**Version: 0.90.0-Beta**
 **Date: 2025-09-16**
 
 ---
 ### --- Revision History ---
+## [0.90.0-Beta] - 2025-09-16
+### Changed
+# - Strengthened Principle 9 (Surgical Modification) to explicitly forbid
+#   full file regeneration and define a full-function `diff` as a
+#   de facto violation.
+# - Amended Protocol 2.6 (Implementation Plan) to include a mandatory
+#   "Ground Truth Declaration" to enforce traceability.
+# - Amended Protocol 6.3 (Error Analysis) to require a specific
+#   "Surgical Modification Failure Analysis" for Principle 9 violations.
 ## [0.89.0-Beta] - 2025-09-16
 ### Added
 # - Added Principle 16 (Principle of Incremental Change) to formalize
-#   [cite_start]the practice of breaking down large changes into small, verifiable steps. [cite: 2388-2391]
+#   the practice of breaking down large changes into small, verifiable steps.
 # - Added Protocol 2.3 (Architectural Design Protocol) to formalize the
-#   [cite_start]iterative "propose-critique-refine" cycle for new architectural patterns. [cite: 2395-2398]
+#   iterative "propose-critique-refine" cycle for new architectural patterns.
 ### Changed
 # - Amended Protocol 1.3 (Context Checkpoint) to make the AI co-responsible
 #   for initiating a checkpoint if it detects internal confusion.
@@ -24,303 +33,303 @@
 ## [0.86.1-Beta] - 2025-09-15
 ### Changed
 # - Clarified Protocol 2.5 to describe the implementation plan delivery
-#   [cite_start]method more accurately (content within a code block). [cite: 40]
+#   method more accurately (content within a code block).
 # - Strengthened Protocol 3.2.4 with explicit examples for substituting
-#   [cite_start]both opening and closing internal code fences. [cite: 41]
+#   both opening and closing internal code fences.
 ## [0.86.0-Beta] - 2025-09-14
 ### Changed
 # - Clarified Protocol 1.7 to describe the role of the
 #   CONTEST_INPUT_DIR environment variable and to correctly list the
-#   [cite_start]`Logs/` and `data/` subdirectories. [cite: 42]
+#   `Logs/` and `data/` subdirectories.
 ## [0.70.0-Beta] - 2025-09-13
 ### Added
 # - Added Protocol 2.5.1 (Post-Plan-Delivery Prompt Protocol) to
 #   mandate that the AI must immediately prompt for plan approval after
-#   delivering an implementation plan file. [cite_start]This corrects a recurring AI process error. [cite: 43-44]
+#   delivering an implementation plan file. This corrects a recurring AI process error.
 ## [0.69.0-Beta] - 2025-09-13
 ### Changed
 # - Restored the detailed, six-part list of required sections to
 #   Protocol 2.5 (Implementation Plan), including the full Pre-Flight
-#   Check. [cite_start]This corrects a regression from v0.68.0-Beta. [cite: 44-45]
+#   Check. This corrects a regression from v0.68.0-Beta.
 ## [0.68.0-Beta] - 2025-09-13
 ### Added
 # - Added Protocol 4.5 (Standardized Keyword Prompts) to mandate a
-#   [cite_start]consistent `Please <ACTION> by providing the prompt <PROMPT>.` format. [cite: 45]
+#   consistent `Please <ACTION> by providing the prompt <PROMPT>.` format.
 ### Changed
 # - Rewrote Protocol 2.5 (Implementation Plan) to be delivered as a
-#   [cite_start]standalone `.md` file, confirmed with a `Ready` keyword. [cite: 46]
+#   standalone `.md` file, confirmed with a `Ready` keyword.
 # - Updated Protocols 2.7, 4.4, 6.3, and 6.9 to be consistent with the
-#   [cite_start]new standardized prompt and plan delivery protocols. [cite: 47]
+#   new standardized prompt and plan delivery protocols.
 ## [0.67.0-Beta] - 2025-09-13
 ### Changed
 # - Clarified the Task Execution Workflow in Section 2 with a detailed
 #   preamble describing the mandatory, user-gated state machine sequence
-#   [cite_start](Approved -> Context Lock-In -> Confirmed -> Delivery). [cite: 48]
+#   (Approved -> Context Lock-In -> Confirmed -> Delivery).
 ## [0.66.0-Beta] - 2025-09-13
 ### Added
 # - Added Protocol 6.9 (Context Lock-In Protocol) as a proactive
 #   safeguard against context loss. It requires the AI to state its
 #   context and the user to confirm with `Confirmed` before any
-#   [cite_start]state-altering action can proceed. [cite: 49-50]
+#   state-altering action can proceed.
 ## [0.65.0-Beta] - 2025-09-13
 ### Changed
 # - Amended Protocol 2.5 (Implementation Plan) to mandate a more robust
 #   delivery format. The plan's sections must now use bolded headers
 #   instead of a markdown list, and the embedded `diff` verification
 #   must be enclosed in a `diff`-specified code block to prevent
-#   [cite_start]UI rendering errors. [cite: 51-52]
+#   UI rendering errors.
 ## [0.64.0-Beta] - 2025-09-12
 ### Added
 # - Added a mandatory "Surgical Change Verification (`diff`)" section
 #   to Protocol 2.5 (Implementation Plan) to make adherence to
-#   [cite_start]Principle 9 (Surgical Modification) verifiable. [cite: 53]
+#   Principle 9 (Surgical Modification) verifiable.
 ### Changed
 # - Rephrased the "Surgical Modification Adherence Confirmation" step
-#   [cite_start]in Protocol 2.5 to refer to the new `diff` section. [cite: 54]
+#   in Protocol 2.5 to refer to the new `diff` section.
 ## [0.63.0-Beta] - 2025-09-11
 ### Added
 # - Added a new step to Protocol 6.3 (Error Analysis Protocol) to
 #   require a proposal to amend the workflow if it is found to be
-#   [cite_start]the root cause of an error. [cite: 55]
+#   the root cause of an error.
 ## [0.62.0-Beta] - 2025-09-09
 ### Added
 # - Added a mandatory "Surgical Modification Adherence Confirmation"
-#   [cite_start]step to Protocol 2.5 to make the execution contract more explicit. [cite: 56]
+#   step to Protocol 2.5 to make the execution contract more explicit.
 # - Added a mandatory post-delivery verification statement to Protocol 4.4
-#   [cite_start]to enforce compliance with Principle 9. [cite: 57]
+#   to enforce compliance with Principle 9.
 ## [0.61.0-Beta] - 2025-09-09
 ### Added
 # - Added a mandatory self-verification step to Protocol 2.5 (Implementation Plan)
-#   [cite_start]and Protocol 6.3 (Error Analysis Protocol) to improve compliance. [cite: 57]
+#   and Protocol 6.3 (Error Analysis Protocol) to improve compliance.
 ## [0.60.3-Beta] - 2025-09-09
 ### Changed
 # - Modified Protocol 3.2.4 to require a unique `cla-bundle` specifier
-#   [cite_start]for markdown file delivery to improve robustness. [cite: 58]
+#   for markdown file delivery to improve robustness.
 ## [0.60.2-Beta] - 2025-09-09
 ### Added
 # - Added Protocol 3.2.6 (Post-Delivery Protocol Verification) to require
-#   [cite_start]a mandatory self-verification check after every file delivery. [cite: 59]
+#   a mandatory self-verification check after every file delivery.
 ## [0.60.1-Beta] - 2025-09-09
 ### Changed
 # - Strengthened Protocol 7.6 (Systemic Bug Eradication Protocol) to
-#   [cite_start]require the AI to explicitly state the search method used for an audit. [cite: 60]
+#   require the AI to explicitly state the search method used for an audit.
 ## [0.60.0-Beta] - 2025-09-08
 ### Added
 # - Added Principle 15 (Principle of Centralized Configuration) to mandate
-#   [cite_start]that configuration is read in one place and passed as parameters. [cite: 61]
+#   that configuration is read in one place and passed as parameters.
 # - Added Protocol 6.8 (External System Interference Protocol) to formalize
-#   [cite_start]the process for diagnosing errors caused by external tools like Git or OneDrive. [cite: 62]
+#   the process for diagnosing errors caused by external tools like Git or OneDrive.
 ## [0.59.1-Beta] - 2025-09-03
 ### Changed
 # - Corrected an internal documentation reference to point to the correct
-#   [cite_start]user guide filename. [cite: 63]
+#   user guide filename.
 ## [0.59.0-Beta] - 2025-09-03
 ### Added
 # - Added Protocol 7.6 (Systemic Bug Eradication Protocol) to formalize
-#   [cite_start]the process of auditing for and fixing systemic bugs. [cite: 64]
+#   the process of auditing for and fixing systemic bugs.
 # - Added a mandatory "Request Diagnostic Output" step to Protocol 6.3
-#   [cite_start](Error Analysis Protocol) to improve diagnostic efficiency. [cite: 65]
+#   (Error Analysis Protocol) to improve diagnostic efficiency.
 ### Changed
 # - Strengthened Principle 9 (Surgical Modification) to explicitly forbid
-#   [cite_start]unauthorized stylistic refactoring and define a process for proposing such changes. [cite: 66]
-# [cite_start]- Clarified Protocol 2.7 (Approval) to require the exact, literal string `Approved`. [cite: 67]
+#   unauthorized stylistic refactoring and define a process for proposing such changes.
+# - Clarified Protocol 2.7 (Approval) to require the exact, literal string `Approved`.
 # - Clarified Protocol 4.4 (Confirmed File Delivery Protocol) to require
-#   [cite_start]the exact, literal string `Acknowledged`. [cite: 68]
+#   the exact, literal string `Acknowledged`.
 ## [0.58.0-Beta] - 2025-09-02
 ### Changed
 # - Strengthened Principle 9 (Surgical Modification) to explicitly forbid
-#   [cite_start]unauthorized refactoring and define a process for proposing changes. [cite: 69]
-# [cite_start]- Clarified Protocol 2.7 (Approval) to require the exact, literal string `Approved`. [cite: 70]
+#   unauthorized refactoring and define a process for proposing changes.
+# - Clarified Protocol 2.7 (Approval) to require the exact, literal string `Approved`.
 # - Clarified Protocol 4.4 (Confirmed File Delivery Protocol) to require
-#   [cite_start]the exact, literal string `Acknowledged`. [cite: 71]
+#   the exact, literal string `Acknowledged`.
 ## [0.57.1-Beta] - 2025-09-01
 ### Changed
 # - Clarified Protocol 3.2.1 to explicitly state that "bundles" are
-#   [cite_start]only for user-to-AI state initializations. [cite: 72]
+#   only for user-to-AI state initializations.
 # - Updated Protocol 3.2.5 to define the precise, literal pattern
-#   [cite_start]for citation tags and to note that it does not include backticks. [cite: 73]
+#   for citation tags and to note that it does not include backticks.
 ## [0.57.0-Beta] - 2025-09-01
 ### Changed
 # - Renamed file from WorkingwithGemini.md to AIAgentWorkflow.md to
-#   [cite_start]clarify its purpose as the AI's technical specification. [cite: 74]
-# [cite_start]- Updated the introduction to reference the new WorkflowUserGuide.md. [cite: 75]
+#   clarify its purpose as the AI's technical specification.
+# - Updated the introduction to reference the new WorkflowUserGuide.md.
 ## [0.56.31-Beta] - 2025-09-01
 ### Added
 # - Added Protocol 7.6 (Systemic Bug Eradication Protocol) to formalize
-#   [cite_start]the process of auditing for and fixing systemic bugs. [cite: 76]
+#   the process of auditing for and fixing systemic bugs.
 # - Added a rule to Protocol 3.2 requiring the removal of all internal
-#   [cite_start]citation tags from delivered documents. [cite: 77]
+#   citation tags from delivered documents.
 ### Changed
 # - Rewrote Protocol 2.9.1 to align the documentation delivery workflow
 #   with the code delivery workflow, concluding the task after the user's
-#   [cite_start]"Acknowledged" response. [cite: 78]
-# [cite_start]- Removed all internal [cite] tags from the document content. [cite: 79]
+#   "Acknowledged" response.
+# - Removed all internal [cite] tags from the document content.
 ## [0.55.13-Beta] - 2025-08-31
 ### Changed
 # - Updated Protocol 2.9.1 to require a final user acknowledgment
-#   [cite_start]after a documentation file (.md) has been delivered. [cite: 80]
+#   after a documentation file (.md) has been delivered.
 ## [0.55.7-Beta] - 2025-08-30
 ### Added
 # - Added Principle 11 ("The Log is the Ground Truth") to clarify how to
-#   [cite_start]handle factually incorrect data within a log file. [cite: 81]
+#   handle factually incorrect data within a log file.
 # - Added Protocol 3.7 (Temporary Column Preservation Protocol) to prevent
-#   [cite_start]the accidental deletion of intermediate data columns during processing. [cite: 82]
+#   the accidental deletion of intermediate data columns during processing.
 # - Added Protocol 5.6 (Custom ADIF Exporter Protocol) to formalize the
-#   [cite_start]new, pluggable architecture for contest-specific ADIF generation. [cite: 83]
+#   new, pluggable architecture for contest-specific ADIF generation.
 ### Changed
-# [cite_start]- Renumbered subsequent principles in Part I. [cite: 84]
+# - Renumbered subsequent principles in Part I.
 ## [0.52.22-Beta] - 2025-08-27
 ### Changed
 # - Revised Protocol 5.4 to recommend `prettytable` for complex,
 #   multi-table reports and designate `tabulate` for simpler,
-#   [cite_start]single-table use cases. [cite: 84]
+#   single-table use cases.
 ## [0.52.21-Beta] - 2025-08-27
 ### Changed
 # - Strengthened Principle 9 (Surgical Modification) to explicitly
-#   [cite_start]forbid unauthorized stylistic refactoring. [cite: 85]
+#   forbid unauthorized stylistic refactoring.
 ### Added
 # - Added Protocol 7.5 (Tool Suitability Re-evaluation Protocol) to
-#   [cite_start]formalize the process of handling unsuitable third-party tools. [cite: 86]
+#   formalize the process of handling unsuitable third-party tools.
 ## [0.52.20-Beta] - 2025-08-26
 ### Added
 # - Added a mandatory "Affected Modules Checklist" to Protocol 2.5 to
-#   [cite_start]make Principle 7 (Assume Bugs are Systemic) more robust. [cite: 87]
+#   make Principle 7 (Assume Bugs are Systemic) more robust.
 ## [0.49.2-Beta] - 2025-08-25
 ### Added
 # - Added Protocol 7.4 (Prototype Script Development Protocol) to formalize
-#   [cite_start]the development workflow for prototype scripts. [cite: 88]
+#   the development workflow for prototype scripts.
 ### Changed
 # - Clarified Protocol 1.7 to define the special status of the
-#   [cite_start]`test_code/` directory. [cite: 89]
+#   `test_code/` directory.
 ## [0.49.1-Beta] - 2025-08-25
 ### Added
 # - Added Protocol 2.9.1 (Task Type Verification) to clarify when it is
 #   appropriate to propose a verification command, preventing errors when
-#   [cite_start]a task modifies a documentation file. [cite: 90]
+#   a task modifies a documentation file.
 ## [0.49.0-Beta] - 2025-08-25
 ### Added
 # - Added Protocol 2.8.1 (Post-Execution Refinement Protocol) to clarify
-#   [cite_start]the workflow for handling incomplete fixes. [cite: 91]
+#   the workflow for handling incomplete fixes.
 # - Added Protocol 5.5 (Component Modernization Protocol) to formalize
-#   [cite_start]the process of upgrading and deprecating legacy components. [cite: 92]
+#   the process of upgrading and deprecating legacy components.
 # - Added a mandatory "Request Diagnostic Output" step to Protocol 6.3
-#   [cite_start](Error Analysis Protocol) to improve diagnostic efficiency. [cite: 93]
+#   (Error Analysis Protocol) to improve diagnostic efficiency.
 ### Changed
-# [cite_start]- Renumbered subsequent protocols in the Task Execution Workflow. [cite: 94]
+# - Renumbered subsequent protocols in the Task Execution Workflow.
 ## [0.48.2-Beta] - 2025-08-25
 ### Added
 # - Added Protocol 5.4 to formalize the use of the `tabulate` library
-#   [cite_start]for generating all text-based tables. [cite: 95]
+#   for generating all text-based tables.
 ### Changed
 # - Clarified Protocol 3.2.4 to explain the reasoning behind the
-#   [cite_start]__CODE_BLOCK__ substitution for markdown file delivery. [cite: 96]
+#   __CODE_BLOCK__ substitution for markdown file delivery.
 ## [0.48.1-Beta] - 2025-08-24
 ### Changed
 # - Amended Protocol 2.1 (Task Initiation) to require a mandatory check
-#   [cite_start]for an established session version number before proceeding. [cite: 97]
+#   for an established session version number before proceeding.
 # - Clarified Protocol 3.4.3 (Update Procedure) to explicitly forbid
-#   [cite_start]unauthorized changes to major or minor version numbers. [cite: 98]
+#   unauthorized changes to major or minor version numbers.
 ## [0.48.0-Beta] - 2025-08-24
 ### Changed
 # - Merged the Pre-Flight Check (2.6) into the Implementation Plan
-#   [cite_start]protocol (2.5) to reflect the new, more detailed planning process. [cite: 99]
-# [cite_start]- Renumbered subsequent protocols in the Task Execution Workflow. [cite: 100]
+#   protocol (2.5) to reflect the new, more detailed planning process.
+# - Renumbered subsequent protocols in the Task Execution Workflow.
 ## [0.47.6-Beta] - 2025-08-23
 ### Added
 # - Added clarification to Protocol 1.5 that version numbers are only
-#   [cite_start]updated if a file's content is modified. [cite: 101]
+#   updated if a file's content is modified.
 ## [0.44.0-Beta] - 2025-08-23
 ### Changed
 # - Modified Protocol 3.2.4 to require substituting embedded code
-#   [cite_start]fences (```) with __CODE_BLOCK__ for markdown file delivery. [cite: 102]
+#   fences (```) with __CODE_BLOCK__ for markdown file delivery.
 ## [0.43.0-Beta] - 2025-08-23
 ### Added
 # - Added Protocol 6.6 (Self-Correction on Contradiction) to mandate a
 #   full stop and re-evaluation upon detection of logically impossible
-#   [cite_start]or contradictory analytical results. [cite: 103]
+#   or contradictory analytical results.
 # - Added Protocol 6.7 (Simplified Data Verification) to formalize the
-#   [cite_start]use of user-provided, simplified data files for debugging. [cite: 104]
+#   use of user-provided, simplified data files for debugging.
 ### Changed
 # - Amended Principle 5 (Technical Diligence) to explicitly require
-#   [cite_start]halting when a tool produces inconsistent results over multiple attempts. [cite: 105]
+#   halting when a tool produces inconsistent results over multiple attempts.
 # - Clarified Protocol 6.3 (Error Analysis Protocol) to emphasize that
 #   a failure to provide a correct analysis after a user's correction
-#   [cite_start]constitutes a new, more severe error. [cite: 106]
+#   constitutes a new, more severe error.
 ## [0.42.0-Beta] - 2025-08-20
 ### Added
 # - Added Protocol 2.3 (Visual Prototype Protocol) to formalize the use
-#   [cite_start]of prototype scripts for complex visual changes. [cite: 107]
+#   of prototype scripts for complex visual changes.
 ### Changed
 # - Renumbered subsequent protocols in the Task Execution Workflow and
-#   [cite_start]updated internal cross-references. [cite: 108]
+#   updated internal cross-references.
 ## [0.38.0-Beta] - 2025-08-19
 ### Added
 # - Added Protocol 2.3 (Baseline Consistency Check) to require plan
-#   [cite_start]validation against the definitive state before the plan is proposed. [cite: 109]
+#   validation against the definitive state before the plan is proposed.
 ### Changed
-# [cite_start]- Renumbered subsequent protocols in the Task Execution Workflow. [cite: 110]
-# [cite_start]- Updated internal cross-references to match the new numbering. [cite: 111]
+# - Renumbered subsequent protocols in the Task Execution Workflow.
+# - Updated internal cross-references to match the new numbering.
 ## [0.37.1-Beta] - 2025-08-18
 ### Changed
 # - Refined the Markdown File Delivery Protocol (3.2.4) to require
 #   enclosing the entire file content in a plaintext code block for
-#   [cite_start]easier copying. [cite: 112]
+#   easier copying.
 ## [0.37.0-Beta] - 2025-08-18
 ### Added
 # - Added Principle 13 to formalize the process of classifying data
-#   [cite_start]conflicts as either data errors or complex rule requirements. [cite: 113]
+#   conflicts as either data errors or complex rule requirements.
 # - Added Protocol 2.8 to the Task Execution Workflow, requiring the AI
-#   [cite_start]to propose a verification command after a task is complete. [cite: 114]
+#   to propose a verification command after a task is complete.
 ## [0.36.12-Beta] - 2025-08-17
 ### Changed
 # - Integrated clarifications from user feedback into Protocol 1.2,
-#   [cite_start]Principle 9, and Protocol 3.4.3 to make the document self-contained. [cite: 115]
+#   Principle 9, and Protocol 3.4.3 to make the document self-contained.
 ### Added
 # - Added Protocol 6.5 (Bundle Integrity Check Protocol) to define a
-#   [cite_start]procedure for handling logical anomalies within initialization bundles. [cite: 116]
+#   procedure for handling logical anomalies within initialization bundles.
 ## [0.36.11-Beta] - 2025-08-16
 ### Added
 # - Added Protocol 1.7 (Project Structure Onboarding) to provide bootstrap
-#   [cite_start]architectural context after an initialization. [cite: 117]
+#   architectural context after an initialization.
 # - Added Protocol 6.4 (Corrupted User Input Protocol) to define a
-#   [cite_start]formal procedure for handling malformed user files. [cite: 118]
+#   formal procedure for handling malformed user files.
 ## [0.36.10-Beta] - 2025-08-16
 ### Added
 # - Added the new, top-priority Principle 1 for Context Integrity, which
-#   [cite_start]mandates a full state reset upon detection of context loss. [cite: 119]
+#   mandates a full state reset upon detection of context loss.
 ### Changed
-# [cite_start]- Renumbered all subsequent principles accordingly. [cite: 120]
+# - Renumbered all subsequent principles accordingly.
 ## [0.36.9-Beta] - 2025-08-15
 ### Added
 # - Added rule 3.2.4 to mandate the substitution of markdown code fences
-#   [cite_start]with __CODE_BLOCK__ for proper web interface rendering. [cite: 120]
+#   with __CODE_BLOCK__ for proper web interface rendering.
 ## [0.36.4-Beta] - 2025-08-15
 ### Changed
 # - Clarified Principle 8 (Surgical Modification) to explicitly require
-#   [cite_start]the preservation of revision histories. [cite: 121]
+#   the preservation of revision histories.
 ### Added
 # - Added Protocol 1.6 (Session Versioning Protocol) to establish the
-#   [cite_start]current version series at the start of a task. [cite: 122]
+#   current version series at the start of a task.
 ## [0.36.3-Beta] - 2025-08-15
 ### Changed
-# [cite_start]- Merged missing protocols from v0.36.0-Beta to create a complete document. [cite: 123]
-# [cite_start]- Synthesized a new, authoritative Versioning Protocol based on user clarification. [cite: 124]
-# [cite_start]- Reorganized the document to separate workflow protocols from software design patterns. [cite: 125]
+# - Merged missing protocols from v0.36.0-Beta to create a complete document.
+# - Synthesized a new, authoritative Versioning Protocol based on user clarification.
+# - Reorganized the document to separate workflow protocols from software design patterns.
 ## [0.36.2-Beta] - 2025-08-15
 ### Changed
 # - Overhauled the Task Execution and File Delivery protocols to formalize
-#   [cite_start]the new, more robust, state-machine workflow with per-file acknowledgments. [cite: 126]
+#   the new, more robust, state-machine workflow with per-file acknowledgments.
 ## [0.36.1-Beta] - 2025-08-15
 ### Changed
 # - Amended Protocol 2.2 to require the file's baseline version
-#   [cite_start]number in all implementation plans. [cite: 127]
+#   number in all implementation plans.
 ## [0.36.0-Beta] - 2025-08-15
 ### Changed
 # - Replaced the "Atomic State Checkpoint Protocol" (1.2) with the new
 #   "Definitive State Reconciliation Protocol" which uses the last
-#   [cite_start]Definitive State Initialization as its baseline. [cite: 128]
+#   Definitive State Initialization as its baseline.
 # - Amended Protocol 1.5 to add an explicit step for handling
-#   [cite_start]documents that require no changes. [cite: 129]
+#   documents that require no changes.
 ---
 
 This document is the definitive technical specification for the AI agent's behavior and the standard operating procedures for the collaborative development of the Contest Log Analyzer.
@@ -342,6 +351,7 @@ These are the foundational rules that govern all interactions and analyses.
 7.  **Assume Bugs are Systemic.** When a bug is identified in one module, the default assumption is that the same flaw exists in all other similar modules. The AI must perform a global search for that specific bug pattern and fix all instances at once.
 8.  **Reports Must Be Non-Destructive.** Specialist report scripts must **never** modify the original `ContestLog` objects they receive. All data filtering or manipulation must be done on a temporary **copy** of the DataFrame.
 9.  **Principle of Surgical Modification.** All file modifications must be treated as surgical operations. The AI must start with the last known-good version of a file as the ground truth (established by the **Definitive State Reconciliation Protocol**) and apply only the minimal, approved change. Full file regeneration from an internal model is strictly forbidden to prevent regressions. **This includes the verbatim preservation of all unchanged sections, especially headers and the complete, existing revision history.** This principle explicitly forbids stylistic refactoring (e.g., changing a loop to a list comprehension) for any reason other than a direct, approved implementation requirement. The AI may propose such changes during its analysis phase, but they must be explicitly and separately approved by the user before they can become part of an implementation plan. Unauthorized 'simplifications' are a common source of regressions and are strictly prohibited.
+    **Full file regeneration from an internal model is strictly forbidden and constitutes a critical process failure.** Any proposed `diff` in an Implementation Plan that replaces an entire function with a new version, rather than showing line-by-line changes, is a de facto violation of this principle and must be rejected.
 10. **Primacy of Official Rules.** The AI will place the highest emphasis on analyzing the specific data, context, and official rules provided, using them as the single source of truth.
 11. **The Log is the Ground Truth.** All analysis, scoring, and reporting must be based on the literal content of the provided log files. The analyzer's function is not to correct potentially erroneous data (e.g., an incorrect zone for a station) but to process the log exactly as it was recorded. Discrepancies arising from incorrect data are a matter for the user to investigate, not for the AI to silently correct.
 12. **Citation of Official Rules.** When researching contest rules, the AI will prioritize finding and citing the **official rules from the sponsoring organization**.
@@ -431,6 +441,7 @@ This workflow is a formal state machine that governs all development tasks, from
         **1.  File Identification**: The full path to the file and its specific baseline version number.
         **2.  Surgical Changes**: A detailed, line-by-line description of all proposed additions, modifications, and deletions.
         **3.  Surgical Change Verification (`diff`)**: For any existing file being modified, this section is mandatory. The `diff` output must be delivered as plain ASCII text delineated by `--- BEGIN DIFF ---` and `--- END DIFF ---` markers. This section is not applicable for new files.
+        **3.a. Ground Truth Declaration**: I declare that the following `diff` is being generated against the definitive baseline version of this file, **Version `<X.Y.Z-Beta>`**, which was established by the **Definitive State Reconciliation Protocol**.
         **4.  Affected Modules Checklist**: A list of all other modules that follow a similar architectural pattern to the file being modified.
         **5.  Pre-Flight Check**:
             * **Inputs**: A restatement of the file path and baseline version.
@@ -553,6 +564,7 @@ These protocols are for troubleshooting, error handling, and non-standard situat
     2.  **Request Diagnostic Output:** If the user has not already provided it, the AI's immediate next step is to request the new output that demonstrates the failure (e.g., the incorrect text report or a screenshot). This output becomes the new ground truth for the re-analysis.
     3.  **Identify the Root Cause:** Explain the specific flaw in the internal process or logic that led to the error.
     4.  **Cross-Reference Core Principles:** The AI must explicitly state if a violation of Principle 3 (Trust the User's Diagnostics) was a contributing factor to the error. This includes identifying which specific principles or protocols were violated.
+    4.a. **Surgical Modification Failure Analysis**: If the root cause involved a violation of Principle 9, I must provide a specific analysis of *why* I failed to generate a surgical `diff` and instead regenerated code.
     5.  **Propose a Corrective Action:** Describe the specific, procedural change that will be implemented to prevent the error from recurring. If this change involves a new implementation plan, the AI must state this and then initiate the file-based delivery process defined in **Protocol 2.6**.
     6.  **Post-Analysis Verification.** The AI must explicitly confirm that the analysis it has provided contains all the steps mandated by this protocol.
     7.  **Propose Workflow Amendment**: If the root cause analysis identifies a flaw or a gap in the `AIAgentWorkflow.md` protocols themselves, I must immediately propose a separate implementation plan to amend the workflow document to prevent that class of error from recurring.

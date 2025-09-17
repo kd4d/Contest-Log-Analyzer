@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-16
-# Version: 0.88.7-Beta
+# Date: 2025-09-17
+# Version: 0.88.8-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.88.8-Beta] - 2025-09-17
+### Fixed
+# - Corrected resolver to write to intermediate columns (`STPROV_Mult`, etc.)
+#   instead of final columns (`Mult1`, etc.) to restore the required
+#   two-stage multiplier processing pipeline.
 ## [0.88.7-Beta] - 2025-09-16
 ### Changed
 # - Refactored module to be compliant with the new, data-driven resolver
@@ -66,10 +71,10 @@ def resolve_multipliers(df: pd.DataFrame, my_location_type: Optional[str], root_
         if not stprov_rule or not dxcc_rule:
             raise ValueError("Could not find STPROV or DXCC rules in definition.")
             
-        stprov_col = stprov_rule['value_column']
-        stprov_name_col = stprov_rule['name_column']
-        dxcc_col = dxcc_rule['value_column']
-        dxcc_name_col = dxcc_rule['name_column']
+        stprov_col = stprov_rule['source_column']
+        stprov_name_col = stprov_rule['source_name_column']
+        dxcc_col = dxcc_rule['source_column']
+        dxcc_name_col = dxcc_rule['source_name_column']
     except (AttributeError, KeyError, IndexError, ValueError) as e:
         logging.error(f"Could not extract CQ-160 column names from ContestDefinition: {e}. Aborting resolver.")
         return df

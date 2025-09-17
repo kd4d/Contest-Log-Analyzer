@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-16
-# Version: 0.88.7-Beta
+# Date: 2025-09-17
+# Version: 0.88.8-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.88.8-Beta] - 2025-09-17
+### Fixed
+# - Removed the conditional bypass from the generic multiplier processor
+#   to restore the required two-stage logic for contests like CQ-160.
 ## [0.88.7-Beta] - 2025-09-16
 ### Fixed
 # - Updated the conditional logic for custom resolvers to include the
@@ -562,12 +566,8 @@ class ContestLog:
 
         multiplier_rules = self.contest_definition.multiplier_rules
         
-        # --- Phased Rollout of Multiplier Architecture ---
-        # If a custom resolver was run for a migrated contest, skip the generic rules.
-        bypassed_contests = ['WAE', 'IARU-HF']
-        should_bypass = resolver_name and any(self.contest_name.startswith(c) for c in bypassed_contests)
-        
-        if multiplier_rules and not should_bypass:
+        # The generic rules processor is required for the second stage of some multipliers (e.g. CQ-160).
+        if multiplier_rules:
              logging.info("Calculating contest multipliers...")
              for rule in multiplier_rules:
                  applies_to = rule.get('applies_to')
