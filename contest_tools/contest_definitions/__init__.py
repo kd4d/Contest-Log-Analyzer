@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-31
-# Version: 0.56.26-Beta
+# Date: 2025-09-15
+# Version: 0.88.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,26 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0.
 # --- Revision History ---
+## [0.88.0-Beta] - 2025-09-15
+### Added
+# - Added the `custom_location_resolver` property to support the new,
+#   pluggable location resolver architecture.
+## [0.85.3-Beta] - 2025-09-13
+### Added
+# - Added `time_series_calculator` and `points_header_label` properties
+#   to support the new pluggable score calculator architecture.
+## [0.56.29-Beta] - 2025-09-12
+### Added
+# - Added the `points_header_label` property to expose the data-driven
+#   label for score/points columns in reports.
+## [0.56.28-Beta] - 2025-09-12
+### Added
+# - Added the `time_series_calculator` property to support the new,
+#   pluggable score calculator architecture.
+## [0.56.27-Beta] - 2025-09-12
+### Fixed
+# - Corrected filename generation to replace spaces with underscores,
+#   fixing a bug where contest names like "WAE CW" could not be found.
 ## [0.56.26-Beta] - 2025-08-31
 ### Fixed
 # - Added the missing `custom_adif_exporter` property to the class,
@@ -83,8 +103,8 @@ class ContestDefinition:
         with open(common_file_path, 'r', encoding='utf-8') as f:
             merged_data = json.load(f)
 
-        base_contest_name = contest_name.rsplit('-', 1)[0].lower().replace('-', '_')
-        specific_contest_name = contest_name.lower().replace('-', '_')
+        base_contest_name = contest_name.rsplit('-', 1)[0].lower().replace('-', '_').replace(' ', '_')
+        specific_contest_name = contest_name.lower().replace('-', '_').replace(' ', '_')
         
         generic_file_path = os.path.join(current_dir, f"{base_contest_name}.json")
         specific_file_path = os.path.join(current_dir, f"{specific_contest_name}.json")
@@ -165,6 +185,18 @@ class ContestDefinition:
     @property
     def custom_adif_exporter(self) -> Optional[str]:
         return self._data.get('custom_adif_exporter')
+
+    @property
+    def time_series_calculator(self) -> Optional[str]:
+        return self._data.get('time_series_calculator')
+        
+    @property
+    def custom_location_resolver(self) -> Optional[str]:
+        return self._data.get('custom_location_resolver')
+
+    @property
+    def points_header_label(self) -> Optional[str]:
+        return self._data.get('points_header_label')
 
     @property
     def contest_period(self) -> Optional[Dict[str, str]]:

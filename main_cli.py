@@ -174,6 +174,7 @@ def main():
         generator = ReportGenerator(logs=log_manager.get_logs(), root_output_dir=root_reports_dir)
         generator.run_reports(args.report_id, **report_kwargs)
     except ValueError as e:
+        logging.exception(e)
         handle_error(
             "INITIALIZATION ERROR",
             str(e),

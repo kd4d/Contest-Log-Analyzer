@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-03
-# Version: 0.57.7-Beta
+# Date: 2025-09-13
+# Version: 0.87.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.87.2-Beta] - 2025-09-13
+### Fixed
+# - Removed a redundant tz_localize call, which caused a TypeError now
+#   that timezone awareness is handled upstream by the score calculators.
 ## [0.57.7-Beta] - 2025-09-03
 ### Changed
 # - Updated the chart title to the standard two-line format to conform
@@ -130,7 +134,7 @@ class Report(ContestReport):
                     created_files.append(filepath)
             except Exception as e:
                 print(f"  - Failed to generate QSO rate plot for {band}: {e}")
-
+        
         return created_files
 
     def _create_plot(self, dfs: List[pd.DataFrame], output_path: str, band_filter: str, mode_filter: str, **kwargs) -> str:
@@ -158,7 +162,6 @@ class Report(ContestReport):
                 continue
             
             df_cleaned = df.dropna(subset=['Datetime', value_column]).set_index('Datetime')
-            df_cleaned.index = df_cleaned.index.tz_localize('UTC')
             
             hourly_rate = df_cleaned.resample('h')[value_column].agg(agg_func)
             cumulative_rate = hourly_rate.cumsum()

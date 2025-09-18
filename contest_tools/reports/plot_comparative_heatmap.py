@@ -1,7 +1,7 @@
 # Contest Log Analyzer/contest_tools/reports/plot_comparative_heatmap.py
 #
-# Version: 0.57.3-Beta
-# Date: 2025-09-03
+# Version: 0.86.0-Beta
+# Date: 2025-09-13
 #
 # Purpose: A plot report that generates a comparative, split-cell heatmap to
 #          visualize the band activity of two logs side-by-side.
@@ -16,6 +16,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+## [0.86.0-Beta] - 2025-09-13
+### Fixed
+# - Removed redundant tz_localize calls, which caused a TypeError now
+#   that timezone awareness is handled upstream by the score calculators.
 ## [0.57.3-Beta] - 2025-09-03
 ### Changed
 # - Updated instantiation of the ComparativeHeatmapChart helper to pass
@@ -147,9 +151,6 @@ class Report(ContestReport):
             df2 = get_valid_dataframe(log2, include_dupes=False)
             
             if df1.empty and df2.empty: continue
-
-            df1['Datetime'] = df1['Datetime'].dt.tz_localize('UTC')
-            df2['Datetime'] = df2['Datetime'].dt.tz_localize('UTC')
             
             all_datetimes = pd.concat([df1['Datetime'], df2['Datetime']])
             min_time = all_datetimes.min().floor('h')

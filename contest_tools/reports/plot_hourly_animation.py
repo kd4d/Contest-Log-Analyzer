@@ -1,11 +1,11 @@
 # Contest Log Analyzer/contest_tools/reports/plot_hourly_animation.py
 #
-# Version: 0.58.0-Beta
-# Date: 2025-09-03
+# Version: 0.86.1-Beta
+# Date: 2025-09-13
 #
 # Purpose: A plot report that generates a series of hourly images and compiles
-#          them into an animated video showing contest progression. #          It also
-#          creates a standalone interactive HTML version of the chart. #
+#          them into an animated video showing contest progression.
+#          It also creates a standalone interactive HTML version of the chart.
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
 # License: Mozilla Public License, v. 2.0
@@ -13,7 +13,25 @@
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
-# file, You can obtain one at http://mozilla.org/MPL/2.0/. # --- Revision History ---
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+# --- Revision History ---
+## [0.86.1-Beta] - 2025-09-13
+### Fixed
+# - Removed a redundant tz_localize call, which caused a TypeError now
+#   that timezone awareness is handled upstream by the score calculators.
+## [0.85.11-Beta] - 2025-09-13
+### Fixed
+# - Resolved a TypeError by explicitly localizing the timezone-naive
+#   index of an intermediate DataFrame to UTC before reindexing.
+## [0.85.10-Beta] - 2025-09-13
+### Changed
+# - Refactored the _prepare_data method to source its cumulative score
+#   and QSO data from the new, centralized time_series_score_df, removing
+#   all internal calculation logic to align with the new architecture.
+## [0.80.3-Beta] - 2025-09-12
+### Fixed
+# - Corrected the band sorting logic to use a robust, two-step pattern
+#   to prevent a ValueError during report generation.
 ## [0.58.0-Beta] - 2025-09-03
 ### Changed
 # - Updated the chart title to the standard three-line format to conform
@@ -110,7 +128,7 @@ def _get_color_shades(base_rgb):
     return {
         'Run': colorsys.hls_to_rgb(h, max(0, l * 0.65), s),      # Darker
         'S&P': colorsys.hls_to_rgb(h, min(1, l * 1.2 + 0.1), s), # Lighter
-        'Unknown': '#FF0000',                                  # Bright Red
+        'Unknown': '#FF0000',                                   # Bright Red
     }
 
 class Report(ContestReport):
@@ -145,54 +163,19 @@ class Report(ContestReport):
 
         if combined_df.empty: return None
 
-        combined_df['Datetime'] = pd.to_datetime(combined_df['Datetime']).dt.tz_localize('UTC')
-
-        first_log_def = self.logs[0].contest_definition
-        score_formula = first_log_def.score_formula
-
-        min_time = combined_df['Datetime'].min().floor('h')
-        max_time = combined_df['Datetime'].max().floor('h')
-        master_index = pd.date_range(start=min_time, end=max_time, freq='h', tz='UTC')
+        log_manager = getattr(self.logs[0], '_log_manager_ref', None)
+        master_index = getattr(log_manager, 'master_time_index', None)
+        if master_index is None: return None
         
         log_data = {}
-        final_scores = {}
         
         hourly_rates_df = combined_df.groupby([combined_df['Datetime'].dt.floor('h'), 'Band', 'MyCall']).size().reset_index(name='QSOs')
         max_hourly_rate = hourly_rates_df['QSOs'].max() if not hourly_rates_df.empty else 1
 
-        for call, log_df in combined_df.groupby('MyCall'):
-            cum_qso = log_df.set_index('Datetime')['Call'].resample('h').count().cumsum().reindex(master_index, method='ffill').fillna(0)
-            
-            # --- Cumulative Multiplier Calculation ---
-            cum_mults_df = pd.DataFrame(index=master_index)
-            
-            for rule in first_log_def.multiplier_rules:
-                m_col = rule['value_column']
-                totaling_method = rule.get('totaling_method', 'sum_by_band')
-
-                if m_col in log_df.columns:
-                    df_valid_mults = log_df[log_df[m_col].notna() & (log_df[m_col] != 'Unknown')]
-                    if df_valid_mults.empty: continue
-
-                    if totaling_method == 'once_per_log':
-                        first_occurrence = df_valid_mults.drop_duplicates(subset=[m_col], keep='first')
-                    else: # Default: 'per_band', 'sum_by_band', 'per_mode'
-                        first_occurrence = df_valid_mults.drop_duplicates(subset=['Band', m_col], keep='first')
-                    
-                    if not first_occurrence.empty:
-                        hourly_new_mults = first_occurrence.set_index('Datetime')[m_col].resample('h').count()
-                        cum_mults_col = hourly_new_mults.cumsum().reindex(master_index, method='ffill').fillna(0)
-                        cum_mults_df[m_col] = cum_mults_col
-            
-            cum_mults = cum_mults_df.sum(axis=1)
-
-            if score_formula == 'qsos_times_mults':
-                cum_score = cum_qso * cum_mults
-            else:
-                cum_points = log_df.set_index('Datetime')['QSOPoints'].resample('h').sum().cumsum().reindex(master_index, method='ffill').fillna(0)
-                cum_score = cum_points * cum_mults
-            
-            final_scores[call] = cum_score.iloc[-1]
+        for i, log in enumerate(self.logs):
+            call = log.get_metadata().get('MyCall', f'Log{i+1}')
+            log_df = all_dfs[i]
+            score_ts = log.time_series_score_df
             
             hourly_run_sp = log_df.groupby([log_df['Datetime'].dt.floor('h'), 'Band', 'Mode', 'Run']).size().unstack(fill_value=0)
             for state in ['Run', 'S&P', 'Unknown']:
@@ -200,10 +183,16 @@ class Report(ContestReport):
                     hourly_run_sp[state] = 0
             
             cum_qso_per_band_breakdown = log_df.groupby([log_df['Datetime'].dt.floor('h'), 'Band', 'Run']).size().unstack(level=['Band', 'Run'], fill_value=0).cumsum()
+            
+            # Ensure the index is timezone-aware to match the master_index
+            if cum_qso_per_band_breakdown.index.tz is None:
+                cum_qso_per_band_breakdown.index = cum_qso_per_band_breakdown.index.tz_localize('UTC')
+
             cum_qso_per_band_breakdown = cum_qso_per_band_breakdown.reindex(master_index, method='ffill').fillna(0)
 
             log_data[call] = {
-                'cum_qso': cum_qso, 'cum_score': cum_score,
+                'cum_qso': score_ts['run_qso_count'] + score_ts['sp_unk_qso_count'], 
+                'cum_score': score_ts['score'],
                 'hourly_run_sp': hourly_run_sp, 'cum_qso_per_band_breakdown': cum_qso_per_band_breakdown
             }
         
@@ -212,7 +201,8 @@ class Report(ContestReport):
         if all_cum_per_band_dfs:
             final_band_totals = pd.concat([df.iloc[[-1]] for df in all_cum_per_band_dfs])
             if not final_band_totals.empty:
-                bands = sorted(combined_df['Band'].unique(), key=lambda b: [band[1] for band in ContestLog._HAM_BANDS].index(b))
+                canonical_band_order = [band[1] for band in ContestLog._HAM_BANDS]
+                bands = sorted(combined_df['Band'].unique(), key=lambda b: canonical_band_order.index(b) if b in canonical_band_order else -1)
                 max_val = 0
                 for band in bands:
                     band_cols = [col for col in final_band_totals.columns if col[0] == band]
@@ -222,7 +212,7 @@ class Report(ContestReport):
 
         if max_cum_qso_on_band == 0: max_cum_qso_on_band = 1
         max_final_qso = max((ld['cum_qso'].iloc[-1] for ld in log_data.values()), default=1)
-        max_final_score = max(final_scores.values(), default=1)
+        max_final_score = max((ld['cum_score'].iloc[-1] for ld in log_data.values()), default=1)
         
         if max_final_qso == 0: max_final_qso = 1
         if max_final_score == 0: max_final_score = 1
@@ -249,7 +239,7 @@ class Report(ContestReport):
             calls = list(data['log_data'].keys())
             num_logs = len(calls)
             callsign_str = ", ".join(calls)
-    
+            
             for i, hour in enumerate(data['master_index']):
                 # --- Save Debug Data for this frame ---
                 frame_debug_data = {
@@ -257,6 +247,7 @@ class Report(ContestReport):
                     'hour_index': i + 1,
                     'logs': {}
                 }
+                
                 for call in calls:
                     # Data for Top Chart (Cumulative Totals)
                     top_chart_data = {
@@ -303,7 +294,7 @@ class Report(ContestReport):
                 ax_top_legend = fig_mpl.add_subplot(gs_main[0])
                 ax_bottom_legend = fig_mpl.add_subplot(gs_main[2])
                 ax_top_legend.axis('off'); ax_bottom_legend.axis('off')
-                
+            
                 top_chart_ratio = 0.12 * num_logs
                 top_chart_ratio = max(0.15, min(top_chart_ratio, 0.45))
                 
@@ -365,6 +356,7 @@ class Report(ContestReport):
                     color_shades = _get_color_shades(self.CALLSIGN_COLORS[j % len(self.CALLSIGN_COLORS)])
                     bottoms = [0] * len(data['bands'])
                     current_band_totals = data['log_data'][call]['cum_qso_per_band_breakdown'].loc[hour]
+                    
                     for run_state in ['Run', 'S&P', 'Unknown']:
                         y_values = [current_band_totals.get((band, run_state), 0) for band in data['bands']]
                         ax_bottom_right.bar([x - (bar_width_cum * (num_logs - 1) / 2) + j * bar_width_cum for x in band_indices], y_values, width=bar_width_cum, bottom=bottoms, color=color_shades[run_state], alpha=0.8)

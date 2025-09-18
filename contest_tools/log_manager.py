@@ -7,8 +7,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-09
-# Version: 0.70.1-Beta
+# Date: 2025-09-14
+# Version: 0.87.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,6 +19,30 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.87.2-Beta] - 2025-09-14
+### Fixed
+# - Fixed a regression in `_create_master_time_index` by using a
+#   periods-based calculation, resolving the 'extra hour' bug in all
+#   time-series reports.
+## [0.87.1-Beta] - 2025-09-14
+### Fixed
+# - Fixed a bug in `_create_master_time_index` that created an extra hour
+#   in the timeline by subtracting one second from the max time before
+#   applying the ceiling function.
+## [0.87.0-Beta] - 2025-09-13
+### Fixed
+# - Fixed a regression by adding a call to the `_pre_calculate_time_series_score`
+#   method for each log, ensuring score data is available for reports.
+## [0.85.6-Beta] - 2025-09-13
+### Fixed
+# - Corrected an order-of-operations bug by setting the _log_manager_ref
+#   on the ContestLog object *before* calling apply_annotations. This
+#   ensures score calculators can access the master time index.
+## [0.70.2-Beta] - 2025-09-12
+### Fixed
+# - Corrected an order-of-operations bug by setting the _log_manager_ref
+#   on the ContestLog object *before* calling apply_annotations. This
+#   ensures score calculators can access the master time index.
 ## [0.70.1-Beta] - 2025-09-09
 ### Changed
 # - Refactored methods to accept path variables as parameters instead of
@@ -78,9 +102,11 @@ class LogManager:
                 return
 
             log = ContestLog(contest_name=contest_name, cabrillo_filepath=cabrillo_filepath, root_input_dir=root_input_dir)
-            log.apply_annotations()
             
+            # Set the back-reference BEFORE running annotations that might need it.
             setattr(log, '_log_manager_ref', self)
+            
+            log.apply_annotations()
             
             self.logs.append(log)
             
@@ -126,6 +152,13 @@ class LogManager:
                 raise ValueError(error_summary)
 
         self._create_master_time_index()
+
+        # --- Pre-calculate Time-Series Scores ---
+        # This must be done after the master time index is created but before
+        # any reports are generated.
+        logging.info("Pre-calculating time-series scores for all logs...")
+        for log in self.logs:
+            log._pre_calculate_time_series_score()
 
         if not self.logs:
             return
@@ -210,8 +243,11 @@ class LogManager:
             return
 
         min_time = all_datetimes.min().floor('h')
-        max_time = all_datetimes.max().ceil('h')
-        self.master_time_index = pd.date_range(start=min_time, end=max_time, freq='h', tz='UTC')
+        max_time = all_datetimes.max().floor('h')
+        
+        # Calculate the number of hourly periods from the actual min/max times
+        periods = int((max_time - min_time).total_seconds() / 3600) + 1
+        self.master_time_index = pd.date_range(start=min_time, periods=periods, freq='h', tz='UTC')
         logging.info("Master time index created.")
 
 

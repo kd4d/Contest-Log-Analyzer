@@ -11,3 +11,5 @@ python main_cli.py --report all 2025\arrl-fd\w1op.log 2025\arrl-fd\W3AO-CWSSB.lo
 python main_cli.py --report all 2024\arrl-dx-cw\8p5a.log 2024\arrl-dx-cw\p44w.log  --debug-data
 python main_cli.py --report all 2025\arrl-dx-ssb\8p5a.log 2025\arrl-dx-ssb\ZF1A.log  --debug-data
 python main_cli.py --report all 2024\IARU-HF\NN3W.log 2024\IARU-HF\N9NB.log --debug-data
+python main_cli.py --report all 2024\wae-cw\9a5y.log --debug-data
+python main_cli.py --report all 2024\wae-cw\aa3b.log 2024\wae-cw\nn3w.log  --debug-data

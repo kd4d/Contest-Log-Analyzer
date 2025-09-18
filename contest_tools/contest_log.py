@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-09
-# Version: 0.70.2-Beta
+# Date: 2025-09-18
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,127 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.90.0-Beta] - 2025-09-18
+### Changed
+# - Removed temporary conditional logic for multiplier resolvers. All custom
+#   resolvers are now invoked with a single, unconditional four-argument call.
+## [0.89.4-Beta] - 2025-09-18
+### Changed
+# - Added the ARRL DX resolver to the list of migrated modules, completing
+#   the planned incremental refactoring for this phase.
+## [0.89.3-Beta] - 2025-09-17
+### Changed
+# - Added the ARRL 10-Meter resolver to the list of migrated modules to
+#   ensure it receives the new four-argument function call.
+## [0.89.2-Beta] - 2025-09-17
+### Changed
+# - Added the ARRL FD resolver to the list of migrated modules to ensure it
+#   receives the new four-argument function call.
+## [0.89.1-Beta] - 2025-09-17
+### Changed
+# - Added the ARRL SS resolver to the list of migrated modules to ensure it
+#   receives the new four-argument function call.
+## [0.89.0-Beta] - 2025-09-17
+### Changed
+# - Added the NAQP resolver to the list of migrated modules to ensure it
+#   receives the new four-argument function call.
+## [0.88.8-Beta] - 2025-09-17
+### Fixed
+# - Removed the conditional bypass from the generic multiplier processor
+#   to restore the required two-stage logic for contests like CQ-160.
+## [0.88.7-Beta] - 2025-09-16
+### Fixed
+# - Updated the conditional logic for custom resolvers to include the
+#   CQ 160-Meter resolver, continuing the phased migration.
+## [0.88.6-Beta] - 2025-09-16
+### Fixed
+# - Updated the conditional logic for custom resolvers to include the CQ WPX
+#   resolver, fixing a TypeError regression in WPX scoring.
+## [0.88.4-Beta] - 2025-09-16
+### Fixed
+# - Corrected the conditional logic for the custom multiplier resolver call
+#   to include the WAE resolver, fixing a TypeError regression.
+## [0.88.2-Beta] - 2025-09-16
+### Changed
+# - Modified the custom multiplier resolver call to be conditional,
+#   passing the ContestDefinition object only to migrated resolvers. This
+#   enables a safe, phased rollout of the new architecture.
+## [0.87.6-Beta] - 2025-09-16
+### Changed
+# - Expanded the hard-coded bypass logic to include 'IARU-HF', continuing
+#   the phased rollout of the new multiplier resolver architecture.
+## [0.87.0-Beta] - 2025-09-16
+### Changed
+# - Added a hard-coded conditional to the generic multiplier processor to
+#   bypass it for the WAE contest. This is the first phase of the
+#   multiplier resolver architectural refactoring.
+## [0.88.1-Beta] - 2025-09-15
+### Changed
+# - Refactored the constructor to use a data-driven, pluggable system for
+#   determining the logger's location type (e.g., W/VE vs DX, EU vs DX).
+# - Renamed the generic `_determine_own_location_type` method to `_determine_own_location_type_legacy` to serve as a fallback.
+## [0.86.8-Beta] - 2025-09-14
+### Fixed
+# - Corrected the root cause of the systemic timezone bug by localizing
+#   the Datetime column to UTC immediately after its creation.
+## [0.86.4-Beta] - 2025-09-13
+### Changed
+# - Modified _pre_calculate_time_series_score to pre-filter for dupes
+#   before passing the clean DataFrame to the calculator.
+## [0.85.14-Beta] - 2025-09-13
+### Fixed
+# - Removed a redundant, self-referential import statement that caused
+#   a circular import error.
+## [0.85.12-Beta] - 2025-09-13
+### Changed
+# - Decoupled the time-series score calculation by removing the call
+#   to _pre_calculate_time_series_score() from this module. The
+#   LogManager is now responsible for triggering this step.
+## [0.85.8-Beta] - 2025-09-13
+### Fixed
+# - Pre-cast multiplier columns to 'object' dtype to prevent a pandas
+#   FutureWarning when inserting string-based multiplier values.
+## [0.85.7-Beta] - 2025-09-13
+### Added
+# - Added `qtcs_df` and `time_series_score_df` attributes to the class.
+# - Added the `_pre_calculate_time_series_score` method to orchestrate
+#   the new, pluggable score calculator architecture.
+### Changed
+# - Modified `_ingest_cabrillo_data` to handle custom parsers that can
+#   return a separate DataFrame for QTCs.
+# - The `apply_annotations` method now calls the new score calculator at
+#   the end of its processing pipeline.
+# - Modified the score calculator's exception handling to re-raise
+#   exceptions, forcing a program halt to get a definitive traceback.
+## [0.80.10-Beta] - 2025-09-12
+### Changed
+# - Modified the score calculator's exception handling to re-raise
+#   exceptions, forcing a program halt to get a definitive traceback.
+### Fixed
+# - Reverted an incorrect, unauthorized change to the _HAM_BANDS data
+#   structure, fixing a systemic ValueError in multiple reports.
+## [0.70.6-Beta] - 2025-09-12
+### Fixed
+# - Corrected the fallback logic for scoring module lookup to robustly
+#   handle contest names with spaces (e.g., "WAE CW").
+## [0.70.5-Beta] - 2025-09-12
+### Fixed
+# - Corrected the scoring module lookup to handle contest names with spaces.
+## [0.70.4-Beta] - 2025-09-12
+### Fixed
+# - Corrected the scoring module lookup to handle contest names with spaces.
+# - Simplified the score calculator class name generation to a robust
+#   snake_case to CamelCase convention.
+## [0.70.3-Beta] - 2025-09-12
+### Added
+# - Added `qtcs_df` and `time_series_score_df` attributes to the class.
+# - Added the `_pre_calculate_time_series_score` method to orchestrate
+#   the new, pluggable score calculator architecture.
+### Changed
+# - Modified `_ingest_cabrillo_data` to handle custom parsers that can
+#   return a separate DataFrame for QTCs.
+# - The `apply_annotations` method now calls the new score calculator at
+#   the end of its processing pipeline.
 ## [0.70.2-Beta] - 2025-09-09
 ### Changed
 # - Refactored to accept `root_input_dir` as a parameter and pass it to
@@ -161,11 +282,14 @@ class ContestLog:
     def __init__(self, contest_name: str, cabrillo_filepath: Optional[str] = None, root_input_dir: Optional[str] = None):
         self.contest_name = contest_name
         self.qsos_df: pd.DataFrame = pd.DataFrame()
+        self.qtcs_df: pd.DataFrame = pd.DataFrame()
+        self.time_series_score_df: pd.DataFrame = pd.DataFrame()
         self.metadata: Dict[str, Any] = {}
         self.dupe_sets: Dict[str, Set[Tuple[str, str]]] = {}
         self.filepath = cabrillo_filepath
         self._my_location_type: Optional[str] = None # W/VE or DX
         self._log_manager_ref = None
+        
         self.root_input_dir = root_input_dir
         if root_input_dir is None:
             raise ValueError("ContestLog requires a root_input_dir.")
@@ -178,7 +302,19 @@ class ContestLog:
 
         if cabrillo_filepath:
             self._ingest_cabrillo_data(cabrillo_filepath)
-            self._determine_own_location_type()
+        
+        # Run a custom location resolver if defined for the contest.
+        resolver_name = self.contest_definition.custom_location_resolver
+        if resolver_name:
+            try:
+                resolver_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{resolver_name}")
+                self._my_location_type = resolver_module.resolve_location_type(self.metadata, self.root_input_dir)
+                logging.info(f"Custom logger location type determined as: '{self._my_location_type}' by {resolver_name}")
+            except Exception as e:
+                logging.warning(f"Could not run custom location resolver '{resolver_name}': {e}")
+        else:
+            # Fallback to old generic method for legacy asymmetric contests
+            self._determine_own_location_type_legacy()
 
 
     def _ingest_cabrillo_data(self, cabrillo_filepath: str):
@@ -186,7 +322,16 @@ class ContestLog:
         if custom_parser_name:
             try:
                 parser_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{custom_parser_name}")
-                raw_df, metadata = parser_module.parse_log(cabrillo_filepath, self.contest_definition, self.root_input_dir)
+                
+                # The custom parser's return signature determines how we unpack
+                parser_output = parser_module.parse_log(cabrillo_filepath, self.contest_definition, self.root_input_dir)
+                
+                if len(parser_output) == 3:
+                    raw_df, self.qtcs_df, metadata = parser_output
+                else:
+                    raw_df, metadata = parser_output
+                    self.qtcs_df = pd.DataFrame() # Ensure it's initialized
+                
                 logging.info(f"Using custom parser module: '{custom_parser_name}'")
             except Exception as e:
                 logging.error(f"Could not run custom parser '{custom_parser_name}': {e}. Halting.")
@@ -232,7 +377,7 @@ class ContestLog:
             raw_df.get('DateRaw', '') + ' ' + raw_df.get('TimeRaw', ''),
             format='%Y-%m-%d %H%M',
             errors='coerce'
-        )
+        ).dt.tz_localize('UTC')
         
         # If a 'Band' column wasn't provided by the parser, create it.
         if 'Band' not in raw_df.columns:
@@ -271,6 +416,7 @@ class ContestLog:
 
         raw_df.drop(columns=['FrequencyRaw', 'DateRaw', 'TimeRaw', 'MyCallRaw', 'RawQSO'], inplace=True, errors='ignore')
         self.qsos_df = raw_df.reindex(columns=self.contest_definition.default_qso_columns)
+
         self._check_dupes()
 
     def _check_dupes(self):
@@ -289,11 +435,12 @@ class ContestLog:
                     self.qsos_df.loc[idx, 'Dupe'] = True
                 else:
                     all_bands_dupe_set.add(call)
+        
         else:
             for band in self.qsos_df['Band'].unique():
                 if band == 'Invalid' or not band:
                     continue
-                
+            
                 self.dupe_sets[band] = set()
                 band_indices = self.qsos_df[self.qsos_df['Band'] == band].index
                 
@@ -305,6 +452,7 @@ class ContestLog:
                         continue
                     
                     qso_tuple = (call, mode)
+                    
                     if qso_tuple in self.dupe_sets[band]:
                         self.qsos_df.loc[idx, 'Dupe'] = True
                     else:
@@ -343,7 +491,11 @@ class ContestLog:
 
         return f"{on_time_str} of {max_hours}:00 allowed"
         
-    def _determine_own_location_type(self):
+    def _determine_own_location_type_legacy(self):
+        """
+        DEPRECATED: Generic method for determining location for ARRL DX.
+        This will be replaced by the custom_location_resolver mechanism.
+        """
         is_asymmetric = any(rule.get('applies_to') for rule in self.contest_definition.multiplier_rules)
         
         if is_asymmetric:
@@ -354,13 +506,20 @@ class ContestLog:
                 cty_dat_path = os.path.join(data_dir, 'cty.dat')
                 cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)
                 info = cty_lookup.get_cty_DXCC_WAE(my_call)._asdict()
+                
                 self._my_location_type = "W/VE" if info['DXCCName'] in ["United States", "Canada"] else "DX"
-                logging.info(f"Logger location type determined as: {self._my_location_type}")
+                logging.info(f"LEGACY logger location type determined as: {self._my_location_type}")
 
     def apply_annotations(self):
         if self.qsos_df.empty:
             logging.warning("No QSOs loaded. Cannot apply annotations.")
             return
+
+        # Pre-cast multiplier columns to 'object' to prevent dtype warnings when
+        # string-based multipliers (e.g., from WAE/DXCC) are inserted later.
+        for col in ['Mult1', 'Mult1Name', 'Mult2', 'Mult2Name']:
+            if col in self.qsos_df.columns:
+                self.qsos_df[col] = self.qsos_df[col].astype('object')
 
         try:
             logging.info("Applying Run/S&P annotation...")
@@ -382,6 +541,34 @@ class ContestLog:
             self.metadata['OperatingTime'] = self._calculate_operating_time()
         except Exception as e:
             logging.error(f"Error during on-time calculation: {e}. Skipping.")
+        
+    def _pre_calculate_time_series_score(self):
+        """
+        Dynamically selects and runs the appropriate time-series score calculator.
+        """
+        calculator_name = self.contest_definition.time_series_calculator
+        if not calculator_name:
+            calculator_name = "standard_calculator" # Default for all standard contests
+            class_name = "StandardCalculator"
+        else:
+            # Convention: snake_case module -> CamelCase class
+            class_name = "".join([part.capitalize() for part in calculator_name.split('_')])
+
+        try:
+            logging.info(f"Running time-series score calculator: '{calculator_name}'...")
+            module = importlib.import_module(f"contest_tools.score_calculators.{calculator_name}")
+            CalculatorClass = getattr(module, class_name)
+            calculator_instance = CalculatorClass()
+            
+            df_non_dupes = self.qsos_df[self.qsos_df['Dupe'] == False].copy()
+            self.time_series_score_df = calculator_instance.calculate(self, df_non_dupes)
+            logging.info("Time-series score calculation complete.")
+        except (ImportError, AttributeError) as e:
+            logging.exception(f"Failed to load or find score calculator '{class_name}'. See traceback.")
+            raise e
+        except Exception as e:
+            logging.exception(f"An unexpected error occurred in score calculator '{class_name}'. See traceback.")
+            raise e
 
     def apply_contest_specific_annotations(self):
         logging.info("Applying contest-specific annotations (Multipliers & Scoring)...")
@@ -390,60 +577,69 @@ class ContestLog:
         if resolver_name:
             try:
                 resolver_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{resolver_name}")
-                self.qsos_df = resolver_module.resolve_multipliers(self.qsos_df, self._my_location_type, self.root_input_dir)
+                # --- Phased Rollout: Pass contest_def only to migrated resolvers ---
+                # This list will grow as more resolvers are migrated to the new architecture.
+                if resolver_name in ["iaru_hf_multiplier_resolver", "wae_multiplier_resolver", "cq_wpx_prefix", "cq_160_multiplier_resolver", "naqp_multiplier_resolver", "arrl_ss_multiplier_resolver", "arrl_fd_multiplier_resolver", "arrl_10_multiplier_resolver", "arrl_dx_multiplier_resolver"]:
+                    self.qsos_df = resolver_module.resolve_multipliers(self.qsos_df, self._my_location_type, self.root_input_dir, self.contest_definition)
+                else:
+                    # Legacy call for non-migrated resolvers
+                    self.qsos_df = resolver_module.resolve_multipliers(self.qsos_df, self._my_location_type, self.root_input_dir)
                 logging.info(f"Successfully applied '{resolver_name}' multiplier resolver.")
             except Exception as e:
                 logging.warning(f"Could not run '{resolver_name}' multiplier resolver: {e}")
 
         multiplier_rules = self.contest_definition.multiplier_rules
+        
+        # The generic rules processor is required for the second stage of some multipliers (e.g. CQ-160).
         if multiplier_rules:
-            logging.info("Calculating contest multipliers...")
-            for rule in multiplier_rules:
-                applies_to = rule.get('applies_to')
-                if applies_to and self._my_location_type and applies_to != self._my_location_type:
-                    continue
-
-                dest_col = rule.get('value_column')
-                dest_name_col = rule.get('name_column')
-                
-                if not dest_col: continue
-
-                if 'source_column' in rule:
-                    source_col = rule.get('source_column')
-                    if source_col in self.qsos_df.columns:
-                        self.qsos_df[dest_col] = self.qsos_df[source_col]
-                        
-                        if dest_name_col:
-                            source_name_col = rule.get('source_name_column', f"{source_col}Name")
-                            if source_name_col in self.qsos_df.columns:
-                                self.qsos_df[dest_name_col] = self.qsos_df[source_name_col]
-                            else:
-                                logging.warning(f"Name column '{source_name_col}' not found for source '{source_col}'.")
-                    else:
-                        logging.warning(f"Source column '{source_col}' not found for multiplier '{rule.get('name')}'.")
-
-                elif rule.get('source') == 'wae_dxcc':
-                    wae_mask = self.qsos_df['WAEName'].notna() & (self.qsos_df['WAEName'] != '')
-                    
-                    self.qsos_df.loc[wae_mask, dest_col] = self.qsos_df.loc[wae_mask, 'WAEPfx']
-                    self.qsos_df.loc[~wae_mask, dest_col] = self.qsos_df.loc[~wae_mask, 'DXCCPfx']
+             logging.info("Calculating contest multipliers...")
+             for rule in multiplier_rules:
+                 applies_to = rule.get('applies_to')
+                 if applies_to and self._my_location_type and applies_to != self._my_location_type:
+                     continue
  
-                    if dest_name_col:
-                        self.qsos_df.loc[wae_mask, dest_name_col] = self.qsos_df.loc[wae_mask, 'WAEName']
-                        self.qsos_df.loc[~wae_mask, dest_name_col] = self.qsos_df.loc[~wae_mask, 'DXCCName']
-                
-                elif rule.get('source') == 'calculation_module':
-                    try:
-                        module_name = rule['module_name']
-                        function_name = rule['function_name']
-                        
-                        module = importlib.import_module(f"contest_tools.contest_specific_annotations.{module_name}")
-                        calculation_func = getattr(module, function_name)
-                        
-                        self.qsos_df[dest_col] = calculation_func(self.qsos_df)
-                        logging.info(f"Successfully applied '{function_name}' from '{module_name}'.")
-                    except (ImportError, AttributeError, KeyError) as e:
-                        logging.warning(f"Could not run calculation module for rule '{rule.get('name')}': {e}")
+                 dest_col = rule.get('value_column')
+                 dest_name_col = rule.get('name_column')
+                 
+                 if not dest_col: continue
+ 
+                 if 'source_column' in rule:
+                     source_col = rule.get('source_column')
+                     if source_col in self.qsos_df.columns:
+                         self.qsos_df[dest_col] = self.qsos_df[source_col]
+                         
+                         if dest_name_col:
+                             source_name_col = rule.get('source_name_column', f"{source_col}Name")
+                             if source_name_col in self.qsos_df.columns:
+                                 self.qsos_df[dest_name_col] = self.qsos_df[source_name_col]
+                             else:
+                                 logging.warning(f"Name column '{source_name_col}' not found for source '{source_col}'.")
+                     
+                     else:
+                         logging.warning(f"Source column '{source_col}' not found for multiplier '{rule.get('name')}'.")
+ 
+                 elif rule.get('source') == 'wae_dxcc':
+                     wae_mask = self.qsos_df['WAEName'].notna() & (self.qsos_df['WAEName'] != '')
+                     
+                     self.qsos_df.loc[wae_mask, dest_col] = self.qsos_df.loc[wae_mask, 'WAEPfx']
+                     self.qsos_df.loc[~wae_mask, dest_col] = self.qsos_df.loc[~wae_mask, 'DXCCPfx']
+                     
+                     if dest_name_col:
+                         self.qsos_df.loc[wae_mask, dest_name_col] = self.qsos_df.loc[wae_mask, 'WAEName']
+                         self.qsos_df.loc[~wae_mask, dest_name_col] = self.qsos_df.loc[~wae_mask, 'DXCCName']
+                 
+                 elif rule.get('source') == 'calculation_module':
+                     try:
+                         module_name = rule['module_name']
+                         function_name = rule['function_name']
+                         
+                         module = importlib.import_module(f"contest_tools.contest_specific_annotations.{module_name}")
+                         calculation_func = getattr(module, function_name)
+                         
+                         self.qsos_df[dest_col] = calculation_func(self.qsos_df)
+                         logging.info(f"Successfully applied '{function_name}' from '{module_name}'.")
+                     except (ImportError, AttributeError, KeyError) as e:
+                         logging.warning(f"Could not run calculation module for rule '{rule.get('name')}': {e}")
 
 
         # --- Scoring Calculation ---
@@ -452,7 +648,7 @@ class ContestLog:
             logging.warning("'MyCall' not found in metadata. Cannot calculate QSO points.")
             self.qsos_df['QSOPoints'] = 0
             return
-            
+        
         try:
             root_dir = self.root_input_dir
             data_dir = os.path.join(root_dir, 'data')
@@ -467,12 +663,15 @@ class ContestLog:
 
         scoring_module = None
         try:
-            module_name_specific = self.contest_name.lower().replace('-', '_')
+            module_name_specific = self.contest_name.lower().replace('-', '_').replace(' ', '_')
             scoring_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{module_name_specific}_scoring")
         except ImportError:
             try:
-                base_contest_name = self.contest_name.rsplit('-', 1)[0]
-                module_name_generic = base_contest_name.lower().replace('-', '_')
+                if '-' in self.contest_name:
+                    base_contest_name = self.contest_name.rsplit('-', 1)[0]
+                else:
+                    base_contest_name = self.contest_name.split(' ')[0]
+                module_name_generic = base_contest_name.lower().replace('-', '_').replace(' ', '_')
                 scoring_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{module_name_generic}_scoring")
             except (ImportError, IndexError):
                 logging.warning(f"No scoring module found for contest '{self.contest_name}'. Points will be 0.")
@@ -566,6 +765,7 @@ class ContestLog:
             
             # Get the mode from the DataFrame row
             mode = row.get('Mode')
+            
             # Check if the mode is one of the standard phone modes
             if mode in ['PH', 'USB', 'LSB', 'SSB']:
                 output_mode = 'SSB'
@@ -603,6 +803,7 @@ class ContestLog:
                     record.append(adif_format(f"APP_CLA_{col.upper()}", row.get(col)))
 
             mult_flag_cols = [c for c in row.index if c.endswith('_IsNewMult')]
+            
             for col in mult_flag_cols:
                 if row.get(col) == 1:
                     record.append(adif_format(f"APP_CLA_{col.upper()}", 1))

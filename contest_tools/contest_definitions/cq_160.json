@@ -1,7 +1,7 @@
 {
   "_filename": "contest_tools/contest_definitions/cq_160.json",
-  "_version": "0.57.35-Beta",
-  "_date": "2025-09-02",
+  "_version": "0.86.3-Beta",
+  "_date": "2025-09-13",
   "contest_name": "CQ-160",
   "enable_adif_export": true,
   "custom_parser_module": "cq_160_parser",
@@ -15,6 +15,10 @@
     "single_op_max_hours": 30,
     "multi_op_max_hours": 40
   },
+  "excluded_reports": [
+    "text_wae_score_report",
+    "text_wae_comparative_score_report"
+  ],
   "mutually_exclusive_mults": [
     ["Mult1", "Mult2"]
   ],

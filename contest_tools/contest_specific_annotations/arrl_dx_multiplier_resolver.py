@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-10
-# Version: 0.70.21-Beta
+# Date: 2025-09-18
+# Version: 0.89.4-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.89.4-Beta] - 2025-09-18
+### Changed
+# - Refactored module to be data-driven, reading target column names
+#   from the ContestDefinition object instead of using hard-coded values.
+# - Updated function signature to the new four-argument standard.
 ## [0.70.21-Beta] - 2025-09-10
 ### Changed
 # - Updated `resolve_multipliers` signature to accept `root_input_dir` to align
@@ -47,8 +52,9 @@ import os
 import logging
 from ..core_annotations._core_utils import AliasLookup
 from typing import Dict
+from ..contest_definitions import ContestDefinition
 
-def resolve_multipliers(df: pd.DataFrame, my_location_type: str, root_input_dir: str) -> pd.DataFrame:
+def resolve_multipliers(df: pd.DataFrame, my_location_type: str, root_input_dir: str, contest_def: ContestDefinition) -> pd.DataFrame:
     """
     Resolves multipliers for ARRL DX based on the logger's location, prioritizing
     the received exchange over the callsign's prefix according to refined rules.
@@ -59,11 +65,18 @@ def resolve_multipliers(df: pd.DataFrame, my_location_type: str, root_input_dir:
     data_dir = os.path.join(root_input_dir, 'data')
     lookup = AliasLookup(data_dir, 'ARRLDXmults.dat')
 
+    # Dynamically get column names from the JSON blueprint
+    dxcc_rule = next((r for r in contest_def.multiplier_rules if r['name'] == 'DXCC'), {})
+    stprov_rule = next((r for r in contest_def.multiplier_rules if r['name'] == 'STPROV'), {})
+
+    dxcc_col = dxcc_rule.get('source_column', 'Mult_DXCC')
+    dxcc_name_col = dxcc_rule.get('source_name_column', 'Mult_DXCCName')
+    stprov_col = stprov_rule.get('source_column', 'Mult_STPROV')
+    stprov_name_col = stprov_rule.get('source_name_column', 'STPROV_MultName')
+
     # Initialize new columns
-    df['Mult_STPROV'] = pd.NA
-    df['STPROV_MultName'] = pd.NA
-    df['Mult_DXCC'] = pd.NA
-    df['Mult_DXCCName'] = pd.NA
+    for col in [stprov_col, stprov_name_col, dxcc_col, dxcc_name_col]:
+        df[col] = pd.NA
     df['STPROV_IsNewMult'] = 0
     df['DXCC_IsNewMult'] = 0
     
@@ -97,8 +110,8 @@ def resolve_multipliers(df: pd.DataFrame, my_location_type: str, root_input_dir:
                         resolved_stprov, resolved_stprov_name = temp_abbr, _
             
             if pd.notna(resolved_stprov) and resolved_stprov != "Unknown" and resolved_stprov not in NON_CONTIGUOUS_STATES:
-                df.loc[idx, 'Mult_STPROV'] = resolved_stprov
-                df.loc[idx, 'STPROV_MultName'] = resolved_stprov_name
+                df.loc[idx, stprov_col] = resolved_stprov
+                df.loc[idx, stprov_name_col] = resolved_stprov_name
                 if resolved_stprov not in seen_stprov_per_band[band]:
                     df.loc[idx, 'STPROV_IsNewMult'] = 1
                     seen_stprov_per_band[band].add(resolved_stprov)
@@ -109,8 +122,8 @@ def resolve_multipliers(df: pd.DataFrame, my_location_type: str, root_input_dir:
 
             if is_dx_multiplier:
                 dxcc_mult = row.get('DXCCPfx')
-                df.loc[idx, 'Mult_DXCC'] = dxcc_mult
-                df.loc[idx, 'Mult_DXCCName'] = worked_dxcc_name
+                df.loc[idx, dxcc_col] = dxcc_mult
+                df.loc[idx, dxcc_name_col] = worked_dxcc_name
                 if pd.notna(dxcc_mult) and dxcc_mult not in seen_dxcc_per_band[band]:
                     df.loc[idx, 'DXCC_IsNewMult'] = 1
                     seen_dxcc_per_band[band].add(dxcc_mult)

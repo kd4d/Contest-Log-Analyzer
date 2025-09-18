@@ -1,7 +1,7 @@
 {
   "_filename": "contest_tools/contest_definitions/cq_ww_ssb.json",
-  "_version": "0.30.35-Beta",
-  "_date": "2025-09-06",
+  "_version": "0.86.3-Beta",
+  "_date": "2025-09-13",
   "contest_name": "CQ-WW-SSB",
   "mults_from_zero_point_qsos": true,
   "enable_adif_export": true,
@@ -12,6 +12,10 @@
     "end_day": "Sunday",
     "end_time": "23:59:59 UTC"
   },
+  "excluded_reports": [
+    "text_wae_score_report",
+    "text_wae_comparative_score_report"
+  ],
   "exchange_parsing_rules": {
     "CQ-WW-SSB": [
       {

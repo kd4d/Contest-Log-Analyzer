@@ -1,0 +1,68 @@
+{
+  "_filename": "contest_tools/contest_definitions/wae_ssb.json",
+  "_version": "0.88.4-Beta",
+  "_date": "2025-09-18",
+  "contest_name": "WAE-SSB",
+  "valid_bands": [
+    "80M",
+    "40M",
+    "20M",
+    "15M",
+    "10M"
+  ],
+  "operating_time_rules": {
+    "min_off_time_minutes": 60,
+    "single_op_max_hours": 36
+  },
+  "dupe_check_scope": "per_band",
+  "custom_parser_module": "wae_parser",
+  "custom_multiplier_resolver": "wae_multiplier_resolver",
+  "custom_location_resolver": "wae_location_resolver",
+  "time_series_calculator": "wae_calculator",
+  "points_header_label": "QSO+QTC Pts",
+  "score_formula": "custom",
+  "mults_from_zero_point_qsos": false,
+  "excluded_reports": [
+    "score_report",
+    "comparative_score_report"
+  ],
+  "mutually_exclusive_mults": [
+    ["Mult1", "Mult2"]
+  ],
+  "multiplier_rules": [
+    {
+      "name": "Countries",
+      "value_column": "Mult1",
+      "name_column": "Mult1Name",
+      "totaling_method": "sum_by_band"
+    },
+    {
+      "name": "Call Areas",
+      "value_column": "Mult2",
+      "name_column": "Mult2Name",
+      "totaling_method": "sum_by_band"
+    }
+  ],
+  "exchange_parsing_rules": {
+    "WAE-SSB": {
+      "regex": "(\\d{2})\\s+(\\d+)\\s+([A-Z0-9/]+)\\s+(\\d{2})\\s+(\\d+)",
+      "groups": [
+        "SentRS",
+        "SentSerial",
+        "Call",
+        "RS",
+        "RcvdSerial"
+      ]
+    }
+  },
+  "default_qso_columns": [
+    "ContestName", "MyCall", "Frequency", "Mode", "Datetime",
+    "SentRS", "SentSerial",
+    "Call", "RS", "RcvdSerial",
+    "Band", "Date", "Hour", "Dupe",
+    "DXCCName", "DXCCPfx", "CQZone", "ITUZone", "Continent", "WAEName", "WAEPfx",
+    "Run", "QSOPoints",
+    "qtcs_df",
+    "Mult1", "Mult1Name", "Mult2", "Mult2Name"
+  ]
+}

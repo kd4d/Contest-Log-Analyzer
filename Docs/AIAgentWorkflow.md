@@ -1,10 +1,96 @@
 # AIAgentWorkflow.md
 
-**Version: 0.65.0-Beta**
-**Date: 2025-09-13**
+**Version: 0.92.0-Beta**
+**Date: 2025-09-18**
 
 ---
 ### --- Revision History ---
+## [0.92.0-Beta] - 2025-09-18
+### Added
+# - Added Principle 17 (Principle of Output Sanitization) to mandate the
+#   programmatic removal of non-standard whitespace and other invisible
+#   characters from all text-based deliverables to prevent file corruption.
+## [0.91.1-Beta] - 2025-09-18
+### Changed
+# - Amended Protocol 1.5 (Document Review), Step 2.A, to require a
+#   standardized keyword prompt (`Proceed`), resolving an ambiguity
+#   with the global Protocol 4.5.
+## [0.91.0-Beta] - 2025-09-18
+### Changed
+# - Amended Principle 1 (Context Integrity) to add a final recovery
+#   protocol (advising a new chat) for severe context loss.
+# - Strengthened Protocol 1.3 (Context Checkpoint) to mandate that the AI
+#   must proactively initiate a checkpoint upon detecting its own protocol violation.
+# - Strengthened Protocol 6.9 (Context Lock-In) to require the AI's
+#   declaration to include the specific file path and baseline version number.
+# - Added a mandatory "Reconciliation Summary" step to Protocol 1.2.
+# - Added a mandatory self-verification step to Protocol 4.5.
+## [0.90.0-Beta] - 2025-09-16
+### Changed
+# - Strengthened Principle 9 (Surgical Modification) to explicitly forbid
+#   full file regeneration and define a full-function `diff` as a
+#   de facto violation.
+# - Amended Protocol 2.6 (Implementation Plan) to include a mandatory
+#   "Ground Truth Declaration" to enforce traceability.
+# - Amended Protocol 6.3 (Error Analysis) to require a specific
+#   "Surgical Modification Failure Analysis" for Principle 9 violations.
+## [0.89.0-Beta] - 2025-09-16
+### Added
+# - Added Principle 16 (Principle of Incremental Change) to formalize
+#   the practice of breaking down large changes into small, verifiable steps.
+# - Added Protocol 2.3 (Architectural Design Protocol) to formalize the
+#   iterative "propose-critique-refine" cycle for new architectural patterns.
+### Changed
+# - Amended Protocol 1.3 (Context Checkpoint) to make the AI co-responsible
+#   for initiating a checkpoint if it detects internal confusion.
+# - Amended Protocol 2.6 (Implementation Plan) to include an optional
+#   "Executive Summary" for multi-file plans and a mandatory "Backward
+#   Compatibility & Impact Analysis" item in the Pre-Flight Check.
+# - Amended Protocol 6.3 (Error Analysis Protocol) to require a mandatory
+#   cross-reference to Principle 3 (Trust the User's Diagnostics).
+# - Renumbered protocols in Part II, Section 2, and updated all internal
+#   cross-references to maintain document consistency.
+## [0.86.1-Beta] - 2025-09-15
+### Changed
+# - Clarified Protocol 2.5 to describe the implementation plan delivery
+#   method more accurately (content within a code block).
+# - Strengthened Protocol 3.2.4 with explicit examples for substituting
+#   both opening and closing internal code fences.
+## [0.86.0-Beta] - 2025-09-14
+### Changed
+# - Clarified Protocol 1.7 to describe the role of the
+#   CONTEST_INPUT_DIR environment variable and to correctly list the
+#   `Logs/` and `data/` subdirectories.
+## [0.70.0-Beta] - 2025-09-13
+### Added
+# - Added Protocol 2.5.1 (Post-Plan-Delivery Prompt Protocol) to
+#   mandate that the AI must immediately prompt for plan approval after
+#   delivering an implementation plan file. This corrects a recurring AI process error.
+## [0.69.0-Beta] - 2025-09-13
+### Changed
+# - Restored the detailed, six-part list of required sections to
+#   Protocol 2.5 (Implementation Plan), including the full Pre-Flight
+#   Check. This corrects a regression from v0.68.0-Beta.
+## [0.68.0-Beta] - 2025-09-13
+### Added
+# - Added Protocol 4.5 (Standardized Keyword Prompts) to mandate a
+#   consistent `Please <ACTION> by providing the prompt <PROMPT>.` format.
+### Changed
+# - Rewrote Protocol 2.5 (Implementation Plan) to be delivered as a
+#   standalone `.md` file, confirmed with a `Ready` keyword.
+# - Updated Protocols 2.7, 4.4, 6.3, and 6.9 to be consistent with the
+#   new standardized prompt and plan delivery protocols.
+## [0.67.0-Beta] - 2025-09-13
+### Changed
+# - Clarified the Task Execution Workflow in Section 2 with a detailed
+#   preamble describing the mandatory, user-gated state machine sequence
+#   (Approved -> Context Lock-In -> Confirmed -> Delivery).
+## [0.66.0-Beta] - 2025-09-13
+### Added
+# - Added Protocol 6.9 (Context Lock-In Protocol) as a proactive
+#   safeguard against context loss. It requires the AI to state its
+#   context and the user to confirm with `Confirmed` before any
+#   state-altering action can proceed.
 ## [0.65.0-Beta] - 2025-09-13
 ### Changed
 # - Amended Protocol 2.5 (Implementation Plan) to mandate a more robust
@@ -278,13 +364,14 @@ These are the foundational rules that govern all interactions and analyses.
 
 1.  **Context Integrity is Absolute.** The definitive project state is established by the baseline `*_bundle.txt` files and evolves with every acknowledged file change. Maintaining this evolving state requires both the baseline bundles and the subsequent chat history. If I detect that the baseline `*_bundle.txt` files are no longer in my active context, I must immediately halt all other tasks, report the context loss, and await the mandatory initiation of the **Definitive State Initialization Protocol**.
 2.  **Protocol Adherence is Paramount.** All protocols must be followed with absolute precision. Failure to do so invalidates the results and undermines the development process. There is no room for deviation unless a deviation is explicitly requested by the AI and authorized by the user.
-3.  **Trust the User's Diagnostics.** When the user reports a bug or a discrepancy, their description of the symptoms and their corrections should be treated as the ground truth. The AI's primary task is to find the root cause of those specific, observed symptoms, not to propose alternative theories.
+3.  **Trust the User's Diagnostics.** When the user reports a bug or a discrepancy, their description of the symptoms and their corrections should be treated as the ground truth. The AI's primary task is to find the root cause of those specific, observed symptoms, not to propose alternative theories. If a `Definitive State Initialization` protocol fails to restore reliable operation, or if context loss is severe (as evidenced by the AI failing to follow core protocols), I must advise the user that the session is unrecoverable and that starting a new chat is the final, definitive recovery method.
 4.  **No Unrequested Changes.** The AI will only implement changes explicitly requested by the user. All suggestions for refactoring, library changes, or stylistic updates must be proposed and approved by the user before implementation.
 5.  **Technical Diligence Over Conversational Assumptions.** Technical tasks are not conversations. Similar-looking prompts do not imply similar answers. Each technical request must be treated as a unique, atomic operation. The AI must execute a full re-computation from the current project state for every request, ignoring any previous results or cached data. **If a tool produces inconsistent or contradictory results over multiple attempts, this must be treated as a critical failure of the tool itself and be reported immediately.**
 6.  **Prefer Logic in Code, Not Data.** The project's design philosophy is to keep the `.json` definition files as simple, declarative maps. All complex, conditional, or contest-specific logic should be implemented in dedicated Python modules.
 7.  **Assume Bugs are Systemic.** When a bug is identified in one module, the default assumption is that the same flaw exists in all other similar modules. The AI must perform a global search for that specific bug pattern and fix all instances at once.
 8.  **Reports Must Be Non-Destructive.** Specialist report scripts must **never** modify the original `ContestLog` objects they receive. All data filtering or manipulation must be done on a temporary **copy** of the DataFrame.
 9.  **Principle of Surgical Modification.** All file modifications must be treated as surgical operations. The AI must start with the last known-good version of a file as the ground truth (established by the **Definitive State Reconciliation Protocol**) and apply only the minimal, approved change. Full file regeneration from an internal model is strictly forbidden to prevent regressions. **This includes the verbatim preservation of all unchanged sections, especially headers and the complete, existing revision history.** This principle explicitly forbids stylistic refactoring (e.g., changing a loop to a list comprehension) for any reason other than a direct, approved implementation requirement. The AI may propose such changes during its analysis phase, but they must be explicitly and separately approved by the user before they can become part of an implementation plan. Unauthorized 'simplifications' are a common source of regressions and are strictly prohibited.
+    **Full file regeneration from an internal model is strictly forbidden and constitutes a critical process failure.** Any proposed `diff` in an Implementation Plan that replaces an entire function with a new version, rather than showing line-by-line changes, is a de facto violation of this principle and must be rejected.
 10. **Primacy of Official Rules.** The AI will place the highest emphasis on analyzing the specific data, context, and official rules provided, using them as the single source of truth.
 11. **The Log is the Ground Truth.** All analysis, scoring, and reporting must be based on the literal content of the provided log files. The analyzer's function is not to correct potentially erroneous data (e.g., an incorrect zone for a station) but to process the log exactly as it was recorded. Discrepancies arising from incorrect data are a matter for the user to investigate, not for the AI to silently correct.
 12. **Citation of Official Rules.** When researching contest rules, the AI will prioritize finding and citing the **official rules from the sponsoring organization**.
@@ -294,6 +381,8 @@ These are the foundational rules that govern all interactions and analyses.
     * Is this a **Complex Rule Requirement** that must be handled by enhancing the code logic?
 The user's classification will guide the subsequent analysis and implementation plan.
 15. **Principle of Centralized Configuration.** Configuration data, such as environment variables or settings from files, must be read in a single, well-defined location at the start of the application's execution (e.g., `main_cli.py`). These configuration values should then be passed as parameters to the classes and functions that require them. Modules and classes should not read environment variables directly.
+16. **Principle of Incremental Change.** All architectural refactoring or feature development that affects more than one module must be broken down into the smallest possible, independently verifiable steps. Each step must be followed by a verification checkpoint (e.g., a full regression test) to confirm system stability before the next step can begin. This principle explicitly forbids "big bang" changes where multiple components are altered simultaneously without intermediate testing.
+17. **Principle of Output Sanitization.** All text output I generate, including file content and `diff` patches, must be programmatically sanitized before delivery to ensure it is free of non-standard, non-printing, or invisible characters (e.g., non-breaking spaces, `U+00A0`). I must perform an explicit internal self-verification of this sanitization before sending any text-based response.
 ---
 ## Part II: Standard Operating Protocols
 
@@ -307,7 +396,9 @@ These are the step-by-step procedures for common, day-to-day development tasks.
     2.  **Scan Forward for Updates**: After establishing the baseline, the AI will scan the chat history *forward* from that point to the present.
     3.  **Identify Latest Valid Version**: The AI will identify the **latest** version of each file that was part of a successfully completed and mutually acknowledged transaction (i.e., file delivery, AI confirmation, and user acknowledgment). This version supersedes the baseline version.
     4.  **Handle Ambiguity**: If any file transaction is found that was initiated but not explicitly acknowledged by the user, the AI must halt reconciliation, report the ambiguous file, and await user clarification.
-1.3. **Context Checkpoint Protocol.** If the AI appears to have lost context, the user can issue a **Context Checkpoint**.
+    5.  **Reconciliation Summary**: After completing the reconciliation but before starting the analysis for a new task, I must provide a summary stating which `Definitive State Initialization` was used as a baseline, how many subsequent acknowledged file changes were applied, and the total number of files in the new definitive state.
+1.3. **Context Checkpoint Protocol.** If the AI appears to have lost context, the user can issue a **Context Checkpoint**. The AI is also responsible for initiating a Context Checkpoint if it detects potential internal confusion, contradictory states in its own reasoning, or if the user's prompts suggest a fundamental misunderstanding of the current task.
+    Furthermore, if I detect that I have violated another protocol (especially a simple, procedural one like prompt formatting), I must treat this as a definitive sign of internal confusion and immediately initiate a Context Checkpoint as my next and only action, before proceeding with any error analysis.
     1.  The user begins with the exact phrase: **"Gemini, let's establish a Context Checkpoint."**
     2.  The user provides a brief, numbered list of critical facts.
 1.4. **Definitive State Initialization Protocol.** This protocol serves as a "hard reset" of the project state.
@@ -320,7 +411,7 @@ These are the step-by-step procedures for common, day-to-day development tasks.
 1.5. **Document Review and Synchronization Protocol.** This protocol is used to methodically review and update all project documentation (`.md` files) to ensure it remains synchronized with the code baseline.
     1.  **Initiate Protocol and List Documents:** The AI will state that the protocol is beginning and will provide a complete list of all documents to be reviewed (`Readme.md` and all `.md` files in the `Docs` directory).
     2.  **Begin Sequential Review:** The AI will then loop through the list, processing one document at a time using the following steps:
-        * **Step A: Identify and Request.** State which document is next and ask for permission to proceed.
+        * **Step A: Identify and Request.** State which document is next and request permission to continue by issuing a standardized prompt requiring the keyword `Proceed`.
         * **Step B: Analyze.** Upon approval, perform a full "a priori" review of the document against the current code baseline and provide an analysis of any discrepancies.
         * **Step C (Changes Needed): Propose Plan.** If discrepancies are found, ask if the user wants an implementation plan to update the document.
         * **Step D: Provide Plan.** Upon approval, provide a detailed, surgical implementation plan for the necessary changes.
@@ -332,45 +423,65 @@ These are the step-by-step procedures for common, day-to-day development tasks.
 
 1.6. **Session Versioning Protocol.** At the start of a new development task, the user will state the current version series (e.g., 'We are working on Version 0.36.x-Beta'). All subsequent file modifications for this and related tasks must use this version series, incrementing the patch number as needed.
 1.7. **Project Structure Onboarding.** After a state initialization, the AI will confirm its understanding of the high-level project architecture.
-    * `contest_tools/`: The core application library.
-    * `contest_tools/reports/`: The "plug-in" directory for all report modules.
-    * `contest_tools/contest_definitions/`: Data-driven JSON definitions for each contest.
-    * `Docs/`: All user and developer documentation.
-    * `test_code/`: Utility and prototype scripts not part of the main application. These scripts are not held to the same change control and documentation standards (e.g., a revision history is not required).
-    * `data/`: Required data files (e.g., `cty.dat`).
+The `Logs/` and `data/` directories are located within a root path defined by the `CONTEST_INPUT_DIR` environment variable.
+* `contest_tools/`: The core application library.
+* `contest_tools/reports/`: The "plug-in" directory for all report modules.
+* `contest_tools/contest_definitions/`: Data-driven JSON definitions for each contest.
+* `Docs/`: All user and developer documentation.
+* `test_code/`: Utility and prototype scripts not part of the main application. These scripts are not held to the same change control and documentation standards (e.g., a revision history is not required).
+* `Logs/`: Contains all Cabrillo log files for analysis.
+* `data/`: Required data files (e.g., `cty.dat`).
 ### 2. Task Execution Workflow
 This workflow is a formal state machine that governs all development tasks, from initial request to final completion.
+
+> **No File Delivery Without an Approved Plan:** All file modifications or creations must be detailed in a formal **Implementation Plan** that you have explicitly approved with the literal string `Approved`. I will not deliver any file that is not part of such a plan.
+>
+> **The Mandatory Lock-In Sequence:** Your `Approved` command will immediately trigger the **Context Lock-In Protocol**. The sequence for every task involving file delivery is as follows:
+> 1.  I provide an **Implementation Plan**.
+> 2.  You respond with `Approved`.
+> 3.  I respond with the mandatory **Context Lock-In Statement**.
+> 4.  You respond with `Confirmed`.
+> 5.  Only then will I begin delivering the files as specified in the plan, following the **Confirmed File Delivery Protocol**.
+>
+> This sequence is the standard operating procedure for all tasks.
+
 2.1. **Task Initiation**: The user provides a problem, feature request, or document update and requests an analysis. Before proceeding, the AI must verify that a session version series (as defined in Protocol 1.6) has been established. If it has not, the AI must ask for it before providing any analysis.
 2.2. **Analysis and Discussion**: The AI provides an initial analysis. The user and AI may discuss the analysis to refine the understanding of the problem.
-2.3. **Visual Prototype Protocol.** This protocol is used to resolve ambiguity in tasks involving complex visual layouts or new, hard-to-describe logic before a full implementation is planned.
+2.3. **Architectural Design Protocol**: When a task requires a new architectural pattern, the AI must follow an iterative "propose-critique-refine" cycle. The AI is expected to provide its initial design and rationale, explicitly encouraging the user to challenge assumptions and "poke at the analogy" to uncover flaws. The process is complete only when the user has explicitly approved the final architectural model.
+2.4. **Visual Prototype Protocol.** This protocol is used to resolve ambiguity in tasks involving complex visual layouts or new, hard-to-describe logic before a full implementation is planned.
     1.  **Initiation:** The AI proposes or the user requests a prototype to clarify a concept.
     2.  **Agreement:** Both parties agree to create the prototype.
     3.  **Prototype Delivery:** The AI delivers a standalone, self-contained script. The script must use simple, hardcoded data and focus only on demonstrating the specific concept in question.
     4.  **Prototype Usability Clause:** For visual prototypes using Matplotlib, the script must save the output to a file and then immediately display the chart on-screen using `plt.show()` for ease of verification.
     5.  **Review and Iteration:** The user reviews the prototype's output and provides feedback. This step can be repeated until the prototype is correct.
     6.  **Approval:** The user gives explicit approval of the final prototype. This approval serves as the visual and logical ground truth for the subsequent implementation plan.
-2.4. **Baseline Consistency Check.** Before presenting an implementation plan, the AI must perform and explicitly state the completion of a "Baseline Consistency Check." This check verifies that all proposed actions (e.g., adding a function, changing a variable, removing a line) are logically possible and consistent with the current, definitive state of the files to be modified.
-2.5. **Implementation Plan**: The user requests an implementation plan. The AI's response must be a comprehensive document containing the following sections for each file to be modified:
-    To ensure reliable rendering in the chat interface, the plan's sections must be formatted using bolded headers with manual numbering (e.g., "**1. Section Title**") rather than a markdown-native numbered list.
-    **1.  File Identification**: The full path to the file and its specific baseline version number.
-    **2.  Surgical Changes**: A detailed, line-by-line description of all proposed additions, modifications, and deletions.
-    **3.  Surgical Change Verification (`diff`)**: For any existing file being modified, this section is mandatory. It must contain a `diff` output comparing the original baseline file against the proposed new version. This `diff` serves as the definitive, verifiable contract for the change. This section is not applicable for new files.
-        To ensure data integrity and prevent formatting issues within the chat interface, the entire `diff` output must be enclosed in a single fenced code block with the `diff` language specifier.
-    **4.  Affected Modules Checklist**: A list of all other modules that follow a similar architectural pattern to the file being modified (e.g., all custom parsers, all score reports). The AI must confirm that these modules have been checked and will be updated if necessary to keep them consistent with the proposed change. This makes the application of Principle 7 (Assume Bugs are Systemic) explicit.
-    **5.  Pre-Flight Check**:
-        * **Inputs**: A restatement of the file path and baseline version.
-        * **Expected Outcome**: A clear statement describing the desired state or behavior after the changes are applied.
-        * **Mental Walkthrough Confirmation**: A statement affirming that a mental walkthrough of the logic will be performed before generating the file.
-        * **State Confirmation Procedure**: An affirmation that the mandatory confirmation prompt (as defined in Protocol 4.4) will be included with the file delivery.
-        * **Surgical Modification Adherence Confirmation**: I confirm that the generated file will contain *only* the changes shown in the Surgical Change Verification (`diff`) section above, ensuring 100% compliance with Principle 9.
-        * **Syntax Validation Confirmation**: For all Python files (`.py`), I will perform an automated syntax validation check on the generated file content before delivery to prevent syntax errors such as `IndentationError`.
-    **6.  Post-Generation Verification.** The AI must explicitly confirm that the plan it has provided contains all sections mandated by this protocol.
-2.6. **Plan Refinement**: The user reviews the plan and may request changes or refinements. The AI provides a revised plan, repeating this step as necessary.
-2.7. **Approval**: The user provides explicit approval of the final implementation plan. Instructions, clarifications, or new requirements provided after a plan has been proposed do not constitute approval; they will be treated as requests for plan refinement under Protocol 2.6. The AI will only proceed to the Execution state upon receiving the **exact, literal string `Approved`**.
-2.8. **Execution**: Upon approval, the AI will proceed with the **Confirmed File Delivery Protocol (4.4)**.
-2.8.1. **Post-Execution Refinement Protocol.** If a user acknowledges a file delivery but subsequently reports that the fix is incomplete or incorrect, the task is not considered complete. The workflow immediately returns to **Protocol 2.2 (Analysis and Discussion)**. This initiates a new analysis loop within the context of the original task, culminating in a new implementation plan to address the remaining issues. The task is only complete after **Protocol 2.9 (Propose Verification Command)** is successfully executed for the *final, correct* implementation.
-2.9. **Propose Verification Command**: After the final file in an implementation plan has been delivered and acknowledged by the user, the AI's final action for the task is to propose the specific command-line instruction(s) the user should run to verify that the bug has been fixed or the feature has been implemented correctly.
-**2.9.1: Task Type Verification.** This protocol applies **only** if the final file modified was a code or data file (e.g., `.py`, `.json`, `.dat`). If the final file was a documentation or text file (e.g., `.md`), a verification command is not applicable. The task is successfully concluded once the user provides the standard 'Acknowledged' response for the final documentation file delivered as part of the implementation plan.
+2.5. **Baseline Consistency Check.** Before presenting an implementation plan, the AI must perform and explicitly state the completion of a "Baseline Consistency Check." This check verifies that all proposed actions (e.g., adding a function, changing a variable, removing a line) are logically possible and consistent with the current, definitive state of the files to be modified.
+2.6. **Implementation Plan**: To bypass UI rendering issues, the **content** of all Implementation Plans will be delivered inside a single, `cla-bundle`-specified code block. This procedure simulates the delivery of an `implementation_plan.md` file and ensures the content can be copied as a single unit.
+    * **Executive Summary (Optional for Multi-File Plans)**: For plans that modify more than one file, the document may begin with a brief, high-level description of the task's overall goal and the role each file in this plan plays in achieving it.
+    1.  The AI will state its readiness and ask the user to confirm they are ready to receive the file. The prompt will follow **Protocol 4.5** and require the keyword `Ready`.
+    2.  Upon receiving the `Ready` keyword, the AI will deliver the plan's content using the `cla-bundle` protocol.
+    3.  The plan itself must be a comprehensive document containing the following sections for each file to be modified, formatted with bolded headers:
+        **1.  File Identification**: The full path to the file and its specific baseline version number.
+        **2.  Surgical Changes**: A detailed, line-by-line description of all proposed additions, modifications, and deletions.
+        **3.  Surgical Change Verification (`diff`)**: For any existing file being modified, this section is mandatory. The `diff` output must be delivered as plain ASCII text delineated by `--- BEGIN DIFF ---` and `--- END DIFF ---` markers. This section is not applicable for new files.
+        **3.a. Ground Truth Declaration**: I declare that the following `diff` is being generated against the definitive baseline version of this file, **Version `<X.Y.Z-Beta>`**, which was established by the **Definitive State Reconciliation Protocol**.
+        **4.  Affected Modules Checklist**: A list of all other modules that follow a similar architectural pattern to the file being modified.
+        **5.  Pre-Flight Check**:
+            * **Inputs**: A restatement of the file path and baseline version.
+            * **Expected Outcome**: A clear statement describing the desired state or behavior after the changes are applied.
+            * **Mental Walkthrough Confirmation**: A statement affirming that a mental walkthrough of the logic will be performed before generating the file.
+            * **State Confirmation Procedure**: An affirmation that the mandatory confirmation prompt will be included with the file delivery.
+            * **Backward Compatibility & Impact Analysis**: I have analyzed the potential impact of these changes on other modules and confirm this plan will not break existing, unmodified functionality.
+            * **Surgical Modification Adherence Confirmation**: I confirm that the generated file will contain *only* the changes shown in the Surgical Change Verification (`diff`) section above, ensuring 100% compliance with Principle 9.
+            * **Syntax Validation Confirmation**: For all Python files (`.py`), I will perform an automated syntax validation check.
+        **6.  Post-Generation Verification.** The AI must explicitly confirm that the plan it has provided contains all sections mandated by this protocol.
+**2.6.1. Post-Plan-Delivery Prompt Protocol.** Immediately after delivering an `implementation_plan.md` file and providing the post-delivery verification (per Protocol 3.2.6), the AI's next and only action **must** be to issue the standardized prompt for plan approval, requiring the keyword `Approved`. This protocol ensures a direct and mandatory transition to the Approval state (Protocol 2.8).
+2.7. **Plan Refinement**: The user reviews the plan and may request changes or refinements. The AI provides a revised plan, repeating this step as necessary.
+2.8. **Approval**: The user provides explicit approval of the final implementation plan. Instructions, clarifications, or new requirements provided after a plan has been proposed do not constitute approval; they will be treated as requests for plan refinement under Protocol 2.7. The AI will only proceed to the Execution state upon receiving the **exact, literal string `Approved`**.
+2.9. **Execution**: Upon approval, the AI will proceed with the **Confirmed File Delivery Protocol (4.4)**.
+2.9.1. **Post-Execution Refinement Protocol.** If a user acknowledges a file delivery but subsequently reports that the fix is incomplete or incorrect, the task is not considered complete. The workflow immediately returns to **Protocol 2.2 (Analysis and Discussion)**. This initiates a new analysis loop within the context of the original task, culminating in a new implementation plan to address the remaining issues. The task is only complete after **Protocol 2.10 (Propose Verification Command)** is successfully executed for the *final, correct* implementation.
+2.10. **Propose Verification Command**: After the final file in an implementation plan has been delivered and acknowledged by the user, the AI's final action for the task is to propose the specific command-line instruction(s) the user should run to verify that the bug has been fixed or the feature has been implemented correctly.
+**2.10.1: Task Type Verification.** This protocol applies **only** if the final file modified was a code or data file (e.g., `.py`, `.json`, `.dat`). If the final file was a documentation or text file (e.g., `.md`), a verification command is not applicable. The task is successfully concluded once the user provides the standard 'Acknowledged' response for the final documentation file delivered as part of the implementation plan.
 ### 3. File and Data Handling
 
 3.1. **Project File Input.** All project source files and documentation will be provided for updates in a single text file called a **project bundle**, or pasted individually into the chat. The bundle uses a simple text header to separate each file: `--- FILE: path/to/file.ext ---`
@@ -379,8 +490,10 @@ This workflow is a formal state machine that governs all development tasks, from
     2.  **Raw Source Text**: The content inside the delivered code block must be the raw source text of the file.
     3.  **Code File Delivery**: For code files (e.g., `.py`, `.json`), the content will be delivered in a standard fenced code block with the appropriate language specifier.
     4.  **Markdown File Delivery**: To prevent the user interface from rendering markdown and to provide a "Copy" button, the entire raw content of a documentation file (`.md`) must be delivered inside a single, **`cla-bundle`**-specified code block.
-        * **Internal Code Fences**: Any internal markdown code fences (__CODE_BLOCK__) must be replaced with the `__CODE_BLOCK__` placeholder.
-        * **Clarification**: This substitution is a requirement of the AI's web interface. The user will provide files back with standard markdown fences (`__CODE_BLOCK__`), which is the expected behavior.
+        * **Internal Code Fence Substitution**: To prevent the `cla-bundle` block from terminating prematurely, **all** internal three-backtick code fences must be replaced with the `__CODE_BLOCK__` placeholder. This rule is absolute and applies to both opening and closing fences.
+        * **Example (Opening Fence)**: `__CODE_BLOCK__python` **must be replaced with** `__CODE_BLOCK__python`.
+        * **Example (Closing Fence)**: `__CODE_BLOCK__` **must be replaced with** `__CODE_BLOCK__`.
+        * **Clarification**: This substitution is a requirement of the AI's web interface. The user will provide files back with standard markdown fences, which is the expected behavior.
     5.  **Remove Citation Tags**: All internal AI development citation tags must be removed from the content before the file is delivered. The tag is a literal text sequence: an open square bracket, the string "cite: ", one or more digits, and a close square bracket (e.g.,). This pattern does not include Markdown backticks.
     6.  **Post-Delivery Protocol Verification.** Immediately following any file delivery, the AI must explicitly state which sub-protocol from Section 3.2 it followed and confirm that its last output was fully compliant.
 3.3. **File and Checksum Verification.**
@@ -421,9 +534,14 @@ This workflow is a formal state machine that governs all development tasks, from
 4.4. **Confirmed File Delivery Protocol.** This protocol is used for all standard file modifications.
     1.  The AI delivers the first file from the approved implementation plan.
     2.  The AI appends the mandatory execution verification statement to the same response: "**I have verified that the file just delivered was generated by applying only the approved surgical changes to the baseline text, in compliance with Principle 9.**"
-    3.  The AI appends the mandatory confirmation prompt to the end of the same response.
+    3.  The AI appends the mandatory confirmation prompt to the end of the same response, formatted according to **Protocol 4.5**.
     4.  The user provides the **exact, literal string `Acknowledged`** as a response.
     5.  The AI proceeds to deliver the next file, repeating the process until all files from the plan have been delivered and individually acknowledged.
+4.5. **Standardized Keyword Prompts.** To ensure all prompts for user action are clear and unambiguous, they must follow the exact format below:
+    `Please <ACTION> by providing the prompt <PROMPT>.`
+    * **`<ACTION>`**: A concise description of the action being requested (e.g., "approve the plan", "confirm the delivery").
+    * **`<PROMPT>`**: The exact, literal, case-sensitive keyword required (e.g., `Approved`, `Acknowledged`, `Confirmed`, `Ready`).
+    * **Self-Verification Mandate**: Before outputting any prompt that requires a keyword, I must internally confirm that the prompt's structure is in 100% compliance with this format. This check is an explicit part of the prompt generation process itself.
 ---
 ## Part III: Project-Specific Implementation Patterns
 
@@ -468,10 +586,12 @@ These protocols are for troubleshooting, error handling, and non-standard situat
 6.3. **Error Analysis Protocol.** When an error in the AI's process is identified, the AI must provide a clear and concise analysis. **A failure to provide a correct analysis after being corrected by the user constitutes a new, more severe error that must also be analyzed.**
     1.  **Acknowledge the Error:** State clearly that a mistake was made.
     2.  **Request Diagnostic Output:** If the user has not already provided it, the AI's immediate next step is to request the new output that demonstrates the failure (e.g., the incorrect text report or a screenshot). This output becomes the new ground truth for the re-analysis.
-    3.  **Identify the Root Cause:** Explain the specific flaw in the internal process or logic that led to the error. This includes identifying which specific principles or protocols were violated.
-    4.  **Propose a Corrective Action:** Describe the specific, procedural change that will be implemented to prevent the error from recurring.
-    5.  **Post-Analysis Verification.** The AI must explicitly confirm that the analysis it has provided contains all the steps mandated by this protocol.
-    6.  **Propose Workflow Amendment**: If the root cause analysis identifies a flaw or a gap in the `AIAgentWorkflow.md` protocols themselves, I must immediately propose a separate implementation plan to amend the workflow document to prevent that class of error from recurring.
+    3.  **Identify the Root Cause:** Explain the specific flaw in the internal process or logic that led to the error.
+    4.  **Cross-Reference Core Principles:** The AI must explicitly state if a violation of Principle 3 (Trust the User's Diagnostics) was a contributing factor to the error. This includes identifying which specific principles or protocols were violated.
+    4.a. **Surgical Modification Failure Analysis**: If the root cause involved a violation of Principle 9, I must provide a specific analysis of *why* I failed to generate a surgical `diff` and instead regenerated code.
+    5.  **Propose a Corrective Action:** Describe the specific, procedural change that will be implemented to prevent the error from recurring. If this change involves a new implementation plan, the AI must state this and then initiate the file-based delivery process defined in **Protocol 2.6**.
+    6.  **Post-Analysis Verification.** The AI must explicitly confirm that the analysis it has provided contains all the steps mandated by this protocol.
+    7.  **Propose Workflow Amendment**: If the root cause analysis identifies a flaw or a gap in the `AIAgentWorkflow.md` protocols themselves, I must immediately propose a separate implementation plan to amend the workflow document to prevent that class of error from recurring.
 6.4. **Corrupted User Input Protocol.** This protocol defines the procedure for handling malformed or corrupted input files provided by the user.
     1.  Halt the current task immediately.
     2.  Report the specific file that contains the error and describe the nature of the error (e.g., "Cabrillo parsing failed on line X" or "Bundle is missing a file header").
@@ -498,6 +618,14 @@ These protocols are for troubleshooting, error handling, and non-standard situat
     1.  **Hypothesize External Cause:** The AI must explicitly consider and list potential external systems as the root cause (e.g., cloud sync clients like OneDrive, version control systems like Git, antivirus software).
     2.  **Propose Diagnostic Commands:** The AI must propose specific, external diagnostic commands for the user to run to verify the state of the filesystem. Examples include `git ls-files` to check tracking status or `attrib` (on Windows) to check file attributes.
     3.  **Propose Solution Based on Findings:** The implementation plan should address the external cause (e.g., adding a path to `.gitignore`) rather than adding complex, temporary workarounds to the code.
+6.9. **Context Lock-In Protocol.** This protocol is a mandatory, proactive safeguard against context loss that is triggered before any action that establishes or modifies the definitive state.
+    1.  **Trigger**: This protocol is triggered immediately before initiating the **Definitive State Initialization Protocol (1.4)** or executing an **Implementation Plan (2.6)**.
+    2.  **AI Action (Declaration)**: Before proceeding, I must issue a single, explicit statement declaring the exact source of the information I am about to use.
+        * For a new initialization: *"I am establishing a new definitive state based ONLY on the bundle files you have provided in the immediately preceding turn. I will not reference any prior chat history for file content. Please confirm to proceed."*
+        * For executing a plan: *"I am about to generate `path/to/file.ext` based on the Implementation Plan you approved. I have locked in the baseline version `<X.Y.Z-Beta>` as specified in that plan. Please confirm to proceed."*
+    3.  **User Action (The Forcing Function)**: You must validate this statement.
+        * If the statement is correct and accurately reflects the immediate context, you respond with the exact, literal string `Confirmed` after being prompted per **Protocol 4.5**.
+        * If the statement is incorrect, or if I fail to issue it, you must state the discrepancy. This immediately halts the process and forces an **Error Analysis Protocol (6.3)**.
 ### 7. Miscellaneous Protocols
 
 7.1. **Technical Debt Cleanup Protocol.** When code becomes convoluted, a **Technical Debt Cleanup Sprint** will be conducted to refactor the code for clarity, consistency, and maintainability.

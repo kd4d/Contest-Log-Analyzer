@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-10
-# Version: 0.70.26-Beta
+# Date: 2025-09-17
+# Version: 0.89.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,15 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.89.0-Beta] - 2025-09-17
+### Changed
+# - Refactored module to be data-driven, reading target column names
+#   from the ContestDefinition object instead of using hard-coded values.
+# - Updated function signature to the new four-argument standard.
+### Fixed
+# - Replaced silent failure on missing columns with a "fail-fast"
+#   ValueError exception.
+# - Corrected prerequisite check to include the 'DXCCName' column.
 ## [0.70.26-Beta] - 2025-09-10
 ### Changed
 # - Updated `resolve_multipliers` to accept `root_input_dir` as a
@@ -76,6 +85,7 @@ import pandas as pd
 import os
 from ..core_annotations._core_utils import AliasLookup
 from typing import Optional, Any, Tuple
+from ..contest_definitions import ContestDefinition
 
 def _get_naqp_multiplier(row: pd.Series, alias_lookup: AliasLookup) -> Tuple[Any, Any, Any, Any]:
     """
@@ -107,7 +117,7 @@ def _get_naqp_multiplier(row: pd.Series, alias_lookup: AliasLookup) -> Tuple[Any
     return stprov_mult, stprov_name, nadxcc_mult, nadxcc_name
 
 
-def resolve_multipliers(df: pd.DataFrame, my_location_type: Optional[str], root_input_dir: str) -> pd.DataFrame:
+def resolve_multipliers(df: pd.DataFrame, my_location_type: Optional[str], root_input_dir: str, contest_def: ContestDefinition) -> pd.DataFrame:
     """
     Resolves multipliers for the NAQP contest by identifying the multiplier
     for each QSO and placing it into the appropriate new column.
@@ -116,21 +126,29 @@ def resolve_multipliers(df: pd.DataFrame, my_location_type: Optional[str], root_
         return df
 
     # Ensure required columns exist before proceeding
-    required_cols = ['DXCCPfx', 'Continent', 'RcvdLocation']
+    required_cols = ['DXCCPfx', 'Continent', 'RcvdLocation', 'DXCCName']
     for col in required_cols:
         if col not in df.columns:
-            df['Mult_STPROV'] = pd.NA
-            df['Mult_STPROVName'] = pd.NA
-            df['Mult_NADXCC'] = pd.NA
-            df['Mult_NADXCCName'] = pd.NA
-            return df
+            raise ValueError(
+                f"Cannot resolve NAQP multipliers: DataFrame is missing "
+                f"required column '{col}'."
+            )
 
     # Initialize the alias lookup utility for NAQP multipliers.
     data_dir = os.path.join(root_input_dir, 'data')
     alias_lookup = AliasLookup(data_dir, 'NAQPmults.dat')
 
-    # Apply the logic to each row and assign the results to four new columns
-    df[['Mult_STPROV', 'Mult_STPROVName', 'Mult_NADXCC', 'Mult_NADXCCName']] = df.apply(
+    # Dynamically get column names from the JSON blueprint
+    stprov_rule = next((r for r in contest_def.multiplier_rules if r['name'] == 'STPROV'), {})
+    nadxcc_rule = next((r for r in contest_def.multiplier_rules if r['name'] == 'NA DXCC'), {})
+    
+    stprov_col = stprov_rule.get('value_column', 'Mult_STPROV')
+    stprov_name_col = stprov_rule.get('name_column', 'Mult_STPROVName')
+    nadxcc_col = nadxcc_rule.get('value_column', 'Mult_NADXCC')
+    nadxcc_name_col = nadxcc_rule.get('name_column', 'Mult_NADXCCName')
+    target_cols = [stprov_col, stprov_name_col, nadxcc_col, nadxcc_name_col]
+    
+    df[target_cols] = df.apply(
         _get_naqp_multiplier, axis=1, result_type='expand', alias_lookup=alias_lookup
     )
     
