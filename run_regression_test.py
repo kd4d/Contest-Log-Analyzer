@@ -7,8 +7,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-14
-# Version: 0.86.1-Beta
+# Date: 2025-09-18
+# Version: 0.87.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,6 +19,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.87.0-Beta] - 2025-09-18
+### Changed
+# - Overhauled ADIF comparison logic to provide a summary of changed tags
+#   and a truncated, 5-line diff to improve diagnostic readability.
 ## [0.86.1-Beta] - 2025-09-14
 ### Changed
 # - Improved CSV comparison to identify changed columns and provide a
@@ -125,7 +129,7 @@ def archive_baseline_reports(reports_dir: str) -> str:
     if not os.path.exists(reports_dir):
         print(f"INFO: No existing reports directory found at '{reports_dir}'. Baseline will be empty.")
         return ""
-        
+    
     timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H%M')
     archive_dir_final = f"{reports_dir}_{timestamp}"
     archive_dir_tmp = f"{archive_dir_final}.tmp"
@@ -205,11 +209,11 @@ def compare_outputs(new_items: set, reports_dir: str, archive_dir: str, ignore_w
                     data_new = json.load(f_new)
                 with open(baseline_path, 'r', encoding='utf-8') as f_base:
                     data_base = json.load(f_base)
-                
+            
                 # Serialize to a canonical string format (sorted keys, indented)
                 str_new = json.dumps(data_new, sort_keys=True, indent=2).splitlines(keepends=True)
                 str_base = json.dumps(data_base, sort_keys=True, indent=2).splitlines(keepends=True)
-                
+        
                 diff = list(difflib.unified_diff(
                     str_base, str_new,
                     fromfile=f'a/{relative_path}', tofile=f'b/{relative_path}'
@@ -254,13 +258,47 @@ def compare_outputs(new_items: set, reports_dir: str, archive_dir: str, ignore_w
                 qsos_base = _parse_adif_for_comparison(baseline_path)
 
                 if qsos_new != qsos_base:
-                    str_new = json.dumps(qsos_new, indent=2)
-                    str_base = json.dumps(qsos_base, indent=2)
-                    diff = list(difflib.unified_diff(
-                        str_base.splitlines(keepends=True), str_new.splitlines(keepends=True),
+                    # --- New Detailed Comparison Logic ---
+                    summary_lines = [f"File: {relative_path}"]
+                    base_qso_map = {(q.get('QSO_DATE', ''), q.get('TIME_ON', ''), q.get('CALL', '')): q for q in qsos_base}
+                    new_qso_map = {(q.get('QSO_DATE', ''), q.get('TIME_ON', ''), q.get('CALL', '')): q for q in qsos_new}
+
+                    base_keys = set(base_qso_map.keys())
+                    new_keys = set(new_qso_map.keys())
+                    
+                    added_qsos = len(new_keys - base_keys)
+                    deleted_qsos = len(base_keys - new_keys)
+                    
+                    changed_tags = set()
+                    added_tags = set()
+                    removed_tags = set()
+
+                    for key in base_keys.intersection(new_keys):
+                        q_base, q_new = base_qso_map[key], new_qso_map[key]
+                        base_tags, new_tags = set(q_base.keys()), set(q_new.keys())
+                        added_tags.update(new_tags - base_tags)
+                        removed_tags.update(base_tags - new_tags)
+                        for common_tag in base_tags.intersection(new_tags):
+                            if q_base[common_tag] != q_new[common_tag]:
+                                changed_tags.add(common_tag)
+                    
+                    if added_qsos: summary_lines.append(f"  - QSOs Added: {added_qsos}")
+                    if deleted_qsos: summary_lines.append(f"  - QSOs Deleted: {deleted_qsos}")
+                    if changed_tags: summary_lines.append(f"  - Tags with Changed Values: {sorted(list(changed_tags))}")
+                    if added_tags: summary_lines.append(f"  - Tags Added: {sorted(list(added_tags))}")
+                    if removed_tags: summary_lines.append(f"  - Tags Removed: {sorted(list(removed_tags))}")
+
+                    # --- Generate Truncated Diff ---
+                    str_new_json = json.dumps(qsos_new, indent=2).splitlines(keepends=True)
+                    str_base_json = json.dumps(qsos_base, indent=2).splitlines(keepends=True)
+                    diff_lines = list(difflib.unified_diff(
+                        str_base_json, str_new_json,
                         fromfile=f'a/{relative_path}', tofile=f'b/{relative_path}'
                     ))
-                    failures.append(f"File: {relative_path}\n" + "".join(diff))
+                    
+                    summary_lines.append("\n--- First 5 Lines of Diff ---")
+                    failures.append("\n".join(summary_lines) + "\n" + "".join(diff_lines[:8]))
+
             except Exception as e:
                 failures.append(f"File: {relative_path}\nERROR during ADIF diff: {e}")
 
