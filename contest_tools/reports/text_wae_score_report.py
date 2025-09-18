@@ -1,8 +1,8 @@
 # Contest Log Analyzer/contest_tools/reports/text_wae_score_report.py
 #
 # Author: Gemini AI
-# Date: 2025-09-13
-# Version: 0.85.15-Beta
+# Date: 2025-09-18
+# Version: 0.85.16-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -13,10 +13,13 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# Purpose: A text report that generates a detailed score summary for the WAE
+# Purpose: This module provides a detailed score summary for the WAE
 #          contest, including QTC points and weighted multipliers.
 #
 # --- Revision History ---
+## [0.85.16-Beta] - 2025-09-18
+### Fixed
+# - Corrected the alignment of the "Final Score Summary" section by implementing dynamic column width calculation.
 ## [0.85.15-Beta] - 2025-09-13
 ### Fixed
 # - Added logic to the generate method to correctly handle the --debug-data
@@ -83,7 +86,7 @@ class Report(ContestReport):
                 if col in df_mults.columns:
                     unique_mults_on_band = df_mults[col].nunique()
                     weighted_mults += unique_mults_on_band * self._BAND_WEIGHTS.get(band, 1)
-
+        
             summary_data.append({
                 'Band': band, 'Mode': mode,
                 'QSO Pts': qso_pts,
@@ -141,15 +144,23 @@ class Report(ContestReport):
             table_str,
             "",
             "Final Score Summary".center(table_width),
-            ("=" * 20).center(table_width),
-            f"{'Total QSO Points:':<25} {total_qso_pts:>15,}",
-            f"{'Total QTC Points:':<25} {total_qtc_pts:>15,}",
-            f"{'Total Contacts:':<25} {(total_qso_pts + total_qtc_pts):>15,}",
-            f"{'Total Weighted Multipliers:':<25} {total_weighted_mults:>15,}",
-            "",
-            f"{'FINAL SCORE:':<25} {final_score:>15,}"
+            ("=" * 20).center(table_width)
         ]
         
+        # --- Dynamically Formatted Final Score Block ---
+        summary_content = {
+            'Total QSO Points:': total_qso_pts,
+            'Total QTC Points:': total_qtc_pts,
+            'Total Contacts:': (total_qso_pts + total_qtc_pts),
+            'Total Weighted Multipliers:': total_weighted_mults,
+            'FINAL SCORE:': final_score
+        }
+        max_label_width = max(len(label) for label in summary_content.keys())
+        for label, value in summary_content.items():
+            report_lines.append(f"{label:<{max_label_width}} {value:>15,}")
+            if label == 'Total Weighted Multipliers:':
+                report_lines.append("") # Add blank line before final score
+
         report_content = "\n".join(report_lines) + "\n"
         create_output_directory(output_path)
         filename = f"{self.report_id}_{callsign}.txt"
