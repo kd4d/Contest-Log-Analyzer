@@ -1,10 +1,25 @@
 # AIAgentWorkflow.md
 
-**Version: 0.90.0-Beta**
-**Date: 2025-09-16**
+**Version: 0.91.1-Beta**
+**Date: 2025-09-18**
 
 ---
 ### --- Revision History ---
+## [0.91.1-Beta] - 2025-09-18
+### Changed
+# - Amended Protocol 1.5 (Document Review), Step 2.A, to require a
+#   standardized keyword prompt (`Proceed`), resolving an ambiguity
+#   with the global Protocol 4.5.
+## [0.91.0-Beta] - 2025-09-18
+### Changed
+# - Amended Principle 1 (Context Integrity) to add a final recovery
+#   protocol (advising a new chat) for severe context loss.
+# - Strengthened Protocol 1.3 (Context Checkpoint) to mandate that the AI
+#   must proactively initiate a checkpoint upon detecting its own protocol violation.
+# - Strengthened Protocol 6.9 (Context Lock-In) to require the AI's
+#   declaration to include the specific file path and baseline version number.
+# - Added a mandatory "Reconciliation Summary" step to Protocol 1.2.
+# - Added a mandatory self-verification step to Protocol 4.5.
 ## [0.90.0-Beta] - 2025-09-16
 ### Changed
 # - Strengthened Principle 9 (Surgical Modification) to explicitly forbid
@@ -344,7 +359,7 @@ These are the foundational rules that govern all interactions and analyses.
 
 1.  **Context Integrity is Absolute.** The definitive project state is established by the baseline `*_bundle.txt` files and evolves with every acknowledged file change. Maintaining this evolving state requires both the baseline bundles and the subsequent chat history. If I detect that the baseline `*_bundle.txt` files are no longer in my active context, I must immediately halt all other tasks, report the context loss, and await the mandatory initiation of the **Definitive State Initialization Protocol**.
 2.  **Protocol Adherence is Paramount.** All protocols must be followed with absolute precision. Failure to do so invalidates the results and undermines the development process. There is no room for deviation unless a deviation is explicitly requested by the AI and authorized by the user.
-3.  **Trust the User's Diagnostics.** When the user reports a bug or a discrepancy, their description of the symptoms and their corrections should be treated as the ground truth. The AI's primary task is to find the root cause of those specific, observed symptoms, not to propose alternative theories.
+3.  **Trust the User's Diagnostics.** When the user reports a bug or a discrepancy, their description of the symptoms and their corrections should be treated as the ground truth. The AI's primary task is to find the root cause of those specific, observed symptoms, not to propose alternative theories. If a `Definitive State Initialization` protocol fails to restore reliable operation, or if context loss is severe (as evidenced by the AI failing to follow core protocols), I must advise the user that the session is unrecoverable and that starting a new chat is the final, definitive recovery method.
 4.  **No Unrequested Changes.** The AI will only implement changes explicitly requested by the user. All suggestions for refactoring, library changes, or stylistic updates must be proposed and approved by the user before implementation.
 5.  **Technical Diligence Over Conversational Assumptions.** Technical tasks are not conversations. Similar-looking prompts do not imply similar answers. Each technical request must be treated as a unique, atomic operation. The AI must execute a full re-computation from the current project state for every request, ignoring any previous results or cached data. **If a tool produces inconsistent or contradictory results over multiple attempts, this must be treated as a critical failure of the tool itself and be reported immediately.**
 6.  **Prefer Logic in Code, Not Data.** The project's design philosophy is to keep the `.json` definition files as simple, declarative maps. All complex, conditional, or contest-specific logic should be implemented in dedicated Python modules.
@@ -375,7 +390,9 @@ These are the step-by-step procedures for common, day-to-day development tasks.
     2.  **Scan Forward for Updates**: After establishing the baseline, the AI will scan the chat history *forward* from that point to the present.
     3.  **Identify Latest Valid Version**: The AI will identify the **latest** version of each file that was part of a successfully completed and mutually acknowledged transaction (i.e., file delivery, AI confirmation, and user acknowledgment). This version supersedes the baseline version.
     4.  **Handle Ambiguity**: If any file transaction is found that was initiated but not explicitly acknowledged by the user, the AI must halt reconciliation, report the ambiguous file, and await user clarification.
+    5.  **Reconciliation Summary**: After completing the reconciliation but before starting the analysis for a new task, I must provide a summary stating which `Definitive State Initialization` was used as a baseline, how many subsequent acknowledged file changes were applied, and the total number of files in the new definitive state.
 1.3. **Context Checkpoint Protocol.** If the AI appears to have lost context, the user can issue a **Context Checkpoint**. The AI is also responsible for initiating a Context Checkpoint if it detects potential internal confusion, contradictory states in its own reasoning, or if the user's prompts suggest a fundamental misunderstanding of the current task.
+    Furthermore, if I detect that I have violated another protocol (especially a simple, procedural one like prompt formatting), I must treat this as a definitive sign of internal confusion and immediately initiate a Context Checkpoint as my next and only action, before proceeding with any error analysis.
     1.  The user begins with the exact phrase: **"Gemini, let's establish a Context Checkpoint."**
     2.  The user provides a brief, numbered list of critical facts.
 1.4. **Definitive State Initialization Protocol.** This protocol serves as a "hard reset" of the project state.
@@ -388,7 +405,7 @@ These are the step-by-step procedures for common, day-to-day development tasks.
 1.5. **Document Review and Synchronization Protocol.** This protocol is used to methodically review and update all project documentation (`.md` files) to ensure it remains synchronized with the code baseline.
     1.  **Initiate Protocol and List Documents:** The AI will state that the protocol is beginning and will provide a complete list of all documents to be reviewed (`Readme.md` and all `.md` files in the `Docs` directory).
     2.  **Begin Sequential Review:** The AI will then loop through the list, processing one document at a time using the following steps:
-        * **Step A: Identify and Request.** State which document is next and ask for permission to proceed.
+        * **Step A: Identify and Request.** State which document is next and request permission to continue by issuing a standardized prompt requiring the keyword `Proceed`.
         * **Step B: Analyze.** Upon approval, perform a full "a priori" review of the document against the current code baseline and provide an analysis of any discrepancies.
         * **Step C (Changes Needed): Propose Plan.** If discrepancies are found, ask if the user wants an implementation plan to update the document.
         * **Step D: Provide Plan.** Upon approval, provide a detailed, surgical implementation plan for the necessary changes.
@@ -518,6 +535,7 @@ This workflow is a formal state machine that governs all development tasks, from
     `Please <ACTION> by providing the prompt <PROMPT>.`
     * **`<ACTION>`**: A concise description of the action being requested (e.g., "approve the plan", "confirm the delivery").
     * **`<PROMPT>`**: The exact, literal, case-sensitive keyword required (e.g., `Approved`, `Acknowledged`, `Confirmed`, `Ready`).
+    * **Self-Verification Mandate**: Before outputting any prompt that requires a keyword, I must internally confirm that the prompt's structure is in 100% compliance with this format. This check is an explicit part of the prompt generation process itself.
 ---
 ## Part III: Project-Specific Implementation Patterns
 
@@ -598,7 +616,7 @@ These protocols are for troubleshooting, error handling, and non-standard situat
     1.  **Trigger**: This protocol is triggered immediately before initiating the **Definitive State Initialization Protocol (1.4)** or executing an **Implementation Plan (2.6)**.
     2.  **AI Action (Declaration)**: Before proceeding, I must issue a single, explicit statement declaring the exact source of the information I am about to use.
         * For a new initialization: *"I am establishing a new definitive state based ONLY on the bundle files you have provided in the immediately preceding turn. I will not reference any prior chat history for file content. Please confirm to proceed."*
-        * For executing a plan: *"I am about to generate files based on the Implementation Plan you approved, using the baseline versions specified in that plan. Please confirm to proceed."*
+        * For executing a plan: *"I am about to generate `path/to/file.ext` based on the Implementation Plan you approved. I have locked in the baseline version `<X.Y.Z-Beta>` as specified in that plan. Please confirm to proceed."*
     3.  **User Action (The Forcing Function)**: You must validate this statement.
         * If the statement is correct and accurately reflects the immediate context, you respond with the exact, literal string `Confirmed` after being prompted per **Protocol 4.5**.
         * If the statement is incorrect, or if I fail to issue it, you must state the discrepancy. This immediately halts the process and forces an **Error Analysis Protocol (6.3)**.

@@ -1,10 +1,14 @@
 # Contest Log Analyzer
 
-**Version: 0.86.4-Beta**
-**Date: 2025-09-15**
+**Version: 0.86.5-Beta**
+**Date: 2025-09-18**
 
 ---
 ### --- Revision History ---
+## [0.86.5-Beta] - 2025-09-18
+### Changed
+# - Corrected the report ID for the comparative rate sheet to align
+#   with the source code.
 ## [0.86.4-Beta] - 2025-09-15
 ### Changed
 # - Synchronized the "Supported Contests" and "Available Reports"
@@ -38,27 +42,26 @@ The analyzer is run from the command line using `main_cli.py`.
 
 * **Generate all available reports for two logs:**
 
-```
+__CODE_BLOCK__
 python main_cli.py --report all Logs/2024/cq-ww-cw/k3lr.log Logs/2024/cq-ww-cw/kc1xx.log
-```
+__CODE_BLOCK__
 
 * **Generate a specific report (Score Summary) for a single log:**
 
-```
+__CODE_BLOCK__
 python main_cli.py --report score_report Logs/2024/cq-ww-cw/k3lr.log
-```
+__CODE_BLOCK__
 
 * **Generate a Missed Multipliers report for CQ WW Zones:**
 
-```
+__CODE_BLOCK__
 python main_cli.py --report missed_multipliers --mult-name Zones Logs/2024/cq-ww-cw/k3lr.log Logs/2024/cq-ww-cw/kc1xx.log
-```
+__CODE_BLOCK__
 
 ---
 ## Supported Contests
 
-The analyzer uses the `CONTEST:` field in the Cabrillo header to apply contest-specific rules.
-The following contests are currently supported:
+The analyzer uses the `CONTEST:` field in the Cabrillo header to apply contest-specific rules. The following contests are currently supported:
 
 * ARRL 10 Meter
 * ARRL DX (CW & SSB)
@@ -96,15 +99,14 @@ All generated files are saved to a structured directory under `reports/YYYY/CONT
 
 #### **Text Reports (`text/`)**
 * `comparative_continent_summary`: Comparative Continent QSO Summary
-* `comparative_rate_sheet`: Comparative Rate Sheet
+* `rate_sheet_comparison`: Comparative Rate Sheet
 * `comparative_score_report`: Comparative Score Report
 * `continent_breakdown`: Continent QSO Breakdown
 * `continent_summary`: Continent QSO Summary
 * `missed_multipliers`: Missed Multipliers Report
 * `multiplier_summary`: Multiplier Summary
 * `multipliers_by_hour`: Multipliers by Hour
-* `qso_comparison`: 
-QSO Comparison Summary
+* `qso_comparison`: QSO Comparison Summary
 * `rate_sheet`: Hourly Rate Sheet
 * `score_report`: Score Summary
 * `summary`: QSO Summary
@@ -113,5 +115,4 @@ QSO Comparison Summary
 ---
 ## License
 
-This project is licensed under the 
-**Mozilla Public License, v. 2.0**.
+This project is licensed under the **Mozilla Public License, v. 2.0**.

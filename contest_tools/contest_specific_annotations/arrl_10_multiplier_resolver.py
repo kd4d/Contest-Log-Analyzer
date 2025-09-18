@@ -1,7 +1,7 @@
 # Contest Log Analyzer/contest_tools/contest_specific_annotations/arrl_10_multiplier_resolver.py
 #
-# Version: 0.70.20-Beta
-# Date: 2025-09-10
+# Version: 0.89.3-Beta
+# Date: 2025-09-17
 #
 # Purpose: Provides contest-specific logic to resolve ARRL 10 Meter contest
 #          multipliers by parsing the asymmetric received exchange.
@@ -15,6 +15,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.89.3-Beta] - 2025-09-17
+### Changed
+# - Refactored module to be data-driven, reading target column names
+#   from the ContestDefinition object instead of using hard-coded values.
+# - Updated function signature to the new four-argument standard.
 ## [0.70.20-Beta] - 2025-09-10
 ### Changed
 # - Updated `resolve_multipliers` signature to accept `root_input_dir` to align
@@ -135,31 +140,30 @@ def _resolve_row(row: pd.Series, alias_lookup: AliasLookup, rules: Dict) -> pd.S
     ])
 
 
-def resolve_multipliers(df: pd.DataFrame, my_call_info: Dict[str, Any], root_input_dir: str) -> pd.DataFrame:
+def resolve_multipliers(df: pd.DataFrame, my_call_info: Dict[str, Any], root_input_dir: str, contest_def: ContestDefinition) -> pd.DataFrame:
     """
     Resolves multipliers for the ARRL 10 Meter contest.
     """
     if df.empty:
         return df
 
-    # Initialize section-aware alias lookup
+    # Initialize utilities
     data_dir = os.path.join(root_input_dir, 'data')
     alias_lookup = AliasLookup(data_dir, 'arrl_10_mults.dat')
-
-    # Load exchange parsing rules from the contest definition
-    contest_def = ContestDefinition.from_json("ARRL-10")
     rules = contest_def.exchange_parsing_rules
 
-    # Define the full set of columns to be populated
+    # Dynamically build the list of target columns from the contest definition
     parsed_cols = ['RcvdLocation', 'RcvdSerial', 'RcvdITU']
-    mult_cols = [
-        'Mult_State', 'Mult_StateName',
-        'Mult_VE', 'Mult_VEName',
-        'Mult_XE', 'Mult_XEName',
-        'Mult_DXCC', 'Mult_DXCCName',
-        'Mult_ITU'
-    ]
+    mult_cols = []
+    # Note: The order of rules in the JSON matters and must match the return order of _resolve_row
+    for rule in contest_def.multiplier_rules:
+        if 'value_column' in rule:
+            mult_cols.append(rule['value_column'])
+        if 'name_column' in rule:
+            mult_cols.append(rule['name_column'])
     
-    df[parsed_cols + mult_cols] = df.apply(_resolve_row, axis=1, alias_lookup=alias_lookup, rules=rules)
+    target_cols = parsed_cols + mult_cols
+    
+    df[target_cols] = df.apply(_resolve_row, axis=1, alias_lookup=alias_lookup, rules=rules)
 
     return df
