@@ -1,10 +1,15 @@
 # AIAgentWorkflow.md
 
-**Version: 0.91.1-Beta**
+**Version: 0.92.0-Beta**
 **Date: 2025-09-18**
 
 ---
 ### --- Revision History ---
+## [0.92.0-Beta] - 2025-09-18
+### Added
+# - Added Principle 17 (Principle of Output Sanitization) to mandate the
+#   programmatic removal of non-standard whitespace and other invisible
+#   characters from all text-based deliverables to prevent file corruption.
 ## [0.91.1-Beta] - 2025-09-18
 ### Changed
 # - Amended Protocol 1.5 (Document Review), Step 2.A, to require a
@@ -377,6 +382,7 @@ These are the foundational rules that govern all interactions and analyses.
 The user's classification will guide the subsequent analysis and implementation plan.
 15. **Principle of Centralized Configuration.** Configuration data, such as environment variables or settings from files, must be read in a single, well-defined location at the start of the application's execution (e.g., `main_cli.py`). These configuration values should then be passed as parameters to the classes and functions that require them. Modules and classes should not read environment variables directly.
 16. **Principle of Incremental Change.** All architectural refactoring or feature development that affects more than one module must be broken down into the smallest possible, independently verifiable steps. Each step must be followed by a verification checkpoint (e.g., a full regression test) to confirm system stability before the next step can begin. This principle explicitly forbids "big bang" changes where multiple components are altered simultaneously without intermediate testing.
+17. **Principle of Output Sanitization.** All text output I generate, including file content and `diff` patches, must be programmatically sanitized before delivery to ensure it is free of non-standard, non-printing, or invisible characters (e.g., non-breaking spaces, `U+00A0`). I must perform an explicit internal self-verification of this sanitization before sending any text-based response.
 ---
 ## Part II: Standard Operating Protocols
 
