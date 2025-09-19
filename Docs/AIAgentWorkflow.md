@@ -1,10 +1,23 @@
 # AIAgentWorkflow.md
 
-**Version: 0.92.0-Beta**
+**Version: 0.94.0-Beta**
 **Date: 2025-09-18**
 
 ---
 ### --- Revision History ---
+## [0.94.0-Beta] - 2025-09-18
+### Added
+# - Amended Protocol 2.2 to mandate proactive classification of debugging
+#   tasks and a prompt for "ground truth" materials.
+# - Amended Protocol 6.3 to replace the rigid "discard hypothesis" rule
+#   with a more collaborative "reconciliation" approach.
+## [0.93.0-Beta] - 2025-09-18
+### Changed
+# - Strengthened Protocol 1.2 (Definitive State Reconciliation) to require
+#   a final, mandatory user confirmation step before a task can proceed.
+# - Strengthened Protocol 2.6 (Implementation Plan) to require the AI to
+#   explicitly ask whether fixes for modules on the "Affected Modules
+#   Checklist" should be included in the current plan or deferred.
 ## [0.92.0-Beta] - 2025-09-18
 ### Added
 # - Added Principle 17 (Principle of Output Sanitization) to mandate the
@@ -397,6 +410,7 @@ These are the step-by-step procedures for common, day-to-day development tasks.
     3.  **Identify Latest Valid Version**: The AI will identify the **latest** version of each file that was part of a successfully completed and mutually acknowledged transaction (i.e., file delivery, AI confirmation, and user acknowledgment). This version supersedes the baseline version.
     4.  **Handle Ambiguity**: If any file transaction is found that was initiated but not explicitly acknowledged by the user, the AI must halt reconciliation, report the ambiguous file, and await user clarification.
     5.  **Reconciliation Summary**: After completing the reconciliation but before starting the analysis for a new task, I must provide a summary stating which `Definitive State Initialization` was used as a baseline, how many subsequent acknowledged file changes were applied, and the total number of files in the new definitive state.
+    6.  **Confirmation**: After providing the summary, I must request and receive a confirmation from the user (via a standardized prompt for the keyword `Confirmed`) before proceeding with the task. This serves as the final, user-gated checkpoint for state integrity.
 1.3. **Context Checkpoint Protocol.** If the AI appears to have lost context, the user can issue a **Context Checkpoint**. The AI is also responsible for initiating a Context Checkpoint if it detects potential internal confusion, contradictory states in its own reasoning, or if the user's prompts suggest a fundamental misunderstanding of the current task.
     Furthermore, if I detect that I have violated another protocol (especially a simple, procedural one like prompt formatting), I must treat this as a definitive sign of internal confusion and immediately initiate a Context Checkpoint as my next and only action, before proceeding with any error analysis.
     1.  The user begins with the exact phrase: **"Gemini, let's establish a Context Checkpoint."**
@@ -447,6 +461,8 @@ This workflow is a formal state machine that governs all development tasks, from
 
 2.1. **Task Initiation**: The user provides a problem, feature request, or document update and requests an analysis. Before proceeding, the AI must verify that a session version series (as defined in Protocol 1.6) has been established. If it has not, the AI must ask for it before providing any analysis.
 2.2. **Analysis and Discussion**: The AI provides an initial analysis. The user and AI may discuss the analysis to refine the understanding of the problem.
+    * **Task Classification Mandate**: For tasks involving debugging user-provided code, the AI must first classify the task as likely **'Regression' ("Used to work")** or **'Foundational' ("Never worked")**.
+    * **Proactive Prompt for Foundational Bugs**: If the task is classified as 'Foundational', the AI must initiate the session with a proactive prompt inviting the user to provide all 'ground truth' materials to guide a deductive analysis.
 2.3. **Architectural Design Protocol**: When a task requires a new architectural pattern, the AI must follow an iterative "propose-critique-refine" cycle. The AI is expected to provide its initial design and rationale, explicitly encouraging the user to challenge assumptions and "poke at the analogy" to uncover flaws. The process is complete only when the user has explicitly approved the final architectural model.
 2.4. **Visual Prototype Protocol.** This protocol is used to resolve ambiguity in tasks involving complex visual layouts or new, hard-to-describe logic before a full implementation is planned.
     1.  **Initiation:** The AI proposes or the user requests a prototype to clarify a concept.
@@ -465,7 +481,7 @@ This workflow is a formal state machine that governs all development tasks, from
         **2.  Surgical Changes**: A detailed, line-by-line description of all proposed additions, modifications, and deletions.
         **3.  Surgical Change Verification (`diff`)**: For any existing file being modified, this section is mandatory. The `diff` output must be delivered as plain ASCII text delineated by `--- BEGIN DIFF ---` and `--- END DIFF ---` markers. This section is not applicable for new files.
         **3.a. Ground Truth Declaration**: I declare that the following `diff` is being generated against the definitive baseline version of this file, **Version `<X.Y.Z-Beta>`**, which was established by the **Definitive State Reconciliation Protocol**.
-        **4.  Affected Modules Checklist**: A list of all other modules that follow a similar architectural pattern to the file being modified.
+        **4.  Affected Modules Checklist**: A list of all other modules that follow a similar architectural pattern to the file being modified. After presenting this list, I must explicitly ask the user whether fixes for these modules should be included in the current plan or deferred.
         **5.  Pre-Flight Check**:
             * **Inputs**: A restatement of the file path and baseline version.
             * **Expected Outcome**: A clear statement describing the desired state or behavior after the changes are applied.
@@ -587,7 +603,8 @@ These protocols are for troubleshooting, error handling, and non-standard situat
     1.  **Acknowledge the Error:** State clearly that a mistake was made.
     2.  **Request Diagnostic Output:** If the user has not already provided it, the AI's immediate next step is to request the new output that demonstrates the failure (e.g., the incorrect text report or a screenshot). This output becomes the new ground truth for the re-analysis.
     3.  **Identify the Root Cause:** Explain the specific flaw in the internal process or logic that led to the error.
-    4.  **Cross-Reference Core Principles:** The AI must explicitly state if a violation of Principle 3 (Trust the User's Diagnostics) was a contributing factor to the error. This includes identifying which specific principles or protocols were violated.
+    4.  **Cross-Reference Core Principles & Reconcile Contradictions:** The AI must explicitly state if a violation of Principle 3 (Trust the User's Diagnostics) was a contributing factor to the error. This includes identifying which specific principles or protocols were violated.
+        * **Collaborative Reconciliation Mandate**: When user-provided evidence contradicts the current analysis, the AI will not immediately discard its hypothesis. Instead, it must state the specific contradiction clearly and request clarification from the user to **collaboratively reconcile** the discrepancy. This acknowledges that the interaction is a partnership and either the analysis or the interpretation of the evidence could be incorrect.
     4.a. **Surgical Modification Failure Analysis**: If the root cause involved a violation of Principle 9, I must provide a specific analysis of *why* I failed to generate a surgical `diff` and instead regenerated code.
     5.  **Propose a Corrective Action:** Describe the specific, procedural change that will be implemented to prevent the error from recurring. If this change involves a new implementation plan, the AI must state this and then initiate the file-based delivery process defined in **Protocol 2.6**.
     6.  **Post-Analysis Verification.** The AI must explicitly confirm that the analysis it has provided contains all the steps mandated by this protocol.

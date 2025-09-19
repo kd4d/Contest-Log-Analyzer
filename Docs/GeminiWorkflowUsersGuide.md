@@ -1,10 +1,14 @@
 # Contest Log Analyzer - Workflow User Guide
 
-**Version: 0.86.6-Beta**
-**Date: 2025-09-15**
+**Version: 0.87.0-Beta**
+**Date: 2025-09-18**
 
 ---
 ### --- Revision History ---
+## [0.87.0-Beta] - 2025-09-18
+### Added
+# - Added Section 5, "Advanced Methodology: Guiding the AI in Complex Debugging,"
+#   to provide a strategic guide for foundational debugging tasks.
 ## [0.86.6-Beta] - 2025-09-15
 ### Changed
 # - Updated "Your Role: Key Responses" section to include documentation
@@ -111,3 +115,23 @@ You request this and then provide fresh copies of all project files in `*_bundle
 This purges the AI's memory and re-establishes the absolute ground truth of the project.
 * **Context Checkpoint**: If the AI seems confused but a full reset isn't needed, you can initiate this by saying, **"Gemini, let's establish a Context Checkpoint."** You then provide a numbered list of key facts to get the AI back on track.
 * **File Purge Protocol**: To safely remove a file from the project, you can say, **"Gemini, initiate File Purge Protocol."** The AI will then ask you to confirm which file(s) to remove.
+---
+## 5. Advanced Methodology: Guiding the AI in Complex Debugging
+
+While the state machine provides a robust framework for day-to-day tasks, certain complex problems—especially foundational bugs in code that has "never worked"—require a more strategic approach from the user. This section outlines the methodology for guiding the AI to a deductive, evidence-based solution.
+
+### 5.1 The Two Modes of Debugging
+* **"Used to Work" (Regression Debugging):** This involves problems where a previously functional system breaks. This aligns well with the AI's default probabilistic strengths in pattern-matching common causes (e.g., updates, environment changes).
+* **"Never Worked" (Foundational Debugging):** This involves problems rooted in flawed initial logic or syntax. This requires a rigorous, deductive approach where the principle that **"the code is reality"** is paramount. This mode requires you to actively guide the AI.
+
+### 5.2 Your Role as the "Deductive Guide"
+In foundational debugging, your role shifts from a simple approver to a lead investigator.
+* **Establish the Ground Truth:** Begin the session by providing all relevant code, logs, and error messages, and explicitly state that this is the sole source of evidence for the analysis.
+* **Use Evidentiary Challenges:** Treat the AI's initial, probabilistic answers as hypotheses to be tested. Your primary role is to provide specific, factual counter-evidence (like a hex dump or a console log) to disprove flawed hypotheses and narrow the field of possibilities.
+
+### 5.3 Case Study: The Batch Script Parser Bug
+A recent debugging session involving a Windows batch script serves as a practical example.
+* **The Problem:** A script was creating an unwanted `PDF` file, and its `echo` commands were not appearing on the console.
+* **The Flawed Path:** The AI's initial hypotheses (user error, non-standard characters, structural bugs) were probabilistic guesses based on common patterns.
+* **The Breakthrough:** The user, acting as the Deductive Guide, provided definitive evidence (a clean hex dump) that invalidated the AI's hypotheses. The user then provided the key insight about the `->` character, focusing the analysis.
+* **The Solution:** The final solution (`-^>`) was reached by forcing the AI to analyze the specific, subtle interaction between the code's content and the `cmd.exe` parser—a classic "Never Worked" scenario.
