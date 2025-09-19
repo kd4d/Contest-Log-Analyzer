@@ -1,6 +1,6 @@
 {
   "_filename": "contest_tools/contest_definitions/wae_cw.json",
-  "_version": "0.88.4-Beta",
+  "_version": "0.89.0-Beta",
   "_date": "2025-09-18",
   "contest_name": "WAE-CW",
   "valid_bands": [
@@ -17,6 +17,7 @@
   "dupe_check_scope": "per_band",
   "custom_parser_module": "wae_parser",
   "custom_multiplier_resolver": "wae_multiplier_resolver",
+  "custom_adif_exporter": "wae_adif",
   "custom_location_resolver": "wae_location_resolver",
   "time_series_calculator": "wae_calculator",
   "points_header_label": "QSO+QTC Pts",
