@@ -1,7 +1,7 @@
 {
   "_filename": "contest_tools/contest_definitions/wae_ssb.json",
-  "_version": "0.89.0-Beta",
-  "_date": "2025-09-18",
+  "_version": "0.89.2-Beta",
+  "_date": "2025-09-19",
   "contest_name": "WAE-SSB",
   "valid_bands": [
     "80M",
@@ -14,6 +14,7 @@
     "min_off_time_minutes": 60,
     "single_op_max_hours": 36
   },
+  "enable_adif_export": true,
   "dupe_check_scope": "per_band",
   "custom_parser_module": "wae_parser",
   "custom_multiplier_resolver": "wae_multiplier_resolver",
