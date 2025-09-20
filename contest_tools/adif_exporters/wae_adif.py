@@ -1,8 +1,8 @@
 # Contest Log Analyzer/contest_tools/adif_exporters/wae_adif.py
 #
 # Author: Gemini AI
-# Date: 2025-09-18
-# Version: 1.0.0-Beta
+# Date: 2025-09-19
+# Version: 1.0.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 #          generating an output file compatible with N1MM Logger+.
 #
 # --- Revision History ---
+## [1.0.1-Beta] - 2025-09-19
+### Changed
+# - Implemented mode-dependent logic to generate the correct CONTEST_ID
+#   for CW and SSB logs to match N1MM requirements.
 ## [1.0.0-Beta] - 2025-09-18
 # - Initial release.
 #
@@ -58,7 +62,7 @@ def export_log(log: ContestLog, output_filepath: str):
     adif_records: List[str] = []
     adif_records.append("ADIF Export from Contest-Log-Analyzer\n")
     adif_records.append(f"<PROGRAMID:22>Contest-Log-Analyzer\n")
-    adif_records.append(f"<PROGRAMVERSION:1.0.0-Beta\n")
+    adif_records.append(f"<PROGRAMVERSION:1.0.1-Beta\n")
     adif_records.append("<EOH>\n\n")
 
     for _, row in df_to_export.iterrows():
@@ -76,7 +80,7 @@ def export_log(log: ContestLog, output_filepath: str):
             freq_mhz = f"{row.get('Frequency') / 1000:.3f}"
             record_parts.append(adif_format('FREQ', freq_mhz))
             record_parts.append(adif_format('FREQ_RX', freq_mhz))
-        record_parts.append(adif_format('CONTEST_ID', log.get_metadata().get('ContestName')))
+        
         mode = row.get('Mode')
         if mode in ['PH', 'USB', 'LSB', 'SSB']: mode = 'SSB'
         record_parts.append(adif_format('MODE', mode))
@@ -88,10 +92,17 @@ def export_log(log: ContestLog, output_filepath: str):
         record_parts.append(adif_format('APP_N1MM_CONTINENT', row.get('Continent')))
 
         # --- WAE Contest-Specific Tag Logic ---
-        # 1. Add literal <APP_N1MM_EXCHANGE1:3>QSO tag
+        # 1. Mode-dependent CONTEST_ID
+        if mode == 'CW':
+            contest_id = 'DARC-WAEDC-CW'
+        else: # PH or SSB
+            contest_id = 'DARC-WAEDC-SSB'
+        record_parts.append(adif_format('CONTEST_ID', contest_id))
+        
+        # 2. Add literal <APP_N1MM_EXCHANGE1:3>QSO tag
         record_parts.append("<APP_N1MM_EXCHANGE1:3>QSO ")
 
-        # 2. Populate <ARRL_SECT> with multiplier
+        # 3. Populate <ARRL_SECT> with multiplier
         mult1 = row.get('Mult1')
         mult2 = row.get('Mult2')
         if pd.notna(mult1):
