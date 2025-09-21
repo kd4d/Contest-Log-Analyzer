@@ -5,8 +5,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-13
-# Version: 0.85.9-Beta
+# Date: 2025-09-21
+# Version: 0.88.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.88.2-Beta] - 2025-09-21
+### Changed
+# - Enhanced debug file to include total and per-band multiplier data.
+# - Added a check to gracefully handle contests with no multipliers.
 ## [0.85.9-Beta] - 2025-09-13
 ### Changed
 # - Refactored report to use the new, pre-calculated time_series_score_df
@@ -241,7 +245,20 @@ class Report(ContestReport):
         
         # --- Save Debug Data ---
         if all_series:
-            debug_df = pd.concat(all_series, axis=1).fillna(0)
+            # Start with the score data
+            debug_df = pd.concat(all_series, axis=1).fillna(0).copy()
+            
+            # Add multiplier data if it exists
+            for i, log in enumerate(self.logs):
+                call = all_calls[i]
+                score_ts = log.time_series_score_df
+                if 'total_mults' in score_ts.columns:
+                    debug_df[f'mults_{call}'] = score_ts['total_mults']
+                    for band in bands:
+                        band_col = f'total_mults_{band}'
+                        if band_col in score_ts.columns:
+                            debug_df[f'mults_{band}_{call}'] = score_ts[band_col]
+            
             debug_filename = f"{self.report_id}_{filename_band}{mode_suffix}_{filename_calls}.txt"
             save_debug_data(debug_data_flag, output_path, debug_df, custom_filename=debug_filename)
         

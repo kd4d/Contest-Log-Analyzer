@@ -2,7 +2,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-09-21
-# Version: 0.85.3-Beta
+# Version: 0.88.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,14 @@
 #          score calculator for the Worked All Europe (WAE) Contest.
 #
 # --- Revision History ---
+## [0.88.1-Beta] - 2025-09-21
+### Changed
+# - Added the `weighted_mults` column to the output DataFrame to
+#   provide data for downstream diagnostic reports.
+# - Enhanced module to calculate and add per-band weighted multiplier columns.
+## [0.88.0-Beta] - 2025-09-21
+### Changed
+# - Synchronized version with `wae_calculator` fix.
 ## [0.85.3-Beta] - 2025-09-21
 ### Fixed
 # - Corrected a bug in the multiplier counting logic by filtering for
@@ -84,7 +92,7 @@ class WaeCalculator(TimeSeriesCalculator):
             if col in df_mults.columns:
                 # Drop NaNs for the specific column before finding duplicates
                 first_worked = df_mults.dropna(subset=[col]).drop_duplicates(subset=['Band', col], keep='first')
-        
+    
                 weights = first_worked['Band'].map(self._BAND_WEIGHTS)
                 new_mults_ts = pd.Series(weights.values, index=first_worked['Datetime'])
                 new_mults_events.append(new_mults_ts)
@@ -95,6 +103,23 @@ class WaeCalculator(TimeSeriesCalculator):
             ts_weighted_mults = hourly_weighted_mults.cumsum().reindex(master_index, method='ffill').fillna(0)
         else:
             ts_weighted_mults = pd.Series(0, index=master_index)
+
+        # --- 2a. Calculate Cumulative Weighted Multipliers PER BAND ---
+        per_band_mult_ts = {}
+        bands_in_log = df_mults['Band'].unique()
+        for band in self._BAND_WEIGHTS.keys():
+            if band in bands_in_log:
+                df_band_mults = df_mults[df_mults['Band'] == band]
+                band_new_mults_events = []
+                for col in mult_cols:
+                    if col in df_band_mults.columns:
+                        first_worked = df_band_mults.dropna(subset=[col]).drop_duplicates(subset=[col], keep='first')
+                        weights = pd.Series(self._BAND_WEIGHTS.get(band, 1), index=first_worked.index)
+                        band_new_mults_events.append(pd.Series(weights.values, index=first_worked['Datetime']))
+                
+                if band_new_mults_events:
+                    hourly_weighted = pd.concat(band_new_mults_events).resample('h').sum()
+                    per_band_mult_ts[f"weighted_mults_{band}"] = hourly_weighted.cumsum().reindex(master_index, method='ffill').fillna(0)
 
         # --- 3. Calculate Total Score ---
         ts_total_score = ts_contact_total * ts_weighted_mults
@@ -126,6 +151,11 @@ class WaeCalculator(TimeSeriesCalculator):
             'run_score': ts_run_score,
             'sp_unk_score': ts_sp_unk_score,
             'score': ts_total_score,
+            'weighted_mults': ts_weighted_mults
         })
+
+        # Add the per-band multiplier time-series to the final result
+        for col_name, series in per_band_mult_ts.items():
+            result_df[col_name] = series
 
         return result_df.astype(int)

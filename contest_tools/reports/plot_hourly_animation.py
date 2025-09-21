@@ -1,6 +1,6 @@
 # Contest Log Analyzer/contest_tools/reports/plot_hourly_animation.py
 #
-# Version: 0.87.0-Beta
+# Version: 0.88.2-Beta
 # Date: 2025-09-21
 #
 # Purpose: A plot report that generates a series of hourly images and compiles
@@ -15,10 +15,28 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.87.0-Beta] - 2025-09-21
+## [0.88.2-Beta] - 2025-09-21
+### Changed
+# - Updated debug data generation to populate the `by_band` multiplier
+#   breakdown using the new per-band data from the WAE calculator.
+# - Refactored debug logic to be generic, supporting per-band multiplier
+#   diagnostics for both WAE and standard contests.
+## [0.88.0-Beta] - 2025-09-21
+### Changed
+# - Synchronized version with `wae_calculator` fix.
+## [0.87.2-Beta] - 2025-09-21
+### Fixed
+# - Corrected a variable name mismatch in the _generate_video function
+#   that prevented multiplier diagnostics from appearing in debug files.
+## [0.87.1-Beta] - 2025-09-21
 ### Added
 # - Amended the per-frame debug file to include a generic, contest-aware
 #   multiplier breakdown for enhanced diagnostics.
+## [0.87.0-Beta] - 2025-09-18
+### Added
+# - Added a new "Implementation Details and Conventions" section to the
+#   Custom ADIF Exporter contract to document N1MM-specific tagging
+#   requirements and the APP_CLA_ tag convention.
 ## [0.86.1-Beta] - 2025-09-13
 ### Fixed
 # - Removed a redundant tz_localize call, which caused a TypeError now
@@ -196,10 +214,9 @@ class Report(ContestReport):
             cum_qso_per_band_breakdown = cum_qso_per_band_breakdown.reindex(master_index, method='ffill').fillna(0)
 
             log_data[call] = {
-                'cum_qso': score_ts['run_qso_count'] + score_ts['sp_unk_qso_count'], 
-                'cum_score': score_ts['score'],
-                'cum_mults': score_ts.get('mult_count'),
-                'hourly_run_sp': hourly_run_sp, 'cum_qso_per_band_breakdown': cum_qso_per_band_breakdown
+                'score_ts': score_ts,
+                'hourly_run_sp': hourly_run_sp, 
+                'cum_qso_per_band_breakdown': cum_qso_per_band_breakdown
             }
         
         all_cum_per_band_dfs = [ld['cum_qso_per_band_breakdown'] for ld in log_data.values()]
@@ -217,8 +234,8 @@ class Report(ContestReport):
                 max_cum_qso_on_band = max_val
 
         if max_cum_qso_on_band == 0: max_cum_qso_on_band = 1
-        max_final_qso = max((ld['cum_qso'].iloc[-1] for ld in log_data.values()), default=1)
-        max_final_score = max((ld['cum_score'].iloc[-1] for ld in log_data.values()), default=1)
+        max_final_qso = max((ld['score_ts']['run_qso_count'].iloc[-1] + ld['score_ts']['sp_unk_qso_count'].iloc[-1] for ld in log_data.values()), default=1)
+        max_final_score = max((ld['score_ts']['score'].iloc[-1] for ld in log_data.values()), default=1)
         
         if max_final_qso == 0: max_final_qso = 1
         if max_final_score == 0: max_final_score = 1
@@ -256,10 +273,12 @@ class Report(ContestReport):
                 }
                 
                 for call in calls:
+                    score_ts = data['log_data'][call]['score_ts']
+                    
                     # Data for Top Chart (Cumulative Totals)
                     top_chart_data = {
-                        'score': data['log_data'][call]['cum_score'].get(hour, 0),
-                        'qsos': data['log_data'][call]['cum_qso'].get(hour, 0)
+                        'score': score_ts['score'].get(hour, 0),
+                        'qsos': score_ts['run_qso_count'].get(hour, 0) + score_ts['sp_unk_qso_count'].get(hour, 0)
                     }
     
                     # Data for Bottom-Left Chart (Hourly Rates)
@@ -271,7 +290,7 @@ class Report(ContestReport):
                             for index, run_counts in hourly_slice.iterrows():
                                 band, mode = index
                                 if band not in hourly_rate_data:
-                                    hourly_rate_data[band] = {}
+                                     hourly_rate_data[band] = {}
                                 hourly_rate_data[band][mode] = run_counts.to_dict()
                     except KeyError:
                         pass 
@@ -285,20 +304,30 @@ class Report(ContestReport):
                     except KeyError:
                         pass
                     
-                    # Data for Multiplier Debug Section
+                    # Data for Multiplier Debug Section (Contest-Aware)
                     multiplier_debug_data = {}
-                    if contest_def.multiplier_rules:
-                        mult_label = "Cumulative Multipliers"
+                    if score_ts is not None:
                         if contest_def.contest_name.startswith('WAE'):
                             mult_label = "Cumulative Weighted Multipliers"
-                        
-                        total_mults = data['log_data'][call]['cum_mults'].get(hour, 0) if data['log_data'][call]['cum_mults'] is not None else 0
-                        
-                        multiplier_debug_data = {
-                            "label": mult_label,
-                            "total": total_mults,
-                            "by_band": {} # Per-band data could be added here in the future
-                        }
+                            mult_col_name = 'weighted_mults'
+                            band_col_prefix = 'weighted_mults_'
+                        else:
+                            mult_label = "Cumulative Multipliers"
+                            mult_col_name = 'total_mults'
+                            band_col_prefix = 'total_mults_'
+
+                        if mult_col_name in score_ts.columns:
+                            total_mults = score_ts[mult_col_name].get(hour, 0)
+                            by_band_data = {}
+                            for band in data['bands']:
+                                band_col_name = f"{band_col_prefix}{band}"
+                                if band_col_name in score_ts.columns:
+                                    by_band_data[band] = score_ts[band_col_name].get(hour, 0)
+                            multiplier_debug_data = {
+                                "label": mult_label,
+                                "total": total_mults,
+                                "by_band": by_band_data
+                            }
 
                     frame_debug_data['logs'][call] = {
                         'top_chart_cumulative_totals': top_chart_data,
@@ -310,6 +339,7 @@ class Report(ContestReport):
                 debug_filename = f"{self.report_id}_{'_vs_'.join(sorted(calls))}_frame_{i:03d}.txt"
                 save_debug_data(debug_data_flag, output_path, frame_debug_data, custom_filename=debug_filename)
     
+            
                 fig_mpl = plt.figure(figsize=(self.IMAGE_WIDTH_PX / self.DPI, self.IMAGE_HEIGHT_PX / self.DPI), dpi=self.DPI)
                 
                 gs_main = fig_mpl.add_gridspec(3, 1, height_ratios=[1, 10, 1.2], hspace=0.8)
@@ -337,8 +367,8 @@ class Report(ContestReport):
     
                 ax_qso = ax_top; ax_score = ax_top.twiny()
                 for j, call in enumerate(calls):
-                    score = data['log_data'][call]['cum_score'].get(hour, 0)
-                    qsos = data['log_data'][call]['cum_qso'].get(hour, 0)
+                    score = data['log_data'][call]['score_ts']['score'].get(hour, 0)
+                    qsos = data['log_data'][call]['score_ts']['run_qso_count'].get(hour, 0) + data['log_data'][call]['score_ts']['sp_unk_qso_count'].get(hour, 0)
                     bar_color = self.CALLSIGN_COLORS[j % len(self.CALLSIGN_COLORS)]
                     
                     ax_score.barh(j + 0.2, score, height=0.4, align='center', color=bar_color, label=call)
@@ -367,13 +397,14 @@ class Report(ContestReport):
                                 y_values.append(count)
                         
                         ax_bottom_left.bar([x + j * bar_width_hourly for x in range(len(x_labels_hourly))], y_values,
-                                             width=bar_width_hourly, bottom=bottoms, color=color_shades[run_state], alpha=0.8)
+                                          width=bar_width_hourly, bottom=bottoms, color=color_shades[run_state], alpha=0.8)
                         bottoms = [b + y for b, y in zip(bottoms, y_values)]
                 
                 ax_bottom_left.set_xticks([x + (bar_width_hourly * (num_logs-1) / 2) for x in range(len(x_labels_hourly))])
                 ax_bottom_left.set_xticklabels(x_labels_hourly, rotation=45, ha='right')
                 ax_bottom_left.set_ylabel("QSOs per Hour"); ax_bottom_left.set_ylim(0, data['max_hourly_rate'] * 1.1); ax_bottom_left.grid(False)
     
+                
                 bar_width_cum = 0.8 / num_logs
                 band_indices = range(len(data['bands']))
                 for j, call in enumerate(calls):
@@ -394,6 +425,7 @@ class Report(ContestReport):
                 legend_handles = [plt.Rectangle((0,0),1,1, fc=sample_shades[s]) for s in ['Run', 'S&P', 'Unknown']]
                 ax_bottom_legend.legend(legend_handles, ['Run', 'S&P', 'Unknown'], title="QSO Type", loc='center', ncol=3)
     
+    
                 frame_path = os.path.join(frame_dir, f"frame_{i:03d}.png")
                 plt.savefig(frame_path)
                 plt.close(fig_mpl)
@@ -407,7 +439,7 @@ class Report(ContestReport):
 
                     # Use a different duration for the final frame
                     if i == total_frames - 1:
-                        duration = self.LAST_FRAME_DURATION_SECONDS
+                         duration = self.LAST_FRAME_DURATION_SECONDS
                     else:
                         duration = self.FRAME_DURATION_SECONDS
                     
