@@ -1,8 +1,8 @@
 # Contest Log Analyzer/contest_tools/score_calculators/wae_calculator.py
 #
 # Author: Gemini AI
-# Date: 2025-09-14
-# Version: 0.86.9-Beta
+# Date: 2025-09-21
+# Version: 0.85.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,18 +17,11 @@
 #          score calculator for the Worked All Europe (WAE) Contest.
 #
 # --- Revision History ---
-## [0.86.9-Beta] - 2025-09-14
+## [0.85.3-Beta] - 2025-09-21
 ### Fixed
-# - Removed the redundant timezone localization check for the main QSO
-#   DataFrame, which caused a TypeError.
-## [0.86.4-Beta] - 2025-09-13
-### Changed
-# - Updated the calculate() method signature to accept a pre-filtered,
-#   non-dupe DataFrame to enforce a cleaner data flow contract.
-## [0.87.1-Beta] - 2025-09-13
-### Fixed
-# - Fixed a TypeError by localizing the timezone of the main QSO DataFrame
-#   to UTC before performing time-based operations.
+# - Corrected a bug in the multiplier counting logic by filtering for
+#   non-null values before dropping duplicates, preventing valid
+#   multipliers from being discarded.
 ## [0.85.2-Beta] - 2025-09-13
 # - Initial release.
 #
@@ -89,7 +82,9 @@ class WaeCalculator(TimeSeriesCalculator):
         new_mults_events = []
         for col in mult_cols:
             if col in df_mults.columns:
-                first_worked = df_mults.drop_duplicates(subset=['Band', col], keep='first')
+                # Drop NaNs for the specific column before finding duplicates
+                first_worked = df_mults.dropna(subset=[col]).drop_duplicates(subset=['Band', col], keep='first')
+        
                 weights = first_worked['Band'].map(self._BAND_WEIGHTS)
                 new_mults_ts = pd.Series(weights.values, index=first_worked['Datetime'])
                 new_mults_events.append(new_mults_ts)
@@ -103,6 +98,7 @@ class WaeCalculator(TimeSeriesCalculator):
 
         # --- 3. Calculate Total Score ---
         ts_total_score = ts_contact_total * ts_weighted_mults
+        
         
         # --- 4. Apportion Score by Operating Style (Run vs. S&P) ---
         is_run = qsos_df_sorted['Run'] == 'Run'
