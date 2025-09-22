@@ -1,9 +1,13 @@
 # AIAgentWorkflow.md
 
-**Version: 0.98.2-Beta**
+**Version: 0.98.3-Beta**
 **Date: 2025-09-21**
 ---
 ### --- Revision History ---
+## [0.98.3-Beta] - 2025-09-21
+### Changed
+# - Updated Protocol 1.7 (Project Structure Onboarding) to include all
+#   current project subdirectories.
 ## [0.98.2-Beta] - 2025-09-21
 ### Added
 # - Added Protocol 3.4.1 (Version Scopes) to define the three-tiered
@@ -476,7 +480,10 @@ These are the step-by-step procedures for common, day-to-day development tasks.
 The `Logs/` and `data/` directories are located within a root path defined by the `CONTEST_INPUT_DIR` environment variable.
 * `contest_tools/`: The core application library.
 * `contest_tools/reports/`: The "plug-in" directory for all report modules.
+* `contest_tools/adif_exporters/`: Custom ADIF exporters for specific contest requirements.
 * `contest_tools/contest_definitions/`: Data-driven JSON definitions for each contest.
+* `contest_tools/event_resolvers/`: Modules for resolving unique event IDs (e.g., for NAQP).
+* `contest_tools/score_calculators/`: Pluggable time-series score calculators.
 * `Docs/`: All user and developer documentation.
 * `test_code/`: Utility and prototype scripts not part of the main application. These scripts are not held to the same change control and documentation standards (e.g., a revision history is not required).
 * `Logs/`: Contains all Cabrillo log files for analysis.
