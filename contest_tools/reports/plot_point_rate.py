@@ -6,7 +6,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-09-21
-# Version: 0.88.2-Beta
+# Version: 0.88.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.88.3-Beta] - 2025-09-21
+### Fixed
+# - Resolved a NameError in the debug data generation logic by correctly
+#   defining the 'bands' variable within the function's scope.
 ## [0.88.2-Beta] - 2025-09-21
 ### Changed
 # - Enhanced debug file to include total and per-band multiplier data.
@@ -151,6 +155,7 @@ class Report(ContestReport):
 
     def _create_plot(self, dfs: List[pd.DataFrame], output_path: str, band_filter: str, mode_filter: str, **kwargs) -> str:
         debug_data_flag = kwargs.get("debug_data", False)
+        bands = self.logs[0].contest_definition.valid_bands
         fig, ax = plt.subplots(figsize=(12, 8))
         sns.set_theme(style="whitegrid")
 
