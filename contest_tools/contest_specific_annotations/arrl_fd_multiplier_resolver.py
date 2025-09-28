@@ -1,7 +1,7 @@
 # Contest Log Analyzer/contest_tools/contest_specific_annotations/arrl_fd_multiplier_resolver.py
 #
-# Version: 0.89.2-Beta
-# Date: 2025-09-17
+# Version: 0.88.1-Beta
+# Date: 2025-09-21
 #
 # Purpose: Provides contest-specific logic to resolve the ARRL/RAC Section
 #          from the ARRL Field Day exchange.
@@ -16,6 +16,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+## [0.88.1-Beta] - 2025-09-21
+### Fixed
+# - Corrected function signature to comply with the standard resolver contract.
 ## [0.89.2-Beta] - 2025-09-17
 ### Changed
 # - Refactored module to be data-driven, reading its target column name
@@ -49,7 +52,7 @@ def _resolve_row(row: pd.Series, alias_lookup: AliasLookup) -> str:
     
     return mult_abbr if pd.notna(mult_abbr) else "Unknown"
 
-def resolve_multipliers(df: pd.DataFrame, my_call_info: Dict[str, Any], root_input_dir: str, contest_def: ContestDefinition) -> pd.DataFrame:
+def resolve_multipliers(df: pd.DataFrame, my_location_type: str, root_input_dir: str, contest_def: ContestDefinition) -> pd.DataFrame:
     """
     Resolves the ARRL/RAC Section for ARRL Field Day QSOs.
     """

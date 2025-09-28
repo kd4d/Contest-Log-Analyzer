@@ -38,17 +38,17 @@ if not exist "%MD_FILE%" (
 echo Processing: "%MD_FILE%"
 
 if not exist "%PDF_FILE%" (
-    echo  -> PDF does not exist. Generating...
+    echo  -^> PDF does not exist. Generating...
     pandoc -f gfm "%MD_FILE%" --pdf-engine=xelatex -o "%PDF_FILE%"
 ) else (
     for %%M in ("%MD_FILE%") do set "MD_TIME=%%~tM"
     for %%P in ("%PDF_FILE%") do set "PDF_TIME=%%~tP"
 
     if "!MD_TIME!" GTR "!PDF_TIME!" (
-        echo  -> Markdown file is newer. Regenerating PDF...
+        echo  -^> Markdown file is newer. Regenerating PDF...
         pandoc -f gfm "%MD_FILE%" --pdf-engine=xelatex -o "%PDF_FILE%"
     ) else (
-        echo  -> PDF is up-to-date. Skipping.
+        echo  -^> PDF is up-to-date. Skipping.
     )
 )
 goto :eof

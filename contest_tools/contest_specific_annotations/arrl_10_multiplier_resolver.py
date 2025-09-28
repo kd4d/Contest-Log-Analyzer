@@ -1,7 +1,7 @@
 # Contest Log Analyzer/contest_tools/contest_specific_annotations/arrl_10_multiplier_resolver.py
 #
-# Version: 0.89.3-Beta
-# Date: 2025-09-17
+# Version: 0.88.0-Beta
+# Date: 2025-09-21
 #
 # Purpose: Provides contest-specific logic to resolve ARRL 10 Meter contest
 #          multipliers by parsing the asymmetric received exchange.
@@ -15,6 +15,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.88.0-Beta] - 2025-09-21
+### Fixed
+# - Corrected function signature to comply with the standard resolver contract.
 ## [0.89.3-Beta] - 2025-09-17
 ### Changed
 # - Refactored module to be data-driven, reading target column names
@@ -140,7 +143,7 @@ def _resolve_row(row: pd.Series, alias_lookup: AliasLookup, rules: Dict) -> pd.S
     ])
 
 
-def resolve_multipliers(df: pd.DataFrame, my_call_info: Dict[str, Any], root_input_dir: str, contest_def: ContestDefinition) -> pd.DataFrame:
+def resolve_multipliers(df: pd.DataFrame, my_location_type: str, root_input_dir: str, contest_def: ContestDefinition) -> pd.DataFrame:
     """
     Resolves multipliers for the ARRL 10 Meter contest.
     """

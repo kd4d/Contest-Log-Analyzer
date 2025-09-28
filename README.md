@@ -1,10 +1,14 @@
 # Contest Log Analyzer
 
-**Version: 0.86.5-Beta**
-**Date: 2025-09-18**
+**Version: 0.88.0-Beta**
+**Date: 2025-09-21**
 
 ---
 ### --- Revision History ---
+## [0.88.0-Beta] - 2025-09-21
+### Fixed
+# - Synchronized the "Available Reports" list with the current project
+#   baseline to add one missing report and correct two report IDs.
 ## [0.86.5-Beta] - 2025-09-18
 ### Changed
 # - Corrected the report ID for the comparative rate sheet to align
@@ -61,7 +65,8 @@ __CODE_BLOCK__
 ---
 ## Supported Contests
 
-The analyzer uses the `CONTEST:` field in the Cabrillo header to apply contest-specific rules. The following contests are currently supported:
+The analyzer uses the `CONTEST:` field in the Cabrillo header to apply contest-specific rules.
+The following contests are currently supported:
 
 * ARRL 10 Meter
 * ARRL DX (CW & SSB)
@@ -86,7 +91,7 @@ All generated files are saved to a structured directory under `reports/YYYY/CONT
 #### **Chart Reports (`charts/`)**
 * `chart_point_contribution`: Point Contribution Breakdown
 * `chart_point_contribution_single`: Point Contribution Breakdown (Single Log)
-* `chart_qso_breakdown`: QSO Breakdown Chart
+* `qso_breakdown_chart`: QSO Breakdown Chart
 
 #### **Plot Reports (`plots/`)**
 * `band_activity_heatmap`: Band Activity Heatmap

@@ -1,8 +1,8 @@
 # Contest Log Analyzer/contest_tools/score_calculators/standard_calculator.py
 #
 # Author: Gemini AI
-# Date: 2025-09-18
-# Version: 0.88.1-Beta
+# Date: 2025-09-21
+# Version: 0.88.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,57 +18,11 @@
 #          scoring rules like QTCs or weighted multipliers.
 #
 # --- Revision History ---
-## [0.88.1-Beta] - 2025-09-18
-### Fixed
-# - Modified multiplier counting logic to explicitly filter out "Unknown"
-#   multipliers, fixing a score discrepancy with text reports.
-## [0.88.0-Beta] - 2025-09-18
-### Fixed
-# - Corrected multiplier counting logic to ensure unique column names are
-#   processed, fixing a double-counting bug for asymmetric contests like
-#   ARRL DX.
-## [0.87.0-Beta] - 2025-09-18
-### Fixed
-# - Modified the `calculate` method to be "score-formula-aware". It now
-#   correctly applies the scoring logic from the contest's JSON definition.
-## [0.86.12-Beta] - 2025-09-14
-### Fixed
-# - Corrected a TypeError by replacing an invalid `.fillna(set())` call
-#   with a valid `.apply()` method to handle hours with no multiplier
-#   activity.
-## [0.86.11-Beta] - 2025-09-14
-### Fixed
-# - Corrected a major regression in score calculation. The module now
-#   inspects the multiplier totaling_method from the contest
-#   definition and correctly applies either `sum_by_band` or
-#   `once_per_log` logic.
-## [0.86.10-Beta] - 2025-09-14
+## [0.88.2-Beta] - 2025-09-21
 ### Changed
-# - Refactored multiplier logic to be data-driven. It now dynamically
-#   reads multiplier columns from the contest definition instead of
-#   using a hardcoded list, fixing a systemic bug.
-## [0.86.9-Beta] - 2025-09-14
-### Fixed
-# - Removed the redundant timezone localization check, which caused a
-#   TypeError when receiving an already-aware DataFrame.
-## [0.86.7-Beta] - 2025-09-14
-### Fixed
-# - Replaced the incompatible .expanding().apply() method with a manual
-#   loop to correctly perform a cumulative union of sets, fixing a DataError.
-## [0.86.6-Beta] - 2025-09-14
-### Fixed
-# - Corrected a ValueError by removing the non-scalar `fill_value` from
-#   the reindex call and handling NaN values afterward.
-## [0.86.5-Beta] - 2025-09-14
-### Fixed
-# - Re-introduced the timezone localization check that was accidentally
-#   removed, fixing a regression that caused a TypeError.
-## [0.86.4-Beta] - 2025-09-13
-### Changed
-# - Rewrote the calculate() method to use the new pre-filtered DataFrame
-#   and to correctly calculate the final score using multipliers.
-### Fixed
-# - Corrected logic to no longer include duplicate QSOs in its counts.
+# - Added the `total_mults` time series to the returned DataFrame to
+#   provide necessary data for downstream diagnostic reports.
+# - Enhanced module to calculate and add per-band total multiplier columns.
 ## [0.87.1-Beta] - 2025-09-13
 ### Fixed
 # - Fixed a TypeError by localizing the timezone of the internal DataFrame
@@ -120,6 +74,7 @@ class StandardCalculator(TimeSeriesCalculator):
         # --- Multiplier Counting based on Contest Rules ---
         multiplier_columns = sorted(list(set([rule['value_column'] for rule in log.contest_definition.multiplier_rules])))
 
+        per_band_mult_ts_dict = {}
         # Create a filtered DataFrame for multiplier counting, excluding "Unknown"
         df_for_mults = df_sorted.copy()
         for col in multiplier_columns:
@@ -128,8 +83,8 @@ class StandardCalculator(TimeSeriesCalculator):
 
         totaling_method = log.contest_definition.multiplier_rules[0].get('totaling_method', 'sum_by_band') if log.contest_definition.multiplier_rules else 'sum_by_band'
 
+        mult_count_ts = pd.Series(0.0, index=master_index)
         if totaling_method == 'sum_by_band':
-            mult_count_ts = pd.Series(0.0, index=master_index)
             for mult_col in multiplier_columns:
                 if mult_col in df_for_mults.columns:
                     per_band_groups = df_for_mults.groupby('Band')
@@ -138,12 +93,11 @@ class StandardCalculator(TimeSeriesCalculator):
                         mult_set_ts = mult_set_ts.apply(lambda x: x if isinstance(x, set) else set())
                         
                         running_set = set()
-                        cumulative_sets_list = []
-                        for current_set in mult_set_ts:
-                            running_set.update(current_set)
-                            cumulative_sets_list.append(running_set.copy())
+                        cumulative_sets_list = [running_set.update(s) or running_set.copy() for s in mult_set_ts]
                         
-                        mult_count_ts += pd.Series(cumulative_sets_list, index=master_index).apply(len)
+                        band_mult_ts = pd.Series(cumulative_sets_list, index=master_index).apply(len)
+                        mult_count_ts += band_mult_ts
+                        per_band_mult_ts_dict[f"total_mults_{band}"] = band_mult_ts
         else: # once_per_log or once_per_mode
             all_mult_sets_list = []
             for mult_col in multiplier_columns:
@@ -163,6 +117,7 @@ class StandardCalculator(TimeSeriesCalculator):
             cumulative_sets_list = [running_set.update(s) or running_set.copy() for s in all_mult_sets]
             mult_count_ts = pd.Series(cumulative_sets_list, index=master_index).apply(len)
         
+        
         # --- Final Score Calculation (Score-Formula-Aware) ---
         score_formula = log.contest_definition.score_formula
         if score_formula == 'total_points':
@@ -181,7 +136,12 @@ class StandardCalculator(TimeSeriesCalculator):
             'sp_unk_qso_count': sp_unk_qso_ts,
             'run_score': run_score_ts,
             'sp_unk_score': sp_unk_score_ts,
-            'score': final_score_ts
+            'score': final_score_ts,
+            'total_mults': mult_count_ts,
         }, index=master_index)
         
+        # Add the per-band multiplier time-series to the final result
+        for col_name, series in per_band_mult_ts_dict.items():
+            result_df[col_name] = series
+
         return result_df.astype(int)
