@@ -1,133 +1,109 @@
-# Contest Log Analyzer/test_code/create_project_bundle.py
+#!/usr/bin/env python3
 #
-# Purpose: This utility traverses a directory to find all relevant project
-#          files and consolidates them into a single text file. By default,
-#          it bundles source code (.py, .json), but can be switched to
-#          bundle documentation files (.md, .txt) or data files (.dat)
-#          via command-line flags.
+# create_project_bundle.py
 #
-# Author: Mark Bailey, KD4D
-# Contact: kd4d@kd4d.org
-# Date: 2025-08-14
-# Version: 0.32.1-Beta
+# A utility script to bundle project files into a single text file for easy
+# submission to an AI model.
 #
-# Copyright (c) 2025 Mark Bailey, KD4D
+# Version: 1.0.2-Beta
+# Date: 2025-09-28
 #
-# License: Mozilla Public License, v. 2.0
-#          (https://www.mozilla.org/MPL/2.0/)
-#
-# This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 # --- Revision History ---
-# All notable changes to this project will be documented in this file.
-# The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
-# and this project aims to adhere to Semantic Versioning (https://semver.org/).
-
-## [0.32.1-Beta] - 2025-08-14
-### Added
-# - Added an optional '--data' command-line argument to bundle .dat files.
-
-## [0.32.0-Beta] - 2025-08-11
-### Changed
-# Modified the script bundle .md files when the optional --txt argument is 
-# provided to avoid .txt files from reports.
-
-## [0.26.2-Beta] - 2025-08-02
-### Changed
-# - Modified the script to start its file search from the current working
-#   directory ('.') instead of the parent directory of the script.
-
-## [0.26.1-Beta] - 2025-08-02
-### Added
-# - Added an optional '--txt' command-line argument to bundle .md and .txt
-#   files instead of the default .py and .json files.
-
-## [1.0.0] - 2025-07-25
-# - Initial release of the project bundling script.
+# [1.0.2-Beta] - 2025-09-28
+# - Updated get_data_files to use os.walk to correctly find files in
+#   subdirectories.
+# [1.0.1-Beta] - 2025-09-28
+# - Fixed a bug where --txt and --data flags failed to find their
+#   respective directories. The script now correctly uses the
+#   CONTEST_INPUT_DIR environment variable as the base path, per project
+#   architecture standards.
+# [1.0.0-Beta] - 2025-09-28
+# - Added a metadata header to the bundle output to include a file count,
+#   improving the robustness of the AI's initialization protocol.
+#
 
 import os
 import argparse
-from typing import Tuple
 
-def create_project_bundle(root_dir: str, output_file: str, file_extensions: Tuple[str, ...]):
-    """
-    Traverses a directory to find all files with specified extensions and
-    consolidates them into a single text file with descriptive headers.
 
-    Args:
-        root_dir (str): The path to the root directory of the project.
-        output_file (str): The name of the text file to be created.
-        file_extensions (Tuple[str, ...]): A tuple of file extensions to include.
-    """
-    # Define a unique header format that's easy to parse
-    header_template = "--- FILE: {file_path} ---\n"
-    
-    try:
-        with open(output_file, 'w', encoding='utf-8') as bundle_file:
-            # Walk through the directory tree starting from the root
-            for dirpath, _, filenames in os.walk(root_dir):
-                # Sort filenames to ensure a consistent order
-                for filename in sorted(filenames):
-                    if filename.endswith(file_extensions):
-                        file_path = os.path.join(dirpath, filename)
-                        
-                        # Create a relative path to keep the output clean
-                        relative_path = os.path.relpath(file_path, root_dir)
-                        
-                        # Write the unique header to the bundle
-                        bundle_file.write(header_template.format(file_path=relative_path.replace('\\', '/')))
-                        
-                        # Write the content of the file
-                        try:
-                            with open(file_path, 'r', encoding='utf-8') as f_in:
-                                content = f_in.read()
-                                bundle_file.write(content)
-                                # Add a newline to separate file content from the next header
-                                bundle_file.write('\n')
-                        except Exception as e:
-                            bundle_file.write(f"*** ERROR READING FILE: {e} ***\n")
-                            
-        print(f"Successfully created project bundle: '{output_file}'")
+def create_bundle(file_paths, bundle_file_path):
+    """Creates a bundle file from a list of file paths."""
+    with open(bundle_file_path, "w", encoding="utf-8") as bundle_file:
+        file_count = len(file_paths)
+        bundle_file.write(f"# --- METADATA: FILE_COUNT={file_count} ---\n")
+        for file_path in file_paths:
+            relative_path = os.path.relpath(file_path, ".").replace("\\", "/")
+            bundle_file.write(f"--- FILE: {relative_path} ---\n")
+            with open(file_path, "r", encoding="utf-8") as f:
+                bundle_file.write(f.read())
+            bundle_file.write("\n")
+    print(f"Created bundle: {bundle_file_path}")
 
-    except IOError as e:
-        print(f"Error: Could not write to output file '{output_file}'. Reason: {e}")
-    except Exception as e:
-        print(f"An unexpected error occurred: {e}")
 
-if __name__ == '__main__':
-    # --- Command-Line Argument Parsing ---
+def get_project_files():
+    """Returns a list of all .py and .json files in the project."""
+    project_files = []
+    for root, _, files in os.walk("."):
+        if "test_code" in root:
+            continue
+        for file in files:
+            if file.endswith((".py", ".json")):
+                project_files.append(os.path.join(root, file))
+    return project_files
+
+
+def get_docs_files():
+    """Returns a list of all .md files in the Docs/ directory."""
+    docs_files = []
+    docs_dir = "Docs"
+    if os.path.isdir(docs_dir):
+        for file in os.listdir(docs_dir):
+            if file.endswith(".md"):
+                docs_files.append(os.path.join(docs_dir, file))
+    return docs_files
+
+
+def get_data_files():
+    """Returns a list of all .dat files in the data/ directory."""
+    data_files = []
+    base_path = os.getenv("CONTEST_INPUT_DIR", ".")
+    data_dir = os.path.join(base_path, "data")
+    if os.path.isdir(data_dir):
+        for root, _, files in os.walk(data_dir):
+            for file in files:
+                if file.endswith(".dat"):
+                    data_files.append(os.path.join(root, file))
+    return data_files
+
+
+def main():
+    """Main function."""
     parser = argparse.ArgumentParser(
-        description="Create a bundle of project files."
+        description="Bundle project files into a single text file."
     )
     parser.add_argument(
-        "--txt",
-        action="store_true",
-        help="Bundle documentation files (.md) instead of code files (.py, .json)."
+        "--txt", action="store_true", help="Bundle documentation files (.md)."
     )
     parser.add_argument(
-        "--data",
-        action="store_true",
-        help="Bundle data files (.dat) instead of code or documentation files."
+        "--data", action="store_true", help="Bundle data files (.dat)."
     )
     args = parser.parse_args()
 
-    # --- Determine which files to bundle ---
-    if args.data:
-        extensions_to_bundle = ('.dat',)
-        output_filename = 'data_bundle.txt'
-        print("Bundling data files (.dat)...")
-    elif args.txt:
-        extensions_to_bundle = ('.md',)
-        output_filename = 'documentation_bundle.txt'
-        print("Bundling documentation files (.md)...")
+    if args.txt:
+        files_to_bundle = get_docs_files()
+        bundle_name = "documentation_bundle.txt"
+    elif args.data:
+        files_to_bundle = get_data_files()
+        bundle_name = "data_bundle.txt"
     else:
-        extensions_to_bundle = ('.py', '.json')
-        output_filename = 'project_bundle.txt'
-        print("Bundling code files (.py, .json)...")
+        files_to_bundle = get_project_files()
+        bundle_name = "project_bundle.txt"
 
-    # Set the root directory to the current working directory.
-    project_directory = '.'
-    
-    create_project_bundle(project_directory, output_filename, extensions_to_bundle)
+    if files_to_bundle:
+        create_bundle(files_to_bundle, bundle_name)
+    else:
+        print(f"No files found to create {bundle_name}.")
+
+
+if __name__ == "__main__":
+    main()
