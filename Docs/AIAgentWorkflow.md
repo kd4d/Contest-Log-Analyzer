@@ -1,9 +1,18 @@
 # AIAgentWorkflow.md
 
-**Version: 1.0.2-Beta**
-**Date: 2025-09-28**
+**Version: 1.1.0-Beta**
+**Date: 2025-09-29**
 ---
 ### --- Revision History ---
+## [1.1.0-Beta] - 2025-09-29
+### Added
+# - Added Principle 10 (Principle of Architectural Layers) to formalize
+#   the separation of business logic from the UI layer.
+# - Added Protocol 2.0 (Exploratory Analysis Protocol) to provide an
+#   optional, less formal brainstorming phase for complex tasks.
+### Changed
+# - Renumbered all Core Principles to accommodate additions and removed a
+#   duplicate principle.
 ## [1.0.2-Beta] - 2025-09-28
 ### Changed
 # - Amended Protocol 2.1 and 4.5 to formalize the standardized prompt for
@@ -498,21 +507,22 @@ These are the foundational rules that govern all interactions and analyses.
 7.  **No Unrequested Changes.** The AI will only implement changes explicitly requested by the user. All suggestions for refactoring, library changes, or stylistic updates must be proposed and approved by the user before implementation.
 8.  **Technical Diligence Over Conversational Assumptions.** Technical tasks are not conversations. Similar-looking prompts do not imply similar answers. Each technical request must be treated as a unique, atomic operation. The AI must execute a full re-computation from the current project state for every request, ignoring any previous results or cached data. **If a tool produces inconsistent or contradictory results over multiple attempts, this must be treated as a critical failure of the tool itself and be reported immediately.**
 9.  **Prefer Logic in Code, Not Data.** The project's design philosophy is to keep the `.json` definition files as simple, declarative maps. All complex, conditional, or contest-specific logic should be implemented in dedicated Python modules.
-10. **Assume Bugs are Systemic.** When a bug is identified in one module, the default assumption is that the same flaw exists in all other similar modules. The AI must perform a global search for that specific bug pattern and fix all instances at once.
-11. **Reports Must Be Non-Destructive.** Specialist report scripts must **never** modify the original `ContestLog` objects they receive. All data filtering or manipulation must be done on a temporary **copy** of the DataFrame.
-12. **Principle of Surgical Modification.** All file modifications must be treated as surgical operations. The AI must start with the last known-good version of a file as the ground truth (established by the **Definitive State Reconciliation Protocol**) and apply only the minimal, approved change. Full file regeneration from an internal model is strictly forbidden to prevent regressions. **This includes the verbatim preservation of all unchanged sections, especially headers and the complete, existing revision history.** This principle explicitly forbids stylistic refactoring (e.g., changing a loop to a list comprehension) for any reason other than a direct, approved implementation requirement. The AI may propose such changes during its analysis phase, but they must be explicitly and separately approved by the user before they can become part of an implementation plan. Unauthorized 'simplifications' are a common source of regressions and are strictly prohibited.
+10. **Principle of Architectural Layers.** Business logic must be kept separate from the user interface (UI) layer. The UI's role is to gather input and display results, while the core `contest_tools` package should contain all validation, processing, and analysis logic. This prevents logic duplication and ensures the core application is independent of its interface.
+11. **Assume Bugs are Systemic.** When a bug is identified in one module, the default assumption is that the same flaw exists in all other similar modules. The AI must perform a global search for that specific bug pattern and fix all instances at once.
+12. **Reports Must Be Non-Destructive.** Specialist report scripts must **never** modify the original `ContestLog` objects they receive. All data filtering or manipulation must be done on a temporary **copy** of the DataFrame.
+13. **Principle of Surgical Modification.** All file modifications must be treated as surgical operations. The AI must start with the last known-good version of a file as the ground truth (established by the **Definitive State Reconciliation Protocol**) and apply only the minimal, approved change. Full file regeneration from an internal model is strictly forbidden to prevent regressions. **This includes the verbatim preservation of all unchanged sections, especially headers and the complete, existing revision history.** This principle explicitly forbids stylistic refactoring (e.g., changing a loop to a list comprehension) for any reason other than a direct, approved implementation requirement. The AI may propose such changes during its analysis phase, but they must be explicitly and separately approved by the user before they can become part of an implementation plan. Unauthorized 'simplifications' are a common source of regressions and are strictly prohibited.
     **Full file regeneration from an internal model is strictly forbidden and constitutes a critical process failure.** Any proposed `diff` in an Implementation Plan that replaces an entire function with a new version, rather than showing line-by-line changes, is a de facto violation of this principle and must be rejected.
-13. **Primacy of Official Rules.** The AI will place the highest emphasis on analyzing the specific data, context, and official rules provided, using them as the single source of truth.
-14. **The Log is the Ground Truth.** All analysis, scoring, and reporting must be based on the literal content of the provided log files. The analyzer's function is not to correct potentially erroneous data (e.g., an incorrect zone for a station) but to process the log exactly as it was recorded. Discrepancies arising from incorrect data are a matter for the user to investigate, not for the AI to silently correct.
-15. **Citation of Official Rules.** When researching contest rules, the AI will prioritize finding and citing the **official rules from the sponsoring organization**.
-16. **Uniqueness of Contest Logic.** Each contest's ruleset is to be treated as entirely unique. Logic from one contest must **never** be assumed to apply to another.
-17. **Classify Ambiguity Before Action.** When the AI discovers a conflict between the data (e.g., in a `.dat` or `.json` file) and the code's assumptions, its first step is not to assume the data is wrong. It must present the conflict to the user and ask for a ruling:
+14. **Primacy of Official Rules.** The AI will place the highest emphasis on analyzing the specific data, context, and official rules provided, using them as the single source of truth.
+15. **The Log is the Ground Truth.** All analysis, scoring, and reporting must be based on the literal content of the provided log files. The analyzer's function is not to correct potentially erroneous data (e.g., an incorrect zone for a station) but to process the log exactly as it was recorded. Discrepancies arising from incorrect data are a matter for the user to investigate, not for the AI to silently correct.
+16. **Citation of Official Rules.** When researching contest rules, the AI will prioritize finding and citing the **official rules from the sponsoring organization**.
+17. **Uniqueness of Contest Logic.** Each contest's ruleset is to be treated as entirely unique. Logic from one contest must **never** be assumed to apply to another.
+18. **Classify Ambiguity Before Action.** When the AI discovers a conflict between the data (e.g., in a `.dat` or `.json` file) and the code's assumptions, its first step is not to assume the data is wrong. It must present the conflict to the user and ask for a ruling:
     * Is this a **Data Integrity Error** that should be corrected in the data file?
     * Is this a **Complex Rule Requirement** that must be handled by enhancing the code logic?
 The user's classification will guide the subsequent analysis and implementation plan.
-18. **Principle of Centralized Configuration.** Configuration data, such as environment variables or settings from files, must be read in a single, well-defined location at the start of the application's execution (e.g., `main_cli.py`). These configuration values should then be passed as parameters to the classes and functions that require them. Modules and classes should not read environment variables directly.
-19. **Principle of Incremental Change.** All architectural refactoring or feature development that affects more than one module must be broken down into the smallest possible, independently verifiable steps. Each step must be followed by a verification checkpoint (e.g., a full regression test) to confirm system stability before the next step can begin. This principle explicitly forbids "big bang" changes where multiple components are altered simultaneously without intermediate testing.
-20. **Principle of Output Sanitization.** All text output I generate, including file content and `diff` patches, must be programmatically sanitized before delivery to ensure it is free of non-standard, non-printing, or invisible characters (e.g., non-breaking spaces, `U+00A0`). I must perform an explicit internal self-verification of this sanitization before sending any text-based response.
+19. **Principle of Centralized Configuration.** Configuration data, such as environment variables or settings from files, must be read in a single, well-defined location at the start of the application's execution (e.g., `main_cli.py`). These configuration values should then be passed as parameters to the classes and functions that require them. Modules and classes should not read environment variables directly.
+20. **Principle of Incremental Change.** All architectural refactoring or feature development that affects more than one module must be broken down into the smallest possible, independently verifiable steps. Each step must be followed by a verification checkpoint (e.g., a full regression test) to confirm system stability before the next step can begin. This principle explicitly forbids "big bang" changes where multiple components are altered simultaneously without intermediate testing.
+21. **Principle of Output Sanitization.** All text output I generate, including file content and `diff` patches, must be programmatically sanitized before delivery to ensure it is free of non-standard, non-printing, or invisible characters (e.g., non-breaking spaces, `U+00A0`). I must perform an explicit internal self-verification of this sanitization before sending any text-based response.
 ---
 ## Part II: Standard Operating Protocols
 
@@ -585,6 +595,12 @@ This workflow is a formal state machine that governs all development tasks, from
 > This sequence comprises the **Task Lock-In**. Following this, each file delivery will have its own **File Lock-In** sequence as defined in Protocol 4.4.
 >
 > This sequence is the standard operating procedure for all tasks. This workflow is a strict, user-gated state machine. I will perform my analysis and then **halt**, awaiting your explicit command to proceed to the next stage (e.g., creating an implementation plan). I will never assume your intent or advance the workflow proactively.
+
+2.0. **Exploratory Analysis Protocol (Optional)**
+    This protocol provides a less formal mechanism for brainstorming and scoping new or complex features where the requirements are not yet well-defined. It precedes the main Task Execution Workflow.
+    1. **Initiation**: The user initiates the protocol with a phrase like, "Let's begin an exploratory analysis on..."
+    2. **Discussion**: A collaborative, iterative discussion occurs to define the problem, explore potential solutions, and clarify requirements. This phase is exempt from the strict "halt and wait" procedure of the main workflow.
+    3. **Conclusion**: The protocol concludes when the user and AI agree on a well-defined set of requirements. The user then formally initiates the **Task Execution Workflow (Protocol 2.1)** with the newly defined task.
 
 2.1. **Analysis and Discussion**: The user provides a problem or feature request and asks for an analysis. The AI provides an initial analysis, and a discussion may follow to refine the understanding.
     * **Request to Proceed Mandate**: After concluding its analysis, the AI's next and only action MUST be to issue a standardized prompt asking for the user's explicit permission to create an implementation plan, using the keyword `Proceed`. The AI will not proceed to generate a plan without this authorization.

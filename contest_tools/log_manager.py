@@ -8,7 +8,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-09-29
-# Version: 0.89.9-Beta
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,6 +19,18 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.90.0-Beta] - 2025-09-29
+### Added
+# - Added a new `load_log_batch` method to encapsulate all batch
+#   loading, validation, and CTY file selection logic.
+# - Added a `_get_callsign_from_header` helper method.
+### Changed
+# - Refactored the class to be batch-oriented, performing a single
+#   CTY file lookup for all logs.
+# - Moved validation logic from `finalize_loading` to the new
+#   `load_log_batch` method to serve as a pre-flight check.
+### Removed
+# - Removed the obsolete `load_log` method.
 ## [0.89.9-Beta] - 2025-09-29
 ### Changed
 # - Updated load_log to handle the new tuple return from CtyManager
@@ -82,6 +94,7 @@
 ## [0.30.0-Beta] - 2025-08-05
 # - Initial release of Version 0.30.0-Beta.
 import pandas as pd
+from typing import List
 from .contest_log import ContestLog
 from .utils.cty_manager import CtyManager
 import os
@@ -98,45 +111,70 @@ class LogManager:
         self.logs = []
         self.master_time_index = None
 
-    def load_log(self, cabrillo_filepath: str, root_input_dir: str, cty_specifier: str):
+    def load_log_batch(self, log_filepaths: List[str], root_input_dir: str, cty_specifier: str):
         """
-        Loads and processes a single Cabrillo log file.
+        Performs pre-flight validation on a batch of log files, selects a single
+        CTY file, and then loads and processes all logs.
         """
-        try:
-            logging.info(f"Loading log: {cabrillo_filepath}...")
-            
-            # --- CTY File Resolution ---
-            cty_manager = CtyManager(root_input_dir)
-            first_qso_date = self._get_first_qso_date_from_log(cabrillo_filepath)
-            
-            if cty_specifier in ['before', 'after']:
-                cty_dat_path, cty_file_info = cty_manager.find_cty_file_by_date(first_qso_date, cty_specifier)
-            else:
-                cty_dat_path, cty_file_info = cty_manager.find_cty_file_by_name(cty_specifier)
+        # --- 1. Pre-flight Validation Phase ---
+        if len(log_filepaths) > 1:
+            logging.info("Performing pre-flight validation on log batch...")
+            header_data = []
+            for path in log_filepaths:
+                call = self._get_callsign_from_header(path)
+                contest = self._get_contest_name_from_header(path)
+                date = self._get_first_qso_date_from_log(path)
+                temp_log = ContestLog(contest_name=contest, cabrillo_filepath=None, root_input_dir=root_input_dir, cty_dat_path=None)
+                temp_log.get_processed_data()['Datetime'] = pd.Series([date]) # Minimal data for resolver
+                event_id = self._get_event_id(temp_log)
+                header_data.append({'call': call, 'contest': contest, 'date': date, 'event_id': event_id})
 
-            if not cty_dat_path:
-                raise FileNotFoundError(f"Could not find a suitable CTY.DAT file for specifier '{cty_specifier}' and date '{first_qso_date}'.")
+            first_log_info = header_data[0]
+            mismatches = []
+            for other_log_info in header_data[1:]:
+                if other_log_info['contest'] != first_log_info['contest'] or other_log_info['event_id'] != first_log_info['event_id']:
+                    mismatches = header_data
+                    break
             
-            logging.info(f"Using CTY file: {os.path.basename(cty_dat_path)} (Date: {cty_file_info.get('date')})")
-            
-            contest_name = self._get_contest_name_from_header(cabrillo_filepath)
-            if not contest_name:
-                logging.warning(f"  - Could not determine contest name from file header. Skipping.")
-                return
+            if mismatches:
+                error_lines = ["Log file validation failed: Mismatched contest or event found."]
+                for info in mismatches:
+                    error_lines.append(f"  - Callsign: {info['call']}, Contest: {info['contest']}, End Date: {info['date'].date()}")
+                raise ValueError("\n".join(error_lines))
+            logging.info("Validation successful.")
 
-            log = ContestLog(contest_name=contest_name, cabrillo_filepath=cabrillo_filepath, root_input_dir=root_input_dir, cty_dat_path=cty_dat_path)
+        # --- 2. Single CTY File Selection ---
+        logging.info("Resolving CTY file for batch...")
+        cty_manager = CtyManager(root_input_dir)
+        
+        if cty_specifier in ['before', 'after']:
+            all_dates = [self._get_first_qso_date_from_log(path) for path in log_filepaths]
+            target_date = min(all_dates) if cty_specifier == 'before' else max(all_dates)
+            cty_dat_path, cty_file_info = cty_manager.find_cty_file_by_date(target_date, cty_specifier)
+        else:
+            cty_dat_path, cty_file_info = cty_manager.find_cty_file_by_name(cty_specifier)
             
-            # Set the back-reference BEFORE running annotations that might need it.
-            setattr(log, '_log_manager_ref', self)
-            
-            log.apply_annotations()
-            
-            self.logs.append(log)
-            
-            logging.info(f"Successfully loaded and processed log for {log.get_metadata().get('MyCall', 'Unknown')}.")
+        if not cty_dat_path:
+            raise FileNotFoundError(f"Could not find a suitable CTY.DAT file for specifier '{cty_specifier}'.")
+        logging.info(f"Using CTY file for all logs: {os.path.basename(cty_dat_path)} (Date: {cty_file_info.get('date')})")
 
-        except Exception as e:
-            logging.error(f"Error loading log {cabrillo_filepath}: {e}")
+        # --- 3. Full Log Loading Phase ---
+        for path in log_filepaths:
+            try:
+                logging.info(f"Loading log: {path}...")
+                contest_name = self._get_contest_name_from_header(path)
+                if not contest_name:
+                    logging.warning(f"  - Could not determine contest name from file header. Skipping.")
+                    continue
+
+                log = ContestLog(contest_name=contest_name, cabrillo_filepath=path, root_input_dir=root_input_dir, cty_dat_path=cty_dat_path)
+                setattr(log, '_log_manager_ref', self)
+                log.apply_annotations()
+                self.logs.append(log)
+                logging.info(f"Successfully loaded and processed log for {log.get_metadata().get('MyCall', 'Unknown')}.")
+
+            except Exception as e:
+                logging.error(f"Error loading log {path}: {e}")
 
     def finalize_loading(self, root_reports_dir: str):
         """
@@ -146,33 +184,6 @@ class LogManager:
         """
         if not self.logs:
             return
-            
-        # --- Validation for Multi-Log Runs ---
-        if len(self.logs) > 1:
-            mismatch_errors = []
-            first_log = self.logs[0]
-
-            # 1. Same Contest Check
-            first_contest_name = first_log.get_metadata().get('ContestName', 'Unknown')
-            for log in self.logs[1:]:
-                current_contest_name = log.get_metadata().get('ContestName', 'Unknown')
-                if current_contest_name != first_contest_name:
-                    msg = (f"  - {log.get_metadata().get('MyCall')}: Incorrect contest '{current_contest_name}' "
-                           f"(expected '{first_contest_name}')")
-                    mismatch_errors.append(msg)
-
-            # 2. Same Event Check
-            first_event_id = self._get_event_id(first_log)
-            for log in self.logs[1:]:
-                current_event_id = self._get_event_id(log)
-                if current_event_id != first_event_id:
-                    msg = (f"  - {log.get_metadata().get('MyCall')}: Incorrect event '{current_event_id}' "
-                           f"(expected '{first_event_id}')")
-                    mismatch_errors.append(msg)
-            
-            if mismatch_errors:
-                error_summary = "Log file validation failed:\n" + "\n".join(mismatch_errors)
-                raise ValueError(error_summary)
 
         self._create_master_time_index()
 
@@ -299,6 +310,19 @@ class LogManager:
         except Exception as e:
             logging.warning(f"Could not read contest name from {filepath}: {e}")
         return ""
+
+    def _get_callsign_from_header(self, filepath: str) -> str:
+        """
+        Reads just the CALLSIGN: line from a Cabrillo file.
+        """
+        try:
+            with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+                for line in f:
+                    if line.upper().startswith('CALLSIGN:'):
+                        return line.split(':', 1)[1].strip()
+        except Exception as e:
+            logging.warning(f"Could not read callsign from {filepath}: {e}")
+        return "Unknown"
 
     def get_logs(self):
         return self.logs

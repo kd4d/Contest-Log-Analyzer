@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-28
-# Version: 0.89.0-Beta
+# Date: 2025-09-29
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.90.0-Beta] - 2025-09-29
+### Changed
+# - Refactored main loop to delegate all log loading and validation
+#   to a new LogManager.load_log_batch method.
 ## [0.89.0-Beta] - 2025-09-28
 ### Added
 # - Added a --cty argument to allow user selection of CTY.DAT files.
@@ -76,7 +80,7 @@ def print_usage_guide():
     print("       - CONTEST_INPUT_DIR:  Root directory containing your 'Logs' and 'data' subdirectories.")
     print("      - CONTEST_REPORTS_DIR: Root directory where the 'reports' output folder will be created.")
     print("\nOptions:")
-    print("  --verbose               Enable verbose status reporting.")
+    print("  --verbose              Enable verbose status reporting.")
     print("  --include-dupes         Include duplicate QSOs in calculations.")
     print("  --mult-name <name>      Specify multiplier for reports (e.g., 'Countries', 'Zones').")
     print("  --metric <qsos|points>  Specify metric for difference plots (defaults to 'qsos').")
@@ -167,10 +171,8 @@ def main():
     try:
         logging.info("\n--- Contest Log Analyzer ---")
         log_manager = LogManager()
-        
-        for path in full_log_paths:
-            log_manager.load_log(path, root_input_dir, cty_specifier=args.cty)
-        
+        log_manager.load_log_batch(full_log_paths, root_input_dir, args.cty)
+
         report_kwargs = {
             'include_dupes': args.include_dupes,
             'mult_name': args.mult_name,

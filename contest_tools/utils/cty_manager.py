@@ -5,7 +5,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-09-29
-# Version: 0.89.14-Beta
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -20,6 +20,10 @@
 #       technical debt and should be migrated to a formal logging system.
 #
 # --- Revision History ---
+## [0.90.0-Beta] - 2025-09-29
+### Changed
+# - Changed date comparison logic in `find_cty_file_by_date` to be
+#   strictly exclusive (< or >) instead of inclusive (<= or >=).
 ## [0.89.14-Beta] - 2025-09-29
 ### Added
 # - Added an informational message to confirm which CTY file was selected
@@ -373,12 +377,12 @@ class CtyManager:
 
         if specifier == 'before':
             # Find the latest file dated on or before the contest
-            candidates = [item for item in valid_entries if item['datetime'] <= contest_date]
+            candidates = [item for item in valid_entries if item['datetime'] < contest_date]
             if not candidates: return None, None
             target_entry = max(candidates, key=lambda x: x['datetime'])
         else: # Default to 'after'
             # Find the earliest file dated on or after the contest
-            candidates = [item for item in valid_entries if item['datetime'] >= contest_date]
+            candidates = [item for item in valid_entries if item['datetime'] > contest_date]
             if not candidates: return None, None
             target_entry = min(candidates, key=lambda x: x['datetime'])
 
