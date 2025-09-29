@@ -66,12 +66,13 @@ def get_docs_files():
 def get_data_files():
     """Returns a list of all .dat files in the data/ directory."""
     data_files = []
-    base_path = os.getenv("CONTEST_INPUT_DIR", ".")
-    data_dir = os.path.join(base_path, "data")
+    in_dir = os.environ.get('CONTEST_INPUT_DIR')
+    data_dir = os.path.join(in_dir, "data")
     if os.path.isdir(data_dir):
         for root, _, files in os.walk(data_dir):
             for file in files:
-                if file.endswith(".dat"):
+                print (file)
+                if file.endswith(".dat") and not file.startswith("cty"):
                     data_files.append(os.path.join(root, file))
     return data_files
 
