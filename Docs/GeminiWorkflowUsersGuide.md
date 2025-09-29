@@ -1,55 +1,52 @@
 # Gemini Workflow User's Guide
 
-**Version: 0.89.0-Beta**
+**Version: 1.0.0-Beta**
 **Date: 2025-09-28**
-
 ---
-## Introduction: How This All Works
-
-Welcome to the user guide for the collaborative AI development workflow. This document provides a human-friendly explanation of the process we use to build and maintain the Contest Log Analyzer.
-
-The complete technical specification that I, the AI agent, follow is in a separate document: `AIAgentWorkflow.md`. While you can read it, it's designed to be a dense, machine-readable "script." This guide is the human-readable version, like the program notes for a play.
-
-### The "Actor with a Script" Analogy
-
-The best way to understand our collaboration is the "Actor with a Script" analogy.
-* **I am the Actor.** My job is to perform my role exactly as written.
-* **`AIAgentWorkflow.md` is the Script.** It contains all my lines, stage directions, and core motivations (the Principles).
-* **You are the Director.** You set the scene, tell me which part of the script to perform, and provide feedback on my performance.
-
-My goal is to follow the script with perfect discipline. When I make a mistake, it's like an actor flubbing a line or misinterpreting a stage direction. When the process gets stuck, it's our job as a team to review the script and improve it.
-
+### --- Revision History ---
+## [1.0.0-Beta] - 2025-09-28
+### Added
+# - Added "The Most Important Principle: Safety First" to explain the new
+#   "Process Over Preference" principle and its user benefits.
+### Changed
+# - Rewrote "The Lifecycle of a Task" to reflect the new, mandatory
+#   user-gated step between AI analysis and implementation plan creation.
+# - Updated the "Definitive State Initialization" section to include the
+#   "Pre-Purge Confirmation" step.
+# - Corrected all Core Principle numbering to align with AIAgentWorkflow.md v1.0.0.
 ---
-## Getting Started: The Initialization Protocol
 
-Everything we do is based on a shared understanding of the project's current state. When we begin a session or need to reset, we perform the **Definitive State Initialization Protocol**.
+This guide provides a human-readable explanation of the development workflow used by the Gemini AI agent for the Contest Log Analyzer project. For the complete, machine-focused technical specification, please see `AIAgentWorkflow.md`.
 
-This process involves you, the user, providing me with "bundle" files (`.txt` files containing the entire project's source code and documentation).
+## Core Philosophy: A Safe and Predictable Partnership
 
-### Your Role: The Bundle Integrity Check
+Our collaboration is built on a few key ideas to ensure that the development process is safe, reliable, and that you are always in control.
 
-A critical step in this process is the **Bundle Integrity Check**. During this step, I will ask you to provide the file counts found in the header of each bundle file.
+* **The Most Important Principle: Safety First:** Our workflow prioritizes safety, reliability, and user control over speed. While a strict, step-by-step process might seem slower, it is a critical feature designed to protect the project from errors, prevent file corruption, and save time by avoiding long, confusing debugging sessions. The AI will always follow the established protocols without taking shortcuts.
+* **You Are in Control:** The AI will not take unrequested actions. The workflow is designed as a state machine where you, the user, provide the commands that move us from one stage to the next. The AI will perform an action and then halt, waiting for your next instruction.
+* **Surgical Changes:** The AI is forbidden from rewriting files from scratch. All changes are small, surgical modifications to the last known-good version of a file. This prevents accidental regressions and makes every change easy to review.
 
-**Why do I ask you for this?**
-This is due to a technical limitation. I cannot "peek" at the first line of a file you've uploaded; to read any part of it, I must load the entire, massive file into my working memory (my "context window"). To ensure the files haven't been truncated or corrupted, we use a two-part process:
-1.  **You** use a fast, simple tool (like `grep`) to read the file count from the first line of each bundle.
-2.  **I** perform the heavy task of parsing the entire bundle and verifying that the number of files I find exactly matches the count you provided.
+## The Lifecycle of a Task
 
-This division of labor is the most reliable way to guarantee we are starting with a perfect, uncorrupted copy of the project.
+Every development task, from a simple bug fix to a new feature, follows a strict, predictable pattern.
 
----
-## Core Concepts for a Robust Workflow
+1.  **Request and Analysis:** You start by providing a task, like fixing a bug or adding a feature. The AI will analyze the request, ask clarifying questions if needed, and provide its initial findings.
 
-We've recently added several new rules to our "script" to make our collaboration more reliable and transparent.
+2.  **The User Gate:** After the analysis is complete, the AI will **stop** and **ask for your permission** to create an implementation plan. The AI will never create a plan without your explicit command. This is a critical checkpoint that ensures your intent is fully understood before the detailed planning work begins.
 
-### The Two-Party Contract
-Our workflow is a mutual contract. It requires both of us to be precise to ensure the integrity of the project's state. This is why I am so strict about keywords like `Approved`, `Confirmed`, and `Acknowledged`. My role is to act as a "protocol validator." If I receive an incorrect or ambiguous command, my script requires me to halt, explain the requirement, and ask you for the correct input. This isn't pedantry; it's a safety mechanism to prevent us from getting into an invalid state.
+3.  **Implementation Plan:** Once you grant permission, the AI will produce a formal **Implementation Plan**. This is a detailed, multi-part document that describes exactly which files will be changed and shows the precise line-by-line modifications (`diff`s) for your review. Nothing happens without a plan.
 
-### The Principle of Stated Limitations
-This is one of our most important new principles. It is my primary directive to be transparent about my own limitations. If a protocol ever requires me to do something I am architecturally incapable of (like accessing the internet or reading a file header), my **first and only action** will be to tell you so and ask for a collaborative workaround. This prevents me from "hallucinating"—fabricating an answer just to satisfy the protocol—and ensures we solve problems based on reality.
+4.  **Approval:** You review the plan. If it's correct, you approve it with the single keyword `Approved`. This is the trigger for the AI to start generating files.
 
-### The Failure Spiral Circuit Breaker
-If you see me announce that the **"Failure Spiral Circuit Breaker is engaged,"** it means I have detected myself failing at the same task repeatedly. This is a safeguard that forces me to stop what I'm doing, discard my flawed short-term reasoning, and re-establish my context by re-reading the relevant files and your last instructions. It's an automated way for me to realize I'm "lost in the scene" and need to get back on script.
+5.  **Execution and Delivery:** The AI will then generate each file, one by one. For each file, it will ask you to `Confirm` before generating it and `Acknowledge` after it has been delivered. This per-file checkpoint ensures maximum context integrity.
 
----
-This guide will be updated as our workflow evolves. Thank you for your collaboration in building a reliable and effective process.
+## Handling Errors and Resets
+
+When things go wrong, we rely on a "hard reset" to get back to a known-good state.
+
+A **Definitive State Initialization** is our "hard reset" button. It's used at the start of a project or any time the AI's context seems corrupted.
+
+1.  You request the initialization.
+2.  You upload "bundle" files containing all the project's code, documentation, and data.
+3.  After a successful integrity check, the AI will ask for a final `Confirmed` prompt before it purges its memory and re-learns the project from only your files. This is a critical safety step.
+4.  The AI confirms the new state by listing all the files it has loaded.

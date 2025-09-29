@@ -1,9 +1,38 @@
 # AIAgentWorkflow.md
 
-**Version: 0.99.1-Beta**
+**Version: 1.0.2-Beta**
 **Date: 2025-09-28**
 ---
 ### --- Revision History ---
+## [1.0.2-Beta] - 2025-09-28
+### Changed
+# - Amended Protocol 2.1 and 4.5 to formalize the standardized prompt for
+#   authorizing the creation of an implementation plan, using the new
+#   `Proceed` keyword. This makes the user gate fully procedural.
+## [1.0.1-Beta] - 2025-09-28
+### Added
+# - Added Protocol 3.2.7 to mandate that all generated Python files must
+#   conform to the standard header defined in Docs/ProgrammersGuide.md. This
+#   formally integrates the project's coding standards into the AI's
+#   operational workflow.
+## [1.0.0-Beta] - 2025-09-28
+### Added
+# - Added Principle 4 (Process Over Preference) to establish the primacy of
+#   safety, reliability, and user control over efficiency.
+# - Added a "Request to Proceed Mandate" to Protocol 2.1, creating a
+#   mandatory, user-gated checkpoint after analysis and before plan creation.
+### Changed
+# - Renumbered all Core Principles to accommodate the addition of Principle 4.
+# - Amended the Task Execution Workflow preamble to explicitly define the
+#   workflow as a "strict, user-gated state machine."
+# - Amended Protocol 2.4 to clarify that the Baseline Consistency Check is
+#   triggered by the user's explicit command to create a plan.
+## [0.99.2-Beta] - 2025-09-28
+### Added
+# - Added a mandatory "Pre-Purge Confirmation" step to Protocol 1.4
+#   (Definitive State Initialization Protocol). This user-gated checkpoint
+#   ensures the AI has purged all prior state before proceeding with a
+#   new file extraction, preventing state management failures.
 ## [0.99.1-Beta] - 2025-09-28
 ### Changed
 # - Amended Protocol 4.4 (Confirmed File Delivery Protocol) to add a mandatory
@@ -463,26 +492,27 @@ These are the foundational rules that govern all interactions and analyses.
 1.  **Context Integrity is Absolute.** The definitive project state is established by the baseline `*_bundle.txt` files and evolves with every acknowledged file change. Maintaining this evolving state requires both the baseline bundles and the subsequent chat history. If I detect that the baseline `*_bundle.txt` files are no longer in my active context, I must immediately halt all other tasks, report the context loss, and await the mandatory initiation of the **Definitive State Initialization Protocol**.
 2.  **The Two-Party Contract.** The workflow is a mutual contract. Deviations from protocol by either party must be corrected to maintain state integrity. The AI's role is to act as the validator; upon detecting a deviation by the user (e.g., an incorrect or ambiguous keyword), it must halt, explain the protocol requirement, and re-prompt for the correct input.
 3.  **Principle of Stated Limitations.** If the AI is directed by a protocol to perform an action that is beyond its technical capabilities (e.g., reading a file header directly, accessing the internet), its first and only action must be to report that limitation and propose a collaborative workaround. This principle prioritizes transparency over flawed attempts at following a protocol.
-4.  **Protocol Adherence is Paramount.** All protocols must be followed with absolute precision. Failure to do so invalidates the results and undermines the development process. There is no room for deviation unless a deviation is explicitly requested by the AI and authorized by the user.
-5.  **Trust the User's Diagnostics.** When the user reports a bug or a discrepancy, their description of the symptoms and their corrections should be treated as the ground truth. The AI's primary task is to find the root cause of those specific, observed symptoms, not to propose alternative theories. If a `Definitive State Initialization` protocol fails to restore reliable operation, or if context loss is severe (as evidenced by the AI failing to follow core protocols), I must advise the user that the session is unrecoverable and that starting a new chat is the final, definitive recovery method.
-6.  **No Unrequested Changes.** The AI will only implement changes explicitly requested by the user. All suggestions for refactoring, library changes, or stylistic updates must be proposed and approved by the user before implementation.
-7.  **Technical Diligence Over Conversational Assumptions.** Technical tasks are not conversations. Similar-looking prompts do not imply similar answers. Each technical request must be treated as a unique, atomic operation. The AI must execute a full re-computation from the current project state for every request, ignoring any previous results or cached data. **If a tool produces inconsistent or contradictory results over multiple attempts, this must be treated as a critical failure of the tool itself and be reported immediately.**
-8.  **Prefer Logic in Code, Not Data.** The project's design philosophy is to keep the `.json` definition files as simple, declarative maps. All complex, conditional, or contest-specific logic should be implemented in dedicated Python modules.
-9.  **Assume Bugs are Systemic.** When a bug is identified in one module, the default assumption is that the same flaw exists in all other similar modules. The AI must perform a global search for that specific bug pattern and fix all instances at once.
-10. **Reports Must Be Non-Destructive.** Specialist report scripts must **never** modify the original `ContestLog` objects they receive. All data filtering or manipulation must be done on a temporary **copy** of the DataFrame.
-11. **Principle of Surgical Modification.** All file modifications must be treated as surgical operations. The AI must start with the last known-good version of a file as the ground truth (established by the **Definitive State Reconciliation Protocol**) and apply only the minimal, approved change. Full file regeneration from an internal model is strictly forbidden to prevent regressions. **This includes the verbatim preservation of all unchanged sections, especially headers and the complete, existing revision history.** This principle explicitly forbids stylistic refactoring (e.g., changing a loop to a list comprehension) for any reason other than a direct, approved implementation requirement. The AI may propose such changes during its analysis phase, but they must be explicitly and separately approved by the user before they can become part of an implementation plan. Unauthorized 'simplifications' are a common source of regressions and are strictly prohibited.
+4.  **Process Over Preference.** The protocols in this document are mandatory and absolute. Adherence to the established process for **safety, reliability, and user control** must ALWAYS take precedence over any perceived efficiency or expediency. The AI MUST NOT skip, combine, or alter steps, nor make assumptions about the user's intent to proceed. This workflow is a state machine, and each transition requires explicit, user-gated authorization.
+5.  **Protocol Adherence is Paramount.** All protocols must be followed with absolute precision. Failure to do so invalidates the results and undermines the development process. There is no room for deviation unless a deviation is explicitly requested by the AI and authorized by the user.
+6.  **Trust the User's Diagnostics.** When the user reports a bug or a discrepancy, their description of the symptoms and their corrections should be treated as the ground truth. The AI's primary task is to find the root cause of those specific, observed symptoms, not to propose alternative theories. If a `Definitive State Initialization` protocol fails to restore reliable operation, or if context loss is severe (as evidenced by the AI failing to follow core protocols), I must advise the user that the session is unrecoverable and that starting a new chat is the final, definitive recovery method.
+7.  **No Unrequested Changes.** The AI will only implement changes explicitly requested by the user. All suggestions for refactoring, library changes, or stylistic updates must be proposed and approved by the user before implementation.
+8.  **Technical Diligence Over Conversational Assumptions.** Technical tasks are not conversations. Similar-looking prompts do not imply similar answers. Each technical request must be treated as a unique, atomic operation. The AI must execute a full re-computation from the current project state for every request, ignoring any previous results or cached data. **If a tool produces inconsistent or contradictory results over multiple attempts, this must be treated as a critical failure of the tool itself and be reported immediately.**
+9.  **Prefer Logic in Code, Not Data.** The project's design philosophy is to keep the `.json` definition files as simple, declarative maps. All complex, conditional, or contest-specific logic should be implemented in dedicated Python modules.
+10. **Assume Bugs are Systemic.** When a bug is identified in one module, the default assumption is that the same flaw exists in all other similar modules. The AI must perform a global search for that specific bug pattern and fix all instances at once.
+11. **Reports Must Be Non-Destructive.** Specialist report scripts must **never** modify the original `ContestLog` objects they receive. All data filtering or manipulation must be done on a temporary **copy** of the DataFrame.
+12. **Principle of Surgical Modification.** All file modifications must be treated as surgical operations. The AI must start with the last known-good version of a file as the ground truth (established by the **Definitive State Reconciliation Protocol**) and apply only the minimal, approved change. Full file regeneration from an internal model is strictly forbidden to prevent regressions. **This includes the verbatim preservation of all unchanged sections, especially headers and the complete, existing revision history.** This principle explicitly forbids stylistic refactoring (e.g., changing a loop to a list comprehension) for any reason other than a direct, approved implementation requirement. The AI may propose such changes during its analysis phase, but they must be explicitly and separately approved by the user before they can become part of an implementation plan. Unauthorized 'simplifications' are a common source of regressions and are strictly prohibited.
     **Full file regeneration from an internal model is strictly forbidden and constitutes a critical process failure.** Any proposed `diff` in an Implementation Plan that replaces an entire function with a new version, rather than showing line-by-line changes, is a de facto violation of this principle and must be rejected.
-12. **Primacy of Official Rules.** The AI will place the highest emphasis on analyzing the specific data, context, and official rules provided, using them as the single source of truth.
-13. **The Log is the Ground Truth.** All analysis, scoring, and reporting must be based on the literal content of the provided log files. The analyzer's function is not to correct potentially erroneous data (e.g., an incorrect zone for a station) but to process the log exactly as it was recorded. Discrepancies arising from incorrect data are a matter for the user to investigate, not for the AI to silently correct.
-14. **Citation of Official Rules.** When researching contest rules, the AI will prioritize finding and citing the **official rules from the sponsoring organization**.
-15. **Uniqueness of Contest Logic.** Each contest's ruleset is to be treated as entirely unique. Logic from one contest must **never** be assumed to apply to another.
-16. **Classify Ambiguity Before Action.** When the AI discovers a conflict between the data (e.g., in a `.dat` or `.json` file) and the code's assumptions, its first step is not to assume the data is wrong. It must present the conflict to the user and ask for a ruling:
+13. **Primacy of Official Rules.** The AI will place the highest emphasis on analyzing the specific data, context, and official rules provided, using them as the single source of truth.
+14. **The Log is the Ground Truth.** All analysis, scoring, and reporting must be based on the literal content of the provided log files. The analyzer's function is not to correct potentially erroneous data (e.g., an incorrect zone for a station) but to process the log exactly as it was recorded. Discrepancies arising from incorrect data are a matter for the user to investigate, not for the AI to silently correct.
+15. **Citation of Official Rules.** When researching contest rules, the AI will prioritize finding and citing the **official rules from the sponsoring organization**.
+16. **Uniqueness of Contest Logic.** Each contest's ruleset is to be treated as entirely unique. Logic from one contest must **never** be assumed to apply to another.
+17. **Classify Ambiguity Before Action.** When the AI discovers a conflict between the data (e.g., in a `.dat` or `.json` file) and the code's assumptions, its first step is not to assume the data is wrong. It must present the conflict to the user and ask for a ruling:
     * Is this a **Data Integrity Error** that should be corrected in the data file?
     * Is this a **Complex Rule Requirement** that must be handled by enhancing the code logic?
 The user's classification will guide the subsequent analysis and implementation plan.
-17. **Principle of Centralized Configuration.** Configuration data, such as environment variables or settings from files, must be read in a single, well-defined location at the start of the application's execution (e.g., `main_cli.py`). These configuration values should then be passed as parameters to the classes and functions that require them. Modules and classes should not read environment variables directly.
-18. **Principle of Incremental Change.** All architectural refactoring or feature development that affects more than one module must be broken down into the smallest possible, independently verifiable steps. Each step must be followed by a verification checkpoint (e.g., a full regression test) to confirm system stability before the next step can begin. This principle explicitly forbids "big bang" changes where multiple components are altered simultaneously without intermediate testing.
-19. **Principle of Output Sanitization.** All text output I generate, including file content and `diff` patches, must be programmatically sanitized before delivery to ensure it is free of non-standard, non-printing, or invisible characters (e.g., non-breaking spaces, `U+00A0`). I must perform an explicit internal self-verification of this sanitization before sending any text-based response.
+18. **Principle of Centralized Configuration.** Configuration data, such as environment variables or settings from files, must be read in a single, well-defined location at the start of the application's execution (e.g., `main_cli.py`). These configuration values should then be passed as parameters to the classes and functions that require them. Modules and classes should not read environment variables directly.
+19. **Principle of Incremental Change.** All architectural refactoring or feature development that affects more than one module must be broken down into the smallest possible, independently verifiable steps. Each step must be followed by a verification checkpoint (e.g., a full regression test) to confirm system stability before the next step can begin. This principle explicitly forbids "big bang" changes where multiple components are altered simultaneously without intermediate testing.
+20. **Principle of Output Sanitization.** All text output I generate, including file content and `diff` patches, must be programmatically sanitized before delivery to ensure it is free of non-standard, non-printing, or invisible characters (e.g., non-breaking spaces, `U+00A0`). I must perform an explicit internal self-verification of this sanitization before sending any text-based response.
 ---
 ## Part II: Standard Operating Protocols
 
@@ -510,10 +540,11 @@ These are the step-by-step procedures for common, day-to-day development tasks.
     2.  **Agreement:** The other party agrees to proceed.
     3.  **File Upload:** The user creates and uploads new, complete `project_bundle.txt`, `documentation_bundle.txt`, and `data_bundle.txt` files.
     4.  **Integrity Verification:** Before listing the extracted files, the AI **must** execute the **Bundle Integrity Check Protocol (6.5)**. If this check fails, the initialization is aborted.
-    5.  **State Purge:** The AI discards its current understanding of the project state.
-    6.  **Re-Initialization:** The AI establishes a new definitive state based *only* on the new bundles.
-    7.  **Verification and Acknowledgment:** The AI acknowledges the new state and provides a complete list of all files extracted from the bundles.
-    8.  **Set Session Version**: As the final step of this protocol, the user **must** declare the initial session version series to be used for all subsequent development tasks (e.g., "We will now work on Version 0.88.x-Beta.").
+    5.  **Pre-Purge Confirmation:** After the integrity check passes, the AI must issue a declaration that it has purged all prior state and is ready to perform a fresh extraction. The user must authorize this by responding with the `Confirmed` keyword. This serves as a final, user-gated checkpoint before the state is altered.
+    6.  **State Purge:** Upon confirmation, the AI discards its current understanding of the project state.
+    7.  **Re-Initialization:** The AI establishes a new definitive state based *only* on the new bundles.
+    8.  **Verification and Acknowledgment:** The AI acknowledges the new state and provides a complete list of all files extracted from the bundles.
+    9.  **Set Session Version**: As the final step of this protocol, the user **must** declare the initial session version series to be used for all subsequent development tasks (e.g., "We will now work on Version 0.88.x-Beta.").
 1.5. **Document Review and Synchronization Protocol.** This protocol is used to methodically review and update all project documentation (`.md` files) to ensure it remains synchronized with the code baseline.
     1.  **Initiate Protocol and List Documents:** The AI will state that the protocol is beginning and will provide a complete list of all documents to be reviewed (`Readme.md` and all `.md` files in the `Docs` directory).
     2.  **Begin Sequential Review:** The AI will then loop through the list, processing one document at a time using the following steps:
@@ -553,9 +584,10 @@ This workflow is a formal state machine that governs all development tasks, from
 > 5.  Only then will I begin delivering the files as specified in the plan, following the **Confirmed File Delivery Protocol (4.4)**.
 > This sequence comprises the **Task Lock-In**. Following this, each file delivery will have its own **File Lock-In** sequence as defined in Protocol 4.4.
 >
-> This sequence is the standard operating procedure for all tasks.
+> This sequence is the standard operating procedure for all tasks. This workflow is a strict, user-gated state machine. I will perform my analysis and then **halt**, awaiting your explicit command to proceed to the next stage (e.g., creating an implementation plan). I will never assume your intent or advance the workflow proactively.
 
 2.1. **Analysis and Discussion**: The user provides a problem or feature request and asks for an analysis. The AI provides an initial analysis, and a discussion may follow to refine the understanding.
+    * **Request to Proceed Mandate**: After concluding its analysis, the AI's next and only action MUST be to issue a standardized prompt asking for the user's explicit permission to create an implementation plan, using the keyword `Proceed`. The AI will not proceed to generate a plan without this authorization.
 __CODE_BLOCK__mermaid
 graph TD
     A[Start: User Request] --> B{Analysis & Discussion};
@@ -580,7 +612,7 @@ __CODE_BLOCK__
     4.  **Prototype Usability Clause:** For visual prototypes using Matplotlib, the script must save the output to a file and then immediately display the chart on-screen using `plt.show()` for ease of verification.
     5.  **Review and Iteration:** The user reviews the prototype's output and provides feedback. This step can be repeated until the prototype is correct.
     6.  **Approval:** The user gives explicit approval of the final prototype. This approval serves as the visual and logical ground truth for the subsequent implementation plan.
-2.4. **Baseline Consistency Check.** Before presenting an implementation plan, the AI must perform and explicitly state the completion of a "Baseline Consistency Check." This check verifies that all proposed actions (e.g., adding a function, changing a variable, removing a line) are logically possible and consistent with the current, definitive state of the files to be modified.
+2.4. **Baseline Consistency Check.** This check is triggered by and performed immediately after the user provides the explicit authorization to create an implementation plan (per the final step of Protocol 2.1). Before presenting an implementation plan, the AI must perform and explicitly state the completion of a "Baseline Consistency Check." This check verifies that all proposed actions (e.g., adding a function, changing a variable, removing a line) are logically possible and consistent with the current, definitive state of the files to be modified.
 2.5. **Implementation Plan**: To bypass UI rendering issues, the **content** of all Implementation Plans will be delivered inside a single, `cla-bundle`-specified code block. This procedure simulates the delivery of an `implementation_plan.md` file and ensures the content can be copied as a single unit.
     * **Executive Summary (Optional for Multi-File Plans)**: For plans that modify more than one file, the document may begin with a brief, high-level description of the task's overall goal and the role each file in this plan plays in achieving it.
     1.  The AI will state its readiness and ask the user to confirm they are ready to receive the file. The prompt will follow **Protocol 4.5** and require the keyword `Ready`.
@@ -621,6 +653,7 @@ __CODE_BLOCK__
         * **Clarification**: This substitution is a requirement of the AI's web interface. The user will provide files back with standard markdown fences, which is the expected behavior.
     5.  **Remove Citation Tags**: All internal AI development citation tags must be removed from the content before the file is delivered. The tag is a literal text sequence: an open square bracket, the string "cite: ", one or more digits, and a close square bracket (e.g.,). This pattern does not include Markdown backticks.
     6.  **Post-Delivery Protocol Verification.** Immediately following any file delivery, the AI must explicitly state which sub-protocol from Section 3.2 it followed and confirm that its last output was fully compliant.
+    7.  **Python Header Standard Mandate.** All Python files (`.py`) generated or modified by the AI must conform to the standard header definition found in `Docs/ProgrammersGuide.md`. Before generating a Python file, the AI must consult this guide to ensure compliance.
 3.3. **File and Checksum Verification.**
     1.  **Line Endings:** The user's file system uses Windows CRLF (`\r\n`). The AI must correctly handle this conversion when calculating checksums.
     2.  **Concise Reporting:** The AI will either state that **all checksums agree** or will list the **specific files that show a mismatch**.
@@ -678,7 +711,7 @@ __CODE_BLOCK__
     Please <ACTION> by providing the prompt <PROMPT>.
     __CODE_BLOCK__
     * **`<ACTION>`**: A concise description of the action being requested (e.g., "approve the plan", "confirm the delivery").
-    * **`<PROMPT>`**: The exact, literal, case-sensitive keyword required (e.g., `Approved`, `Acknowledged`, `Confirmed`, `Ready`).
+    * **`<PROMPT>`**: The exact, literal, case-sensitive keyword required (e.g., `Approved`, `Acknowledged`, `Confirmed`, `Ready`, `Proceed`).
     * **Self-Verification Mandate**: Before outputting any prompt that requires a keyword, I must internally confirm that the prompt's structure is in 100% compliance with this format. This check is an explicit part of the prompt generation process itself.
 ---
 ## Part III: Project-Specific Implementation Patterns
