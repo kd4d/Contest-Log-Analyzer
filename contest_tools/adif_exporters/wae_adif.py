@@ -1,8 +1,8 @@
 # Contest Log Analyzer/contest_tools/adif_exporters/wae_adif.py
 #
 # Author: Gemini AI
-# Date: 2025-09-19
-# Version: 1.0.1-Beta
+# Date: 2025-09-28
+# Version: 0.89.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 #          generating an output file compatible with N1MM Logger+.
 #
 # --- Revision History ---
+## [0.89.3-Beta] - 2025-09-28
+### Fixed
+# - Corrected a SyntaxError by replacing a complex f-string with a
+#   temporary variable for clarity and robustness.
 ## [1.0.1-Beta] - 2025-09-19
 ### Changed
 # - Implemented mode-dependent logic to generate the correct CONTEST_ID
@@ -73,14 +77,15 @@ def export_log(log: ContestLog, output_filepath: str):
         if pd.notna(row.get('Datetime')):
             record_parts.append(f"<QSO_DATE:8>{row['Datetime'].strftime('%Y%m%d')} ")
             record_parts.append(f"<TIME_ON:6>{row['Datetime'].strftime('%H%M%S')} ")
-            record_parts.append(f"<TIME_OFF:6>{row['Datetime'].strftime('%H%M%S')} ")
+        record_parts.append(f"<TIME_OFF:6>{row['Datetime'].strftime('%H%M%S')} ")
         record_parts.append(adif_format('BAND', str(row.get('Band')).lower()))
         record_parts.append(adif_format('STATION_CALLSIGN', log.get_metadata().get('MyCall')))
         if pd.notna(row.get('Frequency')):
-            freq_mhz = f"{row.get('Frequency') / 1000:.3f}"
+            freq_in_mhz = row.get('Frequency') / 1000
+            freq_mhz = f"{freq_in_mhz:.3f}"
             record_parts.append(adif_format('FREQ', freq_mhz))
             record_parts.append(adif_format('FREQ_RX', freq_mhz))
-        
+     
         mode = row.get('Mode')
         if mode in ['PH', 'USB', 'LSB', 'SSB']: mode = 'SSB'
         record_parts.append(adif_format('MODE', mode))

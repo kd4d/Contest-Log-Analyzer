@@ -7,8 +7,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-14
-# Version: 0.87.2-Beta
+# Date: 2025-09-29
+# Version: 0.89.9-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,6 +19,14 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.89.9-Beta] - 2025-09-29
+### Changed
+# - Updated load_log to handle the new tuple return from CtyManager
+#   and log the selected CTY file's date for traceability.
+## [0.89.5-Beta] - 2025-09-29
+### Changed
+# - Modified load_log to accept a cty_specifier and pass the
+#   resolved cty.dat path to the ContestLog constructor.
 ## [0.87.2-Beta] - 2025-09-14
 ### Fixed
 # - Fixed a regression in `_create_master_time_index` by using a
@@ -75,6 +83,7 @@
 # - Initial release of Version 0.30.0-Beta.
 import pandas as pd
 from .contest_log import ContestLog
+from .utils.cty_manager import CtyManager
 import os
 import importlib
 from datetime import datetime
@@ -89,19 +98,33 @@ class LogManager:
         self.logs = []
         self.master_time_index = None
 
-    def load_log(self, cabrillo_filepath: str, root_input_dir: str):
+    def load_log(self, cabrillo_filepath: str, root_input_dir: str, cty_specifier: str):
         """
         Loads and processes a single Cabrillo log file.
         """
         try:
             logging.info(f"Loading log: {cabrillo_filepath}...")
             
+            # --- CTY File Resolution ---
+            cty_manager = CtyManager(root_input_dir)
+            first_qso_date = self._get_first_qso_date_from_log(cabrillo_filepath)
+            
+            if cty_specifier in ['before', 'after']:
+                cty_dat_path, cty_file_info = cty_manager.find_cty_file_by_date(first_qso_date, cty_specifier)
+            else:
+                cty_dat_path, cty_file_info = cty_manager.find_cty_file_by_name(cty_specifier)
+
+            if not cty_dat_path:
+                raise FileNotFoundError(f"Could not find a suitable CTY.DAT file for specifier '{cty_specifier}' and date '{first_qso_date}'.")
+            
+            logging.info(f"Using CTY file: {os.path.basename(cty_dat_path)} (Date: {cty_file_info.get('date')})")
+            
             contest_name = self._get_contest_name_from_header(cabrillo_filepath)
             if not contest_name:
                 logging.warning(f"  - Could not determine contest name from file header. Skipping.")
                 return
 
-            log = ContestLog(contest_name=contest_name, cabrillo_filepath=cabrillo_filepath, root_input_dir=root_input_dir)
+            log = ContestLog(contest_name=contest_name, cabrillo_filepath=cabrillo_filepath, root_input_dir=root_input_dir, cty_dat_path=cty_dat_path)
             
             # Set the back-reference BEFORE running annotations that might need it.
             setattr(log, '_log_manager_ref', self)
@@ -250,6 +273,19 @@ class LogManager:
         self.master_time_index = pd.date_range(start=min_time, periods=periods, freq='h', tz='UTC')
         logging.info("Master time index created.")
 
+
+    def _get_first_qso_date_from_log(self, filepath: str) -> pd.Timestamp:
+        """Reads the first QSO line to determine the contest date."""
+        try:
+            with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+                for line in f:
+                    if line.upper().startswith('QSO:'):
+                        parts = line.split()
+                        date_str = parts[3]
+                        return pd.to_datetime(date_str)
+        except Exception:
+            return pd.Timestamp.now(tz='UTC')
+        return pd.Timestamp.now(tz='UTC')
 
     def _get_contest_name_from_header(self, filepath: str) -> str:
         """
