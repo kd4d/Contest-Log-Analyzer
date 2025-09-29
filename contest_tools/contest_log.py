@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-18
-# Version: 0.90.0-Beta
+# Date: 2025-09-28
+# Version: 0.89.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,15 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.89.2-Beta] - 2025-09-28
+### Fixed
+# - Corrected a SyntaxError in the export_to_adif method by replacing
+#   a complex f-string with a temporary variable for clarity and robustness.
+## [0.89.1-Beta] - 2025-09-28
+### Changed
+# - Decoupled the class from a static cty.dat path by modifying the
+#   constructor to accept a cty_dat_path parameter.
+# - Updated all internal instantiations of CtyLookup to use the new parameter.
 ## [0.90.0-Beta] - 2025-09-18
 ### Changed
 # - Removed temporary conditional logic for multiplier resolvers. All custom
@@ -279,7 +288,7 @@ class ContestLog:
                 return band_name
         return 'Invalid'
 
-    def __init__(self, contest_name: str, cabrillo_filepath: Optional[str] = None, root_input_dir: Optional[str] = None):
+    def __init__(self, contest_name: str, cabrillo_filepath: str, root_input_dir: str, cty_dat_path: str):
         self.contest_name = contest_name
         self.qsos_df: pd.DataFrame = pd.DataFrame()
         self.qtcs_df: pd.DataFrame = pd.DataFrame()
@@ -287,6 +296,7 @@ class ContestLog:
         self.metadata: Dict[str, Any] = {}
         self.dupe_sets: Dict[str, Set[Tuple[str, str]]] = {}
         self.filepath = cabrillo_filepath
+        self.cty_dat_path = cty_dat_path
         self._my_location_type: Optional[str] = None # W/VE or DX
         self._log_manager_ref = None
         
@@ -501,10 +511,7 @@ class ContestLog:
         if is_asymmetric:
             my_call = self.metadata.get('MyCall')
             if my_call:
-                root_dir = self.root_input_dir
-                data_dir = os.path.join(root_dir, 'data')
-                cty_dat_path = os.path.join(data_dir, 'cty.dat')
-                cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)
+                cty_lookup = CtyLookup(cty_dat_path=self.cty_dat_path)
                 info = cty_lookup.get_cty_DXCC_WAE(my_call)._asdict()
                 
                 self._my_location_type = "W/VE" if info['DXCCName'] in ["United States", "Canada"] else "DX"
@@ -592,56 +599,57 @@ class ContestLog:
         
         # The generic rules processor is required for the second stage of some multipliers (e.g. CQ-160).
         if multiplier_rules:
-             logging.info("Calculating contest multipliers...")
-             for rule in multiplier_rules:
-                 applies_to = rule.get('applies_to')
-                 if applies_to and self._my_location_type and applies_to != self._my_location_type:
-                     continue
+            logging.info("Calculating contest multipliers...")
+            for rule in multiplier_rules:
+                applies_to = rule.get('applies_to')
+                if applies_to and self._my_location_type and applies_to != self._my_location_type:
+                    continue
  
-                 dest_col = rule.get('value_column')
-                 dest_name_col = rule.get('name_column')
-                 
-                 if not dest_col: continue
+                dest_col = rule.get('value_column')
+                dest_name_col = rule.get('name_column')
+                
+                if not dest_col: continue
  
-                 if 'source_column' in rule:
-                     source_col = rule.get('source_column')
-                     if source_col in self.qsos_df.columns:
-                         self.qsos_df[dest_col] = self.qsos_df[source_col]
-                         
-                         if dest_name_col:
-                             source_name_col = rule.get('source_name_column', f"{source_col}Name")
-                             if source_name_col in self.qsos_df.columns:
-                                 self.qsos_df[dest_name_col] = self.qsos_df[source_name_col]
-                             else:
-                                 logging.warning(f"Name column '{source_name_col}' not found for source '{source_col}'.")
-                     
-                     else:
-                         logging.warning(f"Source column '{source_col}' not found for multiplier '{rule.get('name')}'.")
+                if 'source_column' in rule:
+                    source_col = rule.get('source_column')
+                    if source_col in self.qsos_df.columns:
+                        self.qsos_df[dest_col] = self.qsos_df[source_col]
+                        
+                        if dest_name_col:
+                            source_name_col = rule.get('source_name_column', f"{source_col}Name")
+                            if source_name_col in self.qsos_df.columns:
+                                self.qsos_df[dest_name_col] = self.qsos_df[source_name_col]
+                            else:
+                                logging.warning(f"Name column '{source_name_col}' not found for source '{source_col}'.")
+                    
+                    else:
+                        logging.warning(f"Source column '{source_col}' not found for multiplier '{rule.get('name')}'.")
  
-                 elif rule.get('source') == 'wae_dxcc':
-                     wae_mask = self.qsos_df['WAEName'].notna() & (self.qsos_df['WAEName'] != '')
-                     
-                     self.qsos_df.loc[wae_mask, dest_col] = self.qsos_df.loc[wae_mask, 'WAEPfx']
-                     self.qsos_df.loc[~wae_mask, dest_col] = self.qsos_df.loc[~wae_mask, 'DXCCPfx']
-                     
-                     if dest_name_col:
-                         self.qsos_df.loc[wae_mask, dest_name_col] = self.qsos_df.loc[wae_mask, 'WAEName']
-                         self.qsos_df.loc[~wae_mask, dest_name_col] = self.qsos_df.loc[~wae_mask, 'DXCCName']
-                 
-                 elif rule.get('source') == 'calculation_module':
-                     try:
-                         module_name = rule['module_name']
-                         function_name = rule['function_name']
-                         
-                         module = importlib.import_module(f"contest_tools.contest_specific_annotations.{module_name}")
-                         calculation_func = getattr(module, function_name)
-                         
-                         self.qsos_df[dest_col] = calculation_func(self.qsos_df)
-                         logging.info(f"Successfully applied '{function_name}' from '{module_name}'.")
-                     except (ImportError, AttributeError, KeyError) as e:
-                         logging.warning(f"Could not run calculation module for rule '{rule.get('name')}': {e}")
+                elif rule.get('source') == 'wae_dxcc':
+                    wae_mask = self.qsos_df['WAEName'].notna() & (self.qsos_df['WAEName'] != '')
+                    
+                    self.qsos_df.loc[wae_mask, dest_col] = self.qsos_df.loc[wae_mask, 'WAEPfx']
+                    self.qsos_df.loc[~wae_mask, dest_col] = self.qsos_df.loc[~wae_mask, 'DXCCPfx']
+                    
+                    if dest_name_col:
+                        self.qsos_df.loc[wae_mask, dest_name_col] = self.qsos_df.loc[wae_mask, 'WAEName']
+                        self.qsos_df.loc[~wae_mask, dest_name_col] = self.qsos_df.loc[~wae_mask, 'DXCCName']
+                
+                elif rule.get('source') == 'calculation_module':
+                    try:
+                        module_name = rule['module_name']
+                        function_name = rule['function_name']
+                        
+                        module = importlib.import_module(f"contest_tools.contest_specific_annotations.{module_name}")
+                        calculation_func = getattr(module, function_name)
+                        
+                        self.qsos_df[dest_col] = calculation_func(self.qsos_df)
+                        logging.info(f"Successfully applied '{function_name}' from '{module_name}'.")
+                    except (ImportError, AttributeError, KeyError) as e:
+                        logging.warning(f"Could not run calculation module for rule '{rule.get('name')}': {e}")
 
 
+        
         # --- Scoring Calculation ---
         my_call = self.metadata.get('MyCall')
         if not my_call:
@@ -650,10 +658,7 @@ class ContestLog:
             return
         
         try:
-            root_dir = self.root_input_dir
-            data_dir = os.path.join(root_dir, 'data')
-            cty_dat_path = os.path.join(data_dir, 'cty.dat')
-            cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)
+            cty_lookup = CtyLookup(cty_dat_path=self.cty_dat_path)
             my_call_info = cty_lookup.get_cty_DXCC_WAE(my_call)._asdict()
             my_call_info['MyCall'] = my_call
         except Exception as e:
@@ -757,7 +762,8 @@ class ContestLog:
             record.append(adif_format('STATION_CALLSIGN', self.metadata.get('MyCall')))
             
             if pd.notna(row.get('Frequency')):
-                freq_mhz = f"{row.get('Frequency') / 1000:.3f}"
+                freq_in_mhz = row.get('Frequency') / 1000
+                freq_mhz = f"{freq_in_mhz:.3f}"
                 record.append(adif_format('FREQ', freq_mhz))
                 record.append(adif_format('FREQ_RX', freq_mhz))
 

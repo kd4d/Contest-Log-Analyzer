@@ -1,137 +1,50 @@
-# Contest Log Analyzer - Workflow User Guide
+# Gemini Workflow User's Guide
 
-**Version: 0.87.0-Beta**
-**Date: 2025-09-18**
-
+**Version: 1.0.1-Beta**
+**Date: 2025-09-29**
 ---
 ### --- Revision History ---
-## [0.87.0-Beta] - 2025-09-18
+## [1.0.1-Beta] - 2025-09-29
 ### Added
-# - Added Section 5, "Advanced Methodology: Guiding the AI in Complex Debugging,"
-#   to provide a strategic guide for foundational debugging tasks.
-## [0.86.6-Beta] - 2025-09-15
-### Changed
-# - Updated "Your Role: Key Responses" section to include documentation
-#   for the `Ready` and `Confirmed` keywords.
-## [0.59.0-Beta] - 2025-09-11
+# - Added "Keeping Logic Organized" to the Core Philosophy to explain
+#   the new architectural principle.
+# - Added "Brainstorming and Exploration" to the task lifecycle to
+#   describe the new optional exploratory protocol.
+## [1.0.0-Beta] - 2025-09-28
 ### Added
-# - Added "What to Expect When the AI Makes a Mistake" section to
-#   clarify the formal error recovery process for the user.
-## [0.58.2-Beta] - 2025-09-03
+# - Added "The Most Important Principle: Safety First" to explain the new
+#   "Process Over Preference" principle and its user benefits.
 ### Changed
-# - Added clarification that the `Approved` and `Acknowledged` commands
-#   must be the exact, literal strings to align with the main technical spec.
-## [0.58.1-Beta] - 2025-09-02
-### Changed
-# - Updated command keywords in Section 3 to use backticks (`Approved`)
-#   to visually reinforce that they are literal, exact commands.
-# - Added context to Section 2 to clarify the AI's role as a precise tool
-#   that does not make unrequested changes.
-# - Refined the definition of "Acknowledged" in Section 3 to include
-#   the concept of data integrity and transaction confirmation.
-## [0.57.1-Beta] - 2025-09-01
-### Added
-# - Added "User-Initiated Protocols" subsection to Section 4 to describe
-#   protocols the user can start.
-### Changed
-# - Restructured Section 4 ("Handling Problems") for clarity.
-## [0.57.0-Beta] - 2025-09-01
-### Added
-# - Initial release of the user-focused workflow guide.
+# - Rewrote "The Lifecycle of a Task" to reflect the new, mandatory
+#   user-gated step between AI analysis and implementation plan creation.
+# - Updated the "Definitive State Initialization" section to include the
+#   "Pre-Purge Confirmation" step.
+# - Corrected all Core Principle numbering to align with AIAgentWorkflow.md v1.0.0.
 ---
 
-## 1. Introduction
+This guide provides a human-readable explanation of the development workflow used by the Gemini AI agent for the Contest Log Analyzer project. For the complete, machine-focused technical specification, please see `AIAgentWorkflow.md`.
 
-This document provides a human-friendly, narrative guide to the collaborative workflow used for this project.
-Its purpose is to explain the "why" behind the process and clarify your role in our interactions.
-The full, definitive set of rules that the AI agent follows is in `Docs/AIAgentWorkflow.md`.
-Think of that as the AI's technical specification, and this document as the quick-start guide for the human user.
----
-## 2. The Core Idea: A State Machine
+## Core Philosophy: A Safe and Predictable Partnership
 
-Our entire workflow is a formal **state machine**.
-This is not a casual conversation; it's a structured process designed to ensure that project state is maintained perfectly and no work is lost.
-The AI's role is to be a precise tool that executes approved plans exactly as written;
-it will never introduce unrequested "simplifications" or stylistic changes on its own.
-Every task follows a predictable sequence of states:
+Our collaboration is built on a few key ideas to ensure that the development process is safe, reliable, and that you are always in control.
+* **The Most Important Principle: Safety First:** Our workflow prioritizes safety, reliability, and user control over speed. While a strict, step-by-step process might seem slower, it is a critical feature designed to protect the project from errors, prevent file corruption, and save time by avoiding long, confusing debugging sessions. The AI will always follow the established protocols without taking shortcuts.
+* **You Are in Control:** The AI will not take unrequested actions. The workflow is designed as a state machine where you, the user, provide the commands that move us from one stage to the next. The AI will perform an action and then halt, waiting for your next instruction. 
+* **Keeping Logic Organized:** We keep the user interface code separate from the core analysis logic. This makes the system more robust and easier to maintain or even upgrade with a new interface (like a web app) in the future.
+* **Surgical Changes:** The AI is forbidden from rewriting files from scratch. All changes are small, surgical modifications to the last known-good version of a file. This prevents accidental regressions and makes every change easy to review.
+## The Lifecycle of a Task
 
-1.  **Task Initiation & Analysis**: You provide a task, and the AI provides an analysis.
-2.  **Implementation Plan**: The AI proposes a detailed, surgical plan to address the task.
-3.  **User Approval**: You review and approve the plan.
-4.  **Execution**: The AI executes the approved plan, delivering files one by one.
-5.  **User Acknowledgment**: You acknowledge each file delivery.
-6.  **Task Completion**: The task concludes after the final file is acknowledged.
+Every development task, from a simple bug fix to a new feature, follows a strict, predictable pattern.
+0.  **Brainstorming and Exploration (Optional):** For new or complex ideas where the requirements aren't fully defined, we can start with an "Exploratory Mode." This is a less formal discussion to scope out the task before we begin the formal lifecycle below.
+1.  **Request and Analysis:** You start by providing a task, like fixing a bug or adding a feature. The AI will analyze the request, ask clarifying questions if needed, and provide its initial findings. 
+2.  **The User Gate:** After the analysis is complete, the AI will **stop** and **ask for your permission** to create an implementation plan. The AI will never create a plan without your explicit command. This is a critical checkpoint that ensures your intent is fully understood before the detailed planning work begins. 
+3.  **Implementation Plan:** Once you grant permission, the AI will produce a formal **Implementation Plan**. This is a detailed, multi-part document that describes exactly which files will be changed and shows the precise line-by-line modifications (`diff`s) for your review. Nothing happens without a plan. 
+4.  **Approval:** You review the plan. If it's correct, you approve it with the single keyword `Approved`. This is the trigger for the AI to start generating files. 
+5.  **Execution and Delivery:** The AI will then generate each file, one by one. For each file, it will ask you to `Confirm` before generating it and `Acknowledge` after it has been delivered. This per-file checkpoint ensures maximum context integrity. 
 
-The strictness of this process is essential for maintaining context.
-By following these steps, any AI instance can pick up exactly where the last one left off, simply by reading the chat history.
----
-## 3. Your Role: Key Responses
+## Handling Errors and Resets
 
-As the user, you drive the state machine forward with a few key phrases.
-Using the correct phrase at the correct time is the most important part of the workflow.
-### When the AI provides an Implementation Plan...
-Your required response is `Ready`.
-* **What it means**: The AI delivers all Implementation Plans as files to prevent formatting issues. This keyword confirms you are ready to receive the `implementation_plan.md` file.
-
-### After you receive the plan...
-Your required response is `Approved`.
-* **What it means**: You are giving the final go-ahead for the plan as written.
-This "locks in" the plan, and the AI will proceed to execute it exactly.
-The AI is required by protocol to only accept the **exact, literal string** `Approved` to move forward.
-* **Important**: If you provide any other feedback, questions, or new instructions at this stage, the AI is required by protocol to treat it as a **request for plan refinement**.
-It will generate a new plan incorporating your feedback and wait for a new `Approved` response.
-
-### After you approve the plan...
-Your required response is `Confirmed`.
-* **What it means**: This is the final confirmation step in the "lock-in" sequence. After you approve a plan, the AI will state the exact context it is using. Your `Confirmed` response verifies that the AI's context is correct and authorizes it to begin generating and delivering files.
-
-### When the AI delivers a file...
-Your required response is `Acknowledged`.
-* **What it means**: You are confirming that you have received the file and that it is correct as delivered.
-This completes the transaction for that file, updating the project's official state.
-The AI is required by protocol to only accept the **exact, literal string** `Acknowledged` to proceed.
-* **Why it's per-file**: This step-by-step confirmation is a critical data integrity check.
-It ensures that every single file modification is mutually confirmed before the project's "definitive state" is updated.
----
-## 4. Handling Problems
-
-The workflow includes protocols for handling common issues.
-### Common Issues
-* **Context Loss**: If the AI seems to have forgotten previous steps or is repeating itself, you can say it has **lost context**.
-Per its highest-priority principle, it must halt everything and request a **Definitive State Initialization**.
-### What to Expect When the AI Makes a Mistake
-When the AI's output is incorrect, the workflow includes a formal recovery process called the **Error Analysis Protocol**.
-The AI's response is not conversational; it is a structured analysis designed to identify the root cause and prevent the error from happening again.
-* **Your Role**: Provide the diagnostic output (e.g., the error message or incorrect report) that shows the failure.
-This becomes the ground truth for the analysis.
-* **The AI's Role**: The AI is required to provide a formal analysis that includes:
-    1.  A clear acknowledgment of the error.
-    2.  An identification of the root cause, including which specific protocol or principle was violated.
-    3.  A proposal for a corrective action to fix both the bug and the underlying process flaw.
-### User-Initiated Protocols
-You can initiate several key protocols to manage the project state:
-* **Definitive State Initialization**: This is a "hard reset" of the project state.
-You request this and then provide fresh copies of all project files in `*_bundle.txt` files.
-This purges the AI's memory and re-establishes the absolute ground truth of the project.
-* **Context Checkpoint**: If the AI seems confused but a full reset isn't needed, you can initiate this by saying, **"Gemini, let's establish a Context Checkpoint."** You then provide a numbered list of key facts to get the AI back on track.
-* **File Purge Protocol**: To safely remove a file from the project, you can say, **"Gemini, initiate File Purge Protocol."** The AI will then ask you to confirm which file(s) to remove.
----
-## 5. Advanced Methodology: Guiding the AI in Complex Debugging
-
-While the state machine provides a robust framework for day-to-day tasks, certain complex problems—especially foundational bugs in code that has "never worked"—require a more strategic approach from the user. This section outlines the methodology for guiding the AI to a deductive, evidence-based solution.
-
-### 5.1 The Two Modes of Debugging
-* **"Used to Work" (Regression Debugging):** This involves problems where a previously functional system breaks. This aligns well with the AI's default probabilistic strengths in pattern-matching common causes (e.g., updates, environment changes).
-* **"Never Worked" (Foundational Debugging):** This involves problems rooted in flawed initial logic or syntax. This requires a rigorous, deductive approach where the principle that **"the code is reality"** is paramount. This mode requires you to actively guide the AI.
-
-### 5.2 Your Role as the "Deductive Guide"
-In foundational debugging, your role shifts from a simple approver to a lead investigator.
-* **Establish the Ground Truth:** Begin the session by providing all relevant code, logs, and error messages, and explicitly state that this is the sole source of evidence for the analysis.
-* **Use Evidentiary Challenges:** Treat the AI's initial, probabilistic answers as hypotheses to be tested. Your primary role is to provide specific, factual counter-evidence (like a hex dump or a console log) to disprove flawed hypotheses and narrow the field of possibilities.
-
-### 5.3 Case Study: The Batch Script Parser Bug
-A recent debugging session involving a Windows batch script serves as a practical example.
-* **The Problem:** A script was creating an unwanted `PDF` file, and its `echo` commands were not appearing on the console.
-* **The Flawed Path:** The AI's initial hypotheses (user error, non-standard characters, structural bugs) were probabilistic guesses based on common patterns.
-* **The Breakthrough:** The user, acting as the Deductive Guide, provided definitive evidence (a clean hex dump) that invalidated the AI's hypotheses. The user then provided the key insight about the `->` character, focusing the analysis.
-* **The Solution:** The final solution (`-^>`) was reached by forcing the AI to analyze the specific, subtle interaction between the code's content and the `cmd.exe` parser—a classic "Never Worked" scenario.
+When things go wrong, we rely on a "hard reset" to get back to a known-good state. A **Definitive State Initialization** is our "hard reset" button. It's used at the start of a project or any time the AI's context seems corrupted.
+1.  You request the initialization.
+2.  You upload "bundle" files containing all the project's code, documentation, and data.
+3.  After a successful integrity check, the AI will ask for a final `Confirmed` prompt before it purges its memory and re-learns the project from only your files. This is a critical safety step.
+4.  The AI confirms the new state by listing all the files it has loaded.

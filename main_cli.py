@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-09
-# Version: 0.70.0-Beta
+# Date: 2025-09-29
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,17 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.90.0-Beta] - 2025-09-29
+### Changed
+# - Refactored main loop to delegate all log loading and validation
+#   to a new LogManager.load_log_batch method.
+## [0.89.0-Beta] - 2025-09-28
+### Added
+# - Added a --cty argument to allow user selection of CTY.DAT files.
+# - Added a try...except block to gracefully handle FileNotFoundError
+#   when a required CTY.DAT file cannot be found.
+### Changed
+# - The log_manager.load_log() call now passes the cty_specifier.
 ## [0.70.0-Beta] - 2025-09-09
 ### Changed
 # - Refactored script to read environment variables in one location and
@@ -69,12 +80,13 @@ def print_usage_guide():
     print("       - CONTEST_INPUT_DIR:  Root directory containing your 'Logs' and 'data' subdirectories.")
     print("      - CONTEST_REPORTS_DIR: Root directory where the 'reports' output folder will be created.")
     print("\nOptions:")
-    print("  --verbose               Enable verbose status reporting.")
+    print("  --verbose              Enable verbose status reporting.")
     print("  --include-dupes         Include duplicate QSOs in calculations.")
     print("  --mult-name <name>      Specify multiplier for reports (e.g., 'Countries', 'Zones').")
     print("  --metric <qsos|points>  Specify metric for difference plots (defaults to 'qsos').")
+    print("  --cty <specifier>       Specify CTY file: 'before', 'after' (default), or filename (e.g., 'cty-3401.dat').")
     print("  --debug-data            Save source data for visual reports to a text file.")
-    print("   --debug-mults           Save intermediate multiplier lists from text reports for debugging.")
+    print("  --debug-mults           Save intermediate multiplier lists from text reports for debugging.")
     
     print("\nAvailable Reports:")
     max_id_len = max(len(rid) for rid in AVAILABLE_REPORTS.keys())
@@ -93,6 +105,7 @@ def main():
     
     parser.add_argument('log_filepaths', nargs='*', help="Relative paths to Cabrillo log files under the 'Logs' directory.")
     parser.add_argument('--report', '-r', dest='report_id', help="The ID of the report to generate, or 'all'.")
+    parser.add_argument('--cty', default='after', help="Specify CTY file: 'before', 'after', or filename (e.g., 'cty-3401.dat').")
     parser.add_argument('--verbose', action='store_true', help="Enable verbose status reporting.")
     parser.add_argument('--include-dupes', action='store_true', help="Include duplicate QSOs in calculations.")
     parser.add_argument('--mult-name', dest='mult_name', help="Specify the multiplier name for relevant reports.")
@@ -134,7 +147,7 @@ def main():
             "Please ensure a 'data' directory exists inside your CONTEST_INPUT_DIR path.",
             path=data_dir
         )
-
+    
     logs_dir = os.path.join(root_input_dir, 'Logs')
     
     if unknown:
@@ -142,7 +155,7 @@ def main():
 
     if not args.log_filepaths:
         handle_error("ARGUMENT ERROR", "At least one log file path must be provided.", "Please provide the path to one or more Cabrillo log files relative to your 'Logs' directory.")
-
+    
     full_log_paths = [os.path.join(logs_dir, path) for path in args.log_filepaths]
     for log_path in full_log_paths:
         if not os.path.isfile(log_path):
@@ -155,24 +168,28 @@ def main():
     if report_id_lower not in ['all', 'chart', 'text', 'plot', 'animation', 'html'] and args.report_id not in AVAILABLE_REPORTS:
         handle_error("ARGUMENT ERROR", f"The report ID '{args.report_id}' was not found.", "Please choose a valid Report ID from the 'Available Reports' list below.")
         
-    logging.info("\n--- Contest Log Analyzer ---")
-    log_manager = LogManager()
-    
-    for path in full_log_paths:
-        log_manager.load_log(path, root_input_dir)
-    
-    report_kwargs = {
-        'include_dupes': args.include_dupes,
-        'mult_name': args.mult_name,
-        'metric': args.metric,
-        'debug_data': args.debug_data,
-        'debug_mults': args.debug_mults
-    }
-
     try:
+        logging.info("\n--- Contest Log Analyzer ---")
+        log_manager = LogManager()
+        log_manager.load_log_batch(full_log_paths, root_input_dir, args.cty)
+
+        report_kwargs = {
+            'include_dupes': args.include_dupes,
+            'mult_name': args.mult_name,
+            'metric': args.metric,
+            'debug_data': args.debug_data,
+            'debug_mults': args.debug_mults
+        }
+
         log_manager.finalize_loading(root_reports_dir)
         generator = ReportGenerator(logs=log_manager.get_logs(), root_output_dir=root_reports_dir)
         generator.run_reports(args.report_id, **report_kwargs)
+    except FileNotFoundError as e:
+        handle_error(
+            "FILE NOT FOUND",
+            f"A critical file could not be found: {e}",
+            "Ensure an appropriate cty.dat file exists or can be downloaded for your contest date."
+        )
     except ValueError as e:
         logging.exception(e)
         handle_error(
