@@ -71,7 +71,6 @@ def get_data_files():
     if os.path.isdir(data_dir):
         for root, _, files in os.walk(data_dir):
             for file in files:
-                print (file)
                 if file.endswith(".dat") and not file.startswith("cty"):
                     data_files.append(os.path.join(root, file))
     return data_files

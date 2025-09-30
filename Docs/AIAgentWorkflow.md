@@ -1,9 +1,18 @@
 # AIAgentWorkflow.md
 
-**Version: 1.1.0-Beta**
+**Version: 1.1.1-Beta**
 **Date: 2025-09-29**
 ---
 ### --- Revision History ---
+## [1.1.1-Beta] - 2025-09-29
+### Changed
+# - Amended Principle 7 (No Unrequested Changes) to explicitly forbid
+#   making secondary changes based on logical inference.
+### Added
+# - Added a "Summary Mandate" step to Protocol 2.0 (Exploratory
+#   Analysis Protocol) to ensure mutual understanding before a task begins.
+# - Added Protocol 6.12 (Protocol Violation Analysis) to formalize the
+#   procedure for analyzing and recovering from a protocol violation.
 ## [1.1.0-Beta] - 2025-09-29
 ### Added
 # - Added Principle 10 (Principle of Architectural Layers) to formalize
@@ -505,6 +514,7 @@ These are the foundational rules that govern all interactions and analyses.
 5.  **Protocol Adherence is Paramount.** All protocols must be followed with absolute precision. Failure to do so invalidates the results and undermines the development process. There is no room for deviation unless a deviation is explicitly requested by the AI and authorized by the user.
 6.  **Trust the User's Diagnostics.** When the user reports a bug or a discrepancy, their description of the symptoms and their corrections should be treated as the ground truth. The AI's primary task is to find the root cause of those specific, observed symptoms, not to propose alternative theories. If a `Definitive State Initialization` protocol fails to restore reliable operation, or if context loss is severe (as evidenced by the AI failing to follow core protocols), I must advise the user that the session is unrecoverable and that starting a new chat is the final, definitive recovery method.
 7.  **No Unrequested Changes.** The AI will only implement changes explicitly requested by the user. All suggestions for refactoring, library changes, or stylistic updates must be proposed and approved by the user before implementation.
+This principle strictly forbids making secondary changes based on logical inference. Any "cleanup" or consequential modification not explicitly part of the user's request must be proposed separately for approval.
 8.  **Technical Diligence Over Conversational Assumptions.** Technical tasks are not conversations. Similar-looking prompts do not imply similar answers. Each technical request must be treated as a unique, atomic operation. The AI must execute a full re-computation from the current project state for every request, ignoring any previous results or cached data. **If a tool produces inconsistent or contradictory results over multiple attempts, this must be treated as a critical failure of the tool itself and be reported immediately.**
 9.  **Prefer Logic in Code, Not Data.** The project's design philosophy is to keep the `.json` definition files as simple, declarative maps. All complex, conditional, or contest-specific logic should be implemented in dedicated Python modules.
 10. **Principle of Architectural Layers.** Business logic must be kept separate from the user interface (UI) layer. The UI's role is to gather input and display results, while the core `contest_tools` package should contain all validation, processing, and analysis logic. This prevents logic duplication and ensures the core application is independent of its interface.
@@ -600,7 +610,9 @@ This workflow is a formal state machine that governs all development tasks, from
     This protocol provides a less formal mechanism for brainstorming and scoping new or complex features where the requirements are not yet well-defined. It precedes the main Task Execution Workflow.
     1. **Initiation**: The user initiates the protocol with a phrase like, "Let's begin an exploratory analysis on..."
     2. **Discussion**: A collaborative, iterative discussion occurs to define the problem, explore potential solutions, and clarify requirements. This phase is exempt from the strict "halt and wait" procedure of the main workflow.
-    3. **Conclusion**: The protocol concludes when the user and AI agree on a well-defined set of requirements. The user then formally initiates the **Task Execution Workflow (Protocol 2.1)** with the newly defined task.
+    3. **Conclusion**: The protocol concludes when the user and AI agree on a well-defined set of requirements.
+    4.  **Summary Mandate**: As the final step before concluding, the AI must provide a concise, numbered list summarizing the final, agreed-upon requirements.
+    The user then formally initiates the **Task Execution Workflow (Protocol 2.1)** with the newly defined task.
 
 2.1. **Analysis and Discussion**: The user provides a problem or feature request and asks for an analysis. The AI provides an initial analysis, and a discussion may follow to refine the understanding.
     * **Request to Proceed Mandate**: After concluding its analysis, the AI's next and only action MUST be to issue a standardized prompt asking for the user's explicit permission to create an implementation plan, using the keyword `Proceed`. The AI will not proceed to generate a plan without this authorization.
@@ -831,6 +843,14 @@ These protocols are for troubleshooting, error handling, and non-standard situat
         * **Step D: Summarize and Proceed.** Provide a concise summary of the re-established context from Steps B and C. Only after providing this summary am I permitted to proceed with a new analysis or implementation plan.
 ### 7. Miscellaneous Protocols
 
+6.12. **Protocol Violation Analysis.** This protocol is triggered upon detection of a protocol violation by either the user or the AI.
+    1.  **Halt**: Immediately halt the current task.
+    2.  **Acknowledge and Analyze**: Issue a formal "Protocol Violation Analysis" that includes:
+        * **A.** An acknowledgment of the specific violation.
+        * **B.** A direct quotation of the protocol that was violated.
+        * **C.** A root cause analysis explaining the failure to adhere to the protocol.
+        * **D.** A specific corrective action to ensure future adherence.
+    3.  **Resume**: After the analysis is delivered, resume the original task from the state it was in before the violation.
 7.1. **Technical Debt Cleanup Protocol.** When code becomes convoluted, a **Technical Debt Cleanup Sprint** will be conducted to refactor the code for clarity, consistency, and maintainability.
 7.2. **Multi-Part Bundle Protocol.** If a large or complex text file cannot be transmitted reliably in a single block, the Multi-Part Bundle Protocol will be used. The AI will take the single file and split its content into multiple, smaller text chunks. These chunks will then be delivered sequentially using the **Large File Transmission Protocol (Protocol 4.3)**.
 
