@@ -1,9 +1,18 @@
 # AIAgentWorkflow.md
 
-**Version: 1.1.1-Beta**
-**Date: 2025-09-29**
+**Version: 1.1.2-Beta**
+**Date: 2025-10-01**
 ---
 ### --- Revision History ---
+## [1.1.2-Beta] - 2025-10-01
+### Added
+# - Added Protocol 3.8 (ASCII-7 Deliverable Mandate) to enforce that all
+#   generated file content uses 7-bit ASCII.
+# - Added Protocol 4.6 (Emoji Prohibition) to the communication standards.
+# - Added Protocol 7.7 (New Dependency Protocol) to formalize the process
+#   for adding new third-party libraries.
+# - Added Protocol 7.8 (Refactoring Proposal Protocol) to formalize how
+#   non-essential code improvements are proposed and approved.
 ## [1.1.1-Beta] - 2025-09-29
 ### Changed
 # - Amended Principle 7 (No Unrequested Changes) to explicitly forbid
@@ -710,6 +719,7 @@ __CODE_BLOCK__
     3.  **Execution**: Once confirmed, the AI will remove the targeted file(s) from its in-memory representation of the definitive state.
     4.  **Verification**: The AI will confirm that the purge is complete and can provide a list of all files that remain in the definitive state upon request.
 3.7. **Temporary Column Preservation Protocol.** When implementing a multi-stage processing pipeline that relies on temporary data columns (e.g., a custom parser creating a column for a custom resolver to consume), any such temporary column **must** be explicitly included in the contest's `default_qso_columns` list in its JSON definition. The `contest_log.py` module uses this list to reindex the DataFrame after initial parsing, and any column not on this list will be discarded, causing downstream failures. This is a critical data integrity step in the workflow.
+3.8. **ASCII-7 Deliverable Mandate.** All files delivered by the AI must contain only 7-bit ASCII characters. This strictly forbids the use of extended Unicode characters (e.g., smart quotes, em dashes, non-standard whitespace) to ensure maximum compatibility and prevent file corruption.
 ### 4. Communication
 
 4.1. **Communication Protocol.** All AI communication will be treated as **technical writing**. The AI must use the exact, consistent terminology from the source code and protocols.
@@ -741,6 +751,7 @@ __CODE_BLOCK__
     * **`<ACTION>`**: A concise description of the action being requested (e.g., "approve the plan", "confirm the delivery").
     * **`<PROMPT>`**: The exact, literal, case-sensitive keyword required (e.g., `Approved`, `Acknowledged`, `Confirmed`, `Ready`, `Proceed`).
     * **Self-Verification Mandate**: Before outputting any prompt that requires a keyword, I must internally confirm that the prompt's structure is in 100% compliance with this format. This check is an explicit part of the prompt generation process itself.
+4.6. **Emoji Prohibition.** All AI communication must be professional and technical. The use of emojis or other non-technical graphical characters is forbidden in all responses.
 ---
 ## Part III: Project-Specific Implementation Patterns
 
@@ -802,7 +813,6 @@ These protocols are for troubleshooting, error handling, and non-standard situat
     1.  **Acknowledge Limitation and Request Counts:** The AI must first state its inability to read file headers directly. It will then ask the user to read and provide the `FILE_COUNT` value from the metadata header of each bundle file.
     2.  **Verify Counts:** The AI will parse the bundles and verify that its internal count of `--- FILE: ... ---` headers exactly matches the counts provided by the user. If they do not match, the initialization is aborted, and the AI will report the discrepancy.
     3.  **Report Success:** The AI will state that the integrity check has passed before proceeding with the rest of the initialization protocol.
-
 6.6. **Bundle Anomaly Detection Protocol.** This protocol is triggered during a **Definitive State Initialization** if the AI discovers logical inconsistencies within the provided bundles.
     1.  Halt the initialization process after parsing all bundles and successfully completing the **Bundle Integrity Check Protocol (6.5)**.
     2.  Report all discovered logical anomalies to the user. Examples include:
@@ -870,3 +880,17 @@ These protocols are for troubleshooting, error handling, and non-standard situat
     3.  **Identify Scope and Method**: The AI will provide a complete list of all modules that follow the same architectural pattern and are therefore candidates for the same bug. To ensure completeness, the AI **must explicitly state the exact search method used** (e.g., the literal search string or regular expression used for a global text search) to generate this list.
     4.  **Audit and Report**: The AI will perform an audit of every module in the scope list and provide a formal analysis of the findings, confirming which modules are affected and which are not.
     5.  **Consolidate and Fix**: Upon user approval, the AI will create a single, consolidated implementation plan to fix all instances of the bug at once.
+
+7.7. **New Dependency Protocol.** This protocol is triggered when the AI or user identifies the need for a new third-party library.
+    1.  **Proposal**: The need for the new dependency must be stated as part of an analysis.
+    2.  **Justification**: The proposal must include a justification explaining why the new library is necessary and how it is superior to existing solutions.
+    3.  **License Verification**: The license of the proposed library must be confirmed to be compatible with the project's license (MPL 2.0).
+    4.  **Implementation Plan Mandate**: The addition of the new library must be part of a formal implementation plan. This plan must include the necessary changes to `Docs/InstallationGuide.md` to add the new library to the installation instructions.
+
+7.8. **Refactoring Proposal Protocol.** This protocol formalizes how non-essential but beneficial code refactoring is proposed, in accordance with Principle 7 and 13.
+    1.  **Identification**: During the analysis phase of a task, the AI may identify an opportunity for refactoring that is not part of the user's direct request (e.g., simplifying a loop, improving variable names for clarity).
+    2.  **Proposal**: As a distinct, clearly marked section of its analysis, the AI will present the refactoring proposal.
+    3.  **Required Format**: The proposal must contain:
+        * A. A clear rationale explaining the benefit of the change (e.g., "Improves readability," "Reduces code duplication").
+        * B. A concise "before" and "after" code snippet, preferably in `diff` format, to make the change explicit.
+    4.  **Separate Approval**: The AI must explicitly ask the user if they want to include the proposed refactoring in the implementation plan for the main task. It can only be included with the user's direct approval.
