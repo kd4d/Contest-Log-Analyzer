@@ -1,4 +1,4 @@
-# Contest Log Analyzer/contest_tools/reports/text_multipliers_by_hour.py
+# contest_tools/reports/text_multipliers_by_hour.py
 #
 # Purpose: A data-driven text report that generates an hourly summary of new
 #          multipliers worked for a specific multiplier type. #
@@ -9,6 +9,13 @@
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
+#
+# Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
+#
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
 #
@@ -16,30 +23,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.37.3-Beta] - 2025-09-03
-### Fixed
-# - Corrected multiplier tracking logic to handle the 'once_per_mode'
-#   totaling method and to correctly filter data by the mode it is
-#   being run for. This fixes a bug with the ARRL 10-Meter contest.
-## [0.37.2-Beta] - 2025-08-16
-### Fixed
-# - Corrected the conditional check to use 'once_per_log' to match the
-#   JSON contest definition standard, fixing inflated totals for contests like ARRL SS.
-## [0.37.1-Beta] - 2025-08-16
-### Fixed
-# - Corrected file writing logic to append a final newline character,
-#   ensuring compatibility with diff utilities.
-## [0.31.21-Beta] - 2025-08-09
-### Fixed
-# - Added a filter to exclude "Unknown" multipliers from the report data.
-## [0.30.34-Beta] - 2025-08-06
-### Changed
-# - Updated diagnostic error message to include the report name for clarity.
-# - Removed a redundant print statement.
-## [0.26.11-Beta] - 2025-08-04
-### Fixed
-# - Corrected a KeyError that occurred when processing hours with no QSOs
-#   by adding a check for an empty dataframe.
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 from typing import List, Dict, Set
 import pandas as pd
 import os

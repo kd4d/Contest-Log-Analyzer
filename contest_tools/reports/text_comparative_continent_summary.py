@@ -1,14 +1,14 @@
-# Contest Log Analyzer/contest_tools/reports/text_comparative_continent_summary.py
+# contest_tools/reports/text_comparative_continent_summary.py
 #
 # Purpose: A text report that generates a comparative summary of QSOs per
 #          continent, broken down by band for multiple logs.
 #
-# Author: Mark Bailey, KD4D
-# Contact: kd4d@kd4d.org
-# Date: 2025-08-04
-# Version: 0.28.20-Beta
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -17,16 +17,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-# All notable changes to this project will be documented in this file.
-# The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
-# and this project aims to adhere to Semantic Versioning (https://semver.org/).
-## [0.28.20-Beta] - 2025-08-04
-### Changed
-# - Reworked the header formatting logic to correctly handle titles that
-#   are wider than the data table, per user specifications.
-## [0.28.19-Beta] - 2025-08-04
-### Fixed
-# - Corrected the formatting to ensure the second title line is centered.
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 from typing import List
 import pandas as pd
 import os

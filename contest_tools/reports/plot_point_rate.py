@@ -1,14 +1,14 @@
-# Contest Log Analyzer/contest_tools/reports/plot_point_rate.py
+# contest_tools/reports/plot_point_rate.py
 #
 # Purpose: A plot report that generates a point rate graph for all bands
 #          and for each individual band.
 #
-# Author: Mark Bailey, KD4D
-# Contact: kd4d@kd4d.org
-# Date: 2025-09-21
-# Version: 0.88.3-Beta
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -17,59 +17,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.88.3-Beta] - 2025-09-21
-### Fixed
-# - Resolved a NameError in the debug data generation logic by correctly
-#   defining the 'bands' variable within the function's scope.
-## [0.88.2-Beta] - 2025-09-21
-### Changed
-# - Enhanced debug file to include total and per-band multiplier data.
-# - Added a check to gracefully handle contests with no multipliers.
-## [0.85.9-Beta] - 2025-09-13
-### Changed
-# - Refactored report to use the new, pre-calculated time_series_score_df
-#   from the ContestLog object, removing all internal calculation logic.
-# - The Y-axis label is now data-driven, using the `points_header_label`
-#   from the contest's JSON definition.
-## [0.57.7-Beta] - 2025-09-12
-### Changed
-# - Refactored the 'points' metric to use the new pre-calculated
-#   time_series_score_df from the ContestLog object, simplifying the logic
-#   and making it compatible with the new architecture. The plot for 'points'
-#   now shows a single 'Overall Difference' panel.
-## [0.57.6-Beta] - 2025-09-03
-### Changed
-# - Updated the chart title to the standard two-line format to conform
-#   to the official CLA Reports Style Guide.
-## [0.52.3-Beta] - 2025-08-26
-### Changed
-# - Report now generates individual plots by mode (CW, PH, DG) for both
-#   the "All Bands" and per-band summaries on multi-mode contests.
-## [0.38.0-Beta] - 2025-08-18
-### Added
-# - Added call to the save_debug_data helper function to dump the source
-#   dataframe when the --debug-data flag is enabled.
-## [0.31.26-Beta] - 2025-08-10
-### Changed
-# - Improved robustness by adding a check for empty plots and logging an
-#   info message instead of saving a blank file.
-## [0.31.25-Beta] - 2025-08-10
-### Fixed
-# - Added a conditional check to prevent a UserWarning when creating a
-#   legend for an empty plot.
-## [0.31.19-Beta] - 2025-08-08
-### Fixed
-# - Refactored report to be self-contained after the removal of the
-#   `_create_cumulative_rate_plot` helper, resolving an ImportError.
-## [0.30.20-Beta] - 2025-08-05
-### Fixed
-# - No functional changes, but inherits fix from _report_utils to prevent
-#   a timezone-related TypeError.
-## [0.30.16-Beta] - 2025-08-05
-### Changed
-# - Refactored to use the restored `_create_cumulative_rate_plot` helper.
-## [0.30.0-Beta] - 2025-08-05
-# - Initial release of Version 0.30.0-Beta.
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 from typing import List
 import os
 import pandas as pd

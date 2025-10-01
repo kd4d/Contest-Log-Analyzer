@@ -1,16 +1,16 @@
-# Contest Log Analyzer/contest_tools/log_manager.py
+# contest_tools/log_manager.py
 #
 # Purpose: Defines the LogManager class, which is responsible for orchestrating
 #          the loading, processing, and management of one or more ContestLog
 #          instances. It serves as the primary entry point for the core
 #          analysis engine.
 #
-# Author: Mark Bailey, KD4D
-# Contact: kd4d@kd4d.org
-# Date: 2025-09-30
-# Version: 0.90.2-Beta
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -19,90 +19,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.90.2-Beta] - 2025-09-30
-### Fixed
-# - Corrected a TypeError by localizing the timestamp in
-#   `_get_first_qso_date_from_log` to UTC, ensuring it can be compared
-#   with the timezone-aware CTY index dates.
-## [0.90.1-Beta] - 2025-09-30
-### Changed
-# - Modified the `load_log_batch` method to explicitly call the new
-#   `CtyManager.sync_index` method, ensuring the CTY index update is
-#   driven by the contest date. This corrects an order-of-operations bug.
-## [0.90.0-Beta] - 2025-09-29
-### Added
-# - Added a new `load_log_batch` method to encapsulate all batch
-#   loading, validation, and CTY file selection logic.
-# - Added a `_get_callsign_from_header` helper method.
-### Changed
-# - Refactored the class to be batch-oriented, performing a single
-#   CTY file lookup for all logs.
-# - Moved validation logic from `finalize_loading` to the new
-#   `load_log_batch` method to serve as a pre-flight check.
-### Removed
-# - Removed the obsolete `load_log` method.
-## [0.89.9-Beta] - 2025-09-29
-### Changed
-# - Updated load_log to handle the new tuple return from CtyManager
-#   and log the selected CTY file's date for traceability.
-## [0.89.5-Beta] - 2025-09-29
-### Changed
-# - Modified load_log to accept a cty_specifier and pass the
-#   resolved cty.dat path to the ContestLog constructor.
-## [0.87.2-Beta] - 2025-09-14
-### Fixed
-# - Fixed a regression in `_create_master_time_index` by using a
-#   periods-based calculation, resolving the 'extra hour' bug in all
-#   time-series reports.
-## [0.87.1-Beta] - 2025-09-14
-### Fixed
-# - Fixed a bug in `_create_master_time_index` that created an extra hour
-#   in the timeline by subtracting one second from the max time before
-#   applying the ceiling function.
-## [0.87.0-Beta] - 2025-09-13
-### Fixed
-# - Fixed a regression by adding a call to the `_pre_calculate_time_series_score`
-#   method for each log, ensuring score data is available for reports.
-## [0.85.6-Beta] - 2025-09-13
-### Fixed
-# - Corrected an order-of-operations bug by setting the _log_manager_ref
-#   on the ContestLog object *before* calling apply_annotations. This
-#   ensures score calculators can access the master time index.
-## [0.70.2-Beta] - 2025-09-12
-### Fixed
-# - Corrected an order-of-operations bug by setting the _log_manager_ref
-#   on the ContestLog object *before* calling apply_annotations. This
-#   ensures score calculators can access the master time index.
-## [0.70.1-Beta] - 2025-09-09
-### Changed
-# - Refactored methods to accept path variables as parameters instead of
-#   reading environment variables directly, in compliance with Principle 15.
-## [0.62.2-Beta] - 2025-09-08
-### Changed
-# - Updated script to read the new CONTEST_REPORTS_DIR environment variable.
-## [0.55.5-Beta] - 2025-08-30
-### Added
-# - Added a hook to the `finalize_loading` method to support a new
-#   pluggable, contest-specific ADIF exporter architecture.
-## [0.37.0-Beta] - 2025-08-17
-### Added
-# - Added a conditional call to the new `export_to_adif` method,
-#   triggered by a key in the contest's JSON definition file.
-## [0.35.10-Beta] - 2025-08-14
-### Added
-# - Added validation to finalize_loading to ensure all logs are from the
-#   same contest and event, raising a ValueError on mismatch.
-## [0.31.32-Beta] - 2025-08-10
-### Added
-# - Added a warning to detect and report if logs from different
-#   months/years are loaded in the same session.
-## [0.30.24-Beta] - 2025-08-05
-# - No functional changes. Synchronizing version numbers.
-## [0.30.14-Beta] - 2025-08-05
-### Changed
-# - Added `event_id` to each log's metadata.
-## [0.30.0-Beta] - 2025-08-05
-# - Initial release of Version 0.30.0-Beta.
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 import pandas as pd
 from typing import List
 from .contest_log import ContestLog

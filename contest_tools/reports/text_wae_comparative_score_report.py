@@ -1,10 +1,15 @@
-# Contest Log Analyzer/contest_tools/reports/text_wae_comparative_score_report.py
+# contest_tools/reports/text_wae_comparative_score_report.py
+#
+# Purpose: A text report that generates a comparative, interleaved score
+#          summary for the WAE contest.
+#
 #
 # Author: Gemini AI
-# Date: 2025-09-13
-# Version: 0.85.12-Beta
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -12,14 +17,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-#
-# Purpose: A text report that generates a comparative, interleaved score
-#          summary for the WAE contest.
-#
 # --- Revision History ---
-## [0.85.12-Beta] - 2025-09-13
-# - Initial release.
-#
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 from typing import List, Dict, Any, Tuple
 import pandas as pd
 import os

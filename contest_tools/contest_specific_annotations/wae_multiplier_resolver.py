@@ -1,10 +1,16 @@
-# Contest Log Analyzer/contest_tools/contest_specific_annotations/wae_multiplier_resolver.py
+# contest_tools/contest_specific_annotations/wae_multiplier_resolver.py
+#
+# Purpose: This module provides a custom multiplier resolver for the WAE
+#          Contest. It implements the asymmetric multiplier rules for
+#          EU vs. non-EU stations and the special call area district logic.
+#
 #
 # Author: Gemini AI
-# Date: 2025-09-16
-# Version: 0.88.3-Beta
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -12,55 +18,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-#
-# Purpose: This module provides a custom multiplier resolver for the WAE
-#          Contest. It implements the asymmetric multiplier rules for
-#          EU vs. non-EU stations and the special call area district logic.
-#
 # --- Revision History ---
-## [0.88.3-Beta] - 2025-09-16
-### Changed
-# - Refactored module to be compliant with the new, data-driven resolver
-#   architecture. The function now accepts a ContestDefinition object
-#   and uses it as a "blueprint" to populate the correct columns.
-## [0.87.5-Beta] - 2025-09-16
-### Added
-# - Added a high-priority logic block to the `_get_call_area_district`
-#   function to correctly handle the special RA8/RA9/RA0 multipliers for
-#   the UA9 (Asiatic Russia) DXCC entity.
-## [0.87.4-Beta] - 2025-09-16
-### Changed
-# - Rewrote the `_get_call_area_district` function to correctly implement
-#   the WAE multiplier rules. The new logic now uses the DXCCPfx for
-#   eligibility and correctly parses both standard and portable callsigns.
-## [0.87.1-Beta] - 2025-09-16
-### Changed
-# - Refactored module to be a self-contained, complete replacement for WAE
-#   multiplier logic, in accordance with the new architectural contract.
-# - The resolver now populates Mult1 with WAE/DXCC multipliers and Mult2
-#   with Call Area Districts, correctly enforcing mutual exclusivity.
-## [0.89.0-Beta] - 2025-09-15
-### Fixed
-# - Modified resolver to clear Mult1 when Mult2 is populated, making the multiplier types mutually exclusive to prevent double-counting.
-## [0.88.2-Beta] - 2025-09-15
-### Fixed
-# - Corrected the primary conditional check from 'DX' to 'EU' to ensure multiplier logic runs for the correct station type.
-## [0.85.4-Beta] - 2025-09-13
-### Changed
-# - Refactored module to only handle the special-case Mult2 (Call Area)
-#   multiplier for European stations. Mult1 is now handled by the
-#   'wae_dxcc' source key in the contest definition.
-## [0.85.0-Beta] - 2025-09-13
-### Fixed
-# - Corrected a logical inversion where the rules for European and
-#   non-European stations were swapped.
-## [1.0.1-Beta] - 2025-09-12
-### Fixed
-# - Pre-initialized multiplier columns with dtype='object' to prevent
-#   a pandas FutureWarning.
-## [1.0.0-Beta] - 2025-09-12
-# - Initial release.
-#
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 import pandas as pd
 import re
 from typing import Dict, Any, Optional

@@ -1,89 +1,26 @@
-# Contest Log Analyzer/contest_tools/reports/plot_comparative_run_sp.py
-#
-# Version: 0.87.2-Beta
-# Date: 2025-09-13
+# contest_tools/reports/plot_comparative_run_sp.py
 #
 # Purpose: A plot report that generates a "paired timeline" chart, visualizing
 #          the operating style (Run, S&P, or Mixed) of two operators over time.
 #
-# --- Revision History ---
-## [0.87.2-Beta] - 2025-09-13
-### Fixed
-# - Removed redundant tz_localize calls, which caused a TypeError now
-#   that timezone awareness is handled upstream by the score calculators.
-## [0.57.4-Beta] - 2025-09-03
-### Changed
-# - Updated the chart title to the standard two-line format to conform
-#   to the official CLA Reports Style Guide.
-## [0.56.7-Beta] - 2025-08-31
-### Fixed
-# - Updated band sorting logic to use the refactored _HAM_BANDS
-#   variable from the ContestLog class, fixing an AttributeError.
-## [0.52.1-Beta] - 2025-08-26
-### Changed
-# - Refactored report to generate individual plots by mode (CW, PH, DG) in
-#   addition to the overall plot for contests with multiple modes.
-## [0.42.2-Beta] - 2025-08-20
-### Fixed
-# - Explicitly disabled horizontal gridlines on the timeline chart to
-#   remove visual clutter, per user feedback.
-## [0.42.1-Beta] - 2025-08-20
-### Changed
-# - Refactored the plotting logic to use the higher-level ax.barh function
-#   instead of drawing low-level rectangles.
-### Fixed
-# - "Inactive" periods are now rendered as transparent instead of white.
-# - Removed the 15-minute borders around every time interval.
-### Removed
-# - Removed the temporary diagnostic logging statements.
-## [0.42.0-Beta] - 2025-08-20
-### Changed
-# - Redesigned the plot to use a single, split subplot per band instead
-#   of two separate subplots, making the chart more compact.
-# - Implemented dynamic pagination, targeting ~8 bands per page.
-# - Updated gridlines to appear only on the hour for better readability.
-## [0.41.12-Beta] - 2025-08-20
-### Fixed
-# - Resolved the blank plot bug by explicitly setting the x-axis limits
-#   after drawing the timeline patches, as the add_patch method does not
-#   trigger matplotlib's autoscaling.
-## [0.41.11-Beta] - 2025-08-20
-### Added
-# - Added detailed diagnostic logging to _generate_plot_for_page to trace
-#   the data flow and diagnose the blank plot issue.
-### Changed
-# - Updated Y-axis labels to include the band for better clarity.
-## [0.41.10-Beta] - 2025-08-20
-### Fixed
-# - Corrected the data aggregation logic to explicitly reindex against the
-#   master time index, fixing the blank plot bug caused by a timezone-
-#   related misalignment.
-## [0.41.9-Beta] - 2025-08-20
-### Fixed
-# - Corrected a data flow regression that caused empty plots by ensuring
-#   timezone-aware data is passed correctly between functions.
-## [0.41.8-Beta] - 2025-08-20
-### Fixed
-# - Permanently fixed AttributeError regression and UserWarning by enforcing
-#   a minimum figure height and removing faulty single-band logic.
-## [0.41.7-Beta] - 2025-08-20
-### Fixed
-# - Enforced a minimum figure height to resolve a UserWarning from the
-#   layout manager on pages with few bands.
-## [0.41.3-Beta] - 2025-08-20
-### Fixed
-# - Resolved an AttributeError that occurred when plotting a page with a
-#   single band by removing incorrect conditional logic.
-## [0.41.2-Beta] - 2025-08-20
-### Fixed
-# - Resolved a FileNotFoundError by sanitizing illegal characters ('/') from
-#   debug and plot filenames for paginated reports.
-## [0.41.1-Beta] - 2025-08-20
-### Fixed
-# - Resolved a NameError by adding the missing 'matplotlib.dates' import.
-## [0.41.0-Beta] - 2025-08-20
-# - Initial release of the Comparative Run/S&P Timeline report.
 #
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
+#
+# Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
+#
+# License: Mozilla Public License, v. 2.0
+#          (https://www.mozilla.org/MPL/2.0/)
+#
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+# --- Revision History ---
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt

@@ -1,55 +1,25 @@
-# Contest Log Analyzer/contest_tools/reports/text_continent_breakdown.py
+# contest_tools/reports/text_continent_breakdown.py
 #
 # Purpose: A text report that generates a per-band summary of QSOs per
 #          continent, with a breakdown by Run/S&P/Unknown status.
 #
-# Author: Mark Bailey, KD4D
-# Contact: kd4d@kd4d.org
-# Date: 2025-08-25
-# Version: 0.37.5-Beta
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0.
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.37.5-Beta] - 2025-08-25
-### Fixed
-# - Corrected an order-of-operations bug where the report title was
-#   centered using a stale table width. The title is now centered using
-#   the final, dynamic width of the report grid.
-## [0.37.4-Beta] - 2025-08-25
-### Changed
-# - The report's grid layout is now generated dynamically based on the
-#   continents present in the data, eliminating empty columns.
-## [0.37.3-Beta] - 2025-08-25
-### Changed
-# - Modified report logic to be data-driven, omitting sections for
-#   continents with zero QSOs to improve readability.
-## [0.37.2-Beta] - 2025-08-16
-### Added
-# - Added per-continent totals and a final overall total section to the
-#   report for a more comprehensive summary.
-## [0.37.1-Beta] - 2025-08-16
-### Fixed
-# - Corrected file writing logic to append a final newline character,
-#   ensuring compatibility with diff utilities.
-# All notable changes to this project will be documented in this file.
-# The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
-# and this project aims to adhere to Semantic Versioning (https://semver.org/).
-## [0.28.28-Beta] - 2025-08-04
-### Changed
-# - Standardized the report header to use a two-line title.
-## [0.28.27-Beta] - 2025-08-04
-### Changed
-# - Standardized the report header to use a two-line title.
-## [0.28.26-Beta] - 2025-08-03
-### Changed
-# - The report now uses the dynamic `valid_bands` list from the contest
-#   definition instead of a hardcoded list.
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 from typing import List
 import pandas as pd
 import os

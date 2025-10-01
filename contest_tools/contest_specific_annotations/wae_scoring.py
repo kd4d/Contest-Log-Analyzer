@@ -1,10 +1,14 @@
-# Contest Log Analyzer/contest_tools/contest_specific_annotations/wae_scoring.py
+# contest_tools/contest_specific_annotations/wae_scoring.py
+#
+# Purpose: This module provides the base QSO scoring logic for the WAE Contest.
+#
 #
 # Author: Gemini AI
-# Date: 2025-09-12
-# Version: 1.0.0-Beta
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -12,13 +16,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-#
-# Purpose: This module provides the base QSO scoring logic for the WAE Contest.
-#
 # --- Revision History ---
-## [1.0.0-Beta] - 2025-09-12
-# - Initial release.
-#
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 import pandas as pd
 from typing import Dict, Any
 

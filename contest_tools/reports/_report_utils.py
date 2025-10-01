@@ -1,14 +1,14 @@
-# Contest Log Analyzer/contest_tools/reports/_report_utils.py
+# contest_tools/reports/_report_utils.py
 #
 # Purpose: A utility module providing shared helper functions for the
 #          reporting engine.
 #
-# Author: Mark Bailey, KD4D
-# Contact: kd4d@kd4d.org
-# Date: 2025-09-15
-# Version: 0.86.4-Beta
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -17,124 +17,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.86.4-Beta] - 2025-09-15
-### Changed
-# - Made `save_debug_data` content-aware. It now automatically saves
-#   JSON data with a .json extension, fixing a systemic bug.
-## [0.86.3-Beta] - 2025-09-14
-### Fixed
-# - Fixed a TypeError in the NpEncoder class by adding support for
-#   serializing pandas Series objects.
-## [0.86.2-Beta] - 2025-09-14
-### Changed
-# - Refactored `DonutChartComponent` to accept pre-aggregated data and
-#   added a static method to centralize the aggregation logic. This
-#   ensures debug files contain the same data used to generate the plot.
-## [0.85.16-Beta] - 2025-09-13
-### Fixed
-# - Added a check for pandas Timestamp objects to the NpEncoder class to
-#   prevent a TypeError during JSON serialization of debug data.
-## [0.47.2-Beta] - 2025-09-03
-### Changed
-# - Modified the ComparativeHeatmapChart class to accept a report_name
-#   parameter to support the standardized two-line title format.
-## [0.47.1-Beta] - 2025-08-22
-### Changed
-# - Enhanced the calculate_multiplier_pivot() shared utility to support
-#   an optional 'group_by_call' parameter, making it flexible enough for
-#   both score and multiplier summary reports.
-## [0.47.0-Beta] - 2025-08-22
-### Added
-# - Added the calculate_multiplier_pivot() shared utility function to
-#   centralize the core multiplier counting logic for all reports.
-## [0.46.1-Beta] - 2025-08-21
-### Changed
-# - Changed the colormap for the ComparativeHeatmapChart from 'viridis'
-#   to 'hot' to match user preference and other heatmap reports.
-## [0.46.0-Beta] - 2025-08-19
-### Fixed
-# - Modified the figsize calculation to enforce a minimum height,
-#   preventing chart elements from overlapping on single-band plots.
-## [0.45.0-Beta] - 2025-08-19
-### Fixed
-# - Replaced the layout manager with an explicit GridSpec to create a
-#   dedicated, reserved space for the legend, ensuring it is centered
-#   and does not overlap the title or chart.
-## [0.44.0-Beta] - 2025-08-19
-### Fixed
-# - Corrected the legend's vertical and horizontal placement to ensure it
-#   is centered and does not overlap the plot title.
-## [0.43.0-Beta] - 2025-08-19
-### Changed
-# - Adjusted the figure aspect ratio to be taller (11 x 8.5) for better
-#   readability and printing.
-# - Reworked the legend to use a sample color from the heatmap's actual
-#   color scale, with and without the dot pattern, to be more intuitive.
-# - Implemented the standard two-line figure suptitle.
-# - Changed the thin horizontal cell divider to a black line.
-## [0.42.0-Beta] - 2025-08-20
-### Changed
-# - Adjusted the figure aspect ratio to be taller (11 x 8.5) for better
-#   readability and printing.
-# - Reworked the legend to use a sample color from the heatmap's actual
-#   color scale, with and without the dot pattern, to be more intuitive.
-## [0.41.0-Beta] - 2025-08-19
-### Changed
-# - Modified the ComparativeHeatmapChart to use a truncated Viridis
-#   colormap, excluding the darkest colors.
-# - Added a white dot hatch pattern to the cells for the second log to
-#   improve visual distinction.
-# - Changed the primary horizontal grid lines between bands to be heavy,
-#   black, and drawn in the foreground.
-## [0.40.0-Beta] - 2025-08-19
-### Changed
-# - Enhanced the ComparativeHeatmapChart plotting logic to dynamically
-#   calculate and render correct, time-based labels for the x-axis,
-#   resolving the axis formatting bug.
-## [0.39.9-Beta] - 2025-08-19
-### Changed
-# - Rewrote the ComparativeHeatmapChart plotting logic to manually draw
-#   a custom grid with thick and thin lines, per user specification,
-#   to improve chart readability.
-## [0.39.8-Beta] - 2025-08-19
-### Changed
-# - Renamed SplitHeatmapChart to ComparativeHeatmapChart and rewrote its
-#   plotting logic to correctly generate a split-cell heatmap instead of
-#   a butterfly chart, resolving a major implementation bug.
-## [0.39.7-Beta] - 2025-08-19
-### Fixed
-# - Corrected the SplitHeatmapChart plotter to fix a UserWarning by
-#   setting y-tick locations before labels.
-# - Removed dead code from the SplitHeatmapChart plotter that was
-#   causing a TypeError due to a namespace collision.
-## [0.39.6-Beta] - 2025-08-18
-### Added
-# - Added the SplitHeatmapChart reusable plotting class to generate
-#   comparative, split-cell heatmap visualizations.
-## [0.39.5-Beta] - 2025-08-18
-### Fixed
-# - Resolved a pandas SettingWithCopyWarning by explicitly returning a
-#   .copy() of the DataFrame slice in the get_valid_dataframe helper.
-## [0.38.1-Beta] - 2025-08-18
-### Fixed
-# - Added a custom NpEncoder class to the save_debug_data helper to
-#   correctly handle JSON serialization of NumPy integer and float types.
-## [0.38.0-Beta] - 2025-08-18
-### Added
-# - Added the save_debug_data() helper function to handle the creation of
-#   debug data files for visual reports.
-## [0.31.18-Beta] - 2025-08-08
-### Changed
-# - Removed percentage labels from donut charts for a cleaner appearance.
-## [0.31.17-Beta] - 2025-08-08
-### Changed
-# - Renamed ChartComponent to DonutChartComponent and added logic to handle
-#   dynamic radius scaling and "Not to scale" annotations.
-## [0.31.4-Beta] - 2025-08-07
-### Changed
-# - Renamed ChartComponent to DonutChartComponent for clarity.
-## [0.31.0-Beta] - 2025-08-07
-# - Initial release of Version 0.31.0-Beta.
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec

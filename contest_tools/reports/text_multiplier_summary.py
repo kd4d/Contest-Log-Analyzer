@@ -1,14 +1,14 @@
-# Contest Log Analyzer/contest_tools/reports/text_multiplier_summary.py
+# contest_tools/reports/text_multiplier_summary.py
 #
 # Purpose: A data-driven text report that generates a summary of QSOs for a
 #          specific multiplier type (e.g., Countries, Zones).
 #
-# Author: Mark Bailey, KD4D
-# Contact: kd4d@kd4d.org
-# Date: 2025-08-27
-# Version: 0.47.14-Beta
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -17,42 +17,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.47.14-Beta] - 2025-08-27
-### Fixed
-# - Corrected a persistent IndentationError by fixing the indentation of
-#   the final code block in the _generate_report_for_logs method.
-## [0.47.13-Beta] - 2025-08-27
-### Fixed
-# - Corrected an IndentationError.
-## [0.47.12-Beta] - 2025-08-27
-### Fixed
-# - Corrected an IndentationError that occurred during file generation.
-## [0.47.11-Beta] - 2025-08-27
-### Fixed
-# - Corrected the "Unassigned Multipliers" diagnostic to handle the
-#   special rules for the NAQP contest, preventing incorrect warnings for
-#   non-North American QSOs.
-## [0.47.10-Beta] - 2025-08-24
-### Fixed
-# - Added a check for an empty pivot table to prevent a crash when no
-#   multipliers of the specified type are found in the logs.
-## [0.47.9-Beta] - 2025-08-24
-### Fixed
-# - Added logic to the diagnostic section to handle mutually exclusive
-#   multipliers, using the new generic `mutually_exclusive_mults` key
-#   from the contest definition.
-## [0.47.8-Beta] - 2025-08-23
-### Added
-# - Added diagnostic code to save the complete set of (band, multiplier)
-#   tuples to a JSON file for definitive comparison.
-## [0.47.7-Beta] - 2025-08-23
-### Added
-# - Added diagnostic code to save the complete set of (band, multiplier)
-#   tuples to a JSON file for definitive comparison.
-## [0.47.6-Beta] - 2025-08-22
-### Changed
-# - Moved the checksum diagnostic to the beginning of the `generate`
-#   method to ensure it hashes the raw input DataFrame before any filtering.
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 from typing import List
 import pandas as pd
 import os

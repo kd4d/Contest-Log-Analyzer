@@ -1,10 +1,15 @@
-# Contest Log Analyzer/contest_tools/score_calculators/wae_calculator.py
+# contest_tools/score_calculators/wae_calculator.py
+#
+# Purpose: This module provides the complex, contest-specific time-series
+#          score calculator for the Worked All Europe (WAE) Contest.
+#
 #
 # Author: Gemini AI
-# Date: 2025-09-21
-# Version: 0.88.1-Beta
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -12,27 +17,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-#
-# Purpose: This module provides the complex, contest-specific time-series
-#          score calculator for the Worked All Europe (WAE) Contest.
-#
 # --- Revision History ---
-## [0.88.1-Beta] - 2025-09-21
-### Changed
-# - Added the `weighted_mults` column to the output DataFrame to
-#   provide data for downstream diagnostic reports.
-# - Enhanced module to calculate and add per-band weighted multiplier columns.
-## [0.88.0-Beta] - 2025-09-21
-### Changed
-# - Synchronized version with `wae_calculator` fix.
-## [0.85.3-Beta] - 2025-09-21
-### Fixed
-# - Corrected a bug in the multiplier counting logic by filtering for
-#   non-null values before dropping duplicates, preventing valid
-#   multipliers from being discarded.
-## [0.85.2-Beta] - 2025-09-13
-# - Initial release.
-#
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 import pandas as pd
 import numpy as np
 from typing import TYPE_CHECKING

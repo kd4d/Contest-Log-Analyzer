@@ -1,16 +1,16 @@
-# Contest Log Analyzer/run_regression_test.py
+# run_regression_test.py
 #
 # Purpose: This script provides an automated regression test for the Contest Log
 #          Analyzer. It archives the last known-good reports, runs a series of
 #          pre-defined test cases from a batch file, and compares the new
 #          output against the archived baseline to detect any regressions.
 #
-# Author: Mark Bailey, KD4D
-# Contact: kd4d@kd4d.org
-# Date: 2025-09-18
-# Version: 0.87.0-Beta
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -19,47 +19,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.87.0-Beta] - 2025-09-18
-### Changed
-# - Overhauled ADIF comparison logic to provide a summary of changed tags
-#   and a truncated, 5-line diff to improve diagnostic readability.
-## [0.86.1-Beta] - 2025-09-14
-### Changed
-# - Improved CSV comparison to identify changed columns and provide a
-#   limited, 5-row sample of differences instead of a full file diff.
-## [0.86.0-Beta] - 2025-09-14
-### Added
-# - Added content-aware comparison logic for .json files to prevent
-#   spurious diffs caused by key order changes.
-## [0.70.9-Beta] - 2025-09-09
-### Changed
-# - Refactored script to read environment variables in one location and
-#   pass them as parameters, in compliance with Principle 15.
-## [0.62.0-Beta] - 2025-09-08
-### Changed
-# - Updated script to use the new CONTEST_REPORTS_DIR environment variable.
-## [0.39.0-Beta] - 2025-09-07
-### Changed
-# - Replaced the archiving logic with a robust "copy then delete"
-#   strategy that includes an error handler to automatically remove
-#   read-only attributes, solving failures caused by OneDrive/Git.
-## [0.38.1-Beta] - 2025-09-07
-### Fixed
-# - Replaced shutil.move with os.rename and added a pre-emptive check
-#   to prevent a race condition during the archiving step.
-## [0.38.0-Beta] - 2025-09-06
-### Added
-# - Added content-aware comparison logic for _processed.csv files, which
-#   sorts the data before comparing to prevent false positives.
-# - Added content-aware comparison logic for .adi files, which parses
-#   the file and compares the data structure to prevent false positives.
-## [0.37.1-Beta] - 2025-09-04
-### Fixed
-# - Added a resilient retry loop to the archive function to handle
-#   transient file locks from cloud sync services like OneDrive.
-## [0.37.0-Beta] - 2025-08-16
-### Added
-# - Initial release of the automated regression test script.
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 import os
 import sys
 import argparse

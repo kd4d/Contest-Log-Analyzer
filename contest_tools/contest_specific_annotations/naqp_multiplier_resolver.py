@@ -1,14 +1,14 @@
-# Contest Log Analyzer/contest_tools/contest_specific_annotations/naqp_multiplier_resolver.py
+# contest_tools/contest_specific_annotations/naqp_multiplier_resolver.py
 #
 # Purpose: Provides contest-specific logic to resolve NAQP multipliers
 #          (States/Provinces and North American DXCC entities).
 #
-# Author: Mark Bailey, KD4D
-# Contact: kd4d@kd4d.org
-# Date: 2025-09-17
-# Version: 0.89.0-Beta
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -17,70 +17,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.89.0-Beta] - 2025-09-17
-### Changed
-# - Refactored module to be data-driven, reading target column names
-#   from the ContestDefinition object instead of using hard-coded values.
-# - Updated function signature to the new four-argument standard.
-### Fixed
-# - Replaced silent failure on missing columns with a "fail-fast"
-#   ValueError exception.
-# - Corrected prerequisite check to include the 'DXCCName' column.
-## [0.70.26-Beta] - 2025-09-10
-### Changed
-# - Updated `resolve_multipliers` to accept `root_input_dir` as a
-#   parameter, in compliance with Principle 15.
-## [0.62.0-Beta] - 2025-09-08
-### Changed
-# - Updated script to read the new CONTEST_INPUT_DIR environment variable.
-## [0.40.5-Beta] - 2025-08-24
-### Changed
-# - Modified resolver to create and populate name columns (Mult_STPROVName,
-#   Mult_NADXCCName) for enhanced reporting.
-## [0.37.3-Beta] - 2025-08-17
-### Fixed
-# - Corrected the hardcoded prefix for Alaska from KL7 to KL to ensure
-#   it is correctly classified as a State/Province multiplier.
-## [0.37.2-Beta] - 2025-08-17
-### Fixed
-# - Corrected multiplier logic to align with official NAQP rules by
-#   removing the 'XE' prefix from the State/Province check, ensuring
-#   Mexican stations are correctly classified as NA DXCC multipliers.
-## [0.37.1-Beta] - 2025-08-17
-### Changed
-# - Refactored resolver to populate two separate columns (`Mult_STPROV` and
-#   `Mult_NADXCC`) to enable distinct multiplier reporting.
-## [0.32.21-Beta] - 2025-08-14
-### Fixed
-# - Corrected the primary conditional check to include KH6 and KL7, ensuring
-#   Alaska and Hawaii are treated as State multipliers per NAQP rules.
-## [0.32.20-Beta] - 2025-08-14
-### Fixed
-# - Rewrote multiplier logic to correctly handle the three NAQP multiplier
-#   types (State/Prov, NA DXCC, Unknown) and consolidate them into the
-#   single 'Mult1' column for proper scoring.
-## [0.31.46-Beta] - 2025-08-11
-### Fixed
-# - Corrected multiplier logic to handle the special cases for Alaska and
-#   Hawaii, ensuring they are always processed as State/Province multipliers.
-## [0.31.45-Beta] - 2025-08-11
-### Fixed
-# - Corrected multiplier logic to properly handle Alaska (AK) and Hawaii (HI)
-#   as State/Province multipliers instead of DXCC entities.
-## [0.31.44-Beta] - 2025-08-11
-### Fixed
-# - Corrected logic to assign the DXCC Prefix (DXCCPfx) instead of the
-#   full DXCC Name to the NADXCC_Mult column.
-## [0.31.43-Beta] - 2025-08-10
-### Changed
-# - Refactored logic to use the 'Continent' field ('NA') instead of
-#   'WAEName' for identifying North American stations.
-## [0.30.40-Beta] - 2025-08-06
-### Fixed
-# - Updated all references to the old CONTEST_DATA_DIR environment variable
-#   to use the correct CONTEST_LOGS_REPORTS variable.
-## [0.30.0-Beta] - 2025-08-05
-# - Initial release of Version 0.30.0-Beta.
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 import pandas as pd
 import os
 from ..core_annotations._core_utils import AliasLookup

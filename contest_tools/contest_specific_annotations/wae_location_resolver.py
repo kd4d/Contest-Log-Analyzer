@@ -1,24 +1,25 @@
-# Contest Log Analyzer/contest_tools/contest_specific_annotations/wae_location_resolver.py
-#
-# Author: Gemini AI
-# Date: 2025-09-30
-# Version: 0.90.4-Beta
-#
-# Copyright (c) 2025 Mark Bailey, KD4D
-#
-# License: Mozilla Public License, v. 2.0
+# contest_tools/contest_specific_annotations/wae_location_resolver.py
 #
 # Purpose: A contest-specific location resolver for the WAE contest.
 #
+#
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
+#
+# Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
+#
+# License: Mozilla Public License, v. 2.0
+#          (https://www.mozilla.org/MPL/2.0/)
+#
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.90.4-Beta] - 2025-09-30
-### Changed
-# - Refactored function to accept an explicit `cty_dat_path` parameter,
-#   removing the hardcoded path logic to fix a FileNotFoundError.
-## [0.88.0-Beta] - 2025-09-15
-### Added
-# - Added a new "How to Add a New Contest: A Step-by-Step Guide"
-#   section to provide a clear, tutorial-based workflow for developers.
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 from typing import Dict, Any, Optional
 import os
 from ..core_annotations import CtyLookup

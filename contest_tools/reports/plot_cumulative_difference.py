@@ -1,14 +1,14 @@
-# Contest Log Analyzer/contest_tools/reports/plot_cumulative_difference.py
+# contest_tools/reports/plot_cumulative_difference.py
 #
 # Purpose: A plot report that generates a cumulative difference graph,
 #          comparing two logs.
 #
-# Author: Mark Bailey, KD4D
-# Contact: kd4d@kd4d.org
-# Date: 2025-09-13
-# Version: 0.86.1-Beta
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -17,77 +17,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.86.1-Beta] - 2025-09-13
-### Fixed
-# - Removed redundant tz_localize logic, which caused a TypeError now
-#   that timezone awareness is handled upstream by the score calculators.
-## [0.85.8-Beta] - 2025-09-13
-### Changed
-# - Refactored the 'points' metric to use the new detailed time-series
-#   DataFrame from the score calculator architecture.
-# - Added logic to generate a simplified, single-panel plot for the WAE
-#   contest to correctly handle its non-linear scoring model.
-## [0.57.7-Beta] - 2025-09-12
-### Changed
-# - Refactored the 'points' metric to use the new detailed time-series
-#   DataFrame, restoring the full three-panel plot (Overall, Run, S&P).
-## [0.57.6-Beta] - 2025-09-12
-### Changed
-# - Refactored the 'points' metric to use the new pre-calculated
-#   time_series_score_df from the ContestLog object, simplifying the logic
-#   and making it compatible with the new architecture. The plot for 'points'
-#   now shows a single 'Overall Difference' panel.
-## [0.57.5-Beta] - 2025-09-03
-### Changed
-# - Updated the chart title to the standard two-line format to conform
-#   to the official CLA Reports Style Guide.
-## [0.52.2-Beta] - 2025-08-26
-### Changed
-# - Report now generates individual plots by mode (CW, PH, DG) for both
-#   the "All Bands" and per-band summaries on multi-mode contests.
-## [0.38.1-Beta] - 2025-08-18
-### Fixed
-# - Resolved a TypeError by removing the redundant 'metric' keyword from a
-#   function call and retrieving it from kwargs instead.
-## [0.38.0-Beta] - 2025-08-18
-### Added
-# - Added call to the save_debug_data helper function to dump the source
-#   dataframe when the --debug-data flag is enabled.
-## [0.31.31-Beta] - 2025-08-10
-### Fixed
-# - Refactored time-series logic to calculate cumulative sum before
-#   reindexing, fixing phantom rate changes during inactive hours.
-## [0.31.30-Beta] - 2025-08-10
-### Fixed
-# - Corrected logic to properly skip generating empty plots for bands with
-#   no QSO data.
-## [0.31.29-Beta] - 2025-08-10
-### Fixed
-# - Corrected a TypeError by creating a correctly-indexed placeholder for
-#   logs with no data on a given band.
-## [0.31.28-Beta] - 2025-08-10
-### Fixed
-# - Resolved a TypeError by localizing naive datetimes to UTC before
-#   comparing them with the timezone-aware master time index.
-## [0.31.27-Beta] - 2025-08-10
-### Fixed
-# - Corrected time-series logic to use the master time index and
-#   forward-filling to ensure all hours of the contest are displayed.
-## [0.31.26-Beta] - 2025-08-10
-### Changed
-# - Replaced print statement with logging.info for "no data" messages.
-## [0.30.22-Beta] - 2025-08-05
-### Fixed
-# - Corrected filename and title generation logic to properly handle
-#   single-band contests, replacing "All" with the specific band name.
-## [0.30.19-Beta] - 2025-08-05
-### Fixed
-# - Removed stray conversational text from the end of the file.
-## [0.30.17-Beta] - 2025-08-05
-### Changed
-# - Restored the original three-panel plot style (Overall, Run, S&P).
-## [0.30.0-Beta] - 2025-08-05
-# - Initial release of Version 0.30.0-Beta.
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 from typing import List
 import pandas as pd
 import matplotlib.pyplot as plt

@@ -1,12 +1,16 @@
-# Contest Log Analyzer/contest_tools/contest_specific_annotations/arrl_10_multiplier_resolver.py
-#
-# Version: 0.88.0-Beta
-# Date: 2025-09-21
+# contest_tools/contest_specific_annotations/arrl_10_multiplier_resolver.py
 #
 # Purpose: Provides contest-specific logic to resolve ARRL 10 Meter contest
 #          multipliers by parsing the asymmetric received exchange.
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+#
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
+#
+# Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -15,44 +19,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.88.0-Beta] - 2025-09-21
-### Fixed
-# - Corrected function signature to comply with the standard resolver contract.
-## [0.89.3-Beta] - 2025-09-17
-### Changed
-# - Refactored module to be data-driven, reading target column names
-#   from the ContestDefinition object instead of using hard-coded values.
-# - Updated function signature to the new four-argument standard.
-## [0.70.20-Beta] - 2025-09-10
-### Changed
-# - Updated `resolve_multipliers` signature to accept `root_input_dir` to align
-#   with the standardized resolver contract, fixing a TypeError.
-## [0.62.0-Beta] - 2025-09-08
-### Changed
-# - Updated script to read the new CONTEST_INPUT_DIR environment variable.
-## [0.38.3-Beta] - 2025-08-27
-### Fixed
-# - Corrected DXCC multiplier logic to use the prefix (DXCCPfx) instead
-#   of the full entity name.
-### Added
-# - Resolver now creates and populates full name columns (e.g.,
-#   Mult_StateName) for all multiplier types to support enhanced reporting.
-## [0.38.2-Beta] - 2025-08-18
-### Changed
-# - Enhanced resolver logic to query for ambiguous aliases and use the
-#   worked station's DXCC to resolve them, fixing the VER/VT bug.
-## [0.32.13-Beta] - 2025-08-12
-### Fixed
-# - Removed the destructive "once per mode" filtering logic. The resolver's
-#   job is to identify the multiplier for every QSO, not to null them out
-#   for scoring, which is handled by the score reports.
-## [0.32.1-Beta] - 2025-08-12
-### Changed
-# - Rewrote resolver logic to use the new section-aware AliasLookup class.
-#   This fixes the multiplier categorization bug (e.g., "BAJA CALIFORNIA").
-## [0.32.0-Beta] - 2025-08-12
-### Added
-# - Initial release of the custom multiplier resolver for the ARRL 10 Meter contest.
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 import pandas as pd
 import os
 import re

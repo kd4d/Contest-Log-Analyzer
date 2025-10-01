@@ -1,13 +1,14 @@
-# Contest Log Analyzer/contest_tools/utils/cty_manager.py
+# contest_tools/utils/cty_manager.py
 #
 # Purpose: Manages the lifecycle of cty.dat files, including on-demand
 #          downloading, caching, and indexing from the official source.
 #
 # Author: Gemini AI
-# Date: 2025-09-30
-# Version: 0.90.2-Beta
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -15,70 +16,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-#
 # --- Revision History ---
-## [0.90.2-Beta] - 2025-09-30
-### Changed
-# - Refactored the class to decouple index update logic from initialization.
-#   The time-based staleness check has been removed.
-# - Added a new `sync_index` method that triggers an update only if the
-#   contest date is newer than the latest index entry.
-## [0.90.1-Beta] - 2025-09-29
-### Changed
-# - Replaced all `print()` statements with the standard `logging` package
-#   to resolve technical debt and align with project standards.
-## [0.90.0-Beta] - 2025-09-29
-### Changed
-# - Changed date comparison logic in `find_cty_file_by_date` to be
-#   strictly exclusive (< or >) instead of inclusive (<= or >=).
-## [0.89.14-Beta] - 2025-09-29
-### Added
-# - Added an informational message to confirm which CTY file was selected
-#   by date or name.
-## [0.89.13-Beta] - 2025-09-29
-### Changed
-# - Refactored web scraping and indexing logic to match the robust,
-#   two-phase (full build/incremental) strategy from the prototype.
-# - Replaced incorrect table-based HTML parsing with correct logic that
-#   parses <article> tags.
-## [0.89.12-Beta] - 2025-09-29
-### Changed
-# - Rewrote web scraping logic to correctly iterate through paginated
-#   yearly archives, matching the user's prototype.
-## [0.89.11-Beta] - 2025-09-29
-### Changed
-# - Rewrote web scraping logic to correctly iterate through paginated
-#   yearly archives, matching the user's prototype.
-## [0.89.7-Beta] - 2025-09-29
-### Fixed
-# - Corrected file caching logic in find_cty_file_by_name to check
-#   for the file in its year-specific subdirectory before downloading.
-## [0.89.6-Beta] - 2025-09-29
-### Fixed
-# - Corrected filename parsing logic to robustly handle inputs with
-#   or without file extensions.
-## [0.89.5-Beta] - 2025-09-29
-### Fixed
-# - Corrected timezone handling logic in find_cty_file_by_date to
-#   properly compare timezone-aware and naive datetimes.
-## [0.89.4-Beta] - 2025-09-29
-### Changed
-# - Rewrote the _download_and_unzip method to correctly handle
-#   year-based subdirectories and versioned file renaming.
-## [0.89.3-Beta] - 2025-09-29
-### Fixed
-# - Corrected KeyError by making the _download_and_unzip function
-#   robust to handle both 'filename' and 'zip_name' keys.
-## [0.89.2-Beta] - 2025-09-29
-### Fixed
-# - Made file lookup logic robust to handle both 'filename' and
-#   'zip_name' keys in the cty_index.json file.
-## [0.89.1-Beta] - 2025-09-28
-### Fixed
-# - Added missing 'import pandas as pd' to resolve a NameError.
-## [0.89.0-Beta] - 2025-09-28
-# - Initial release of the CtyManager utility.
-#
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 import os
 import sys
 import json

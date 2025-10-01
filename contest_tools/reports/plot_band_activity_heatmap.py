@@ -1,48 +1,25 @@
-# Contest Log Analyzer/contest_tools/reports/plot_band_activity_heatmap.py
-#
-# Version: 0.87.2-Beta
-# Date: 2025-09-13
+# contest_tools/reports/plot_band_activity_heatmap.py
 #
 # Purpose: A plot report that generates a heatmap of band activity over time.
 #
-# --- Revision History ---
-## [0.87.2-Beta] - 2025-09-13
-### Fixed
-# - Removed a redundant tz_localize call, which caused a TypeError now
-#   that timezone awareness is handled upstream by the score calculators.
-## [0.57.0-Beta] - 2025-09-03
-### Changed
-# - Updated the chart title to the standard two-line format to conform
-#   to the official CLA Reports Style Guide.
-## [0.56.7-Beta] - 2025-08-31
-### Changed
-# - Updated band sorting logic to use the refactored _HAM_BANDS
-#   variable from the ContestLog class.
-## [0.39.7-Beta] - 2025-08-21
-### Changed
-# - Changed the colormap from 'viridis' to 'hot' to provide a more
-#   traditional and intuitive color scheme for the heatmap.
-## [0.39.6-Beta] - 2025-08-18
-### Changed
-# - Modified the heatmap plot to use a mask, rendering zero-QSO intervals
-#   as white to improve readability and highlight band activity.
-## [0.39.5-Beta] - 2025-08-18
-### Fixed
-# - Resolved the empty heatmap bug by localizing the Datetime column to
-#   UTC before performing time-based operations, fixing a timezone-
-#   naive vs. timezone-aware conflict.
-## [0.39.4-Beta] - 2025-08-18
-### Added
-# - Integrated the --debug-data flag functionality to save the report's
-#   source data matrix to a text file.
-## [0.39.3-Beta] - 2025-08-18
-### Fixed
-# - Replaced the automatic matplotlib date locator with a manual calculation
-#   for tick positions and labels in the heatmap report. This resolves
-#   the "Locator attempting to generate too many ticks" warning.
-## [0.39.2-Beta] - 2025-08-18
-# - Initial release of the Band Activity Heatmap report.
 #
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
+#
+# Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
+#
+# License: Mozilla Public License, v. 2.0
+#          (https://www.mozilla.org/MPL/2.0/)
+#
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+# --- Revision History ---
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt

@@ -1,15 +1,15 @@
-# Contest Log Analyzer/contest_tools/core_annotations/get_cty.py
+# contest_tools/core_annotations/get_cty.py
 #
 # Purpose: Provides the CtyLookup class for determining DXCC/WAE entities,
 #          zones, and other geographical data from amateur radio callsigns
 #          based on the CTY.DAT file.
 #
-# Author: Mark Bailey, KD4D
-# Contact: kd4d@kd4d.org
-# Date: 2025-09-08
-# Version: 0.62.0-Beta
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -18,24 +18,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.62.0-Beta] - 2025-09-08
-### Changed
-# - Updated script to read the new CONTEST_INPUT_DIR environment variable.
-## [0.30.42-Beta] - 2025-08-11
-### Fixed
-# - Added a special check to the longest prefix match logic to prevent
-#   non-Guantanamo Bay KG4 callsigns from being incorrectly identified.
-## [0.30.41-Beta] - 2025-08-11
-### Fixed
-# - Added a new heuristic to _handle_portable_call to correctly identify
-#   the portable ID for DX stations using the callsign/digit format.
-## [0.30.40-Beta] - 2025-08-06
-### Fixed
-# - Updated all references to the old CONTEST_DATA_DIR environment variable
-#   to use the correct CONTEST_LOGS_REPORTS variable.
-## [0.29.5-Beta] - 2025-08-04
-### Changed
-# - Replaced all `print` statements with calls to the new logging framework.
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 from typing import List, Dict, Optional, Tuple
 import re
 from collections import namedtuple

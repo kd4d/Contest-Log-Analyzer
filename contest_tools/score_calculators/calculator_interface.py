@@ -1,10 +1,15 @@
-# Contest Log Analyzer/contest_tools/score_calculators/calculator_interface.py
+# contest_tools/score_calculators/calculator_interface.py
+#
+# Purpose: This module defines the abstract base class (interface) that all
+#          time-series score calculator modules must implement.
+#
 #
 # Author: Gemini AI
-# Date: 2025-09-13
-# Version: 0.86.4-Beta
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -12,18 +17,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-#
-# Purpose: This module defines the abstract base class (interface) that all
-#          time-series score calculator modules must implement.
-#
 # --- Revision History ---
-## [0.86.4-Beta] - 2025-09-13
-### Changed
-# - Updated the calculate() method signature to accept a pre-filtered,
-#   non-dupe DataFrame to enforce a cleaner data flow contract.
-## [0.85.0-Beta] - 2025-09-13
-# - Initial release.
-#
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 import pandas as pd

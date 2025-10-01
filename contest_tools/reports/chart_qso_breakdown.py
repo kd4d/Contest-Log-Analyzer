@@ -1,13 +1,13 @@
-# Contest Log Analyzer/contest_tools/reports/chart_qso_breakdown.py
+# contest_tools/reports/chart_qso_breakdown.py
 #
 # Purpose: A chart report that generates a comparative QSO breakdown bar chart.
 #
-# Author: Mark Bailey, KD4D
-# Contact: kd4d@kd4d.org
-# Date: 2025-08-31
-# Version: 0.56.4-Beta
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -16,74 +16,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.56.4-Beta] - 2025-08-31
-### Fixed
-# - Updated the band sorting logic to use the refactored _HAM_BANDS
-#   variable from the ContestLog class, fixing an AttributeError.
-## [0.52.15-Beta] - 2025-08-26
-### Changed
-# - Updated the report title to conform to the new mandatory
-#   two-line format defined in the style guide.
-## [0.41.6-Beta] - 2025-08-20
-### Changed
-# - Brightened the colors for "Unique QSOs" to improve visual contrast with
-#   the "Common" bars.
-## [0.41.5-Beta] - 2025-08-20
-### Added
-# - Implemented a two-legend system to separately describe Unique and
-#   Common QSO types.
-### Changed
-# - Replaced the single gray 'Common' bar with a color-coded stacked bar
-#   showing the breakdown of common QSOs (Run/S&P/Mixed).
-## [0.41.4-Beta] - 2025-08-20
-### Changed
-# - Switched to Matplotlib's constrained_layout manager for robust and
-#   automatic label spacing.
-# - Implemented dynamic font sizing based on band count and callsign length.
-### Fixed
-# - Removed conflicting manual layout adjustments that caused whitespace issues.
-# - Corrected vertical line placement to extend from above the 'Common'
-#   label to the chart axis.
-## [0.41.3-Beta] - 2025-08-19
-### Fixed
-# - Reduced excessive whitespace between the X-axis and the three-tier
-#   labels for a tighter layout.
-## [0.41.2-Beta] - 2025-08-19
-### Changed
-# - Reworked X-axis labels into a correct and more readable three-tier format.
-# - Font size for labels is now reduced only on pages with exactly six bands.
-### Fixed
-# - Corrected implementation of the three-tier layout, fixing inverted
-#   lines and single-line label bugs from the previous version.
-## [0.41.1-Beta] - 2025-08-19
-### Added
-# - Logic to automatically skip bands with no QSOs from either log.
-### Changed
-# - Refactored report to use a multi-page output (6 bands per page) to
-#   prevent X-axis label overlapping on contests with many active bands.
-# - Updated X-axis to a three-tier format showing Band, Callsign, and Common.
-## [0.41.0-Beta] - 2025-08-19
-### Added
-# - Logic to automatically skip bands with no QSOs from either log.
-### Changed
-# - Refactore report to use a multi-page output to prevent
-#   X-axis label overlapping on contests with many active bands.
-# - Updated X-axis to a three-tier format showing Band, Callsign, and Common.
-## [0.38.0-Beta] - 2025-08-18
-### Added
-# - Added call to the save_debug_data helper function to dump the source
-#   data dictionary when the --debug-data flag is enabled.
-## [0.30.41-Beta] - 2025-08-06
-### Fixed
-# - Regenerated file to fix a SyntaxError likely caused by file corruption.
-## [0.30.40-Beta] - 2025-08-06
-### Changed
-# - Renamed file from plot_qso_breakdown_chart.py to chart_qso_breakdown.py
-#   to match its report_type.
-## [0.30.18-Beta] - 2025-08-05
-### Changed
-# - Restored the original stacked bar chart with two-level x-axis labels.
-# - Integrated the restored plotting logic with current, bug-fixed data handling.
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 from typing import List
 import pandas as pd
 import numpy as np

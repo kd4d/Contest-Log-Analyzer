@@ -1,10 +1,16 @@
-# Contest Log Analyzer/contest_tools/score_calculators/standard_calculator.py
+# contest_tools/score_calculators/standard_calculator.py
+#
+# Purpose: This module provides the default time-series score calculator
+#          for all standard contests that do not have complex, stateful
+#          scoring rules like QTCs or weighted multipliers.
+#
 #
 # Author: Gemini AI
-# Date: 2025-09-21
-# Version: 0.88.2-Beta
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -12,24 +18,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-#
-# Purpose: This module provides the default time-series score calculator
-#          for all standard contests that do not have complex, stateful
-#          scoring rules like QTCs or weighted multipliers.
-#
 # --- Revision History ---
-## [0.88.2-Beta] - 2025-09-21
-### Changed
-# - Added the `total_mults` time series to the returned DataFrame to
-#   provide necessary data for downstream diagnostic reports.
-# - Enhanced module to calculate and add per-band total multiplier columns.
-## [0.87.1-Beta] - 2025-09-13
-### Fixed
-# - Fixed a TypeError by localizing the timezone of the internal DataFrame
-#   to UTC before reindexing against the timezone-aware master index.
-## [0.85.1-Beta] - 2025-09-13
-# - Initial release.
-#
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 import pandas as pd
 from typing import TYPE_CHECKING
 

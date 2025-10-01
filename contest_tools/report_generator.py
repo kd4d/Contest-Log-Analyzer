@@ -1,16 +1,16 @@
-# Contest Log Analyzer/contest_tools/reports/report_generator.py
+# contest_tools/report_generator.py
 #
 # Purpose: This class orchestrates the generation of reports. It takes a list
 #          of loaded ContestLog objects and user-specified options, then uses
 #          the properties of each available report class to determine how to
 #          execute it (e.g., single-log, pairwise, multi-log).
 #
-# Author: Mark Bailey, KD4D
-# Contact: kd4d@kd4d.org
-# Date: 2025-09-13
-# Version: 0.86.3-Beta
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -18,41 +18,9 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 # --- Revision History ---
-## [0.86.3-Beta] - 2025-09-13
-### Changed
-# - Modified the run_reports method to be more robust by filtering the
-#   excluded reports into a new list before iterating.
-## [0.62.3-Beta] - 2025-09-08
-### Fixed
-# - Corrected path construction logic to include the top-level 'reports'
-#   subdirectory, making it consistent with log_manager.py.
-## [0.51.3-Beta] - 2025-08-26
-### Added
-# - Added a new `html_output_dir` and logic to support the 'html'
-#   report type.
-## [0.33.0-Beta] - 2025-08-13
-### Added
-# - Added support for a new "animation" report type and output directory.
-## [0.32.14-Beta] - 2025-08-12
-### Changed
-# - Refactored run_reports into two mutually exclusive logic paths to ensure
-#   per-mode contests only generate per-mode multiplier reports.
-## [0.32.8-Beta] - 2025-08-12
-### Changed
-# - Refactored the report execution logic to correctly handle all scenarios,
-#   including auto-generated and user-specified per-mode multiplier reports.
-## [0.32.5-Beta] - 2025-08-12
-### Changed
-# - Modified run_reports to be "mode-aware", allowing it to run certain
-#   reports on a per-mode basis if defined in the contest's JSON.
-## [0.30.29-Beta] - 2025-08-05
-### Added
-# - Logic to run all reports of a specific type (chart, text, plot).
-## [0.30.0-Beta] - 2025-08-05
-# - Initial release of Version 0.30.0-Beta.
-# - Standardized all project files to a common baseline version.
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
 
 import os
 import itertools

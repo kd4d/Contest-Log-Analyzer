@@ -1,13 +1,13 @@
-# Contest Log Analyzer/contest_tools/reports/text_summary.py
+# contest_tools/reports/text_summary.py
 #
 # Purpose: An example text report that generates a simple QSO summary.
 #
-# Author: Mark Bailey, KD4D
-# Contact: kd4d@kd4d.org
-# Date: 2025-08-16
-# Version: 0.37.1-Beta
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -16,21 +16,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.37.1-Beta] - 2025-08-16
-### Fixed
-# - Corrected file writing logic to append a final newline character,
-#   ensuring compatibility with diff utilities.
-# All notable changes to this project will be documented in this file.
-# The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
-# and this project aims to adhere to Semantic Versioning (https://semver.org/).
-## [0.26.4-Beta] - 2025-08-04
-### Changed
-# - Standardized the report header to use a two-line title with proper formatting.
-# - The 'On-Time' column is now correctly hidden if the contest has no
-#   defined operating time limits.
-## [0.26.3-Beta] - 2025-08-04
-### Changed
-# - Standardized the report header to use a two-line title.
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 from typing import List
 import os
 from ..contest_log import ContestLog

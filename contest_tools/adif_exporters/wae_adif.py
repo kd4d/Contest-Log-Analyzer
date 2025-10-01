@@ -1,10 +1,15 @@
-# Contest Log Analyzer/contest_tools/adif_exporters/wae_adif.py
+# contest_tools/adif_exporters/wae_adif.py
+#
+# Purpose: This module provides a custom ADIF exporter for the WAE Contest,
+#          generating an output file compatible with N1MM Logger+.
+#
 #
 # Author: Gemini AI
-# Date: 2025-09-28
-# Version: 0.89.3-Beta
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -12,22 +17,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-#
-# Purpose: This module provides a custom ADIF exporter for the WAE Contest,
-#          generating an output file compatible with N1MM Logger+.
-#
 # --- Revision History ---
-## [0.89.3-Beta] - 2025-09-28
-### Fixed
-# - Corrected a SyntaxError by replacing a complex f-string with a
-#   temporary variable for clarity and robustness.
-## [1.0.1-Beta] - 2025-09-19
-### Changed
-# - Implemented mode-dependent logic to generate the correct CONTEST_ID
-#   for CW and SSB logs to match N1MM requirements.
-## [1.0.0-Beta] - 2025-09-18
-# - Initial release.
-#
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 import pandas as pd
 import logging
 from typing import Dict, Any, List

@@ -1,10 +1,16 @@
-# Contest Log Analyzer/contest_tools/adif_exporters/naqp_adif.py
+# contest_tools/adif_exporters/naqp_adif.py
+#
+# Purpose: Provides a contest-specific ADIF exporter for the NAQP contests.
+#          It generates an ADIF file compatible with N1MM Logger+ by writing
+#          the contest exchange to the <STATE> tag.
+#
 #
 # Author: Gemini AI
-# Date: 2025-09-05
-# Version: 1.0.1-Beta
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -12,20 +18,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-#
-# Purpose: Provides a contest-specific ADIF exporter for the NAQP contests.
-#          It generates an ADIF file compatible with N1MM Logger+ by writing
-#          the contest exchange to the <STATE> tag.
-#
 # --- Revision History ---
-## [1.0.1-Beta] - 2025-09-05
-### Changed
-# - Updated the ADIF timestamp offset to 2 seconds.
-# - Replaced the ADIF timestamping logic with a robust `while` loop to
-#   correctly handle high QSO rates and prevent rollover collisions.
-## [1.0.0-Beta] - 2025-09-04
-# - Initial release of the custom ADIF exporter for NAQP.
-#
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 import pandas as pd
 import numpy as np
 import os

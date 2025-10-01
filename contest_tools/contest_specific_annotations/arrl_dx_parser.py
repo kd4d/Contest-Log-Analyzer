@@ -1,11 +1,15 @@
-# Contest Log Analyzer/contest_tools/contest_specific_annotations/arrl_dx_parser.py
+# contest_tools/contest_specific_annotations/arrl_dx_parser.py
 #
-# Author: Mark Bailey, KD4D
-# Contact: kd4d@kd4d.org
-# Date: 2025-09-30
-# Version: 0.90.8-Beta
+# Purpose: This module provides a custom parser for the ARRL DX Contest, which
+#          has a highly asymmetric exchange format.
+#
+#
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -13,57 +17,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-#
-# Purpose: This module provides a custom parser for the ARRL DX Contest, which
-#          has a highly asymmetric exchange format.
-#
 # --- Revision History ---
-## [0.90.8-Beta] - 2025-09-30
-### Changed
-# - Updated `parse_log` signature to accept `cty_dat_path` and use it
-#   to instantiate CtyLookup, fixing a FileNotFoundError.
-## [0.70.16-Beta] - 2025-09-10
-### Changed
-# - Updated `parse_log` signature to accept `root_input_dir` to align
-#   with the standardized parser contract, fixing a TypeError.
-## [0.62.3-Beta] - 2025-09-08
-### Changed
-# - Updated script to read the new CONTEST_INPUT_DIR environment variable.
-## [0.56.24-Beta] - 2025-08-31
-### Fixed
-# - Corrected a typo in a variable name (`logger` to `logger_call`) that
-#   was causing a `NameError` during the header pre-scan.
-## [0.56.18-Beta] - 2025-08-31
-### Fixed
-# - Added the `RawQSO` field to the parser's output to ensure it provides
-#   the necessary data for downstream diagnostic logging.
-## [0.56.13-Beta] - 2025-08-31
-### Fixed
-# - Corrected a logic error where the parser used an incomplete key to
-#   look up parsing rules. It now pre-scans for the full contest ID
-#   and combines it with the logger's location to get the correct rules.
-## [0.55.11-Beta] - 2025-08-31
-### Changed
-# - Refactored to use the new, centralized `parse_qso_common_fields`
-#   helper from the main cabrillo_parser, eliminating duplicated logic.
-## [0.32.9-Beta] - 2025-08-12
-### Changed
-# - Refined the DX station regex to correctly handle callsigns with
-#   forward slashes, preventing parsing errors.
-## [0.32.8-Beta] - 2025-08-12
-### Changed
-# - Updated regexes to correctly handle single-digit reports (e.g., "59")
-#   in SSB logs, in addition to three-digit RSTs.
-## [0.32.7-Beta] - 2025-08-12
-### Added
-# - Added a regex rule for DX stations to correctly parse state/province
-#   abbreviations from W/VE stations.
-## [0.32.6-Beta] - 2025-08-12
-### Added
-# - Added a regex rule for W/VE stations to correctly parse power output
-#   from DX stations.
-## [0.32.0-Beta] - 2025-08-12
-# - Initial release of Version 0.32.0-Beta.
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 import pandas as pd
 import re
 from typing import Dict, Any, List, Tuple

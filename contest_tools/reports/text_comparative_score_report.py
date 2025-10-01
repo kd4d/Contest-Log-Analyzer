@@ -1,63 +1,26 @@
-# Contest Log Analyzer/contest_tools/reports/text_comparative_score_report.py
+# contest_tools/reports/text_comparative_score_report.py
 #
 # Purpose: A text report that generates an interleaved, comparative score
 #          summary, broken down by band, for multiple logs. This version
 #          serves as a proof-of-concept for using the tabulate library.
 #
-# Author: Mark Bailey, KD4D
-# Contact: kd4d@kd4d.org
-# Date: 2025-09-12
-# Version: 0.80.9-Beta
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0.
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.80.9-Beta] - 2025-09-12
-### Fixed
-# - Corrected a NameError by defining the `canonical_band_order` list
-#   before it was used in a sorting key.
-## [0.56.3-Beta] - 2025-09-03
-### Changed
-# - Modified the report to be score-formula-aware. It no longer
-#   displays multiplier columns for contests (like ARRL Field Day) that
-#   do not use multipliers in their final score.
-## [0.56.2-Beta] - 2025-08-31
-### Changed
-# - Updated the band sorting logic to use the refactored _HAM_BANDS
-#   variable from the ContestLog class.
-## [0.40.19-Beta] - 2025-08-25
-### Fixed
-# - Corrected the `_calculate_band_mode_summary` function to check the
-#   `applies_to` key in multiplier rules. This ensures per-band multiplier
-#   counts are correct for asymmetric contests.
-## [0.40.18-Beta] - 2025-08-25
-### Fixed
-# - Added logic to the `_calculate_totals` function to correctly handle
-#   asymmetric contests by checking the `applies_to` key in multiplier
-#   rules, ensuring multipliers are not counted for the wrong station type.
-## [0.40.17-Beta] - 2025-08-24
-### Changed
-# - Reworked final score summary formatting to correctly align the colons
-#   and right-justify the scores, regardless of callsign or score length.
-## [0.40.16-Beta] - 2025-08-24
-### Changed
-# - Added logic to convert column headers with spaces into two-line
-#   headers for improved table readability.
-## [0.40.15-Beta] - 2025-08-24
-### Changed
-# - Added `showindex="never"` to all tabulate calls to remove the
-#   unwanted DataFrame index from the report output.
-## [0.40.14-Beta] - 2025-08-24
-### Added
-# - Initial creation of this parallel report as a proof-of-concept.
-### Changed
-# - Replaced all custom table formatting logic with the pandas `to_string()`
-#   method for improved simplicity and robustness.
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 from typing import List, Set, Dict, Tuple
 import pandas as pd
 import os

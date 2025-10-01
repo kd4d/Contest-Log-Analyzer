@@ -1,11 +1,16 @@
-# Contest Log Analyzer/contest_tools/contest_specific_annotations/cq_160_parser.py
+# contest_tools/contest_specific_annotations/cq_160_parser.py
 #
-# Author: Mark Bailey, KD4D
-# Contact: kd4d@kd4d.org
-# Date: 2025-09-30
-# Version: 0.90.11-Beta
+# Purpose: This module provides a custom parser for the CQ 160-Meter Contest,
+#          which has a complex exchange format that can include a state,
+#          province, or "DX".
+#
+#
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -13,52 +18,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-#
-# Purpose: This module provides a custom parser for the CQ 160-Meter Contest,
-#          which has a complex exchange format that can include a state,
-#          province, or "DX".
-#
 # --- Revision History ---
-## [0.90.11-Beta] - 2025-09-30
-### Changed
-# - Updated `parse_log` signature to accept the `cty_dat_path` argument
-#   to align with the new four-argument custom parser contract.
-## [0.70.27-Beta] - 2025-09-10
-### Changed
-# - Updated `parse_log` signature to accept `root_input_dir` to align
-#   with the standardized parser contract, fixing a TypeError.
-## [0.56.20-Beta] - 2025-08-31
-### Fixed
-# - Added the `RawQSO` field to the parser's output to ensure it provides
-#   the necessary data for downstream diagnostic logging.
-## [0.56.11-Beta] - 2025-08-31
-### Fixed
-# - Corrected a logic error where the parser used a generic key to look
-#   up parsing rules. It now pre-scans the header to get the specific
-#   contest ID (e.g., CQ-160-CW) and uses it to retrieve the correct rules.
-## [0.55.11-Beta] - 2025-08-31
-### Changed
-# - Refactored to use the new, centralized `parse_qso_common_fields`
-#   helper from the main cabrillo_parser, eliminating duplicated logic.
-## [0.35.15-Beta] - 2025-08-15
-### Fixed
-# - Corrected the regex for state/province exchanges to properly handle
-#   two-letter abbreviations, which also resolved an issue with the
-#   NAQP multiplier resolver.
-## [0.35.14-Beta] - 2025-08-15
-### Fixed
-# - Corrected a logic error where the parser would fail if a log
-#   contained only DX QSOs by ensuring the loop continued after a
-#   failed match on the state/province-specific regex.
-## [0.35.13-Beta] - 2025-08-14
-### Added
-# - Added a second regex to the parser to correctly handle DX stations
-#   that send "DX" as their exchange, a format the original regex
-#   could not parse.
-## [0.35.12-Beta] - 2025-08-14
-### Added
-# - Added a custom parser for the CQ 160-Meter Contest to handle its
-#   unique exchange format, which can be either a state/province or "DX".
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 import pandas as pd
 import re
 from typing import Dict, Any, List, Tuple

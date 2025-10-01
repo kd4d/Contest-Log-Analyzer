@@ -1,13 +1,13 @@
-# Contest Log Analyzer/contest_tools/contest_specific_annotations/cq_wpx_scoring.py
+# contest_tools/contest_specific_annotations/cq_wpx_scoring.py
 #
 # Purpose: Provides contest-specific scoring logic for the CQ WPX contest.
 #
-# Author: Mark Bailey, KD4D
-# Contact: kd4d@kd4d.org
-# Date: 2025-08-11
-# Version: 0.31.63-Beta
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -16,25 +16,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.31.63-Beta] - 2025-08-11
-### Fixed
-# - Corrected the North American scoring rule to apply only to contacts
-#   between different countries within North America, fixing inflated scores.
-## [0.31.62-Beta] - 2025-08-11
-### Fixed
-# - Rewrote the scoring logic to precisely match the official WPX rules,
-#   removing all incorrect or non-existent "standard rules".
-## [0.31.61-Beta] - 2025-08-11
-### Fixed
-# - Corrected a fall-through bug by adding return statements to the North
-#   American scoring logic, preventing points from being overwritten.
-## [0.31.60-Beta] - 2025-08-11
-### Added
-# - Added the special scoring rule for contacts between two North
-#   American stations.
-## [0.30.0-Beta] - 2025-08-05
-# - Initial release of Version 0.30.0-Beta.
-# - Standardized all project files to a common baseline version.
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 import pandas as pd
 from typing import Dict, Any
 

@@ -1,14 +1,14 @@
-# Contest Log Analyzer/contest_tools/constants.py
+# contest_tools/constants.py
 #
 # Purpose: A central module to store project-wide, static constants
 #          to prevent circular dependencies and improve maintainability.
 #
-# Author: Mark Bailey, KD4D
-# Contact: kd4d@kd4d.org
-# Date: 2025-09-15
-# Version: 0.86.16-Beta
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -17,12 +17,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.86.16-Beta] - 2025-09-15
-### Added
-# - Initial release of the constants module.
-# - Added HAM_BANDS constant.
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
 
-# The canonical list of amateur radio bands, used for sorting and frequency conversion.
 HAM_BANDS = [
     ('1.8 MHz', '160M'), ('3.5 MHz', '80M'), ('7 MHz', '40M'),
     ('14 MHz', '20M'), ('21 MHz', '15M'), ('28 MHz', '10M'),

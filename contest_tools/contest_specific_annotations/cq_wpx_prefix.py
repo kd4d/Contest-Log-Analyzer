@@ -1,13 +1,13 @@
-# Contest Log Analyzer/contest_tools/contest_specific_annotations/cq_wpx_prefix.py
+# contest_tools/contest_specific_annotations/cq_wpx_prefix.py
 #
 # Purpose: Provides contest-specific logic to resolve WPX prefix multipliers.
 #
-# Author: Mark Bailey, KD4D
-# Contact: kd4d@kd4d.org
-# Date: 2025-09-16
-# Version: 0.88.5-Beta
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -16,58 +16,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.88.5-Beta] - 2025-09-16
-### Changed
-# - Refactored module to be compliant with the new, data-driven resolver
-#   architecture. The main function now accepts a ContestDefinition object
-#   and uses it to dynamically determine which columns to populate.
-## [0.70.12-Beta] - 2025-09-10
-### Changed
-# - Updated `resolve_multipliers` signature to accept `root_input_dir`
-#   to align with the standardized resolver contract, fixing a TypeError.
-## [0.48.0-Beta] - 2025-08-23
-### Changed
-# - Refactored module to be a `custom_multiplier_resolver`.
-# - Renamed `calculate_wpx_prefixes` to `resolve_multipliers`.
-# - Function now adds a non-sparse `WPXPfx` column for every QSO and a
-#   sparse `Mult1` column for scoring.
-## [0.31.59-Beta] - 2025-08-11
-### Added
-# - Added detailed INFO-level logging to the _get_prefix helper function
-#   to provide a clear trace of the prefix calculation logic for debugging.
-## [0.31.58-Beta] - 2025-08-11
-### Fixed
-# - Replaced the logic in the _get_prefix helper function with the
-#   correct, multi-stage algorithm from the user-provided working file
-#   to fix all known prefix calculation errors.
-## [0.31.57-Beta] - 2025-08-11
-### Changed
-# - Providing the definitive, correct version of the file to resolve
-#   environmental state mismatch issues.
-## [0.31.54-Beta] - 2025-08-11
-### Changed
-# - Simplified multiplier logic to count prefixes once per contest instead
-#   of once per band, per user instruction.
-## [0.31.53-Beta] - 2025-08-11
-### Fixed
-# - Corrected the _get_prefix helper function to handle all known callsign
-#   formats, including prefix-style portables, as per the working example.
-## [0.31.52-Beta] - 2025-08-10
-### Fixed
-# - Rewrote _get_prefix function to precisely follow the 3-step logic in
-#   WPXPrefixLookupAlgorithm.md.
-## [0.31.51-Beta] - 2025-08-10
-### Changed
-# - Rewrote prefix calculation to be stateful, identifying only the
-#   first time each prefix is worked on each band, per user specification.
-## [0.31.50-Beta] - 2025-08-10
-### Fixed
-# - Corrected the _get_prefix helper function to precisely implement the
-#   algorithm from WPXPrefixLookupAlgorithm.md, including the special
-#   Letter-Digit-Letter (LDL) case.
-## [0.30.0-Beta] - 2025-08-05
-# - Initial release of Version 0.30.0-Beta.
-# - Standardized all project files to a common baseline version.
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 import pandas as pd
 import re
 import logging

@@ -1,14 +1,14 @@
-# Contest Log Analyzer/contest_tools/contest_specific_annotations/cq_160_multiplier_resolver.py
+# contest_tools/contest_specific_annotations/cq_160_multiplier_resolver.py
 #
 # Purpose: Provides contest-specific logic to resolve CQ 160 contest multipliers
 #          (States/Provinces for DX, DXCC for W/VE).
 #
-# Author: Mark Bailey, KD4D
-# Contact: kd4d@kd4d.org
-# Date: 2025-09-17
-# Version: 0.88.8-Beta
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -17,39 +17,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.88.8-Beta] - 2025-09-17
-### Fixed
-# - Corrected resolver to write to intermediate columns (`STPROV_Mult`, etc.)
-#   instead of final columns (`Mult1`, etc.) to restore the required
-#   two-stage multiplier processing pipeline.
-## [0.88.7-Beta] - 2025-09-16
-### Changed
-# - Refactored module to be compliant with the new, data-driven resolver
-#   architecture. The resolver now directly populates the final `Mult1`
-#   and `Mult2` columns as defined in its JSON blueprint.
-## [0.70.24-Beta] - 2025-09-10
-### Changed
-# - Updated `resolve_multipliers` to accept `root_input_dir` as a
-#   parameter, in compliance with Principle 15.
-## [0.62.0-Beta] - 2025-09-08
-### Changed
-# - Updated script to read the new CONTEST_INPUT_DIR environment variable.
-## [0.40.0-Beta] - 2025-08-24
-### Changed
-# - Modified resolver to create and populate a STPROV_MultName column
-#   to provide full names for State/Province multipliers.
-## [0.30.41-Beta] - 2025-08-24
-### Fixed
-# - Corrected logic to populate the DXCC multiplier value column with the
-#   DXCC Prefix instead of the full DXCC Name, fixing the redundant name
-#   bug in downstream reports.
-## [0.30.40-Beta] - 2025-08-06
-### Fixed
-# - Updated all references to the old CONTEST_DATA_DIR environment variable
-#   to use the correct CONTEST_LOGS_REPORTS variable.
-## [0.30.9-Beta] - 2025-08-05
-### Fixed
-# - Rewrote the multiplier logic to correctly reflect the CQ 160 rules.
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 import pandas as pd
 import os
 import logging

@@ -1,14 +1,14 @@
-# Contest Log Analyzer/contest_tools/contest_specific_annotations/arrl_ss_multiplier_resolver.py
+# contest_tools/contest_specific_annotations/arrl_ss_multiplier_resolver.py
 #
 # Purpose: Provides contest-specific logic to resolve ARRL Sweepstakes multipliers
 #          (Sections) from the explicit exchange field.
 #
-# Author: Mark Bailey, KD4D
-# Contact: kd4d@kd4d.org
-# Date: 2025-09-17
-# Version: 0.89.1-Beta
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -17,33 +17,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.89.1-Beta] - 2025-09-17
-### Changed
-# - Refactored module to be data-driven, reading target column names
-#   from the ContestDefinition object instead of using hard-coded values.
-# - Updated function signature to the new four-argument standard.
-## [0.70.23-Beta] - 2025-09-10
-### Changed
-# - Updated `resolve_multipliers` signature to accept `root_input_dir`
-#   and refactored its body to use the parameter, in compliance with Principle 15.
-## [0.62.0-Beta] - 2025-09-08
-### Changed
-# - Updated script to read the new CONTEST_INPUT_DIR environment variable.
-## [0.40.7-Beta] - 2025-08-24
-### Changed
-# - Modified resolver to create and populate Mult1 and Mult1Name columns
-#   to provide full names for Section multipliers.
-# - Updated the internal lookup class to return both abbreviation and name.
-## [0.37.3-Beta] - 2025-08-16
-### Fixed
-# - Corrected the script to read from the 'RcvdLocation' column instead
-#   of the non-existent 'RcvdSection' column, fixing the multiplier bug.
-## [0.30.40-Beta] - 2025-08-06
-### Fixed
-# - Updated all references to the old CONTEST_DATA_DIR environment variable
-#   to use the correct CONTEST_LOGS_REPORTS variable.
-## [0.30.0-Beta] - 2025-08-05
-# - Initial release of Version 0.30.0-Beta.
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 import pandas as pd
 import os
 import re

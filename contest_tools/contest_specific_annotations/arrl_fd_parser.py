@@ -1,11 +1,16 @@
-# Contest Log Analyzer/contest_tools/contest_specific_annotations/arrl_fd_parser.py
+# contest_tools/contest_specific_annotations/arrl_fd_parser.py
 #
-# Author: Mark Bailey, KD4D
-# Contact: kd4d@kd4d.org
+# Purpose: This module provides a custom parser for the ARRL Field Day
+#          contest, which has a unique exchange format and uses both HF
+#          frequencies and VHF+ band designators.
+#
+#
+# Author: Gemini AI
 # Date: 2025-10-01
 # Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -13,49 +18,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-#
-# Purpose: This module provides a custom parser for the ARRL Field Day
-#          contest, which has a unique exchange format and uses both HF
-#          frequencies and VHF+ band designators.
-#
 # --- Revision History ---
-## [0.90.0-Beta] - 2025-10-01
-### Fixed
-# - Updated the parse_log function signature to the standard four-argument
-#   contract to resolve a TypeError during invocation.
-## [0.70.17-Beta] - 2025-09-10
-### Changed
-# - Updated `parse_log` signature to accept `root_input_dir` to align
-#   with the standardized parser contract, fixing a TypeError.
-## [0.56.20-Beta] - 2025-08-31
-### Fixed
-# - Added the `RawQSO` field to the parser's output to ensure it provides
-#   the necessary data for downstream diagnostic logging.
-## [0.55.11-Beta] - 2025-08-31
-### Changed
-# - Refactored to use the new, centralized `parse_qso_common_fields`
-#   helper from the main cabrillo_parser, eliminating duplicated logic.
-## [0.39.8-Beta] - 2025-08-18
-### Fixed
-# - Fixed a bug that caused the parser to fail on `SAT` (satellite)
-#   QSOs by ensuring the band designator regex correctly handled
-#   alphabetic-only strings.
-## [0.39.7-Beta] - 2025-08-18
-### Fixed
-# - Corrected a logic error where the parser would fail if a log
-#   contained only VHF QSOs by ensuring the loop continued after a
-#   failed match on the HF-specific regex.
-## [0.39.6-Beta] - 2025-08-18
-### Fixed
-# - Added a `continue` statement to the main parsing loop to correctly
-#   skip lines that do not match any known QSO format, preventing a
-#   crash when encountering malformed lines.
-## [0.39.5-Beta] - 2025-08-18
-### Added
-# - Added detailed INFO-level logging to the `parse_log` function to
-#   provide better diagnostic feedback during execution.
-## [0.39.4-Beta] - 2025-08-18
-# - Initial release of the ARRL Field Day custom parser.
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 import pandas as pd
 import re
 from typing import Dict, Any, List, Tuple
