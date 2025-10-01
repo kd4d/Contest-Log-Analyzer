@@ -2,8 +2,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-10
-# Version: 0.70.19-Beta
+# Date: 2025-09-30
+# Version: 0.90.13-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,10 @@
 #          (NAQP) contests.
 #
 # --- Revision History ---
+## [0.90.13-Beta] - 2025-09-30
+### Changed
+# - Updated `parse_log` signature to accept the `cty_dat_path` argument
+#   to align with the new four-argument custom parser contract.
 ## [0.70.19-Beta] - 2025-09-10
 ### Changed
 # - Updated `parse_log` signature to accept `root_input_dir` to align
@@ -50,7 +54,7 @@ import logging
 from ..contest_definitions import ContestDefinition
 from ..cabrillo_parser import parse_qso_common_fields
 
-def parse_log(filepath: str, contest_definition: ContestDefinition, root_input_dir: str) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+def parse_log(filepath: str, contest_definition: ContestDefinition, root_input_dir: str, cty_dat_path: str) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """
     Custom parser for the North American QSO Party (NAQP) contest.
     """

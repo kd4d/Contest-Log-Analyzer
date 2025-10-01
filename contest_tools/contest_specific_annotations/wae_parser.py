@@ -1,8 +1,8 @@
 # Contest Log Analyzer/contest_tools/contest_specific_annotations/wae_parser.py
 #
 # Author: Gemini AI
-# Date: 2025-09-12
-# Version: 1.0.1-Beta
+# Date: 2025-09-30
+# Version: 0.90.14-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,10 @@
 #          records from the Cabrillo log.
 #
 # --- Revision History ---
+## [0.90.14-Beta] - 2025-09-30
+### Changed
+# - Updated `parse_log` signature to accept the `cty_dat_path` argument
+#   to align with the new four-argument custom parser contract.
 ## [1.0.1-Beta] - 2025-09-12
 ### Fixed
 # - Replaced the brittle .split()-based QTC parsing with a robust regular
@@ -41,7 +45,7 @@ QTC_FIELD_NAMES = [
     'QTC_CALL_TX', 'QTC_TIME_QSO', 'QTC_CALL_QSO', 'QTC_NR_QSO'
 ]
 
-def parse_log(filepath: str, contest_definition: ContestDefinition, root_input_dir: str) -> Tuple[pd.DataFrame, pd.DataFrame, Dict[str, Any]]:
+def parse_log(filepath: str, contest_definition: ContestDefinition, root_input_dir: str, cty_dat_path: str) -> Tuple[pd.DataFrame, pd.DataFrame, Dict[str, Any]]:
     """
     Custom parser for the WAE Contest.
     Returns three values: (qsos_df, qtcs_df, metadata)

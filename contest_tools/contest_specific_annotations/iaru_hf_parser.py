@@ -1,8 +1,8 @@
 # Contest Log Analyzer/contest_tools/contest_specific_annotations/iaru_hf_parser.py
 #
 # Author: Gemini AI
-# Date: 2025-09-10
-# Version: 0.70.28-Beta
+# Date: 2025-09-30
+# Version: 0.90.12-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,10 @@
 #          differs based on whether the logger is an HQ or a Zone station.
 #
 # --- Revision History ---
+## [0.90.12-Beta] - 2025-09-30
+### Changed
+# - Updated `parse_log` signature to accept the `cty_dat_path` argument
+#   to align with the new four-argument custom parser contract.
 ## [0.70.28-Beta] - 2025-09-10
 ### Fixed
 # - Corrected an `IndentationError` that was introduced during a
@@ -68,7 +72,7 @@ def _get_logger_type(filepath: str) -> str:
     logging.info("Logger identified as ZONE station (default).")
     return "ZONE"
 
-def parse_log(filepath: str, contest_definition: ContestDefinition, root_input_dir: str) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+def parse_log(filepath: str, contest_definition: ContestDefinition, root_input_dir: str, cty_dat_path: str) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """
     Custom parser for the IARU HF World Championship contest.
     """
