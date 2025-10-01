@@ -7,8 +7,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-29
-# Version: 0.90.0-Beta
+# Date: 2025-09-30
+# Version: 0.90.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -19,6 +19,16 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.90.2-Beta] - 2025-09-30
+### Fixed
+# - Corrected a TypeError by localizing the timestamp in
+#   `_get_first_qso_date_from_log` to UTC, ensuring it can be compared
+#   with the timezone-aware CTY index dates.
+## [0.90.1-Beta] - 2025-09-30
+### Changed
+# - Modified the `load_log_batch` method to explicitly call the new
+#   `CtyManager.sync_index` method, ensuring the CTY index update is
+#   driven by the contest date. This corrects an order-of-operations bug.
 ## [0.90.0-Beta] - 2025-09-29
 ### Added
 # - Added a new `load_log_batch` method to encapsulate all batch
@@ -150,6 +160,15 @@ class LogManager:
         if cty_specifier in ['before', 'after']:
             all_dates = [self._get_first_qso_date_from_log(path) for path in log_filepaths]
             target_date = min(all_dates) if cty_specifier == 'before' else max(all_dates)
+        else:
+            # If a specific filename is given, we need a date for the sync check.
+            # We'll just use the first log's date as it's a reasonable proxy.
+            target_date = self._get_first_qso_date_from_log(log_filepaths[0])
+
+        # Conditionally update the index based on the determined target date
+        cty_manager.sync_index(contest_date=target_date)
+
+        if cty_specifier in ['before', 'after']:
             cty_dat_path, cty_file_info = cty_manager.find_cty_file_by_date(target_date, cty_specifier)
         else:
             cty_dat_path, cty_file_info = cty_manager.find_cty_file_by_name(cty_specifier)
@@ -293,7 +312,7 @@ class LogManager:
                     if line.upper().startswith('QSO:'):
                         parts = line.split()
                         date_str = parts[3]
-                        return pd.to_datetime(date_str)
+                        return pd.to_datetime(date_str).tz_localize('UTC')
         except Exception:
             return pd.Timestamp.now(tz='UTC')
         return pd.Timestamp.now(tz='UTC')

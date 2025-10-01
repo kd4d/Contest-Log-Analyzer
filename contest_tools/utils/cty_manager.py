@@ -4,8 +4,8 @@
 #          downloading, caching, and indexing from the official source.
 #
 # Author: Gemini AI
-# Date: 2025-09-29
-# Version: 0.90.1-Beta
+# Date: 2025-09-30
+# Version: 0.90.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,12 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+## [0.90.2-Beta] - 2025-09-30
+### Changed
+# - Refactored the class to decouple index update logic from initialization.
+#   The time-based staleness check has been removed.
+# - Added a new `sync_index` method that triggers an update only if the
+#   contest date is newer than the latest index entry.
 ## [0.90.1-Beta] - 2025-09-29
 ### Changed
 # - Replaced all `print()` statements with the standard `logging` package
@@ -100,46 +106,12 @@ class CtyManager:
         self.zips_path = self.cty_root_path / "zips"
         self.index_path = self.cty_root_path / self._INDEX_FILENAME
         self._setup_directories()
-        self.index = self._load_or_update_index()
+        self.index = self._load_index()
 
     def _setup_directories(self):
         """Creates the necessary CTY directories if they don't exist."""
         self.cty_root_path.mkdir(parents=True, exist_ok=True)
         self.zips_path.mkdir(exist_ok=True)
-
-    def _is_index_stale(self) -> bool:
-        """Checks if the local index file is older than the max age."""
-        if not self.index_path.exists():
-            return True
-        try:
-            mod_time = self.index_path.stat().st_mtime
-            age = datetime.datetime.now() - datetime.datetime.fromtimestamp(mod_time)
-            return age > datetime.timedelta(hours=self._INDEX_MAX_AGE_HOURS)
-        except Exception:
-            return True
-
-    def _load_or_update_index(self) -> list:
-        """Loads the index from cache or updates it by scraping the website."""
-        if not self.index_path.exists():
-            logging.info("CTY index not found. Performing initial full build...")
-            new_index = self._build_full_index()
-            if new_index:
-                self._save_index(new_index)
-                return new_index
-            else:
-                logging.error("Failed to build initial CTY index.")
-                return []
-
-        local_index = self._load_index()
-        if self._is_index_stale():
-            logging.info("CTY index is stale. Checking for incremental updates...")
-            updated_index = self._update_index_incrementally(local_index)
-            if len(updated_index) > len(local_index):
-                self._save_index(updated_index)
-            return updated_index
-        else:
-            logging.info("CTY index is up to date.")
-            return local_index
 
     def _build_full_index(self) -> list:
         """Performs a one-time, full scrape of the website to build the index."""
@@ -389,3 +361,33 @@ class CtyManager:
 
         filename_to_find = target_entry.get('filename') or target_entry.get('zip_name')
         return self.find_cty_file_by_name(filename_to_find)
+
+    def sync_index(self, contest_date: pd.Timestamp):
+        """
+        Checks if the CTY index needs to be updated based on the contest date
+        and performs an update if required.
+        """
+        local_index = self._load_index()
+        update_needed = False
+
+        if not local_index:
+            logging.info("CTY index is empty. Performing initial full build...")
+            update_needed = True
+            new_index = self._build_full_index()
+            if new_index:
+                self._save_index(new_index)
+                self.index = new_index
+            else:
+                logging.error("Failed to build initial CTY index.")
+        else:
+            latest_index_date = pd.to_datetime(local_index[0]['date']).tz_convert('UTC')
+            if contest_date > latest_index_date:
+                logging.info(f"Contest date ({contest_date.date()}) is newer than latest index entry ({latest_index_date.date()}). Checking for updates.")
+                update_needed = True
+                updated_index = self._update_index_incrementally(local_index)
+                if len(updated_index) > len(local_index):
+                    self._save_index(updated_index)
+                self.index = updated_index
+
+        if not update_needed:
+            logging.info("CTY index is sufficiently current for this contest.")
