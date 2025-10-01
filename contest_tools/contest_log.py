@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-28
-# Version: 0.89.2-Beta
+# Date: 2025-09-30
+# Version: 0.90.6-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,14 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.90.6-Beta] - 2025-09-30
+### Fixed
+# - Restored the missing `process_contest_log_for_run_s_p` import,
+#   which was inadvertently removed and caused a NameError.
+## [0.90.5-Beta] - 2025-09-30
+### Fixed
+# - Modified `__init__` and `apply_annotations` to pass the specific
+#   `cty_dat_path` to helper modules, fixing a systemic FileNotFoundError.
 ## [0.89.2-Beta] - 2025-09-28
 ### Fixed
 # - Corrected a SyntaxError in the export_to_adif method by replacing
@@ -318,7 +326,7 @@ class ContestLog:
         if resolver_name:
             try:
                 resolver_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{resolver_name}")
-                self._my_location_type = resolver_module.resolve_location_type(self.metadata, self.root_input_dir)
+                self._my_location_type = resolver_module.resolve_location_type(self.metadata, self.cty_dat_path)
                 logging.info(f"Custom logger location type determined as: '{self._my_location_type}' by {resolver_name}")
             except Exception as e:
                 logging.warning(f"Could not run custom location resolver '{resolver_name}': {e}")
@@ -366,7 +374,7 @@ class ContestLog:
 
             # A QSO is valid if it has a valid frequency OR if it has a band but no numeric frequency.
             if (pd.notna(freq_val) and self.band_allocator.is_frequency_valid(freq_val)) or \
-               (pd.isna(freq_val) and pd.notna(band_val)):
+                (pd.isna(freq_val) and pd.notna(band_val)):
                 validated_qso_records.append(row.to_dict())
             else:
                 rejected_qso_count += 1
@@ -537,7 +545,7 @@ class ContestLog:
 
         try:
             logging.info("Applying Universal DXCC/Zone lookup...")
-            self.qsos_df = process_dataframe_for_cty_data(self.qsos_df, self.root_input_dir)
+            self.qsos_df = process_dataframe_for_cty_data(self.qsos_df, self.cty_dat_path)
             logging.info("Universal DXCC/Zone lookup complete.")
         except Exception as e:
             logging.error(f"Error during Universal DXCC/Zone lookup: {e}. Skipping.")
@@ -565,6 +573,7 @@ class ContestLog:
             logging.info(f"Running time-series score calculator: '{calculator_name}'...")
             module = importlib.import_module(f"contest_tools.score_calculators.{calculator_name}")
             CalculatorClass = getattr(module, class_name)
+            
             calculator_instance = CalculatorClass()
             
             df_non_dupes = self.qsos_df[self.qsos_df['Dupe'] == False].copy()

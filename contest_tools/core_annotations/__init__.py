@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-09
-# Version: 0.70.3-Beta
+# Date: 2025-09-30
+# Version: 0.90.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.90.3-Beta] - 2025-09-30
+### Changed
+# - Refactored `process_dataframe_for_cty_data` to accept an explicit
+#   `cty_dat_path`, removing the hardcoded path logic to fix a bug.
 ## [0.70.3-Beta] - 2025-09-09
 ### Changed
 # - Refactored `process_dataframe_for_cty_data` to accept `root_input_dir`
@@ -44,7 +48,7 @@ from .get_cty import CtyLookup
 from .run_s_p import process_contest_log_for_run_s_p
 from ._band_allocator import BandAllocator
 
-def process_dataframe_for_cty_data(df: pd.DataFrame, root_input_dir: str) -> pd.DataFrame:
+def process_dataframe_for_cty_data(df: pd.DataFrame, cty_dat_path: str) -> pd.DataFrame:
     """
     Applies universal DXCC and WAE lookup to a DataFrame of QSO records.
     """
@@ -54,20 +58,13 @@ def process_dataframe_for_cty_data(df: pd.DataFrame, root_input_dir: str) -> pd.
     if 'Call' not in df.columns:
         raise KeyError("DataFrame must contain a 'Call' column for CTY data lookup.")
 
-    root_dir = root_input_dir
-    
-    if not root_dir:
-        raise ValueError("Parameter `root_input_dir` is not set.")
-    
-    data_dir = os.path.join(root_dir.strip().strip('"').strip("'"), 'data')
-    cty_dat_file_path = os.path.join(data_dir, 'cty.dat')
-    logging.info(f"Using country file for universal annotations: {cty_dat_file_path}")
+    logging.info(f"Using country file for universal annotations: {cty_dat_path}")
 
     processed_df = df.copy()
     processed_df['Call'] = processed_df['Call'].fillna('').astype(str).str.strip().str.upper()
 
     try:
-        cty_lookup_instance = CtyLookup(cty_dat_path=cty_dat_file_path)
+        cty_lookup_instance = CtyLookup(cty_dat_path=cty_dat_path)
     except (FileNotFoundError, IOError) as e:
         logging.critical(f"Fatal Error initializing CtyLookup for universal annotations: {e}")
         raise
