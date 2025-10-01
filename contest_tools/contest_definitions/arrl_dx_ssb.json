@@ -1,7 +1,7 @@
 {
   "_filename": "contest_tools/contest_definitions/arrl_dx_ssb.json",
-  "_version": "0.88.3-Beta",
-  "_date": "2025-09-21",
+  "_version": "0.90.1-Beta",
+  "_date": "2025-09-30",
   "contest_name": "ARRL-DX-SSB",
   "enable_adif_export": true,
   "custom_parser_module": "arrl_dx_parser",
@@ -19,7 +19,7 @@
       "groups": ["SentRS", "SentLocation", "Call", "RS", "RcvdPower", "Transmitter"]
     },
     "ARRL-DX-SSB-DX": {
-      "regex": "(\\d{2})\\s+([A-Z0-9]+)\\s+([A-Z0-9/]+)\\s+(\\d{2})\\s+([A-Z]{2})(?:\\s+(\\d))?",
+      "regex": "(\\d{2})\\s+([A-Z0-9]+)\\s+([A-Z0-9/]+)\\s+(\\d{2})\\s+([A-Z0-9]+)(?:\\s+(\\d))?",
       "groups": ["SentRS", "SentPower", "Call", "RS", "RcvdLocation", "Transmitter"]
     }
   },

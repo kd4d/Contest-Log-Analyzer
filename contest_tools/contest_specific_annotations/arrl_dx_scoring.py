@@ -5,7 +5,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-09-30
-# Version: 0.90.16-Beta
+# Version: 0.90.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -16,6 +16,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.90.1-Beta] - 2025-09-30
+### Changed
+# - Refactored scoring logic to be compliant with official rules, basing
+#   points on the worked station's DXCC entity instead of the exchange.
+# - Reverted function signature to the standard two-argument version.
 ## [0.90.16-Beta] - 2025-09-30
 ### Changed
 # - Refactored `calculate_points` to accept `root_input_dir` as a
@@ -54,41 +59,26 @@
 # - Initial release of Version 0.30.0-Beta.
 # - Standardized all project files to a common baseline version.
 import pandas as pd
-import os
 import logging
-from ._arrl_dx_utils import StateAndProvinceLookup
 from typing import Dict, Any
 
-def _calculate_single_qso_points(row: pd.Series, my_location_type: str, lookup: StateAndProvinceLookup) -> int:
+def _calculate_single_qso_points(row: pd.Series, my_location_type: str) -> int:
     """
-    Calculates the point value for a single QSO based on the refined,
-    two-path ARRL DX rules.
+    Calculates the point value for a single QSO based on the official ARRL DX rules.
     """
     if row['Dupe']:
         return 0
 
-    worked_location_type = "DX" # Default assumption
-    dxcc_id = str(row.get('DXCCPfx', ''))
-    rcvd_location = row.get('RcvdLocation', '')
-
-    if dxcc_id in ['K', 'VE']:
-        # Normal Case: Standard US/VE station. Location type is always W/VE.
+    worked_dxcc_pfx = row.get('DXCCPfx')
+    worked_dxcc_name = row.get('DXCCName')
+    
+    # Determine worked station's location type based on DXCC entity
+    if worked_dxcc_pfx in ['KH6', 'KL7', 'CY9', 'CY0']:
+        worked_location_type = "DX"
+    elif worked_dxcc_name in ["United States", "Canada"]:
         worked_location_type = "W/VE"
-    elif dxcc_id.startswith('K'):
-        # Alternate (Override) Case: US-affiliated DX station (KP4, KH6, etc.)
-        # Override only succeeds if the exchange is a valid US State or DC.
-        if lookup.is_us_state_or_dc(rcvd_location):
-            log_message = f"SCORING OVERRIDE: Call {row.get('Call')} (DXCC: {dxcc_id}) sent valid US location '{rcvd_location}'. Classifying as W/VE for points."
-            logging.warning(log_message)
-            worked_location_type = "W/VE"
-        else:
-            # Override fails. Station is treated as DX (0 points for DX logger).
-            worked_location_type = "DX"
     else:
-        # Standard DX Case: Non-K-prefixed entity.
-        # Location type is determined by DXCC Name.
-        worked_entity_name = row.get('DXCCName', 'Unknown')
-        worked_location_type = "W/VE" if worked_entity_name in ["United States", "Canada"] else "DX"
+        worked_location_type = "DX"
 
     # --- Final Scoring Rules ---
     if my_location_type == "W/VE":
@@ -98,7 +88,7 @@ def _calculate_single_qso_points(row: pd.Series, my_location_type: str, lookup: 
     
     return 0
 
-def calculate_points(df: pd.DataFrame, my_call_info: Dict[str, Any], root_input_dir: str) -> pd.Series:
+def calculate_points(df: pd.DataFrame, my_call_info: Dict[str, Any]) -> pd.Series:
     """
     Calculates QSO points for an entire DataFrame based on ARRL DX rules.
     """
@@ -108,12 +98,8 @@ def calculate_points(df: pd.DataFrame, my_call_info: Dict[str, Any], root_input_
 
     my_location_type = "W/VE" if my_entity_name in ["United States", "Canada"] else "DX"
 
-    data_dir = os.path.join(root_input_dir, 'data')
-    lookup = StateAndProvinceLookup(data_dir)
-
     return df.apply(
         _calculate_single_qso_points, 
         axis=1,
-        my_location_type=my_location_type,
-        lookup=lookup
+        my_location_type=my_location_type
     )

@@ -81,6 +81,9 @@ def parse_log(filepath: str, contest_definition: ContestDefinition, root_input_d
     log_metadata: Dict[str, Any] = {}
     qso_records: List[Dict[str, Any]] = []
 
+    logging.info(f"--- ARRL DX Custom Parser ---")
+    logging.info(f"  - Received cty_dat_path: {cty_dat_path}")
+
     with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
         lines = f.readlines()
 
@@ -102,21 +105,24 @@ def parse_log(filepath: str, contest_definition: ContestDefinition, root_input_d
     if not contest_id_from_header:
         raise ValueError("CONTEST: tag not found in Cabrillo header.")
         
+    logging.info(f"  - Extracted logger callsign: {logger_call}")
     cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)
     info = cty_lookup.get_cty_DXCC_WAE(logger_call)._asdict()
     logger_location_type = "W/VE" if info['DXCCName'] in ["United States", "Canada"] else "DX"
-    
-    logging.info(f"ARRL DX parser: Logger location type determined as '{logger_location_type}'")
+    logging.info(f"  - Determined logger location type: '{logger_location_type}'")
     
     # Select the appropriate rule based on the contest and logger's location
     rule_set_key = f"{contest_id_from_header}-{logger_location_type}"
     rule_info = contest_definition.exchange_parsing_rules.get(rule_set_key)
+    
     if not rule_info:
         raise ValueError(f"Parsing rule '{rule_set_key}' not found in JSON definition.")
-        
+
+    logging.info(f"  - Selected parsing rule key: '{rule_set_key}'")
     exchange_regex = re.compile(rule_info['regex'])
     exchange_groups = rule_info['groups']
 
+    qso_line_counter = 0
     for line in lines:
         cleaned_line = line.replace('\u00a0', ' ').strip()
         line_to_process = cleaned_line.upper() if cleaned_line.upper().startswith('QSO:') else cleaned_line
@@ -129,9 +135,14 @@ def parse_log(filepath: str, contest_definition: ContestDefinition, root_input_d
             if not common_data:
                 continue
                 
+            qso_line_counter += 1
             exchange_rest = common_data.pop('ExchangeRest', '').strip()
-            
+            if qso_line_counter <= 5:
+                logging.info(f"  - [{qso_line_counter:04d}] Parsing ExchangeRest: '{exchange_rest}'")
+            # Insert these two lines for diagnostics
+       
             exchange_match = exchange_regex.match(exchange_rest)
+
             if exchange_match:
                 exchange_data = dict(zip(exchange_groups, exchange_match.groups()))
                 common_data.update(exchange_data)

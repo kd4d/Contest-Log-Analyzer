@@ -6,8 +6,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-30
-# Version: 0.90.9-Beta
+# Date: 2025-10-01
+# Version: 0.90.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,19 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.90.2-Beta] - 2025-10-01
+### Fixed
+# - Corrected an invalid format string ('%HM' to '%H%M') in the
+#   pd.to_datetime call that caused all QSOs to be discarded.
+## [0.90.1-Beta] - 2025-09-30
+### Changed
+# - Removed dynamic `inspect` logic for scoring module invocation. All
+#   scoring modules are now called with the standard two-argument signature.
+## [0.90.20-Beta] - 2025-09-30
+### Changed
+# - Refactored the scoring module invocation to be dynamic. It now inspects
+#   the function signature and calls it with the correct number of
+#   arguments, ensuring backward compatibility.
 ## [0.90.9-Beta] - 2025-09-30
 ### Fixed
 # - Updated the call to custom parsers in `_ingest_cabrillo_data` to
@@ -272,7 +285,7 @@ class ContestLog:
     High-level broker class to manage a single amateur radio contest log.
     """
     _ADIF_TIMESTAMP_OFFSET_SECONDS = 2
-    
+
     _HAM_BANDS = [
         (( 1800.,  2000.), '160M'),
         (( 3500.,  4000.), '80M'),
@@ -462,7 +475,7 @@ class ContestLog:
             for band in self.qsos_df['Band'].unique():
                 if band == 'Invalid' or not band:
                     continue
-            
+                
                 self.dupe_sets[band] = set()
                 band_indices = self.qsos_df[self.qsos_df['Band'] == band].index
                 
