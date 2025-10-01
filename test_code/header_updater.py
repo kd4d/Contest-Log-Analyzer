@@ -65,6 +65,12 @@ def extract_file_components(filepath: str) -> Optional[Tuple[str, List[str], str
     in_license = False
     metadata_pattern = re.compile(r'^\s*#\s*([A-Za-z]+):\s*')
 
+    # **BUG FIX**: Explicitly find the copyright line first, as it has a unique format.
+    for line in header_lines:
+        if '# Copyright' in line:
+            copyright_str = line
+            break
+
     for line in header_lines:
         stripped = line.strip()
 
@@ -81,9 +87,8 @@ def extract_file_components(filepath: str) -> Optional[Tuple[str, List[str], str
         elif tag:
             in_purpose = False
             in_license = False
-            if tag == 'copyright':
-                copyright_str = line
-            elif tag == 'contact':
+            # Copyright is now handled above, so it's excluded here.
+            if tag == 'contact':
                 contact_str = line
             elif tag == 'license':
                 in_license = True
@@ -146,7 +151,8 @@ def check_file_header(filepath: str, project_root: str):
         original_lines,
         new_content.splitlines(keepends=True),
         fromfile=f"a/{os.path.basename(filepath)}",
-        tofile=f"b/{os.path.basename(filepath)}"
+        tofile=f"b/{os.path.basename(filepath)}",
+        n=3
     ))
 
     if not diff:
