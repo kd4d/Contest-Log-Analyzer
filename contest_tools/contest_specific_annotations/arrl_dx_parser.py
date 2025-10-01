@@ -2,8 +2,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-10
-# Version: 0.70.16-Beta
+# Date: 2025-09-30
+# Version: 0.90.8-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,10 @@
 #          has a highly asymmetric exchange format.
 #
 # --- Revision History ---
+## [0.90.8-Beta] - 2025-09-30
+### Changed
+# - Updated `parse_log` signature to accept `cty_dat_path` and use it
+#   to instantiate CtyLookup, fixing a FileNotFoundError.
 ## [0.70.16-Beta] - 2025-09-10
 ### Changed
 # - Updated `parse_log` signature to accept `root_input_dir` to align
@@ -70,13 +74,13 @@ from ..contest_definitions import ContestDefinition
 from ..cabrillo_parser import parse_qso_common_fields
 from ..core_annotations import CtyLookup
 
-def parse_log(filepath: str, contest_definition: ContestDefinition, root_input_dir: str) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+def parse_log(filepath: str, contest_definition: ContestDefinition, root_input_dir: str, cty_dat_path: str) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """
     Custom parser for the ARRL DX Contest (CW and SSB).
     """
     log_metadata: Dict[str, Any] = {}
     qso_records: List[Dict[str, Any]] = []
-    
+
     with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
         lines = f.readlines()
 
@@ -98,12 +102,10 @@ def parse_log(filepath: str, contest_definition: ContestDefinition, root_input_d
     if not contest_id_from_header:
         raise ValueError("CONTEST: tag not found in Cabrillo header.")
         
-    root_dir = root_input_dir.strip().strip('"').strip("'")
-    data_dir = os.path.join(root_dir, 'data')
-    cty_dat_path = os.path.join(data_dir, 'cty.dat')
     cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)
     info = cty_lookup.get_cty_DXCC_WAE(logger_call)._asdict()
     logger_location_type = "W/VE" if info['DXCCName'] in ["United States", "Canada"] else "DX"
+    
     logging.info(f"ARRL DX parser: Logger location type determined as '{logger_location_type}'")
     
     # Select the appropriate rule based on the contest and logger's location

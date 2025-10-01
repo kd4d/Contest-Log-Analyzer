@@ -7,7 +7,7 @@
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 # Date: 2025-09-30
-# Version: 0.90.6-Beta
+# Version: 0.90.9-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -18,6 +18,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+## [0.90.9-Beta] - 2025-09-30
+### Fixed
+# - Updated the call to custom parsers in `_ingest_cabrillo_data` to
+#   pass the `cty_dat_path`, fulfilling the new parser contract.
 ## [0.90.6-Beta] - 2025-09-30
 ### Fixed
 # - Restored the missing `process_contest_log_for_run_s_p` import,
@@ -342,7 +346,7 @@ class ContestLog:
                 parser_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{custom_parser_name}")
                 
                 # The custom parser's return signature determines how we unpack
-                parser_output = parser_module.parse_log(cabrillo_filepath, self.contest_definition, self.root_input_dir)
+                parser_output = parser_module.parse_log(cabrillo_filepath, self.contest_definition, self.root_input_dir, self.cty_dat_path)
                 
                 if len(parser_output) == 3:
                     raw_df, self.qtcs_df, metadata = parser_output

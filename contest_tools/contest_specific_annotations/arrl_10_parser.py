@@ -2,8 +2,8 @@
 #
 # Author: Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-09-10
-# Version: 0.70.15-Beta
+# Date: 2025-09-30
+# Version: 0.90.7-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
@@ -17,6 +17,10 @@
 # Purpose: This module provides a custom parser for the ARRL 10-Meter Contest.
 #
 # --- Revision History ---
+## [0.90.7-Beta] - 2025-09-30
+### Changed
+# - Updated `parse_log` signature to accept `cty_dat_path` and use it
+#   to instantiate CtyLookup, fixing a FileNotFoundError.
 ## [0.70.15-Beta] - 2025-09-10
 ### Changed
 # - Updated `parse_log` signature to accept `root_input_dir` to align
@@ -61,7 +65,7 @@ from ..contest_definitions import ContestDefinition
 from ..cabrillo_parser import parse_qso_common_fields
 from ..core_annotations import CtyLookup
 
-def parse_log(filepath: str, contest_definition: ContestDefinition, root_input_dir: str) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+def parse_log(filepath: str, contest_definition: ContestDefinition, root_input_dir: str, cty_dat_path: str) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """
     Custom parser for the ARRL 10-Meter Contest.
     """
@@ -81,9 +85,6 @@ def parse_log(filepath: str, contest_definition: ContestDefinition, root_input_d
     if not logger_call:
         raise ValueError("CALLSIGN: tag not found in Cabrillo header.")
         
-    root_dir = root_input_dir.strip().strip('"').strip("'")
-    data_dir = os.path.join(root_dir, 'data')
-    cty_dat_path = os.path.join(data_dir, 'cty.dat')
     cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)
     info = cty_lookup.get_cty_DXCC_WAE(logger_call)._asdict()
     logger_location_type = "WVE" if info['DXCCName'] in ["United States", "Canada", "Alaska", "Hawaii"] else "DX"

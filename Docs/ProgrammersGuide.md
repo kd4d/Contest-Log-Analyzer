@@ -1,10 +1,14 @@
 # Contest Log Analyzer - Programmer's Guide
 
-**Version: 0.89.0-Beta**
-**Date: 2025-09-29**
+**Version: 0.90.10-Beta**
+**Date: 2025-09-30**
 
 ---
 ### --- Revision History ---
+## [0.90.10-Beta] - 2025-09-30
+### Changed
+# - Updated the implementation contract for Custom Parser Modules to
+#   reflect the new, four-argument function signature.
 ## [0.89.0-Beta] - 2025-09-29
 ### Added
 # - Added a new "How to Add a New Contest: A Step-by-Step Guide"
@@ -172,10 +176,8 @@ The project includes an automated regression test script to ensure that new chan
 ## How to Add a New Contest: A Step-by-Step Guide
 
 This guide walks you through the process of adding a new, simple contest called "My Contest". This contest will have a simple exchange (RST + Serial Number) and one multiplier (US States).
-
 ### Step 1: Create the JSON Definition File
 Navigate to the `contest_tools/contest_definitions/` directory and create a new file named `my_contest.json`. The filename (minus the extension) is the ID used to find the contest's rules.
-
 ### Step 2: Define Basic Metadata
 Open `my_contest.json` and add the basic information. The `contest_name` must exactly match the `CONTEST:` tag in the Cabrillo log files for this contest.
 __CODE_BLOCK__json
@@ -225,7 +227,6 @@ __CODE_BLOCK__
 
 ### Step 6: Run and Verify
 You can now run the analyzer on a log file for "MY-CONTEST". The system will use your new JSON file and scoring module to process the log.
-
 ---
 ## How to Add a New Report
 
@@ -345,8 +346,10 @@ For contests requiring logic beyond simple JSON definitions, create a Python mod
     * **Purpose**:
         * **When to Use**: When a contest's exchange is too complex or asymmetric to be defined by a single regular expression in the JSON file (e.g., ARRL DX).
     * **Input DataFrame State**: This is the first processing step; it receives the raw file path, not a DataFrame.
-    * **Responsibility**: To parse the raw Cabrillo file and return a DataFrame of QSOs and a dictionary of metadata. The custom parser is now part of a **mandatory two-stage process**: it must first call the shared `parse_qso_common_fields` helper from the main `cabrillo_parser.py` module to handle the fixed fields (frequency, mode, date, etc.). The custom parser's only remaining job is to parse the `ExchangeRest` string that the helper returns.
-    * **Required Function Signature**: `parse_log(filepath: str, contest_definition: ContestDefinition, root_input_dir: str) -> Tuple[pd.DataFrame, Dict[str, Any]]`
+    * **Responsibility**: To parse the raw Cabrillo file and return a DataFrame of QSOs and a dictionary of metadata.
+     The custom parser is now part of a **mandatory two-stage process**: it must first call the shared `parse_qso_common_fields` helper from the main `cabrillo_parser.py` module to handle the fixed fields (frequency, mode, date, etc.).
+     The custom parser's only remaining job is to parse the `ExchangeRest` string that the helper returns.
+    * **Required Function Signature**: `parse_log(filepath: str, contest_definition: ContestDefinition, root_input_dir: str, cty_dat_path: str) -> Tuple[pd.DataFrame, Dict[str, Any]]`
     * **Note on Temporary Columns**: Any temporary columns created by the parser that are needed by a downstream module (like a custom resolver) **must** be included in the `default_qso_columns` list in the contest's JSON definition.
 * **Custom Multiplier Resolvers**:
     * **Purpose**:
