@@ -353,21 +353,15 @@ class ContestLog:
 
             # --- Diagnostic Logging ("Before" Snapshot) ---
             df_non_dupes = self.qsos_df[self.qsos_df['Dupe'] == False].copy()
-            logging.info(f"Passing df_non_dupes to calculator. Shape: {df_non_dupes.shape}")
-            if 'Continent' in df_non_dupes.columns:
-                logging.info(f"Continent Counts:\n{df_non_dupes['Continent'].value_counts().to_string()}")
+
+
             mult_cols_present = [col for col in ['Mult_STPROV', 'Mult_NADXCC'] if col in df_non_dupes.columns]
-            if mult_cols_present:
-                logging.info("Multiplier Column Status (non-null values):")
-                for col in mult_cols_present:
-                    logging.info(f"  - {col}: {df_non_dupes[col].notna().sum()}")
-            # --- End Diagnostic Logging ---
+ 
             
             calculator_instance = CalculatorClass()
             
             self.time_series_score_df = calculator_instance.calculate(self, df_non_dupes)
-            logging.info(f"Calculator returned DataFrame. Final values:\n{self.time_series_score_df.to_string()}")
-            logging.info("Time-series score calculation complete.")
+
         except (ImportError, AttributeError) as e:
             logging.exception(f"Failed to load or find score calculator '{class_name}'. See traceback.")
             raise e
