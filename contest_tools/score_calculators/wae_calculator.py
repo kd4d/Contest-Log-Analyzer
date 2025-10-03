@@ -6,7 +6,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-10-01
-# Version: 0.90.0-Beta
+# Version: 0.90.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,12 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.90.5-Beta] - 2025-10-01
+# - Corrected scoring logic to derive the QSO count from the same filtered
+#   DataFrame as the multiplier count, ensuring alignment.
+# [0.90.3-Beta] - 2025-10-01
+# - Hardened the calculator to proactively filter out any QSOs where the
+#   multiplier columns contain "Unknown" before performing calculations.
 # [0.90.0-Beta] - 2025-10-01
 # Set new baseline version for release.
 
@@ -49,10 +55,21 @@ class WaeCalculator(TimeSeriesCalculator):
         if master_index is None or df_non_dupes.empty:
             return pd.DataFrame()
 
-        qsos_df_sorted = df_non_dupes.dropna(subset=['Datetime']).sort_values('Datetime')
+        # --- Filter out QSOs with "Unknown" multipliers before any calculation ---
+        df_for_scoring = df_non_dupes.copy()
+        mult_cols = ['Mult1', 'Mult2']
+        for col in mult_cols:
+            if col in df_for_scoring.columns:
+                df_for_scoring = df_for_scoring[df_for_scoring[col] != 'Unknown']
+
+        qsos_df_sorted = df_for_scoring.dropna(subset=['Datetime']).sort_values('Datetime')
+
+        # --- Create a filtered DataFrame containing only QSOs with valid multipliers ---
+        df_mults = qsos_df_sorted[qsos_df_sorted[mult_cols].notna().any(axis=1)]
 
         # --- 1. Calculate Cumulative Contact Counts (QSOs + QTCs) ---
-        ts_qso_count = pd.Series(1, index=qsos_df_sorted['Datetime']).resample('h').count().cumsum()
+        # Base the QSO count on the df_mults DF, which only contains QSOs with valid multipliers.
+        ts_qso_count = pd.Series(1, index=df_mults['Datetime']).resample('h').count().cumsum()
         ts_qso_count = ts_qso_count.reindex(master_index, method='ffill').fillna(0)
 
         if not qtcs_df.empty:
@@ -72,9 +89,6 @@ class WaeCalculator(TimeSeriesCalculator):
         ts_contact_total = ts_qso_count + ts_qtc_count
 
         # --- 2. Calculate Cumulative Weighted Multipliers ---
-        mult_cols = ['Mult1', 'Mult2']
-        df_mults = qsos_df_sorted[qsos_df_sorted[mult_cols].notna().any(axis=1)]
-        
         new_mults_events = []
         for col in mult_cols:
             if col in df_mults.columns:
@@ -95,6 +109,7 @@ class WaeCalculator(TimeSeriesCalculator):
         # --- 2a. Calculate Cumulative Weighted Multipliers PER BAND ---
         per_band_mult_ts = {}
         bands_in_log = df_mults['Band'].unique()
+        
         for band in self._BAND_WEIGHTS.keys():
             if band in bands_in_log:
                 df_band_mults = df_mults[df_mults['Band'] == band]

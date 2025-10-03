@@ -1,6 +1,6 @@
 {
   "_filename": "contest_tools/contest_definitions/iaru_hf.json",
-  "_version": "0.87.8-Beta",
+  "_version": "0.90.0-Beta",
   "_date": "2025-09-16",
   "contest_name": "IARU-HF",
   "dupe_check_scope": "per_band",

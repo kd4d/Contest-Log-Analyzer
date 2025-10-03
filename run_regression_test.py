@@ -7,7 +7,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-10-01
-# Version: 0.90.0-Beta
+# Version: 0.90.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.90.1-Beta] - 2025-10-01
+# - Refactored comparison logic to summarize failures for sequential files
+#   (e.g., animation frames), showing a count and only the first/last diffs.
 # [0.90.0-Beta] - 2025-10-01
 # Set new baseline version for release.
 
@@ -48,6 +51,21 @@ def _handle_rmtree_readonly(func, path, exc_info):
         func(path)
     else:
         raise
+
+def _parse_sequence_filename(filename: str):
+    """
+    Checks if a filename is part of a sequence and extracts its number.
+    Returns a tuple of (group_name, number) or (None, None).
+    """
+    frame_match = re.search(r'_frame_(\d{3})\.(txt|json)$', filename, re.IGNORECASE)
+    if frame_match:
+        return "Animation Frames", int(frame_match.group(1))
+        
+    page_match = re.search(r'_Page_(\d+)_of_(\d+)\.(png|txt|json)$', filename, re.IGNORECASE)
+    if page_match:
+        return "Paginated Reports", int(page_match.group(1))
+        
+    return None, None
 
 def _parse_adif_for_comparison(filepath: str) -> List[Dict[str, str]]:
     """Parses an ADIF file into a sorted list of dictionaries for comparison."""
@@ -154,15 +172,35 @@ def archive_baseline_reports(reports_dir: str) -> str:
 
 def compare_outputs(new_items: set, reports_dir: str, archive_dir: str, ignore_whitespace: bool) -> list:
     """Compares new files against the baseline and returns a list of failures."""
-    failures = []
+    all_failures = []
     
-    for item_path in sorted(list(new_items)):
+    # --- 1. Partition files into regular and sequential ---
+    regular_files = []
+    sequence_files_dict = {}
+
+    for item in new_items:
+        rel_path = os.path.relpath(item, reports_dir)
+        group_name, number = _parse_sequence_filename(rel_path)
+        if group_name and number is not None:
+            sequence_files_dict.setdefault(group_name, []).append((number, item))
+        else:
+            regular_files.append(item)
+            
+    # Sort sequence files numerically
+    for group in sequence_files_dict:
+        sequence_files_dict[group].sort()
+
+    # --- 2. Process regular files (old behavior) ---
+    for item_path in sorted(regular_files):
         relative_path = os.path.relpath(item_path, reports_dir)
         baseline_path = os.path.join(archive_dir, relative_path)
+        failures = []
 
         if not os.path.exists(baseline_path):
             if item_path.endswith(('.png', '.mp4', '.txt', '.adi', '_processed.csv')):
                 failures.append(f"Missing Baseline: {relative_path}")
+            if failures:
+                all_failures.extend(failures)
             continue
         
         elif item_path.endswith('.json'):
@@ -211,6 +249,7 @@ def compare_outputs(new_items: set, reports_dir: str, archive_dir: str, ignore_w
                         failure_message += "First 5 differing rows:\n"
                         failure_message += diff_df.head(5).to_string()
                         failures.append(failure_message)
+            
             except Exception as e:
                 failures.append(f"File: {relative_path}\nERROR during CSV diff: {e}")
 
@@ -253,6 +292,7 @@ def compare_outputs(new_items: set, reports_dir: str, archive_dir: str, ignore_w
                     # --- Generate Truncated Diff ---
                     str_new_json = json.dumps(qsos_new, indent=2).splitlines(keepends=True)
                     str_base_json = json.dumps(qsos_base, indent=2).splitlines(keepends=True)
+                    
                     diff_lines = list(difflib.unified_diff(
                         str_base_json, str_new_json,
                         fromfile=f'a/{relative_path}', tofile=f'b/{relative_path}'
@@ -284,8 +324,46 @@ def compare_outputs(new_items: set, reports_dir: str, archive_dir: str, ignore_w
                     failures.append(f"File: {relative_path}\n" + "".join(diff))
             except Exception as e:
                 failures.append(f"File: {relative_path}\nERROR during diff: {e}")
+        
+        if failures:
+            all_failures.extend(failures)
+
+    # --- 3. Process sequence files (new summary behavior) ---
+    for group_name, files_in_group in sequence_files_dict.items():
+        sequence_failures = []
+        for number, item_path in files_in_group:
+            relative_path = os.path.relpath(item_path, reports_dir)
+            baseline_path = os.path.join(archive_dir, relative_path)
+            diff = None
+
+            if not os.path.exists(baseline_path):
+                diff = f"Missing Baseline: {relative_path}"
+            else:
+                try:
+                    with open(item_path, 'r', encoding='utf-8') as f_new, open(baseline_path, 'r', encoding='utf-8') as f_base:
+                        lines_new = f_new.readlines()
+                        lines_base = f_base.readlines()
+                    
+                    diff_lines = list(difflib.unified_diff(lines_base, lines_new, fromfile=f'a/{relative_path}', tofile=f'b/{relative_path}'))
+                    if diff_lines:
+                        diff = f"File: {relative_path}\n" + "".join(diff_lines)
+                except Exception as e:
+                    diff = f"File: {relative_path}\nERROR during diff: {e}"
             
-    return failures
+            if diff:
+                sequence_failures.append(diff)
+        
+        if sequence_failures:
+            summary_line = f"- {group_name}: {len(sequence_failures)} of {len(files_in_group)} files differ."
+            all_failures.append(summary_line)
+
+            if len(sequence_failures) == 1:
+                all_failures.append(f"--- Differing File ---\n{sequence_failures[0]}")
+            else:
+                all_failures.append(f"--- First Differing File ---\n{sequence_failures[0]}")
+                all_failures.append(f"--- Last Differing File ---\n{sequence_failures[-1]}")
+
+    return all_failures
 
 def main():
     parser = argparse.ArgumentParser(description="Run regression tests for the Contest Log Analyzer.")

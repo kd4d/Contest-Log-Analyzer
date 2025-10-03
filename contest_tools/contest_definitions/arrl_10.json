@@ -1,6 +1,6 @@
 {
   "_filename": "contest_tools/contest_definitions/arrl_10.json",
-  "_version": "0.86.3-Beta",
+  "_version": "0.90.0-Beta",
   "_date": "2025-09-13",
   "contest_name": "ARRL-10",
   "valid_bands": [

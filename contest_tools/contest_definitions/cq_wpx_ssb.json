@@ -1,6 +1,6 @@
 {
   "_filename": "contest_tools/contest_definitions/cq_wpx_ssb.json",
-  "_version": "0.88.5-Beta",
+  "_version": "0.90.0-Beta",
   "_date": "2025-09-16",
   "contest_name": "CQ-WPX-SSB",
   "mults_from_zero_point_qsos": true,
