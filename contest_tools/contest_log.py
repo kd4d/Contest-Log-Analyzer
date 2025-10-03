@@ -5,8 +5,8 @@
 #          data cleaning, and calculation of various contest metrics.
 #
 # Author: Gemini AI
-# Date: 2025-10-01
-# Version: 0.90.0-Beta
+# Date: 2025-10-03
+# Version: 0.90.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.90.1-Beta] - 2025-10-03
+# - Added detailed diagnostic logging to _pre_calculate_time_series_score.
 # [0.90.0-Beta] - 2025-10-01
 # Set new baseline version for release.
 
@@ -79,6 +81,7 @@ class ContestLog:
         self.dupe_sets: Dict[str, Set[Tuple[str, str]]] = {}
         self.filepath = cabrillo_filepath
         self.cty_dat_path = cty_dat_path
+    
         self._my_location_type: Optional[str] = None # W/VE or DX
         self._log_manager_ref = None
         
@@ -148,7 +151,7 @@ class ContestLog:
 
             # A QSO is valid if it has a valid frequency OR if it has a band but no numeric frequency.
             if (pd.notna(freq_val) and self.band_allocator.is_frequency_valid(freq_val)) or \
-                (pd.isna(freq_val) and pd.notna(band_val)):
+               (pd.isna(freq_val) and pd.notna(band_val)):
                 validated_qso_records.append(row.to_dict())
             else:
                 rejected_qso_count += 1
@@ -347,11 +350,23 @@ class ContestLog:
             logging.info(f"Running time-series score calculator: '{calculator_name}'...")
             module = importlib.import_module(f"contest_tools.score_calculators.{calculator_name}")
             CalculatorClass = getattr(module, class_name)
+
+            # --- Diagnostic Logging ("Before" Snapshot) ---
+            df_non_dupes = self.qsos_df[self.qsos_df['Dupe'] == False].copy()
+            logging.info(f"Passing df_non_dupes to calculator. Shape: {df_non_dupes.shape}")
+            if 'Continent' in df_non_dupes.columns:
+                logging.info(f"Continent Counts:\n{df_non_dupes['Continent'].value_counts().to_string()}")
+            mult_cols_present = [col for col in ['Mult_STPROV', 'Mult_NADXCC'] if col in df_non_dupes.columns]
+            if mult_cols_present:
+                logging.info("Multiplier Column Status (non-null values):")
+                for col in mult_cols_present:
+                    logging.info(f"  - {col}: {df_non_dupes[col].notna().sum()}")
+            # --- End Diagnostic Logging ---
             
             calculator_instance = CalculatorClass()
             
-            df_non_dupes = self.qsos_df[self.qsos_df['Dupe'] == False].copy()
             self.time_series_score_df = calculator_instance.calculate(self, df_non_dupes)
+            logging.info(f"Calculator returned DataFrame. Final values:\n{self.time_series_score_df.to_string()}")
             logging.info("Time-series score calculation complete.")
         except (ImportError, AttributeError) as e:
             logging.exception(f"Failed to load or find score calculator '{class_name}'. See traceback.")

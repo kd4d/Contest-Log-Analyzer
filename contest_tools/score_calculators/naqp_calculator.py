@@ -5,8 +5,8 @@
 #
 #
 # Author: Gemini AI
-# Date: 2025-10-01
-# Version: 0.90.6-Beta
+# Date: 2025-10-03
+# Version: 0.91.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,17 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.91.0-Beta] - 2025-10-03
+# - Replaced the flawed multiplier counting algorithm with a correct,
+#   vectorized approach to resolve the scoring bug.
+# [0.90.9-Beta] - 2025-10-03
+# - Added comprehensive "during" diagnostic logging for per-band mult counts.
+# [0.90.8-Beta] - 2025-10-03
+# - Added a diagnostic log message to verify module execution and bypass
+#   potential Python caching issues.
+# [0.90.7-Beta] - 2025-10-03
+# - Fixed bug where multipliers were counted for non-NA/KH6 stations. The
+#   calculator now filters for multiplier-eligible QSOs before counting.
 # [0.90.6-Beta] - 2025-10-01
 # - Initial release of the dedicated calculator for NAQP.
 # - Implements the correct scoring logic where the QSO count includes all
@@ -25,6 +36,7 @@
 #   from multiplier-eligible QSOs (NA + KH6).
 
 import pandas as pd
+import logging
 from typing import TYPE_CHECKING
 
 from .calculator_interface import TimeSeriesCalculator
@@ -43,6 +55,7 @@ class NaqpCalculator(TimeSeriesCalculator):
         Calculates a cumulative, time-series score for a NAQP log.
         Score = (Total QSOs) * (Total Multipliers)
         """
+
         log_manager = getattr(log, '_log_manager_ref', None)
         master_index = getattr(log_manager, 'master_time_index', None)
 
@@ -52,17 +65,27 @@ class NaqpCalculator(TimeSeriesCalculator):
 
         df_sorted = df_non_dupes.dropna(subset=['Datetime']).sort_values(by='Datetime')
         
-        # --- 1. Calculate Cumulative QSO Counts from ALL valid QSOs ---
+        # --- 1. Calculate Cumulative QSO Counts from ALL valid (non-dupe) QSOs ---
         hourly_groups_all = df_sorted.set_index('Datetime').groupby(pd.Grouper(freq='h'))
         cum_qso_ts = hourly_groups_all.size().cumsum().reindex(master_index, method='ffill').fillna(0)
         run_qso_ts = df_sorted[df_sorted['Run'] == 'Run'].set_index('Datetime')['Call'].resample('h').count().cumsum().reindex(master_index, method='ffill').fillna(0)
         sp_unk_qso_ts = cum_qso_ts - run_qso_ts
         
-        # --- 2. Filter for Multiplier-Eligible QSOs ---
-        # Per rules, multipliers are NA stations plus Hawaii (KH6).
-        df_for_mults = df_sorted[(df_sorted['Continent'] == 'NA') | (df_sorted['DXCCPfx'] == 'KH6')].copy()
+        # --- 2. Create a separate DataFrame for Multiplier-Eligible QSOs ---
+        # Per NAQP rules, multipliers are NA stations plus Hawaii (KH6).
+        # All other QSOs (DX) count for points but not multipliers.
+        df_for_mults = df_sorted[
+            (df_sorted['Continent'] == 'NA') | (df_sorted['DXCCPfx'] == 'KH6')
+        ].copy()
         
-        # --- 3. Calculate Cumulative Multipliers from the filtered DataFrame ---
+        bands_in_log = sorted(df_for_mults['Band'].unique())
+        for band in bands_in_log:
+            df_band = df_for_mults[df_for_mults['Band'] == band]
+            stprov_mults = df_band['Mult_STPROV'].dropna().unique()
+            nadxcc_mults = df_band['Mult_NADXCC'].dropna().unique()
+ 
+
+        # --- 3. Calculate Cumulative Multipliers from the MULTIPLIER-ELIGIBLE DataFrame ---
         multiplier_columns = sorted(list(set([rule['value_column'] for rule in log.contest_definition.multiplier_rules])))
         for col in multiplier_columns:
             if col in df_for_mults.columns:
@@ -71,21 +94,26 @@ class NaqpCalculator(TimeSeriesCalculator):
         
         mult_count_ts = pd.Series(0.0, index=master_index)
         per_band_mult_ts_dict = {}
+        
+        # New, correct algorithm: iterate by band, combine mults, then count uniques.
+        for band in bands_in_log:
+            df_band = df_for_mults[df_for_mults['Band'] == band]
+            if df_band.empty:
+                per_band_mult_ts_dict[f"total_mults_{band}"] = pd.Series(0, index=master_index)
+                continue
 
-        # For NAQP, the method is sum_by_band
-        for mult_col in multiplier_columns:
-            if mult_col in df_for_mults.columns:
-                per_band_groups = df_for_mults.groupby('Band')
-                for band, group_df in per_band_groups:
-                    mult_set_ts = group_df.groupby(pd.Grouper(key='Datetime', freq='h'))[mult_col].apply(set).reindex(master_index)
-                    mult_set_ts = mult_set_ts.apply(lambda x: x if isinstance(x, set) else set())
+            # Combine all multiplier columns for this band into a single series
+            all_mults_on_band = pd.concat([df_band[col] for col in multiplier_columns if col in df_band]).dropna()
 
-                    running_set = set()
-                    cumulative_sets_list = [running_set.update(s) or running_set.copy() for s in mult_set_ts]
-
-                    band_mult_ts = pd.Series(cumulative_sets_list, index=master_index).apply(len)
-                    mult_count_ts += band_mult_ts
-                    per_band_mult_ts_dict[f"total_mults_{band}"] = band_mult_ts
+            # Find the first time each unique multiplier was worked
+            first_worked_events = all_mults_on_band.drop_duplicates(keep='first')
+            
+            # Create a time series of these new multiplier events
+            new_mult_ts = pd.Series(1, index=df_band.loc[first_worked_events.index]['Datetime'])
+            band_mult_ts = new_mult_ts.resample('h').count().cumsum().reindex(master_index, method='ffill').fillna(0)
+            
+            mult_count_ts += band_mult_ts
+            per_band_mult_ts_dict[f"total_mults_{band}"] = band_mult_ts
 
         # --- 4. Calculate Final Score & Apportion by Run/S&P status ---
         final_score_ts = cum_qso_ts * mult_count_ts
