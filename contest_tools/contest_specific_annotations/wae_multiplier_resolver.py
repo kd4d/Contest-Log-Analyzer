@@ -6,8 +6,8 @@
 #
 #
 # Author: Gemini AI
-# Date: 2025-10-01
-# Version: 0.90.0-Beta
+# Date: 2025-10-04
+# Version: 0.90.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,8 +19,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.90.1-Beta] - 2025-10-04
+# - Rewrote logic to correctly apply WAE multiplier rules based on the
+#   logger's location (EU vs. non-EU) and the worked station's Continent.
 # [0.90.0-Beta] - 2025-10-01
-# Set new baseline version for release.
+# - Set new baseline version for release.
 
 import pandas as pd
 import re
@@ -116,18 +119,21 @@ def resolve_multipliers(df: pd.DataFrame, my_location_type: str, root_input_dir:
             df[col] = pd.NA
             df[col] = df[col].astype('object')
 
-    # --- Step 1: Populate Country multipliers for ALL applicable QSOs ---
-    # This logic is moved here from contest_log.py to make this resolver self-contained.
-    wae_mask = df['WAEName'].notna() & (df['WAEName'] != '')
-    
-    df.loc[wae_mask, m1_col] = df.loc[wae_mask, 'WAEPfx']
-    df.loc[wae_mask, m1_name_col] = df.loc[wae_mask, 'WAEName']
-    
-    df.loc[~wae_mask, m1_col] = df.loc[~wae_mask, 'DXCCPfx']
-    df.loc[~wae_mask, m1_name_col] = df.loc[~wae_mask, 'DXCCName']
+    # --- Step 1: Apply rules based on logger's location ---
+    if my_location_type == 'DX': # Non-EU logger
+        # Multipliers are only European countries
+        eu_worked_mask = df['Continent'] == 'EU'
+        df.loc[eu_worked_mask, m1_col] = df.loc[eu_worked_mask, 'DXCCPfx']
+        df.loc[eu_worked_mask, m1_name_col] = df.loc[eu_worked_mask, 'DXCCName']
 
-    # --- Step 2: Handle special Call Area multipliers for EU loggers working specific DX ---
-    if my_location_type == 'EU':
+    elif my_location_type == 'EU': # European logger
+        # Multipliers are non-European countries AND special call areas
+        non_eu_worked_mask = df['Continent'] != 'EU'
+        
+        # 1. Assign DXCC multipliers for non-EU contacts
+        df.loc[non_eu_worked_mask, m1_col] = df.loc[non_eu_worked_mask, 'DXCCPfx']
+        df.loc[non_eu_worked_mask, m1_name_col] = df.loc[non_eu_worked_mask, 'DXCCName']
+
         # Filter for QSOs with non-European stations
         non_eu_df = df[df['Continent'] != 'EU'].copy()
         if not non_eu_df.empty:
@@ -137,7 +143,7 @@ def resolve_multipliers(df: pd.DataFrame, my_location_type: str, root_input_dir:
             if not valid_districts.empty:
                 df.loc[valid_districts.index, m2_col] = valid_districts
                 df.loc[valid_districts.index, m2_name_col] = valid_districts
-                # --- Step 3: Clear Country multiplier where Call Area multiplier was populated ---
+                # Clear the DXCC multiplier where a Call Area multiplier was assigned
                 df.loc[valid_districts.index, [m1_col, m1_name_col]] = pd.NA
             
     return df
