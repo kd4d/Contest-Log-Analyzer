@@ -6,8 +6,8 @@
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
 # Author: Gemini AI
-# Date: 2025-10-01
-# Version: 0.90.0-Beta
+# Date: 2025-10-05
+# Version: 0.90.4-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,8 +19,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.90.4-Beta] - 2025-10-05
+# - Added cumulative QTC count to the top chart section of the per-frame
+#   debug JSON output, specifically for WAE contests.
 # [0.90.0-Beta] - 2025-10-01
-# Set new baseline version for release.
+# - Set new baseline version for release.
 
 import pandas as pd
 import os
@@ -174,8 +177,12 @@ class Report(ContestReport):
                     # Data for Top Chart (Cumulative Totals)
                     top_chart_data = {
                         'score': score_ts['score'].get(hour, 0),
-                        'qsos': score_ts['run_qso_count'].get(hour, 0) + score_ts['sp_unk_qso_count'].get(hour, 0)
+                        'qsos': score_ts['run_qso_count'].get(hour, 0) + score_ts['sp_unk_qso_count'].get(hour, 0),
                     }
+
+                    # Add QTC count to debug data only for WAE contest
+                    if contest_def.contest_name.startswith('WAE') and 'ts_qtc_count' in score_ts.columns:
+                        top_chart_data['qtcs'] = score_ts['ts_qtc_count'].get(hour, 0)
     
                     # Data for Bottom-Left Chart (Hourly Rates)
                     hourly_rate_data = {}
@@ -293,7 +300,7 @@ class Report(ContestReport):
                                 y_values.append(count)
                         
                         ax_bottom_left.bar([x + j * bar_width_hourly for x in range(len(x_labels_hourly))], y_values,
-                                          width=bar_width_hourly, bottom=bottoms, color=color_shades[run_state], alpha=0.8)
+                                       width=bar_width_hourly, bottom=bottoms, color=color_shades[run_state], alpha=0.8)
                         bottoms = [b + y for b, y in zip(bottoms, y_values)]
                 
                 ax_bottom_left.set_xticks([x + (bar_width_hourly * (num_logs-1) / 2) for x in range(len(x_labels_hourly))])
@@ -335,7 +342,7 @@ class Report(ContestReport):
 
                     # Use a different duration for the final frame
                     if i == total_frames - 1:
-                         duration = self.LAST_FRAME_DURATION_SECONDS
+                        duration = self.LAST_FRAME_DURATION_SECONDS
                     else:
                         duration = self.FRAME_DURATION_SECONDS
                     
