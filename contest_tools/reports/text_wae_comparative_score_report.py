@@ -5,8 +5,8 @@
 #
 #
 # Author: Gemini AI
-# Date: 2025-10-01
-# Version: 0.90.0-Beta
+# Date: 2025-10-05
+# Version: 0.90.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,17 +18,20 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.90.3-Beta] - 2025-10-05
+# - Corrected scoring logic to sum the `QSOPoints` column instead of
+#   counting all non-dupe QSOs, bringing it into alignment with the
+#   correct logic in `wae_calculator.py`.
 # [0.90.0-Beta] - 2025-10-01
-# Set new baseline version for release.
+# - Set new baseline version for release.
 
-from typing import List, Dict, Any, Tuple
+from typing import List, Set, Dict, Tuple
 import pandas as pd
 import os
 from prettytable import PrettyTable
-
 from ..contest_log import ContestLog
+from ..contest_definitions import ContestDefinition
 from .report_interface import ContestReport
-from ._report_utils import get_valid_dataframe, create_output_directory
 
 class Report(ContestReport):
     """
@@ -131,7 +134,7 @@ class Report(ContestReport):
 
     def _calculate_band_mode_summary(self, df_band_mode: pd.DataFrame, callsign: str) -> dict:
         summary = {'Callsign': callsign}
-        summary['QSO Pts'] = len(df_band_mode)
+        summary['QSO Pts'] = df_band_mode['QSOPoints'].sum()
         
         band = df_band_mode['Band'].iloc[0]
         weighted_mults = 0
@@ -155,7 +158,7 @@ class Report(ContestReport):
             qsos_df = get_valid_dataframe(log, False)
             qtcs_df = getattr(log, 'qtcs_df', pd.DataFrame())
 
-            total_qso_pts = len(qsos_df)
+            total_qso_pts = qsos_df['QSOPoints'].sum()
             total_qtc_pts = len(qtcs_df)
             
             total_weighted_mults = 0

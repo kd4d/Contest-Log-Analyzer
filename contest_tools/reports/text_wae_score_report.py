@@ -5,8 +5,8 @@
 #
 #
 # Author: Gemini AI
-# Date: 2025-10-01
-# Version: 0.90.0-Beta
+# Date: 2025-10-05
+# Version: 0.90.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,8 +18,12 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.90.2-Beta] - 2025-10-05
+# - Corrected scoring logic to sum the `QSOPoints` column instead of
+#   counting all non-dupe QSOs, bringing it into alignment with the
+#   correct logic in `wae_calculator.py`.
 # [0.90.0-Beta] - 2025-10-01
-# Set new baseline version for release.
+# - Set new baseline version for release.
 
 from typing import List, Dict, Any
 import pandas as pd
@@ -88,7 +92,7 @@ class Report(ContestReport):
             })
 
         # --- TOTALS ---
-        total_qso_pts = len(qsos_df)
+        total_qso_pts = qsos_df['QSOPoints'].sum()
         total_qtc_pts = len(qtcs_df)
         
         total_weighted_mults = 0

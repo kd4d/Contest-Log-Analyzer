@@ -5,8 +5,8 @@
 #
 #
 # Author: Gemini AI
-# Date: 2025-10-01
-# Version: 0.90.5-Beta
+# Date: 2025-10-04
+# Version: 0.90.8-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,17 +18,22 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.90.8-Beta] - 2025-10-04
+# - Added cumulative QSO and QTC counts to the final diagnostic DataFrame
+#   to provide a more complete trace for debugging.
+# [0.90.7-Beta] - 2025-10-04
+# - Added diagnostic logging to print the entire final time-series DataFrame
+#   to assist in debugging score discrepancies.
+# [0.90.6-Beta] - 2025-10-04
+# - Added diagnostic logging to identify and report malformed QTC records
+#   that are dropped during timestamp parsing.
 # [0.90.5-Beta] - 2025-10-01
 # - Corrected scoring logic to derive the QSO count from the same filtered
 #   DataFrame as the multiplier count, ensuring alignment.
-# [0.90.3-Beta] - 2025-10-01
-# - Hardened the calculator to proactively filter out any QSOs where the
-#   multiplier columns contain "Unknown" before performing calculations.
-# [0.90.0-Beta] - 2025-10-01
-# Set new baseline version for release.
 
 import pandas as pd
 import numpy as np
+import logging
 from typing import TYPE_CHECKING
 
 from .calculator_interface import TimeSeriesCalculator
@@ -73,14 +78,24 @@ class WaeCalculator(TimeSeriesCalculator):
         ts_qso_count = ts_qso_count.reindex(master_index, method='ffill').fillna(0)
 
         if not qtcs_df.empty:
+            logging.info(f"--- WAE QTC Processing ---")
+            logging.info(f"Initial QTC records received: {len(qtcs_df)}")
             qtcs_df['Datetime'] = pd.to_datetime(
                 qtcs_df['QTC_DATE'] + ' ' + qtcs_df['QTC_TIME'],
                 format='%Y-%m-%d %H%M', errors='coerce'
             )
+            
+            invalid_qtcs = qtcs_df[qtcs_df['Datetime'].isna()]
+            if not invalid_qtcs.empty:
+                logging.warning(f"Found {len(invalid_qtcs)} QTC records with malformed timestamps that will be dropped:")
+                for _, row in invalid_qtcs.iterrows():
+                    logging.warning(f"  - Dropped QTC: DATE={row.get('QTC_DATE')} TIME={row.get('QTC_TIME')}")
+
             if qtcs_df['Datetime'].dt.tz is None:
-                 qtcs_df['Datetime'] = qtcs_df['Datetime'].dt.tz_localize('UTC')
+                qtcs_df['Datetime'] = qtcs_df['Datetime'].dt.tz_localize('UTC')
             
             qtcs_df_sorted = qtcs_df.dropna(subset=['Datetime']).sort_values('Datetime')
+            logging.info(f"Valid QTC records after parsing: {len(qtcs_df_sorted)}")
             ts_qtc_count = pd.Series(1, index=qtcs_df_sorted['Datetime']).resample('h').count().cumsum()
             ts_qtc_count = ts_qtc_count.reindex(master_index, method='ffill').fillna(0)
         else:
@@ -149,6 +164,8 @@ class WaeCalculator(TimeSeriesCalculator):
 
         # --- 5. Assemble Final DataFrame ---
         result_df = pd.DataFrame({
+            'ts_qso_count': ts_qso_count,
+            'ts_qtc_count': ts_qtc_count,
             'run_qso_count': run_qso_count,
             'sp_unk_qso_count': sp_unk_qso_count,
             'run_score': ts_run_score,
@@ -160,5 +177,8 @@ class WaeCalculator(TimeSeriesCalculator):
         # Add the per-band multiplier time-series to the final result
         for col_name, series in per_band_mult_ts.items():
             result_df[col_name] = series
+
+        # --- Final Diagnostic Logging ("After" Snapshot) ---
+        logging.info(f"Final WAE time-series DataFrame:\n{result_df.to_string()}")
 
         return result_df.astype(int)
