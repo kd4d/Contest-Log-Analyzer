@@ -1,10 +1,15 @@
 # Callsign Lookup Algorithm Specification
 
-**Version: 0.30.43-Beta**
-**Date: 2025-08-24**
+**Version: 0.90.11-Beta**
+**Date: 2025-10-06**
 
 ---
 ### --- Revision History ---
+## [0.90.11-Beta] - 2025-10-06
+### Fixed
+# - Synchronized documentation with the code baseline in `get_cty.py`.
+# - Added documentation for the two special-case rules for handling
+#   ambiguous KG4 callsigns.
 ## [0.30.43-Beta] - 2025-08-24
 ### Changed
 # - Corrected Step 6 of the Portable Call Heuristics to accurately
@@ -27,7 +32,6 @@ The script's goal is to replicate the logic of major contest logging programs by
 ## 2. Output Data Structure
 
 The script's output is a `FullCtyInfo` named tuple, which has been modified to include the `portableid` field.
-
 (DXCCName, DXCCPfx, CQZone, ITUZone, Continent, Lat, Lon, Tzone, WAEName, WAEPfx, portableid)
 
 The `portableid` field will contain the specific part of a portable callsign that was used to determine the location (e.g., "7", "VP2V") and will be blank for non-portable callsigns.
@@ -45,11 +49,12 @@ The highest-priority lookup is for an exact match. The `CTY.DAT` file can contai
 The script then checks for hardcoded exceptions that do not follow standard patterns. The primary rules are:
 - Any callsign ending in `/MM` (Maritime Mobile) is immediately classified as an "Unknown" entity.
 - A specific rule identifies callsigns matching the pattern `KG4[A-Z]{2}` (e.g., `KG4AA`) as Guantanamo Bay. This prevents other, non-Guantanamo Bay `KG4` callsigns from being incorrectly identified.
+- A related rule invalidates any portable KG4 callsign (e.g., `KG4XX/P`) by classifying it as "Unknown" to prevent ambiguity.
 ### Step 4: Portable Call Logic (`_handle_portable_call`)
 If the cleaned callsign contains a `/`, it is processed by a dedicated handler that uses a series of heuristics to identify the `portableid`. See Section 4 for details.
 
 ### Step 5: Longest Prefix Match (`_find_longest_prefix`)
-If the call is not resolved by any of the previous steps, this default lookup method is used. It takes the callsign string (e.g., `VP2VMM`) and checks if it is a known prefix. If not, it removes the last character and tries again (`VP2VM`), repeating this process until it finds the longest possible valid prefix (`VP2V`) that exists in the `CTY.DAT` data.
+If the call is not resolved by any of the previous steps, this default lookup method is used. It takes the callsign string (e.g., `VP2VMM`) and checks if it is a known prefix. If not, it removes the last character and tries again (`VP2VM`), repeating this process until it finds the longest possible valid prefix (`VP2V`) that exists in the `CTY.DAT` data. As an additional safeguard, this step includes a check to ensure that a non-Guantanamo Bay callsign (e.g., `KG4ABC`) does not incorrectly match the generic `KG4` prefix.
 ---
 ## 4. Portable Call Heuristics
 

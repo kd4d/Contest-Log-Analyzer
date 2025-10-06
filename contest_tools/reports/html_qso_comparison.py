@@ -5,6 +5,28 @@
 #          for multiple logs.
 #
 # Author: Gemini AI
+# Date: 2025-10-06
+# Version: 0.90.12-Beta
+#
+# Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
+#
+# License: Mozilla Public License, v. 2.0
+#          (https://www.mozilla.org/MPL/2.0/)
+#
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+# --- Revision History ---
+# [0.90.12-Beta] - 2025-10-06
+# - Refactored title generation to conform to the new two-line blended
+#   standard defined in the CLA Reports Style Guide.
+# - Added the standard file header, including versioning and license.
+# Purpose: Generates a comprehensive HTML report comparing QSO counts,
+#          broken down by band and operating style (Run/S&P/Unknown),
+#          for multiple logs.
+#
+# Author: Gemini AI
 # Date: 2025-10-01
 # Version: 0.90.0-Beta
 #
@@ -252,8 +274,7 @@ class Report(ContestReport):
         event_id = metadata.get('EventID', '')
         
         title_line1 = self.report_name
-        title_line2 = f"{year} {event_id} {contest_name}".strip()
-        title_line3 = " vs ".join(all_calls)
+        title_line2 = f"{year} {event_id} {contest_name} - {' vs '.join(all_calls)}".strip().replace("  ", " ")
 
         return f"""
 <!DOCTYPE html>
@@ -273,7 +294,6 @@ class Report(ContestReport):
         <div class="text-center">
             <h1 class="text-2xl font-bold text-gray-800">{title_line1}</h1>
             <p class="text-lg text-gray-600">{title_line2}</p>
-            <p class="text-md text-gray-500">{title_line3}</p>
         </div>
         <div class="mt-8 flex justify-center">
             <div>
