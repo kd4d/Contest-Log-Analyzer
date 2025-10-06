@@ -1,6 +1,6 @@
 {
   "_filename": "contest_tools/contest_definitions/wae_cw.json",
-  "_version": "0.90.0-Beta",
+  "_version": "0.90.1-Beta",
   "_date": "2025-09-19",
   "contest_name": "WAE-CW",
   "valid_bands": [
@@ -64,7 +64,6 @@
     "Band", "Date", "Hour", "Dupe",
     "DXCCName", "DXCCPfx", "CQZone", "ITUZone", "Continent", "WAEName", "WAEPfx",
     "Run", "QSOPoints",
-    "qtcs_df",
     "Mult1", "Mult1Name", "Mult2", "Mult2Name"
   ]
 }

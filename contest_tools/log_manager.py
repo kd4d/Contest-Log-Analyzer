@@ -6,8 +6,8 @@
 #          analysis engine.
 #
 # Author: Gemini AI
-# Date: 2025-10-01
-# Version: 0.90.0-Beta
+# Date: 2025-10-06
+# Version: 0.90.8-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,13 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+# --- Revision History ---
+# [0.90.8-Beta] - 2025-10-06
+# - Added Excel-compatible text formatting to the `QTC_GRP` column in the WAE QTC CSV export.
+# [0.90.7-Beta] - 2025-10-06
+# - Added logic to `finalize_loading` to export a `_qtcs.csv` file for WAE logs.
+# [0.90.6-Beta] - 2025-10-05
+# - Added logic to `finalize_loading` to generate hourly ADIF debug files when `--debug-data` is enabled.
 # --- Revision History ---
 # [0.90.0-Beta] - 2025-10-01
 # Set new baseline version for release.
@@ -114,7 +121,7 @@ class LogManager:
             except Exception as e:
                 logging.error(f"Error loading log {path}: {e}")
 
-    def finalize_loading(self, root_reports_dir: str):
+    def finalize_loading(self, root_reports_dir: str, debug_data: bool = False):
         """
         Should be called after all logs are loaded to perform final,
         cross-log processing steps like creating the master time index and
@@ -160,6 +167,42 @@ class LogManager:
             output_filename = f"{base_filename}_processed.csv"
             output_filepath = os.path.join(output_dir, output_filename)
             log.export_to_csv(output_filepath)
+
+            # --- WAE QTC Data Export ---
+            if log.contest_definition.contest_name.startswith('WAE'):
+                qtcs_df = getattr(log, 'qtcs_df', pd.DataFrame())
+                if not qtcs_df.empty:
+                    qtcs_filename = f"{base_filename}_qtcs.csv"
+                    qtcs_filepath = os.path.join(output_dir, qtcs_filename)
+                    # Format QTC_GRP to prevent Excel from auto-formatting as a date
+                    qtcs_df['QTC_GRP'] = '="' + qtcs_df['QTC_GRP'].astype(str) + '"'
+                    qtcs_df.to_csv(qtcs_filepath, index=False, na_rep='')
+                    logging.info(f"WAE QTC data saved to: {qtcs_filepath}")
+
+            # --- Hourly ADIF Debug File Generation ---
+            if debug_data:
+                debug_adif_dir = os.path.join(output_dir, "Debug", "adif_files")
+                os.makedirs(debug_adif_dir, exist_ok=True)
+                logging.info(f"Generating hourly ADIF debug files in: {debug_adif_dir}")
+
+                if log._log_manager_ref and log._log_manager_ref.master_time_index is not None:
+                    for hour in log._log_manager_ref.master_time_index:
+                        hourly_df = log.qsos_df[log.qsos_df['Datetime'].dt.floor('h') == hour]
+                        
+                        # Create a lightweight, temporary log object for export
+                        temp_log = ContestLog(
+                            contest_name=log.contest_name, cabrillo_filepath=None,
+                            root_input_dir=log.root_input_dir, cty_dat_path=log.cty_dat_path
+                        )
+                        temp_log.qsos_df = hourly_df
+                        temp_log.metadata = log.metadata
+
+                        filename = f"{hour.strftime('%Y-%m-%d_%H00')}.adi"
+                        filepath = os.path.join(debug_adif_dir, filename)
+                        
+                        # The standard ADIF export handles empty dataframes gracefully
+                        temp_log.export_to_adif(filepath)
+
             
             # --- ADIF Export (if enabled for this contest) ---
             if getattr(log.contest_definition, 'enable_adif_export', False):

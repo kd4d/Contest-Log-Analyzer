@@ -5,8 +5,8 @@
 #          generate specific reports.
 #
 # Author: Gemini AI
-# Date: 2025-10-01
-# Version: 0.90.0-Beta
+# Date: 2025-10-05
+# Version: 0.90.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -17,6 +17,9 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+# --- Revision History ---
+# [0.90.5-Beta] - 2025-10-05
+# - Modified `main` to pass the `debug_data` flag to `log_manager.finalize_loading`.
 # --- Revision History ---
 # [0.90.0-Beta] - 2025-10-01
 # Set new baseline version for release.
@@ -150,7 +153,7 @@ def main():
             'debug_mults': args.debug_mults
         }
 
-        log_manager.finalize_loading(root_reports_dir)
+        log_manager.finalize_loading(root_reports_dir, debug_data=args.debug_data)
         generator = ReportGenerator(logs=log_manager.get_logs(), root_output_dir=root_reports_dir)
         generator.run_reports(args.report_id, **report_kwargs)
     except FileNotFoundError as e:
