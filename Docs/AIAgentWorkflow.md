@@ -1,9 +1,14 @@
 # AIAgentWorkflow.md
 
-**Version: 1.1.5-Beta**
-**Date: 2025-10-06**
+**Version: 1.1.6-Beta**
+**Date: 2025-10-07**
 ---
 ### --- Revision History ---
+## [1.1.6-Beta] - 2025-10-07
+### Changed
+# - Amended Protocol 1.7 (Project Structure Onboarding) to include the
+#   `CONTEST_LOGS_REPORTS/` and `Utils/` directories and to clarify the
+#   role of the `CONTEST_INPUT_DIR` environment variable.
 ## [1.1.5-Beta] - 2025-10-06
 ### Changed
 # - Amended Protocol 4.4 (Confirmed File Delivery Protocol) to add a
@@ -608,7 +613,8 @@ These are the step-by-step procedures for common, day-to-day development tasks.
 
 1.6. **Session Versioning Authority Protocol.** The user has the sole authority to set and change the session version series. The version series is established as the final step of the **Definitive State Initialization Protocol (1.4)**. The user may change this version series at any time by issuing a new declaration. The AI must use the most recently declared version series for all file modifications.
 1.7. **Project Structure Onboarding.** After a state initialization, the AI will confirm its understanding of the high-level project architecture.
-The `Logs/` and `data/` directories are located within a root path defined by the `CONTEST_INPUT_DIR` environment variable.
+* `CONTEST_LOGS_REPORTS/`: A subdirectory containing all input data. The `CONTEST_INPUT_DIR` environment variable must be set to this path (e.g., `CONTEST_LOGS_REPORTS/`). It contains the `data/` and `Logs/` subdirectories.
+* `Utils/`: Top-level utility scripts, such as logging configuration.
 * `contest_tools/`: The core application library.
 * `contest_tools/reports/`: The "plug-in" directory for all report modules.
 * `contest_tools/adif_exporters/`: Custom ADIF exporters for specific contest requirements.
@@ -617,8 +623,6 @@ The `Logs/` and `data/` directories are located within a root path defined by th
 * `contest_tools/score_calculators/`: Pluggable time-series score calculators.
 * `Docs/`: All user and developer documentation.
 * `test_code/`: Utility and prototype scripts not part of the main application. These scripts are not held to the same change control and documentation standards (e.g., a revision history is not required).
-* `Logs/`: Contains all Cabrillo log files for analysis.
-* `data/`: Required data files (e.g., `cty.dat`).
 ### 2. Task Execution Workflow
 This workflow is a formal state machine that governs all development tasks, from initial request to final completion.
 
