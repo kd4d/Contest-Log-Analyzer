@@ -4,10 +4,9 @@
 #          Contest. It implements the asymmetric multiplier rules for
 #          EU vs. non-EU stations and the special call area district logic.
 #
-#
 # Author: Gemini AI
-# Date: 2025-10-04
-# Version: 0.90.1-Beta
+# Date: 2025-10-07
+# Version: 0.90.4-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +18,15 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.90.4-Beta] - 2025-10-07
+# - Implemented correct conditional logic to handle the *IG9 special
+#   case for EU loggers, populating the multiplier from the correct
+#   WAE-specific columns instead of the DXCC columns.
+# [0.90.3-Beta] - 2025-10-07
+# - Added explicit check for WAEPfx == '*IG9' to correctly grant
+#   multiplier credit to EU stations for this special case.
+# - Added filter for WAEName.notna() to ensure only WAE entities can be
+#   counted as multipliers, increasing rules adherence.
 # [0.90.1-Beta] - 2025-10-04
 # - Rewrote logic to correctly apply WAE multiplier rules based on the
 #   logger's location (EU vs. non-EU) and the worked station's Continent.
@@ -121,18 +129,25 @@ def resolve_multipliers(df: pd.DataFrame, my_location_type: str, root_input_dir:
 
     # --- Step 1: Apply rules based on logger's location ---
     if my_location_type == 'DX': # Non-EU logger
-        # Multipliers are only European countries
-        eu_worked_mask = df['Continent'] == 'EU'
+        # Multipliers are only WAE entities in Europe
+        eu_worked_mask = (df['Continent'] == 'EU') & (df['WAEName'].notna())
         df.loc[eu_worked_mask, m1_col] = df.loc[eu_worked_mask, 'DXCCPfx']
         df.loc[eu_worked_mask, m1_name_col] = df.loc[eu_worked_mask, 'DXCCName']
 
     elif my_location_type == 'EU': # European logger
-        # Multipliers are non-European countries AND special call areas
-        non_eu_worked_mask = df['Continent'] != 'EU'
+        # --- Handle *IG9 Special Case First ---
+        ig9_mask = (df['WAEPfx'] == '*IG9')
+        df.loc[ig9_mask, m1_col] = df.loc[ig9_mask, 'WAEPfx']
+        df.loc[ig9_mask, m1_name_col] = df.loc[ig9_mask, 'WAEName']
+
+        # --- Handle all other non-EU WAE Multipliers ---
+        normal_non_eu_mask = (
+            (df['Continent'] != 'EU') & (df['WAEPfx'] != '*IG9')
+        ) & (df['WAEName'].notna())
         
         # 1. Assign DXCC multipliers for non-EU contacts
-        df.loc[non_eu_worked_mask, m1_col] = df.loc[non_eu_worked_mask, 'DXCCPfx']
-        df.loc[non_eu_worked_mask, m1_name_col] = df.loc[non_eu_worked_mask, 'DXCCName']
+        df.loc[normal_non_eu_mask, m1_col] = df.loc[normal_non_eu_mask, 'DXCCPfx']
+        df.loc[normal_non_eu_mask, m1_name_col] = df.loc[normal_non_eu_mask, 'DXCCName']
 
         # Filter for QSOs with non-European stations
         non_eu_df = df[df['Continent'] != 'EU'].copy()

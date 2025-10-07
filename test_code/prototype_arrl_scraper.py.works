@@ -1,4 +1,4 @@
-# test_code/prototype_arrl_ss_scraper.py
+# test_code/prototype_arrl_scraper.py
 import argparse
 import logging
 import requests
@@ -17,7 +17,11 @@ def scrape_and_save(year: int, contest: str, callsign: str, save_path: Path) -> 
     
     contest_map = {
         "ARRL-SS-CW": 17,
-        "ARRL-SS-PH": 18
+        "ARRL-SS-PH": 18,
+        "ARRL-DX-CW": 13,
+        "ARRL-DX-SSB": 14,
+        "ARRL-10": 21,
+        "IARU-HF": 4
     }
     
     eid = contest_map.get(contest.upper())
@@ -85,9 +89,9 @@ def main():
     """Main driver for the standalone prototype script."""
     logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
-    parser = argparse.ArgumentParser(description="Prototype scraper for ARRL Sweepstakes public logs.")
+    parser = argparse.ArgumentParser(description="Prototype scraper for ARRL public logs.")
     parser.add_argument('--year', required=True, type=int, help="Contest year (e.g., 2024)")
-    parser.add_argument('--contest', required=True, help="Contest name ('ARRL-SS-CW' or 'ARRL-SS-PH')")
+    parser.add_argument('--contest', required=True, help="Contest name (e.g., 'ARRL-SS-CW', 'IARU-HF')")
     parser.add_argument('--call', required=True, help="A single callsign to download")
     args = parser.parse_args()
 

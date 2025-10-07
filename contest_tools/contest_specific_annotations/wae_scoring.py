@@ -4,8 +4,8 @@
 #
 #
 # Author: Gemini AI
-# Date: 2025-10-04
-# Version: 0.90.1-Beta
+# Date: 2025-10-07
+# Version: 0.90.4-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -17,6 +17,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.90.4-Beta] - 2025-10-07
+# - Added explicit check for WAEPfx == '*IG9' to correctly deny QSO
+#   credit to DX stations, making the rule robust and not reliant on
+#   continent data side-effects.
 # [0.90.1-Beta] - 2025-10-04
 # - Rewrote scoring logic to correctly award 0 points for invalid QSOs
 #   (e.g., EU-to-EU) based on the WAE contest rules.
@@ -31,6 +35,7 @@ def calculate_points(df: pd.DataFrame, my_call_info: Dict[str, Any]) -> pd.Serie
     Calculates QSO points for an entire DataFrame based on WAE rules.
     - Each valid (non-dupe) QSO between an EU and non-EU station is worth 1 point.
     - Invalid QSOs (EU-EU, non-EU-non-EU) are worth 0 points.
+    - Special case: DX stations do not get QSO credit for working *IG9.
     - QTC points are handled separately by the time-series score calculator.
     """
     my_continent = my_call_info.get('Continent')
@@ -44,11 +49,16 @@ def calculate_points(df: pd.DataFrame, my_call_info: Dict[str, Any]) -> pd.Serie
         if row['Dupe']:
             return 0
         
+        is_worked_ig9 = row.get('WAEPfx') == '*IG9'
         is_worked_eu = (row['Continent'] == 'EU')
         
-        if (is_logger_eu and not is_worked_eu) or (not is_logger_eu and is_worked_eu):
-            return 1  # Valid EU to non-EU contact
-        else:
-            return 0  # Invalid EU-EU or non-EU-non-EU contact
+        if is_logger_eu:
+            # For EU loggers, any non-EU contact (including IG9) is worth 1 point.
+            return 1 if not is_worked_eu else 0
+        else: # Logger is DX
+            # For DX loggers, contact must be with EU, and NOT with IG9.
+            if is_worked_eu and not is_worked_ig9:
+                return 1
+            return 0
             
     return df.apply(is_qso_valid, axis=1)
