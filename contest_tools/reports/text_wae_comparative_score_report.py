@@ -32,6 +32,7 @@ from prettytable import PrettyTable
 from ..contest_log import ContestLog
 from ..contest_definitions import ContestDefinition
 from .report_interface import ContestReport
+from ._report_utils import get_valid_dataframe, create_output_directory
 
 class Report(ContestReport):
     """

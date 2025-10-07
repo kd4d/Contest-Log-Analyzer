@@ -179,6 +179,6 @@ class WaeCalculator(TimeSeriesCalculator):
             result_df[col_name] = series
 
         # --- Final Diagnostic Logging ("After" Snapshot) ---
-        logging.info(f"Final WAE time-series DataFrame:\n{result_df.to_string()}")
+#        logging.info(f"Final WAE time-series DataFrame:\n{result_df.to_string()}")
 
         return result_df.astype(int)
