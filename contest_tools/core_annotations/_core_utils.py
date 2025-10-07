@@ -1,14 +1,14 @@
-# Contest Log Analyzer/contest_tools/core_annotations/_core_utils.py
+# contest_tools/core_annotations/_core_utils.py
 #
 # Purpose: A utility module containing shared helper functions used by various
 #          core annotation and resolver modules.
 #
-# Author: Mark Bailey, KD4D
-# Contact: kd4d@kd4d.org
-# Date: 2025-08-18
-# Version: 0.38.2-Beta
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -17,26 +17,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.38.2-Beta] - 2025-08-18
-### Changed
-# - Modified the AliasLookup ambiguity check to store all possible mappings
-#   for a conflicting alias instead of discarding it.
-### Added
-# - Added a get_ambiguous_mappings() method to the AliasLookup class to
-#   allow resolvers to access and handle context-dependent aliases.
-## [0.37.4-Beta] - 2025-08-17
-### Changed
-# - Added logic to detect ambiguous aliases (e.g., VE1) in .dat files,
-#   log a warning, and nullify the alias to prevent incorrect lookups.
-## [0.32.1-Beta] - 2025-08-12
-### Changed
-# - Enhanced AliasLookup to be section-aware, parsing categories like
-#   "US States" from comments in the .dat file.
-### Added
-# - Added a `get_category` method to the AliasLookup class.
-## [0.30.0-Beta] - 2025-08-05
-# - Initial release of Version 0.30.0-Beta.
-# - Standardized all project files to a common baseline version.
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 import pandas as pd
 import os
 import re

@@ -1,16 +1,16 @@
-# Contest Log Analyzer/contest_tools/log_manager.py
+# contest_tools/log_manager.py
 #
 # Purpose: Defines the LogManager class, which is responsible for orchestrating
 #          the loading, processing, and management of one or more ContestLog
 #          instances. It serves as the primary entry point for the core
 #          analysis engine.
 #
-# Author: Mark Bailey, KD4D
-# Contact: kd4d@kd4d.org
-# Date: 2025-09-29
-# Version: 0.90.0-Beta
+# Author: Gemini AI
+# Date: 2025-10-06
+# Version: 0.90.8-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -19,80 +19,16 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.90.0-Beta] - 2025-09-29
-### Added
-# - Added a new `load_log_batch` method to encapsulate all batch
-#   loading, validation, and CTY file selection logic.
-# - Added a `_get_callsign_from_header` helper method.
-### Changed
-# - Refactored the class to be batch-oriented, performing a single
-#   CTY file lookup for all logs.
-# - Moved validation logic from `finalize_loading` to the new
-#   `load_log_batch` method to serve as a pre-flight check.
-### Removed
-# - Removed the obsolete `load_log` method.
-## [0.89.9-Beta] - 2025-09-29
-### Changed
-# - Updated load_log to handle the new tuple return from CtyManager
-#   and log the selected CTY file's date for traceability.
-## [0.89.5-Beta] - 2025-09-29
-### Changed
-# - Modified load_log to accept a cty_specifier and pass the
-#   resolved cty.dat path to the ContestLog constructor.
-## [0.87.2-Beta] - 2025-09-14
-### Fixed
-# - Fixed a regression in `_create_master_time_index` by using a
-#   periods-based calculation, resolving the 'extra hour' bug in all
-#   time-series reports.
-## [0.87.1-Beta] - 2025-09-14
-### Fixed
-# - Fixed a bug in `_create_master_time_index` that created an extra hour
-#   in the timeline by subtracting one second from the max time before
-#   applying the ceiling function.
-## [0.87.0-Beta] - 2025-09-13
-### Fixed
-# - Fixed a regression by adding a call to the `_pre_calculate_time_series_score`
-#   method for each log, ensuring score data is available for reports.
-## [0.85.6-Beta] - 2025-09-13
-### Fixed
-# - Corrected an order-of-operations bug by setting the _log_manager_ref
-#   on the ContestLog object *before* calling apply_annotations. This
-#   ensures score calculators can access the master time index.
-## [0.70.2-Beta] - 2025-09-12
-### Fixed
-# - Corrected an order-of-operations bug by setting the _log_manager_ref
-#   on the ContestLog object *before* calling apply_annotations. This
-#   ensures score calculators can access the master time index.
-## [0.70.1-Beta] - 2025-09-09
-### Changed
-# - Refactored methods to accept path variables as parameters instead of
-#   reading environment variables directly, in compliance with Principle 15.
-## [0.62.2-Beta] - 2025-09-08
-### Changed
-# - Updated script to read the new CONTEST_REPORTS_DIR environment variable.
-## [0.55.5-Beta] - 2025-08-30
-### Added
-# - Added a hook to the `finalize_loading` method to support a new
-#   pluggable, contest-specific ADIF exporter architecture.
-## [0.37.0-Beta] - 2025-08-17
-### Added
-# - Added a conditional call to the new `export_to_adif` method,
-#   triggered by a key in the contest's JSON definition file.
-## [0.35.10-Beta] - 2025-08-14
-### Added
-# - Added validation to finalize_loading to ensure all logs are from the
-#   same contest and event, raising a ValueError on mismatch.
-## [0.31.32-Beta] - 2025-08-10
-### Added
-# - Added a warning to detect and report if logs from different
-#   months/years are loaded in the same session.
-## [0.30.24-Beta] - 2025-08-05
-# - No functional changes. Synchronizing version numbers.
-## [0.30.14-Beta] - 2025-08-05
-### Changed
-# - Added `event_id` to each log's metadata.
-## [0.30.0-Beta] - 2025-08-05
-# - Initial release of Version 0.30.0-Beta.
+# [0.90.8-Beta] - 2025-10-06
+# - Added Excel-compatible text formatting to the `QTC_GRP` column in the WAE QTC CSV export.
+# [0.90.7-Beta] - 2025-10-06
+# - Added logic to `finalize_loading` to export a `_qtcs.csv` file for WAE logs.
+# [0.90.6-Beta] - 2025-10-05
+# - Added logic to `finalize_loading` to generate hourly ADIF debug files when `--debug-data` is enabled.
+# --- Revision History ---
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 import pandas as pd
 from typing import List
 from .contest_log import ContestLog
@@ -150,6 +86,15 @@ class LogManager:
         if cty_specifier in ['before', 'after']:
             all_dates = [self._get_first_qso_date_from_log(path) for path in log_filepaths]
             target_date = min(all_dates) if cty_specifier == 'before' else max(all_dates)
+        else:
+            # If a specific filename is given, we need a date for the sync check.
+            # We'll just use the first log's date as it's a reasonable proxy.
+            target_date = self._get_first_qso_date_from_log(log_filepaths[0])
+
+        # Conditionally update the index based on the determined target date
+        cty_manager.sync_index(contest_date=target_date)
+
+        if cty_specifier in ['before', 'after']:
             cty_dat_path, cty_file_info = cty_manager.find_cty_file_by_date(target_date, cty_specifier)
         else:
             cty_dat_path, cty_file_info = cty_manager.find_cty_file_by_name(cty_specifier)
@@ -176,7 +121,7 @@ class LogManager:
             except Exception as e:
                 logging.error(f"Error loading log {path}: {e}")
 
-    def finalize_loading(self, root_reports_dir: str):
+    def finalize_loading(self, root_reports_dir: str, debug_data: bool = False):
         """
         Should be called after all logs are loaded to perform final,
         cross-log processing steps like creating the master time index and
@@ -222,6 +167,42 @@ class LogManager:
             output_filename = f"{base_filename}_processed.csv"
             output_filepath = os.path.join(output_dir, output_filename)
             log.export_to_csv(output_filepath)
+
+            # --- WAE QTC Data Export ---
+            if log.contest_definition.contest_name.startswith('WAE'):
+                qtcs_df = getattr(log, 'qtcs_df', pd.DataFrame())
+                if not qtcs_df.empty:
+                    qtcs_filename = f"{base_filename}_qtcs.csv"
+                    qtcs_filepath = os.path.join(output_dir, qtcs_filename)
+                    # Format QTC_GRP to prevent Excel from auto-formatting as a date
+                    qtcs_df['QTC_GRP'] = '="' + qtcs_df['QTC_GRP'].astype(str) + '"'
+                    qtcs_df.to_csv(qtcs_filepath, index=False, na_rep='')
+                    logging.info(f"WAE QTC data saved to: {qtcs_filepath}")
+
+            # --- Hourly ADIF Debug File Generation ---
+            if debug_data:
+                debug_adif_dir = os.path.join(output_dir, "Debug", "adif_files")
+                os.makedirs(debug_adif_dir, exist_ok=True)
+                logging.info(f"Generating hourly ADIF debug files in: {debug_adif_dir}")
+
+                if log._log_manager_ref and log._log_manager_ref.master_time_index is not None:
+                    for hour in log._log_manager_ref.master_time_index:
+                        hourly_df = log.qsos_df[log.qsos_df['Datetime'].dt.floor('h') == hour]
+                        
+                        # Create a lightweight, temporary log object for export
+                        temp_log = ContestLog(
+                            contest_name=log.contest_name, cabrillo_filepath=None,
+                            root_input_dir=log.root_input_dir, cty_dat_path=log.cty_dat_path
+                        )
+                        temp_log.qsos_df = hourly_df
+                        temp_log.metadata = log.metadata
+
+                        filename = f"{hour.strftime('%Y-%m-%d_%H00')}.adi"
+                        filepath = os.path.join(debug_adif_dir, filename)
+                        
+                        # The standard ADIF export handles empty dataframes gracefully
+                        temp_log.export_to_adif(filepath)
+
             
             # --- ADIF Export (if enabled for this contest) ---
             if getattr(log.contest_definition, 'enable_adif_export', False):
@@ -293,7 +274,7 @@ class LogManager:
                     if line.upper().startswith('QSO:'):
                         parts = line.split()
                         date_str = parts[3]
-                        return pd.to_datetime(date_str)
+                        return pd.to_datetime(date_str).tz_localize('UTC')
         except Exception:
             return pd.Timestamp.now(tz='UTC')
         return pd.Timestamp.now(tz='UTC')

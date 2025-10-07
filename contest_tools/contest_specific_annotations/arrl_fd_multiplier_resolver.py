@@ -1,12 +1,16 @@
-# Contest Log Analyzer/contest_tools/contest_specific_annotations/arrl_fd_multiplier_resolver.py
-#
-# Version: 0.88.1-Beta
-# Date: 2025-09-21
+# contest_tools/contest_specific_annotations/arrl_fd_multiplier_resolver.py
 #
 # Purpose: Provides contest-specific logic to resolve the ARRL/RAC Section
 #          from the ARRL Field Day exchange.
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+#
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
+#
+# Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -14,23 +18,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-#
 # --- Revision History ---
-## [0.88.1-Beta] - 2025-09-21
-### Fixed
-# - Corrected function signature to comply with the standard resolver contract.
-## [0.89.2-Beta] - 2025-09-17
-### Changed
-# - Refactored module to be data-driven, reading its target column name
-#   from the ContestDefinition object instead of using a hard-coded value.
-# - Updated function signature to the new four-argument standard.
-## [0.70.22-Beta] - 2025-09-10
-### Changed
-# - Updated `resolve_multipliers` to accept `root_input_dir` as a
-#   parameter, in compliance with Principle 15.
-## [0.39.0-Beta] - 2025-08-18
-# - Initial release of the ARRL Field Day multiplier resolver.
-#
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 import pandas as pd
 import os
 from typing import Optional, Any, Dict

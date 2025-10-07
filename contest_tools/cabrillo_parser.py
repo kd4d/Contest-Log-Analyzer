@@ -1,15 +1,15 @@
-# Contest Log Analyzer/contest_tools/cabrillo_parser.py
+# contest_tools/cabrillo_parser.py
 #
 # Purpose: Provides functionality to parse Cabrillo log files into a Pandas DataFrame
 #          and extract log metadata. It uses a ContestDefinition object to guide
 #          the parsing of contest-specific header fields and QSO exchange formats.
 #
-# Author: Mark Bailey, KD4D
-# Contact: kd4d@kd4d.org
-# Date: 2025-08-31
-# Version: 0.55.11-Beta
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -18,19 +18,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.55.11-Beta] - 2025-08-31
-### Added
-# - Created a new, public helper function `parse_qso_common_fields` to
-#   centralize the robust two-pattern (HF/VHF+) parsing logic.
-### Changed
-# - The main `_parse_qso_line` function is now a thin wrapper around the
-#   new shared helper function. This completes the refactoring to support
-#   the technical debt cleanup sprint for all custom parsers.
-## [0.55.9-Beta] - 2025-08-31
-### Changed
-# - Refactored the parser to use an internal, two-pattern regex system
-#   to robustly handle both HF (kHz) frequencies and VHF+ band designators.
-# - The primary QSO parsing regex is no longer loaded from JSON.
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
 
 import re
 import pandas as pd

@@ -1,42 +1,25 @@
-# Contest Log Analyzer/contest_tools/reports/text_continent_summary.py
+# contest_tools/reports/text_continent_summary.py
 #
 # Purpose: A text report that generates a summary of QSOs per continent,
 #          broken down by band for multiple logs.
 #
-# Author: Mark Bailey, KD4D
-# Contact: kd4d@kd4d.org
-# Date: 2025-08-25
-# Version: 0.37.2-Beta
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0.
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.37.2-Beta] - 2025-08-25
-### Changed
-# - Modified report logic to be data-driven, omitting sections for
-#   continents with zero QSOs to improve readability.
-## [0.37.1-Beta] - 2025-08-16
-### Fixed
-# - Corrected file writing logic to append a final newline character,
-#   ensuring compatibility with diff utilities.
-# All notable changes to this project will be documented in this file.
-# The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
-# and this project aims to adhere to Semantic Versioning (https://semver.org/).
-## [0.26.4-Beta] - 2025-08-04
-### Changed
-# - Standardized the report header to use a two-line title with proper formatting.
-# - The 'On-Time' column is now correctly hidden if the contest has no
-#   defined operating time limits.
-## [0.26.3-Beta] - 2025-08-04
-### Changed
-# - Standardized the report header to use a two-line title.
-### Fixed
-# - Redundant 'Total' column is now omitted for single-band contests.
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 from typing import List
 import pandas as pd
 import os

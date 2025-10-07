@@ -1,10 +1,15 @@
-# Contest Log Analyzer/contest_tools/score_calculators/wae_calculator.py
+# contest_tools/score_calculators/wae_calculator.py
+#
+# Purpose: This module provides the complex, contest-specific time-series
+#          score calculator for the Worked All Europe (WAE) Contest.
+#
 #
 # Author: Gemini AI
-# Date: 2025-09-21
-# Version: 0.88.1-Beta
+# Date: 2025-10-04
+# Version: 0.90.8-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -12,29 +17,23 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-#
-# Purpose: This module provides the complex, contest-specific time-series
-#          score calculator for the Worked All Europe (WAE) Contest.
-#
 # --- Revision History ---
-## [0.88.1-Beta] - 2025-09-21
-### Changed
-# - Added the `weighted_mults` column to the output DataFrame to
-#   provide data for downstream diagnostic reports.
-# - Enhanced module to calculate and add per-band weighted multiplier columns.
-## [0.88.0-Beta] - 2025-09-21
-### Changed
-# - Synchronized version with `wae_calculator` fix.
-## [0.85.3-Beta] - 2025-09-21
-### Fixed
-# - Corrected a bug in the multiplier counting logic by filtering for
-#   non-null values before dropping duplicates, preventing valid
-#   multipliers from being discarded.
-## [0.85.2-Beta] - 2025-09-13
-# - Initial release.
-#
+# [0.90.8-Beta] - 2025-10-04
+# - Added cumulative QSO and QTC counts to the final diagnostic DataFrame
+#   to provide a more complete trace for debugging.
+# [0.90.7-Beta] - 2025-10-04
+# - Added diagnostic logging to print the entire final time-series DataFrame
+#   to assist in debugging score discrepancies.
+# [0.90.6-Beta] - 2025-10-04
+# - Added diagnostic logging to identify and report malformed QTC records
+#   that are dropped during timestamp parsing.
+# [0.90.5-Beta] - 2025-10-01
+# - Corrected scoring logic to derive the QSO count from the same filtered
+#   DataFrame as the multiplier count, ensuring alignment.
+
 import pandas as pd
 import numpy as np
+import logging
 from typing import TYPE_CHECKING
 
 from .calculator_interface import TimeSeriesCalculator
@@ -61,21 +60,42 @@ class WaeCalculator(TimeSeriesCalculator):
         if master_index is None or df_non_dupes.empty:
             return pd.DataFrame()
 
-        qsos_df_sorted = df_non_dupes.dropna(subset=['Datetime']).sort_values('Datetime')
+        # --- Filter out QSOs with "Unknown" multipliers before any calculation ---
+        df_for_scoring = df_non_dupes.copy()
+        mult_cols = ['Mult1', 'Mult2']
+        for col in mult_cols:
+            if col in df_for_scoring.columns:
+                df_for_scoring = df_for_scoring[df_for_scoring[col] != 'Unknown']
+
+        qsos_df_sorted = df_for_scoring.dropna(subset=['Datetime']).sort_values('Datetime')
+
+        # --- Create a filtered DataFrame containing only QSOs with valid multipliers ---
+        df_mults = qsos_df_sorted[qsos_df_sorted[mult_cols].notna().any(axis=1)]
 
         # --- 1. Calculate Cumulative Contact Counts (QSOs + QTCs) ---
-        ts_qso_count = pd.Series(1, index=qsos_df_sorted['Datetime']).resample('h').count().cumsum()
+        # Base the QSO count on the df_mults DF, which only contains QSOs with valid multipliers.
+        ts_qso_count = pd.Series(1, index=df_mults['Datetime']).resample('h').count().cumsum()
         ts_qso_count = ts_qso_count.reindex(master_index, method='ffill').fillna(0)
 
         if not qtcs_df.empty:
+            logging.info(f"--- WAE QTC Processing ---")
+            logging.info(f"Initial QTC records received: {len(qtcs_df)}")
             qtcs_df['Datetime'] = pd.to_datetime(
                 qtcs_df['QTC_DATE'] + ' ' + qtcs_df['QTC_TIME'],
                 format='%Y-%m-%d %H%M', errors='coerce'
             )
+            
+            invalid_qtcs = qtcs_df[qtcs_df['Datetime'].isna()]
+            if not invalid_qtcs.empty:
+                logging.warning(f"Found {len(invalid_qtcs)} QTC records with malformed timestamps that will be dropped:")
+                for _, row in invalid_qtcs.iterrows():
+                    logging.warning(f"  - Dropped QTC: DATE={row.get('QTC_DATE')} TIME={row.get('QTC_TIME')}")
+
             if qtcs_df['Datetime'].dt.tz is None:
-                 qtcs_df['Datetime'] = qtcs_df['Datetime'].dt.tz_localize('UTC')
+                qtcs_df['Datetime'] = qtcs_df['Datetime'].dt.tz_localize('UTC')
             
             qtcs_df_sorted = qtcs_df.dropna(subset=['Datetime']).sort_values('Datetime')
+            logging.info(f"Valid QTC records after parsing: {len(qtcs_df_sorted)}")
             ts_qtc_count = pd.Series(1, index=qtcs_df_sorted['Datetime']).resample('h').count().cumsum()
             ts_qtc_count = ts_qtc_count.reindex(master_index, method='ffill').fillna(0)
         else:
@@ -84,9 +104,6 @@ class WaeCalculator(TimeSeriesCalculator):
         ts_contact_total = ts_qso_count + ts_qtc_count
 
         # --- 2. Calculate Cumulative Weighted Multipliers ---
-        mult_cols = ['Mult1', 'Mult2']
-        df_mults = qsos_df_sorted[qsos_df_sorted[mult_cols].notna().any(axis=1)]
-        
         new_mults_events = []
         for col in mult_cols:
             if col in df_mults.columns:
@@ -107,6 +124,7 @@ class WaeCalculator(TimeSeriesCalculator):
         # --- 2a. Calculate Cumulative Weighted Multipliers PER BAND ---
         per_band_mult_ts = {}
         bands_in_log = df_mults['Band'].unique()
+        
         for band in self._BAND_WEIGHTS.keys():
             if band in bands_in_log:
                 df_band_mults = df_mults[df_mults['Band'] == band]
@@ -146,6 +164,8 @@ class WaeCalculator(TimeSeriesCalculator):
 
         # --- 5. Assemble Final DataFrame ---
         result_df = pd.DataFrame({
+            'ts_qso_count': ts_qso_count,
+            'ts_qtc_count': ts_qtc_count,
             'run_qso_count': run_qso_count,
             'sp_unk_qso_count': sp_unk_qso_count,
             'run_score': ts_run_score,
@@ -157,5 +177,8 @@ class WaeCalculator(TimeSeriesCalculator):
         # Add the per-band multiplier time-series to the final result
         for col_name, series in per_band_mult_ts.items():
             result_df[col_name] = series
+
+        # --- Final Diagnostic Logging ("After" Snapshot) ---
+#        logging.info(f"Final WAE time-series DataFrame:\n{result_df.to_string()}")
 
         return result_df.astype(int)

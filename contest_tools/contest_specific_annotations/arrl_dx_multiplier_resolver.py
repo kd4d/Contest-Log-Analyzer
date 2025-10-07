@@ -1,14 +1,14 @@
-# Contest Log Analyzer/contest_tools/contest_specific_annotations/arrl_dx_multiplier_resolver.py
+# contest_tools/contest_specific_annotations/arrl_dx_multiplier_resolver.py
 #
 # Purpose: Provides contest-specific logic to resolve ARRL DX Contest multipliers
 #          (States/Provinces) from callsigns or explicit exchange fields.
 #
-# Author: Mark Bailey, KD4D
-# Contact: kd4d@kd4d.org
-# Date: 2025-09-18
-# Version: 0.89.4-Beta
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -17,36 +17,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.89.4-Beta] - 2025-09-18
-### Changed
-# - Refactored module to be data-driven, reading target column names
-#   from the ContestDefinition object instead of using hard-coded values.
-# - Updated function signature to the new four-argument standard.
-## [0.70.21-Beta] - 2025-09-10
-### Changed
-# - Updated `resolve_multipliers` signature to accept `root_input_dir` to align
-#   with the standardized resolver contract, fixing a TypeError.
-## [0.62.0-Beta] - 2025-09-08
-### Changed
-# - Updated script to read the new CONTEST_INPUT_DIR environment variable.
-## [0.40.2-Beta] - 2025-08-24
-### Changed
-# - Refactored to use the standard AliasLookup utility.
-# - Added logic to populate multiplier name columns (STPROV_MultName,
-#   Mult_DXCCName) to support enhanced reporting.
-## [0.33.2-Beta] - 2025-08-21
-### Added
-# - Added a temporary diagnostic log to print the source row for any
-#   40M SD, NF, or YT multipliers at the point of resolution.
-## [0.33.0-Beta] - 2025-08-21
-### Changed
-# - Refactored to use the new shared StateAndProvinceLookup utility.
-# - Implemented the final, precise two-path algorithm for the "exchange
-#   override", correctly handling US/VE, US-affiliated DX, and foreign
-#   stations.
-## [0.31.1-Beta] - 2025-08-21
-### Fixed
-# - Corrected a SyntaxError on line 66 by adding a missing colon.
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 import pandas as pd
 import os
 import logging

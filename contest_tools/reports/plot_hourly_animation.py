@@ -1,12 +1,16 @@
-# Contest Log Analyzer/contest_tools/reports/plot_hourly_animation.py
-#
-# Version: 0.88.2-Beta
-# Date: 2025-09-21
+# contest_tools/reports/plot_hourly_animation.py
 #
 # Purpose: A plot report that generates a series of hourly images and compiles
 #          them into an animated video showing contest progression.
 #          It also creates a standalone interactive HTML version of the chart.
 # Copyright (c) 2025 Mark Bailey, KD4D
+#
+# Author: Gemini AI
+# Date: 2025-10-05
+# Version: 0.90.4-Beta
+#
+# Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -15,117 +19,12 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.88.2-Beta] - 2025-09-21
-### Changed
-# - Updated debug data generation to populate the `by_band` multiplier
-#   breakdown using the new per-band data from the WAE calculator.
-# - Refactored debug logic to be generic, supporting per-band multiplier
-#   diagnostics for both WAE and standard contests.
-## [0.88.0-Beta] - 2025-09-21
-### Changed
-# - Synchronized version with `wae_calculator` fix.
-## [0.87.2-Beta] - 2025-09-21
-### Fixed
-# - Corrected a variable name mismatch in the _generate_video function
-#   that prevented multiplier diagnostics from appearing in debug files.
-## [0.87.1-Beta] - 2025-09-21
-### Added
-# - Amended the per-frame debug file to include a generic, contest-aware
-#   multiplier breakdown for enhanced diagnostics.
-## [0.87.0-Beta] - 2025-09-18
-### Added
-# - Added a new "Implementation Details and Conventions" section to the
-#   Custom ADIF Exporter contract to document N1MM-specific tagging
-#   requirements and the APP_CLA_ tag convention.
-## [0.86.1-Beta] - 2025-09-13
-### Fixed
-# - Removed a redundant tz_localize call, which caused a TypeError now
-#   that timezone awareness is handled upstream by the score calculators.
-## [0.85.11-Beta] - 2025-09-13
-### Fixed
-# - Resolved a TypeError by explicitly localizing the timezone-naive
-#   index of an intermediate DataFrame to UTC before reindexing.
-## [0.85.10-Beta] - 2025-09-13
-### Changed
-# - Refactored the _prepare_data method to source its cumulative score
-#   and QSO data from the new, centralized time_series_score_df, removing
-#   all internal calculation logic to align with the new architecture.
-## [0.80.3-Beta] - 2025-09-12
-### Fixed
-# - Corrected the band sorting logic to use a robust, two-step pattern
-#   to prevent a ValueError during report generation.
-## [0.58.0-Beta] - 2025-09-03
-### Changed
-# - Updated the chart title to the standard three-line format to conform
-#   to the official CLA Reports Style Guide.
-## [0.57.40-Beta] - 2025-09-03
-### Fixed
-# - Modified the video generation to use the system's temporary
-#   directory for frame creation, preventing file-locking errors
-#   caused by cloud sync services like OneDrive.
-## [0.57.39-Beta] - 2025-09-03
-### Fixed
-# - Applied the resilient retry logic to the initial cleanup call at the
-#   start of the video generation function. This prevents a crash if
-#   the temporary directory is locked from a previous failed run.
-## [0.56.25-Beta] - 2025-08-31
-### Fixed
-# - Replaced the cleanup logic with a resilient 10-second retry loop to
-#   prevent a PermissionError race condition when deleting temp files.
-# - Downgraded the final cleanup failure message from an error to a warning.
-## [0.56.8-Beta] - 2025-08-31
-### Fixed
-# - Updated band sorting logic to use the refactored _HAM_BANDS
-#   variable from the ContestLog class.
-## [0.38.2-Beta] - 2025-08-18
-### Fixed
-# - Corrected a TypeError in the animation's debug data generation by
-#   manually creating a nested dictionary to prevent invalid tuple keys.
-## [0.38.1-Beta] - 2025-08-18
-### Fixed
-# - Expanded the frame_debug_data dictionary to be a complete snapshot
-#   of the source data for all three animation charts, fixing the
-#   incomplete debug file bug.
-## [0.38.0-Beta] - 2025-08-18
-### Added
-# - Added call to the save_debug_data helper function inside the per-frame
-#   loop to dump the source data for each frame of the animation.
-## [0.36.7-Beta] - 2025-08-16
-### Fixed
-# - Corrected a SyntaxError by adding a missing colon to the color
-#   shades dictionary in the _get_color_shades function.
-## [0.36.6-Beta] - 2025-08-16
-### Changed
-# - Modified the video generation loop to display the final frame for
-#   30 seconds, while all other frames remain at 2 seconds.
-## [0.36.5-Beta] - 2025-08-15
-### Fixed
-# - Replaced the flawed, manual cumulative multiplier calculation with a
-#   vectorized approach. The new logic correctly uses pandas resample/cumsum
-#   methods, ensuring multipliers from the final hour are included in the score.
-## [0.36.4-Beta] - 2025-08-15
-### Fixed
-# - Corrected a SyntaxError on line 57 by adding a missing colon in the
-#   `_get_color_shades` dictionary definition.
-## [0.36.3-Beta] - 2025-08-15
-### Fixed
-# - Corrected the animation timeline calculation to use `.floor('h')`
-#   directly on the max timestamp. This prevents the final hour from being
-#   truncated when the last QSO is exactly on the hour.
-## [0.35.28-Beta] - 2025-08-15
-### Fixed
-# - Corrected the animation timeline calculation to prevent an extra
-#   hour from being added to the end of the contest.
-## [0.35.21-Beta] - 2025-08-15
-### Changed
-# - Updated the color scheme for vertical bar charts to use bright red
-#   for 'Unknown' QSOs and a dark/light shading for 'Run'/'S&P'.
-## [0.35.20-Beta] - 2025-08-14
-### Fixed
-# - Fixed blank hourly rate chart by ensuring all Run/S&P/Unknown
-#   columns are present after data preparation.
-# - Added vertical spacing (hspace) to the GridSpec layout to
-#   resolve all element overlaps.
+# [0.90.4-Beta] - 2025-10-05
+# - Added cumulative QTC count to the top chart section of the per-frame
+#   debug JSON output, specifically for WAE contests.
+# [0.90.0-Beta] - 2025-10-01
+# - Set new baseline version for release.
+
 import pandas as pd
 import os
 import logging
@@ -278,8 +177,12 @@ class Report(ContestReport):
                     # Data for Top Chart (Cumulative Totals)
                     top_chart_data = {
                         'score': score_ts['score'].get(hour, 0),
-                        'qsos': score_ts['run_qso_count'].get(hour, 0) + score_ts['sp_unk_qso_count'].get(hour, 0)
+                        'qsos': score_ts['run_qso_count'].get(hour, 0) + score_ts['sp_unk_qso_count'].get(hour, 0),
                     }
+
+                    # Add QTC count to debug data only for WAE contest
+                    if contest_def.contest_name.startswith('WAE') and 'ts_qtc_count' in score_ts.columns:
+                        top_chart_data['qtcs'] = score_ts['ts_qtc_count'].get(hour, 0)
     
                     # Data for Bottom-Left Chart (Hourly Rates)
                     hourly_rate_data = {}
@@ -397,7 +300,7 @@ class Report(ContestReport):
                                 y_values.append(count)
                         
                         ax_bottom_left.bar([x + j * bar_width_hourly for x in range(len(x_labels_hourly))], y_values,
-                                          width=bar_width_hourly, bottom=bottoms, color=color_shades[run_state], alpha=0.8)
+                                       width=bar_width_hourly, bottom=bottoms, color=color_shades[run_state], alpha=0.8)
                         bottoms = [b + y for b, y in zip(bottoms, y_values)]
                 
                 ax_bottom_left.set_xticks([x + (bar_width_hourly * (num_logs-1) / 2) for x in range(len(x_labels_hourly))])
@@ -439,7 +342,7 @@ class Report(ContestReport):
 
                     # Use a different duration for the final frame
                     if i == total_frames - 1:
-                         duration = self.LAST_FRAME_DURATION_SECONDS
+                        duration = self.LAST_FRAME_DURATION_SECONDS
                     else:
                         duration = self.FRAME_DURATION_SECONDS
                     

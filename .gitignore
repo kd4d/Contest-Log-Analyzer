@@ -3,6 +3,8 @@
 *.csv
 *.xls*
 *.png
+*.ops
+*.wt4
 __pycache__/
 CONTEST_LOGS_REPORTS/reports/
 CONTEST_LOGS_REPORTS/reports_*/

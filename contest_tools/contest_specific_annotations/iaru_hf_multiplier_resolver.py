@@ -1,10 +1,17 @@
-# Contest Log Analyzer/contest_tools/contest_specific_annotations/iaru_hf_multiplier_resolver.py
+# contest_tools/contest_specific_annotations/iaru_hf_multiplier_resolver.py
+#
+# Purpose: Provides a custom, contest-specific multiplier resolver for the
+#          IARU HF World Championship contest. It parses the received exchange
+#          to identify and categorize the three distinct multiplier types:
+#          ITU Zones, IARU HQ Stations, and IARU Officials.
+#
 #
 # Author: Gemini AI
-# Date: 2025-09-16
-# Version: 0.88.2-Beta
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -12,35 +19,9 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-#
-# Purpose: Provides a custom, contest-specific multiplier resolver for the
-#          IARU HF World Championship contest. It parses the received exchange
-#          to identify and categorize the three distinct multiplier types:
-#          ITU Zones, IARU HQ Stations, and IARU Officials.
-#
 # --- Revision History ---
-## [0.88.2-Beta] - 2025-09-16
-### Changed
-# - Refactored module to be compliant with the new, data-driven resolver
-#   architecture. The main function now accepts a ContestDefinition object
-#   and uses it as a "blueprint" to populate the correct columns.
-# - Reworked logic to be key-based instead of order-based for robustness.
-## [0.70.25-Beta] - 2025-09-10
-### Changed
-# - Updated `resolve_multipliers` and `_load_officials_set` to accept
-#   `root_input_dir` as a parameter, in compliance with Principle 15.
-## [0.62.2-Beta] - 2025-09-08
-### Changed
-# - Updated script to read the new CONTEST_INPUT_DIR environment variable.
-## [0.55.6-Beta] - 2025-08-30
-### Changed
-# - Added the standard copyright and MPL 2.0 license block to the header
-#   to conform to project standards.
-## [0.55.4-Beta] - 2025-08-29
-### Fixed
-# - Simplified logic to read the clean 'RcvdMult' column from the parser,
-#   removing the incorrect string-splitting logic.
-# - Updated the input column check from 'RcvdExchangeFull' to 'RcvdMult'.
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
 
 import pandas as pd
 import os

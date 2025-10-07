@@ -1,13 +1,13 @@
-# Contest Log Analyzer/contest_tools/reports/report_interface.py
+# contest_tools/reports/report_interface.py
 #
 # Purpose: Defines the abstract base class for all report generators.
 #
-# Author: Mark Bailey, KD4D
-# Contact: kd4d@kd4d.org
-# Date: 2025-08-02
-# Version: 0.26.1-Beta
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -15,52 +15,9 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 # --- Revision History ---
-# All notable changes to this project will be documented in this file.
-# The format is based on "Keep a Changelog" (https://keepachangelog.com/en/1.0.0/),
-# and this project aims to adhere to Semantic Versioning (https://semver.org/).
-
-## [0.26.1-Beta] - 2025-08-02
-### Fixed
-# - Converted report_id, report_name, and report_type from @property methods
-#   to simple class attributes. This fixes a bug where accessing these
-#   attributes at the class level would return a property object instead of the
-#   string value.
-
-## [0.22.1-Beta] - 2025-07-31
-### Changed
-# - Replaced the boolean support properties with class attributes for a more
-#   robust, class-level implementation.
-
-## [0.22.0-Beta] - 2025-07-31
-### Changed
-# - Replaced the 'comparison_mode' property with three distinct boolean
-#   properties ('supports_single', 'supports_pairwise', 'supports_multi')
-#   to create a more explicit and extensible report generation system.
-
-## [0.21.0-Beta] - 2025-07-28
-### Removed
-# - Removed the 'mult_type' argument from the generate() method's docstring
-#   as it is no longer used.
-
-## [0.15.0-Beta] - 2025-07-25
-# - Standardized version for final review. No functional changes.
-
-## [0.12.0-Beta] - 2025-07-22
-### Changed
-# - Refactored the generate() method to use **kwargs for flexible argument
-#   passing, improving scalability for future reports with custom arguments.
-# - Added 'mult_type' optional string argument to the generate() method
-#   to allow reports to select between 'dxcc' and 'wae' multipliers.
-
-## [0.11.0-Beta] - 2025-07-21
-### Changed
-# - Added 'include_dupes' optional boolean argument to the generate() method
-#   signature to allow reports to optionally include duplicate QSOs.
-
-## [0.10.0-Beta] - 2025-07-21
-# - Initial release of the report interface.
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
 
 from abc import ABC, abstractmethod
 from typing import List

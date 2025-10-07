@@ -1,12 +1,16 @@
-# Contest Log Analyzer/contest_tools/reports/plot_comparative_heatmap.py
-#
-# Version: 0.86.0-Beta
-# Date: 2025-09-13
+# contest_tools/reports/plot_comparative_heatmap.py
 #
 # Purpose: A plot report that generates a comparative, split-cell heatmap to
 #          visualize the band activity of two logs side-by-side.
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+#
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
+#
+# Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -14,39 +18,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-#
 # --- Revision History ---
-## [0.86.0-Beta] - 2025-09-13
-### Fixed
-# - Removed redundant tz_localize calls, which caused a TypeError now
-#   that timezone awareness is handled upstream by the score calculators.
-## [0.57.3-Beta] - 2025-09-03
-### Changed
-# - Updated instantiation of the ComparativeHeatmapChart helper to pass
-#   the report_name, enabling standardized two-line title formatting.
-## [0.40.4-Beta] - 2025-08-19
-### Fixed
-# - Corrected a TypeError during debug data generation by converting
-#   pandas Timestamp keys to strings before JSON serialization.
-## [0.40.3-Beta] - 2025-08-19
-### Fixed
-# - Refactored data preparation to establish a single, timezone-aware
-#   master time axis for each log pair, fixing the empty plot and
-#   missing debug data bugs.
-## [0.40.2-Beta] - 2025-08-19
-### Changed
-# - Refactored the report into an autonomous, exhaustive analysis tool.
-# - It now automatically generates all possible pairwise comparisons.
-# - It now automatically generates breakdowns for each band and for each
-#   mode within each band if applicable.
-## [0.40.1-Beta] - 2025-08-19
-### Changed
-# - Modified the script to pass the full metadata dictionary to the
-#   ComparativeHeatmapChart class to support standard title generation.
-## [0.40.0-Beta] - 2025-08-19
-# - Initial release of the comparative heatmap report, which uses the
-#   ComparativeHeatmapChart helper class.
-#
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 import pandas as pd
 import os
 import logging

@@ -1,9 +1,51 @@
 # AIAgentWorkflow.md
 
-**Version: 1.1.0-Beta**
-**Date: 2025-09-29**
+**Version: 1.1.6-Beta**
+**Date: 2025-10-07**
 ---
 ### --- Revision History ---
+## [1.1.6-Beta] - 2025-10-07
+### Changed
+# - Amended Protocol 1.7 (Project Structure Onboarding) to include the
+#   `CONTEST_LOGS_REPORTS/` and `Utils/` directories and to clarify the
+#   role of the `CONTEST_INPUT_DIR` environment variable.
+## [1.1.5-Beta] - 2025-10-06
+### Changed
+# - Amended Protocol 4.4 (Confirmed File Delivery Protocol) to add a
+#   mandatory "Plan Execution Status Update" step after a file is
+#   acknowledged, making multi-file plan execution state explicit.
+## [1.1.4-Beta] - 2025-10-06
+### Changed
+# - Amended Protocol 2.5 (Implementation Plan) to explicitly require the
+#   standard unified diff format for the "Surgical Change Verification (`diff`)"
+#   section.
+## [1.1.3-Beta] - 2025-10-06
+### Changed
+# - Amended Protocol 2.1 (Analysis and Discussion) to add a mandatory
+#   "Session Version Check Mandate" as the first step of any new task.
+# - Amended Protocol 2.5 (Implementation Plan) to strengthen the "Affected
+#   Modules Checklist" by explicitly linking it to a preliminary systemic
+#   bug audit.
+# - Amended Protocol 3.4 (Versioning Protocol) to formalize a standard
+#   metadata and versioning block for all `.json` definition files.
+## [1.1.2-Beta] - 2025-10-01
+### Added
+# - Added Protocol 3.8 (ASCII-7 Deliverable Mandate) to enforce that all
+#   generated file content uses 7-bit ASCII.
+# - Added Protocol 4.6 (Emoji Prohibition) to the communication standards.
+# - Added Protocol 7.7 (New Dependency Protocol) to formalize the process
+#   for adding new third-party libraries.
+# - Added Protocol 7.8 (Refactoring Proposal Protocol) to formalize how
+#   non-essential code improvements are proposed and approved.
+## [1.1.1-Beta] - 2025-09-29
+### Changed
+# - Amended Principle 7 (No Unrequested Changes) to explicitly forbid
+#   making secondary changes based on logical inference.
+### Added
+# - Added a "Summary Mandate" step to Protocol 2.0 (Exploratory
+#   Analysis Protocol) to ensure mutual understanding before a task begins.
+# - Added Protocol 6.12 (Protocol Violation Analysis) to formalize the
+#   procedure for analyzing and recovering from a protocol violation.
 ## [1.1.0-Beta] - 2025-09-29
 ### Added
 # - Added Principle 10 (Principle of Architectural Layers) to formalize
@@ -505,6 +547,7 @@ These are the foundational rules that govern all interactions and analyses.
 5.  **Protocol Adherence is Paramount.** All protocols must be followed with absolute precision. Failure to do so invalidates the results and undermines the development process. There is no room for deviation unless a deviation is explicitly requested by the AI and authorized by the user.
 6.  **Trust the User's Diagnostics.** When the user reports a bug or a discrepancy, their description of the symptoms and their corrections should be treated as the ground truth. The AI's primary task is to find the root cause of those specific, observed symptoms, not to propose alternative theories. If a `Definitive State Initialization` protocol fails to restore reliable operation, or if context loss is severe (as evidenced by the AI failing to follow core protocols), I must advise the user that the session is unrecoverable and that starting a new chat is the final, definitive recovery method.
 7.  **No Unrequested Changes.** The AI will only implement changes explicitly requested by the user. All suggestions for refactoring, library changes, or stylistic updates must be proposed and approved by the user before implementation.
+This principle strictly forbids making secondary changes based on logical inference. Any "cleanup" or consequential modification not explicitly part of the user's request must be proposed separately for approval.
 8.  **Technical Diligence Over Conversational Assumptions.** Technical tasks are not conversations. Similar-looking prompts do not imply similar answers. Each technical request must be treated as a unique, atomic operation. The AI must execute a full re-computation from the current project state for every request, ignoring any previous results or cached data. **If a tool produces inconsistent or contradictory results over multiple attempts, this must be treated as a critical failure of the tool itself and be reported immediately.**
 9.  **Prefer Logic in Code, Not Data.** The project's design philosophy is to keep the `.json` definition files as simple, declarative maps. All complex, conditional, or contest-specific logic should be implemented in dedicated Python modules.
 10. **Principle of Architectural Layers.** Business logic must be kept separate from the user interface (UI) layer. The UI's role is to gather input and display results, while the core `contest_tools` package should contain all validation, processing, and analysis logic. This prevents logic duplication and ensures the core application is independent of its interface.
@@ -570,7 +613,8 @@ These are the step-by-step procedures for common, day-to-day development tasks.
 
 1.6. **Session Versioning Authority Protocol.** The user has the sole authority to set and change the session version series. The version series is established as the final step of the **Definitive State Initialization Protocol (1.4)**. The user may change this version series at any time by issuing a new declaration. The AI must use the most recently declared version series for all file modifications.
 1.7. **Project Structure Onboarding.** After a state initialization, the AI will confirm its understanding of the high-level project architecture.
-The `Logs/` and `data/` directories are located within a root path defined by the `CONTEST_INPUT_DIR` environment variable.
+* `CONTEST_LOGS_REPORTS/`: A subdirectory containing all input data. The `CONTEST_INPUT_DIR` environment variable must be set to this path (e.g., `CONTEST_LOGS_REPORTS/`). It contains the `data/` and `Logs/` subdirectories.
+* `Utils/`: Top-level utility scripts, such as logging configuration.
 * `contest_tools/`: The core application library.
 * `contest_tools/reports/`: The "plug-in" directory for all report modules.
 * `contest_tools/adif_exporters/`: Custom ADIF exporters for specific contest requirements.
@@ -579,8 +623,6 @@ The `Logs/` and `data/` directories are located within a root path defined by th
 * `contest_tools/score_calculators/`: Pluggable time-series score calculators.
 * `Docs/`: All user and developer documentation.
 * `test_code/`: Utility and prototype scripts not part of the main application. These scripts are not held to the same change control and documentation standards (e.g., a revision history is not required).
-* `Logs/`: Contains all Cabrillo log files for analysis.
-* `data/`: Required data files (e.g., `cty.dat`).
 ### 2. Task Execution Workflow
 This workflow is a formal state machine that governs all development tasks, from initial request to final completion.
 
@@ -600,9 +642,12 @@ This workflow is a formal state machine that governs all development tasks, from
     This protocol provides a less formal mechanism for brainstorming and scoping new or complex features where the requirements are not yet well-defined. It precedes the main Task Execution Workflow.
     1. **Initiation**: The user initiates the protocol with a phrase like, "Let's begin an exploratory analysis on..."
     2. **Discussion**: A collaborative, iterative discussion occurs to define the problem, explore potential solutions, and clarify requirements. This phase is exempt from the strict "halt and wait" procedure of the main workflow.
-    3. **Conclusion**: The protocol concludes when the user and AI agree on a well-defined set of requirements. The user then formally initiates the **Task Execution Workflow (Protocol 2.1)** with the newly defined task.
+    3. **Conclusion**: The protocol concludes when the user and AI agree on a well-defined set of requirements.
+    4.  **Summary Mandate**: As the final step before concluding, the AI must provide a concise, numbered list summarizing the final, agreed-upon requirements.
+    The user then formally initiates the **Task Execution Workflow (Protocol 2.1)** with the newly defined task.
 
 2.1. **Analysis and Discussion**: The user provides a problem or feature request and asks for an analysis. The AI provides an initial analysis, and a discussion may follow to refine the understanding.
+    * **Session Version Check Mandate**: As the absolute first step of this protocol, before any analysis begins, I must verify that a session version series (e.g., `0.90.x-Beta`) has been established. If it has not, my only action will be to halt the task and request that you declare the session version series before I can proceed.
     * **Request to Proceed Mandate**: After concluding its analysis, the AI's next and only action MUST be to issue a standardized prompt asking for the user's explicit permission to create an implementation plan, using the keyword `Proceed`. The AI will not proceed to generate a plan without this authorization.
 __CODE_BLOCK__mermaid
 graph TD
@@ -637,8 +682,9 @@ __CODE_BLOCK__
         **1.  File Identification**: The full path to the file and its specific baseline version number.
         **2.  Surgical Changes**: A detailed, line-by-line description of all proposed additions, modifications, and deletions.
         **3.  Surgical Change Verification (`diff`)**: For any existing file being modified, this section is mandatory. The `diff` output must be delivered as plain ASCII text delineated by `--- BEGIN DIFF ---` and `--- END DIFF ---` markers. This section is not applicable for new files.
+        The `diff` must use the standard **unified format** (e.g., as generated by `diff -u`), which uses `@@` line indicators and `+`/`-` prefixes for changes.
         **3.a. Ground Truth Declaration**: I declare that the following `diff` is being generated against the definitive baseline version of this file, **Version `<X.Y.Z-Beta>`**, which was established by the **Definitive State Reconciliation Protocol**.
-        **4.  Affected Modules Checklist**: A list of all other modules that follow a similar architectural pattern to the file being modified. After presenting this list, I must explicitly ask the user whether fixes for these modules should be included in the current plan or deferred.
+        **4.  Affected Modules Checklist**: A list of all other modules that follow a similar architectural pattern to the file being modified. This list is the result of a preliminary audit performed in accordance with **Protocol 7.6 (Systemic Bug Eradication Protocol)**. In accordance with **Principle 11 (Assume Bugs are Systemic)**, my default recommendation will be to include fixes for all affected modules in the current plan. I must explicitly ask the user to confirm this course of action or to defer the other fixes.
         **5.  Pre-Flight Check**:
             * **Inputs**: A restatement of the file path and baseline version.
             * **Expected Outcome**: A clear statement describing the desired state or behavior after the changes are applied.
@@ -681,7 +727,7 @@ __CODE_BLOCK__
     2.  **Format**: The official versioning format is `x.y.z-Beta`, where `x` is the major version, `y` is the minor version, and `z` is the patch number.
     3.  **Source of Truth**: The version number for any given file is located within its own content.
         * **Python (`.py`) files**: Contained within a "Revision History" section in the file's docstring.
-        * **JSON (`.json`) files**: Stored as the value for a `"version"` parameter.
+        * **JSON (`.json`) Definition Files**: All contest definition files must contain a top-level metadata block with `_filename`, `_version`, and `_date` keys. The `_version` key is the absolute source of truth.
         * **Data (`.dat`) files**: Found within a commented revision history block.
     4.  **Update Procedure**: When a file is modified, its version number must be updated according to its scope as defined in **Protocol 3.4.1**.
         * For **Project Code & Standard Documentation**, the version must align with the current **session version series** (e.g., `0.88.x-Beta`). I will assign the next available patch number (`z`) within that series.
@@ -698,6 +744,7 @@ __CODE_BLOCK__
     3.  **Execution**: Once confirmed, the AI will remove the targeted file(s) from its in-memory representation of the definitive state.
     4.  **Verification**: The AI will confirm that the purge is complete and can provide a list of all files that remain in the definitive state upon request.
 3.7. **Temporary Column Preservation Protocol.** When implementing a multi-stage processing pipeline that relies on temporary data columns (e.g., a custom parser creating a column for a custom resolver to consume), any such temporary column **must** be explicitly included in the contest's `default_qso_columns` list in its JSON definition. The `contest_log.py` module uses this list to reindex the DataFrame after initial parsing, and any column not on this list will be discarded, causing downstream failures. This is a critical data integrity step in the workflow.
+3.8. **ASCII-7 Deliverable Mandate.** All files delivered by the AI must contain only 7-bit ASCII characters. This strictly forbids the use of extended Unicode characters (e.g., smart quotes, em dashes, non-standard whitespace) to ensure maximum compatibility and prevent file corruption.
 ### 4. Communication
 
 4.1. **Communication Protocol.** All AI communication will be treated as **technical writing**. The AI must use the exact, consistent terminology from the source code and protocols.
@@ -721,7 +768,10 @@ __CODE_BLOCK__
     6.  **Append Verification**: I will append the mandatory execution verification statement to the same response: "**I have verified that the file just delivered was generated by applying only the approved surgical changes to the baseline text, in compliance with Principle 9. Generative `diff` verification is complete and the delivered file is a confirmed match to the approved plan.**"
     7.  **Request Acknowledgment**: I will append a standardized prompt for the `Acknowledged` keyword to the same response.
     8.  **User Acknowledgment**: You must provide the exact, literal string `Acknowledged`. This completes the transaction for the file and updates the definitive state. If any other input is received, I will state that the delivery is not acknowledged and re-issue the prompt.
-    9.  **Loop**: I will repeat this protocol starting from Step 1 for the next file in the implementation plan until all files have been delivered and acknowledged.
+    9.  **Provide Plan Execution Status Update**: After receiving the `Acknowledged` keyword, I must provide a status update.
+        * **A. If files remain:** State which file has been completed and that I am proceeding to the next. For example: *"Acknowledgment received for file 1 of 3. Proceeding to the next file in the plan."*
+        * **B. If all files are complete:** State that all files have been delivered and that I am proceeding to the final step of the task. For example: *"Acknowledgment received. All 3 of 3 files in the implementation plan have been delivered and acknowledged. Proceeding to propose the verification command as required by Protocol 2.9."*
+    10. **Loop**: I will repeat this protocol starting from Step 1 for the next file in the implementation plan until all files have been delivered and acknowledged.
 4.5. **Standardized Keyword Prompts.** To ensure all prompts for user action are clear and unambiguous, they must follow the exact format below:
     __CODE_BLOCK__
     Please <ACTION> by providing the prompt <PROMPT>.
@@ -729,6 +779,7 @@ __CODE_BLOCK__
     * **`<ACTION>`**: A concise description of the action being requested (e.g., "approve the plan", "confirm the delivery").
     * **`<PROMPT>`**: The exact, literal, case-sensitive keyword required (e.g., `Approved`, `Acknowledged`, `Confirmed`, `Ready`, `Proceed`).
     * **Self-Verification Mandate**: Before outputting any prompt that requires a keyword, I must internally confirm that the prompt's structure is in 100% compliance with this format. This check is an explicit part of the prompt generation process itself.
+4.6. **Emoji Prohibition.** All AI communication must be professional and technical. The use of emojis or other non-technical graphical characters is forbidden in all responses.
 ---
 ## Part III: Project-Specific Implementation Patterns
 
@@ -790,7 +841,6 @@ These protocols are for troubleshooting, error handling, and non-standard situat
     1.  **Acknowledge Limitation and Request Counts:** The AI must first state its inability to read file headers directly. It will then ask the user to read and provide the `FILE_COUNT` value from the metadata header of each bundle file.
     2.  **Verify Counts:** The AI will parse the bundles and verify that its internal count of `--- FILE: ... ---` headers exactly matches the counts provided by the user. If they do not match, the initialization is aborted, and the AI will report the discrepancy.
     3.  **Report Success:** The AI will state that the integrity check has passed before proceeding with the rest of the initialization protocol.
-
 6.6. **Bundle Anomaly Detection Protocol.** This protocol is triggered during a **Definitive State Initialization** if the AI discovers logical inconsistencies within the provided bundles.
     1.  Halt the initialization process after parsing all bundles and successfully completing the **Bundle Integrity Check Protocol (6.5)**.
     2.  Report all discovered logical anomalies to the user. Examples include:
@@ -831,6 +881,14 @@ These protocols are for troubleshooting, error handling, and non-standard situat
         * **Step D: Summarize and Proceed.** Provide a concise summary of the re-established context from Steps B and C. Only after providing this summary am I permitted to proceed with a new analysis or implementation plan.
 ### 7. Miscellaneous Protocols
 
+6.12. **Protocol Violation Analysis.** This protocol is triggered upon detection of a protocol violation by either the user or the AI.
+    1.  **Halt**: Immediately halt the current task.
+    2.  **Acknowledge and Analyze**: Issue a formal "Protocol Violation Analysis" that includes:
+        * **A.** An acknowledgment of the specific violation.
+        * **B.** A direct quotation of the protocol that was violated.
+        * **C.** A root cause analysis explaining the failure to adhere to the protocol.
+        * **D.** A specific corrective action to ensure future adherence.
+    .  **Resume**: After the analysis is delivered, resume the original task from the state it was in before the violation.
 7.1. **Technical Debt Cleanup Protocol.** When code becomes convoluted, a **Technical Debt Cleanup Sprint** will be conducted to refactor the code for clarity, consistency, and maintainability.
 7.2. **Multi-Part Bundle Protocol.** If a large or complex text file cannot be transmitted reliably in a single block, the Multi-Part Bundle Protocol will be used. The AI will take the single file and split its content into multiple, smaller text chunks. These chunks will then be delivered sequentially using the **Large File Transmission Protocol (Protocol 4.3)**.
 
@@ -850,3 +908,17 @@ These protocols are for troubleshooting, error handling, and non-standard situat
     3.  **Identify Scope and Method**: The AI will provide a complete list of all modules that follow the same architectural pattern and are therefore candidates for the same bug. To ensure completeness, the AI **must explicitly state the exact search method used** (e.g., the literal search string or regular expression used for a global text search) to generate this list.
     4.  **Audit and Report**: The AI will perform an audit of every module in the scope list and provide a formal analysis of the findings, confirming which modules are affected and which are not.
     5.  **Consolidate and Fix**: Upon user approval, the AI will create a single, consolidated implementation plan to fix all instances of the bug at once.
+
+7.7. **New Dependency Protocol.** This protocol is triggered when the AI or user identifies the need for a new third-party library.
+    1.  **Proposal**: The need for the new dependency must be stated as part of an analysis.
+    2.  **Justification**: The proposal must include a justification explaining why the new library is necessary and how it is superior to existing solutions.
+    3.  **License Verification**: The license of the proposed library must be confirmed to be compatible with the project's license (MPL 2.0).
+    4.  **Implementation Plan Mandate**: The addition of the new library must be part of a formal implementation plan. This plan must include the necessary changes to `Docs/InstallationGuide.md` to add the new library to the installation instructions.
+
+7.8. **Refactoring Proposal Protocol.** This protocol formalizes how non-essential but beneficial code refactoring is proposed, in accordance with Principle 7 and 13.
+    1.  **Identification**: During the analysis phase of a task, the AI may identify an opportunity for refactoring that is not part of the user's direct request (e.g., simplifying a loop, improving variable names for clarity).
+    2.  **Proposal**: As a distinct, clearly marked section of its analysis, the AI will present the refactoring proposal.
+    3.  **Required Format**: The proposal must contain:
+        * A. A clear rationale explaining the benefit of the change (e.g., "Improves readability," "Reduces code duplication").
+        * B. A concise "before" and "after" code snippet, preferably in `diff` format, to make the change explicit.
+    4.  **Separate Approval**: The AI must explicitly ask the user if they want to include the proposed refactoring in the implementation plan for the main task. It can only be included with the user's direct approval.

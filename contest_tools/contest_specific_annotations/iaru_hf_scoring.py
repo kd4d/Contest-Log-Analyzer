@@ -1,10 +1,15 @@
-# Contest Log Analyzer/contest_tools/contest_specific_annotations/iaru_hf_scoring.py
+# contest_tools/contest_specific_annotations/iaru_hf_scoring.py
+#
+# Purpose: Provides contest-specific scoring logic for the IARU HF World
+#          Championship contest.
+#
 #
 # Author: Gemini AI
-# Date: 2025-09-02
-# Version: 0.57.14-Beta
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -12,20 +17,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-#
-# Purpose: Provides contest-specific scoring logic for the IARU HF World
-#          Championship contest.
-#
 # --- Revision History ---
-## [0.57.14-Beta] - 2025-09-02
-### Fixed
-# - Corrected scoring logic to use the exchanged multiplier from the
-#   `Mult_Zone` column instead of the station's geographical `ITUZone`,
-#   ensuring points are awarded based on the actual contest exchange.
-## [0.55.6-Beta] - 2025-08-30
-### Changed
-# - Added the standard copyright and MPL 2.0 license block to the header
-#   to conform to project standards.
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 import pandas as pd
 from typing import Dict, Any
 

@@ -1,50 +1,48 @@
-# Contest Log Analyzer/contest_tools/reports/html_qso_comparison.py
+# contest_tools/reports/html_qso_comparison.py
 #
 # Purpose: Generates a comprehensive HTML report comparing QSO counts,
 #          broken down by band and operating style (Run/S&P/Unknown),
 #          for multiple logs.
 #
-# Author: Mark Bailey, KD4D
+# Author: Gemini AI
+# Date: 2025-10-06
+# Version: 0.90.12-Beta
+#
+# Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
-# Date: 2025-08-31
-# Version: 0.56.5-Beta
 #
+# License: Mozilla Public License, v. 2.0
+#          (https://www.mozilla.org/MPL/2.0/)
+#
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-# ## [0.56.5-Beta] - 2025-08-31
-# ### Fixed
-# - Updated band sorting logic to use the refactored _HAM_BANDS
-#   variable from the ContestLog class, fixing an AttributeError.
-# ## [0.51.6-Beta] - 2025-08-26
-# ### Changed
-# - Refactored width calculation to apply a single min-width to the
-#   table's container div, ensuring all tables have a uniform width.
-# ## [0.51.5-Beta] - 2025-08-26
-# ### Changed
-# - Refactored width calculation to use the "All Bands" table as a
-#   template, ensuring all per-band tables have a consistent width.
-# ## [0.51.4-Beta] - 2025-08-26
-# ### Changed
-# - Implemented logic to pre-calculate column widths and apply them as
-#   inline styles, ensuring all tables in the report have a uniform width.
-# ## [0.51.3-Beta] - 2025-08-26
-# ### Added
-# - Added an "All Bands" summary table to the report.
-# ### Changed
-# - Updated HTML template to center the tables on the page.
-# ## [0.51.2-Beta] - 2025-08-26
-# ### Changed
-# - Refactored report to be a multi-log comparison only, removing all
-#   single-log support and fixing a TypeError.
-# ## [0.51.1-Beta] - 2025-08-26
-# ### Changed
-# - Changed report_type to 'html' to save output to the correct directory.
-# - Updated HTML template to use dynamic table sizing.
-# - Modified single-log report to use the consistent, nine-column format.
-# ## [0.51.0-Beta] - 2025-08-26
-# - Updated version number to align with project standards.
-# ## [1.0.0-Beta] - 2025-08-25
-# - Initial release of the HTML QSO Comparison report.
+# [0.90.12-Beta] - 2025-10-06
+# - Refactored title generation to conform to the new two-line blended
+#   standard defined in the CLA Reports Style Guide.
+# - Added the standard file header, including versioning and license.
+# Purpose: Generates a comprehensive HTML report comparing QSO counts,
+#          broken down by band and operating style (Run/S&P/Unknown),
+#          for multiple logs.
 #
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
+#
+# Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
+#
+# License: Mozilla Public License, v. 2.0
+#          (https://www.mozilla.org/MPL/2.0/)
+#
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+# --- Revision History ---
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 import pandas as pd
 import os
 from typing import List, Dict, Any
@@ -276,8 +274,7 @@ class Report(ContestReport):
         event_id = metadata.get('EventID', '')
         
         title_line1 = self.report_name
-        title_line2 = f"{year} {event_id} {contest_name}".strip()
-        title_line3 = " vs ".join(all_calls)
+        title_line2 = f"{year} {event_id} {contest_name} - {' vs '.join(all_calls)}".strip().replace("  ", " ")
 
         return f"""
 <!DOCTYPE html>
@@ -297,7 +294,6 @@ class Report(ContestReport):
         <div class="text-center">
             <h1 class="text-2xl font-bold text-gray-800">{title_line1}</h1>
             <p class="text-lg text-gray-600">{title_line2}</p>
-            <p class="text-md text-gray-500">{title_line3}</p>
         </div>
         <div class="mt-8 flex justify-center">
             <div>

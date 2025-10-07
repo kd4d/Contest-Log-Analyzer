@@ -1,14 +1,14 @@
-# Contest Log Analyzer/contest_tools/contest_specific_annotations/_arrl_dx_utils.py
+# contest_tools/contest_specific_annotations/_arrl_dx_utils.py
 #
 # Purpose: Provides shared, contest-specific utilities for the ARRL DX contest,
 #          such as the State/Province lookup class.
 #
-# Author: Mark Bailey, KD4D
-# Contact: kd4d@kd4d.org
-# Date: 2025-08-21
-# Version: 0.33.1-Beta
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -17,15 +17,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.33.1-Beta] - 2025-08-21
-### Fixed
-# - Added the missing get_multiplier() method to the StateAndProvinceLookup
-#   class to resolve the AttributeError.
-## [0.33.0-Beta] - 2025-08-21
-### Added
-# - Initial release of the shared utility module for ARRL DX.
-# - Created StateAndProvinceLookup to differentiate US States/DC from
-#   Canadian provinces.
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 import os
 import re
 from typing import Dict, Tuple, Set

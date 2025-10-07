@@ -1,71 +1,26 @@
-# Contest Log Analyzer/contest_tools/contest_definitions/__init__.py
+# contest_tools/contest_definitions/__init__.py
 #
 # Purpose: Defines the ContestDefinition class, responsible for loading and managing
 #          contest-specific rules and mappings from JSON files. It handles merging
 #          common Cabrillo field definitions with contest-specific overrides.
 #
-# Author: Mark Bailey, KD4D
-# Contact: kd4d@kd4d.org
-# Date: 2025-09-15
-# Version: 0.88.0-Beta
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0.
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.88.0-Beta] - 2025-09-15
-### Added
-# - Added the `custom_location_resolver` property to support the new,
-#   pluggable location resolver architecture.
-## [0.85.3-Beta] - 2025-09-13
-### Added
-# - Added `time_series_calculator` and `points_header_label` properties
-#   to support the new pluggable score calculator architecture.
-## [0.56.29-Beta] - 2025-09-12
-### Added
-# - Added the `points_header_label` property to expose the data-driven
-#   label for score/points columns in reports.
-## [0.56.28-Beta] - 2025-09-12
-### Added
-# - Added the `time_series_calculator` property to support the new,
-#   pluggable score calculator architecture.
-## [0.56.27-Beta] - 2025-09-12
-### Fixed
-# - Corrected filename generation to replace spaces with underscores,
-#   fixing a bug where contest names like "WAE CW" could not be found.
-## [0.56.26-Beta] - 2025-08-31
-### Fixed
-# - Added the missing `custom_adif_exporter` property to the class,
-#   allowing the log manager to correctly trigger custom ADIF exporters.
-## [0.49.3-Beta] - 2025-08-27
-### Added
-# - Added the `is_naqp_ruleset` property to expose the new JSON key.
-## [0.49.2-Beta] - 2025-08-24
-### Changed
-# - Replaced the specific `score_report_rules` property with a more
-#   generic `mutually_exclusive_mults` property to support multiple reports.
-## [0.49.1-Beta] - 2025-08-24
-### Added
-# - Added a `score_report_rules` property to expose diagnostic rules
-#   to the reporting engine.
-## [0.37.0-Beta] - 2025-08-17
-### Added
-# - Added the `enable_adif_export` property to correctly expose the
-#   JSON configuration setting to the application.
-## [0.35.0-Beta] - 2025-08-13
-### Added
-# - Added the `score_formula` property to support data-driven scoring calculations.
-## [0.32.0-Beta] - 2025-08-12
-### Added
-# - Added the `custom_parser_module` property to support optional,
-#   contest-specific parsers.
-## [0.30.0-Beta] - 2025-08-05
-# - Initial release of Version 0.30.0-Beta.
-# - Standardized all project files to a common baseline version.
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 import json
 import os
 import copy

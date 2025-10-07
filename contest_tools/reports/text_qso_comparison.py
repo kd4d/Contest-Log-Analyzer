@@ -1,15 +1,15 @@
-# Contest Log Analyzer/contest_tools/reports/text_qso_comparison.py
+# contest_tools/reports/text_qso_comparison.py
 #
 # Purpose: Generates a text-based report that provides a detailed pairwise
 #          comparison of QSO counts (Total, Unique, Common) between two logs,
 #          broken down by band and Run/S&P status.
 #
-# Author: Mark Bailey, KD4D
-# Contact: kd4d@kd4d.org
-# Date: 2025-08-31
-# Version: 0.56.9-Beta
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -18,30 +18,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.56.9-Beta] - 2025-08-31
-### Fixed
-# - Updated band sorting logic to use the refactored _HAM_BANDS
-#   variable from the ContestLog class, fixing an AttributeError.
-## [0.37.3-Beta] - 2025-08-16
-### Changed
-# - Re-formatted the unique QSO breakdown into separate, right-aligned
-#   columns for Run, S&P, and Unknown counts for improved readability.
-## [0.37.2-Beta] - 2025-08-16
-### Fixed
-# - Corrected the unique QSO breakdown to include "Unknown" QSOs and
-#   updated the column header to "R/S/P/Unk" for clarity.
-## [0.37.1-Beta] - 2025-08-16
-### Fixed
-# - Corrected file writing logic to append a final newline character,
-#   ensuring compatibility with diff utilities.
-## [0.30.39-Beta] - 2025-08-06
-### Fixed
-# - Corrected the logic in the 'TOTALS' section to correctly sum the
-#   per-band unique and common QSO counts instead of recalculating them.
-## [0.30.38-Beta] - 2025-08-06
-### Fixed
-# - Corrected the logic for calculating Common and Unique QSO counts to be
-#   performed independently for each log, ensuring Total = Unique + Common.
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 from .report_interface import ContestReport
 from ._report_utils import get_valid_dataframe, create_output_directory
 import pandas as pd

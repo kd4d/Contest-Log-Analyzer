@@ -1,15 +1,15 @@
-# Contest Log Analyzer/main_cli.py
+# main_cli.py
 #
 # Purpose: This is the main command-line interface (CLI) entry point for the
 #          Contest Log Analyzer. It now handles multiple log files and can
 #          generate specific reports.
 #
-# Author: Mark Bailey, KD4D
-# Contact: kd4d@kd4d.org
-# Date: 2025-09-29
-# Version: 0.90.0-Beta
+# Author: Gemini AI
+# Date: 2025-10-05
+# Version: 0.90.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -18,40 +18,12 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.90.0-Beta] - 2025-09-29
-### Changed
-# - Refactored main loop to delegate all log loading and validation
-#   to a new LogManager.load_log_batch method.
-## [0.89.0-Beta] - 2025-09-28
-### Added
-# - Added a --cty argument to allow user selection of CTY.DAT files.
-# - Added a try...except block to gracefully handle FileNotFoundError
-#   when a required CTY.DAT file cannot be found.
-### Changed
-# - The log_manager.load_log() call now passes the cty_specifier.
-## [0.70.0-Beta] - 2025-09-09
-### Changed
-# - Refactored script to read environment variables in one location and
-#   pass them as parameters to LogManager, in compliance with Principle 15.
-## [0.62.0-Beta] - 2025-09-08
-### Changed
-# - Replaced the single CONTEST_LOGS_REPORTS environment variable with
-#   two new variables (CONTEST_INPUT_DIR and CONTEST_REPORTS_DIR) to
-#   separate input data from output artifacts.
-### Added
-# - Added a check to prevent the reports directory from being located in
-#   a OneDrive folder to avoid file-locking issues.
-## [0.39.0-Beta] - 2025-08-21
-### Added
-# - Added a --debug-mults flag to generate diagnostic files for debugging
-#   multiplier counting inconsistencies in text reports.
-## [0.38.0-Beta] - 2025-08-18
-### Added
-# - Added a --debug-data flag to enable the generation of debug data dumps for visual reports.
-## [0.35.10-Beta] - 2025-08-14
-### Fixed
-# - Added exception handling for log file mismatches (wrong contest/event)
-#   to ensure a graceful exit.
+# [0.90.5-Beta] - 2025-10-05
+# - Modified `main` to pass the `debug_data` flag to `log_manager.finalize_loading`.
+# --- Revision History ---
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 import sys
 import os
 import argparse
@@ -181,7 +153,7 @@ def main():
             'debug_mults': args.debug_mults
         }
 
-        log_manager.finalize_loading(root_reports_dir)
+        log_manager.finalize_loading(root_reports_dir, debug_data=args.debug_data)
         generator = ReportGenerator(logs=log_manager.get_logs(), root_output_dir=root_reports_dir)
         generator.run_reports(args.report_id, **report_kwargs)
     except FileNotFoundError as e:

@@ -1,10 +1,15 @@
-# Contest Log Analyzer/contest_tools/reports/text_wae_score_report.py
+# contest_tools/reports/text_wae_score_report.py
+#
+# Purpose: This module provides a detailed score summary for the WAE
+#          contest, including QTC points and weighted multipliers.
+#
 #
 # Author: Gemini AI
-# Date: 2025-09-18
-# Version: 0.85.16-Beta
+# Date: 2025-10-05
+# Version: 0.90.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -12,21 +17,14 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-#
-# Purpose: This module provides a detailed score summary for the WAE
-#          contest, including QTC points and weighted multipliers.
-#
 # --- Revision History ---
-## [0.85.16-Beta] - 2025-09-18
-### Fixed
-# - Corrected the alignment of the "Final Score Summary" section by implementing dynamic column width calculation.
-## [0.85.15-Beta] - 2025-09-13
-### Fixed
-# - Added logic to the generate method to correctly handle the --debug-data
-#   flag and save the source DataFrames.
-## [0.85.11-Beta] - 2025-09-13
-# - Initial release.
-#
+# [0.90.2-Beta] - 2025-10-05
+# - Corrected scoring logic to sum the `QSOPoints` column instead of
+#   counting all non-dupe QSOs, bringing it into alignment with the
+#   correct logic in `wae_calculator.py`.
+# [0.90.0-Beta] - 2025-10-01
+# - Set new baseline version for release.
+
 from typing import List, Dict, Any
 import pandas as pd
 import os
@@ -94,7 +92,7 @@ class Report(ContestReport):
             })
 
         # --- TOTALS ---
-        total_qso_pts = len(qsos_df)
+        total_qso_pts = qsos_df['QSOPoints'].sum()
         total_qtc_pts = len(qtcs_df)
         
         total_weighted_mults = 0

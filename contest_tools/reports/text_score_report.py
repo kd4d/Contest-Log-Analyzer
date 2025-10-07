@@ -1,14 +1,14 @@
-# Contest Log Analyzer/contest_tools/reports/text_score_report.py
+# contest_tools/reports/text_score_report.py
 #
 # Purpose: A text report that generates a detailed score summary for each
 #          log, broken down by band.
 #
-# Author: Mark Bailey, KD4D
-# Contact: kd4d@kd4d.org
-# Date: 2025-09-03
-# Version: 0.57.21-Beta
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -17,86 +17,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.57.21-Beta] - 2025-09-03
-### Fixed
-# - Corrected the per-band/mode summary logic to properly handle the
-#   'once_per_mode' totaling method. This fixes a regression where
-#   the same multiplier counts were shown for all modes.
-## [0.57.20-Beta] - 2025-09-03
-### Changed
-# - Modified the report to be score-formula-aware. It will no
-#   longer display multiplier columns for contests like ARRL Field Day
-#   that do not use multipliers in the final score.
-## [0.57.19-Beta] - 2025-09-03
-### Fixed
-# - Corrected the total multiplier calculation in `_calculate_all_scores`
-#   to properly handle the 'once_per_mode' totaling method. This fixes
-#   a regression that caused incorrect scores for the ARRL 10-Meter contest.
-## [0.57.18-Beta] - 2025-09-02
-### Fixed
-# - Corrected a bug in the per-band/mode summary calculation that ignored
-#   the `applies_to` key in multiplier rules. The logic now correctly
-#   handles asymmetric contests like ARRL DX, preventing double-counting.
-## [0.57.15-Beta] - 2025-09-02
-### Added
-# - Added logic to support a new `total_points` score formula for
-#   contests without multipliers, like ARRL Field Day.
-## [0.56.3-Beta] - 2025-08-31
-### Changed
-# - Updated the band sorting logic to use the refactored _HAM_BANDS
-#   variable from the ContestLog class.
-## [0.49.7-Beta] - 2025-08-27
-### Fixed
-# - Corrected an IndentationError.
-## [0.49.6-Beta] - 2025-08-27
-### Fixed
-# - Corrected the "Unassigned Multipliers" diagnostic to handle the
-#   special rules for the NAQP contest, preventing incorrect warnings for
-#   non-North American QSOs.
-## [0.49.5-Beta] - 2025-08-25
-### Fixed
-# - Refactored logic to filter zero-point QSOs at the start of the
-#   calculation, ensuring the main QSO counts are correct.
-## [0.49.4-Beta] - 2025-08-25
-### Fixed
-# - Corrected a variable name typo that prevented zero-point QSOs from
-#   being correctly filtered out of multiplier calculations.
-## [0.49.3-Beta] - 2025-08-25
-### Fixed
-# - Corrected the multiplier counting logic in `_calculate_all_scores` to
-#   respect the "applies_to" key, fixing the double-counting bug for
-#   contests like ARRL DX.
-## [0.49.2-Beta] - 2025-08-24
-### Changed
-# - Refactored diagnostic logic to use the new, generic
-#   `mutually_exclusive_mults` property from the ContestDefinition class.
-## [0.49.1-Beta] - 2025-08-24
-### Fixed
-# - Corrected diagnostic logic to read the `score_report_rules` property
-#   from the ContestDefinition class, fixing the bug that caused the
-#   mutual-exclusion logic to be skipped.
-## [0.48.6-Beta] - 2025-08-24
-### Fixed
-# - Modified `_add_diagnostic_sections` to honor the
-#   `suppress_blank_mult_warnings` flag, hiding irrelevant diagnostic
-#   lists for contests like WPX.
-## [0.48.5-Beta] - 2025-08-23
-### Fixed
-# - Reworked per-band summary logic to correctly display "first-worked"
-#   counts for multipliers that are counted once per contest.
-## [0.48.4-Beta] - 2025-08-23
-### Fixed
-# - Refactored the `_calculate_all_scores` method to correctly handle the
-#   `once_per_log` multiplier totaling method, fixing the WPX score bug.
-## [0.48.3-Beta] - 2025-08-23
-### Fixed
-# - Refactored the `_calculate_all_scores` method to correctly handle the
-#   `once_per_log` multiplier totaling method, fixing the WPX score bug.
-## [0.48.0-Beta] - 2025-08-23
-### Changed
-# - Modified score report to read a `suppress_blank_mult_warnings` key
-#   from the contest definition to conditionally disable irrelevant
-#   warnings and diagnostics for contests like WPX.
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 from typing import List, Dict, Set, Tuple
 import pandas as pd
 import os

@@ -1,10 +1,15 @@
-# Contest Log Analyzer/contest_tools/contest_specific_annotations/wae_multiplier_resolver.py
+# contest_tools/contest_specific_annotations/wae_multiplier_resolver.py
+#
+# Purpose: This module provides a custom multiplier resolver for the WAE
+#          Contest. It implements the asymmetric multiplier rules for
+#          EU vs. non-EU stations and the special call area district logic.
 #
 # Author: Gemini AI
-# Date: 2025-09-16
-# Version: 0.88.3-Beta
+# Date: 2025-10-07
+# Version: 0.90.4-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -12,55 +17,22 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-#
-# Purpose: This module provides a custom multiplier resolver for the WAE
-#          Contest. It implements the asymmetric multiplier rules for
-#          EU vs. non-EU stations and the special call area district logic.
-#
 # --- Revision History ---
-## [0.88.3-Beta] - 2025-09-16
-### Changed
-# - Refactored module to be compliant with the new, data-driven resolver
-#   architecture. The function now accepts a ContestDefinition object
-#   and uses it as a "blueprint" to populate the correct columns.
-## [0.87.5-Beta] - 2025-09-16
-### Added
-# - Added a high-priority logic block to the `_get_call_area_district`
-#   function to correctly handle the special RA8/RA9/RA0 multipliers for
-#   the UA9 (Asiatic Russia) DXCC entity.
-## [0.87.4-Beta] - 2025-09-16
-### Changed
-# - Rewrote the `_get_call_area_district` function to correctly implement
-#   the WAE multiplier rules. The new logic now uses the DXCCPfx for
-#   eligibility and correctly parses both standard and portable callsigns.
-## [0.87.1-Beta] - 2025-09-16
-### Changed
-# - Refactored module to be a self-contained, complete replacement for WAE
-#   multiplier logic, in accordance with the new architectural contract.
-# - The resolver now populates Mult1 with WAE/DXCC multipliers and Mult2
-#   with Call Area Districts, correctly enforcing mutual exclusivity.
-## [0.89.0-Beta] - 2025-09-15
-### Fixed
-# - Modified resolver to clear Mult1 when Mult2 is populated, making the multiplier types mutually exclusive to prevent double-counting.
-## [0.88.2-Beta] - 2025-09-15
-### Fixed
-# - Corrected the primary conditional check from 'DX' to 'EU' to ensure multiplier logic runs for the correct station type.
-## [0.85.4-Beta] - 2025-09-13
-### Changed
-# - Refactored module to only handle the special-case Mult2 (Call Area)
-#   multiplier for European stations. Mult1 is now handled by the
-#   'wae_dxcc' source key in the contest definition.
-## [0.85.0-Beta] - 2025-09-13
-### Fixed
-# - Corrected a logical inversion where the rules for European and
-#   non-European stations were swapped.
-## [1.0.1-Beta] - 2025-09-12
-### Fixed
-# - Pre-initialized multiplier columns with dtype='object' to prevent
-#   a pandas FutureWarning.
-## [1.0.0-Beta] - 2025-09-12
-# - Initial release.
-#
+# [0.90.4-Beta] - 2025-10-07
+# - Implemented correct conditional logic to handle the *IG9 special
+#   case for EU loggers, populating the multiplier from the correct
+#   WAE-specific columns instead of the DXCC columns.
+# [0.90.3-Beta] - 2025-10-07
+# - Added explicit check for WAEPfx == '*IG9' to correctly grant
+#   multiplier credit to EU stations for this special case.
+# - Added filter for WAEName.notna() to ensure only WAE entities can be
+#   counted as multipliers, increasing rules adherence.
+# [0.90.1-Beta] - 2025-10-04
+# - Rewrote logic to correctly apply WAE multiplier rules based on the
+#   logger's location (EU vs. non-EU) and the worked station's Continent.
+# [0.90.0-Beta] - 2025-10-01
+# - Set new baseline version for release.
+
 import pandas as pd
 import re
 from typing import Dict, Any, Optional
@@ -155,18 +127,28 @@ def resolve_multipliers(df: pd.DataFrame, my_location_type: str, root_input_dir:
             df[col] = pd.NA
             df[col] = df[col].astype('object')
 
-    # --- Step 1: Populate Country multipliers for ALL applicable QSOs ---
-    # This logic is moved here from contest_log.py to make this resolver self-contained.
-    wae_mask = df['WAEName'].notna() & (df['WAEName'] != '')
-    
-    df.loc[wae_mask, m1_col] = df.loc[wae_mask, 'WAEPfx']
-    df.loc[wae_mask, m1_name_col] = df.loc[wae_mask, 'WAEName']
-    
-    df.loc[~wae_mask, m1_col] = df.loc[~wae_mask, 'DXCCPfx']
-    df.loc[~wae_mask, m1_name_col] = df.loc[~wae_mask, 'DXCCName']
+    # --- Step 1: Apply rules based on logger's location ---
+    if my_location_type == 'DX': # Non-EU logger
+        # Multipliers are only WAE entities in Europe
+        eu_worked_mask = (df['Continent'] == 'EU') & (df['WAEName'].notna())
+        df.loc[eu_worked_mask, m1_col] = df.loc[eu_worked_mask, 'DXCCPfx']
+        df.loc[eu_worked_mask, m1_name_col] = df.loc[eu_worked_mask, 'DXCCName']
 
-    # --- Step 2: Handle special Call Area multipliers for EU loggers working specific DX ---
-    if my_location_type == 'EU':
+    elif my_location_type == 'EU': # European logger
+        # --- Handle *IG9 Special Case First ---
+        ig9_mask = (df['WAEPfx'] == '*IG9')
+        df.loc[ig9_mask, m1_col] = df.loc[ig9_mask, 'WAEPfx']
+        df.loc[ig9_mask, m1_name_col] = df.loc[ig9_mask, 'WAEName']
+
+        # --- Handle all other non-EU WAE Multipliers ---
+        normal_non_eu_mask = (
+            (df['Continent'] != 'EU') & (df['WAEPfx'] != '*IG9')
+        ) & (df['WAEName'].notna())
+        
+        # 1. Assign DXCC multipliers for non-EU contacts
+        df.loc[normal_non_eu_mask, m1_col] = df.loc[normal_non_eu_mask, 'DXCCPfx']
+        df.loc[normal_non_eu_mask, m1_name_col] = df.loc[normal_non_eu_mask, 'DXCCName']
+
         # Filter for QSOs with non-European stations
         non_eu_df = df[df['Continent'] != 'EU'].copy()
         if not non_eu_df.empty:
@@ -176,7 +158,7 @@ def resolve_multipliers(df: pd.DataFrame, my_location_type: str, root_input_dir:
             if not valid_districts.empty:
                 df.loc[valid_districts.index, m2_col] = valid_districts
                 df.loc[valid_districts.index, m2_name_col] = valid_districts
-                # --- Step 3: Clear Country multiplier where Call Area multiplier was populated ---
+                # Clear the DXCC multiplier where a Call Area multiplier was assigned
                 df.loc[valid_districts.index, [m1_col, m1_name_col]] = pd.NA
             
     return df

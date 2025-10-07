@@ -1,10 +1,17 @@
-# Contest Log Analyzer/contest_tools/adif_exporters/cq_ww_adif.py
+# contest_tools/adif_exporters/cq_ww_adif.py
+#
+# Purpose: Provides a contest-specific ADIF exporter for the CQ WW DX
+#          contest. It correctly populates the <CQZ> tag from the
+#          exchanged zone for N1MM Logger+ compatibility, while preserving
+#          the CTY-derived geographical zone in a custom tag for diagnostics.
+#
 #
 # Author: Gemini AI
-# Date: 2025-09-06
-# Version: 1.0.0-Beta
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -12,16 +19,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-#
-# Purpose: Provides a contest-specific ADIF exporter for the CQ WW DX
-#          contest. It correctly populates the <CQZ> tag from the
-#          exchanged zone for N1MM Logger+ compatibility, while preserving
-#          the CTY-derived geographical zone in a custom tag for diagnostics.
-#
 # --- Revision History ---
-## [1.0.0-Beta] - 2025-09-06
-# - Initial release of the custom ADIF exporter for CQ WW.
-#
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 import pandas as pd
 import numpy as np
 import os

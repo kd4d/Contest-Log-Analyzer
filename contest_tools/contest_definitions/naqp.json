@@ -1,7 +1,7 @@
 {
   "_filename": "contest_tools/contest_definitions/naqp.json",
-  "_version": "0.86.3-Beta",
-  "_date": "2025-09-13",
+  "_version": "0.90.0-Beta",
+  "_date": "2025-10-01",
   "contest_name": "NAQP",
   "valid_bands": [
     "160M",
@@ -17,6 +17,7 @@
   "is_naqp_ruleset": true,
   "custom_multiplier_resolver": "naqp_multiplier_resolver",
   "custom_adif_exporter": "naqp_adif",
+  "time_series_calculator": "naqp_calculator",
   "excluded_reports": [
     "text_wae_score_report",
     "text_wae_comparative_score_report"
@@ -68,13 +69,13 @@
       "name": "STPROV",
       "value_column": "Mult_STPROV",
       "name_column": "Mult_STPROVName",
-      "totaling_method": "once_per_band"
+      "totaling_method": "sum_by_band"
     },
     {
       "name": "NA DXCC",
       "value_column": "Mult_NADXCC",
       "name_column": "Mult_NADXCCName",
-      "totaling_method": "once_per_band"
+      "totaling_method": "sum_by_band"
     }
   ],
   "default_qso_columns": [

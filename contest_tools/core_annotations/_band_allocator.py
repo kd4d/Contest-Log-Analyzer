@@ -1,15 +1,15 @@
-# Contest Log Analyzer/contest_tools/core_annotations/_band_allocator.py
+# contest_tools/core_annotations/_band_allocator.py
 #
 # Purpose: This module provides the BandAllocator class, which loads the
 #          band_allocations.dat file and provides a method to validate if
 #          a given frequency falls within any defined amateur radio band.
 #
-# Author: Mark Bailey, KD4D
-# Contact: kd4d@kd4d.org
-# Date: 2025-09-09
-# Version: 0.70.4-Beta
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -18,16 +18,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.70.4-Beta] - 2025-09-09
-### Changed
-# - Refactored to accept `root_input_dir` as a parameter during
-#   instantiation, in compliance with Principle 15.
-## [0.62.1-Beta] - 2025-09-08
-### Changed
-# - Updated script to read the new CONTEST_INPUT_DIR environment variable.
-## [0.43.0-Beta] - 2025-08-21
-### Added
-# - Initial release of the data-driven band allocation validator.
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 import os
 import logging
 import pandas as pd

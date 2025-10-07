@@ -1,37 +1,25 @@
-# Contest Log Analyzer/contest_tools/reports/text_missed_multipliers.py
+# contest_tools/reports/text_missed_multipliers.py
 #
 # Purpose: A data-driven text report that generates a comparative "missed multipliers"
 #          summary. This version uses the `prettytable` library for formatting.
 #
-# Author: Mark Bailey, KD4D
-# Contact: kd4d@kd4d.org
-# Date: 2025-08-27
-# Version: 0.54.1-Beta
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0.
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.54.1-Beta] - 2025-08-27
-### Fixed
-# - Corrected a TypeError by restoring the correct data loading and
-#   filtering logic for the `mode_filter`.
-### Changed
-# - Replaced the `tabulate` library with `prettytable` to enable direct,
-#   programmatic control over column widths for a uniform layout.
-# - Rewrote the table formatting method to use the robust logic from the
-#   successful prototype, including the table "stitching" method.
-# - Implemented the title-centering logic from the prototype.
-## [0.53.0-Beta] - 2025-08-27
-### Changed
-# - Refactored report generation into a two-pass system to ensure all
-#   per-band tables have a uniform, fixed width based on the widest
-#   possible content for that report run.
-# ... previous history truncated ...
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 from typing import List, Dict, Any, Set
 import pandas as pd
 import os

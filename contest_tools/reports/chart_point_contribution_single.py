@@ -1,14 +1,14 @@
-# Contest Log Analyzer/contest_tools/reports/chart_point_contribution_single.py
+# contest_tools/reports/chart_point_contribution_single.py
 #
 # Purpose: Generates a single-log report with per-band pie charts and tables
 #          showing the breakdown of QSO points.
 #
-# Author: Mark Bailey, KD4D
-# Contact: kd4d@kd4d.org
-# Date: 2025-09-14
-# Version: 0.86.3-Beta
+# Author: Gemini AI
+# Date: 2025-10-01
+# Version: 0.90.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
 #          (https://www.mozilla.org/MPL/2.0/)
@@ -17,40 +17,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-## [0.86.3-Beta] - 2025-09-14
-### Fixed
-# - Removed an erroneous, top-level call to save_debug_data that was
-#   incorrectly saving the entire raw QSO list.
-## [0.86.2-Beta] - 2025-09-14
-### Changed
-# - Refactored to use the new centralized `DonutChartComponent.aggregate_data`
-#   static method. The debug file now contains aggregated data instead of
-#   the raw QSO list.
-## [0.80.5-Beta] - 2025-09-12
-### Fixed
-# - Corrected the band sorting logic to use a robust, two-step pattern
-#   to prevent a ValueError during report generation.
-## [0.55.9-Beta] - 2025-08-31
-### Changed
-# - Updated band sorting logic to use the new, comprehensive `_HAM_BANDS`
-#   list from the ContestLog class.
-## [0.38.0-Beta] - 2025-08-18
-### Added
-# - Added call to the save_debug_data helper function to dump the source
-#   dataframe when the --debug-data flag is enabled.
-## [0.31.17-Beta] - 2025-08-08
-### Changed
-# - Implemented area scaling for per-band charts, with a 15% minimum
-#   size and a "Not to scale" annotation for readability.
-## [0.31.16-Beta] - 2025-08-08
-### Fixed
-# - Implemented `constrained_layout=True` to automatically and robustly
-#   handle title and subplot spacing, fixing the systemic layout bug.
-## [0.31.4-Beta] - 2025-08-07
-### Changed
-# - Updated script to use the new DonutChartComponent helper class.
-## [0.31.0-Beta] - 2025-08-07
-# - Initial release of Version 0.31.0-Beta.
+# [0.90.0-Beta] - 2025-10-01
+# Set new baseline version for release.
+
 from .report_interface import ContestReport
 from ._report_utils import get_valid_dataframe, create_output_directory, DonutChartComponent, save_debug_data
 import matplotlib.pyplot as plt
