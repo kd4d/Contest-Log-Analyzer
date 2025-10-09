@@ -1,8 +1,14 @@
 {
   "_filename": "contest_tools/contest_definitions/arrl_ss.json",
-  "_version": "0.90.0-Beta",
-  "_date": "2025-09-13",
+  "_version": "0.90.18-Beta",
+  "_date": "2025-10-07",
   "contest_name": "ARRL-SS",
+  "contest_period": {
+    "start_day": "Saturday",
+    "start_time": "21:00:00 UTC",
+    "end_day": "Monday",
+    "end_time": "02:59:59 UTC"
+  },
   "valid_bands": [
     "160M",
     "80M",

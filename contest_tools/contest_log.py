@@ -5,8 +5,8 @@
 #          data cleaning, and calculation of various contest metrics.
 #
 # Author: Gemini AI
-# Date: 2025-10-03
-# Version: 0.90.1-Beta
+# Date: 2025-10-09
+# Version: 0.90.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.90.3-Beta] - 2025-10-09
+# - Fixed ValueError in `_filter_by_contest_period` by replacing the
+#   incorrect `pd.to_datetime()` call for day names with a dictionary lookup.
 # [0.90.1-Beta] - 2025-10-03
 # - Added detailed diagnostic logging to _pre_calculate_time_series_score.
 # [0.90.0-Beta] - 2025-10-01
@@ -27,6 +30,7 @@ from typing import List
 import pandas as pd
 import numpy as np
 from datetime import datetime
+from pandas.tseries.offsets import WeekOfMonth
 from typing import Dict, Any, Optional, Set, Tuple
 import os
 import re
@@ -111,6 +115,81 @@ class ContestLog:
             # Fallback to old generic method for legacy asymmetric contests
             self._determine_own_location_type_legacy()
 
+    def _filter_by_contest_period(self, df: pd.DataFrame, is_qso_df: bool) -> pd.DataFrame:
+        """
+        Filters a DataFrame (QSOs or QTCs) to include only records within the
+        contest's valid time period.
+        """
+        if df.empty or 'Datetime' not in df.columns:
+            return df
+
+        df['Datetime'] = pd.to_datetime(df['Datetime'], errors='coerce', utc=True)
+        df.dropna(subset=['Datetime'], inplace=True)
+        if df.empty:
+            return df
+
+        contest_name = self.contest_definition.contest_name
+        log_date = df['Datetime'].iloc[0]
+        
+        DAY_NAME_TO_INT = {
+            'MONDAY': 0, 'TUESDAY': 1, 'WEDNESDAY': 2, 'THURSDAY': 3,
+            'FRIDAY': 4, 'SATURDAY': 5, 'SUNDAY': 6
+        }
+
+        # --- Special Case: NAQP ---
+        if contest_name.startswith("NAQP"):
+            mode_from_contest = contest_name.split('-')[-1]
+            month = log_date.month
+            # (start_weekday, week_of_month, start_time_utc) Saturday is 5
+            rules = {
+                ('CW', 1): (5, 2, "18:00:00"), ('CW', 8): (5, 1, "18:00:00"),
+                ('PH', 1): (5, 3, "18:00:00"), ('PH', 8): (5, 3, "18:00:00"),
+                ('RTTY', 2): (5, 4, "18:00:00"), ('RTTY', 7): (5, 2, "18:00:00"),
+            }
+            rule = rules.get((mode_from_contest, month))
+            if not rule:
+                logging.warning(f"No valid contest period rule found for NAQP {mode_from_contest} in month {month}.")
+                return df # Return unfiltered
+            
+            first_day_of_month = log_date.to_period('M').to_timestamp(tz='UTC')
+            start_day = first_day_of_month + WeekOfMonth(week=rule[1], weekday=rule[0])
+            start_time = pd.to_datetime(start_day.strftime('%Y-%m-%d') + ' ' + rule[2], utc=True)
+            end_time = start_time + pd.Timedelta(hours=12) # NAQP is a 12-hour contest
+        else:
+            period = self.contest_definition.contest_period
+            if not period:
+                return df # No period defined, return unfiltered
+
+            start_time_str = period['start_time']
+            end_time_str = period['end_time']
+            start_weekday = DAY_NAME_TO_INT[period['start_day'].upper()]
+            end_weekday = DAY_NAME_TO_INT[period['end_day'].upper()]
+
+            # Find the actual start date by finding the specified weekday relative to the log's date
+            days_to_subtract = (log_date.weekday() - start_weekday + 7) % 7
+            start_date = log_date - pd.to_timedelta(days_to_subtract, unit='d')
+            start_time = pd.to_datetime(start_date.strftime('%Y-%m-%d') + ' ' + start_time_str, utc=True)
+
+            days_to_add = (end_weekday - start_weekday + 7) % 7
+            end_date = start_date + pd.to_timedelta(days_to_add, unit='d')
+            end_time = pd.to_datetime(end_date.strftime('%Y-%m-%d') + ' ' + end_time_str, utc=True)
+
+        initial_count = len(df)
+        # Use < end_time for an exclusive upper bound, which is standard for time ranges.
+        df_filtered = df[(df['Datetime'] >= start_time) & (df['Datetime'] < end_time)].copy()
+        
+        # --- Special Case: ARRL-FIELD-DAY Relative 24-Hour Window ---
+        if contest_name == "ARRL-FIELD-DAY" and not df_filtered.empty:
+            first_qso_time = df_filtered['Datetime'].min()
+            limit_time = first_qso_time + pd.Timedelta(hours=24)
+            df_filtered = df_filtered[df_filtered['Datetime'] < limit_time]
+
+        removed_count = initial_count - len(df_filtered)
+        if removed_count > 0:
+            data_type = "QSOs" if is_qso_df else "QTCs"
+            logging.info(f"Filtered out {removed_count} out-of-bounds {data_type} based on contest period.")
+            
+        return df_filtered
 
     def _ingest_cabrillo_data(self, cabrillo_filepath: str):
         custom_parser_name = self.contest_definition.custom_parser_module
@@ -187,6 +266,12 @@ class ContestLog:
             raw_df['Band'] = raw_df['Band'].combine_first(derived_bands)
 
         raw_df.dropna(subset=['Datetime'], inplace=True)
+
+        # --- Apply Contest Period Filter ---
+        raw_df = self._filter_by_contest_period(raw_df, is_qso_df=True)
+        if not self.qtcs_df.empty:
+            self.qtcs_df = self._filter_by_contest_period(self.qtcs_df, is_qso_df=False)
+
         if raw_df.empty:
             self.qsos_df = pd.DataFrame(columns=self.contest_definition.default_qso_columns)
             return
@@ -601,7 +686,7 @@ class ContestLog:
                     record.append(adif_format(f"APP_CLA_{col.upper()}", row.get(col)))
 
             mult_flag_cols = [c for c in row.index if c.endswith('_IsNewMult')]
-            
+
             for col in mult_flag_cols:
                 if row.get(col) == 1:
                     record.append(adif_format(f"APP_CLA_{col.upper()}", 1))

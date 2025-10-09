@@ -1,8 +1,14 @@
 {
   "_filename": "contest_tools/contest_definitions/iaru_hf.json",
-  "_version": "0.90.0-Beta",
-  "_date": "2025-09-16",
+  "_version": "0.90.18-Beta",
+  "_date": "2025-10-07",
   "contest_name": "IARU-HF",
+  "contest_period": {
+    "start_day": "Saturday",
+    "start_time": "12:00:00 UTC",
+    "end_day": "Sunday",
+    "end_time": "11:59:59 UTC"
+  },
   "dupe_check_scope": "per_band",
   "score_formula": "points_times_mults",
   "enable_adif_export": true,
@@ -40,19 +46,55 @@
   "exchange_parsing_rules": {
     "IARU-HF-ZONE-LOGGER": {
       "regex": "(\\d{2,3})\\s+(\\d{1,2})\\s+([A-Z0-9/]+)\\s+(\\d{2,3})\\s+([A-Z0-9]+)(?:\\s+(\\d))?",
-      "groups": ["SentRST", "SentZone", "Call", "RST", "RcvdMult", "Transmitter"]
+      "groups": [
+        "SentRST",
+        "SentZone",
+        "Call",
+        "RST",
+        "RcvdMult",
+        "Transmitter"
+      ]
     },
     "IARU-HF-HQ-LOGGER": {
       "regex": "(\\d{2,3})\\s+([A-Z]+)\\s+([A-Z0-9/]+)\\s+(\\d{2,3})\\s+([A-Z0-9]+)(?:\\s+(\\d))?",
-      "groups": ["SentRST", "SentIARU", "Call", "RST", "RcvdMult", "Transmitter"]
+      "groups": [
+        "SentRST",
+        "SentIARU",
+        "Call",
+        "RST",
+        "RcvdMult",
+        "Transmitter"
+      ]
     }
   },
   "default_qso_columns": [
-    "ContestName", "MyCall", "Frequency", "Mode", "Datetime",
-    "SentRST", "SentRS", "SentZone", "SentIARU",
-    "Call", "RST", "RS", "RcvdMult", "Transmitter",
-    "Band", "Date", "Hour", "Dupe", "DXCCName", "DXCCPfx",
-    "CQZone", "ITUZone", "Continent", "Run", "QSOPoints",
-    "Mult_Zone", "Mult_HQ", "Mult_Official"
+    "ContestName",
+    "MyCall",
+    "Frequency",
+    "Mode",
+    "Datetime",
+    "SentRST",
+    "SentRS",
+    "SentZone",
+    "SentIARU",
+    "Call",
+    "RST",
+    "RS",
+    "RcvdMult",
+    "Transmitter",
+    "Band",
+    "Date",
+    "Hour",
+    "Dupe",
+    "DXCCName",
+    "DXCCPfx",
+    "CQZone",
+    "ITUZone",
+    "Continent",
+    "Run",
+    "QSOPoints",
+    "Mult_Zone",
+    "Mult_HQ",
+    "Mult_Official"
   ]
 }

@@ -1,11 +1,26 @@
 {
   "_filename": "contest_tools/contest_definitions/arrl_fd.json",
-  "_version": "0.90.0-Beta",
-  "_date": "2025-09-13",
+  "_version": "0.90.18-Beta",
+  "_date": "2025-10-07",
   "contest_name": "ARRL-FIELD-DAY",
+  "contest_period": {
+    "start_day": "Saturday",
+    "start_time": "18:00:00 UTC",
+    "end_day": "Sunday",
+    "end_time": "20:59:59 UTC"
+  },
   "valid_bands": [
-    "160M", "80M", "40M", "20M", "15M", "10M", 
-    "6M", "2M", "222MHz", "432MHz", "SAT"
+    "160M",
+    "80M",
+    "40M",
+    "20M",
+    "15M",
+    "10M",
+    "6M",
+    "2M",
+    "222MHz",
+    "432MHz",
+    "SAT"
   ],
   "dupe_check_scope": "per_band",
   "score_formula": "total_points",
@@ -26,16 +41,37 @@
   "exchange_parsing_rules": {
     "ARRL-FD": {
       "regex": "([A-Z0-9]+)\\s+([A-Z]{2,4})\\s+([A-Z0-9/]+)\\s+([A-Z0-9]+)\\s+([A-Z]{2,4})",
-      "groups": ["SentClass", "SentSection", "Call", "RcvdClass", "RcvdSection"]
+      "groups": [
+        "SentClass",
+        "SentSection",
+        "Call",
+        "RcvdClass",
+        "RcvdSection"
+      ]
     }
   },
   "default_qso_columns": [
-    "ContestName", "MyCall", "Frequency", "Mode", "Datetime",
-    "SentClass", "SentSection",
-    "Call", 
-    "RcvdClass", "RcvdSection",
-    "Band", "Date", "Hour", "Dupe", "DXCCName", "DXCCPfx", 
-    "CQZone", "ITUZone", "Continent", "Run", "QSOPoints",
+    "ContestName",
+    "MyCall",
+    "Frequency",
+    "Mode",
+    "Datetime",
+    "SentClass",
+    "SentSection",
+    "Call",
+    "RcvdClass",
+    "RcvdSection",
+    "Band",
+    "Date",
+    "Hour",
+    "Dupe",
+    "DXCCName",
+    "DXCCPfx",
+    "CQZone",
+    "ITUZone",
+    "Continent",
+    "Run",
+    "QSOPoints",
     "Mult_Section"
   ]
 }
