@@ -1,7 +1,7 @@
 {
   "_filename": "contest_tools/contest_definitions/naqp.json",
-  "_version": "0.90.0-Beta",
-  "_date": "2025-10-01",
+  "_version": "0.90.18-Beta",
+  "_date": "2025-10-07",
   "contest_name": "NAQP",
   "valid_bands": [
     "160M",
@@ -11,6 +11,11 @@
     "15M",
     "10M"
   ],
+  "operating_time_rules": {
+    "min_off_time_minutes": 30,
+    "single_op_max_hours": 10,
+    "multi_op_max_hours": 12
+  },
   "dupe_check_scope": "per_band",
   "score_formula": "qsos_times_mults",
   "enable_adif_export": true,

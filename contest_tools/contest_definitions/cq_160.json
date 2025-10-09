@@ -1,8 +1,14 @@
 {
   "_filename": "contest_tools/contest_definitions/cq_160.json",
-  "_version": "0.90.0-Beta",
-  "_date": "2025-09-13",
+  "_version": "0.90.18-Beta",
+  "_date": "2025-10-07",
   "contest_name": "CQ-160",
+  "contest_period": {
+    "start_day": "Friday",
+    "start_time": "22:00:00 UTC",
+    "end_day": "Sunday",
+    "end_time": "22:00:00 UTC"
+  },
   "enable_adif_export": true,
   "custom_parser_module": "cq_160_parser",
   "dupe_check_scope": "per_band",
@@ -20,35 +26,80 @@
     "text_wae_comparative_score_report"
   ],
   "mutually_exclusive_mults": [
-    ["Mult1", "Mult2"]
+    [
+      "Mult1",
+      "Mult2"
+    ]
   ],
   "exchange_parsing_rules": {
     "CQ-160-CW": [
       {
         "regex": "(\\d{3})\\s+([A-Z]{2,3})\\s+([A-Z0-9/]+)\\s+(\\d{3})\\s+([A-Z]{2,3})(?:\\s+(\\d))?",
-        "groups": ["SentRST", "SentLocation", "Call", "RST", "RcvdLocation", "Transmitter"]
+        "groups": [
+          "SentRST",
+          "SentLocation",
+          "Call",
+          "RST",
+          "RcvdLocation",
+          "Transmitter"
+        ]
       },
       {
         "regex": "(\\d{3})\\s+([A-Z]{2,3})\\s+([A-Z0-9/]+)\\s+(\\d{3})\\s+(\\d+)(?:\\s+(\\d))?",
-        "groups": ["SentRST", "SentLocation", "Call", "RST", "RcvdZone", "Transmitter"]
+        "groups": [
+          "SentRST",
+          "SentLocation",
+          "Call",
+          "RST",
+          "RcvdZone",
+          "Transmitter"
+        ]
       },
       {
         "regex": "(\\d{3})\\s+([A-Z]{2,3})\\s+([A-Z0-9/]+)\\s+(\\d{3})\\s+(DX)(?:\\s+(\\d))?",
-        "groups": ["SentRST", "SentLocation", "Call", "RST", "RcvdLocation", "Transmitter"]
+        "groups": [
+          "SentRST",
+          "SentLocation",
+          "Call",
+          "RST",
+          "RcvdLocation",
+          "Transmitter"
+        ]
       }
     ],
     "CQ-160-SSB": [
       {
         "regex": "(\\d{2})\\s+([A-Z]{2,3})\\s+([A-Z0-9/]+)\\s+(\\d{2})\\s+([A-Z]{2,3})(?:\\s+(\\d))?",
-        "groups": ["SentRS", "SentLocation", "Call", "RS", "RcvdLocation", "Transmitter"]
+        "groups": [
+          "SentRS",
+          "SentLocation",
+          "Call",
+          "RS",
+          "RcvdLocation",
+          "Transmitter"
+        ]
       },
       {
         "regex": "(\\d{2})\\s+([A-Z]{2,3})\\s+([A-Z0-9/]+)\\s+(\\d{2})\\s+(\\d+)(?:\\s+(\\d))?",
-        "groups": ["SentRS", "SentLocation", "Call", "RS", "RcvdZone", "Transmitter"]
+        "groups": [
+          "SentRS",
+          "SentLocation",
+          "Call",
+          "RS",
+          "RcvdZone",
+          "Transmitter"
+        ]
       },
       {
         "regex": "(\\d{2})\\s+([A-Z]{2,3})\\s+([A-Z0-9/]+)\\s+(\\d{2})\\s+(DX)(?:\\s+(\\d))?",
-        "groups": ["SentRS", "SentLocation", "Call", "RS", "RcvdLocation", "Transmitter"]
+        "groups": [
+          "SentRS",
+          "SentLocation",
+          "Call",
+          "RS",
+          "RcvdLocation",
+          "Transmitter"
+        ]
       }
     ]
   },
@@ -72,16 +123,47 @@
     }
   ],
   "default_qso_columns": [
-    "ContestName", "CategoryOverlay", "CategoryOperator", "CategoryTransmitter", "MyCall",
-    "Frequency", "Mode", "Datetime",
-    "SentRST", "SentRS", "SentLocation", "SentZone",
+    "ContestName",
+    "CategoryOverlay",
+    "CategoryOperator",
+    "CategoryTransmitter",
+    "MyCall",
+    "Frequency",
+    "Mode",
+    "Datetime",
+    "SentRST",
+    "SentRS",
+    "SentLocation",
+    "SentZone",
     "Call",
-    "RST", "RS", "RcvdLocation", "RcvdZone", "Transmitter",
-    "Band", "Date", "Hour", "Dupe",
-    "DXCCName", "DXCCPfx", "CQZone", "ITUZone", "Continent", "WAEName", "WAEPfx", "Lat", "Lon", "Tzone",
-    "Run", "QSOPoints",
-    "Mult1", "Mult1Name", "Mult2", "Mult2Name", 
-    "STPROV_Mult", "STPROV_MultName", 
-    "DXCC_Mult", "DXCC_MultName"
+    "RST",
+    "RS",
+    "RcvdLocation",
+    "RcvdZone",
+    "Transmitter",
+    "Band",
+    "Date",
+    "Hour",
+    "Dupe",
+    "DXCCName",
+    "DXCCPfx",
+    "CQZone",
+    "ITUZone",
+    "Continent",
+    "WAEName",
+    "WAEPfx",
+    "Lat",
+    "Lon",
+    "Tzone",
+    "Run",
+    "QSOPoints",
+    "Mult1",
+    "Mult1Name",
+    "Mult2",
+    "Mult2Name",
+    "STPROV_Mult",
+    "STPROV_MultName",
+    "DXCC_Mult",
+    "DXCC_MultName"
   ]
 }

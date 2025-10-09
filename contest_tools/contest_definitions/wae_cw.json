@@ -1,8 +1,14 @@
 {
   "_filename": "contest_tools/contest_definitions/wae_cw.json",
-  "_version": "0.90.1-Beta",
-  "_date": "2025-09-19",
+  "_version": "0.90.18-Beta",
+  "_date": "2025-10-07",
   "contest_name": "WAE-CW",
+  "contest_period": {
+    "start_day": "Saturday",
+    "start_time": "00:00:00 UTC",
+    "end_day": "Sunday",
+    "end_time": "23:59:59 UTC"
+  },
   "valid_bands": [
     "80M",
     "40M",
@@ -29,7 +35,10 @@
     "comparative_score_report"
   ],
   "mutually_exclusive_mults": [
-    ["Mult1", "Mult2"]
+    [
+      "Mult1",
+      "Mult2"
+    ]
   ],
   "multiplier_rules": [
     {
@@ -58,12 +67,32 @@
     }
   },
   "default_qso_columns": [
-    "ContestName", "MyCall", "Frequency", "Mode", "Datetime",
-    "SentRST", "SentSerial",
-    "Call", "RST", "RcvdSerial",
-    "Band", "Date", "Hour", "Dupe",
-    "DXCCName", "DXCCPfx", "CQZone", "ITUZone", "Continent", "WAEName", "WAEPfx",
-    "Run", "QSOPoints",
-    "Mult1", "Mult1Name", "Mult2", "Mult2Name"
+    "ContestName",
+    "MyCall",
+    "Frequency",
+    "Mode",
+    "Datetime",
+    "SentRST",
+    "SentSerial",
+    "Call",
+    "RST",
+    "RcvdSerial",
+    "Band",
+    "Date",
+    "Hour",
+    "Dupe",
+    "DXCCName",
+    "DXCCPfx",
+    "CQZone",
+    "ITUZone",
+    "Continent",
+    "WAEName",
+    "WAEPfx",
+    "Run",
+    "QSOPoints",
+    "Mult1",
+    "Mult1Name",
+    "Mult2",
+    "Mult2Name"
   ]
 }
