@@ -6,7 +6,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-10-10
-# Version: 0.91.11-Beta
+# Version: 0.91.12-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.91.12-Beta] - 2025-10-10
+# - Fixed bug where the contest name from a file header would overwrite
+#   the authoritative name from a CLI override (e.g., --wrtc).
 # [0.91.11-Beta] - 2025-10-10
 # - Refactored scoring module loading to be configuration-based, using a
 #   new 'scoring_module' key in the JSON definition.
@@ -106,6 +109,8 @@ class ContestLog:
         self.qtcs_df: pd.DataFrame = pd.DataFrame()
         self.time_series_score_df: pd.DataFrame = pd.DataFrame()
         self.metadata: Dict[str, Any] = {}
+        self.metadata['ContestName'] = contest_name
+        
         self.dupe_sets: Dict[str, Set[Tuple[str, str]]] = {}
         self.filepath = cabrillo_filepath
         self.cty_dat_path = cty_dat_path
@@ -240,6 +245,10 @@ class ContestLog:
                 raise
         else:
             raw_df, metadata = parse_cabrillo_file(cabrillo_filepath, self.contest_definition)
+        
+        # Preserve the contest_name from the constructor (e.g., from --wrtc flag)
+        # by removing the one parsed from the file header before updating metadata.
+        metadata.pop('ContestName', None)
         
         self.metadata.update(metadata)
         

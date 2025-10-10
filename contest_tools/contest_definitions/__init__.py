@@ -6,7 +6,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-10-10
-# Version: 0.91.4-Beta
+# Version: 0.91.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.91.5-Beta] - 2025-10-10
+# - Added `included_reports` property to support the hybrid report model.
 # [0.91.4-Beta] - 2025-10-10
 # - Added 'scoring_module' property to support configuration-based loading.
 # [0.91.3-Beta] - 2025-10-09
@@ -135,6 +137,10 @@ class ContestDefinition:
     @property
     def excluded_reports(self) -> List[str]:
         return self._data.get('excluded_reports', [])
+        
+    @property
+    def included_reports(self) -> List[str]:
+        return self._data.get('included_reports', [])
         
     @property
     def mults_from_zero_point_qsos(self) -> bool:

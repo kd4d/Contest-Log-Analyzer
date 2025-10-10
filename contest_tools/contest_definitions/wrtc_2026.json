@@ -1,6 +1,6 @@
 {
   "_filename": "contest_tools/contest_definitions/wrtc_2026.json",
-  "_version": "0.91.11-Beta",
+  "_version": "0.91.15-Beta",
   "_date": "2025-10-10",
   "contest_name": "WRTC-2026",
   "scoring_module": "wrtc_2026_scoring",
@@ -20,13 +20,29 @@
   "dupe_check_scope": "per_band",
   "score_formula": "points_times_mults",
   "enable_adif_export": true,
+  "custom_adif_exporter": "iaru_hf_adif",
+  "custom_parser_module": "iaru_hf_parser",
   "custom_multiplier_resolver": "wrtc_2026_multiplier_resolver",
   "exchange_parsing_rules": {
     "IARU-HF-ZONE-LOGGER": {
-      "regex": "(\\d{2,3})\\s+(\\d{1,2})\\s+([A-Z0-9/]+)\\s+(\\d{2,3})\\s+(\\d{1,2})(?:\\s+(\\d))?",
-      "groups": ["SentRST", "SentZone", "Call", "RST", "Zone", "Transmitter"]
+      "regex": "(\\d{2,3})\\s+(\\d{1,2})\\s+([A-Z0-9/]+)\\s+(\\d{2,3})\\s+([A-Z0-9]+)(?:\\s+(\\d))?",
+      "groups": [
+        "SentRST",
+        "SentZone",
+        "Call",
+        "RST",
+        "RcvdMult",
+        "Transmitter"
+      ]
     }
   },
+  "mutually_exclusive_mults": [
+    [
+      "Mult_DXCC",
+      "Mult_HQ",
+      "Mult_Official"
+    ]
+  ],
   "multiplier_rules": [
     {
       "name": "Countries",
@@ -46,10 +62,32 @@
     }
   ],
   "default_qso_columns": [
-    "ContestName", "MyCall", "Frequency", "Mode", "Datetime", 
-    "SentRST", "SentRS", "SentZone", "Call", "RST", "RS", "Zone",
-    "Band", "Date", "Hour", "Dupe", "DXCCName", "DXCCPfx", "CQZone", "ITUZone", 
-    "Continent", "Run", "QSOPoints", 
-    "Mult_DXCC", "Mult_DXCCName", "Mult_HQ", "Mult_Official"
+    "ContestName",
+    "MyCall",
+    "Frequency",
+    "Mode",
+    "Datetime",
+    "SentRST",
+    "SentRS",
+    "SentZone",
+    "Call",
+    "RST",
+    "RS",
+    "RcvdMult",
+    "Band",
+    "Date",
+    "Hour",
+    "Dupe",
+    "DXCCName",
+    "DXCCPfx",
+    "CQZone",
+    "ITUZone",
+    "Continent",
+    "Run",
+    "QSOPoints",
+    "Mult_DXCC",
+    "Mult_DXCCName",
+    "Mult_HQ",
+    "Mult_Official"
   ]
 }

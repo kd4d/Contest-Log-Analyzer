@@ -5,8 +5,8 @@
 #
 #
 # Author: Gemini AI
-# Date: 2025-10-05
-# Version: 0.90.2-Beta
+# Date: 2025-10-10
+# Version: 0.91.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.91.3-Beta] - 2025-10-10
+# - Marked report as specialized to enable the new opt-in logic.
 # [0.90.2-Beta] - 2025-10-05
 # - Corrected scoring logic to sum the `QSOPoints` column instead of
 #   counting all non-dupe QSOs, bringing it into alignment with the
@@ -41,6 +43,7 @@ class Report(ContestReport):
     report_id: str = "text_wae_score_report"
     report_name: str = "WAE Score Summary"
     report_type: str = "text"
+    is_specialized = True
     supports_single = True
 
     _BAND_WEIGHTS = {'80M': 4, '40M': 3, '20M': 2, '15M': 2, '10M': 2}
@@ -84,7 +87,7 @@ class Report(ContestReport):
                 if col in df_mults.columns:
                     unique_mults_on_band = df_mults[col].nunique()
                     weighted_mults += unique_mults_on_band * self._BAND_WEIGHTS.get(band, 1)
-        
+            
             summary_data.append({
                 'Band': band, 'Mode': mode,
                 'QSO Pts': qso_pts,
