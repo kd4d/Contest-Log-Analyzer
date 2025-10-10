@@ -5,8 +5,8 @@
 #          data cleaning, and calculation of various contest metrics.
 #
 # Author: Gemini AI
-# Date: 2025-10-09
-# Version: 0.90.3-Beta
+# Date: 2025-10-10
+# Version: 0.91.10-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,27 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.91.10-Beta] - 2025-10-10
+# - Refactored multiplier resolver logic to use a single, unconditional
+#   4-argument call, removing the fragile hardcoded list.
+# [0.91.9-Beta] - 2025-10-09
+# - Corrected NAQP date calculation to use 0-indexed weeks for
+#   WeekOfMonth and removed diagnostic logging.
+# [0.91.8-Beta] - 2025-10-09
+# - Added diagnostic logging to the NAQP contest period filter to trace
+#   date/time calculation values.
+# [0.91.7-Beta] - 2025-10-09
+# - Fixed bug in NAQP contest period rule for August CW, changing the
+#   week from 1 (first Saturday) to 2 (second Saturday).
+# [0.91.6-Beta] - 2025-10-09
+# - Fixed TypeError in NAQP date filter by replacing the flawed Period
+#   conversion with a timezone-aware `replace()` method.
+# [0.91.5-Beta] - 2025-10-09
+# - Changed warning for empty hourly ADIF debug files to INFO level to
+#   reduce console noise.
+# [0.91.4-Beta] - 2025-10-09
+# - Fixed NAQP contest period bug by getting the mode from the log data
+#   instead of incorrectly parsing the contest name.
 # [0.90.3-Beta] - 2025-10-09
 # - Fixed ValueError in `_filter_by_contest_period` by replacing the
 #   incorrect `pd.to_datetime()` call for day names with a dictionary lookup.
@@ -88,6 +109,7 @@ class ContestLog:
     
         self._my_location_type: Optional[str] = None # W/VE or DX
         self._log_manager_ref = None
+    
         
         self.root_input_dir = root_input_dir
         if root_input_dir is None:
@@ -138,20 +160,23 @@ class ContestLog:
 
         # --- Special Case: NAQP ---
         if contest_name.startswith("NAQP"):
-            mode_from_contest = contest_name.split('-')[-1]
+            mode_from_contest = df['Mode'].iloc[0]
             month = log_date.month
-            # (start_weekday, week_of_month, start_time_utc) Saturday is 5
+            # (start_weekday, week_of_month [0-indexed], start_time_utc) Saturday is 5
             rules = {
-                ('CW', 1): (5, 2, "18:00:00"), ('CW', 8): (5, 1, "18:00:00"),
-                ('PH', 1): (5, 3, "18:00:00"), ('PH', 8): (5, 3, "18:00:00"),
-                ('RTTY', 2): (5, 4, "18:00:00"), ('RTTY', 7): (5, 2, "18:00:00"),
+                ('CW', 1): (5, 1, "18:00:00"),   # Jan CW: 2nd Saturday
+                ('CW', 8): (5, 0, "18:00:00"),   # Aug CW: 1st Saturday
+                ('PH', 1): (5, 2, "18:00:00"),   # Jan SSB: 3rd Saturday
+                ('PH', 8): (5, 2, "18:00:00"),   # Aug SSB: 3rd Saturday
+                ('RTTY', 2): (5, 3, "18:00:00"), # Feb RTTY: 4th Saturday
+                ('RTTY', 7): (5, 1, "18:00:00"), # Jul RTTY: 2nd Saturday
             }
             rule = rules.get((mode_from_contest, month))
             if not rule:
-                logging.warning(f"No valid contest period rule found for NAQP {mode_from_contest} in month {month}.")
+                logging.warning(f"No valid contest period rule found for NAQP-{mode_from_contest} in month {month}.")
                 return df # Return unfiltered
             
-            first_day_of_month = log_date.to_period('M').to_timestamp(tz='UTC')
+            first_day_of_month = log_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
             start_day = first_day_of_month + WeekOfMonth(week=rule[1], weekday=rule[0])
             start_time = pd.to_datetime(start_day.strftime('%Y-%m-%d') + ' ' + rule[2], utc=True)
             end_time = start_time + pd.Timedelta(hours=12) # NAQP is a 12-hour contest
@@ -244,7 +269,7 @@ class ContestLog:
         if not validated_qso_records:
             self.qsos_df = pd.DataFrame(columns=self.contest_definition.default_qso_columns)
             return
-            
+
         raw_df = pd.DataFrame(validated_qso_records)
         
         raw_df['Datetime'] = pd.to_datetime(
@@ -461,13 +486,7 @@ class ContestLog:
         if resolver_name:
             try:
                 resolver_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{resolver_name}")
-                # --- Phased Rollout: Pass contest_def only to migrated resolvers ---
-                # This list will grow as more resolvers are migrated to the new architecture.
-                if resolver_name in ["iaru_hf_multiplier_resolver", "wae_multiplier_resolver", "cq_wpx_prefix", "cq_160_multiplier_resolver", "naqp_multiplier_resolver", "arrl_ss_multiplier_resolver", "arrl_fd_multiplier_resolver", "arrl_10_multiplier_resolver", "arrl_dx_multiplier_resolver"]:
-                    self.qsos_df = resolver_module.resolve_multipliers(self.qsos_df, self._my_location_type, self.root_input_dir, self.contest_definition)
-                else:
-                    # Legacy call for non-migrated resolvers
-                    self.qsos_df = resolver_module.resolve_multipliers(self.qsos_df, self._my_location_type, self.root_input_dir)
+                self.qsos_df = resolver_module.resolve_multipliers(self.qsos_df, self._my_location_type, self.root_input_dir, self.contest_definition)
                 logging.info(f"Successfully applied '{resolver_name}' multiplier resolver.")
             except Exception as e:
                 logging.warning(f"Could not run '{resolver_name}' multiplier resolver: {e}")
@@ -482,6 +501,7 @@ class ContestLog:
                 if applies_to and self._my_location_type and applies_to != self._my_location_type:
                     continue
  
+                
                 dest_col = rule.get('value_column')
                 dest_name_col = rule.get('name_column')
                 
@@ -593,10 +613,14 @@ class ContestLog:
             logging.error(f"Error exporting log to CSV '{output_filepath}': {e}")
             raise
 
-    def export_to_adif(self, output_filepath: str):
+    def export_to_adif(self, output_filepath: str, is_debug_hour: bool = False):
         """Generates a standard ADIF file from the processed log data."""
         if self.qsos_df.empty:
-            logging.warning(f"No QSOs to export. ADIF file '{output_filepath}' will not be created.")
+            message = f"No QSOs to export. ADIF file '{output_filepath}' will not be created."
+            if is_debug_hour:
+                logging.info(message)
+            else:
+                logging.warning(message)
             return
             
         df_to_export = self.qsos_df.copy()
@@ -649,6 +673,7 @@ class ContestLog:
             # Get the mode from the DataFrame row
             mode = row.get('Mode')
             
+            
             # Check if the mode is one of the standard phone modes
             if mode in ['PH', 'USB', 'LSB', 'SSB']:
                 output_mode = 'SSB'
@@ -667,6 +692,7 @@ class ContestLog:
             record.append(adif_format('OPERATOR', self.metadata.get('MyCall')))
             record.append(adif_format('CQZ', row.get('CQZone')))
             record.append(adif_format('ITUZ', row.get('ITUZone')))
+            
             
             # Add custom CLA tag for CTY-derived CQ Zone for diagnostics
             record.append(adif_format('APP_CLA_CQZ', row.get('CQZone')))

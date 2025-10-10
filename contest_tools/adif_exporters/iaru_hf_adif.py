@@ -7,8 +7,8 @@
 #
 #
 # Author: Gemini AI
-# Date: 2025-10-01
-# Version: 0.90.0-Beta
+# Date: 2025-10-09
+# Version: 0.91.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -20,6 +20,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.91.0-Beta] - 2025-10-09
+# - Added logic to handle WRTC contest IDs and add a specific
+#   APP_CLA_CONTEST tag for WRTC logs.
 # [0.90.0-Beta] - 2025-10-01
 # Set new baseline version for release.
 
@@ -91,8 +94,14 @@ def export_log(log: ContestLog, output_filepath: str):
         
         record_parts.append(adif_format('RST_RCVD', row.get('RST') or row.get('RS')))
         record_parts.append(adif_format('RST_SENT', row.get('SentRST') or row.get('SentRS')))
-        record_parts.append(adif_format('CONTEST_ID', log.get_metadata().get('ContestName')))
         record_parts.append(adif_format('STATION_CALLSIGN', log.get_metadata().get('MyCall')))
+
+        # --- Contest ID Logic ---
+        contest_name = log.get_metadata().get('ContestName', 'IARU-HF')
+        if contest_name.startswith('WRTC'):
+            record_parts.append(adif_format('APP_CLA_CONTEST', contest_name))
+        
+        record_parts.append(adif_format('CONTEST_ID', contest_name))
         
         # --- IARU Contest-Specific Multiplier Logic ---
         band = row.get('Band')

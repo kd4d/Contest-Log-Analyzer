@@ -5,8 +5,8 @@
 #          common Cabrillo field definitions with contest-specific overrides.
 #
 # Author: Gemini AI
-# Date: 2025-10-01
-# Version: 0.90.0-Beta
+# Date: 2025-10-09
+# Version: 0.91.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,15 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.91.3-Beta] - 2025-10-09
+# - Corrected filename generation in `find_and_load` to handle spaces in
+#   contest names (e.g., "WAE CW"), fixing the `FileNotFoundError` regression.
+# [0.91.2-Beta] - 2025-10-09
+# - Fixed latent bug in _create_master_time_index by changing ceil('h')
+#   to floor('h') to prevent creation of an extra, empty hour.
+# [0.91.1-Beta] - 2025-10-09
+# - Fixed regression by restoring the implicit generic/specific file loading
+#   logic as a fallback for definitions that do not use "inherits_from".
 # [0.90.0-Beta] - 2025-10-01
 # Set new baseline version for release.
 
@@ -52,35 +61,47 @@ class ContestDefinition:
 
     @classmethod
     def from_json(cls, contest_name: str) -> 'ContestDefinition':
+        """
+        Loads a contest definition from JSON, handling both explicit inheritance
+        ("inherits_from") and implicit generic/specific file patterns.
+        """
         current_dir = os.path.dirname(os.path.abspath(__file__))
         
+        def find_and_load(name: str) -> Optional[dict]:
+            """Helper to attempt loading a JSON file by its base name."""
+            file_path = os.path.join(current_dir, f"{name.lower().replace('-', '_').replace(' ', '_')}.json")
+            if os.path.exists(file_path):
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            return None
+
+        # Load common fields first as the absolute base
         common_file_path = os.path.join(current_dir, COMMON_CABRILLO_FIELDS_FILE)
         with open(common_file_path, 'r', encoding='utf-8') as f:
-            merged_data = json.load(f)
+            base_data = json.load(f)
 
-        base_contest_name = contest_name.rsplit('-', 1)[0].lower().replace('-', '_').replace(' ', '_')
-        specific_contest_name = contest_name.lower().replace('-', '_').replace(' ', '_')
+        # 1. Attempt to load the specific contest file (e.g., arrl_ss_cw.json)
+        contest_data = find_and_load(contest_name)
         
-        generic_file_path = os.path.join(current_dir, f"{base_contest_name}.json")
-        specific_file_path = os.path.join(current_dir, f"{specific_contest_name}.json")
+        # 2. If specific fails, attempt to load the generic file (e.g., arrl_ss.json)
+        if contest_data is None:
+            try:
+                generic_name = contest_name.rsplit('-', 1)[0]
+                contest_data = find_and_load(generic_name)
+            except IndexError:
+                pass # No hyphen to split, so no generic name to try
 
-        found_a_file = False
+        if contest_data is None:
+            raise FileNotFoundError(f"No definition file found for '{contest_name}'")
+            
+        # 3. Handle explicit inheritance if present
+        if "inherits_from" in contest_data:
+            parent_data = find_and_load(contest_data["inherits_from"])
+            if parent_data:
+                # Parent data becomes the new base for the specific data to override
+                contest_data = cls._deep_merge_dicts(parent_data, contest_data)
 
-        if os.path.exists(generic_file_path):
-            with open(generic_file_path, 'r', encoding='utf-8') as f:
-                generic_data = json.load(f)
-            merged_data = cls._deep_merge_dicts(merged_data, generic_data)
-            found_a_file = True
-
-        if os.path.exists(specific_file_path):
-            with open(specific_file_path, 'r', encoding='utf-8') as f:
-                specific_data = json.load(f)
-            merged_data = cls._deep_merge_dicts(merged_data, specific_data)
-            found_a_file = True
-        
-        if not found_a_file:
-            raise FileNotFoundError(f"No definition file found for '{contest_name}' (tried {specific_file_path} and {generic_file_path})")
-
+        merged_data = cls._deep_merge_dicts(base_data, contest_data)
         return cls(merged_data)
 
     @property

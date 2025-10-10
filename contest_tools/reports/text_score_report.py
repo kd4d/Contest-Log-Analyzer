@@ -4,8 +4,8 @@
 #          log, broken down by band.
 #
 # Author: Gemini AI
-# Date: 2025-10-01
-# Version: 0.90.0-Beta
+# Date: 2025-10-09
+# Version: 0.91.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -17,8 +17,15 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.91.0-Beta] - 2025-10-09
+# - Added support for the 'once_per_band_no_mode' multiplier totaling
+#   method to correctly calculate WRTC scores.
+# [0.90.3-Beta] - 2025-10-05
+# - Corrected scoring logic to sum the `QSOPoints` column instead of
+#   counting all non-dupe QSOs, bringing it into alignment with the
+#   correct logic in `wae_calculator.py`.
 # [0.90.0-Beta] - 2025-10-01
-# Set new baseline version for release.
+# - Set new baseline version for release.
 
 from typing import List, Dict, Set, Tuple
 import pandas as pd
@@ -305,6 +312,11 @@ class Report(ContestReport):
                 elif rule.get('totaling_method') == 'once_per_mode':
                     mode_mults = df_valid_mults.groupby('Mode')[mult_col].nunique()
                     total_mults_for_rule = mode_mults.sum()
+                elif rule.get('totaling_method') == 'once_per_band_no_mode':
+                    # New logic for WRTC: Count unique mults per band, ignoring mode.
+                    # Then sum those unique-per-band counts.
+                    band_mults = df_valid_mults.groupby('Band')[mult_col].nunique()
+                    total_mults_for_rule = band_mults.sum()
                 else: # Default to sum_by_band
                     total_mults_for_rule = per_band_mult_counts.get(mult_col, pd.Series()).sum()
             

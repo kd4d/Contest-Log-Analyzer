@@ -1,9 +1,27 @@
 # AIAgentWorkflow.md
 
-**Version: 1.1.6-Beta**
-**Date: 2025-10-07**
+**Version: 1.1.9-Beta**
+**Date: 2025-10-09**
 ---
 ### --- Revision History ---
+## [1.1.9-Beta] - 2025-10-09
+### Changed
+# - Amended Protocol 6.3 (Error Analysis Protocol) to mandate a
+#   structured, three-part format (Confirmed Facts, Hypothesis,
+#   Proposed Action) to improve analytical transparency.
+## [1.1.8-Beta] - 2025-10-09
+### Changed
+# - Amended Protocol 2.5 (Implementation Plan) to add a "Refactoring
+#   Impact Analysis" item to the Pre-Flight Check. This makes the audit
+#   for unintended side-effects of refactoring an explicit step.
+## [1.1.7-Beta] - 2025-10-09
+### Added
+# - Added Protocol 2.10 (Contest Definition Override Protocol) to formalize
+#   the use of CLI flags (e.g., --wrtc) to apply alternative rulesets to
+#   a log file at runtime.
+# - Added Protocol 3.9 (JSON Inheritance Protocol) to formalize the
+#   `"inherits_from"` pattern, allowing one .json definition to extend
+#   another.
 ## [1.1.6-Beta] - 2025-10-07
 ### Changed
 # - Amended Protocol 1.7 (Project Structure Onboarding) to include the
@@ -529,7 +547,9 @@ For a narrative, human-focused explanation of this workflow, please see `Docs/Ge
 * [Part II: Standard Operating Protocols](#part-ii-standard-operating-protocols)
     * [1. Session Management](#1-session-management)
     * [2. Task Execution Workflow](#2-task-execution-workflow)
+        * [2.10. Contest Definition Override Protocol](#210-contest-definition-override-protocol)
     * [3. File and Data Handling](#3-file-and-data-handling)
+        * [3.9. JSON Inheritance Protocol](#39-json-inheritance-protocol)
     * [4. Communication](#4-communication)
 * [Part III: Project-Specific Implementation Patterns](#part-iii-project-specific-implementation-patterns)
 * [Part IV: Special Case & Recovery Protocols](#part-iv-special-case--recovery-protocols)
@@ -691,6 +711,7 @@ __CODE_BLOCK__
             * **Mental Walkthrough Confirmation**: A statement affirming that a mental walkthrough of the logic will be performed before generating the file.
             * **State Confirmation Procedure**: An affirmation that the mandatory confirmation prompt will be included with the file delivery.
             * **Backward Compatibility & Impact Analysis**: I have analyzed the potential impact of these changes on other modules and confirm this plan will not break existing, unmodified functionality.
+            * **Refactoring Impact Analysis**: If this plan involves refactoring, I have audited the call stack and confirmed that this change does not break any implicit contracts or fallback behaviors relied upon by other modules.
             * **Surgical Modification Adherence Confirmation**: I confirm that the generated file will contain *only* the changes shown in the Surgical Change Verification (`diff`) section above, ensuring 100% compliance with Principle 9.
             * **Syntax Validation Confirmation**: For all Python files (`.py`), I will perform an automated syntax validation check.
         **6.  Post-Generation Verification.** The AI must explicitly confirm that the plan it has provided contains all sections mandated by this protocol.
@@ -701,6 +722,14 @@ __CODE_BLOCK__
 2.8.1. **Post-Execution Refinement Protocol.** If a user acknowledges a file delivery but subsequently reports that the fix is incomplete or incorrect, the task is not considered complete. The workflow immediately returns to **Protocol 2.1 (Analysis and Discussion)**. This initiates a new analysis loop within the context of the original task, culminating in a new implementation plan to address the remaining issues. The task is only complete after **Protocol 2.9 (Propose Verification Command)** is successfully executed for the *final, correct* implementation.
 2.9. **Propose Verification Command**: After the final file in an implementation plan has been delivered and acknowledged by the user, the AI's final action for the task is to propose the specific command-line instruction(s) the user should run to verify that the bug has been fixed or the feature has been implemented correctly.
 **2.9.1: Task Type Verification.** This protocol applies **only** if the final file modified was a code or data file (e.g., `.py`, `.json`, `.dat`). If the final file was a documentation or text file (e.g., `.md`), a verification command is not applicable. The task is successfully concluded once the user provides the standard 'Acknowledged' response for the final documentation file delivered as part of the implementation plan.
+
+**2.10. Contest Definition Override Protocol.** This protocol defines how a command-line flag can be used to override the default contest definition for a specific log file.
+    1.  **Initiation**: The user provides a specific command-line argument (e.g., `--wrtc <year>`) when running `main_cli.py`.
+    2.  **Detection**: The `log_manager.py` module must be implemented to detect this argument.
+    3.  **Conditional Override**: When loading a log file, the `log_manager` must check if the override condition is met (e.g., the flag is present and the log's `CONTEST:` tag matches a specific value like `IARU-HF`).
+    4.  **Load Alternate Definition**: If the condition is met, the `log_manager` must construct the name of the alternate definition file (e.g., `WRTC-2026`) and use that to instantiate the `ContestLog` object, thereby bypassing the default rules.
+    5.  **Error Handling**: If an override is specified but the corresponding definition file (e.g., `wrtc-2030.json`) does not exist, the `log_manager` must raise a `FileNotFoundError`, and `main_cli.py` must catch this, report a clear error to the user, and exit.
+
 ### 3. File and Data Handling
 
 3.1. **Project File Input.** All project source files and documentation will be provided for updates in a single text file called a **project bundle**, or pasted individually into the chat. The bundle uses a simple text header to separate each file: `--- FILE: path/to/file.ext ---`
@@ -745,6 +774,13 @@ __CODE_BLOCK__
     4.  **Verification**: The AI will confirm that the purge is complete and can provide a list of all files that remain in the definitive state upon request.
 3.7. **Temporary Column Preservation Protocol.** When implementing a multi-stage processing pipeline that relies on temporary data columns (e.g., a custom parser creating a column for a custom resolver to consume), any such temporary column **must** be explicitly included in the contest's `default_qso_columns` list in its JSON definition. The `contest_log.py` module uses this list to reindex the DataFrame after initial parsing, and any column not on this list will be discarded, causing downstream failures. This is a critical data integrity step in the workflow.
 3.8. **ASCII-7 Deliverable Mandate.** All files delivered by the AI must contain only 7-bit ASCII characters. This strictly forbids the use of extended Unicode characters (e.g., smart quotes, em dashes, non-standard whitespace) to ensure maximum compatibility and prevent file corruption.
+
+3.9. **JSON Inheritance Protocol.** This protocol defines a method for one contest definition `.json` file to inherit and extend the rules from another.
+    1.  **Activation**: A "child" JSON file (e.g., `wrtc_2025.json`) includes a new top-level key: `"inherits_from": "<parent_name>"`, where `<parent_name>` is the base name of the "parent" JSON file (e.g., `wrtc_2026`).
+    2.  **Implementation**: The `ContestDefinition.from_json` method in `contest_tools/contest_definitions/__init__.py` must implement the loading logic.
+    3.  **Recursive Loading**: When `from_json` is called for a child definition, it must first recursively call itself to load the parent definition specified in the `"inherits_from"` key.
+    4.  **Deep Merge**: After loading the parent data, the method must perform a deep merge, with the child's data overriding any conflicting keys from the parent. This allows a child file to inherit a full ruleset and only specify the keys that differ.
+
 ### 4. Communication
 
 4.1. **Communication Protocol.** All AI communication will be treated as **technical writing**. The AI must use the exact, consistent terminology from the source code and protocols.
@@ -821,17 +857,20 @@ These protocols are for troubleshooting, error handling, and non-standard situat
     3.  **File State Request**: If a state mismatch is suspected as the root cause of an error, the AI is authorized to request a copy of the relevant file(s) from the user to establish a definitive ground truth.
 6.2. **Debug "A Priori" When Stuck.** If an initial bug fix fails or the cause of an error is not immediately obvious, the first diagnostic step to consider is to add detailed logging (e.g., `logging.info()` statements, hexadecimal dumps) to the failing code path. The goal is to isolate the smallest piece of failing logic and observe the program's actual runtime state.
 
-6.3. **Error Analysis Protocol.** When an error in the AI's process is identified, the AI must provide a clear and concise analysis. **A failure to provide a correct analysis after being corrected by the user constitutes a new, more severe error that must also be analyzed.**
+6.3. **Error Analysis Protocol.** When an error in the AI's process is identified, the AI must provide a clear and concise analysis structured in the mandatory format below. **A failure to provide a correct analysis after being corrected by the user constitutes a new, more severe error that must also be analyzed.**
     1.  **Acknowledge the Error:** State clearly that a mistake was made.
     2.  **Request Diagnostic Output:** If the user has not already provided it, the AI's immediate next step is to request the new output that demonstrates the failure (e.g., the incorrect text report or a screenshot). This output becomes the new ground truth for the re-analysis.
-    3.  **Identify the Root Cause:** Explain the specific flaw in the internal process or logic that led to the error.
-    4.  **Cross-Reference Core Principles & Reconcile Contradictions:** The AI must explicitly state if a violation of Principle 3 (Trust the User's Diagnostics) was a contributing factor to the error. This includes identifying which specific principles or protocols were violated.
-        * **Collaborative Reconciliation Mandate**: When user-provided evidence contradicts the current analysis, the AI will not immediately discard its hypothesis. Instead, it must state the specific contradiction clearly and request clarification from the user to **collaboratively reconcile** the discrepancy. This acknowledges that the interaction is a partnership and either the analysis or the interpretation of the evidence could be incorrect.
-    4.a. **Surgical Modification Failure Analysis**: If the root cause involved a violation of Principle 9, I must provide a specific analysis of *why* I failed to generate a surgical `diff` and instead regenerated code.
-    5.  **Propose a Corrective Action:** Describe the specific, procedural change that will be implemented to prevent the error from recurring. If this change involves a new implementation plan, the AI must state this and then initiate the file-based delivery process defined in **Protocol 2.5**.
-    6.  **Post-Analysis Verification.** The AI must explicitly confirm that the analysis it has provided contains all the steps mandated by this protocol.
-    7.  **Proactive Systemic Bug Check**: As part of the root cause analysis, I must explicitly state whether the bug is likely to be systemic. If it is, the corrective action proposed in Step 5 must include the initiation of the **Systemic Bug Eradication Protocol (7.6)** to audit for and fix all instances.
-    8.  **Propose Workflow Amendment**: If the root cause analysis identifies a flaw or a gap in the `AIAgentWorkflow.md` protocols themselves, I must immediately propose a separate implementation plan to amend the workflow document to prevent that class of error from recurring.
+    3.  **Present Analysis in Mandatory Three-Part Format:**
+        * **A. Confirmed Facts:** A numbered list of direct, verifiable observations derived from the user-provided ground truth (code, error messages, diagnostic output). This section must not contain any inferences or assumptions.
+        * **B. Hypothesis:** A single, clear statement of the most likely root cause, explicitly labeled as a hypothesis. This section must:
+            * Cross-reference any Core Principles that were violated.
+            * Include a "Surgical Modification Failure Analysis" for any violations of Principle 9.
+            * State what evidence is required to confirm or deny the hypothesis.
+        * **C. Proposed Action:** The specific, procedural next step. This will either be a request for the evidence needed to test the hypothesis or, if the evidence is sufficient, a statement of readiness to create an implementation plan. This section must also:
+            * Include a proactive check for systemic bugs per Protocol 7.6.
+            * Propose a workflow amendment per step 5 of this protocol if the workflow itself is a root cause.
+    4.  **Post-Analysis Verification:** The AI must explicitly confirm that the analysis it has provided contains all the steps and the mandatory three-part structure required by this protocol.
+    5.  **Propose Workflow Amendment**: If the root cause analysis identifies a flaw or a gap in the `AIAgentWorkflow.md` protocols themselves, the Proposed Action (Step 3.C) must include a proposal to create a separate implementation plan to amend the workflow document.
 6.4. **Corrupted User Input Protocol.** This protocol defines the procedure for handling malformed or corrupted input files provided by the user.
     1.  Halt the current task immediately.
     2.  Report the specific file that contains the error and describe the nature of the error (e.g., "Cabrillo parsing failed on line X" or "Bundle is missing a file header").
