@@ -1,8 +1,9 @@
 {
   "_filename": "contest_tools/contest_definitions/arrl_ss.json",
-  "_version": "0.90.18-Beta",
-  "_date": "2025-10-07",
+  "_version": "0.91.11-Beta",
+  "_date": "2025-10-10",
   "contest_name": "ARRL-SS",
+  "scoring_module": "arrl_ss_scoring",
   "contest_period": {
     "start_day": "Saturday",
     "start_time": "21:00:00 UTC",

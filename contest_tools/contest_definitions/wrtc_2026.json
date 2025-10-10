@@ -1,8 +1,9 @@
 {
   "_filename": "contest_tools/contest_definitions/wrtc_2026.json",
-  "_version": "0.91.0-Beta",
-  "_date": "2025-10-09",
+  "_version": "0.91.11-Beta",
+  "_date": "2025-10-10",
   "contest_name": "WRTC-2026",
+  "scoring_module": "wrtc_2026_scoring",
   "contest_period": {
     "start_day": "Saturday",
     "start_time": "12:00:00 UTC",

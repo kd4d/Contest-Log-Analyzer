@@ -6,7 +6,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-10-10
-# Version: 0.91.10-Beta
+# Version: 0.91.11-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.91.11-Beta] - 2025-10-10
+# - Refactored scoring module loading to be configuration-based, using a
+#   new 'scoring_module' key in the JSON definition.
 # [0.91.10-Beta] - 2025-10-10
 # - Refactored multiplier resolver logic to use a single, unconditional
 #   4-argument call, removing the fragile hardcoded list.
@@ -563,23 +566,16 @@ class ContestLog:
             self.qsos_df['QSOPoints'] = 0
             return
 
-        scoring_module = None
+        scoring_module_name = self.contest_definition.scoring_module
         try:
-            module_name_specific = self.contest_name.lower().replace('-', '_').replace(' ', '_')
-            scoring_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{module_name_specific}_scoring")
-        except ImportError:
-            try:
-                if '-' in self.contest_name:
-                    base_contest_name = self.contest_name.rsplit('-', 1)[0]
-                else:
-                    base_contest_name = self.contest_name.split(' ')[0]
-                module_name_generic = base_contest_name.lower().replace('-', '_').replace(' ', '_')
-                scoring_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{module_name_generic}_scoring")
-            except (ImportError, IndexError):
-                logging.warning(f"No scoring module found for contest '{self.contest_name}'. Points will be 0.")
-                self.qsos_df['QSOPoints'] = 0
-                return
-        
+            if not scoring_module_name:
+                raise ImportError(f"No 'scoring_module' key found in JSON definition for {self.contest_name}")
+            scoring_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{scoring_module_name}")
+        except ImportError as e:
+            logging.warning(f"Could not load scoring module for contest '{self.contest_name}': {e}. Points will be 0.")
+            self.qsos_df['QSOPoints'] = 0
+            return
+
         try:
             self.qsos_df['QSOPoints'] = scoring_module.calculate_points(self.qsos_df, my_call_info)
             logging.info(f"Scoring complete.")

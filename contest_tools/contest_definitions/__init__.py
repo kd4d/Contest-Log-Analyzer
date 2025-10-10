@@ -5,8 +5,8 @@
 #          common Cabrillo field definitions with contest-specific overrides.
 #
 # Author: Gemini AI
-# Date: 2025-10-09
-# Version: 0.91.3-Beta
+# Date: 2025-10-10
+# Version: 0.91.4-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.91.4-Beta] - 2025-10-10
+# - Added 'scoring_module' property to support configuration-based loading.
 # [0.91.3-Beta] - 2025-10-09
 # - Corrected filename generation in `find_and_load` to handle spaces in
 #   contest names (e.g., "WAE CW"), fixing the `FileNotFoundError` regression.
@@ -185,6 +187,10 @@ class ContestDefinition:
     @property
     def score_formula(self) -> str:
         return self._data.get('score_formula', 'points_times_mults')
+
+    @property
+    def scoring_module(self) -> Optional[str]:
+        return self._data.get('scoring_module')
 
     @property
     def cabrillo_version(self) -> str:

@@ -1,9 +1,13 @@
 # AIAgentWorkflow.md
 
-**Version: 1.1.9-Beta**
-**Date: 2025-10-09**
+**Version: 1.1.10-Beta**
+**Date: 2025-10-10**
 ---
 ### --- Revision History ---
+## [1.1.10-Beta] - 2025-10-10
+### Added
+# - Added Protocol 2.8.2 (In-Flight Task Reconciliation Protocol) to
+#   provide a lightweight method for re-verifying context during long tasks.
 ## [1.1.9-Beta] - 2025-10-09
 ### Changed
 # - Amended Protocol 6.3 (Error Analysis Protocol) to mandate a
@@ -720,6 +724,15 @@ __CODE_BLOCK__
 2.7. **Approval**: The user provides explicit approval of the final implementation plan. Instructions, clarifications, or new requirements provided after a plan has been proposed do not constitute approval; they will be treated as requests for plan refinement under Protocol 2.6. The AI will only proceed to the Execution state upon receiving the **exact, literal string `Approved`**. If any other input is received, the AI will state that the plan is not approved and re-issue the standardized prompt.
 2.8. **Execution**: Upon approval, the AI will proceed with the **Confirmed File Delivery Protocol (4.4)**.
 2.8.1. **Post-Execution Refinement Protocol.** If a user acknowledges a file delivery but subsequently reports that the fix is incomplete or incorrect, the task is not considered complete. The workflow immediately returns to **Protocol 2.1 (Analysis and Discussion)**. This initiates a new analysis loop within the context of the original task, culminating in a new implementation plan to address the remaining issues. The task is only complete after **Protocol 2.9 (Propose Verification Command)** is successfully executed for the *final, correct* implementation.
+2.8.2. **In-Flight Task Reconciliation Protocol.** This protocol provides a lightweight, proactive mechanism for verifying the state of a multi-step task *during* execution to prevent context loss.
+    1.  **Trigger**: This protocol can be initiated by the user (e.g., "Initiate In-Flight Task Reconciliation") or proactively by the AI if more than five conversational turns occur that are not part of the standard `Confirm` -> `Deliver` -> `Acknowledge` file delivery loop.
+    2.  **Action**: The AI will halt the current conversation and locate the last `Approved` implementation plan in the chat history.
+    3.  **Scan and Summarize**: The AI will scan forward from that point and produce a concise summary containing:
+        * The overall goal of the current implementation plan.
+        * The total number of files in the plan.
+        * A list of files already delivered and acknowledged.
+        * A statement identifying the next file in the sequence.
+    4.  **Confirmation**: The AI will request a `Confirmed` prompt from the user to verify this reconciled state before resuming the task.
 2.9. **Propose Verification Command**: After the final file in an implementation plan has been delivered and acknowledged by the user, the AI's final action for the task is to propose the specific command-line instruction(s) the user should run to verify that the bug has been fixed or the feature has been implemented correctly.
 **2.9.1: Task Type Verification.** This protocol applies **only** if the final file modified was a code or data file (e.g., `.py`, `.json`, `.dat`). If the final file was a documentation or text file (e.g., `.md`), a verification command is not applicable. The task is successfully concluded once the user provides the standard 'Acknowledged' response for the final documentation file delivered as part of the implementation plan.
 
