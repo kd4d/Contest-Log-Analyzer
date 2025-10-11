@@ -1,10 +1,10 @@
-# contest_tools/contest_specific_annotations/wrtc_2026_multiplier_resolver.py
+# contest_tools/contest_specific_annotations/wrtc_multiplier_resolver.py
 #
-# Purpose: Provides the custom multiplier resolver for the WRTC 2026 contest.
+# Purpose: Provides the custom multiplier resolver for the WRTC contest series.
 #
 # Author: Gemini AI
-# Date: 2025-10-09
-# Version: 0.91.0-Beta
+# Date: 2025-10-10
+# Version: 0.91.12-Beta
 #
 # License: Mozilla Public License, v. 2.0
 
@@ -14,7 +14,7 @@ from ..contest_definitions import ContestDefinition
 
 def resolve_multipliers(df: pd.DataFrame, my_location_type: str, root_input_dir: str, contest_def: ContestDefinition) -> pd.DataFrame:
     """
-    Resolves multipliers for WRTC 2026.
+    Resolves multipliers for WRTC contests.
     Multipliers: DXCC Countries, HQ Stations, IARU Officials.
     Rule: Counted once per band, regardless of mode.
     """

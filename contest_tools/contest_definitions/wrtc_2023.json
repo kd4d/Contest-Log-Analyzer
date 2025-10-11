@@ -1,8 +1,8 @@
 {
-  "_filename": "contest_tools/contest_definitions/wrtc_2025.json",
+  "_filename": "contest_tools/contest_definitions/wrtc_2023.json",
   "_version": "0.91.12-Beta",
   "_date": "2025-10-10",
-  "contest_name": "WRTC-2025",
+  "contest_name": "WRTC-2023",
   "inherits_from": "wrtc",
   "scoring_module": "wrtc_2023_scoring"
 }

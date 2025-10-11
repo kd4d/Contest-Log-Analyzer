@@ -1,10 +1,14 @@
 # Contest Log Analyzer
 
-**Version: 0.88.0-Beta**
-**Date: 2025-09-21**
+**Version: 0.91.0-Beta**
+**Date: 2025-10-10**
 
 ---
 ### --- Revision History ---
+## [0.91.0-Beta] - 2025-10-10
+### Changed
+# - Updated version number to align with the current session.
+# - Added WRTC to the list of supported contests.
 ## [0.88.0-Beta] - 2025-09-21
 ### Fixed
 # - Synchronized the "Available Reports" list with the current project
@@ -78,6 +82,7 @@ The following contests are currently supported:
 * IARU HF World Championship
 * North American QSO Party (NAQP)
 * WAE (CW & SSB)
+* WRTC (via IARU-HF log)
 ---
 ## Available Reports
 
