@@ -47,7 +47,7 @@ def get_project_files():
     """Returns a list of all .py and .json files in the project."""
     project_files = []
     for root, _, files in os.walk("."):
-        if "test_code" in root:
+        if "test_code" in root or "CONTEST_LOGS_REPORTS" in root:
             continue
         for file in files:
             if file.endswith((".py", ".json")):
@@ -56,7 +56,7 @@ def get_project_files():
 
 
 def get_docs_files():
-    """Returns a list of all .md files in the Docs/ directory."""
+    """Returns a list of Readme.md and all .md files in the Docs/ directory."""
     docs_files = []
     docs_dir = "Docs"
     if os.path.isdir(docs_dir):
