@@ -1,6 +1,6 @@
 # AIAgentWorkflow.md
 
-**Version: 1.1.12-Beta**
+**Version: 1.2.0-Beta**
 **Date: 2025-10-11**
 ---
 ### --- Revision History ---
@@ -210,7 +210,7 @@ __CODE_BLOCK__
             * **State Confirmation Procedure**: An affirmation that the mandatory confirmation prompt will be included with the file delivery.
             * **Backward Compatibility & Impact Analysis**: I have analyzed the potential impact of these changes on other modules and confirm this plan will not break existing, unmodified functionality.
             * **Refactoring Impact Analysis**: If this plan involves refactoring, I have audited the call stack and confirmed that this change does not break any implicit contracts or fallback behaviors relied upon by other modules.
-            * **Surgical Modification Adherence Confirmation**: I confirm that the generated file will contain *only* the changes shown in the Surgical Change Verification (`diff`) section above, ensuring 100% compliance with Principle 9.
+            * **Surgical Modification Adherence Confirmation**: I confirm that the generated file will contain *only* the changes shown in the Surgical Change Verification (`diff`) section above, ensuring 100% compliance with Principle 13.
             * **Syntax Validation Confirmation**: For all Python files (`.py`), I will perform an automated syntax validation check.
         **6.  Post-Generation Verification.** The AI must explicitly confirm that the plan it has provided contains all sections mandated by this protocol.
 **2.5.1. Post-Plan-Delivery Prompt Protocol.** Immediately after delivering an `implementation_plan.md` file and providing the post-delivery verification (per Protocol 3.2.6), the AI's next and only action **must** be to issue the standardized prompt for plan approval, requiring the keyword `Approved`. This protocol ensures a direct and mandatory transition to the Approval state (Protocol 2.7).
@@ -258,10 +258,6 @@ __CODE_BLOCK__
     5.  **Remove Citation Tags**: All internal AI development citation tags must be removed from the content before the file is delivered. The tag is a literal text sequence: an open square bracket, the string "cite: ", one or more digits, and a close square bracket (e.g.,). This pattern does not include Markdown backticks.
     6.  **Post-Delivery Protocol Verification.** Immediately following any file delivery, the AI must explicitly state which sub-protocol from Section 3.2 it followed and confirm that its last output was fully compliant.
     7.  **Python Header Standard Mandate.** All Python files (`.py`) generated or modified by the AI must conform to the standard header definition found in `Docs/ProgrammersGuide.md`. Before generating a Python file, the AI must consult this guide to ensure compliance.
-3.3. **File and Checksum Verification.**
-    1.  **Line Endings:** The user's file system uses Windows CRLF (`\r\n`). The AI must correctly handle this conversion when calculating checksums.
-    2.  **Concise Reporting:** The AI will either state that **all checksums agree** or will list the **specific files that show a mismatch**.
-    3.  **Mandatory Re-computation Protocol:** Every request for a checksum comparison is a **cache-invalidation event**. The AI must discard all previously calculated checksums, re-establish the definitive state, re-compute the hash for every file, and perform a literal comparison.
 3.4. **Versioning Protocol.** This protocol defines how file versions are determined and updated.
     1.  **Version Scopes**: The project uses a three-tiered versioning system.
         * **A. Project Code & Standard Documentation**: All source code (`.py`, `.json`), data files (`.dat`), the main `README.md`, and all documentation files in the `Docs/` directory, **with the exception of the files listed below**, will be versioned using the session version series (e.g., `0.88.x-Beta`).
@@ -315,7 +311,7 @@ __CODE_BLOCK__
     3.  **User Confirmation**: You must provide the exact, literal string `Confirmed`. This authorizes the generation and delivery of that single file. If any other input is received, I will state that the action is not confirmed and re-issue the prompt.
     4.  **Internal Generative `diff` Verification:** After generating the new file content but before delivering it, I will perform an internal `diff` between the baseline file text and my newly generated file text. I will then verify that this new "generative `diff`" is identical in form and function to the `diff` you approved in the implementation plan. If a discrepancy is found, I will discard the generated file and report an internal consistency failure by initiating the **Error Analysis Protocol (6.3)**.
     5.  **Deliver File**: Upon successful internal verification, I will deliver the updated file in a single response.
-    6.  **Append Verification**: I will append the mandatory execution verification statement to the same response: "**I have verified that the file just delivered was generated by applying only the approved surgical changes to the baseline text, in compliance with Principle 9. Generative `diff` verification is complete and the delivered file is a confirmed match to the approved plan.**"
+    6.  **Append Verification**: I will append the mandatory execution verification statement to the same response: "**I have verified that the file just delivered was generated by applying only the approved surgical changes to the baseline text, in compliance with Principle 13. Generative `diff` verification is complete and the delivered file is a confirmed match to the approved plan.**"
     7.  **Request Acknowledgment**: I will append a standardized prompt for the `Acknowledged` keyword to the same response.
     8.  **User Acknowledgment**: You must provide the exact, literal string `Acknowledged`. This completes the transaction for the file and updates the definitive state. If any other input is received, I will state that the delivery is not acknowledged and re-issue the prompt.
     9.  **Provide Plan Execution Status Update**: After receiving the `Acknowledged` keyword, I must provide a status update.
