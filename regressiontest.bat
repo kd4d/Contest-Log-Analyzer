@@ -14,4 +14,5 @@ python main_cli.py --report all 2024\IARU-HF\NN3W.log 2024\IARU-HF\N9NB.log --de
 python main_cli.py --report all 2024\wae-cw\9a5y.log --debug-data
 python main_cli.py --report all 2024\wae-cw\aa3b.log 2024\wae-cw\nn3w.log  --debug-data
 python main_cli.py --report all 2025\wae-cw\om2vl.log 2025\wae-cw\ii2q.log --debug-data
-python main_cli.py --report all 2025\IARU-HF\GB5WR.log 2025\IARU-HF\GB9WR.log --debug-data
+python main_cli.py --report all 2025\IARU-HF\GB0WR.log 2025\IARU-HF\GB9WR.log --debug-data
+python main_cli.py --report all 2025\IARU-HF\GB5WR.log 2025\IARU-HF\GB9WR.log --debug-data --wrtc 2025
