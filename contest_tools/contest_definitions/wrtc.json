@@ -1,6 +1,6 @@
 {
   "_filename": "contest_tools/contest_definitions/wrtc.json",
-  "_version": "0.92.1-Beta",
+  "_version": "0.92.3-Beta",
   "_date": "2025-10-12",
   "contest_name": "WRTC",
   "time_series_calculator": "wrtc_calculator",
@@ -18,7 +18,8 @@
   "custom_adif_exporter": "iaru_hf_adif",
   "custom_parser_module": "iaru_hf_parser",
   "included_reports": [
-    "wrtc_propagation"
+    "wrtc_propagation",
+    "wrtc_propagation_animation"
   ],
   "exchange_parsing_rules": {
     "IARU-HF-ZONE-LOGGER": {
