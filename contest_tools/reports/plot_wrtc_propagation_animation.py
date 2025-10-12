@@ -6,7 +6,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-10-12
-# Version: 0.92.4-Beta
+# Version: 0.92.7-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,13 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+## [0.92.7-Beta] - 2025-10-12
+# - Changed figure height to 11.04 inches to produce a 2000x1104 pixel
+#   image, resolving the ffmpeg macro_block_size warning.
+## [0.92.6-Beta] - 2025-10-12
+# - Fixed AttributeError by changing `set_ticks` to the correct `set_xticks` method.
+## [0.92.5-Beta] - 2025-10-12
+# - Fixed UserWarning by explicitly setting fixed ticks before applying custom labels.
 ## [0.92.4-Beta] - 2025-10-12
 # - Modified report to save individual animation frames to a permanent
 #   `propagation` subdirectory instead of deleting them.
@@ -109,7 +116,7 @@ class Report(ContestReport):
     def _create_propagation_chart_frame(self, propagation_data: Dict, hour_num: int, total_hours: int, output_filepath: str):
         """Generates and saves a single frame for the animation."""
         
-        fig = plt.figure(figsize=(20, 11))
+        fig = plt.figure(figsize=(20, 11.04))
         
         gs_main = gridspec.GridSpec(
             3, 1, figure=fig, height_ratios=[1, 10, 1.5],
@@ -184,6 +191,7 @@ class Report(ContestReport):
             ax.set_yticklabels(bands_for_plotting, fontsize=12)
             ax.set_xlim(-axis_limit, axis_limit)
             ticks = ax.get_xticks()
+            ax.set_xticks(ticks) # Lock in the ticks to prevent UserWarning
             ax.set_xticklabels([int(abs(tick)) for tick in ticks])
             ax.grid(axis='x', linestyle='--', alpha=0.6)
 

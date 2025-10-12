@@ -7,7 +7,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-10-12
-# Version: 0.92.2-Beta
+# Version: 0.92.7-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -20,6 +20,13 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+## [0.92.7-Beta] - 2025-10-12
+# - Changed figure height to 11.04 inches to produce a 2000x1104 pixel
+#   image, resolving the ffmpeg macro_block_size warning.
+## [0.92.6-Beta] - 2025-10-12
+# - Fixed AttributeError by changing `set_ticks` to the correct `set_xticks` method.
+## [0.92.5-Beta] - 2025-10-12
+# - Fixed UserWarning by explicitly setting fixed ticks before applying custom labels.
 ## [0.92.2-Beta] - 2025-10-12
 # - Fixed x-axis labels to show absolute values for QSO counts instead of negative numbers.
 ## [0.92.1-Beta] - 2025-10-12
@@ -121,8 +128,8 @@ class Report(ContestReport):
         # --- Color Mapping for Continents ---
         COLORS = plt.get_cmap('viridis', len(CONTINENTS))
         CONTINENT_COLORS = {cont: COLORS(i) for i, cont in enumerate(CONTINENTS)}
-
-        fig = plt.figure(figsize=(20, 11))
+        
+        fig = plt.figure(figsize=(20, 11.04))
 
         # --- Main 3-Row GridSpec Layout (Title, Plots, Legend) ---
         gs_main = gridspec.GridSpec(
@@ -149,37 +156,36 @@ class Report(ContestReport):
                 for call in CALLS:
                     max_qso_rate = max(max_qso_rate, sum(DATA.get(call, {}).get(mode, {}).get(band, {}).values()))
         
-        axis_limit = (max_qso_rate // 10 + 1) * 10
-        bands_for_plotting = list(reversed(BANDS))
+        axis_limit = (max_qso_rate // 10 + 1) * 10 if max_qso_rate > 0 else 10
+        bands_for_plotting = list(reversed(self.logs[0].contest_definition.valid_bands))
 
-        for mode in MODES:
+        for mode in ['CW', 'PH']: # Always plot both axes for consistent layout
             ax = axes.get(mode)
-            if not ax: continue
-            
             ax.set_title(mode, fontsize=16, fontweight='bold')
 
             for j, band in enumerate(bands_for_plotting):
-                left_pos = 0
-                for continent in CONTINENTS:
-                    qso_count = DATA.get(CALLS[0], {}).get(mode, {}).get(band, {}).get(continent, 0)
-                    if qso_count > 0:
-                        ax.barh(j, qso_count, left=left_pos, color=CONTINENT_COLORS[continent], edgecolor='white', height=0.8)
-                        left_pos += qso_count
+                if mode in MODES and band in BANDS:
+                    left_pos = 0
+                    for continent in CONTINENTS:
+                        qso_count = DATA.get(CALLS[0], {}).get(mode, {}).get(band, {}).get(continent, 0)
+                        if qso_count > 0:
+                            ax.barh(j, qso_count, left=left_pos, color=CONTINENT_COLORS.get(continent, 'gray'), edgecolor='white', height=0.8)
+                            left_pos += qso_count
 
-                left_neg = 0
-                for continent in CONTINENTS:
-                    qso_count = DATA.get(CALLS[1], {}).get(mode, {}).get(band, {}).get(continent, 0)
-                    if qso_count > 0:
-                        ax.barh(j, -qso_count, left=left_neg, color=CONTINENT_COLORS[continent], edgecolor='white', height=0.8)
-                        left_neg -= qso_count
-
+                    left_neg = 0
+                    for continent in CONTINENTS:
+                        qso_count = DATA.get(CALLS[1], {}).get(mode, {}).get(band, {}).get(continent, 0)
+                        if qso_count > 0:
+                            ax.barh(j, -qso_count, left=left_neg, color=CONTINENT_COLORS.get(continent, 'gray'), edgecolor='white', height=0.8)
+                            left_neg -= qso_count
+            
             ax.axvline(0, color='black', linewidth=1.5)
             ax.set_yticks(np.arange(len(bands_for_plotting)))
             ax.set_yticklabels(bands_for_plotting, fontsize=12)
             ax.set_xlim(-axis_limit, axis_limit)
 
-            # Manually set x-axis ticks to show absolute values
             ticks = ax.get_xticks()
+            ax.set_xticks(ticks) # Lock in the ticks to prevent UserWarning
             ax.set_xticklabels([int(abs(tick)) for tick in ticks])
 
             ax.grid(axis='x', linestyle='--', alpha=0.6)
@@ -198,7 +204,7 @@ class Report(ContestReport):
         title_line2 = f"{year} {event_id} {contest_name} - {CALLS[0]} vs. {CALLS[1]}".strip().replace("  ", " ")
         ax_title.text(0.5, 0.5, f"{title_line1}\n{title_line2}", ha='center', va='center', fontsize=22, fontweight='bold', wrap=True)
         
-        legend_patches = [plt.Rectangle((0,0),1,1, color=CONTINENT_COLORS[c], label=c) for c in CONTINENTS]
+        legend_patches = [plt.Rectangle((0,0),1,1, color=CONTINENT_COLORS.get(c, 'gray'), label=c) for c in CONTINENTS]
         ax_legend.legend(handles=legend_patches, loc='center', ncol=len(CONTINENTS), title="Continents", fontsize='large', frameon=False)
 
         # --- Save Plot ---

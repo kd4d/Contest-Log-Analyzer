@@ -1,9 +1,15 @@
 # AIAgentWorkflow.md
 
-**Version: 1.2.0-Beta**
+**Version: 1.3.0-Beta**
 **Date: 2025-10-11**
 ---
 ### --- Revision History ---
+## [1.3.0-Beta] - 2025-10-12
+### Added
+# - Added Protocol 4.7 (Next Action Declaration Protocol) to make the
+#   AI's state transitions explicit and verifiable, improving reliability.
+### Changed
+# - Updated Protocols 2.1 and 2.5 to mandate the use of the new declaration protocol.
 ## [1.1.12-Beta] - 2025-10-11
 ### Added
 # - Added Protocol 1.8 (Protocol Onboarding) to create a mandatory
@@ -29,6 +35,7 @@ For a narrative, human-focused explanation of this workflow, please see `Docs/Ge
     * [3. File and Data Handling](#3-file-and-data-handling)
         * [3.9. JSON Inheritance Protocol](#39-json-inheritance-protocol)
     * [4. Communication](#4-communication)
+        * [4.7. Next Action Declaration Protocol](#47-next-action-declaration-protocol)
 * [Part III: Project-Specific Implementation Patterns](#part-iii-project-specific-implementation-patterns)
 * [Part IV: Special Case & Recovery Protocols](#part-iv-special-case--recovery-protocols)
     * [6. Debugging and Error Handling](#6-debugging-and-error-handling)
@@ -167,6 +174,7 @@ This workflow is a formal state machine that governs all development tasks, from
 2.1. **Analysis and Discussion**: The user provides a problem or feature request and asks for an analysis. The AI provides an initial analysis, and a discussion may follow to refine the understanding.
     * **Session Version Check Mandate**: As the absolute first step of this protocol, before any analysis begins, I must verify that a session version series (e.g., `0.90.x-Beta`) has been established. If it has not, my only action will be to halt the task and request that you declare the session version series before I can proceed.
     * **Request to Proceed Mandate**: After concluding its analysis, the AI's next and only action MUST be to issue a standardized prompt asking for the user's explicit permission to create an implementation plan, using the keyword `Proceed`. The AI will not proceed to generate a plan without this authorization.
+This prompt will be followed by a declaration as per the **Next Action Declaration Protocol (4.7)**.
 __CODE_BLOCK__mermaid
 graph TD
     A[Start: User Request] --> B{Analysis & Discussion};
@@ -213,6 +221,7 @@ __CODE_BLOCK__
             * **Surgical Modification Adherence Confirmation**: I confirm that the generated file will contain *only* the changes shown in the Surgical Change Verification (`diff`) section above, ensuring 100% compliance with Principle 13.
             * **Syntax Validation Confirmation**: For all Python files (`.py`), I will perform an automated syntax validation check.
         **6.  Post-Generation Verification.** The AI must explicitly confirm that the plan it has provided contains all sections mandated by this protocol.
+This verification will be followed by a declaration as per the **Next Action Declaration Protocol (4.7)**.
 **2.5.1. Post-Plan-Delivery Prompt Protocol.** Immediately after delivering an `implementation_plan.md` file and providing the post-delivery verification (per Protocol 3.2.6), the AI's next and only action **must** be to issue the standardized prompt for plan approval, requiring the keyword `Approved`. This protocol ensures a direct and mandatory transition to the Approval state (Protocol 2.7).
 2.6. **Plan Refinement**: The user reviews the plan and may request changes or refinements. The AI provides a revised plan, repeating this step as necessary.
 2.6.1. **Architectural Refinement Protocol.** This protocol formalizes the collaborative review of a proposed implementation plan, specifically when the user suggests an alternative architecture.
@@ -328,6 +337,14 @@ __CODE_BLOCK__
         * **AI Responsibility (Self-Correction):** Immediately after issuing a keyword prompt, I must perform an explicit self-check. If my prompt violates the format, my immediate next action must be to apologize, state **"Protocol Violation Detected,"** retract the incorrect prompt, and re-issue it correctly.
         * **User Responsibility (User Enforcement):** If you detect a malformed prompt that I failed to self-correct, you should not respond to the flawed request. Instead, your response should be to point out the violation. This will trigger a full **Protocol Violation Analysis (6.12)**.
 4.6. **Emoji Prohibition.** All AI communication must be professional and technical. The use of emojis or other non-technical graphical characters is forbidden in all responses.
+4.7. **Next Action Declaration Protocol.** This protocol makes the AI's internal state transitions explicit and verifiable to improve workflow reliability.
+    1.  **Trigger**: This protocol is triggered at the end of any response that completes a major step in the **Task Execution Workflow (Section 2)**, such as delivering an analysis or an implementation plan.
+    2.  **Action**: As the final component of my response, I must append a standardized, bolded statement declaring my immediate next action.
+    3.  **Format**:
+        __CODE_BLOCK__
+        **Next Action:** I will issue the standardized prompt for <NEXT_ACTION_DESCRIPTION>.
+        __CODE_BLOCK__
+    4.  **Verification**: If my subsequent response does not match this declared action, it constitutes an immediate and unambiguous protocol violation.
 ---
 ## Part III: Project-Specific Implementation Patterns
 
@@ -457,19 +474,4 @@ These protocols are for troubleshooting, error handling, and non-standard situat
     1.  **Initiation**: The AI or user identifies a bug as potentially systemic.
     2.  **Define Pattern**: The specific bug pattern is clearly defined (e.g., "a parser using a generic key to look up a specific rule").
     3.  **Identify Scope and Method**: The AI will provide a complete list of all modules that follow the same architectural pattern and are therefore candidates for the same bug. To ensure completeness, the AI **must explicitly state the exact search method used** (e.g., the literal search string or regular expression used for a global text search) to generate this list.
-    4.  **Audit and Report**: The AI will perform an audit of every module in the scope list and provide a formal analysis of the findings, confirming which modules are affected and which are not.
-    5.  **Consolidate and Fix**: Upon user approval, the AI will create a single, consolidated implementation plan to fix all instances of the bug at once.
-
-7.7. **New Dependency Protocol.** This protocol is triggered when the AI or user identifies the need for a new third-party library.
-    1.  **Proposal**: The need for the new dependency must be stated as part of an analysis.
-    2.  **Justification**: The proposal must include a justification explaining why the new library is necessary and how it is superior to existing solutions.
-    3.  **License Verification**: The license of the proposed library must be confirmed to be compatible with the project's license (MPL 2.0).
-    4.  **Implementation Plan Mandate**: The addition of the new library must be part of a formal implementation plan. This plan must include the necessary changes to `Docs/InstallationGuide.md` to add the new library to the installation instructions.
-
-7.8. **Refactoring Proposal Protocol.** This protocol formalizes how non-essential but beneficial code refactoring is proposed, in accordance with Principle 7 and 13.
-    1.  **Identification**: During the analysis phase of a task, the AI may identify an opportunity for refactoring that is not part of the user's direct request (e.g., simplifying a loop, improving variable names for clarity).
-    2.  **Proposal**: As a distinct, clearly marked section of its analysis, the AI will present the refactoring proposal.
-    3.  **Required Format**: The proposal must contain:
-        * A. A clear rationale explaining the benefit of the change (e.g., "Improves readability," "Reduces code duplication").
-        * B. A concise "before" and "after" code snippet, preferably in `diff` format, to make the change explicit.
-    4.  **Separate Approval**: The AI must explicitly ask the user if they want to include the proposed refactoring in the implementation plan for the main task. It can only be included with the user's direct approval.
+    4.
