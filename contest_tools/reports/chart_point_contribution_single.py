@@ -4,8 +4,8 @@
 #          showing the breakdown of QSO points.
 #
 # Author: Gemini AI
-# Date: 2025-10-01
-# Version: 0.90.0-Beta
+# Date: 2025-10-10
+# Version: 0.91.13-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -17,6 +17,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.91.13-Beta] - 2025-10-10
+# - Changed: Corrected title generation to conform to the CLA Reports Style Guide.
 # [0.90.0-Beta] - 2025-10-01
 # Set new baseline version for release.
 
@@ -64,8 +66,8 @@ class Report(ContestReport):
         contest_name = metadata.get('ContestName', '')
         event_id = metadata.get('EventID', '')
 
-        title_line1 = f"{event_id} {year} {contest_name}".strip()
-        title_line2 = f"Point Contribution by Band for {callsign}"
+        title_line1 = self.report_name
+        title_line2 = f"{year} {event_id} {contest_name} - {callsign}".strip().replace("  ", " ")
         fig.suptitle(f"{title_line1}\n{title_line2}", fontsize=16, fontweight='bold')
 
         band_points = {band: df[df['Band'] == band]['QSOPoints'].sum() for band in bands}

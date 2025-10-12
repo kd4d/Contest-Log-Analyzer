@@ -1,10 +1,18 @@
 # CLA Reports Style Guide
 
-**Version: 0.90.12-Beta**
-**Date: 2025-10-06**
+**Version: 0.92.0-Beta**
+**Date: 2025-10-11**
 
 ---
 ### --- Revision History ---
+## [0.92.0-Beta] - 2025-10-12
+### Added
+# - Added Section 5 to establish `GridSpec` as the best practice for
+#   creating complex, multi-element plot layouts.
+## [0.91.0-Beta] - 2025-10-11
+### Changed
+# - Clarified that `prettytable` is the "recommended standard" for
+#   complex text reports, not a "required standard".
 ## [0.90.12-Beta] - 2025-10-06
 ### Changed
 # - Standardized the report title format to the two-line "blended"
@@ -54,9 +62,11 @@ All generated reports, regardless of their output format (text, plot, chart, ani
 ---
 ## 3. Text Reports (`.txt`)
 This section defines the standards for all plain-text reports.
+
 ### 3.1. Table Formatting
 The creation of text-based tables is governed by the following two-tool approach to ensure both simplicity for basic reports and robust control for complex layouts.
-* **For Complex Reports, Use `prettytable`**: For any report that requires a fixed-width layout, precise column alignment, or the alignment and "stitching" of multiple tables, the **`prettytable`** library is the required standard. It offers direct, programmatic control over column widths, which is essential for complex layouts.
+
+* **For Complex Reports, Use `prettytable`**: For any report that requires a fixed-width layout, precise column alignment, or the alignment and "stitching" of multiple tables, the **`prettytable`** library is the recommended standard. It offers direct, programmatic control over column widths, which is essential for complex layouts.
 * **For Simple Reports, Use `tabulate`**: For reports that require only a single, standalone table where complex alignment with other elements is not a concern, the simpler **`tabulate`** library is a suitable alternative.
 ---
 ## 4. HTML Reports (`.html`)
@@ -64,9 +74,59 @@ This section defines the standards for all web-based reports. The goal is to cre
 
 ### 4.1. Styling Framework
 All styling for HTML reports must be implemented using **Tailwind CSS**. No custom CSS in `<style>` blocks should be used unless absolutely necessary for a feature that Tailwind cannot support.
+
 ### 4.2. Table Styling
 HTML tables should be styled to be clean, readable, and visually hierarchical.
+
 * **Centering**: All tables must be centered horizontally on the page.
 * **Border Hierarchy**: A two-level border system must be used to structure the data visually:
     * **Dark Lines** (`border-gray-500`): Used for the main outline of the table and for major vertical divisions between logical data groups.
     * **Medium Lines** (`border-gray-400`): Used for all internal grid lines, both horizontal and vertical.
+---
+## 5. Plot and Chart Layouts
+
+### 5.1. Standard for Complex Layouts: Use GridSpec
+
+For any plot or chart that consists of more than a simple title and a single subplot, developers **must consider** using Matplotlib's `GridSpec` to create an explicit, multi-zone layout.
+
+**Rationale:** Automatic layout managers like `tight_layout` can become unpredictable when dealing with complex figures that include multi-line main titles, multiple subplots, and separate legends. Relying on them often leads to a frustrating "spiral of tweaks" to fix element overlap. Using `GridSpec` provides direct, predictable, and robust control over the final layout.
+
+**Implementation Pattern:** The recommended approach is to create a main grid that divides the figure into distinct, non-overlapping "zones" for the title, the main plot area, and the legend. A nested `GridSpec` can then be used to arrange the plots within their dedicated zone.
+
+**Example: A Three-Zone Layout**
+This boilerplate creates a balanced layout with a reserved space for a main title, a central area for two side-by-side plots, and a dedicated space at the bottom for a legend.
+
+```python
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+
+fig = plt.figure(figsize=(20, 11))
+
+# --- Main 3-Row GridSpec Layout (Title, Plots, Legend) ---
+gs_main = gridspec.GridSpec(
+    3, 1,
+    figure=fig,
+    height_ratios=[1, 10, 1.5], # Allocate space: 1 for title, 10 for plots, 1.5 for legend
+    top=0.93,      # Reduce top margin
+    bottom=0.12    # Reduce bottom margin
+)
+
+# --- Create the zones ---
+ax_title = fig.add_subplot(gs_main[0])
+ax_legend = fig.add_subplot(gs_main[2])
+ax_title.axis('off')
+ax_legend.axis('off')
+
+# --- Place the title in its zone ---
+ax_title.text(0.5, 0.5, "Line 1 of Title\nLine 2 of Title", ha='center', va='center')
+
+# --- Create a nested grid for the plots in the middle zone ---
+gs_plots = gridspec.GridSpecFromSubplotSpec(1, 2, subplot_spec=gs_main[1])
+ax_left_plot = fig.add_subplot(gs_plots[0, 0])
+ax_right_plot = fig.add_subplot(gs_plots[0, 1])
+
+# --- Place the legend in its zone ---
+ax_legend.legend(handles=[...], loc='center', ncol=...)
+
+# ... rest of your plotting code ...
+```

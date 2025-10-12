@@ -6,8 +6,8 @@
 #          analysis engine.
 #
 # Author: Gemini AI
-# Date: 2025-10-06
-# Version: 0.90.8-Beta
+# Date: 2025-10-09
+# Version: 0.91.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,21 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.91.5-Beta] - 2025-10-09
+# - Removed obsolete warning suppression logic for hourly ADIF files and
+#   updated the `export_to_adif` call to pass a new context parameter.
+# [0.91.3-Beta] - 2025-10-09
+# - No functional changes. Synchronizing version number with `__init__.py`
+#   for a consolidated bugfix release.
+# [0.91.2-Beta] - 2025-10-09
+# - Fixed latent bug in _create_master_time_index by changing ceil('h')
+#   to floor('h') to prevent creation of an extra, empty hour.
+# [0.91.1-Beta] - 2025-10-09
+# - Fixed regression by restoring the implicit generic/specific file loading
+#   logic as a fallback for definitions that do not use "inherits_from".
+# [0.91.0-Beta] - 2025-10-09
+# - Added logic to `load_log_batch` to handle the `--wrtc` flag, allowing
+#   IARU-HF logs to be scored with a specific WRTC ruleset.
 # [0.90.8-Beta] - 2025-10-06
 # - Added Excel-compatible text formatting to the `QTC_GRP` column in the WAE QTC CSV export.
 # [0.90.7-Beta] - 2025-10-06
@@ -47,7 +62,7 @@ class LogManager:
         self.logs = []
         self.master_time_index = None
 
-    def load_log_batch(self, log_filepaths: List[str], root_input_dir: str, cty_specifier: str):
+    def load_log_batch(self, log_filepaths: List[str], root_input_dir: str, cty_specifier: str, wrtc_year: int = None):
         """
         Performs pre-flight validation on a batch of log files, selects a single
         CTY file, and then loads and processes all logs.
@@ -58,12 +73,19 @@ class LogManager:
             header_data = []
             for path in log_filepaths:
                 call = self._get_callsign_from_header(path)
-                contest = self._get_contest_name_from_header(path)
+                
+                base_contest = self._get_contest_name_from_header(path)
+                if wrtc_year and base_contest == 'IARU-HF':
+                    effective_contest = f"WRTC-{wrtc_year}"
+                else:
+                    effective_contest = base_contest
+
                 date = self._get_first_qso_date_from_log(path)
-                temp_log = ContestLog(contest_name=contest, cabrillo_filepath=None, root_input_dir=root_input_dir, cty_dat_path=None)
+                
+                temp_log = ContestLog(contest_name=effective_contest, cabrillo_filepath=None, root_input_dir=root_input_dir, cty_dat_path=None)
                 temp_log.get_processed_data()['Datetime'] = pd.Series([date]) # Minimal data for resolver
                 event_id = self._get_event_id(temp_log)
-                header_data.append({'call': call, 'contest': contest, 'date': date, 'event_id': event_id})
+                header_data.append({'call': call, 'contest': effective_contest, 'date': date, 'event_id': event_id})
 
             first_log_info = header_data[0]
             mismatches = []
@@ -77,6 +99,7 @@ class LogManager:
                 for info in mismatches:
                     error_lines.append(f"  - Callsign: {info['call']}, Contest: {info['contest']}, End Date: {info['date'].date()}")
                 raise ValueError("\n".join(error_lines))
+            
             logging.info("Validation successful.")
 
         # --- 2. Single CTY File Selection ---
@@ -98,7 +121,7 @@ class LogManager:
             cty_dat_path, cty_file_info = cty_manager.find_cty_file_by_date(target_date, cty_specifier)
         else:
             cty_dat_path, cty_file_info = cty_manager.find_cty_file_by_name(cty_specifier)
-            
+        
         if not cty_dat_path:
             raise FileNotFoundError(f"Could not find a suitable CTY.DAT file for specifier '{cty_specifier}'.")
         logging.info(f"Using CTY file for all logs: {os.path.basename(cty_dat_path)} (Date: {cty_file_info.get('date')})")
@@ -107,10 +130,16 @@ class LogManager:
         for path in log_filepaths:
             try:
                 logging.info(f"Loading log: {path}...")
-                contest_name = self._get_contest_name_from_header(path)
-                if not contest_name:
+                base_contest_name = self._get_contest_name_from_header(path)
+                if not base_contest_name:
                     logging.warning(f"  - Could not determine contest name from file header. Skipping.")
                     continue
+
+                if wrtc_year and base_contest_name == 'IARU-HF':
+                    contest_name = f"WRTC-{wrtc_year}"
+                    logging.info(f"  --wrtc flag is set. Scoring as '{contest_name}'.")
+                else:
+                    contest_name = base_contest_name
 
                 log = ContestLog(contest_name=contest_name, cabrillo_filepath=path, root_input_dir=root_input_dir, cty_dat_path=cty_dat_path)
                 setattr(log, '_log_manager_ref', self)
@@ -188,6 +217,9 @@ class LogManager:
                 if log._log_manager_ref and log._log_manager_ref.master_time_index is not None:
                     for hour in log._log_manager_ref.master_time_index:
                         hourly_df = log.qsos_df[log.qsos_df['Datetime'].dt.floor('h') == hour]
+
+                        filename = f"{hour.strftime('%Y-%m-%d_%H00')}.adi"
+                        filepath = os.path.join(debug_adif_dir, filename)
                         
                         # Create a lightweight, temporary log object for export
                         temp_log = ContestLog(
@@ -196,12 +228,9 @@ class LogManager:
                         )
                         temp_log.qsos_df = hourly_df
                         temp_log.metadata = log.metadata
-
-                        filename = f"{hour.strftime('%Y-%m-%d_%H00')}.adi"
-                        filepath = os.path.join(debug_adif_dir, filename)
                         
                         # The standard ADIF export handles empty dataframes gracefully
-                        temp_log.export_to_adif(filepath)
+                        temp_log.export_to_adif(filepath, is_debug_hour=True)
 
             
             # --- ADIF Export (if enabled for this contest) ---

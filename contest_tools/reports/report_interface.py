@@ -3,8 +3,8 @@
 # Purpose: Defines the abstract base class for all report generators.
 #
 # Author: Gemini AI
-# Date: 2025-10-01
-# Version: 0.90.0-Beta
+# Date: 2025-10-10
+# Version: 0.91.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -16,6 +16,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.91.0-Beta] - 2025-10-10
+# - Added `is_specialized` flag to support the new hybrid report model.
 # [0.90.0-Beta] - 2025-10-01
 # Set new baseline version for release.
 
@@ -32,6 +34,7 @@ class ContestReport(ABC):
     report_id: str = "abstract_report"
     report_name: str = "Abstract Report"
     report_type: str = "text"
+    is_specialized: bool = False # False = Generic (opt-out), True = Specialized (opt-in)
     
     supports_single: bool = False
     supports_pairwise: bool = False

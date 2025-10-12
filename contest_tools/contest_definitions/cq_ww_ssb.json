@@ -1,8 +1,9 @@
 {
   "_filename": "contest_tools/contest_definitions/cq_ww_ssb.json",
-  "_version": "0.90.0-Beta",
-  "_date": "2025-09-13",
+  "_version": "0.91.11-Beta",
+  "_date": "2025-10-10",
   "contest_name": "CQ-WW-SSB",
+  "scoring_module": "cq_ww_scoring",
   "mults_from_zero_point_qsos": true,
   "enable_adif_export": true,
   "custom_adif_exporter": "cq_ww_adif",

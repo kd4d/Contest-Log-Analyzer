@@ -4,8 +4,8 @@
 #          point value, presented as a series of pie charts.
 #
 # Author: Gemini AI
-# Date: 2025-10-01
-# Version: 0.90.0-Beta
+# Date: 2025-10-10
+# Version: 0.91.13-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -17,6 +17,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.91.13-Beta] - 2025-10-10
+# - Changed: Corrected title generation to conform to the CLA Reports Style Guide.
 # [0.90.0-Beta] - 2025-10-01
 # Set new baseline version for release.
 
@@ -124,9 +126,9 @@ class Report(ContestReport):
         event_id = metadata.get('EventID', '')
         
         band_title = self.logs[0].contest_definition.valid_bands[0].replace('M', ' Meters') if is_single_band else band.replace('M', ' Meters')
-        
-        title_line1 = f"{event_id} {year} {contest_name}".strip()
-        title_line2 = f"{self.report_name} - {band_title} ({callsign_str})"
+
+        title_line1 = f"{self.report_name} - {band_title}"
+        title_line2 = f"{year} {event_id} {contest_name} - {callsign_str}".strip().replace("  ", " ")
         fig.suptitle(f"{title_line1}\n{title_line2}", fontsize=22, fontweight='bold')
         
         create_output_directory(output_path)

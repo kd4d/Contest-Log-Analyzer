@@ -5,8 +5,8 @@
 #          serves as a proof-of-concept for using the tabulate library.
 #
 # Author: Gemini AI
-# Date: 2025-10-01
-# Version: 0.90.0-Beta
+# Date: 2025-10-09
+# Version: 0.91.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,13 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.91.0-Beta] - 2025-10-09
+# - Added support for the 'once_per_band_no_mode' multiplier totaling
+#   method to correctly calculate WRTC scores.
+# [0.90.3-Beta] - 2025-10-05
+# - Corrected scoring logic to sum the `QSOPoints` column instead of
+#   counting all non-dupe QSOs, bringing it into alignment with the
+#   correct logic in `wae_calculator.py`.
 # [0.90.0-Beta] - 2025-10-01
 # Set new baseline version for release.
 
@@ -215,14 +222,18 @@ class Report(ContestReport):
 
             df_valid_mults = df_net[df_net[mult_col].notna()]
 
-            if totaling_method == 'once_per_mode':
-                mode_mults = df_valid_mults.groupby('Mode')[mult_col].nunique()
-                total_summary[mult_name] = mode_mults.sum()
-                total_multiplier_count += mode_mults.sum()
-            elif totaling_method == 'once_per_log':
+            if totaling_method == 'once_per_log':
                 unique_mults = df_valid_mults[mult_col].nunique()
                 total_summary[mult_name] = unique_mults
                 total_multiplier_count += unique_mults
+            elif totaling_method == 'once_per_mode':
+                mode_mults = df_valid_mults.groupby('Mode')[mult_col].nunique()
+                total_summary[mult_name] = mode_mults.sum()
+                total_multiplier_count += mode_mults.sum()
+            elif totaling_method == 'once_per_band_no_mode':
+                band_mults = df_valid_mults.groupby('Band')[mult_col].nunique()
+                total_summary[mult_name] = band_mults.sum()
+                total_multiplier_count += band_mults.sum()
             else: # Default to sum_by_band
                 band_mults = df_valid_mults.groupby('Band')[mult_col].nunique()
                 total_summary[mult_name] = band_mults.sum()

@@ -6,7 +6,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-10-05
-# Version: 0.90.5-Beta
+# Version: 0.91.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.91.0-Beta] - 2025-10-09
+# - Added `--wrtc <year>` CLI flag to enable WRTC scoring for IARU-HF logs.
 # [0.90.5-Beta] - 2025-10-05
 # - Modified `main` to pass the `debug_data` flag to `log_manager.finalize_loading`.
 # --- Revision History ---
@@ -83,6 +85,7 @@ def main():
     parser.add_argument('--mult-name', dest='mult_name', help="Specify the multiplier name for relevant reports.")
     parser.add_argument('--metric', dest='metric', choices=['qsos', 'points'], default='qsos', help="Metric for difference plots.")
     parser.add_argument('--debug-data', action='store_true', help='If set, save the data source for visual reports to a text file.')
+    parser.add_argument('--wrtc', dest='wrtc_year', type=int, help='Score IARU-HF logs using the rules for a specific WRTC year (e.g., 2026).')
     parser.add_argument('--debug-mults', action='store_true', help='Generate a debug file listing multipliers counted by summary reports.')
     
     args, unknown = parser.parse_known_args()
@@ -143,7 +146,7 @@ def main():
     try:
         logging.info("\n--- Contest Log Analyzer ---")
         log_manager = LogManager()
-        log_manager.load_log_batch(full_log_paths, root_input_dir, args.cty)
+        log_manager.load_log_batch(full_log_paths, root_input_dir, args.cty, args.wrtc_year)
 
         report_kwargs = {
             'include_dupes': args.include_dupes,
@@ -154,9 +157,17 @@ def main():
         }
 
         log_manager.finalize_loading(root_reports_dir, debug_data=args.debug_data)
+    
         generator = ReportGenerator(logs=log_manager.get_logs(), root_output_dir=root_reports_dir)
         generator.run_reports(args.report_id, **report_kwargs)
     except FileNotFoundError as e:
+        if args.wrtc_year:
+            handle_error(
+                "CONFIGURATION ERROR",
+                f"The ruleset for WRTC {args.wrtc_year} could not be found.",
+                f"Ensure a 'wrtc_{args.wrtc_year}.json' definition file exists in the contest_definitions directory."
+            )
+
         handle_error(
             "FILE NOT FOUND",
             f"A critical file could not be found: {e}",

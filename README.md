@@ -1,10 +1,19 @@
 # Contest Log Analyzer
 
-**Version: 0.88.0-Beta**
-**Date: 2025-09-21**
+**Version: 0.91.1-Beta**
+**Date: 2025-10-11**
 
 ---
 ### --- Revision History ---
+## [0.91.1-Beta] - 2025-10-11
+### Added
+# - Added an introduction to explain the concept of Contest Analytics.
+# - Added sections linking to the Installation, User, and Report
+#   Interpretation guides.
+## [0.91.0-Beta] - 2025-10-10
+### Changed
+# - Updated version number to align with the current session.
+# - Added WRTC to the list of supported contests.
 ## [0.88.0-Beta] - 2025-09-21
 ### Fixed
 # - Synchronized the "Available Reports" list with the current project
@@ -24,6 +33,12 @@
 ## [0.55.0-Beta] - 2025-08-29
 # - Initial release.
 ---
+
+The Contest Log Analyzer is a powerful tool for post-contest analysis, designed to uncover the strategic insights hidden within amateur radio contest logs. While logging software is excellent for real-time operations, this tool is designed specifically for post-contest log comparison, which is essential for detailed performance analysis. By comparing logs head-to-head, this tool helps the user to visualize the story of the contest: who was on what band and when, how an advantage was gained, and which missed opportunities were the most costly.
+
+It answers the critical questions that lead to better performance: Was my strategy of running on 20 meters more effective than my competitor's S&P strategy? Which specific multipliers did they work that I missed? How did our hourly rates compare during the critical European opening? By transforming raw log data into actionable intelligence, the analyzer provides a clear path for improving your operating strategy for the next event.
+
+---
 ## Key Features
 
 * **Data-Driven Architecture**: Uses simple JSON files to define the rules, scoring, and exchange formats for each contest, making the tool highly extensible.
@@ -35,9 +50,17 @@
 * **Contest-Specific Scoring**: A modular system calculates QSO points based on the official rules for supported contests (ARRL-DX, ARRL-SS, CQ-WPX, CQ-WW).
 * **Dynamic Reporting Engine**: A flexible, "plug-and-play" system for generating a wide variety of text, plot, and chart-based reports.
 ---
+## Installation and Setup
+
+Before using the analyzer, you must set up your environment and install the required dependencies. For complete, step-by-step instructions, please see the `Docs/InstallationGuide.md`.
+
+---
 ## Usage
 
 The analyzer is run from the command line using `main_cli.py`.
+
+The examples below show basic usage. For a complete list of all command-line options, available reports, and usage details, please refer to the `Docs/UsersGuide.md`.
+
 #### **Basic Syntax**
 
     python main_cli.py --report <ReportID|all|chart|text|plot|animation|html> <LogFile1> [<LogFile2>...] [options]
@@ -65,8 +88,7 @@ __CODE_BLOCK__
 ---
 ## Supported Contests
 
-The analyzer uses the `CONTEST:` field in the Cabrillo header to apply contest-specific rules.
-The following contests are currently supported:
+The analyzer uses the `CONTEST:` field in the Cabrillo header to apply contest-specific rules. The following contests are currently supported:
 
 * ARRL 10 Meter
 * ARRL DX (CW & SSB)
@@ -78,10 +100,14 @@ The following contests are currently supported:
 * IARU HF World Championship
 * North American QSO Party (NAQP)
 * WAE (CW & SSB)
+* WRTC (via IARU-HF log)
 ---
 ## Available Reports
 
 All generated files are saved to a structured directory under `reports/YYYY/CONTEST_NAME/`.
+
+For a detailed explanation of how to interpret each report, please see the `Docs/ReportInterpretationGuide.md`.
+
 #### **Animation Reports (`animations/`)**
 * `hourly_animation`: Hourly Rate Animation
 

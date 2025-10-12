@@ -6,8 +6,8 @@
 #          execute it (e.g., single-log, pairwise, multi-log).
 #
 # Author: Gemini AI
-# Date: 2025-10-01
-# Version: 0.90.0-Beta
+# Date: 2025-10-10
+# Version: 0.91.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.91.1-Beta] - 2025-10-10
+# - Implemented hybrid "opt-in/opt-out" report model to handle
+#   specialized, contest-specific reports.
 # [0.90.0-Beta] - 2025-10-01
 # Set new baseline version for release.
 
@@ -102,11 +105,15 @@ class ReportGenerator:
 
         first_log = self.logs[0]
         contest_def = first_log.contest_definition
+        included_reports = contest_def.included_reports
 
         # Filter out excluded reports before iterating
         final_reports_to_run = [
             (r_id, RClass) for r_id, RClass in reports_to_run
-            if r_id not in contest_def.excluded_reports
+            if (
+                r_id not in contest_def.excluded_reports and
+                (not RClass.is_specialized or r_id in included_reports)
+            )
         ]
 
         for r_id, ReportClass in final_reports_to_run:
