@@ -1,9 +1,17 @@
+--- FILE: AIAgentWorkflow.md ---
 # AIAgentWorkflow.md
 
-**Version: 1.3.0-Beta**
-**Date: 2025-10-11**
+**Version: 1.3.1-Beta**
+**Date: 2025-10-29**
 ---
 ### --- Revision History ---
+## [1.3.1-Beta] - 2025-10-29
+### Added
+# - Added Protocol 7.7 (Ad-Hoc Task Protocol) to formally handle
+#   self-contained tasks outside the primary project scope.
+### Changed
+# - Strengthened Protocol 2.5.1 by linking its failure to the
+#   Protocol Violation (1.3) and Failure Spiral (6.11) circuit breakers.
 ## [1.3.0-Beta] - 2025-10-12
 ### Added
 # - Added Protocol 4.7 (Next Action Declaration Protocol) to make the
@@ -222,7 +230,10 @@ __CODE_BLOCK__
             * **Syntax Validation Confirmation**: For all Python files (`.py`), I will perform an automated syntax validation check.
         **6.  Post-Generation Verification.** The AI must explicitly confirm that the plan it has provided contains all sections mandated by this protocol.
 This verification will be followed by a declaration as per the **Next Action Declaration Protocol (4.7)**.
-**2.5.1. Post-Plan-Delivery Prompt Protocol.** Immediately after delivering an `implementation_plan.md` file and providing the post-delivery verification (per Protocol 3.2.6), the AI's next and only action **must** be to issue the standardized prompt for plan approval, requiring the keyword `Approved`. This protocol ensures a direct and mandatory transition to the Approval state (Protocol 2.7).
+**2.5.1. Mandatory Approval Prompt Transition.**
+    1.  Immediately after delivering an `implementation_plan.md` file and providing the post-delivery verification (per Protocol 3.2.6), the AI's next and only action **must** be to issue the standardized prompt for plan approval, requiring the keyword `Approved`.
+    2.  **This transition is a critical, non-negotiable step.** A failure to issue this prompt constitutes an immediate process failure and must be treated as a trigger for the **`Protocol Violation Circuit Breaker (1.3)`**.
+    3.  If this specific failure occurs more than once in a session, it will automatically trigger the **`Failure Spiral Circuit Breaker (6.11)`**.
 2.6. **Plan Refinement**: The user reviews the plan and may request changes or refinements. The AI provides a revised plan, repeating this step as necessary.
 2.6.1. **Architectural Refinement Protocol.** This protocol formalizes the collaborative review of a proposed implementation plan, specifically when the user suggests an alternative architecture.
     1.  **User Proposal**: The user proposes an alternative design or points out a flaw in the AI's proposed architecture.
@@ -458,7 +469,23 @@ These protocols are for troubleshooting, error handling, and non-standard situat
         * **D.** A specific corrective action to ensure future adherence.
     .  **Resume**: After the analysis is delivered, resume the original task from the state it was in before the violation.
 7.1. **Technical Debt Cleanup Protocol.** When code becomes convoluted, a **Technical Debt Cleanup Sprint** will be conducted to refactor the code for clarity, consistency, and maintainability.
-7.2. **Multi-Part Bundle Protocol.** If a large or complex text file cannot be transmitted reliably in a single block, the Multi-Part Bundle Protocol will be used. The AI will take the single file and split its content into multiple, smaller text chunks. These chunks will then be delivered sequentially using the **Large File Transmission Protocol (Protocol 4.3)**.
+7.7. **Ad-Hoc Task Protocol.** This protocol is for handling self-contained, one-off tasks that are unrelated to the primary "Contest Log Analyzer" project.
+    1.  **Trigger**: The user initiates a task and provides files that are explicitly separate from the primary project.
+    2.  **AI Acknowledgment**: The AI will acknowledge the task as "Ad-Hoc" and ask the user to confirm this status.
+    3.  **Partial Protocol Agreement**: Upon confirmation, both parties agree to a "partial protocol" session.
+        * **A. Suspended Protocols**: Project-specific protocols are mutually suspended. This includes, but is not limited to:
+            * `1.2 Definitive State Reconciliation`
+            * `1.4 Definitive State Initialization`
+            * `1.7 Project Structure Onboarding`
+            * `3.4 Versioning Protocol`
+            * Any protocols in `Part III: Project-Specific Implementation Patterns`
+        * **B. Binding Protocols**: All core workflow, safety, and communication protocols remain in full effect. This includes, but is not limited to:
+            * `Section 2: Task Execution Workflow` (Analysis, Plan, Approve, Deliver)
+            * `Section 4: Communication` (Confirmed File Delivery, Keyword Prompts)
+            * `Section 6: Debugging and Error Handling` (Error Analysis, Protocol Violation Analysis)
+    4.  **State Definition**: The "Definitive State" for the ad-hoc task is established *only* by the files provided by the user at the beginning of the task.
+
+7.2. **Multi-Part Bundle Protocol.** If a large or complex text file cannot be transmitted reliably in a single block, the Multi-Part Bundle Protocol will be used. The AI will take the single file and split its content into multiple, smaller text chunks. These chunks will then be delivered sequentially using the **Large File Transmission Protocol (4.3)**.
 
 7.3. **Fragile Dependency Protocol.** If a third-party library proves to be unstable, a sprint will be conducted to replace it with a more robust alternative.
 7.4. **Prototype Script Development Protocol.** This protocol is used for the creation and modification of standalone prototype scripts located in the `test_code/` directory.
