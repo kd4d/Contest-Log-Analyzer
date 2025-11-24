@@ -5,10 +5,12 @@
 # A utility script to bundle project files into a single text file for easy
 # submission to an AI model.
 #
-# Version: 0.91.0-Beta
-# Date: 2025-10-10
+# Version: 0.92.0-Beta
+# Date: 2025-11-23
 #
 # --- Revision History ---
+# [0.92.0-Beta] - 2025-11-23
+# - Added --manifest argument to bundle files listed in a specified text file.
 # [0.91.0-Beta] - 2025-10-10
 # - Amended get_docs_files to include the root Readme.md in the documentation
 #   bundle.
@@ -35,10 +37,15 @@ def create_bundle(file_paths, bundle_file_path):
         file_count = len(file_paths)
         bundle_file.write(f"# --- METADATA: FILE_COUNT={file_count} ---\n")
         for file_path in file_paths:
+            # Normalize path to avoid issues with mix of slashes
             relative_path = os.path.relpath(file_path, ".").replace("\\", "/")
             bundle_file.write(f"--- FILE: {relative_path} ---\n")
-            with open(file_path, "r", encoding="utf-8") as f:
-                bundle_file.write(f.read())
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    bundle_file.write(f.read())
+            except Exception as e:
+                print(f"Error reading {file_path}: {e}")
+                bundle_file.write(f"[Error reading file: {e}]")
             bundle_file.write("\n")
     print(f"Created bundle: {bundle_file_path}")
 
@@ -72,6 +79,10 @@ def get_data_files():
     """Returns a list of all .dat files in the data/ directory."""
     data_files = []
     in_dir = os.environ.get('CONTEST_INPUT_DIR')
+    # Fallback to current directory if env var not set, prevents crash
+    if not in_dir:
+        in_dir = "."
+        
     data_dir = os.path.join(in_dir, "data")
     if os.path.isdir(data_dir):
         for root, _, files in os.walk(data_dir):
@@ -79,6 +90,26 @@ def get_data_files():
                 if file.endswith(".dat") and not file.startswith("cty"):
                     data_files.append(os.path.join(root, file))
     return data_files
+
+
+def get_manifest_files(manifest_path):
+    """Returns a list of files specified in the manifest file."""
+    manifest_files = []
+    if not os.path.isfile(manifest_path):
+        print(f"Error: Manifest file '{manifest_path}' not found.")
+        return manifest_files
+
+    with open(manifest_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            # Strip whitespace and ignore empty lines or comments
+            file_path = line.strip()
+            if file_path and not file_path.startswith("#"):
+                if os.path.isfile(file_path):
+                    manifest_files.append(file_path)
+                else:
+                    print(f"Warning: File listed in manifest not found: {file_path}")
+    
+    return manifest_files
 
 
 def main():
@@ -92,9 +123,15 @@ def main():
     parser.add_argument(
         "--data", action="store_true", help="Bundle data files (.dat)."
     )
+    parser.add_argument(
+        "--manifest", type=str, help="Bundle files listed in the specified manifest file."
+    )
     args = parser.parse_args()
 
-    if args.txt:
+    if args.manifest:
+        files_to_bundle = get_manifest_files(args.manifest)
+        bundle_name = "manifest_bundle.txt"
+    elif args.txt:
         files_to_bundle = get_docs_files()
         bundle_name = "documentation_bundle.txt"
     elif args.data:

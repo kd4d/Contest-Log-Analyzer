@@ -4,8 +4,8 @@
 #          specific multiplier type (e.g., Countries, Zones).
 #
 # Author: Gemini AI
-# Date: 2025-10-01
-# Version: 0.90.0-Beta
+# Date: 2025-11-23
+# Version: 0.93.1
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -14,12 +14,17 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
 # --- Revision History ---
+# [0.93.1] - 2025-11-23
+# - Refactored to use MultiplierStatsAggregator for data processing.
+# [0.93.0-Beta] - 2025-11-23
+# - Added logic to preserve "Prefixes" as a plural header.
 # [0.90.0-Beta] - 2025-10-01
 # Set new baseline version for release.
-
 from typing import List
 import pandas as pd
 import os
@@ -27,8 +32,8 @@ import json
 import logging
 import hashlib
 from ..contest_log import ContestLog
+from ..data_aggregators.multiplier_stats import MultiplierStatsAggregator
 from .report_interface import ContestReport
-from ._report_utils import calculate_multiplier_pivot
 
 class Report(ContestReport):
     """
@@ -45,73 +50,28 @@ class Report(ContestReport):
         """
         Generates the report content.
         """
-        # --- Create a list of filtered dataframes to process ---
-        log_data_to_process = []
-        for log in self.logs:
-            df = log.get_processed_data()
-            if kwargs.get('mode_filter'):
-                filtered_df = df[df['Mode'] == kwargs.get('mode_filter')].copy()
-            else:
-                filtered_df = df.copy()
-            log_data_to_process.append({'df': filtered_df, 'meta': log.get_metadata()})
-        
-        # --- Single-Log Mode ---
-        if len(log_data_to_process) == 1:
-            log_data = log_data_to_process[0]
-            df = log_data['df'][log_data['df']['Dupe'] == False]
-            all_calls = [log_data['meta'].get('MyCall', 'Unknown')]
-            return self._generate_report_for_logs(
-                dfs=[df],
-                all_calls=all_calls,
-                output_path=output_path,
-                contest_def=self.logs[0].contest_definition,
-                **kwargs
-            )
-        
-        # --- Multi-Log (Comparative) Mode ---
-        else:
-            all_dfs = []
-            all_calls = []
-            for log_data in log_data_to_process:
-                df = log_data['df'][log_data['df']['Dupe'] == False].copy()
-                if not df.empty:
-                    my_call = log_data['meta'].get('MyCall', 'Unknown')
-                    df['MyCall'] = my_call
-                    all_calls.append(my_call)
-                    all_dfs.append(df)
-
-            return self._generate_report_for_logs(
-                dfs=all_dfs,
-                all_calls=sorted(all_calls),
-                output_path=output_path,
-                contest_def=self.logs[0].contest_definition,
-                **kwargs
-            )
-
-    def _generate_report_for_logs(self, dfs, all_calls, output_path, contest_def, **kwargs):
         mult_name = kwargs.get('mult_name')
         mode_filter = kwargs.get('mode_filter')
         
-        if not dfs:
-            mode_str = f" on mode '{mode_filter}'" if mode_filter else ""
-            return f"Report '{self.report_name}' for '{mult_name}'{mode_str} skipped as no data was found."
-
-        mult_rule = next((r for r in contest_def.multiplier_rules if r.get('name', '').lower() == mult_name.lower()), None)
-        if not mult_rule or 'value_column' not in mult_rule:
-            return f"Error: Multiplier type '{mult_name}' not found in definition."
-
-        mult_column = mult_rule['value_column']
-        name_column = mult_rule.get('name_column')
+        # --- Use Aggregator for Data Calculation ---
+        aggregator = MultiplierStatsAggregator(self.logs)
+        result = aggregator.get_summary_data(mult_name, mode_filter)
         
-        combined_df = pd.concat(dfs, ignore_index=True)
-        if combined_df.empty or mult_column not in combined_df.columns:
-            return f"No '{mult_name}' multiplier data to report for mode '{mode_filter}'."
+        if 'error' in result:
+            return result['error']
+            
+        pivot = result['pivot']
+        all_calls = result['all_calls']
+        mult_column = result['mult_column']
+        mult_rule = result['mult_rule']
+        combined_df = result['combined_df']
+        main_df = result['main_df']
+        contest_def = self.logs[0].contest_definition
+        name_column = mult_rule.get('name_column')
 
-        main_df = combined_df[combined_df[mult_column].notna()]
-        main_df = main_df[main_df[mult_column] != 'Unknown']
-
-        if not contest_def.mults_from_zero_point_qsos:
-            main_df = main_df[main_df['QSOPoints'] > 0]
+        if pivot.empty and combined_df.empty:
+             mode_str = f" on mode '{mode_filter}'" if mode_filter else ""
+             return f"Report '{self.report_name}' for '{mult_name}'{mode_str} skipped as no data was found."
         
         if kwargs.get('debug_mults'):
             callsign = all_calls[0] if len(all_calls) == 1 else '_vs_'.join(all_calls)
@@ -123,10 +83,9 @@ class Report(ContestReport):
         is_single_band = len(bands) == 1
         is_comparative = len(all_calls) > 1
         
-        pivot = calculate_multiplier_pivot(main_df, mult_column, group_by_call=is_comparative)
-
         # --- Report Header Setup ---
-        year = dfs[0]['Date'].iloc[0].split('-')[0] if not dfs[0].empty else "----"
+        first_row_date = combined_df['Date'].iloc[0] if not combined_df.empty else "----"
+        year = first_row_date.split('-')[0]
         mode_title_str = f" ({mode_filter})" if mode_filter else ""
         title1 = f"--- {self.report_name}: {mult_name}{mode_title_str} ---"
         title2 = f"{year} {contest_def.contest_name} - {', '.join(all_calls)}"
@@ -141,13 +100,14 @@ class Report(ContestReport):
             report_content = "\n".join(report_lines) + "\n"
             os.makedirs(output_path, exist_ok=True)
             filename_calls = '_vs_'.join(sorted(all_calls))
+        
             mode_suffix = f"_{mode_filter.lower()}" if mode_filter else ""
             filename = f"{self.report_id}_{mult_name.lower()}{mode_suffix}_{filename_calls}.txt"
             filepath = os.path.join(output_path, filename)
             with open(filepath, 'w', encoding='utf-8') as f:
                 f.write(report_content)
             return f"Text report saved to: {filepath}"
-        
+         
         name_map = {}
         if name_column and name_column in main_df.columns:
             name_map_df = main_df[[mult_column, name_column]].dropna().drop_duplicates()
@@ -156,13 +116,15 @@ class Report(ContestReport):
         for band in bands:
             if band not in pivot.columns: pivot[band] = 0
         pivot = pivot[bands]
-        
+         
         if not is_single_band:
             pivot['Total'] = pivot.sum(axis=1)
 
         if mult_name.lower() == 'countries':
             source_type = mult_rule.get('source', 'dxcc').upper()
             first_col_header = source_type
+        elif mult_name.lower() == 'prefixes':
+            first_col_header = mult_name
         else:
             first_col_header = mult_name[:-1] if mult_name.lower().endswith('s') else mult_name
         
@@ -228,7 +190,6 @@ class Report(ContestReport):
                     line += f"{row.get('Total', 0):>7}"
                 report_lines.append(line)
 
-
         report_lines.append(separator)
         report_lines.append(f"{'Total':<{first_col_width}}")
         
@@ -246,6 +207,7 @@ class Report(ContestReport):
                 for band in bands: line += f"{row.get(band, 0):>7}"
                 if not is_single_band:
                     line += f"{row.get('Total', 0):>7}"
+                
                 report_lines.append(line)
 
         # --- Diagnostic Section for "Unknown" Multipliers ---
@@ -296,6 +258,7 @@ class Report(ContestReport):
                 report_lines.append("  ".join([f"{call:<{col_width}}" for call in line_calls]))
 
         report_content = "\n".join(report_lines) + "\n"
+        
         os.makedirs(output_path, exist_ok=True)
         
         filename_calls = '_vs_'.join(sorted(all_calls))
