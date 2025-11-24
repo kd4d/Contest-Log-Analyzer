@@ -4,8 +4,8 @@
 #          reporting engine.
 #
 # Author: Gemini AI
-# Date: 2025-10-01
-# Version: 0.90.0-Beta
+# Date: 2025-11-24
+# Version: 0.93.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -14,9 +14,13 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
 # --- Revision History ---
+# [0.93.0-Beta] - 2025-11-24
+# - Refactored NpEncoder to contest_tools.utils.json_encoders.
 # [0.90.0-Beta] - 2025-10-01
 # Set new baseline version for release.
 
@@ -33,24 +37,11 @@ import logging
 from pathlib import Path
 from typing import Optional, Dict, Any
 from ..contest_log import ContestLog
-
-class NpEncoder(json.JSONEncoder):
-    """ Custom JSON encoder to handle NumPy data types. """
-    def default(self, obj):
-        if isinstance(obj, np.integer):
-            return int(obj)
-        if isinstance(obj, np.floating):
-            return float(obj)
-        if isinstance(obj, np.ndarray):
-            return obj.tolist()
-        if isinstance(obj, pd.Timestamp):
-            return obj.isoformat()
-        if isinstance(obj, pd.Series):
-            return obj.to_dict()
-        return super(NpEncoder, self).default(obj)
+from ..utils.json_encoders import NpEncoder
 
 def get_valid_dataframe(log: ContestLog, include_dupes: bool = False) -> pd.DataFrame:
-    """Returns a safe copy of the log's DataFrame, excluding dupes unless specified."""
+    """Returns a safe copy of the log's DataFrame, excluding 
+    dupes unless specified."""
     df = log.get_processed_data()
     df_slice = df if include_dupes else df[df['Dupe'] == False]
     return df_slice.copy()
@@ -83,6 +74,7 @@ def _prepare_time_series_data(log1: ContestLog, log2: Optional[ContestLog], metr
     metric_col = metrics_map.get(metric)
     
     all_ts = []
+ 
     for log in [log1, log2]:
         if log is None:
             all_ts.append(None)
@@ -91,7 +83,8 @@ def _prepare_time_series_data(log1: ContestLog, log2: Optional[ContestLog], metr
         df = get_valid_dataframe(log).copy()
         
         if metric_col is None: # Row count metric like 'qsos'
-            ts = pd.Series(1, index=df['Datetime']).cumsum()
+            ts = pd.Series(1, 
+    index=df['Datetime']).cumsum()
         else:
             ts = df.set_index('Datetime')[metric_col].cumsum()
         
@@ -104,7 +97,8 @@ def _prepare_time_series_data(log1: ContestLog, log2: Optional[ContestLog], metr
     master_index = log1._log_manager_ref.master_time_index
     if master_index is not None:
         df1_ts = df1_ts.reindex(master_index, method='ffill').fillna(0)
-        if df2_ts is not None:
+        if df2_ts 
+    is not None:
             df2_ts = df2_ts.reindex(master_index, method='ffill').fillna(0)
             
     return df1_ts, df2_ts
@@ -173,7 +167,8 @@ class DonutChartComponent:
         ax_pie.set_title(self.title, fontsize=14, fontweight='bold', pad=20)
 
         if self.is_not_to_scale:
-            ax_pie.text(0, -self.radius - 0.3, "*Not to scale", ha='center', va='center', fontsize=10, color='red', alpha=0.7)
+            ax_pie.text(0, -self.radius - 0.3, "*Not to scale", ha='center', va='center', fontsize=10, 
+    color='red', alpha=0.7)
 
         table_data = [
             ["Total QSOs", f"{total_qsos}"],
@@ -303,7 +298,8 @@ class ComparativeHeatmapChart:
 
 def save_debug_data(debug_flag: bool, output_path: str, data, custom_filename: str = None):
     """
-    Saves the source data for a report to a .txt file if the debug flag is set.
+    Saves the source data for a report to a .txt file if the 
+    debug flag is set.
     """
     if not debug_flag:
         return

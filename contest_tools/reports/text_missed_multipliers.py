@@ -5,7 +5,7 @@
 #          This version uses the `prettytable` library for formatting.
 #
 # Author: Gemini AI
-# Date: 2025-11-23
+# Date: 2025-11-24
 # Version: 0.93.1
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
@@ -20,14 +20,17 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.93.1] - 2025-11-24
+# - Refactored to consume JSON-serializable types (Dicts/Lists) from
+#   MultiplierStatsAggregator, removing direct Pandas dependencies.
 # [0.93.1] - 2025-11-23
 # - Refactored to use MultiplierStatsAggregator for data processing.
 # [0.93.0-Beta] - 2025-11-23
 # - Fixed header generation to preserve "Countries" and "Prefixes" as plurals.
 # [0.90.0-Beta] - 2025-10-01
 # Set new baseline version for release.
+
 from typing import List, Dict, Any, Set
-import pandas as pd
 import os
 import logging
 from prettytable import PrettyTable
@@ -62,18 +65,20 @@ class Report(ContestReport):
         for call in all_calls:
             max_call_len = col_widths.get(call, len(call))
             if call in aggregated_data['band_data']:
-                df = aggregated_data['band_data'][call]
+                # data is now a Dict of Dicts
+                data_dict = aggregated_data['band_data'][call]
                 for mult in aggregated_data['missed_mults_on_band']:
-                    if mult in df.index:
-                        qso_count = df.loc[mult, 'QSO_Count']
-                        run_sp = df.loc[mult, 'Run_SP_Status']
+                    if mult in data_dict:
+                        stats = data_dict[mult]
+                        qso_count = stats.get('QSO_Count', 0)
+                        run_sp = stats.get('Run_SP_Status', '')
                         cell_content = f"({run_sp}) {qso_count}"
                         max_call_len = max(max_call_len, len(cell_content))
             col_widths[call] = max_call_len
             
             union_count = len(aggregated_data['union_of_all_mults'])
             
-            worked_count = len(aggregated_data['mult_sets'].get(call, set()))
+            worked_count = len(aggregated_data['mult_sets'].get(call, []))
             max_worked = max(len(s) for s in aggregated_data['mult_sets'].values()) if aggregated_data['mult_sets'] else 0
             delta = worked_count - max_worked
             col_widths[call] = max(col_widths[call], len(str(worked_count)), len(str(union_count - worked_count)), len(str(delta)))
@@ -109,7 +114,7 @@ class Report(ContestReport):
         # --- Main Table Generation ---
         main_table = self._create_table(headers, col_widths)
         if aggregated_data['missed_mults_on_band']:
-            for mult in sorted(list(aggregated_data['missed_mults_on_band'])):
+            for mult in aggregated_data['missed_mults_on_band']:
                 display_mult = str(mult)
                 if aggregated_data['prefix_to_name_map'] and mult in aggregated_data['prefix_to_name_map']:
                     clean_name = str(aggregated_data['prefix_to_name_map'][mult]).split(';')[0].strip()
@@ -117,13 +122,15 @@ class Report(ContestReport):
                 
                 row = [display_mult]
                 for call in all_calls:
-                    if call in aggregated_data['band_data'] and mult in aggregated_data['band_data'][call].index:
-                        qso_count = aggregated_data['band_data'][call].loc[mult, 'QSO_Count']
-                        run_sp = aggregated_data['band_data'][call].loc[mult, 'Run_SP_Status']
-                        
-                        cell_content = f"({run_sp}) {qso_count}"
-                    else:
-                        cell_content = "0"
+                    cell_content = "0"
+                    if call in aggregated_data['band_data']:
+                        data_dict = aggregated_data['band_data'][call]
+                        if mult in data_dict:
+                            stats = data_dict[mult]
+                            qso_count = stats.get('QSO_Count', 0)
+                            run_sp = stats.get('Run_SP_Status', '')
+                            cell_content = f"({run_sp}) {qso_count}"
+                    
                     row.append(cell_content)
                 main_table.add_row(row)
         
@@ -153,7 +160,7 @@ class Report(ContestReport):
         mult_name = kwargs.get('mult_name')
         mode_filter = kwargs.get('mode_filter')
         if not mult_name: return f"Error: 'mult_name' argument is required for '{self.report_name}' report."
-        
+
         # --- Use Aggregator for Data Calculation ---
         aggregator = MultiplierStatsAggregator(self.logs)
         agg_results = aggregator.get_missed_data(mult_name, mode_filter)
@@ -166,7 +173,8 @@ class Report(ContestReport):
         mult_rule = agg_results['mult_rule']
         all_bands_data = agg_results['band_data']
         
-        first_log = self.logs[0]; first_log_def = first_log.contest_definition
+        first_log = self.logs[0]
+        first_log_def = first_log.contest_definition
 
         # --- PASS 1: Calculate column widths based on aggregated data ---
         raw_name = mult_rule['name']

@@ -4,8 +4,8 @@
 #          Propagation by Continent report.
 #
 # Author: Gemini AI
-# Date: 2025-10-12
-# Version: 0.92.0-Beta
+# Date: 2025-11-24
+# Version: 0.93.0
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -14,19 +14,25 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
-## [0.92.0-Beta] - 2025-10-12
+# [0.93.0] - 2025-11-24
+# - Added strict JSON sanitization via NpEncoder to satisfy the
+#   Data Abstraction Layer requirements.
+# [0.92.0-Beta] - 2025-10-12
 # - Initial creation of the propagation data aggregator as part of the
 #   new data abstraction layer proof-of-concept.
 
+import json
 import pandas as pd
 from typing import List, Dict, Any, Optional
 
 from ..contest_log import ContestLog
 from ..reports._report_utils import get_valid_dataframe
+from ..utils.json_encoders import NpEncoder
 
 def generate_propagation_data(logs: List[ContestLog], hour_of_contest: int) -> Optional[Dict[str, Any]]:
     """
@@ -93,4 +99,6 @@ def generate_propagation_data(logs: List[ContestLog], hour_of_contest: int) -> O
         "data": nested_data
     }
 
-    return result
+    # Strict JSON Sanitization:
+    # Forces conversion of all NumPy types (int64, etc.) to Python primitives.
+    return json.loads(json.dumps(result, cls=NpEncoder))

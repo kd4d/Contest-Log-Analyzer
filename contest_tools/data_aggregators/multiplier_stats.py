@@ -4,7 +4,7 @@
 #          serving both the 'Multiplier Summary' and 'Missed Multipliers' reports.
 #
 # Author: Gemini AI
-# Date: 2025-11-23
+# Date: 2025-11-24
 # Version: 0.93.0
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
@@ -19,6 +19,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.93.0] - 2025-11-24
+# - Refactored to return JSON-serializable types (Dicts/Lists) instead of
+#   Pandas objects, enabling the Data Abstraction Layer.
 # [0.93.0] - 2025-11-23
 # - Initial creation. Extracted logic from text_multiplier_summary.py and
 #   text_missed_multipliers.py.
@@ -27,6 +30,7 @@ from typing import List, Dict, Any, Set
 import pandas as pd
 from ..contest_log import ContestLog
 from ..reports._report_utils import calculate_multiplier_pivot
+from ..utils.json_encoders import NpEncoder
 
 class MultiplierStatsAggregator:
     def __init__(self, logs: List[ContestLog]):
@@ -96,12 +100,12 @@ class MultiplierStatsAggregator:
         if combined_df.empty or mult_column not in combined_df.columns:
              # Return empty structures but sufficient to render "No data" message
              return {
-                 'pivot': pd.DataFrame(), 
+                 'pivot': {}, 
                  'all_calls': all_calls,
                  'mult_column': mult_column,
                  'mult_rule': mult_rule,
-                 'combined_df': pd.DataFrame(),
-                 'main_df': pd.DataFrame(),
+                 'combined_df': [],
+                 'main_df': [],
                  'bands': self.contest_def.valid_bands
              }
 
@@ -116,12 +120,12 @@ class MultiplierStatsAggregator:
         pivot = calculate_multiplier_pivot(main_df, mult_column, group_by_call=is_comparative)
 
         return {
-            'pivot': pivot,
+            'pivot': pivot.to_dict(orient='split'),
             'all_calls': all_calls,
             'mult_column': mult_column,
             'mult_rule': mult_rule,
-            'combined_df': combined_df,
-            'main_df': main_df,
+            'combined_df': combined_df.to_dict(orient='records'),
+            'main_df': main_df.to_dict(orient='records'),
             'bands': self.contest_def.valid_bands
         }
 
@@ -162,7 +166,7 @@ class MultiplierStatsAggregator:
         name_column = mult_rule.get('name_column')
 
         for band in bands_to_process:
-            band_data_map: Dict[str, pd.DataFrame] = {}
+            band_data_map: Dict[str, Dict] = {}
             mult_sets: Dict[str, Set[str]] = {call: set() for call in all_calls}
             prefix_to_name_map = {}
 
@@ -184,7 +188,9 @@ class MultiplierStatsAggregator:
 
                 agg_data = df_scope.groupby(mult_column).agg(
                     QSO_Count=('Call', 'size'), Run_SP_Status=('Run', self._get_run_sp_status))
-                band_data_map[callsign] = agg_data
+                
+                # Convert DataFrame to Dict (orient='index')
+                band_data_map[callsign] = agg_data.to_dict(orient='index')
                 mult_sets[callsign].update(agg_data.index)
 
             union_of_all_mults = set.union(*mult_sets.values()) if mult_sets.values() else set()
@@ -195,10 +201,10 @@ class MultiplierStatsAggregator:
 
             full_results['band_data'][band] = {
                 "band_data": band_data_map, 
-                "mult_sets": mult_sets, 
+                "mult_sets": {k: sorted(list(v)) for k, v in mult_sets.items()}, 
                 "prefix_to_name_map": prefix_to_name_map,
-                "union_of_all_mults": union_of_all_mults, 
-                "missed_mults_on_band": missed_mults_on_band
+                "union_of_all_mults": sorted(list(union_of_all_mults)), 
+                "missed_mults_on_band": sorted(list(missed_mults_on_band))
             }
 
         return full_results

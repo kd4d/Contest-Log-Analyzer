@@ -1,95 +1,71 @@
 # **AI Agent User's Guide (Split-Role Workflow)**
 
-Version: 2.0.3  
-Date: 2025-11-23
+Version: 2.1.1
+Date: 2025-11-24
 
-## **1\. The Workflow Concept**
+### **--- Revision History ---**
+## **[2.1.1] - 2025-11-24**
+# **- Added "Session Health Monitoring" protocol to help Users detect context decay.**
 
-We have moved from a "Monolithic" AI (one session does everything) to a **"Split-Role" Model**. This prevents the AI from "forgetting" code in the middle of a large file by keeping its context window clean.
+## **1. The Workflow Concept**
 
-* **The Architect:** Thinks, plans, and reads code. Does NOT write final files.  
-* **The Builder:** Writes code. Has "amnesia" (knows nothing about the project history, only what is in the specific bundle you give it).  
-* **You (The User):** You are the "Message Bus." You move the Plan from the Architect to the Builder.
+We use a **"Split-Role" Model** to manage context and ensure precision.
 
-## **2\. Phase 1: The Architect Session**
+* **The Architect:** Thinks, plans, and designs. Writes the **Implementation Plan**. Can update **Workflow Documents**.
+* **The Builder:** Writes **Project Code**. Has "amnesia" (knows only what is in the bundle).
+* **The Relay:** Moving complex design state between multiple Architect sessions to overcome context limits.
+* **You (The User):** The "Message Bus." You move Plans and Bundles between agents.
 
-**Goal:** Define *what* to do and generate a specific list of files needed to do it.
+## **2. Phase 1: The Architect Session**
 
-1. **Start:** Open a new AI session.  
-2. **Bootstrap:** Upload AIAgentWorkflow.md and your project\_bundle.txt (or the specific files relevant to the task).  
-3. **Prompt:** "Act as Architect. \[Describe your bug or feature\]."  
-4. **Context Receipt:** The Architect will read the bundle to establish the immutable baseline.  
-5. **The Output:** The Architect will analyze the problem and produce an **Implementation Plan**.  
-   * **Format:** The Plan will be delivered as a **Canvas Document** (a specialized editor window within the chat).  
-   * **Content:** This document contains the Strategic Overview, Architectural Design, Implementation Roadmap, and the **Builder Bootstrap Prompts**.
+**Goal:** Define *what* to do.
 
-### **Saving the Plan (Crucial Step)**
+1.  **Start:** Open a new session.
+2.  **Bootstrap:** Upload `AIAgentWorkflow.md` and `project_bundle.txt`.
+3.  **Prompt:** "Act as Architect. [Describe task]."
+4.  **Output:** The Architect produces an **Implementation Plan** (Canvas Document).
 
-Because AI sessions can be ephemeral, you must save the Architect's Plan to your local machine to hand it off to the Builder (or a future Architect). Use one of the following methods:
+### **Phase 1.5: The Architectural Relay & Health Checks**
 
-**Method A: Export to Markdown (Best for Fidelity)**
+**Goal:** Manage complex features that require multiple design sessions.
 
-1. In the Canvas window header, click the **Share** icon.  
-2. Select **Export to Docs**.  
-3. Open the resulting Google Doc.  
-4. **Critical Rename Step:** Go to **File \> Rename** (or click the filename at the top) and rename the document to something meaningful (e.g., ImplementationPlan.md). The default Canvas name does not transfer.  
-5. Go to **File \> Download \> Markdown (.md)**.  
-6. Save this file to your project's Docs/ folder.
+#### **Session Health Monitoring**
+In long sessions, the AI may suffer from "Context Decay" (forgetting early instructions). You should periodically check the session status using this prompt:
 
-**Method B: Print to PDF (Best for Readability)**
+> **"System Health Check: Estimate your current context usage and risk of decay."**
 
-1. While viewing the Canvas, use your browser's **Print** function (Ctrl+P or Cmd+P).  
-2. Select **"Save as PDF"** as the destination.  
-3. This captures a clean, read-only snapshot of the plan for reference.
+* **Green (Low Risk):** Continue working.
+* **Yellow (Moderate Risk):** Finish the current thought, then perform a **Relay**.
+* **Red (High Risk):** Stop immediately. Do not trust further output. Perform a **Relay**.
 
-## **3\. Phase 2: The Bridge (Your Role)**
+#### **Executing the Relay**
+1.  **Saturation:** If the Health Check is Yellow/Red, or you sense drift, ask for a **State Snapshot**.
+2.  **Save:** Copy the Snapshot/Plan to a markdown file (e.g., `Plan_Part1.md`).
+3.  **Re-Bootstrap:** Open a **FRESH** session.
+4.  **Upload:** Upload `AIAgentWorkflow.md`, `project_bundle.txt`, and `Plan_Part1.md`.
+5.  **Prompt:** "Act as Architect. Resume design based on the attached Plan."
 
-Before opening the Builder session, you must prepare the "Builder Context."
+### **Saving the Plan**
+Always export the final Implementation Plan to `Docs/` (e.g., `Docs/ImplementationPlan_v1.md`). You need this file for the Builder.
 
-1. **Get the Manifest:** Locate the manifest.txt code block within the saved Implementation Plan. Copy its content and save it to a file named manifest.txt in your project root.  
-2. Run the Bundler: Execute your bundling script:  
-   \_\_CODE\_BLOCK\_\_bash  
-   python test\_code/create\_project\_bundle.py \--manifest manifest.txt  
-   CODE\_BLOCK  
-   This will generate a builder\_bundle.txt containing only the files the Builder needs.
+## **3. Phase 2: The Bridge**
 
-## **4\. Phase 3: The Builder Session**
+1.  **Manifest:** Copy `manifest.txt` from the Plan to your project root.
+2.  **Bundle:** Run `python test_code/create_project_bundle.py --manifest manifest.txt` to create `builder_bundle.txt`.
 
-**Goal:** Execute the plan safely.
+## **4. Phase 3: The Builder Session**
 
-1. **Start:** Open a **FRESH** AI session.  
-2. **Upload:** Upload AIAgentWorkflow.md, the builder\_bundle.txt you just created, and the **Implementation Plan** (PDF or Markdown) you saved in Phase 1\.  
-3. **Paste:** Copy the specific **Builder Bootstrap Prompt** (e.g., "Prompt A") from the Implementation Plan and paste it into the chat.  
-4. **Initialization:**  
-   * The Builder will verify it has the files listed in the Manifest.  
-   * **Version Check:** The Builder will ask you for the **Target Session Version** (e.g., 0.93.0).  
-     * **Note:** If you provide 0.93.0, the Builder will apply "Smart Versioning":  
-       * **New Files** will start at 0.93.0.  
-       * **Existing Files** already in the 0.93.x series will auto-increment (e.g., 0.93.4 \-\> 0.93.5) to preserve history.  
-5. **Execution Loop:**  
-   * **Visual Diff:** The Builder will show you Old Code vs New Code.  
-   * **Proceed:** If it looks correct, type Proceed.  
-   * **Delivery:** The Builder gives you the full file.  
-   * **Acknowledge:** Type Acknowledged to move to the next file.
+**Goal:** Execute the plan.
 
-## **5\. Special Cases**
+1.  **Start:** Open a **FRESH** session.
+2.  **Upload:** Upload `AIAgentWorkflow.md`, `builder_bundle.txt`, and the saved `ImplementationPlan.md`.
+3.  **Prompt:** Paste the **Builder Bootstrap Prompt** from the Plan.
+4.  **Execute:** Follow the "Visual Diff -> Proceed -> Delivery" loop.
 
-### **Documentation Updates**
+## **5. Workflow Maintenance**
 
-Documentation is treated as code.
+The Workflow itself is a living system.
 
-1. **Architect:** Ask the Architect to "Plan the documentation update for v2.0."  
-2. **Builder:** Start a Builder session with the Docs/ folder in the bundle. The Builder writes the markdown files.
-
-### **The "Ad-Hoc" Shortcut**
-
-For trivial tasks (e.g., "Fix a typo in the README" or "Explain this function"), you do not need the full split workflow.
-
-1. **Start:** Open a session.  
-2. **Prompt:** "Ad-Hoc Task: Fix this typo in..."  
-3. The AI will skip the Architect/Builder ceremony and just help you.
-
-### **Troubleshooting**
-
-* **Builder Fails Verification:** If the Builder produces code that errors out, paste the error back to the Builder. It gets **ONE** attempt to fix it.  
-* **Fix Fails:** If the second attempt fails, **STOP**. Do not argue with the Builder. Close the session. Go back to the Architect session, paste the error, and ask for a revised plan.
+* **Continuous Improvement:** Both the Architect and Builder may suggest updates to `AIAgentWorkflow.md` if they find a flaw in the process.
+* **User Override:** You can order an update: "Act as Architect. Update the Workflow to require X."
+* **Saving Updates:** If an agent outputs a new Workflow file, overwrite your local copy immediately.

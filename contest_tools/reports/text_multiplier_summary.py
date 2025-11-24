@@ -4,7 +4,7 @@
 #          specific multiplier type (e.g., Countries, Zones).
 #
 # Author: Gemini AI
-# Date: 2025-11-23
+# Date: 2025-11-24
 # Version: 0.93.1
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
@@ -19,14 +19,15 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
-# [0.93.1] - 2025-11-23
-# - Refactored to use MultiplierStatsAggregator for data processing.
+# [0.93.1] - 2025-11-24
+# - Refactored to consume JSON-serializable types (Dicts/Lists) from
+#   MultiplierStatsAggregator, removing direct Pandas dependencies.
 # [0.93.0-Beta] - 2025-11-23
 # - Added logic to preserve "Prefixes" as a plural header.
 # [0.90.0-Beta] - 2025-10-01
 # Set new baseline version for release.
+
 from typing import List
-import pandas as pd
 import os
 import json
 import logging
@@ -69,22 +70,43 @@ class Report(ContestReport):
         contest_def = self.logs[0].contest_definition
         name_column = mult_rule.get('name_column')
 
-        if pivot.empty and combined_df.empty:
+        # Check if pivot data exists (handling dict structure)
+        # pivot is dict: {'index': [], 'columns': [], 'data': []}
+        if not pivot.get('data') and not combined_df:
              mode_str = f" on mode '{mode_filter}'" if mode_filter else ""
              return f"Report '{self.report_name}' for '{mult_name}'{mode_str} skipped as no data was found."
-        
-        if kwargs.get('debug_mults'):
-            callsign = all_calls[0] if len(all_calls) == 1 else '_vs_'.join(all_calls)
-            debug_csv_filename = f"multiplier_summary_sourcedata_debug_{callsign}.csv"
-            debug_csv_filepath = os.path.join(output_path, debug_csv_filename)
-            main_df.to_csv(debug_csv_filepath, index=False)
-        
+
         bands = contest_def.valid_bands
         is_single_band = len(bands) == 1
         is_comparative = len(all_calls) > 1
+
+        # --- Reconstruct Data Lookup from JSON 'split' format ---
+        pivot_columns = pivot.get('columns', [])
+        pivot_index = pivot.get('index', [])
+        pivot_data = pivot.get('data', [])
+        
+        # Map band names to column indices within the data rows
+        band_col_map = {b: i for i, b in enumerate(pivot_columns)}
+        
+        # Create a lookup: key -> row_data
+        data_map = {}
+        unique_mults = set()
+        
+        for idx, row_vals in zip(pivot_index, pivot_data):
+            # JSON serializes tuples as lists. Convert back for consistent dictionary keys.
+            key = tuple(idx) if isinstance(idx, list) else idx
+            data_map[key] = row_vals
+            
+            # Extract distinct multipliers from index
+            if is_comparative:
+                unique_mults.add(key[0]) # key is (mult, call)
+            else:
+                unique_mults.add(key)    # key is mult
+
+        sorted_mults = sorted(list(unique_mults))
         
         # --- Report Header Setup ---
-        first_row_date = combined_df['Date'].iloc[0] if not combined_df.empty else "----"
+        first_row_date = combined_df[0]['Date'] if combined_df else "----"
         year = first_row_date.split('-')[0]
         mode_title_str = f" ({mode_filter})" if mode_filter else ""
         title1 = f"--- {self.report_name}: {mult_name}{mode_title_str} ---"
@@ -92,7 +114,7 @@ class Report(ContestReport):
         report_lines = []
 
         # --- Gracefully handle cases with no multipliers ---
-        if pivot.empty:
+        if not pivot_data:
             report_lines.append(title1)
             report_lines.append(title2)
             report_lines.append(f"\nNo '{mult_name}' multipliers found to summarize.")
@@ -108,18 +130,15 @@ class Report(ContestReport):
                 f.write(report_content)
             return f"Text report saved to: {filepath}"
          
+        # Name map logic (list based)
         name_map = {}
-        if name_column and name_column in main_df.columns:
-            name_map_df = main_df[[mult_column, name_column]].dropna().drop_duplicates()
-            name_map = name_map_df.set_index(mult_column)[name_column].to_dict()
+        if name_column:
+             # Simple iteration to build map from list of dicts
+             for record in main_df:
+                 if record.get(mult_column) and record.get(name_column):
+                     name_map[record[mult_column]] = record[name_column]
 
-        for band in bands:
-            if band not in pivot.columns: pivot[band] = 0
-        pivot = pivot[bands]
-         
-        if not is_single_band:
-            pivot['Total'] = pivot.sum(axis=1)
-
+        # Determine column header
         if mult_name.lower() == 'countries':
             source_type = mult_rule.get('source', 'dxcc').upper()
             first_col_header = source_type
@@ -128,14 +147,13 @@ class Report(ContestReport):
         else:
             first_col_header = mult_name[:-1] if mult_name.lower().endswith('s') else mult_name
         
-        sorted_mults = sorted(pivot.index.get_level_values(0).unique())
-        
+        # Calculate column widths
         max_mult_len = len(first_col_header)
         if sorted_mults:
             for mult in sorted_mults:
                 if name_column:
                     full_name = name_map.get(mult, '')
-                    display_string = f"{mult} ({full_name})" if pd.notna(full_name) and full_name != '' else str(mult)
+                    display_string = f"{mult} ({full_name})" if full_name else str(mult)
                     max_mult_len = max(max_mult_len, len(display_string))
                 else:
                     max_mult_len = max(max_mult_len, len(str(mult)))
@@ -164,55 +182,66 @@ class Report(ContestReport):
         report_lines.append(table_header)
         report_lines.append(separator)
 
+        # Calculate Column Totals (per call) for the footer
+        col_totals = {call: {b: 0 for b in bands} for call in all_calls}
+
         for mult in sorted_mults:
             mult_display = str(mult)
             if name_column:
                 mult_full_name = name_map.get(mult, '')
-                if pd.notna(mult_full_name) and mult_full_name != '': 
+                if mult_full_name: 
                     clean_name = str(mult_full_name).split(';')[0].strip()
                     mult_display = f"{mult} ({clean_name})"
 
             report_lines.append(f"{mult_display:<{first_col_width}}")
             
-            mult_data = pivot.loc[mult]
             for call in all_calls:
-                if is_comparative:
-                    if call in mult_data.index:
-                        row = mult_data.loc[call]
-                    else:
-                        continue
-                else:
-                    row = mult_data
-
+                # Retrieve row data
+                lookup_key = (mult, call) if is_comparative else mult
+                
+                # Check if this call/mult combo exists
+                if is_comparative and lookup_key not in data_map:
+                    continue
+                
+                row_values = data_map.get(lookup_key, [])
+                
+                # Calculate Row Stats
+                row_total = 0
                 line = f"  {call}:".ljust(first_col_width)
-                for band in bands: line += f"{row.get(band, 0):>7}"
+                
+                for band in bands:
+                    val = 0
+                    if row_values and band in band_col_map:
+                        col_idx = band_col_map[band]
+                        val = int(row_values[col_idx])
+                    
+                    line += f"{val:>7}"
+                    row_total += val
+                    col_totals[call][band] += val # Accumulate col total
+                
                 if not is_single_band:
-                    line += f"{row.get('Total', 0):>7}"
+                    line += f"{row_total:>7}"
                 report_lines.append(line)
 
         report_lines.append(separator)
         report_lines.append(f"{'Total':<{first_col_width}}")
         
-        if is_comparative:
-            total_pivot = pivot.groupby(level='MyCall').sum()
-        else:
-            total_pivot = pivot.sum().to_frame().T
-            total_pivot['MyCall'] = all_calls[0]
-            total_pivot = total_pivot.set_index('MyCall')
-
+        # Render Footer
         for call in all_calls:
-            if call in total_pivot.index:
-                row = total_pivot.loc[call]
-                line = f"  {call}:".ljust(first_col_width)
-                for band in bands: line += f"{row.get(band, 0):>7}"
-                if not is_single_band:
-                    line += f"{row.get('Total', 0):>7}"
-                
-                report_lines.append(line)
+            line = f"  {call}:".ljust(first_col_width)
+            grand_total = 0
+            for band in bands:
+                val = col_totals[call][band]
+                line += f"{val:>7}"
+                grand_total += val
+            
+            if not is_single_band:
+                line += f"{grand_total:>7}"
+            report_lines.append(line)
 
         # --- Diagnostic Section for "Unknown" Multipliers ---
-        unknown_df = combined_df[combined_df[mult_column] == 'Unknown']
-        unique_unknown_calls = sorted(unknown_df['Call'].unique())
+        unknown_records = [r['Call'] for r in combined_df if r.get(mult_column) == 'Unknown']
+        unique_unknown_calls = sorted(list(set(unknown_records)))
         
         if unique_unknown_calls:
             report_lines.append("\n" + "-" * 30)
@@ -224,37 +253,6 @@ class Report(ContestReport):
             
             for i in range(0, len(unique_unknown_calls), num_cols):
                 line_calls = unique_unknown_calls[i:i+5]
-                report_lines.append("  ".join([f"{call:<{col_width}}" for call in line_calls]))
-
-        # --- Diagnostic Section for "Unassigned" Multipliers ---
-        df_to_check = combined_df
-        if getattr(contest_def, 'is_naqp_ruleset', False):
-            df_to_check = combined_df[(combined_df['Continent'] == 'NA') | (combined_df['DXCCPfx'] == 'KH6')]
-
-        unassigned_df = df_to_check[df_to_check[mult_column].isna()]
-        
-        # Filter out intentional blanks for mutually exclusive mults
-        exclusive_groups = contest_def.mutually_exclusive_mults
-        for group in exclusive_groups:
-            if mult_column in group:
-                partner_cols = [p for p in group if p != mult_column and p in combined_df.columns]
-                if partner_cols:
-                    indices_to_check = unassigned_df.index
-                    partner_values_exist = combined_df.loc[indices_to_check, partner_cols].notna().any(axis=1)
-                    unassigned_df = unassigned_df.loc[~partner_values_exist]
-        
-        unique_unassigned_calls = sorted(unassigned_df['Call'].unique())
-        
-        if unique_unassigned_calls:
-            report_lines.append("\n" + "-" * 30)
-            report_lines.append(f"Callsigns with unassigned {first_col_header}:")
-            report_lines.append("-" * 30)
-            
-            col_width = 12
-            num_cols = max(1, table_width // (col_width + 2))
-            
-            for i in range(0, len(unique_unassigned_calls), num_cols):
-                line_calls = unique_unassigned_calls[i:i+5]
                 report_lines.append("  ".join([f"{call:<{col_width}}" for call in line_calls]))
 
         report_content = "\n".join(report_lines) + "\n"
