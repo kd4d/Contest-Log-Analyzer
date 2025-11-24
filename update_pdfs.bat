@@ -17,6 +17,17 @@ for %%F in ("%DOC_DIR%\*.md") do (
     call :ConvertIfNeeded "%%F" "%%~dpnF.pdf"
 )
 
+set "AI_DIR=AIAgentGuidance"
+if not exist "%AI_DIR%" (
+    echo Error: The '%AI_DIR%' directory was not found.
+    goto :eof
+)
+
+for %%F in ("%AI_DIR%\*.md") do (
+    call :ConvertIfNeeded "%%F" "%%~dpnF.pdf"
+)
+
+
 echo.
 echo --- PDF Conversion Complete ---
 goto :eof
