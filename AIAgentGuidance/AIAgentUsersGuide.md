@@ -1,9 +1,12 @@
 # **AI Agent User's Guide (Split-Role Workflow)**
 
-Version: 2.1.1
+Version: 2.1.2
 Date: 2025-11-24
 
 ### **--- Revision History ---**
+## **[2.1.2] - 2025-11-24**
+# **- Clarified Phase 3 Step 2 to emphasize the Plan's role as "Blueprints" for the Builder.**
+
 ## **[2.1.1] - 2025-11-24**
 # **- Added "Session Health Monitoring" protocol to help Users detect context decay.**
 
@@ -59,6 +62,7 @@ Always export the final Implementation Plan to `Docs/` (e.g., `Docs/Implementati
 
 1.  **Start:** Open a **FRESH** session.
 2.  **Upload:** Upload `AIAgentWorkflow.md`, `builder_bundle.txt`, and the saved `ImplementationPlan.md`.
+    * *Note:* The **Plan** serves as the **Blueprints**. The **Bundle** is the **Lumber**. The Builder needs both to construct the feature correctly.
 3.  **Prompt:** Paste the **Builder Bootstrap Prompt** from the Plan.
 4.  **Execute:** Follow the "Visual Diff -> Proceed -> Delivery" loop.
 

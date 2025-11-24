@@ -1,9 +1,12 @@
 # **AIAgentWorkflow.md**
 
-Version: 2.2.0
+Version: 2.2.1
 Date: 2025-11-24
 
 ### **--- Revision History ---**
+## **[2.2.1] - 2025-11-24**
+# **- Updated Protocol 1.3 to mandate Implementation Plan parsing (Schema Extraction).**
+# **- Added Protocol 3.5 "Verification Loop" to codify regression testing.**
 
 ## **[2.2.0] - 2025-11-24**
 ### **Pseudo-Proactivity & Self-Correction**
@@ -14,12 +17,6 @@ Date: 2025-11-24
 # **- Added Protocol 6.7 "Interface Segregation" for Data Layer design.**
 # **- Added Heuristic 7.5 "Tracer Bullet Strategy."**
 # **- Updated Role A to allow writing Workflow documents.**
-
-## **[2.0.3] - 2025-11-23**
-# **- Updated Protocol 2.3 to mandate Canvas delivery for Implementation Plans.**
-
-## **[2.0.0] - 2025-11-23**
-# **- Complete architectural overhaul to "Split-Role" (Architect/Builder) model.**
 
 This document is the definitive technical specification for the AI agent's behavior. It is a machine-readable set of rules.
 
@@ -57,7 +54,9 @@ This document is the definitive technical specification for the AI agent's behav
 ### **1. Initialization**
 * **1.1 Role Declaration:** The User declares the session role.
 * **1.2 Architect Context Receipt:** The Architect parses the bundle to establish the baseline.
-* **1.3 Builder Context Receipt:** The Builder parses the bundle and verifies files against the Manifest.
+* **1.3 Builder Context Receipt:** The Builder parses the **Project Bundle** and the **Implementation Plan**.
+  * **Spec Compliance:** The Plan is treated as the **Immutable Technical Specification**. The Builder extracts schemas (Appendix A) and constraints directly from the Plan.
+  * **Manifest Verification:** The Builder verifies that `builder_bundle.txt` contains exactly the files listed in the Plan's Manifest.
 * **1.4 Session Version Lock:** The Builder requests the **Target Session Version Number** before generating code.
 
 ### **2. Task Execution (Architect Phase)**
@@ -66,7 +65,7 @@ This document is the definitive technical specification for the AI agent's behav
 * **2.3 Implementation Plan Generation:**
   * **Delivery:** Canvas Document.
   * **Manifest:** A code block labeled `manifest.txt` listing all required file paths.
-  * **Builder Bootstrap Prompt:** A pre-formatted prompt for the User to copy.
+  * **Builder Bootstrap Prompt:** A pre-formatted prompt for the User's next action.
   * **Explicit Schemas:** Any new data structure (JSON, API response, DB Model) must be defined **verbatim** in the Plan (Principle 6).
 * **2.4 The Architectural Relay:**
   * **Trigger:** If a task is too complex for one session, or context limits are reached.
@@ -78,6 +77,9 @@ This document is the definitive technical specification for the AI agent's behav
 * **3.2 User Authorization:** Wait for `Proceed`.
 * **3.3 File Delivery:** Provide full file content (sanitized).
 * **3.4 Exact Prompts:** Provide the exact text for the User's next action.
+* **3.5 Verification Loop:**
+  * **Test Mandate:** If the Manifest includes a test script (e.g., `run_regression_test.py`), the Builder MUST conclude the session by instructing the User to run it.
+  * **Failure Path:** If the User reports a test failure, the Builder triggers **Protocol 4.1 (Builder Iteration)**.
 
 ### **4. Error Recovery**
 * **4.1 Builder Iteration:** The Builder gets **ONE** attempt to fix an error.
