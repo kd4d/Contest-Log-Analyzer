@@ -5,7 +5,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-11-24
-# Version: 1.2.0
+# Version: 1.3.1
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [1.3.1] - 2025-11-24
+# - Implemented run_points and sp_unk_points logic.
+# - Added band_filter and mode_filter arguments to get_time_series_data.
+# - Enforced strict separation: Points are raw sums, Score is from calculator.
 # [1.2.0] - 2025-11-24
 # - Initial creation implementing the TimeSeriesData v1.2 schema.
 
@@ -34,9 +38,13 @@ class TimeSeriesAggregator:
     def __init__(self, logs: List[Any]):
         self.logs = logs
 
-    def get_time_series_data(self) -> Dict[str, Any]:
+    def get_time_series_data(self, band_filter: str = None, mode_filter: str = None) -> Dict[str, Any]:
         """
-        Generates the TimeSeriesData v1.2 structure.
+        Generates the TimeSeriesData v1.3.1 structure.
+        
+        Args:
+            band_filter: Optional band string (e.g., '20M').
+            mode_filter: Optional mode string (e.g., 'CW').
         """
         data = {
             "time_bins": [],
@@ -64,18 +72,28 @@ class TimeSeriesAggregator:
             callsign = metadata.get('MyCall', 'UnknownCall')
             contest_def = log.contest_definition
             
-            # --- Scalars ---
+            # --- Prepare Data ---
             df_full = log.get_processed_data()
+            
+            # Apply Filters (Schema v1.3.1)
+            if band_filter and band_filter != 'All':
+                df_full = df_full[df_full['Band'] == band_filter]
+            if mode_filter:
+                df_full = df_full[df_full['Mode'] == mode_filter]
+
+            # --- Scalars ---
             if df_full.empty:
-                # Handle empty log gracefully
                 gross_qsos = 0
                 dupes = 0
                 net_qsos = 0
+                points_sum = 0
                 year = "UnknownYear"
             else:
                 gross_qsos = len(df_full)
                 dupes = df_full['Dupe'].sum() if 'Dupe' in df_full.columns else 0
                 net_qsos = gross_qsos - dupes
+                # Raw Points Sum (Dynamic Calculation)
+                points_sum = df_full['QSOPoints'].sum() if 'QSOPoints' in df_full.columns else 0
                 
                 # Extract Year
                 date_series = df_full['Date'].dropna()
@@ -89,13 +107,15 @@ class TimeSeriesAggregator:
                     "gross_qsos": int(gross_qsos),
                     "net_qsos": int(net_qsos),
                     "dupes": int(dupes),
+                    "points_sum": int(points_sum),
                     "on_time": str(on_time),
                     "contest_name": str(contest_name),
                     "year": str(year)
                 },
                 "cumulative": {
                     "qsos": [], "points": [], "mults": [], 
-                    "score": [], "run_qsos": [], "sp_unk_qsos": []
+                    "score": [], "run_qsos": [], "sp_unk_qsos": [],
+                    "run_points": [], "sp_unk_points": []
                 },
                 "hourly": { 
                     "qsos": [], 
@@ -103,33 +123,87 @@ class TimeSeriesAggregator:
                 }
             }
 
-            # --- Cumulative Data ---
-            # Access pre-calculated time series score dataframe
-            if hasattr(log, 'time_series_score_df') and log.time_series_score_df is not None:
-                # Reindex to match the master timeline, filling gaps with current state (ffill) or 0? 
-                # Plan says "fillna 0".
-                ts_df = log.time_series_score_df.reindex(master_index).fillna(0)
+            # --- Cumulative Data (Schema v1.3.1) ---
+            
+            # Helper to process time series
+            def process_series(s):
+                # Align to master index, fill gaps forward (cumulative), fill initial NaNs with 0
+                return s.cumsum().reindex(master_index).ffill().fillna(0).astype(int).tolist()
+
+            zeros = [0] * len(master_index)
+
+            if not df_full.empty:
+                df_valid = df_full[df_full['Dupe'] == False].copy()
                 
-                # Extract and cast to pure Python integers
-                if 'qsos' in ts_df:
-                    log_entry["cumulative"]["qsos"] = ts_df['qsos'].astype(int).tolist()
+                if not df_valid.empty:
+                    # Resample Setup
+                    hourly_grp = df_valid.set_index('Datetime').resample('h')
+                    
+                    # 1. Total QSOs
+                    s_qsos = hourly_grp.size()
+                    log_entry["cumulative"]["qsos"] = process_series(s_qsos)
+
+                    # 2. Total Points (Raw Sum)
+                    s_points = hourly_grp['QSOPoints'].sum()
+                    log_entry["cumulative"]["points"] = process_series(s_points)
+
+                    # 3. Run/S&P Splits
+                    run_mask = df_valid['Run'] == 'Run'
+                    
+                    # Split Dataframes
+                    df_run = df_valid[run_mask]
+                    df_sp = df_valid[~run_mask]
+
+                    # Run QSOs / Points
+                    if not df_run.empty:
+                        run_grp = df_run.set_index('Datetime').resample('h')
+                        log_entry["cumulative"]["run_qsos"] = process_series(run_grp.size())
+                        log_entry["cumulative"]["run_points"] = process_series(run_grp['QSOPoints'].sum())
+                    else:
+                        log_entry["cumulative"]["run_qsos"] = zeros
+                        log_entry["cumulative"]["run_points"] = zeros
+                    
+                    # S&P QSOs / Points
+                    if not df_sp.empty:
+                        sp_grp = df_sp.set_index('Datetime').resample('h')
+                        log_entry["cumulative"]["sp_unk_qsos"] = process_series(sp_grp.size())
+                        log_entry["cumulative"]["sp_unk_points"] = process_series(sp_grp['QSOPoints'].sum())
+                    else:
+                        log_entry["cumulative"]["sp_unk_qsos"] = zeros
+                        log_entry["cumulative"]["sp_unk_points"] = zeros
+                else:
+                    # Log exists but only dupes?
+                    for k in ["qsos", "points", "run_qsos", "sp_unk_qsos", "run_points", "sp_unk_points"]:
+                        log_entry["cumulative"][k] = zeros
+            else:
+                for k in ["qsos", "points", "run_qsos", "sp_unk_qsos", "run_points", "sp_unk_points"]:
+                    log_entry["cumulative"][k] = zeros
+
+            # --- Score & Mults (Global Only) ---
+            # Protocol: If filters are active, Score/Mults are strictly 0 because
+            # we cannot accurately re-calculate contest score on a partial slice without
+            # the full calculator context.
+            is_filtered = (band_filter and band_filter != 'All') or (mode_filter is not None)
+
+            if not is_filtered and hasattr(log, 'time_series_score_df') and log.time_series_score_df is not None:
+                # Use ffill to propagate the score across hours where no QSOs occurred
+                ts_df = log.time_series_score_df.reindex(master_index).ffill().fillna(0)
+                
                 if 'score' in ts_df:
                     log_entry["cumulative"]["score"] = ts_df['score'].astype(int).tolist()
-                    # Mapping score df columns to schema keys
-                    # Assuming 'score' in df is points or score? 
-                    # Usually: 'score' is total score, 'points' might be QSO points.
-                    # Based on standard contest logic, we map available cols.
-                    log_entry["cumulative"]["points"] = ts_df['score'].astype(int).tolist() # Fallback mapping
-                
+                else:
+                     log_entry["cumulative"]["score"] = zeros
+                     
                 if 'total_mults' in ts_df:
                     log_entry["cumulative"]["mults"] = ts_df['total_mults'].astype(int).tolist()
-                if 'run_qso_count' in ts_df:
-                    log_entry["cumulative"]["run_qsos"] = ts_df['run_qso_count'].astype(int).tolist()
-                if 'sp_unk_qso_count' in ts_df:
-                    log_entry["cumulative"]["sp_unk_qsos"] = ts_df['sp_unk_qso_count'].astype(int).tolist()
+                else:
+                    log_entry["cumulative"]["mults"] = zeros
+            else:
+                log_entry["cumulative"]["score"] = zeros
+                log_entry["cumulative"]["mults"] = zeros
+
 
             # --- Hourly Data ---
-            # Plan explicit instruction: "Get get_valid_dataframe(log, include_dupes=False)"
             if not df_full.empty:
                 df_hourly = df_full[df_full['Dupe'] == False].copy()
                 
@@ -151,10 +225,13 @@ class TimeSeriesAggregator:
                         else:
                             log_entry["hourly"]["by_band"][band] = [0] * len(master_index)
                 else:
-                    # Log exists but has no valid non-dupe QSOs
                     log_entry["hourly"]["qsos"] = [0] * len(master_index)
                     for band in contest_def.valid_bands:
                         log_entry["hourly"]["by_band"][band] = [0] * len(master_index)
+            else:
+                 log_entry["hourly"]["qsos"] = [0] * len(master_index)
+                 for band in contest_def.valid_bands:
+                    log_entry["hourly"]["by_band"][band] = [0] * len(master_index)
             
             data["logs"][callsign] = log_entry
 
