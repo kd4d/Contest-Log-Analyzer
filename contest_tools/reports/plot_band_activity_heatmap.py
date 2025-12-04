@@ -2,10 +2,9 @@
 #
 # Purpose: A plot report that generates a heatmap of band activity over time.
 #
-#
 # Author: Gemini AI
-# Date: 2025-10-01
-# Version: 0.90.0-Beta
+# Date: 2025-11-24
+# Version: 1.0.0
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -14,12 +13,14 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [1.0.0] - 2025-11-24
+# Refactored to use MatrixAggregator (DAL) for data generation.
 # [0.90.0-Beta] - 2025-10-01
 # Set new baseline version for release.
-
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -32,6 +33,7 @@ from typing import List, Dict, Any
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
 from ._report_utils import get_valid_dataframe, create_output_directory, save_debug_data
+from ..data_aggregators.matrix_stats import MatrixAggregator
 
 class Report(ContestReport):
     """
@@ -60,29 +62,31 @@ class Report(ContestReport):
                 final_report_messages.append(msg)
                 continue
 
-            # --- 1. Data Preparation ---
-            interval = '15min'
-            min_time = df['Datetime'].min().floor('h')
-            max_time = df['Datetime'].max().ceil('h')
+            # --- 1. Data Aggregation (DAL) ---
+            aggregator = MatrixAggregator([log])
+            matrix_data = aggregator.get_matrix_data(bin_size='15min')
             
-            pivot_df = df.pivot_table(
-                index='Band',
-                columns=pd.Grouper(key='Datetime', freq=interval),
-                aggfunc='size',
-                fill_value=0
-            )
+            # Unpack DAL data
+            time_bins_str = matrix_data['time_bins']
+            sorted_bands = matrix_data['bands']
             
-            all_bands = log.contest_definition.valid_bands
-            canonical_band_order_tuples = ContestLog._HAM_BANDS
-            canonical_band_order = [band[1] for band in canonical_band_order_tuples]
-            sorted_bands = sorted(all_bands, key=lambda b: canonical_band_order.index(b) if b in canonical_band_order else -1)
-            time_bins = pd.date_range(start=min_time, end=max_time, freq=interval, tz='UTC')
-            
-            pivot_df = pivot_df.reindex(index=sorted_bands, columns=time_bins, fill_value=0)
+            if not time_bins_str or not sorted_bands:
+                 msg = f"Skipping report for {callsign}: No matrix data generated."
+                 final_report_messages.append(msg)
+                 continue
 
-            # --- 2. Dynamic Axis Formatting (Manual Calculation) ---
+            qso_grid = matrix_data['logs'][callsign]['qso_counts']
+
+            # Reconstruct DataFrame for Seaborn (Presentation Layer)
+            time_index = pd.to_datetime(time_bins_str)
+            pivot_df = pd.DataFrame(qso_grid, index=sorted_bands, columns=time_index)
+
+            # --- 2. Dynamic Axis Formatting ---
             num_columns = len(pivot_df.columns)
-            contest_duration_hours = (max_time - min_time).total_seconds() / 3600
+            if not time_index.empty:
+                contest_duration_hours = (time_index[-1] - time_index[0]).total_seconds() / 3600
+            else:
+                contest_duration_hours = 0
 
             if contest_duration_hours <= 12:
                 hour_interval = 2
@@ -132,7 +136,7 @@ class Report(ContestReport):
             
             # --- Save Debug Data ---
             debug_filename = f"{self.report_id}_{callsign}.txt"
-            save_debug_data(debug_data_flag, output_path, pivot_df, custom_filename=debug_filename)
+            save_debug_data(debug_data_flag, output_path, matrix_data, custom_filename=debug_filename)
 
             # --- Save File ---
             create_output_directory(output_path)

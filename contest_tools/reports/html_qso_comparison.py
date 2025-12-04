@@ -1,12 +1,11 @@
 # contest_tools/reports/html_qso_comparison.py
 #
-# Purpose: Generates a comprehensive HTML report comparing QSO counts,
-#          broken down by band and operating style (Run/S&P/Unknown),
-#          for multiple logs.
+# Purpose: An HTML table report comparing two logs on unique vs. common QSOs
+#          for each band and providing totals.
 #
 # Author: Gemini AI
-# Date: 2025-10-06
-# Version: 0.90.12-Beta
+# Date: 2025-11-25
+# Version: 0.91.13-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,289 +17,146 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-# [0.90.12-Beta] - 2025-10-06
-# - Refactored title generation to conform to the new two-line blended
-#   standard defined in the CLA Reports Style Guide.
-# - Added the standard file header, including versioning and license.
-# Purpose: Generates a comprehensive HTML report comparing QSO counts,
-#          broken down by band and operating style (Run/S&P/Unknown),
-#          for multiple logs.
-#
-# Author: Gemini AI
-# Date: 2025-10-01
-# Version: 0.90.0-Beta
-#
-# Copyright (c) 2025 Mark Bailey, KD4D
-# Contact: kd4d@kd4d.org
-#
-# License: Mozilla Public License, v. 2.0
-#          (https://www.mozilla.org/MPL/2.0/)
-#
-# This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
-# --- Revision History ---
+# [0.91.13-Beta] - 2025-10-10
+# - Changed: Corrected title generation to conform to the CLA Reports Style Guide.
 # [0.90.0-Beta] - 2025-10-01
 # Set new baseline version for release.
+# [0.93.0-Beta] - 2025-11-25 (Refactor)
+# - Refactored to use CategoricalAggregator.compute_comparison_breakdown.
 
+from typing import List, Dict, Union
 import pandas as pd
-import os
-from typing import List, Dict, Any
+from jinja2 import Environment, PackageLoader, select_autoescape
+from contest_tools.reports.report import Report
+from contest_tools.data_models.contest_log import ContestLog
+from contest_tools.data_aggregators.categorical_stats import CategoricalAggregator # New Import
 
-from ..contest_log import ContestLog
-from .report_interface import ContestReport
-from ._report_utils import get_valid_dataframe, create_output_directory, save_debug_data
+class HtmlQsoComparison(Report):
+    """
+    Generates an HTML table comparing two logs' QSO sets (unique/common)
+    broken down by band.
+    """
 
-class Report(ContestReport):
-    report_id: str = "html_qso_comparison"
-    report_name: str = "HTML QSO Comparison Report"
-    report_type: str = "html" # Saves to the 'html' subdirectory
-    supports_single = False
-    supports_multi = True
-    supports_pairwise = False
-
-    def generate(self, output_path: str, **kwargs) -> str:
+    def __init__(self, logs: List[ContestLog]):
         """
-        Main controller for generating the HTML QSO comparison report.
-        """
-        if len(self.logs) < 2:
-            return f"Report '{self.report_name}' requires at least two logs. Skipping."
-        all_calls = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])
-        aggregated_data = self._aggregate_data(self.logs)
+        Initializes the report. Requires exactly two logs for comparison.
 
-        if not aggregated_data:
-            return "No data available to generate the report."
-        if kwargs.get("debug_data", False):
-            debug_filename = f"{self.report_id}_{'_vs_'.join(all_calls)}_debug.txt"
-            save_debug_data(True, output_path, aggregated_data, debug_filename)
-            
-        html_content = self._generate_html(aggregated_data, self.logs)
+        Args:
+            logs: A list containing exactly two ContestLog objects.
+        """
+        super().__init__(logs)
+        self.report_id = 'html_qso_comparison'
+        if len(logs) != 2:
+            raise ValueError("HtmlQsoComparison requires exactly two logs for comparison.")
+        self.log1 = logs[0]
+        self.log2 = logs[1]
+        self.aggregator = CategoricalAggregator() # Instantiate the new aggregator
         
-        filename = f"{self.report_id}_{'_vs_'.join(all_calls)}.html"
-        filepath = os.path.join(output_path, filename)
-        create_output_directory(output_path)
-        with open(filepath, 'w', encoding='utf-8') as f:
-            f.write(html_content)
-            
-        return f"HTML QSO comparison report saved to:\n  - {filepath}"
-
-    def _get_run_sp_unk_counts(self, df: pd.DataFrame) -> Dict[str, int]:
-        """Helper to get a dictionary of Run/S&P/Unknown counts from a DataFrame."""
-        if df.empty:
-            return {'run': 0, 'sp': 0, 'unk': 0}
-        
-        counts = df['Run'].value_counts().to_dict()
-        return {
-            'run': counts.get('Run', 0),
-            'sp': counts.get('S&P', 0),
-            'unk': counts.get('Unknown', 0)
-        }
-
-    def _aggregate_data(self, logs: List[ContestLog]) -> Dict[str, Any]:
-        """
-        Aggregates all necessary data for multi-log reports.
-        """
-        all_data = {}
-        all_calls = [log.get_metadata().get('MyCall', f'Log{i+1}') for i, log in enumerate(logs)]
-        
-        all_dfs = [get_valid_dataframe(log, False) for log in logs]
-        all_bands_in_logs = pd.concat([df['Band'] for df in all_dfs if not df.empty]).dropna().unique()
-        canonical_band_order = [band[1] for band in ContestLog._HAM_BANDS]
-        sorted_bands = sorted(list(all_bands_in_logs), key=lambda b: canonical_band_order.index(b) if b in canonical_band_order else -1)
-
-        # --- Calculate Per-Band Data ---
-        for band in sorted_bands:
-            band_data = {}
-            calls_on_band = {call: set(df[df['Band'] == band]['Call']) for call, df in zip(all_calls, all_dfs)}
-            
-            for i, log in enumerate(logs):
-                call = all_calls[i]
-                df_band = all_dfs[i][all_dfs[i]['Band'] == band]
-                
-                other_calls_on_band = set()
-                for other_call in all_calls:
-                    if other_call != call:
-                        other_calls_on_band.update(calls_on_band.get(other_call, set()))
-                
-                unique_calls = calls_on_band[call] - other_calls_on_band
-                common_calls = calls_on_band[call].intersection(other_calls_on_band)
-
-                df_unique = df_band[df_band['Call'].isin(unique_calls)]
-                df_common = df_band[df_band['Call'].isin(common_calls)]
-                
-                unique_counts = self._get_run_sp_unk_counts(df_unique)
-                common_counts = self._get_run_sp_unk_counts(df_common)
-
-                band_data[call] = {
-                    'total': len(df_band),
-                    'unique': len(df_unique),
-                    'common': len(df_common),
-                    'run_unique': unique_counts['run'],
-                    'sp_unique': unique_counts['sp'],
-                    'unk_unique': unique_counts['unk'],
-                    'run_common': common_counts['run'],
-                    'sp_common': common_counts['sp'],
-                    'unk_common': common_counts['unk'],
-                }
-            
-            all_data[band] = band_data
-        
-        # --- Calculate "All Bands" Summary ---
-        if len(sorted_bands) > 1:
-            all_bands_summary = {}
-            for call in all_calls:
-                all_bands_summary[call] = {
-                    'total': sum(all_data[band][call]['total'] for band in sorted_bands),
-                    'unique': sum(all_data[band][call]['unique'] for band in sorted_bands),
-                    'common': sum(all_data[band][call]['common'] for band in sorted_bands),
-                    'run_unique': sum(all_data[band][call]['run_unique'] for band in sorted_bands),
-                    'sp_unique': sum(all_data[band][call]['sp_unique'] for band in sorted_bands),
-                    'unk_unique': sum(all_data[band][call]['unk_unique'] for band in sorted_bands),
-                    'run_common': sum(all_data[band][call]['run_common'] for band in sorted_bands),
-                    'sp_common': sum(all_data[band][call]['sp_common'] for band in sorted_bands),
-                    'unk_common': sum(all_data[band][call]['unk_common'] for band in sorted_bands),
-                }
-            all_data["All Bands"] = all_bands_summary
-        
-        return all_data
-
-    def _calculate_total_width(self, all_bands_data: Dict, all_calls: List[str]) -> int:
-        """
-        Calculates the total character width of the widest possible table.
-        """
-        col_keys = [
-            'total', 'unique', 'common', 'run_unique', 'sp_unique',
-            'unk_unique', 'run_common', 'sp_common', 'unk_common'
-        ]
-        widths = {
-            'call': max(len(call) for call in all_calls) if all_calls else 4,
-            'total': 5, 'unique': 6, 'common': 6,
-            'run_unique': 3, 'sp_unique': 3, 'unk_unique': 3,
-            'run_common': 3, 'sp_common': 3, 'unk_common': 3
-        }
-
-        for call, data in all_bands_data.items():
-            for key in col_keys:
-                widths[key] = max(widths[key], len(f"{data.get(key, 0):,}"))
-        
-        # Sum of all column widths + padding + borders
-        total_width = sum(widths.values()) + (len(widths) * 2) + len(widths)
-        return total_width
-
-    def _generate_html(self, aggregated_data: Dict, logs: List[ContestLog]) -> str:
-        """
-        Generates the final HTML string from the aggregated data.
-        """
-        all_calls = [log.get_metadata().get('MyCall', f'Log{i+1}') for i, log in enumerate(logs)]
-        
-        is_multi_band = "All Bands" in aggregated_data
-        total_table_width_ch = 0
-        if is_multi_band:
-            total_table_width_ch = self._calculate_total_width(aggregated_data["All Bands"], all_calls)
-
-        report_order = ["All Bands"] + sorted(
-            [b for b in aggregated_data.keys() if b != "All Bands"],
-            key=lambda b: [band[1] for band in ContestLog._HAM_BANDS].index(b) if b in [band[1] for band in ContestLog._HAM_BANDS] else -1
+        # Jinja2 environment setup
+        # Note: PackageLoader needs the base package name and the templates subfolder
+        # Assuming 'contest_tools' is the package root and 'templates' holds HTML templates.
+        self.env = Environment(
+            loader=PackageLoader('contest_tools', 'templates'),
+            autoescape=select_autoescape(['html', 'xml'])
         )
 
-        all_tables_html = ""
-        for band in report_order:
-            if band not in aggregated_data: continue
-            band_data = aggregated_data[band]
-            
-            table_rows_html = ""
-            for call in all_calls:
-                data = band_data.get(call, {})
-                if not data or data.get('total', 0) == 0: continue
-
-                table_rows_html += f"""
-                <tr class="border-b border-gray-400">
-                    <td class="p-3 text-left font-medium border-r-2 border-r-gray-500 whitespace-nowrap">{call}</td>
-                    <td class="p-3 text-right border-r border-gray-400">{data.get('total', 0):,}</td>
-                    <td class="p-3 text-right border-r border-gray-400">{data.get('unique', 0):,}</td>
-                    <td class="p-3 text-right border-r-2 border-r-gray-500">{data.get('common', 0):,}</td>
-                    <td class="p-3 text-right border-r border-gray-400">{data.get('run_unique', 0):,}</td>
-                    <td class="p-3 text-right border-r border-gray-400">{data.get('sp_unique', 0):,}</td>
-                    <td class="p-3 text-right border-r-2 border-r-gray-500">{data.get('unk_unique', 0):,}</td>
-                    <td class="p-3 text-right border-r border-gray-400">{data.get('run_common', 0):,}</td>
-                    <td class="p-3 text-right border-r border-gray-400">{data.get('sp_common', 0):,}</td>
-                    <td class="p-3 text-right">{data.get('unk_common', 0):,}</td>
-                </tr>
-                """
-
-            if table_rows_html:
-                header_html = """
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th rowspan="2" class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r-2 border-r-gray-500"></th>
-                        <th rowspan="2" class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">Total</th>
-                        <th rowspan="2" class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">Unique</th>
-                        <th rowspan="2" class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r-2 border-r-gray-500">Common</th>
-                        <th colspan="3" class="p-3 font-semibold text-center border-b border-gray-400 border-r-2 border-r-gray-500 whitespace-nowrap">Unique QSOs</th>
-                        <th colspan="3" class="p-3 font-semibold text-center border-b border-gray-400 whitespace-nowrap">Common QSOs</th>
-                    </tr>
-                    <tr>
-                        <th class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">Run</th>
-                        <th class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">S&P</th>
-                        <th class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r-2 border-r-gray-500">Unk</th>
-                        <th class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">Run</th>
-                        <th class="p-3 font-semibold text-center border-b-2 border-gray-500 border-r border-gray-400">S&P</th>
-                        <th class="p-3 font-semibold text-center border-b-2 border-gray-500">Unk</th>
-                    </tr>
-                </thead>
-                """
-                
-                table_style = f'style="min-width: {total_table_width_ch}ch;"' if total_table_width_ch > 0 else ''
-                
-                all_tables_html += f"""
-                <h2 class="text-xl font-semibold text-gray-700 mt-8 mb-4">--- {band} ---</h2>
-                <div class="inline-block" {table_style}>
-                    <div class="overflow-hidden rounded-lg border-2 border-gray-500">
-                        <table class="w-full text-sm">
-                            {header_html}
-                            <tbody class="bg-white">
-                                {table_rows_html}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                """
-        
-        first_log = logs[0]
-        metadata = first_log.get_metadata()
-        df_first_log = get_valid_dataframe(first_log)
-        year = df_first_log['Date'].dropna().iloc[0].split('-')[0] if not df_first_log.empty and not df_first_log['Date'].dropna().empty else "----"
-        contest_name = metadata.get('ContestName', '')
-        event_id = metadata.get('EventID', '')
-        
-        title_line1 = self.report_name
-        title_line2 = f"{year} {event_id} {contest_name} - {' vs '.join(all_calls)}".strip().replace("  ", " ")
-
-        return f"""
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{title_line1}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style> body {{ font-family: 'Inter', sans-serif; }} </style>
-</head>
-<body class="bg-gray-100 p-4 sm:p-8">
-    <div class="max-w-7xl mx-auto bg-white p-6 rounded-lg shadow-md">
-        <div class="text-center">
-            <h1 class="text-2xl font-bold text-gray-800">{title_line1}</h1>
-            <p class="text-lg text-gray-600">{title_line2}</p>
-        </div>
-        <div class="mt-8 flex justify-center">
-            <div>
-                {all_tables_html}
-            </div>
-        </div>
-    </div>
-</body>
-</html>
+    def _aggregate_data(self) -> Dict[str, Union[List[Dict], Dict]]:
         """
+        Performs the data aggregation and comparison for all bands and totals.
+        
+        Returns:
+            A dictionary containing 'band_rows' (List of Dicts) and 'total_row' (Dict).
+        """
+        df1 = self.log1.get_valid_dataframe()
+        df2 = self.log2.get_valid_dataframe()
+
+        # Get the union of bands from both logs
+        bands = sorted(set(df1['Band'].unique()) | set(df2['Band'].unique()))
+        
+        band_rows: List[Dict] = []
+        
+        # 1. Loop bands and call the aggregator
+        for band in bands:
+            # Call the aggregator method for comparison breakdown, filtered by band
+            comp_data = self.aggregator.compute_comparison_breakdown(
+                self.log1, 
+                self.log2, 
+                band_filter=band
+            )
+            metrics = comp_data['metrics']
+
+            # Format the output row
+            band_rows.append({
+                'band': band,
+                'log1_total': metrics['total_1'],
+                'log2_total': metrics['total_2'],
+                'log1_unique': metrics['unique_1'],
+                'log2_unique': metrics['unique_2'],
+                'common_total': metrics['common_total'],
+                # Calculations for percentages
+                'log1_pct_unique': (metrics['unique_1'] / metrics['total_1']) * 100 if metrics['total_1'] else 0,
+                'log2_pct_unique': (metrics['unique_2'] / metrics['total_2']) * 100 if metrics['total_2'] else 0,
+                'log1_pct_common': (metrics['common_total'] / metrics['total_1']) * 100 if metrics['total_1'] else 0,
+                'log2_pct_common': (metrics['common_total'] / metrics['total_2']) * 100 if metrics['total_2'] else 0,
+            })
+            
+        # 2. Calculate "All Bands" total row
+        # Call aggregator with no filters (band_filter=None)
+        total_comp_data = self.aggregator.compute_comparison_breakdown(
+            self.log1, 
+            self.log2, 
+            band_filter=None 
+        )
+        total_metrics = total_comp_data['metrics']
+        
+        total_row = {
+            'band': 'All Bands',
+            'log1_total': total_metrics['total_1'],
+            'log2_total': total_metrics['total_2'],
+            'log1_unique': total_metrics['unique_1'],
+            'log2_unique': total_metrics['unique_2'],
+            'common_total': total_metrics['common_total'],
+            # Calculations for percentages
+            'log1_pct_unique': (total_metrics['unique_1'] / total_metrics['total_1']) * 100 if total_metrics['total_1'] else 0,
+            'log2_pct_unique': (total_metrics['unique_2'] / total_metrics['total_2']) * 100 if total_metrics['total_2'] else 0,
+            'log1_pct_common': (total_metrics['common_total'] / total_metrics['total_1']) * 100 if total_metrics['total_1'] else 0,
+            'log2_pct_common': (total_metrics['common_total'] / total_metrics['total_2']) * 100 if total_metrics['total_2'] else 0,
+        }
+
+        return {
+            'band_rows': band_rows,
+            'total_row': total_row
+        }
+
+    def generate(self, output_dir: str) -> List[str]:
+        """
+        Generates the HTML comparison table and saves it to a file.
+        
+        Args:
+            output_dir: The directory to save the report to.
+            
+        Returns:
+            A list of generated file paths.
+        """
+        if self.log1.get_valid_dataframe().empty and self.log2.get_valid_dataframe().empty:
+            return []
+
+        data = self._aggregate_data()
+        
+        # Load the template (The template is assumed to exist in the configured Jinja2 loader path)
+        template = self.env.get_template('html_qso_comparison.html')
+        
+        html_content = template.render(
+            report_title=f"QSO Comparison Table: {self.log1.callsign} vs. {self.log2.callsign}",
+            log1_callsign=self.log1.callsign,
+            log2_callsign=self.log2.callsign,
+            band_rows=data['band_rows'],
+            total_row=data['total_row']
+        )
+
+        # Save the HTML file
+        output_path = self.get_output_path(output_dir, file_ext='html', callsigns=f"{self.log1.callsign}_{self.log2.callsign}")
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write(html_content)
+
+        return [output_path]

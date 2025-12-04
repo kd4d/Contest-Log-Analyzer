@@ -3,10 +3,9 @@
 # Purpose: A plot report that generates a "paired timeline" chart, visualizing
 #          the operating style (Run, S&P, or Mixed) of two operators over time.
 #
-#
 # Author: Gemini AI
-# Date: 2025-10-01
-# Version: 0.90.0-Beta
+# Date: 2025-11-24
+# Version: 1.0.0
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -15,12 +14,14 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [1.0.0] - 2025-11-24
+# Refactored to use MatrixAggregator (DAL).
 # [0.90.0-Beta] - 2025-10-01
 # Set new baseline version for release.
-
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -35,6 +36,7 @@ from typing import List, Dict, Any
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
 from ._report_utils import get_valid_dataframe, create_output_directory, save_debug_data
+from ..data_aggregators.matrix_stats import MatrixAggregator
 
 # Define the color scheme for the timeline blocks
 ACTIVITY_COLORS = {
@@ -52,28 +54,16 @@ class Report(ContestReport):
     report_type: str = "plot"
     supports_pairwise = True
 
-    def _get_activity_type(self, series: pd.Series) -> str:
-        """Determines the activity type for a 15-minute block."""
-        if series.empty:
-            return 'Inactive'
-        
-        run_statuses = set(series.unique())
-        
-        is_run = 'Run' in run_statuses
-        is_sp = 'S&P' in run_statuses
-        
-        if is_run and not is_sp:
-            return 'Run'
-        elif is_sp and not is_run:
-            return 'S&P'
-        else:
-            return 'Mixed'
-
-    def _generate_plot_for_page(self, df1: pd.DataFrame, df2: pd.DataFrame, log1_meta: Dict, log2_meta: Dict, bands_on_page: List[str], time_bins: pd.DatetimeIndex, output_path: str, page_title_suffix: str, page_file_suffix: str, mode_filter: str, **kwargs):
-        """Helper to generate a single plot page."""
+    def _generate_plot_for_page(self, matrix_data: Dict, log1_meta: Dict, log2_meta: Dict, bands_on_page: List[str], output_path: str, page_title_suffix: str, page_file_suffix: str, mode_filter: str, **kwargs):
+        """Helper to generate a single plot page using Matrix Data."""
         call1 = log1_meta.get('MyCall', 'Log1')
         call2 = log2_meta.get('MyCall', 'Log2')
         debug_data_flag = kwargs.get("debug_data", False)
+        
+        # Unpack Matrix Data
+        time_bins_str = matrix_data['time_bins']
+        time_bins = pd.to_datetime(time_bins_str)
+        all_bands = matrix_data['bands']
         
         # --- Create figure with one subplot per band ---
         height = max(8.0, 1.5 * len(bands_on_page))
@@ -93,17 +83,20 @@ class Report(ContestReport):
             plot_data_for_debug[band] = {call1: {}, call2: {}}
 
             # --- Plot data for both callsigns on the same subplot (ax) ---
-            for y_position, df, call in [(0.75, df1, call1), (0.25, df2, call2)]:
-                df_band = df[df['Band'] == band]
+            for y_position, call in [(0.75, call1), (0.25, call2)]:
                 
-                activity_by_interval = {}
-                if not df_band.empty:
-                    activity_by_interval = df_band.set_index('Datetime').groupby(pd.Grouper(freq='15min'))['Run'].apply(self._get_activity_type)
-                
-                activity_series = pd.Series(activity_by_interval).reindex(time_bins[:-1], fill_value='Inactive')
+                # Retrieve pre-calculated grid from Aggregator
+                try:
+                    band_idx = all_bands.index(band)
+                    activity_row = matrix_data['logs'][call]['activity_status'][band_idx]
+                except (ValueError, KeyError):
+                    activity_row = ['Inactive'] * len(time_bins)
 
                 # Use ax.barh to draw the timeline
-                for interval_start, activity in activity_series.items():
+                # We iterate the activity row and plot 15min blocks
+                for j, activity in enumerate(activity_row):
+                    interval_start = time_bins[j]
+                    
                     if call == call1: # Only save debug data once per interval
                         plot_data_for_debug[band][call][interval_start.isoformat()] = activity
                     
@@ -113,7 +106,7 @@ class Report(ContestReport):
                             width=1/96, # Width of a 15-minute interval in days
                             height=0.5,
                             left=mdates.date2num(interval_start),
-                            color=ACTIVITY_COLORS[activity],
+                            color=ACTIVITY_COLORS.get(activity, '#888888'),
                             edgecolor='none'
                         )
             
@@ -137,9 +130,10 @@ class Report(ContestReport):
         plt.xticks(rotation=45, ha='right')
         
         # --- Set X-axis limits ---
-        x_min = mdates.date2num(time_bins[0])
-        x_max = mdates.date2num(time_bins[-1])
-        axes[-1].set_xlim(x_min, x_max)
+        if not time_bins.empty:
+            x_min = mdates.date2num(time_bins[0])
+            x_max = mdates.date2num(time_bins[-1])
+            axes[-1].set_xlim(x_min, x_max)
 
         # --- Title ---
         year = get_valid_dataframe(self.logs[0])['Date'].dropna().iloc[0].split('-')[0]
@@ -184,45 +178,49 @@ class Report(ContestReport):
         log1, log2 = self.logs[0], self.logs[1]
         created_files = []
 
-        df1 = get_valid_dataframe(log1, include_dupes=False)
-        df2 = get_valid_dataframe(log2, include_dupes=False)
+        aggregator = MatrixAggregator(self.logs)
 
-        if df1.empty or df2.empty:
-            return f"Skipping '{self.report_name}': At least one log has no valid QSOs."
-        
         # --- 1. Generate the main "All Modes" plot ---
-        filepath = self._run_plot_for_slice(df1, df2, log1, log2, output_path, BANDS_PER_PAGE, mode_filter=None, **kwargs)
+        matrix_data_all = aggregator.get_matrix_data(bin_size='15min', mode_filter=None)
+        
+        filepath = self._run_plot_for_slice(matrix_data_all, log1, log2, output_path, BANDS_PER_PAGE, mode_filter=None, **kwargs)
         if filepath:
             created_files.append(filepath)
         
         # --- 2. Generate per-mode plots if necessary ---
+        df1 = get_valid_dataframe(log1, include_dupes=False)
+        df2 = get_valid_dataframe(log2, include_dupes=False)
         modes_present = pd.concat([df1['Mode'], df2['Mode']]).dropna().unique()
+
         if len(modes_present) > 1:
             for mode in ['CW', 'PH', 'DG']:
                 if mode in modes_present:
-                    df1_slice = df1[df1['Mode'] == mode]
-                    df2_slice = df2[df2['Mode'] == mode]
-
-                    if not df1_slice.empty or not df2_slice.empty:
-                        filepath = self._run_plot_for_slice(df1_slice, df2_slice, log1, log2, output_path, BANDS_PER_PAGE, mode_filter=mode, **kwargs)
-                        if filepath:
-                            created_files.append(filepath)
+                    matrix_data_mode = aggregator.get_matrix_data(bin_size='15min', mode_filter=mode)
+                    
+                    filepath = self._run_plot_for_slice(matrix_data_mode, log1, log2, output_path, BANDS_PER_PAGE, mode_filter=mode, **kwargs)
+                    if filepath:
+                        created_files.append(filepath)
 
         if not created_files:
             return f"Report '{self.report_name}' did not generate any files."
-
         return f"Report file(s) saved to:\n" + "\n".join([f"  - {fp}" for fp in created_files])
 
-    def _run_plot_for_slice(self, df1, df2, log1, log2, output_path, bands_per_page, mode_filter, **kwargs):
-        """Helper to run the paginated plot generation for a specific data slice."""
-        all_datetimes = pd.concat([df1['Datetime'], df2['Datetime']])
-        min_time = all_datetimes.min().floor('h')
-        max_time = all_datetimes.max().ceil('h')
-        time_bins = pd.date_range(start=min_time, end=max_time, freq='15min', tz='UTC')
+    def _run_plot_for_slice(self, matrix_data, log1, log2, output_path, bands_per_page, mode_filter, **kwargs):
+        """Helper to run the paginated plot generation for a specific data slice (DAL-based)."""
+        # Determine active bands from matrix data by checking counts?
+        # Actually, matrix data returns sorted bands. We can check if a band is empty for BOTH logs.
+        all_bands = matrix_data['bands']
+        active_bands = []
         
-        active_bands_set = set(df1['Band'].unique()) | set(df2['Band'].unique())
-        canonical_band_order = [band[1] for band in ContestLog._HAM_BANDS]
-        active_bands = sorted(list(active_bands_set), key=lambda b: canonical_band_order.index(b) if b in canonical_band_order else -1)
+        call1 = log1.get_metadata().get('MyCall', 'Log1')
+        call2 = log2.get_metadata().get('MyCall', 'Log2')
+
+        for i, band in enumerate(all_bands):
+            row1 = matrix_data['logs'][call1]['qso_counts'][i]
+            row2 = matrix_data['logs'][call2]['qso_counts'][i]
+            # Check sum of QSOs to determine activity
+            if sum(row1) > 0 or sum(row2) > 0:
+                active_bands.append(band)
 
         if not active_bands:
             return None
@@ -235,16 +233,13 @@ class Report(ContestReport):
             bands_on_page = active_bands[start_index:end_index]
             
             page_title_suffix = f" (Page {page_num + 1}/{num_pages})" if num_pages > 1 else ""
-            # Sanitize suffix for filename
             page_file_suffix = f"_Page_{page_num + 1}_of_{num_pages}" if num_pages > 1 else ""
             
             return self._generate_plot_for_page(
-                df1=df1,
-                df2=df2,
+                matrix_data=matrix_data,
                 log1_meta=log1.get_metadata(),
                 log2_meta=log2.get_metadata(),
                 bands_on_page=bands_on_page,
-                time_bins=time_bins,
                 output_path=output_path,
                 page_title_suffix=page_title_suffix,
                 page_file_suffix=page_file_suffix.replace('/', '_'),

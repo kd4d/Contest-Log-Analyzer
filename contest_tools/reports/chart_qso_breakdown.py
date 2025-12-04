@@ -1,10 +1,11 @@
 # contest_tools/reports/chart_qso_breakdown.py
 #
-# Purpose: A chart report that generates a comparative QSO breakdown bar chart.
+# Purpose: A chart report that generates a stacked bar chart comparing two logs
+#          on common/unique QSOs broken down by Run vs. Search & Pounce (S&P) mode.
 #
 # Author: Gemini AI
-# Date: 2025-10-01
-# Version: 0.90.0-Beta
+# Date: 2025-11-25
+# Version: 0.91.13-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -16,219 +17,187 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.91.13-Beta] - 2025-10-10
+# - Changed: Corrected title generation to conform to the CLA Reports Style Guide.
 # [0.90.0-Beta] - 2025-10-01
 # Set new baseline version for release.
+# [0.93.0-Beta] - 2025-11-25 (Refactor)
+# - Refactored to use CategoricalAggregator.compute_comparison_breakdown.
 
-from typing import List
+from typing import List, Dict, Tuple
 import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
-import os
-import math
-import colorsys
-from matplotlib.patches import Patch
+from contest_tools.reports.report import Report
+from contest_tools.data_models.contest_log import ContestLog
+from contest_tools.data_aggregators.categorical_stats import CategoricalAggregator # New Import
+from contest_tools.styles.mpl_style_manager import MPLStyleManager
 
-from ..contest_log import ContestLog
-from .report_interface import ContestReport
-from ._report_utils import create_output_directory, save_debug_data
-
-def _adjust_lightness(hex_color, factor):
-    """Increases the lightness of a hex color by a factor."""
-    h = hex_color.lstrip('#')
-    r, g, b = tuple(int(h[i:i+2], 16) / 255.0 for i in (0, 2, 4))
-    hue, lightness, saturation = colorsys.rgb_to_hls(r, g, b)
-    lightness = min(1.0, lightness * factor)
-    r, g, b = colorsys.hls_to_rgb(hue, lightness, saturation)
-    return f'#{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}'
-
-# Base colors for a consistent palette
-BASE_UNIQUE_COLORS = {
-    'Run': '#FF4136',
-    'S&P': '#2ECC40',
-    'Unknown': '#FFDC00'
-}
-
-# Brightened colors for UNIQUE QSOs
-UNIQUE_COLORS = {k: _adjust_lightness(v, 1.25) for k, v in BASE_UNIQUE_COLORS.items()}
-
-# Muted/darker colors for COMMON QSOs
-COMMON_COLORS = {
-    'Run (Both)': '#85144b',
-    'S&P (Both)': '#004D40',
-    'Mixed or Unknown': '#DAA520'
-}
-
-class Report(ContestReport):
+class ChartQSOBreakdown(Report):
     """
-    Generates a stacked bar chart comparing the QSO breakdown (Run/S&P/Unknown/Common)
-    between two logs for each band.
+    Generates a stacked bar chart comparing two logs on common/unique QSOs
+    broken down by Run vs. Search & Pounce (S&P) mode for each band.
     """
-    report_id: str = "qso_breakdown_chart"
-    report_name: str = "QSO Breakdown Chart"
-    report_type: str = "chart"
-    supports_pairwise = True
-    
-    def generate(self, output_path: str, **kwargs) -> str:
+
+    def __init__(self, logs: List[ContestLog]):
         """
-        Generates the plot. This report always excludes dupes.
+        Initializes the report. Requires exactly two logs for comparison.
+
+        Args:
+            logs: A list containing exactly two ContestLog objects.
         """
-        if len(self.logs) != 2:
-            return "Error: The QSO Breakdown Chart report requires exactly two logs."
+        super().__init__(logs)
+        self.report_id = 'chart_qso_breakdown'
+        if len(logs) != 2:
+            raise ValueError("ChartQSOBreakdown requires exactly two logs for comparison.")
+        self.log1 = logs[0]
+        self.log2 = logs[1]
+        self.aggregator = CategoricalAggregator() # Instantiate the new aggregator
+
+    def _prepare_data(self, band: str) -> Dict:
+        """
+        Aggregates data for a specific band using CategoricalAggregator.
+
+        Args:
+            band: The band name (e.g., '20M').
+
+        Returns:
+            A dictionary of aggregated data ready for plotting.
+        """
+        # Call the new aggregator method for set comparison breakdown
+        comparison_data = self.aggregator.compute_comparison_breakdown(
+            self.log1, 
+            self.log2, 
+            band_filter=band
+        )
         
-        BANDS_PER_PAGE = 6
-        debug_data_flag = kwargs.get("debug_data", False)
-        log1, log2 = self.logs[0], self.logs[1]
-        call1 = log1.get_metadata().get('MyCall', 'Log1')
-        call2 = log2.get_metadata().get('MyCall', 'Log2')
-
-        df1_full = log1.get_processed_data()[log1.get_processed_data()['Dupe'] == False]
-        df2_full = log2.get_processed_data()[log2.get_processed_data()['Dupe'] == False]
+        # Structure the data for the stacked bar chart
+        # Categories: Unique 1, Common, Unique 2
+        categories = [
+            f"Unique {self.log1.callsign}",
+            "Common (Both Logs)",
+            f"Unique {self.log2.callsign}"
+        ]
         
-        # --- Get active bands from data and sort them ---
-        active_bands_set = set(df1_full['Band'].unique()) | set(df2_full['Band'].unique())
-        canonical_band_order = [band[1] for band in ContestLog._HAM_BANDS]
-        active_bands = sorted(list(active_bands_set), key=lambda b: canonical_band_order.index(b) if b in canonical_band_order else -1)
+        # Modes/Components: Run, S&P, Mixed/Unk
+        modes = ['Run', 'S&P', 'Mixed/Unk']
+        
+        # Data mapping from aggregator output to chart components
+        # Index 0: Log 1 Unique
+        # Index 1: Common
+        # Index 2: Log 2 Unique
+        data = {
+            'Run': [
+                comparison_data['log1_unique']['run'],
+                comparison_data['common']['run_both'],
+                comparison_data['log2_unique']['run']
+            ],
+            'S&P': [
+                comparison_data['log1_unique']['sp'],
+                comparison_data['common']['sp_both'],
+                comparison_data['log2_unique']['sp']
+            ],
+            'Mixed/Unk': [
+                comparison_data['log1_unique']['unk'],
+                comparison_data['common']['mixed'],
+                comparison_data['log2_unique']['unk']
+            ]
+        }
+        
+        return {
+            'categories': categories,
+            'modes': modes,
+            'data': data
+        }
 
-        if not active_bands:
-            return "Skipping QSO Breakdown Chart: No bands with activity found."
 
-        num_pages = math.ceil(len(active_bands) / BANDS_PER_PAGE)
-        created_files = []
-
-        for page_num in range(num_pages):
-            start_index = page_num * BANDS_PER_PAGE
-            end_index = start_index + BANDS_PER_PAGE
-            bands_on_page = active_bands[start_index:end_index]
-
-            # --- Data Aggregation for the current page ---
-            plot_data = {
-                'bands': [b.replace('M', '') for b in bands_on_page],
-                call1: {'Run': [], 'S&P': [], 'Unknown': []},
-                call2: {'Run': [], 'S&P': [], 'Unknown': []},
-                'common': {'Run (Both)': [], 'S&P (Both)': [], 'Mixed or Unknown': []}
-            }
-
-            for band in bands_on_page:
-                df1_band = df1_full[df1_full['Band'] == band]
-                df2_band = df2_full[df2_full['Band'] == band]
-
-                calls1 = set(df1_band['Call'])
-                calls2 = set(df2_band['Call'])
-                
-                common_calls = calls1.intersection(calls2)
-                unique_to_1 = calls1.difference(calls2)
-                unique_to_2 = calls2.difference(calls1)
-
-                df1_unique = df1_band[df1_band['Call'].isin(unique_to_1)]
-                df2_unique = df2_band[df2_band['Call'].isin(unique_to_2)]
-
-                plot_data[call1]['Run'].append((df1_unique['Run'] == 'Run').sum())
-                plot_data[call1]['S&P'].append((df1_unique['Run'] == 'S&P').sum())
-                plot_data[call1]['Unknown'].append((df1_unique['Run'] == 'Unknown').sum())
-                
-                plot_data[call2]['Run'].append((df2_unique['Run'] == 'Run').sum())
-                plot_data[call2]['S&P'].append((df2_unique['Run'] == 'S&P').sum())
-                plot_data[call2]['Unknown'].append((df2_unique['Run'] == 'Unknown').sum())
-                
-                # --- New logic for Common QSO breakdown ---
-                df1_common = df1_band[df1_band['Call'].isin(common_calls)][['Call', 'Run']].set_index('Call')
-                df2_common = df2_band[df2_band['Call'].isin(common_calls)][['Call', 'Run']].set_index('Call')
-                merged_common = df1_common.join(df2_common, lsuffix='_1', rsuffix='_2')
-
-                both_run = len(merged_common[(merged_common['Run_1'] == 'Run') & (merged_common['Run_2'] == 'Run')])
-                both_sp = len(merged_common[(merged_common['Run_1'] == 'S&P') & (merged_common['Run_2'] == 'S&P')])
-                other = len(merged_common) - both_run - both_sp
-                
-                plot_data['common']['Run (Both)'].append(both_run)
-                plot_data['common']['S&P (Both)'].append(both_sp)
-                plot_data['common']['Mixed or Unknown'].append(other)
-
-            # --- Save Debug Data ---
-            page_suffix = f"_p{page_num + 1}" if num_pages > 1 else ""
-            debug_filename = f"{self.report_id}_{call1}_vs_{call2}{page_suffix}.txt"
-            save_debug_data(debug_data_flag, output_path, plot_data, custom_filename=debug_filename)
-
-            # --- Plotting ---
-            sns.set_theme(style="whitegrid")
-            fig, ax = plt.subplots(figsize=(20, 8), constrained_layout=True)
-
-            group_spacing = 3.0 
-            bar_width = 0.8
-            index = np.arange(len(plot_data['bands'])) * group_spacing
-
-            # Unique Bars for Call 1
-            bottom = np.zeros(len(bands_on_page))
-            for activity, color in UNIQUE_COLORS.items():
-                counts = np.array(plot_data[call1][activity])
-                ax.bar(index - bar_width, counts, bar_width, bottom=bottom, color=color)
-                bottom += counts
-
-            # Common Stacked Bar
-            bottom = np.zeros(len(bands_on_page))
-            for category, color in COMMON_COLORS.items():
-                counts = np.array(plot_data['common'][category])
-                ax.bar(index, counts, bar_width, bottom=bottom, color=color)
-                bottom += counts
+    def generate(self, output_dir: str) -> List[str]:
+        """
+        Generates the stacked bar chart report and saves it to a file.
+        
+        Args:
+            output_dir: The directory to save the report to.
             
-            # Unique Bars for Call 2
-            bottom = np.zeros(len(bands_on_page))
-            for activity, color in UNIQUE_COLORS.items():
-                counts = np.array(plot_data[call2][activity])
-                ax.bar(index + bar_width, counts, bar_width, bottom=bottom, color=color)
-                bottom += counts
+        Returns:
+            A list of generated file paths.
+        """
+        df1 = self.log1.get_valid_dataframe()
+        df2 = self.log2.get_valid_dataframe()
 
-            # --- Formatting ---
-            metadata = log1.get_metadata()
-            year = log1.get_processed_data()['Date'].iloc[0].split('-')[0] if not log1.get_processed_data().empty else "----"
-            contest_name = metadata.get('ContestName', '')
-            event_id = metadata.get('EventID', '')
-            page_title_suffix = f" (Page {page_num + 1}/{num_pages})" if num_pages > 1 else ""
-            
-            # Per CLA Reports Style Guide v0.52.14-Beta
-            title_line1 = self.report_name
-            context_str = f"{year} {event_id} {contest_name}".strip().replace("  ", " ")
-            calls_str = f"{call1} vs {call2}{page_title_suffix}"
-            title_line2 = f"{context_str} - {calls_str}"
-            ax.set_title(f"{title_line1}\n{title_line2}", fontsize=16, fontweight='bold')
-            ax.set_ylabel('QSO Count')
-            
-            # --- Three-Level X-Axis Labels ---
-            ax.set_xticks(index)
-            ax.set_xticklabels([''] * len(plot_data['bands']))
-            ax.tick_params(axis='x', which='major', length=0) 
-            
-            # Dynamic Font Sizing
-            font_size = plt.rcParams['xtick.labelsize'] + 2
-            max_call_len = max(len(call1), len(call2))
-            if len(bands_on_page) == 6 or (len(bands_on_page) == 5 and max_call_len > 6):
-                font_size -= 2
+        # Get the union of bands from both logs
+        bands = sorted(set(df1['Band'].unique()) | set(df2['Band'].unique()))
 
-            for i, group_center in enumerate(index):
-                y_pos_tier3 = -0.12 # Band
-                y_pos_tier2 = -0.08 # Common
-                y_pos_tier1 = -0.04 # Callsigns
-                
-                ax.text(group_center, y_pos_tier3, f"{plot_data['bands'][i]} Meters", ha='center', va='top', transform=ax.get_xaxis_transform(), fontweight='bold')
-                ax.text(group_center, y_pos_tier2, "Common", ha='center', va='top', transform=ax.get_xaxis_transform(), fontsize=font_size)
-                ax.text(group_center - bar_width, y_pos_tier1, call1, ha='center', va='top', transform=ax.get_xaxis_transform(), fontsize=font_size)
-                ax.text(group_center + bar_width, y_pos_tier1, call2, ha='center', va='top', transform=ax.get_xaxis_transform(), fontsize=font_size)
-                ax.plot([group_center, group_center], [y_pos_tier2 + 0.005, 0], color='gray', linestyle=':', transform=ax.get_xaxis_transform(), clip_on=False)
-            
-            # --- Two-Legend System ---
-            unique_handles = [Patch(color=color, label=label) for label, color in UNIQUE_COLORS.items()]
-            leg1 = ax.legend(handles=unique_handles, loc='upper left', title=f'Unique QSOs')
-            ax.add_artist(leg1)
-            
-            common_handles = [Patch(color=color, label=label) for label, color in COMMON_COLORS.items()]
-            ax.legend(handles=common_handles, loc='upper right', title='Common QSOs')
+        if not bands:
+            return []
 
-            # --- Save File ---
-            create_output_directory(output_path)
-            filename = f"{self.report_id}_{call1}_vs_{call2}{page_suffix}.png"
-            filepath = os.path.join(output_path, filename)
-            fig.savefig(filepath)
-            plt.close(fig)
-            created_files.append(filepath)
+        # Calculate the grid size
+        num_bands = len(bands)
+        cols = min(3, num_bands)
+        rows = (num_bands + cols - 1) // cols
 
-        return f"QSO breakdown chart(s) saved to:\n" + "\n".join([f"  - {fp}" for fp in created_files])
+        # Setup plot dimensions (adjusted for more horizontal space)
+        fig_width = 6 * cols
+        fig_height = 4.5 * rows
+        
+        fig, axes = plt.subplots(rows, cols, figsize=(fig_width, fig_height), sharey=True)
+        
+        # Flatten axes array if it's 2D
+        if num_bands > 1:
+            axes = axes.flatten()
+        elif num_bands == 1:
+            axes = [axes] # Ensure it's iterable if only one subplot
+
+        # Get the colors from the style manager
+        colors = MPLStyleManager.get_qso_mode_colors()
+        
+        # Plot each band
+        for i, band in enumerate(bands):
+            ax = axes[i]
+            
+            # Use the refactored data preparation function
+            data_dict = self._prepare_data(band)
+            categories = data_dict['categories']
+            modes = data_dict['modes']
+            data = data_dict['data']
+            
+            # Prepare for stacking
+            x_pos = range(len(categories))
+            bottom_data = [0] * len(categories)
+            
+            # Plot each mode in the stack
+            for j, mode in enumerate(modes):
+                current_data = data[mode]
+                ax.bar(
+                    x_pos, 
+                    current_data, 
+                    bottom=bottom_data, 
+                    label=mode, 
+                    color=colors[mode]
+                )
+                # Update bottom for the next stack
+                bottom_data = [bottom_data[k] + current_data[k] for k in range(len(categories))]
+
+            # Configure the axes
+            ax.set_xticks(x_pos)
+            ax.set_xticklabels(categories, rotation=45, ha="right", fontsize=8)
+            ax.set_title(f"{band} Band Breakdown", fontsize=11, weight='bold')
+            ax.yaxis.grid(True, linestyle='--', alpha=0.7)
+            
+            # Add a legend only to the first plot
+            if i == 0:
+                ax.legend(title="QSO Mode", loc='upper left', bbox_to_anchor=(1.05, 1), fontsize=8)
+
+        # Remove unused subplots
+        for i in range(num_bands, rows * cols):
+            fig.delaxes(axes[i])
+            
+        # Final layout adjustments
+        fig.suptitle(f"QSO Set Comparison: {self.log1.callsign} vs. {self.log2.callsign}", 
+                     fontsize=16, weight='bold')
+        fig.tight_layout(rect=[0, 0, 1, 0.96]) # Adjust for suptitle
+
+        # Save the figure
+        output_path = self.get_output_path(output_dir, file_ext='png', callsigns=f"{self.log1.callsign}_{self.log2.callsign}")
+        fig.savefig(output_path)
+        plt.close(fig)
+
+        return [output_path]
