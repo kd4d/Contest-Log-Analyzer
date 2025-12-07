@@ -36,11 +36,9 @@ class MatrixAggregator:
     def get_matrix_data(self, bin_size: str = '15min', mode_filter: Optional[str] = None) -> Dict[str, Any]:
         """
         Generates aligned 2D grids for all logs.
-        
         Args:
             bin_size: Pandas frequency string (default '15min').
             mode_filter: Optional mode string (e.g., 'CW', 'PH') to filter data.
-
         Returns:
         {
             "time_bins": [iso_str, ...], # X-Axis
@@ -138,5 +136,121 @@ class MatrixAggregator:
                 log_data["activity_status"] = status_grid
 
             result["logs"][call] = log_data
+
+        return result
+
+    def get_stacked_matrix_data(self, bin_size: str = '60min', mode_filter: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Generates 3D data (Band x Time x RunStatus) for stacked charts.
+        Returns:
+        {
+            "time_bins": [iso_str, ...],
+            "bands": [band_str, ...],
+            "logs": {
+                "CALLSIGN": {
+                    "BAND_NAME": {
+                        "Run": [int, ...],
+                        "S&P": [int, ...],
+                        "Unknown": [int, ...]
+                    }
+                }
+            }
+        }
+        """
+        # --- 1. Establish Global Dimensions ---
+        all_dfs = []
+        all_bands = set()
+        
+        for log in self.logs:
+            df = get_valid_dataframe(log, include_dupes=False)
+            if not df.empty:
+                if mode_filter:
+                    df = df[df['Mode'] == mode_filter]
+                
+                if not df.empty:
+                    all_dfs.append(df)
+                    all_bands.update(df['Band'].unique())
+
+        if not all_dfs:
+            return {"time_bins": [], "bands": [], "logs": {}}
+
+        # Global Time Range
+        full_concat = pd.concat(all_dfs)
+        min_time = full_concat['Datetime'].min().floor('h')
+        max_time = full_concat['Datetime'].max().ceil('h')
+        time_index = pd.date_range(start=min_time, end=max_time, freq=bin_size, tz='UTC')
+        
+        # Global Band Order
+        canonical_band_order = [b[1] for b in ContestLog._HAM_BANDS]
+        sorted_bands = sorted(list(all_bands), key=lambda b: canonical_band_order.index(b) if b in canonical_band_order else -1)
+
+        result = {
+            "time_bins": [t.isoformat() for t in time_index],
+            "bands": sorted_bands,
+            "logs": {}
+        }
+
+        # --- 2. Populate Data Per Log ---
+        for log in self.logs:
+            call = log.get_metadata().get('MyCall', 'Unknown')
+            df = get_valid_dataframe(log, include_dupes=False)
+            
+            # Apply filter locally
+            if mode_filter and not df.empty:
+                df = df[df['Mode'] == mode_filter]
+
+            result["logs"][call] = {}
+
+            if df.empty:
+                # Initialize empty structure for all bands
+                zeros = [0] * len(time_index)
+                for band in sorted_bands:
+                    result["logs"][call][band] = {
+                        "Run": list(zeros),
+                        "S&P": list(zeros),
+                        "Unknown": list(zeros)
+                    }
+                continue
+
+            # Standardize Run Status for grouping
+            # If 'Run' column exists, map NaNs to 'Unknown'. 
+            # If it doesn't exist, treat all as 'Unknown'.
+            if 'Run' in df.columns:
+                df = df.copy()
+                df['RunStatus'] = df['Run'].fillna('Unknown')
+                # Ensure values are strictly mapped to our 3 keys if needed, 
+                # but 'Run'/'S&P' are standard. Any deviation becomes 'Unknown'.
+                known_statuses = {'Run', 'S&P'}
+                df.loc[~df['RunStatus'].isin(known_statuses), 'RunStatus'] = 'Unknown'
+            else:
+                df = df.copy()
+                df['RunStatus'] = 'Unknown'
+
+            # Pivot: Index=[Band, RunStatus], Columns=Time
+            pivot = df.pivot_table(
+                index=['Band', 'RunStatus'],
+                columns=pd.Grouper(key='Datetime', freq=bin_size),
+                aggfunc='size',
+                fill_value=0
+            )
+
+            # Iterate through bands to build the nested structure
+            for band in sorted_bands:
+                band_data = {
+                    "Run": [],
+                    "S&P": [],
+                    "Unknown": []
+                }
+                
+                for status in ["Run", "S&P", "Unknown"]:
+                    if (band, status) in pivot.index:
+                        # Extract the row, reindex to master time index to ensure alignment
+                        row = pivot.loc[(band, status)]
+                        row = row.reindex(time_index, fill_value=0)
+                        band_data[status] = row.astype(int).tolist()
+                    else:
+                        band_data[status] = [0] * len(time_index)
+                
+                result["logs"][call][band] = band_data
 
         return result
