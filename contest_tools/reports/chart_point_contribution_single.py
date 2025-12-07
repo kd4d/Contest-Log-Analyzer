@@ -1,11 +1,11 @@
 # contest_tools/reports/chart_point_contribution_single.py
 #
-# Purpose: A single-chart report that generates a breakdown of total points by QSO
-#          point value for the entire log (all bands/modes combined).
+# Purpose: A chart report that generates a breakdown of total points by QSO
+#          point value, presented as a series of pie charts per band for a SINGLE log.
 #
 # Author: Gemini AI
-# Date: 2025-11-25
-# Version: 0.91.13-Beta
+# Date: 2025-12-04
+# Version: 0.93.7-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -17,80 +17,57 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
-# [0.91.13-Beta] - 2025-10-10
-# - Changed: Corrected title generation to conform to the CLA Reports Style Guide.
-# [0.90.0-Beta] - 2025-10-01
-# Set new baseline version for release.
-# [0.93.0-Beta] - 2025-11-25 (Refactor)
-# - Refactored to use CategoricalAggregator.get_points_breakdown.
+# [0.93.7-Beta] - 2025-12-04
+# - Fixed runtime crash by ensuring the output directory is created before
+#   saving the chart file.
 
-from typing import List
+import os
+from typing import List, Dict
+import pandas as pd
 import matplotlib.pyplot as plt
-from contest_tools.reports.report import Report
-from contest_tools.data_models.contest_log import ContestLog
-from contest_tools.data_aggregators.categorical_stats import CategoricalAggregator # New Import
+from matplotlib.gridspec import GridSpec
+from contest_tools.reports.report_interface import ContestReport
+from contest_tools.contest_log import ContestLog
+from contest_tools.data_aggregators.categorical_stats import CategoricalAggregator
 from contest_tools.styles.mpl_style_manager import MPLStyleManager
+from contest_tools.reports._report_utils import get_valid_dataframe, create_output_directory
 
-class ChartPointContributionSingle(Report):
+class Report(ContestReport):
     """
-    Generates a single pie chart showing the breakdown of QSO points
-    for the entire log.
+    Generates a series of pie charts showing the breakdown of QSO points
+    (1-point, 3-point, etc.) for each band in a single log.
     """
+    report_id = 'chart_point_contribution_single'
+    report_name = 'Point Contribution Breakdown (Single Log)'
+    report_type = 'chart'
+    supports_single = True
 
     def __init__(self, logs: List[ContestLog]):
-        """
-        Initializes the report.
-
-        Args:
-            logs: A list of ContestLog objects.
-        """
         super().__init__(logs)
-        self.report_id = 'chart_point_contribution_single'
-        self.aggregator = CategoricalAggregator() # Instantiate the new aggregator
+        self.aggregator = CategoricalAggregator()
 
-    def generate(self, output_dir: str) -> List[str]:
-        """
-        Generates the single point contribution report and saves it to a file.
+    def _create_plot_for_band(self, band: str, ax: plt.Axes) -> None:
+        """Creates a single pie chart for the given band data."""
+        agg_result = self.aggregator.get_points_breakdown(self.logs, band_filter=band)
         
-        Args:
-            output_dir: The directory to save the report to.
-            
-        Returns:
-            A list of generated file paths.
-        """
-        if not self.logs or self.logs[0].get_valid_dataframe().empty:
-            return []
-
-        # 1. Call the aggregator to get the total log breakdown dictionary
-        # No band or mode filters are passed for the overall report.
-        agg_result = self.aggregator.get_points_breakdown(self.logs)
-        
-        # 2. Extract the data for the breakdown
-        # Assumes self.logs is always a single-element list for this report type.
         log_data = list(agg_result['logs'].values())[0] 
         point_breakdown = log_data['breakdown']
-        total_points = log_data['total_points']
-
+    
         if not point_breakdown:
-            return []
+            ax.text(0.5, 0.5, "No Data for this Band", 
+                    ha='center', va='center', transform=ax.transAxes, color='gray')
+            ax.set_title(f"{band} Band Points")
+            return
 
-        # Prepare data for the plot
-        # Sort items by size (count) descending
+        total_points = log_data['total_points']
         sorted_items = sorted(point_breakdown.items(), key=lambda item: item[1], reverse=True)
-        
         sizes = [item[1] for item in sorted_items]
-        # Label format: "PointValue Point (Count)"
-        labels = [f"{item[0]} Point ({item[1]})" for item in sorted_items] 
+        labels = [f"{item[0]} Point ({item[1]})" for item in sorted_items]
         
-        # Determine colors based on the point values (keys)
         sorted_keys = [item[0] for item in sorted_items]
         color_map = MPLStyleManager.get_point_color_map(sorted_keys)
         colors = [color_map[k] for k in sorted_keys]
-
-        # Create the figure
-        fig, ax = plt.subplots(figsize=(8, 8))
-
-        # Draw the pie chart
+        
         wedges, texts, autotexts = ax.pie(
             sizes, 
             labels=labels, 
@@ -100,16 +77,43 @@ class ChartPointContributionSingle(Report):
             colors=colors
         )
         
-        ax.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
-        
-        fig.suptitle(f"Total Point Contribution Breakdown: {self.logs[0].callsign}", 
-                     fontsize=16, weight='bold')
-        ax.set_title(f"Total QSOs: {log_data['total_qsos']:.0f} | Total Points: {total_points:.0f}", 
-                     fontsize=12, pad=20)
+        ax.axis('equal')
+        ax.set_title(f"{band} Band Points (Total: {total_points:.0f})", fontsize=10, weight='bold')
 
-        # Save the figure
-        output_path = self.get_output_path(output_dir, file_ext='png')
-        fig.savefig(output_path)
+    def generate(self, output_path: str, **kwargs) -> List[str]:
+        if not self.logs or get_valid_dataframe(self.logs[0]).empty:
+            return []
+
+        df = get_valid_dataframe(self.logs[0])
+        bands = sorted(df['Band'].unique())
+
+        if not bands:
+            return []
+
+        num_bands = len(bands)
+        cols = min(4, num_bands)
+        rows = (num_bands + cols - 1) // cols
+
+        fig_width = 4 * cols
+        fig_height = 4 * rows
+        
+        fig = plt.figure(figsize=(fig_width, fig_height))
+        gs = GridSpec(rows, cols, figure=fig)
+
+        for i, band in enumerate(bands):
+            ax = fig.add_subplot(gs[i // cols, i % cols])
+            self._create_plot_for_band(band, ax) 
+
+        fig.suptitle(f"Point Contribution Breakdown: {self.logs[0].get_metadata().get('MyCall')}", 
+                     fontsize=16, weight='bold')
+        fig.tight_layout(rect=[0, 0, 1, 0.96])
+
+        create_output_directory(output_path)
+        callsign = self.logs[0].get_metadata().get('MyCall', 'Unknown')
+        filename = f"{self.report_id}_{callsign}.png"
+        output_file = os.path.join(output_path, filename)
+        
+        fig.savefig(output_file)
         plt.close(fig)
 
-        return [output_path]
+        return [output_file]

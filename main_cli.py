@@ -5,8 +5,8 @@
 #          generate specific reports.
 #
 # Author: Gemini AI
-# Date: 2025-10-05
-# Version: 0.91.0-Beta
+# Date: 2025-12-04
+# Version: 0.91.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,12 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.91.2-Beta] - 2025-12-04
+# - Added specific exception handling for Jinja2 PackageLoader errors
+#   to guide users when the 'templates' directory is missing.
+# [0.91.1-Beta] - 2025-12-04
+# - Improved error handling for FileNotFoundError to distinguish between
+#   missing input files and invalid output directory paths.
 # [0.91.0-Beta] - 2025-10-09
 # - Added `--wrtc <year>` CLI flag to enable WRTC scoring for IARU-HF logs.
 # [0.90.5-Beta] - 2025-10-05
@@ -167,13 +173,20 @@ def main():
                 f"The ruleset for WRTC {args.wrtc_year} could not be found.",
                 f"Ensure a 'wrtc_{args.wrtc_year}.json' definition file exists in the contest_definitions directory."
             )
-
+        
+        # Generic error handling to catch output directory issues as well as input file issues
         handle_error(
             "FILE NOT FOUND",
-            f"A critical file could not be found: {e}",
-            "Ensure an appropriate cty.dat file exists or can be downloaded for your contest date."
+            f"A critical file or directory could not be found: {e}",
+            "Ensure required input files (like cty.dat) exist, and that the output directory path is valid and writable."
         )
     except ValueError as e:
+        if "PackageLoader" in str(e):
+            handle_error(
+                "CONFIGURATION ERROR",
+                f"Missing template directory: {e}",
+                "Ensure the 'contest_tools/templates' directory exists and contains the required .html files."
+            )
         logging.exception(e)
         handle_error(
             "INITIALIZATION ERROR",

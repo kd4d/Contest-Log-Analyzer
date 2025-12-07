@@ -4,8 +4,8 @@
 #          specific multiplier type (e.g., Countries, Zones).
 #
 # Author: Gemini AI
-# Date: 2025-11-24
-# Version: 0.93.1
+# Date: 2025-12-04
+# Version: 0.93.2
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.93.2] - 2025-12-04
+# - Refactored rendering logic to support single-line output for single logs
+#   while preserving indented hierarchy for comparative reports.
 # [0.93.1] - 2025-11-24
 # - Refactored to consume JSON-serializable types (Dicts/Lists) from
 #   MultiplierStatsAggregator, removing direct Pandas dependencies.
@@ -193,51 +196,82 @@ class Report(ContestReport):
                     clean_name = str(mult_full_name).split(';')[0].strip()
                     mult_display = f"{mult} ({clean_name})"
 
-            report_lines.append(f"{mult_display:<{first_col_width}}")
-            
-            for call in all_calls:
-                # Retrieve row data
-                lookup_key = (mult, call) if is_comparative else mult
-                
-                # Check if this call/mult combo exists
-                if is_comparative and lookup_key not in data_map:
-                    continue
-                
+            if not is_comparative:
+                # --- Single Log: Render on one line ---
+                line = f"{mult_display:<{first_col_width}}"
+                call = all_calls[0]
+                lookup_key = mult
                 row_values = data_map.get(lookup_key, [])
                 
-                # Calculate Row Stats
                 row_total = 0
-                line = f"  {call}:".ljust(first_col_width)
-                
                 for band in bands:
                     val = 0
                     if row_values and band in band_col_map:
                         col_idx = band_col_map[band]
                         val = int(row_values[col_idx])
-                    
                     line += f"{val:>7}"
                     row_total += val
-                    col_totals[call][band] += val # Accumulate col total
+                    col_totals[call][band] += val
                 
                 if not is_single_band:
                     line += f"{row_total:>7}"
                 report_lines.append(line)
+                
+            else:
+                # --- Comparative: Render Header + Indented Rows ---
+                report_lines.append(f"{mult_display:<{first_col_width}}")
+                
+                for call in all_calls:
+                    lookup_key = (mult, call)
+                    # Check if this call/mult combo exists
+                    if lookup_key not in data_map:
+                        continue
+                    
+                    row_values = data_map.get(lookup_key, [])
+                    row_total = 0
+                    line = f"  {call}:".ljust(first_col_width)
+                    
+                    for band in bands:
+                        val = 0
+                        if row_values and band in band_col_map:
+                            col_idx = band_col_map[band]
+                            val = int(row_values[col_idx])
+                        
+                        line += f"{val:>7}"
+                        row_total += val
+                        col_totals[call][band] += val 
+                    
+                    if not is_single_band:
+                        line += f"{row_total:>7}"
+                    report_lines.append(line)
 
         report_lines.append(separator)
-        report_lines.append(f"{'Total':<{first_col_width}}")
         
-        # Render Footer
-        for call in all_calls:
-            line = f"  {call}:".ljust(first_col_width)
-            grand_total = 0
-            for band in bands:
+        # --- Render Footer ---
+        if not is_comparative:
+             line = f"{'Total':<{first_col_width}}"
+             call = all_calls[0]
+             grand_total = 0
+             for band in bands:
                 val = col_totals[call][band]
                 line += f"{val:>7}"
                 grand_total += val
-            
-            if not is_single_band:
+             if not is_single_band:
                 line += f"{grand_total:>7}"
-            report_lines.append(line)
+             report_lines.append(line)
+        else:
+            report_lines.append(f"{'Total':<{first_col_width}}")
+            for call in all_calls:
+                line = f"  {call}:".ljust(first_col_width)
+                grand_total = 0
+                for band in bands:
+                    val = col_totals[call][band]
+                    line += f"{val:>7}"
+                    grand_total += val
+                
+                if not is_single_band:
+                    line += f"{grand_total:>7}"
+                report_lines.append(line)
 
         # --- Diagnostic Section for "Unknown" Multipliers ---
         unknown_records = [r['Call'] for r in combined_df if r.get(mult_column) == 'Unknown']

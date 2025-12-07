@@ -3,10 +3,9 @@
 # Purpose: A text report that generates a comparative, interleaved score
 #          summary for the WAE contest.
 #
-#
 # Author: Gemini AI
-# Date: 2025-10-10
-# Version: 0.91.4-Beta
+# Date: 2025-11-24
+# Version: 0.91.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -17,7 +16,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
 # --- Revision History ---
+# [0.91.5-Beta] - 2025-11-24
+# - Refactored to use WaeStatsAggregator (DAL).
 # [0.91.4-Beta] - 2025-10-10
 # - Marked report as specialized to enable the new opt-in logic.
 # [0.91.0-Beta] - 2025-10-09
@@ -38,6 +40,7 @@ from ..contest_log import ContestLog
 from ..contest_definitions import ContestDefinition
 from .report_interface import ContestReport
 from ._report_utils import get_valid_dataframe, create_output_directory
+from ..data_aggregators.wae_stats import WaeStatsAggregator
 
 class Report(ContestReport):
     """
@@ -50,32 +53,39 @@ class Report(ContestReport):
     supports_multi = True
     supports_pairwise = True
     
-    _BAND_WEIGHTS = {'80M': 4, '40M': 3, '20M': 2, '15M': 2, '10M': 2}
-
     def generate(self, output_path: str, **kwargs) -> str:
         """Generates the report content."""
         all_calls = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])
         
-        # --- Data Aggregation by Band and Mode ---
+        # --- Data Aggregation via DAL ---
+        aggregator = WaeStatsAggregator()
+        wae_data = aggregator.get_wae_breakdown(self.logs)
+        
+        # --- Transform DAL output for View ---
+        # Structure needed: band_mode_summaries[(band, mode)] = list of dicts {Callsign, QSO Pts, Weighted Mults}
         band_mode_summaries = {}
-        for log in self.logs:
-            call = log.get_metadata().get('MyCall', 'Unknown')
-            qsos_df = get_valid_dataframe(log, include_dupes=False)
-            if qsos_df.empty:
-                continue
-            
-            grouped = qsos_df.groupby(['Band', 'Mode'])
-            for (band, mode), group_df in grouped:
-                key = (band, mode)
+        
+        for call, data in wae_data['logs'].items():
+            for row in data['breakdown']:
+                key = (row['band'], row['mode'])
                 if key not in band_mode_summaries:
                     band_mode_summaries[key] = []
                 
-                summary = self._calculate_band_mode_summary(group_df, call)
-                band_mode_summaries[key].append(summary)
+                band_mode_summaries[key].append({
+                    'Callsign': call,
+                    'QSO Pts': row['qso_points'],
+                    'Weighted Mults': row['weighted_mults']
+                })
 
         # --- Report Generation using PrettyTable ---
+        # Sorting keys based on aggregator's canonical order isn't directly exposed, 
+        # so we rely on the internal knowledge or re-sort. 
+        # The aggregator output for each log is sorted, but the keys of band_mode_summaries need sorting.
         canonical_band_order = [band[1] for band in ContestLog._HAM_BANDS]
-        sorted_keys = sorted(band_mode_summaries.keys(), key=lambda x: (canonical_band_order.index(x[0]), x[1]))
+        sorted_keys = sorted(band_mode_summaries.keys(), key=lambda x: (
+            canonical_band_order.index(x[0]) if x[0] in canonical_band_order else 99, 
+            x[1]
+        ))
 
         report_lines = []
         table = PrettyTable()
@@ -88,12 +98,12 @@ class Report(ContestReport):
             report_lines.append(f"\n--- {band} {mode} ---")
             
             table.clear_rows()
+            # Sort rows by callsign
             for row in sorted(band_mode_summaries[key], key=lambda x: x['Callsign']):
                 table.add_row([row['Callsign'], f"{row['QSO Pts']:,}", f"{row['Weighted Mults']:,}"])
             report_lines.append(table.get_string())
 
         # --- TOTALS Section ---
-        total_summaries, final_scores = self._calculate_totals()
         report_lines.append("\n--- TOTAL ---")
         
         total_table = PrettyTable()
@@ -101,13 +111,21 @@ class Report(ContestReport):
         total_table.align = 'r'
         total_table.align['Callsign'] = 'l'
         total_table.align['On-Time'] = 'l'
+        
+        final_scores = {}
+
         for call in all_calls:
-            if call in total_summaries:
-                data = total_summaries[call]
+            if call in wae_data['logs']:
+                scalars = wae_data['logs'][call]['scalars']
                 total_table.add_row([
-                    call, data.get('On-Time', 'N/A'), f"{data['QSO Pts']:,}", 
-                    f"{data['QTC Pts']:,}", f"{data['Weighted Mults']:,}"
+                    call, 
+                    scalars['on_time'], 
+                    f"{scalars['total_qso_points']:,}", 
+                    f"{scalars['total_qtc_points']:,}", 
+                    f"{scalars['total_weighted_mults']:,}"
                 ])
+                final_scores[call] = scalars['final_score']
+        
         report_lines.append(total_table.get_string())
         
         # --- Final Score Summary ---
@@ -138,53 +156,3 @@ class Report(ContestReport):
             f.write(final_report_str)
         
         return f"Text report saved to: {filepath}"
-
-    def _calculate_band_mode_summary(self, df_band_mode: pd.DataFrame, callsign: str) -> dict:
-        summary = {'Callsign': callsign}
-        summary['QSO Pts'] = df_band_mode['QSOPoints'].sum()
-        
-        band = df_band_mode['Band'].iloc[0]
-        weighted_mults = 0
-        mult_cols = ['Mult1', 'Mult2']
-        df_mults = df_band_mode[df_band_mode[mult_cols].notna().any(axis=1)]
-        
-        for col in mult_cols:
-            if col in df_mults.columns:
-                unique_mults_on_band = df_mults[col].nunique()
-                weighted_mults += unique_mults_on_band * self._BAND_WEIGHTS.get(band, 1)
-        
-        summary['Weighted Mults'] = weighted_mults
-        return summary
-
-    def _calculate_totals(self) -> Tuple[Dict[str, Dict], Dict[str, int]]:
-        total_summaries = {}
-        final_scores = {}
-
-        for log in self.logs:
-            call = log.get_metadata().get('MyCall', 'Unknown')
-            qsos_df = get_valid_dataframe(log, False)
-            qtcs_df = getattr(log, 'qtcs_df', pd.DataFrame())
-
-            total_qso_pts = qsos_df['QSOPoints'].sum()
-            total_qtc_pts = len(qtcs_df)
-            
-            total_weighted_mults = 0
-            mult_cols = ['Mult1', 'Mult2']
-            df_mults_all = qsos_df[qsos_df[mult_cols].notna().any(axis=1)]
-            
-            if not df_mults_all.empty:
-                for col in mult_cols:
-                    if col in df_mults_all.columns:
-                        band_mult_counts = df_mults_all.groupby('Band')[col].nunique()
-                        for band, count in band_mult_counts.items():
-                            total_weighted_mults += count * self._BAND_WEIGHTS.get(band, 1)
-
-            total_summaries[call] = {
-                'On-Time': log.get_metadata().get('OperatingTime'),
-                'QSO Pts': total_qso_pts,
-                'QTC Pts': total_qtc_pts,
-                'Weighted Mults': total_weighted_mults
-            }
-            final_scores[call] = (total_qso_pts + total_qtc_pts) * total_weighted_mults
-
-        return total_summaries, final_scores

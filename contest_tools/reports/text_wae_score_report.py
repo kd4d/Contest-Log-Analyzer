@@ -3,10 +3,9 @@
 # Purpose: This module provides a detailed score summary for the WAE
 #          contest, including QTC points and weighted multipliers.
 #
-#
 # Author: Gemini AI
-# Date: 2025-10-10
-# Version: 0.91.3-Beta
+# Date: 2025-11-24
+# Version: 0.91.4-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -17,7 +16,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
 # --- Revision History ---
+# [0.91.4-Beta] - 2025-11-24
+# - Refactored to use WaeStatsAggregator (DAL) for scoring logic.
 # [0.91.3-Beta] - 2025-10-10
 # - Marked report as specialized to enable the new opt-in logic.
 # [0.90.2-Beta] - 2025-10-05
@@ -35,6 +37,7 @@ from prettytable import PrettyTable
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
 from ._report_utils import get_valid_dataframe, create_output_directory, save_debug_data
+from ..data_aggregators.wae_stats import WaeStatsAggregator
 
 class Report(ContestReport):
     """
@@ -46,13 +49,15 @@ class Report(ContestReport):
     is_specialized = True
     supports_single = True
 
-    _BAND_WEIGHTS = {'80M': 4, '40M': 3, '20M': 2, '15M': 2, '10M': 2}
-
     def generate(self, output_path: str, **kwargs) -> str:
         """Generates the report content."""
         log = self.logs[0]
         metadata = log.get_metadata()
         callsign = metadata.get('MyCall', 'UnknownCall')
+        
+        # We still need raw DF for debug data dump if requested, 
+        # or we could trust the aggregator. 
+        # For legacy compatibility with the "Debug Data" block below, we pull it briefly.
         qsos_df = get_valid_dataframe(log, include_dupes=False)
         qtcs_df = getattr(log, 'qtcs_df', pd.DataFrame())
 
@@ -71,42 +76,13 @@ class Report(ContestReport):
             }
             save_debug_data(True, output_path, debug_content, custom_filename=debug_filename)
 
-        # --- Data Calculation ---
-        summary_data = []
-        band_mode_groups = qsos_df.groupby(['Band', 'Mode'])
+        # --- Data Calculation (via DAL) ---
+        aggregator = WaeStatsAggregator()
+        wae_data = aggregator.get_wae_breakdown([log])
+        log_data = wae_data["logs"].get(callsign)
         
-        for (band, mode), group_df in band_mode_groups:
-            qso_pts = len(group_df)
-            
-            # Weighted Multipliers
-            weighted_mults = 0
-            mult_cols = ['Mult1', 'Mult2']
-            df_mults = group_df[group_df[mult_cols].notna().any(axis=1)]
-            
-            for col in mult_cols:
-                if col in df_mults.columns:
-                    unique_mults_on_band = df_mults[col].nunique()
-                    weighted_mults += unique_mults_on_band * self._BAND_WEIGHTS.get(band, 1)
-            
-            summary_data.append({
-                'Band': band, 'Mode': mode,
-                'QSO Pts': qso_pts,
-                'Weighted Mults': weighted_mults
-            })
-
-        # --- TOTALS ---
-        total_qso_pts = qsos_df['QSOPoints'].sum()
-        total_qtc_pts = len(qtcs_df)
-        
-        total_weighted_mults = 0
-        df_mults_all = qsos_df[qsos_df[mult_cols].notna().any(axis=1)]
-        for col in mult_cols:
-            if col in df_mults_all.columns:
-                band_mult_counts = df_mults_all.groupby('Band')[col].nunique()
-                for band, count in band_mult_counts.items():
-                    total_weighted_mults += count * self._BAND_WEIGHTS.get(band, 1)
-
-        final_score = (total_qso_pts + total_qtc_pts) * total_weighted_mults
+        if not log_data:
+             return f"Skipping report for {callsign}: No data returned from aggregator."
 
         # --- Formatting ---
         table = PrettyTable()
@@ -114,19 +90,24 @@ class Report(ContestReport):
         table.align = 'r'
         table.align['Band'] = 'l'
         
-        for row in sorted(summary_data, key=lambda x: (ContestLog._HAM_BANDS.index(([item for item in ContestLog._HAM_BANDS if item[1] == x['Band']][0])), x['Mode'])):
+        # Aggregator already sorts by Canonical Band Order then Mode
+        for row in log_data['breakdown']:
             table.add_row([
-                row['Band'], row['Mode'],
-                f"{row['QSO Pts']:,}", f"{row['Weighted Mults']:,}"
+                row['band'], row['mode'],
+                f"{row['qso_points']:,}", f"{row['weighted_mults']:,}"
             ])
         
         table.add_row(['-'*b_len for b_len in [4,4,10,14]], divider=True)
+
+        scalars = log_data['scalars']
         table.add_row([
             'TOTAL', '',
-            f"{total_qso_pts:,}", f"{total_weighted_mults:,}"
+            f"{scalars['total_qso_points']:,}", f"{scalars['total_weighted_mults']:,}"
         ])
         
         # --- Build Final Report String ---
+        # Note: We use qsos_df['Date'] for year to preserve exact logic, 
+        # but technically we could parse it from headers. Sticking to dataframe for metadata safety.
         year = qsos_df['Date'].iloc[0].split('-')[0]
         contest_name = metadata.get('ContestName', 'UnknownContest')
         title1 = f"--- {self.report_name} ---"
@@ -150,12 +131,13 @@ class Report(ContestReport):
         
         # --- Dynamically Formatted Final Score Block ---
         summary_content = {
-            'Total QSO Points:': total_qso_pts,
-            'Total QTC Points:': total_qtc_pts,
-            'Total Contacts:': (total_qso_pts + total_qtc_pts),
-            'Total Weighted Multipliers:': total_weighted_mults,
-            'FINAL SCORE:': final_score
+            'Total QSO Points:': scalars['total_qso_points'],
+            'Total QTC Points:': scalars['total_qtc_points'],
+            'Total Contacts:': (scalars['total_qso_points'] + scalars['total_qtc_points']),
+            'Total Weighted Multipliers:': scalars['total_weighted_mults'],
+            'FINAL SCORE:': scalars['final_score']
         }
+
         max_label_width = max(len(label) for label in summary_content.keys())
         for label, value in summary_content.items():
             report_lines.append(f"{label:<{max_label_width}} {value:>15,}")

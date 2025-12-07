@@ -4,8 +4,8 @@
 #          JSON-compatible structure (Pure Python Primitives).
 #
 # Author: Gemini AI
-# Date: 2025-11-24
-# Version: 1.3.1
+# Date: 2025-12-06
+# Version: 1.4.0
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,13 +19,15 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [1.4.0] - 2025-12-06
+# - Updated get_time_series_data to populate 'by_mode' and 'by_band_mode'.
+# - Improved groupby logic to handle multi-level aggregation.
 # [1.3.1] - 2025-11-24
 # - Implemented run_points and sp_unk_points logic.
 # - Added band_filter and mode_filter arguments to get_time_series_data.
 # - Enforced strict separation: Points are raw sums, Score is from calculator.
 # [1.2.0] - 2025-11-24
 # - Initial creation implementing the TimeSeriesData v1.2 schema.
-
 import pandas as pd
 import numpy as np
 from typing import List, Dict, Any
@@ -40,7 +42,7 @@ class TimeSeriesAggregator:
 
     def get_time_series_data(self, band_filter: str = None, mode_filter: str = None) -> Dict[str, Any]:
         """
-        Generates the TimeSeriesData v1.3.1 structure.
+        Generates the TimeSeriesData v1.4.0 structure.
         
         Args:
             band_filter: Optional band string (e.g., '20M').
@@ -119,7 +121,9 @@ class TimeSeriesAggregator:
                 },
                 "hourly": { 
                     "qsos": [], 
-                    "by_band": {} 
+                    "by_band": {},
+                    "by_mode": {},
+                    "by_band_mode": {}
                 }
             }
 
@@ -156,9 +160,9 @@ class TimeSeriesAggregator:
 
                     # Run QSOs / Points
                     if not df_run.empty:
-                        run_grp = df_run.set_index('Datetime').resample('h')
-                        log_entry["cumulative"]["run_qsos"] = process_series(run_grp.size())
-                        log_entry["cumulative"]["run_points"] = process_series(run_grp['QSOPoints'].sum())
+                         run_grp = df_run.set_index('Datetime').resample('h')
+                         log_entry["cumulative"]["run_qsos"] = process_series(run_grp.size())
+                         log_entry["cumulative"]["run_points"] = process_series(run_grp['QSOPoints'].sum())
                     else:
                         log_entry["cumulative"]["run_qsos"] = zeros
                         log_entry["cumulative"]["run_points"] = zeros
@@ -208,30 +212,53 @@ class TimeSeriesAggregator:
                 df_hourly = df_full[df_full['Dupe'] == False].copy()
                 
                 if not df_hourly.empty:
+                    # -- 1. By Band --
                     # Group by Hour and Band
-                    grp = df_hourly.groupby([df_hourly['Datetime'].dt.floor('h'), 'Band']).size().unstack(fill_value=0)
-                    
-                    # Reindex to master timeline
-                    grp = grp.reindex(master_index).fillna(0).astype(int)
+                    grp_band = df_hourly.groupby([df_hourly['Datetime'].dt.floor('h'), 'Band']).size().unstack(fill_value=0)
+                    grp_band = grp_band.reindex(master_index).fillna(0).astype(int)
                     
                     # Total Hourly QSOs
-                    log_entry["hourly"]["qsos"] = grp.sum(axis=1).tolist()
+                    log_entry["hourly"]["qsos"] = grp_band.sum(axis=1).tolist()
                     
-                    # By Band
                     valid_bands = contest_def.valid_bands
                     for band in valid_bands:
-                        if band in grp.columns:
-                            log_entry["hourly"]["by_band"][band] = grp[band].tolist()
+                        if band in grp_band.columns:
+                            log_entry["hourly"]["by_band"][band] = grp_band[band].tolist()
                         else:
                             log_entry["hourly"]["by_band"][band] = [0] * len(master_index)
+
+                    # -- 2. By Mode --
+                    if 'Mode' in df_hourly.columns:
+                        grp_mode = df_hourly.groupby([df_hourly['Datetime'].dt.floor('h'), 'Mode']).size().unstack(fill_value=0)
+                        grp_mode = grp_mode.reindex(master_index).fillna(0).astype(int)
+                        
+                        # Populate by_mode for all modes present in log
+                        for mode in grp_mode.columns:
+                            log_entry["hourly"]["by_mode"][mode] = grp_mode[mode].tolist()
+
+                    # -- 3. By Band + Mode --
+                    if 'Band' in df_hourly.columns and 'Mode' in df_hourly.columns:
+                        grp_bm = df_hourly.groupby([df_hourly['Datetime'].dt.floor('h'), 'Band', 'Mode']).size().unstack(['Band', 'Mode'], fill_value=0)
+                        grp_bm = grp_bm.reindex(master_index).fillna(0).astype(int)
+
+                        # grp_bm columns are MultiIndex (Band, Mode). 
+                        # Flatten to keys "Band_Mode" (e.g. "20M_CW")
+                        for col in grp_bm.columns:
+                            # col is tuple (Band, Mode)
+                            band_key, mode_key = col
+                            key = f"{band_key}_{mode_key}"
+                            log_entry["hourly"]["by_band_mode"][key] = grp_bm[col].tolist()
+
                 else:
-                    log_entry["hourly"]["qsos"] = [0] * len(master_index)
+                    # Log empty after dupe filtering
+                    log_entry["hourly"]["qsos"] = zeros
                     for band in contest_def.valid_bands:
-                        log_entry["hourly"]["by_band"][band] = [0] * len(master_index)
+                        log_entry["hourly"]["by_band"][band] = zeros
             else:
-                 log_entry["hourly"]["qsos"] = [0] * len(master_index)
-                 for band in contest_def.valid_bands:
-                    log_entry["hourly"]["by_band"][band] = [0] * len(master_index)
+                # Log completely empty
+                log_entry["hourly"]["qsos"] = zeros
+                for band in contest_def.valid_bands:
+                    log_entry["hourly"]["by_band"][band] = zeros
             
             data["logs"][callsign] = log_entry
 
