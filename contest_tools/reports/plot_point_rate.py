@@ -4,8 +4,8 @@
 #          and for each individual band.
 #
 # Author: Gemini AI
-# Date: 2025-10-01
-# Version: 0.90.0-Beta
+# Date: 2025-11-24
+# Version: 1.0.0
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -14,9 +14,13 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
 # --- Revision History ---
+# [1.0.0] - 2025-11-24
+# - Refactored to use Data Abstraction Layer (TimeSeriesAggregator).
 # [0.90.0-Beta] - 2025-10-01
 # Set new baseline version for release.
 
@@ -29,6 +33,7 @@ import logging
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
 from ._report_utils import create_output_directory, get_valid_dataframe, save_debug_data
+from ..data_aggregators.time_series import TimeSeriesAggregator
 
 class Report(ContestReport):
     """
@@ -117,38 +122,46 @@ class Report(ContestReport):
         if not metric_name:
             metric_name = "Points"
 
+        # --- DAL Integration (v1.3.1) ---
+        agg = TimeSeriesAggregator(self.logs)
+        ts_data = agg.get_time_series_data(band_filter=band_filter, mode_filter=mode_filter)
+        time_bins = [pd.Timestamp(t) for t in ts_data['time_bins']]
+
         for i, df in enumerate(dfs):
             log = self.logs[i]
             call = log.get_metadata().get('MyCall', 'Unknown')
             all_calls.append(call)
-
-            if band_filter != "All":
-                df = df[df['Band'] == band_filter]
             
-            if df.empty:
+            log_data = ts_data['logs'].get(call)
+            if not log_data:
                 continue
 
-            # NEW LOGIC: Use the pre-calculated time-series score
-            cumulative_rate = log.time_series_score_df['score']
-            
-            # Re-index to master timeline for alignment
-            master_time_index = log._log_manager_ref.master_time_index
-            if master_time_index is not None:
-                cumulative_rate = cumulative_rate.reindex(master_time_index, method='pad').fillna(0)
-            
-            ax.plot(cumulative_rate.index, cumulative_rate.values, marker='o', linestyle='-', markersize=4, label=call)
+            # NEW LOGIC: Use 'points' from aggregator (Raw Sum)
+            cumulative_values = log_data['cumulative']['points']
+            scalars = log_data['scalars']
 
-            cumulative_rate.name = call
-            all_series.append(cumulative_rate)
+            if scalars['net_qsos'] == 0:
+                 continue
+            
+            # Plot
+            series = pd.Series(cumulative_values, index=time_bins, name=call)
+            ax.plot(series.index, series.values, marker='o', linestyle='-', markersize=4, label=call)
+            all_series.append(series)
 
-            total_value = df['QSOPoints'].sum()
+            # NOTE: Run/S&P split for summary table calculation
+            if band_filter != "All":
+                 df_filtered = df[df['Band'] == band_filter]
+            else:
+                 df_filtered = df
+
+            total_value = scalars.get('points_sum', 0)
 
             summary_data.append([
                 call,
                 f"{total_value:,}",
-                f"{(df['Run'] == 'Run').sum():,}",
-                f"{(df['Run'] == 'S&P').sum():,}",
-                f"{(df['Run'] == 'Unknown').sum():,}"
+                f"{(df_filtered['Run'] == 'Run').sum():,}",
+                f"{(df_filtered['Run'] == 'S&P').sum():,}",
+                f"{(df_filtered['Run'] == 'Unknown').sum():,}"
             ])
 
         metadata = self.logs[0].get_metadata()
@@ -202,13 +215,14 @@ class Report(ContestReport):
         if all_series:
             # Start with the score data
             debug_df = pd.concat(all_series, axis=1).fillna(0).copy()
-            
-            # Add multiplier data if it exists
+             
+            # Add multiplier data if it exists (using local access to log until mults moved to aggregation in later batch)
             for i, log in enumerate(self.logs):
                 call = all_calls[i]
-                score_ts = log.time_series_score_df
-                if 'total_mults' in score_ts.columns:
-                    debug_df[f'mults_{call}'] = score_ts['total_mults']
+                if hasattr(log, 'time_series_score_df') and log.time_series_score_df is not None:
+                    score_ts = log.time_series_score_df
+                    if 'total_mults' in score_ts.columns:
+                        debug_df[f'mults_{call}'] = score_ts['total_mults']
                     for band in bands:
                         band_col = f'total_mults_{band}'
                         if band_col in score_ts.columns:

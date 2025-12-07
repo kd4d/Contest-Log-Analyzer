@@ -6,7 +6,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-10-01
-# Version: 0.90.0-Beta
+# Version: 0.90.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -15,9 +15,15 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
 # --- Revision History ---
+# [0.90.1-Beta] - 2025-12-06
+# Refactored report to show Run/S&P/Unknown breakdown for Common QSOs.
+# Updated table layout with scoped super-headers.
+#
 # [0.90.0-Beta] - 2025-10-01
 # Set new baseline version for release.
 
@@ -41,7 +47,7 @@ class Report(ContestReport):
 
         if len(self.logs) != 2:
             return f"Report '{self.report_name}' requires exactly two logs for pairwise comparison. Skipping."
-
+        
         log1, log2 = self.logs[0], self.logs[1]
         call1 = log1.get_metadata().get('MyCall', 'Log1')
         call2 = log2.get_metadata().get('MyCall', 'Log2')
@@ -57,16 +63,36 @@ class Report(ContestReport):
         bands = sorted(all_bands_in_logs, key=lambda b: canonical_band_order.index(b) if b in canonical_band_order else -1)
         
         report_lines = []
-        report_lines.append(f"QSO Comparison: {call1} vs {call2}\n" + "="*40)
+        report_lines.append(f"QSO Comparison: {call1} vs {call2}\n" + "="*86)
         
         # Initialize accumulators for the grand totals
+        # Structure: [Total_QSO, Unique_Total, Common_Total]
         total_qso_1, total_unique_1, total_common_1 = 0, 0, 0
         total_qso_2, total_unique_2, total_common_2 = 0, 0, 0
+        
+        # Structure: [Run, S&P, Unk] for Unique
         total_run_unique_1, total_sp_unique_1, total_unk_unique_1 = 0, 0, 0
         total_run_unique_2, total_sp_unique_2, total_unk_unique_2 = 0, 0, 0
+        
+        # Structure: [Run, S&P, Unk] for Common
+        total_run_common_1, total_sp_common_1, total_unk_common_1 = 0, 0, 0
+        total_run_common_2, total_sp_common_2, total_unk_common_2 = 0, 0, 0
+
+        # Helper to print the table header
+        def append_table_header():
+            report_lines.append(f"{'':9} {'TOTAL':>8} | {'UNIQUE (Breakdown)':^27} | {'COMMON (Breakdown)':^27}")
+            report_lines.append(f"{'Call':<9} {'QSOs':>8} | {'Tot':>6} {'Run':>6} {'S&P':>6} {'Unk':>6} | {'Tot':>6} {'Run':>6} {'S&P':>6} {'Unk':>6}")
+            report_lines.append(f"{'-'*9} {'-'*8} | {'-'*27} | {'-'*27}")
+
+        def get_run_sp_unk_counts(df):
+            run_count = (df['Run'] == 'Run').sum()
+            sp_count = (df['Run'] == 'S&P').sum()
+            unk_count = (df['Run'] == 'Unknown').sum()
+            return run_count, sp_count, unk_count
 
         for band in bands:
             report_lines.append(f"\n--- {band} ---")
+            append_table_header()
             
             c1_band = df1[df1['Band'] == band]
             c2_band = df2[df2['Band'] == band]
@@ -74,11 +100,20 @@ class Report(ContestReport):
             calls1_band = set(c1_band['Call'])
             calls2_band = set(c2_band['Call'])
             
+            # --- COMMON CALCULATION ---
             common_calls_on_band = calls1_band.intersection(calls2_band)
             
-            common_count_1 = len(c1_band[c1_band['Call'].isin(common_calls_on_band)])
-            common_count_2 = len(c2_band[c2_band['Call'].isin(common_calls_on_band)])
+            # Dataframes for Common QSOs
+            common_df_1 = c1_band[c1_band['Call'].isin(common_calls_on_band)]
+            common_df_2 = c2_band[c2_band['Call'].isin(common_calls_on_band)]
+            
+            common_count_1 = len(common_df_1)
+            common_count_2 = len(common_df_2)
+            
+            rc1, sc1, uc1 = get_run_sp_unk_counts(common_df_1)
+            rc2, sc2, uc2 = get_run_sp_unk_counts(common_df_2)
 
+            # --- UNIQUE CALCULATION ---
             total_count_1 = len(c1_band)
             total_count_2 = len(c2_band)
             
@@ -87,47 +122,48 @@ class Report(ContestReport):
 
             unique_calls_for_1 = calls1_band - calls2_band
             unique_calls_for_2 = calls2_band - calls1_band
+            
+            # Dataframes for Unique QSOs
             u1_band = c1_band[c1_band['Call'].isin(unique_calls_for_1)]
             u2_band = c2_band[c2_band['Call'].isin(unique_calls_for_2)]
 
-            def get_run_sp_unk_counts(df):
-                run_count = (df['Run'] == 'Run').sum()
-                sp_count = (df['Run'] == 'S&P').sum()
-                unk_count = (df['Run'] == 'Unknown').sum()
-                return run_count, sp_count, unk_count
-
-            report_lines.append(f"          {'Total':>8} {'Unique':>8} {'Common':>8} | {'Run':>6} {'S&P':>6} {'Unk':>6}")
-            report_lines.append(f"          {'-'*8} {'-'*8} {'-'*8} | {'-'*6} {'-'*6} {'-'*6}")
+            ru1, su1, uu1 = get_run_sp_unk_counts(u1_band)
+            ru2, su2, uu2 = get_run_sp_unk_counts(u2_band)
             
-            r1, s1, u1 = get_run_sp_unk_counts(u1_band)
-            r2, s2, u2 = get_run_sp_unk_counts(u2_band)
-            
-            report_lines.append(f"{call1:<9} {total_count_1:>8} {unique_count_1:>8} {common_count_1:>8} | {r1:>6} {s1:>6} {u1:>6}")
-            report_lines.append(f"{call2:<9} {total_count_2:>8} {unique_count_2:>8} {common_count_2:>8} | {r2:>6} {s2:>6} {u2:>6}")
+            # --- PRINT ROW ---
+            # Call | Total | Unique(Tot, Run, SP, Unk) | Common(Tot, Run, SP, Unk)
+            report_lines.append(f"{call1:<9} {total_count_1:>8} | {unique_count_1:>6} {ru1:>6} {su1:>6} {uu1:>6} | {common_count_1:>6} {rc1:>6} {sc1:>6} {uc1:>6}")
+            report_lines.append(f"{call2:<9} {total_count_2:>8} | {unique_count_2:>6} {ru2:>6} {su2:>6} {uu2:>6} | {common_count_2:>6} {rc2:>6} {sc2:>6} {uc2:>6}")
 
-            # Accumulate totals
+            # --- ACCUMULATE TOTALS ---
+            # Log 1
             total_qso_1 += total_count_1
             total_unique_1 += unique_count_1
             total_common_1 += common_count_1
-            total_run_unique_1 += r1
-            total_sp_unique_1 += s1
-            total_unk_unique_1 += u1
+            total_run_unique_1 += ru1
+            total_sp_unique_1 += su1
+            total_unk_unique_1 += uu1
+            total_run_common_1 += rc1
+            total_sp_common_1 += sc1
+            total_unk_common_1 += uc1
 
+            # Log 2
             total_qso_2 += total_count_2
             total_unique_2 += unique_count_2
             total_common_2 += common_count_2
-            total_run_unique_2 += r2
-            total_sp_unique_2 += s2
-            total_unk_unique_2 += u2
+            total_run_unique_2 += ru2
+            total_sp_unique_2 += su2
+            total_unk_unique_2 += uu2
+            total_run_common_2 += rc2
+            total_sp_common_2 += sc2
+            total_unk_common_2 += uc2
         
         # --- TOTALS Section ---
-        report_lines.append("\n" + "="*40 + "\n--- TOTALS ---")
-
-        report_lines.append(f"          {'Total':>8} {'Unique':>8} {'Common':>8} | {'Run':>6} {'S&P':>6} {'Unk':>6}")
-        report_lines.append(f"          {'-'*8} {'-'*8} {'-'*8} | {'-'*6} {'-'*6} {'-'*6}")
+        report_lines.append("\n" + "="*86 + "\n--- GRAND TOTALS ---")
+        append_table_header()
         
-        report_lines.append(f"{call1:<9} {total_qso_1:>8} {total_unique_1:>8} {total_common_1:>8} | {total_run_unique_1:>6} {total_sp_unique_1:>6} {total_unk_unique_1:>6}")
-        report_lines.append(f"{call2:<9} {total_qso_2:>8} {total_unique_2:>8} {total_common_2:>8} | {total_run_unique_2:>6} {total_sp_unique_2:>6} {total_unk_unique_2:>6}")
+        report_lines.append(f"{call1:<9} {total_qso_1:>8} | {total_unique_1:>6} {total_run_unique_1:>6} {total_sp_unique_1:>6} {total_unk_unique_1:>6} | {total_common_1:>6} {total_run_common_1:>6} {total_sp_common_1:>6} {total_unk_common_1:>6}")
+        report_lines.append(f"{call2:<9} {total_qso_2:>8} | {total_unique_2:>6} {total_run_unique_2:>6} {total_sp_unique_2:>6} {total_unk_unique_2:>6} | {total_common_2:>6} {total_run_common_2:>6} {total_sp_common_2:>6} {total_unk_common_2:>6}")
         
         # Save to file
         output_filename = os.path.join(output_path, f"{self.report_id}_{call1}_vs_{call2}.txt")

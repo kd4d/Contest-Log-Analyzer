@@ -1,10 +1,14 @@
 # Contest Log Analyzer - Installation Guide
 
-**Version: 0.91.15-Beta**
-**Date: 2025-10-11**
+**Version: 0.94.0-Beta**
+**Date: 2025-12-06**
 
 ---
 ### --- Revision History ---
+## [0.94.0-Beta] - 2025-12-06
+### Changed
+# - Added `plotly` to the required libraries in Step 3 to support the
+#   Phase 2 visualization engine upgrade.
 ## [0.91.15-Beta] - 2025-10-11
 ### Fixed
 # - Corrected data file dependencies to state that NAQPmults.dat is
@@ -84,28 +88,28 @@ Miniforge is a minimal installer for the Conda package manager.
 
 ### Step 1: Clone the Repository
 Open a terminal or command prompt, navigate to the directory where you want to store the project, and clone the remote Git repository.
-__CODE_BLOCK__
-git clone [https://github.com/user/Contest-Log-Analyzer.git](https://github.com/user/Contest-Log-Analyzer.git)
+```
+git clone https://github.com/user/Contest-Log-Analyzer.git
 cd Contest-Log-Analyzer
-__CODE_BLOCK__
+```
 This will create the project directory (`Contest-Log-Analyzer`) on your local machine.
 ### Step 2: Create and Activate the Conda Environment
 It is a best practice to create an isolated environment for the project's dependencies.
 This prevents conflicts with other Python projects on your system.
-__CODE_BLOCK__
+```
 # Create an environment named "cla" with Python 3.11
 conda create --name cla python=3.11
 
 # Activate the new environment
 conda activate cla
-__CODE_BLOCK__
+```
 
 ### Step 3: Install Libraries with Conda
 With the `cla` environment active, use the following single command to install all required libraries from the recommended `conda-forge` channel.
-This includes `ffmpeg` for video creation.
-__CODE_BLOCK__
-conda install -c conda-forge pandas numpy matplotlib seaborn imageio imageio-ffmpeg ffmpeg prettytable tabulate requests beautifulsoup4
-__CODE_BLOCK__
+This includes `ffmpeg` for video creation and `plotly` for interactive charts.
+```
+conda install -c conda-forge pandas numpy matplotlib seaborn imageio imageio-ffmpeg ffmpeg prettytable tabulate requests beautifulsoup4 plotly
+```
 
 ### Step 4: Set Up the Input and Output Directories
 The application requires separate directories for its input files (logs, data) and its output files (reports).
@@ -115,13 +119,13 @@ This separation is critical to prevent file-locking issues with cloud sync servi
 It can be located anywhere, including inside a cloud-synced folder like OneDrive.
 Example: `C:\Users\YourUser\OneDrive\Desktop\CLA_Inputs`
 Inside this folder, you must create the following subdirectories:
-__CODE_BLOCK__
+```
 CLA_Inputs/
 |
 +-- data/
 |
 +-- Logs/
-__CODE_BLOCK__
+```
 
 **2. Create the Output Directory:** This folder is where the analyzer will save all generated reports.
 **This directory must be on a local, non-synced path.** A recommended location is in your user profile directory.
@@ -152,13 +156,13 @@ Download the following files and place them inside the **`data/`** subdirectory 
 To verify the installation, run the program from the project's source code directory.
 Ensure your `cla` conda environment is active.
 
-__CODE_BLOCK__
+```
 # Make sure your conda environment is active
 conda activate cla
 
 # Run the script from the main project directory, providing a relative path
 # to a log file inside your CONTEST_INPUT_DIR
 (cla) C:\..._Analyzer>python main_cli.py --report score_report 2025/NAQP-CW/aug/k3aj.log
-__CODE_BLOCK__
+```
 
 If the installation is successful, you will see an output message indicating that the report was saved, and you will find a new `.txt` file in a `reports` subdirectory inside your `CONTEST_REPORTS_DIR`.

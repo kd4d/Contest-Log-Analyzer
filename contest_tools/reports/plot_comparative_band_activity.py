@@ -1,8 +1,8 @@
 # contest_tools/reports/plot_comparative_band_activity.py
 #
 # Author: Gemini AI
-# Date: 2025-10-11
-# Version: 0.91.0-Beta
+# Date: 2025-11-24
+# Version: 1.0.0
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -11,20 +11,18 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # Purpose: A plot report that generates a comparative "butterfly" chart to
 #          visualize the band activity of two logs side-by-side.
 #
 # --- Revision History ---
-## [0.91.0-Beta] - 2025-10-11
-### Added
-# - Initial creation of the correct "butterfly chart" implementation.
-### Fixed
-# - Corrected band sorting to use ContestLog._HAM_BANDS.
-# - Updated title format to conform to CLAReportsStyleGuide.md.
-
+# [1.0.0] - 2025-11-24
+# Refactored to use MatrixAggregator (DAL).
+# [0.91.0-Beta] - 2025-10-11
+# Initial creation of the correct "butterfly chart" implementation.
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -37,6 +35,7 @@ from typing import List, Dict, Any
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
 from ._report_utils import get_valid_dataframe, create_output_directory, save_debug_data
+from ..data_aggregators.matrix_stats import MatrixAggregator
 
 class Report(ContestReport):
     """
@@ -61,33 +60,29 @@ class Report(ContestReport):
         # For larger values, round up to the nearest 25
         return (int(max_value / 25) + 1) * 25
 
-    def _generate_plot_for_slice(self, df1_slice: pd.DataFrame, df2_slice: pd.DataFrame, log1: ContestLog, log2: ContestLog, output_path: str, mode_filter: str, **kwargs) -> str:
-        """Helper function to generate a single plot for a given data slice."""
+    def _generate_plot_for_slice(self, matrix_data: Dict, log1: ContestLog, log2: ContestLog, output_path: str, mode_filter: str, **kwargs) -> str:
+        """Helper function to generate a single plot for a given data slice (DAL-based)."""
         call1 = log1.get_metadata().get('MyCall', 'Log1')
         call2 = log2.get_metadata().get('MyCall', 'Log2')
 
-        # --- 1. Data Preparation ---
-        dfs = {call1: df1_slice, call2: df2_slice}
+        # --- 1. Data Preparation (Unpack DAL) ---
+        time_bins_str = matrix_data['time_bins']
+        all_bands = matrix_data['bands']
         
-        if df1_slice.empty and df2_slice.empty:
-            return f"Skipping {mode_filter or 'combined'} plot: No QSO data in slice."
+        if not time_bins_str or not all_bands:
+            return f"Skipping {mode_filter or 'combined'} plot: No data in slice."
 
-        min_time = min(df['Datetime'].min() for df in dfs.values() if not df.empty).floor('h')
-        max_time = max(df['Datetime'].max() for df in dfs.values() if not df.empty).ceil('h')
-        time_bins = pd.date_range(start=min_time, end=max_time, freq='15min', tz='UTC')
-
-        all_bands_in_logs = pd.concat([dfs[call1]['Band'], dfs[call2]['Band']]).dropna().unique()
-        canonical_band_order = [band[1] for band in ContestLog._HAM_BANDS]
-        all_bands = sorted(list(all_bands_in_logs), key=lambda b: canonical_band_order.index(b) if b in canonical_band_order else -1)
+        time_bins = pd.to_datetime(time_bins_str)
+        min_time = time_bins.min()
+        max_time = time_bins.max()
         
-        if not all_bands:
-            return f"Skipping {mode_filter or 'combined'} plot: No bands with activity found."
-
+        # Convert List[List] to DataFrame for convenient plotting logic
         pivot_dfs = {}
-        for call, df in dfs.items():
-            pivot = df.pivot_table(index='Band', columns=pd.Grouper(key='Datetime', freq='15min'), aggfunc='size', fill_value=0)
-            pivot = pivot.reindex(index=all_bands, columns=time_bins, fill_value=0)
-            pivot_dfs[call] = pivot * 4
+        for call in [call1, call2]:
+            qso_grid = matrix_data['logs'][call]['qso_counts']
+            # Multiply by 4 to get rate/hr (since data is 15min)
+            df_grid = pd.DataFrame(qso_grid, index=all_bands, columns=time_bins) * 4
+            pivot_dfs[call] = df_grid
 
         # --- 2. Visualization ---
         num_bands = len(all_bands)
@@ -101,6 +96,7 @@ class Report(ContestReport):
             
             data1 = pivot_dfs[call1].loc[band]
             data2 = -pivot_dfs[call2].loc[band]
+            
             band_max_rate = max(data1.max(), data2.abs().max())
             rounded_limit = self._get_rounded_axis_limit(band_max_rate)
 
@@ -119,7 +115,11 @@ class Report(ContestReport):
                 ax.axvline(x=hour_marker - 0.5, color='black', linestyle='-', linewidth=1.5, alpha=0.4)
 
         # --- 3. Dynamic X-Axis Formatting ---
-        contest_duration_hours = (max_time - min_time).total_seconds() / 3600
+        if not time_bins.empty:
+            contest_duration_hours = (max_time - min_time).total_seconds() / 3600
+        else:
+            contest_duration_hours = 0
+            
         hour_interval = 3 if contest_duration_hours <= 24 else 4
         date_format_str = '%H:%M' if contest_duration_hours <= 24 else '%d-%H%M'
         tick_step = hour_interval * 4
@@ -134,7 +134,6 @@ class Report(ContestReport):
         contest_name = metadata.get('ContestName', '')
         event_id = metadata.get('EventID', '')
         
-        # Per CLA Reports Style Guide v0.90.12-Beta
         mode_title_str = f" ({mode_filter})" if mode_filter else ""
         title_line1 = f"{self.report_name}{mode_title_str}"
         context_str = f"{year} {event_id} {contest_name}".strip().replace("  ", " ")
@@ -164,33 +163,31 @@ class Report(ContestReport):
         """Orchestrates the generation of the combined plot and per-mode plots."""
         if len(self.logs) != 2:
             return f"Error: Report '{self.report_name}' requires exactly two logs."
-        
         log1, log2 = self.logs[0], self.logs[1]
         created_files = []
 
-        # --- Prepare base dataframes ---
-        df1 = get_valid_dataframe(log1, include_dupes=False)
-        df2 = get_valid_dataframe(log2, include_dupes=False)
-
-        if df1.empty or df2.empty:
-            return "Skipping report: At least one log has no valid, non-dupe QSO data."
-        
         # --- 1. Generate the main "All Modes" plot ---
-        msg = self._generate_plot_for_slice(df1, df2, log1, log2, output_path, mode_filter=None, **kwargs)
+        aggregator = MatrixAggregator(self.logs)
+        matrix_data_all = aggregator.get_matrix_data(bin_size='15min', mode_filter=None)
+        
+        msg = self._generate_plot_for_slice(matrix_data_all, log1, log2, output_path, mode_filter=None, **kwargs)
         created_files.append(msg)
         
         # --- 2. Generate per-mode plots ---
-        modes_to_plot = ['CW', 'PH', 'DG']
+        # Check modes present in raw data to determine if we need loops
+        df1 = get_valid_dataframe(log1, include_dupes=False)
+        df2 = get_valid_dataframe(log2, include_dupes=False)
         modes_present = pd.concat([df1['Mode'], df2['Mode']]).dropna().unique()
+
+        modes_to_plot = ['CW', 'PH', 'DG']
 
         if len(modes_present) > 1:
             for mode in modes_to_plot:
                 if mode in modes_present:
-                    df1_slice = df1[df1['Mode'] == mode]
-                    df2_slice = df2[df2['Mode'] == mode]
-
-                    if not df1_slice.empty or not df2_slice.empty:
-                        msg = self._generate_plot_for_slice(df1_slice, df2_slice, log1, log2, output_path, mode_filter=mode, **kwargs)
-                        created_files.append(msg)
+                    # Fetch specific DAL slice
+                    matrix_data_mode = aggregator.get_matrix_data(bin_size='15min', mode_filter=mode)
+                    
+                    msg = self._generate_plot_for_slice(matrix_data_mode, log1, log2, output_path, mode_filter=mode, **kwargs)
+                    created_files.append(msg)
 
         return "\n".join(created_files)

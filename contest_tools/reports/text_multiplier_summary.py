@@ -4,8 +4,8 @@
 #          specific multiplier type (e.g., Countries, Zones).
 #
 # Author: Gemini AI
-# Date: 2025-10-01
-# Version: 0.90.0-Beta
+# Date: 2025-12-04
+# Version: 0.93.2
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -14,21 +14,30 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
 # --- Revision History ---
+# [0.93.2] - 2025-12-04
+# - Refactored rendering logic to support single-line output for single logs
+#   while preserving indented hierarchy for comparative reports.
+# [0.93.1] - 2025-11-24
+# - Refactored to consume JSON-serializable types (Dicts/Lists) from
+#   MultiplierStatsAggregator, removing direct Pandas dependencies.
+# [0.93.0-Beta] - 2025-11-23
+# - Added logic to preserve "Prefixes" as a plural header.
 # [0.90.0-Beta] - 2025-10-01
 # Set new baseline version for release.
 
 from typing import List
-import pandas as pd
 import os
 import json
 import logging
 import hashlib
 from ..contest_log import ContestLog
+from ..data_aggregators.multiplier_stats import MultiplierStatsAggregator
 from .report_interface import ContestReport
-from ._report_utils import calculate_multiplier_pivot
 
 class Report(ContestReport):
     """
@@ -45,95 +54,70 @@ class Report(ContestReport):
         """
         Generates the report content.
         """
-        # --- Create a list of filtered dataframes to process ---
-        log_data_to_process = []
-        for log in self.logs:
-            df = log.get_processed_data()
-            if kwargs.get('mode_filter'):
-                filtered_df = df[df['Mode'] == kwargs.get('mode_filter')].copy()
-            else:
-                filtered_df = df.copy()
-            log_data_to_process.append({'df': filtered_df, 'meta': log.get_metadata()})
-        
-        # --- Single-Log Mode ---
-        if len(log_data_to_process) == 1:
-            log_data = log_data_to_process[0]
-            df = log_data['df'][log_data['df']['Dupe'] == False]
-            all_calls = [log_data['meta'].get('MyCall', 'Unknown')]
-            return self._generate_report_for_logs(
-                dfs=[df],
-                all_calls=all_calls,
-                output_path=output_path,
-                contest_def=self.logs[0].contest_definition,
-                **kwargs
-            )
-        
-        # --- Multi-Log (Comparative) Mode ---
-        else:
-            all_dfs = []
-            all_calls = []
-            for log_data in log_data_to_process:
-                df = log_data['df'][log_data['df']['Dupe'] == False].copy()
-                if not df.empty:
-                    my_call = log_data['meta'].get('MyCall', 'Unknown')
-                    df['MyCall'] = my_call
-                    all_calls.append(my_call)
-                    all_dfs.append(df)
-
-            return self._generate_report_for_logs(
-                dfs=all_dfs,
-                all_calls=sorted(all_calls),
-                output_path=output_path,
-                contest_def=self.logs[0].contest_definition,
-                **kwargs
-            )
-
-    def _generate_report_for_logs(self, dfs, all_calls, output_path, contest_def, **kwargs):
         mult_name = kwargs.get('mult_name')
         mode_filter = kwargs.get('mode_filter')
         
-        if not dfs:
-            mode_str = f" on mode '{mode_filter}'" if mode_filter else ""
-            return f"Report '{self.report_name}' for '{mult_name}'{mode_str} skipped as no data was found."
-
-        mult_rule = next((r for r in contest_def.multiplier_rules if r.get('name', '').lower() == mult_name.lower()), None)
-        if not mult_rule or 'value_column' not in mult_rule:
-            return f"Error: Multiplier type '{mult_name}' not found in definition."
-
-        mult_column = mult_rule['value_column']
+        # --- Use Aggregator for Data Calculation ---
+        aggregator = MultiplierStatsAggregator(self.logs)
+        result = aggregator.get_summary_data(mult_name, mode_filter)
+        
+        if 'error' in result:
+            return result['error']
+            
+        pivot = result['pivot']
+        all_calls = result['all_calls']
+        mult_column = result['mult_column']
+        mult_rule = result['mult_rule']
+        combined_df = result['combined_df']
+        main_df = result['main_df']
+        contest_def = self.logs[0].contest_definition
         name_column = mult_rule.get('name_column')
-        
-        combined_df = pd.concat(dfs, ignore_index=True)
-        if combined_df.empty or mult_column not in combined_df.columns:
-            return f"No '{mult_name}' multiplier data to report for mode '{mode_filter}'."
 
-        main_df = combined_df[combined_df[mult_column].notna()]
-        main_df = main_df[main_df[mult_column] != 'Unknown']
+        # Check if pivot data exists (handling dict structure)
+        # pivot is dict: {'index': [], 'columns': [], 'data': []}
+        if not pivot.get('data') and not combined_df:
+             mode_str = f" on mode '{mode_filter}'" if mode_filter else ""
+             return f"Report '{self.report_name}' for '{mult_name}'{mode_str} skipped as no data was found."
 
-        if not contest_def.mults_from_zero_point_qsos:
-            main_df = main_df[main_df['QSOPoints'] > 0]
-        
-        if kwargs.get('debug_mults'):
-            callsign = all_calls[0] if len(all_calls) == 1 else '_vs_'.join(all_calls)
-            debug_csv_filename = f"multiplier_summary_sourcedata_debug_{callsign}.csv"
-            debug_csv_filepath = os.path.join(output_path, debug_csv_filename)
-            main_df.to_csv(debug_csv_filepath, index=False)
-        
         bands = contest_def.valid_bands
         is_single_band = len(bands) == 1
         is_comparative = len(all_calls) > 1
-        
-        pivot = calculate_multiplier_pivot(main_df, mult_column, group_by_call=is_comparative)
 
+        # --- Reconstruct Data Lookup from JSON 'split' format ---
+        pivot_columns = pivot.get('columns', [])
+        pivot_index = pivot.get('index', [])
+        pivot_data = pivot.get('data', [])
+        
+        # Map band names to column indices within the data rows
+        band_col_map = {b: i for i, b in enumerate(pivot_columns)}
+        
+        # Create a lookup: key -> row_data
+        data_map = {}
+        unique_mults = set()
+        
+        for idx, row_vals in zip(pivot_index, pivot_data):
+            # JSON serializes tuples as lists. Convert back for consistent dictionary keys.
+            key = tuple(idx) if isinstance(idx, list) else idx
+            data_map[key] = row_vals
+            
+            # Extract distinct multipliers from index
+            if is_comparative:
+                unique_mults.add(key[0]) # key is (mult, call)
+            else:
+                unique_mults.add(key)    # key is mult
+
+        sorted_mults = sorted(list(unique_mults))
+        
         # --- Report Header Setup ---
-        year = dfs[0]['Date'].iloc[0].split('-')[0] if not dfs[0].empty else "----"
+        first_row_date = combined_df[0]['Date'] if combined_df else "----"
+        year = first_row_date.split('-')[0]
         mode_title_str = f" ({mode_filter})" if mode_filter else ""
         title1 = f"--- {self.report_name}: {mult_name}{mode_title_str} ---"
         title2 = f"{year} {contest_def.contest_name} - {', '.join(all_calls)}"
         report_lines = []
 
         # --- Gracefully handle cases with no multipliers ---
-        if pivot.empty:
+        if not pivot_data:
             report_lines.append(title1)
             report_lines.append(title2)
             report_lines.append(f"\nNo '{mult_name}' multipliers found to summarize.")
@@ -141,39 +125,38 @@ class Report(ContestReport):
             report_content = "\n".join(report_lines) + "\n"
             os.makedirs(output_path, exist_ok=True)
             filename_calls = '_vs_'.join(sorted(all_calls))
+        
             mode_suffix = f"_{mode_filter.lower()}" if mode_filter else ""
             filename = f"{self.report_id}_{mult_name.lower()}{mode_suffix}_{filename_calls}.txt"
             filepath = os.path.join(output_path, filename)
             with open(filepath, 'w', encoding='utf-8') as f:
                 f.write(report_content)
             return f"Text report saved to: {filepath}"
-        
+         
+        # Name map logic (list based)
         name_map = {}
-        if name_column and name_column in main_df.columns:
-            name_map_df = main_df[[mult_column, name_column]].dropna().drop_duplicates()
-            name_map = name_map_df.set_index(mult_column)[name_column].to_dict()
+        if name_column:
+             # Simple iteration to build map from list of dicts
+             for record in main_df:
+                 if record.get(mult_column) and record.get(name_column):
+                     name_map[record[mult_column]] = record[name_column]
 
-        for band in bands:
-            if band not in pivot.columns: pivot[band] = 0
-        pivot = pivot[bands]
-        
-        if not is_single_band:
-            pivot['Total'] = pivot.sum(axis=1)
-
+        # Determine column header
         if mult_name.lower() == 'countries':
             source_type = mult_rule.get('source', 'dxcc').upper()
             first_col_header = source_type
+        elif mult_name.lower() == 'prefixes':
+            first_col_header = mult_name
         else:
             first_col_header = mult_name[:-1] if mult_name.lower().endswith('s') else mult_name
         
-        sorted_mults = sorted(pivot.index.get_level_values(0).unique())
-        
+        # Calculate column widths
         max_mult_len = len(first_col_header)
         if sorted_mults:
             for mult in sorted_mults:
                 if name_column:
                     full_name = name_map.get(mult, '')
-                    display_string = f"{mult} ({full_name})" if pd.notna(full_name) and full_name != '' else str(mult)
+                    display_string = f"{mult} ({full_name})" if full_name else str(mult)
                     max_mult_len = max(max_mult_len, len(display_string))
                 else:
                     max_mult_len = max(max_mult_len, len(str(mult)))
@@ -202,55 +185,97 @@ class Report(ContestReport):
         report_lines.append(table_header)
         report_lines.append(separator)
 
+        # Calculate Column Totals (per call) for the footer
+        col_totals = {call: {b: 0 for b in bands} for call in all_calls}
+
         for mult in sorted_mults:
             mult_display = str(mult)
             if name_column:
                 mult_full_name = name_map.get(mult, '')
-                if pd.notna(mult_full_name) and mult_full_name != '': 
+                if mult_full_name: 
                     clean_name = str(mult_full_name).split(';')[0].strip()
                     mult_display = f"{mult} ({clean_name})"
 
-            report_lines.append(f"{mult_display:<{first_col_width}}")
-            
-            mult_data = pivot.loc[mult]
-            for call in all_calls:
-                if is_comparative:
-                    if call in mult_data.index:
-                        row = mult_data.loc[call]
-                    else:
-                        continue
-                else:
-                    row = mult_data
-
-                line = f"  {call}:".ljust(first_col_width)
-                for band in bands: line += f"{row.get(band, 0):>7}"
+            if not is_comparative:
+                # --- Single Log: Render on one line ---
+                line = f"{mult_display:<{first_col_width}}"
+                call = all_calls[0]
+                lookup_key = mult
+                row_values = data_map.get(lookup_key, [])
+                
+                row_total = 0
+                for band in bands:
+                    val = 0
+                    if row_values and band in band_col_map:
+                        col_idx = band_col_map[band]
+                        val = int(row_values[col_idx])
+                    line += f"{val:>7}"
+                    row_total += val
+                    col_totals[call][band] += val
+                
                 if not is_single_band:
-                    line += f"{row.get('Total', 0):>7}"
+                    line += f"{row_total:>7}"
                 report_lines.append(line)
-
+                
+            else:
+                # --- Comparative: Render Header + Indented Rows ---
+                report_lines.append(f"{mult_display:<{first_col_width}}")
+                
+                for call in all_calls:
+                    lookup_key = (mult, call)
+                    # Check if this call/mult combo exists
+                    if lookup_key not in data_map:
+                        continue
+                    
+                    row_values = data_map.get(lookup_key, [])
+                    row_total = 0
+                    line = f"  {call}:".ljust(first_col_width)
+                    
+                    for band in bands:
+                        val = 0
+                        if row_values and band in band_col_map:
+                            col_idx = band_col_map[band]
+                            val = int(row_values[col_idx])
+                        
+                        line += f"{val:>7}"
+                        row_total += val
+                        col_totals[call][band] += val 
+                    
+                    if not is_single_band:
+                        line += f"{row_total:>7}"
+                    report_lines.append(line)
 
         report_lines.append(separator)
-        report_lines.append(f"{'Total':<{first_col_width}}")
         
-        if is_comparative:
-            total_pivot = pivot.groupby(level='MyCall').sum()
+        # --- Render Footer ---
+        if not is_comparative:
+             line = f"{'Total':<{first_col_width}}"
+             call = all_calls[0]
+             grand_total = 0
+             for band in bands:
+                val = col_totals[call][band]
+                line += f"{val:>7}"
+                grand_total += val
+             if not is_single_band:
+                line += f"{grand_total:>7}"
+             report_lines.append(line)
         else:
-            total_pivot = pivot.sum().to_frame().T
-            total_pivot['MyCall'] = all_calls[0]
-            total_pivot = total_pivot.set_index('MyCall')
-
-        for call in all_calls:
-            if call in total_pivot.index:
-                row = total_pivot.loc[call]
+            report_lines.append(f"{'Total':<{first_col_width}}")
+            for call in all_calls:
                 line = f"  {call}:".ljust(first_col_width)
-                for band in bands: line += f"{row.get(band, 0):>7}"
+                grand_total = 0
+                for band in bands:
+                    val = col_totals[call][band]
+                    line += f"{val:>7}"
+                    grand_total += val
+                
                 if not is_single_band:
-                    line += f"{row.get('Total', 0):>7}"
+                    line += f"{grand_total:>7}"
                 report_lines.append(line)
 
         # --- Diagnostic Section for "Unknown" Multipliers ---
-        unknown_df = combined_df[combined_df[mult_column] == 'Unknown']
-        unique_unknown_calls = sorted(unknown_df['Call'].unique())
+        unknown_records = [r['Call'] for r in combined_df if r.get(mult_column) == 'Unknown']
+        unique_unknown_calls = sorted(list(set(unknown_records)))
         
         if unique_unknown_calls:
             report_lines.append("\n" + "-" * 30)
@@ -264,38 +289,8 @@ class Report(ContestReport):
                 line_calls = unique_unknown_calls[i:i+5]
                 report_lines.append("  ".join([f"{call:<{col_width}}" for call in line_calls]))
 
-        # --- Diagnostic Section for "Unassigned" Multipliers ---
-        df_to_check = combined_df
-        if getattr(contest_def, 'is_naqp_ruleset', False):
-            df_to_check = combined_df[(combined_df['Continent'] == 'NA') | (combined_df['DXCCPfx'] == 'KH6')]
-
-        unassigned_df = df_to_check[df_to_check[mult_column].isna()]
-        
-        # Filter out intentional blanks for mutually exclusive mults
-        exclusive_groups = contest_def.mutually_exclusive_mults
-        for group in exclusive_groups:
-            if mult_column in group:
-                partner_cols = [p for p in group if p != mult_column and p in combined_df.columns]
-                if partner_cols:
-                    indices_to_check = unassigned_df.index
-                    partner_values_exist = combined_df.loc[indices_to_check, partner_cols].notna().any(axis=1)
-                    unassigned_df = unassigned_df.loc[~partner_values_exist]
-        
-        unique_unassigned_calls = sorted(unassigned_df['Call'].unique())
-        
-        if unique_unassigned_calls:
-            report_lines.append("\n" + "-" * 30)
-            report_lines.append(f"Callsigns with unassigned {first_col_header}:")
-            report_lines.append("-" * 30)
-            
-            col_width = 12
-            num_cols = max(1, table_width // (col_width + 2))
-            
-            for i in range(0, len(unique_unassigned_calls), num_cols):
-                line_calls = unique_unassigned_calls[i:i+5]
-                report_lines.append("  ".join([f"{call:<{col_width}}" for call in line_calls]))
-
         report_content = "\n".join(report_lines) + "\n"
+        
         os.makedirs(output_path, exist_ok=True)
         
         filename_calls = '_vs_'.join(sorted(all_calls))

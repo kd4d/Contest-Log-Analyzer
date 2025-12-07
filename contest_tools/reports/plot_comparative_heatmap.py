@@ -6,8 +6,8 @@
 # Copyright (c) 2025 Mark Bailey, KD4D
 #
 # Author: Gemini AI
-# Date: 2025-10-01
-# Version: 0.90.0-Beta
+# Date: 2025-11-24
+# Version: 1.0.0
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -16,12 +16,14 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [1.0.0] - 2025-11-24
+# Refactored to use MatrixAggregator (DAL).
 # [0.90.0-Beta] - 2025-10-01
 # Set new baseline version for release.
-
 import pandas as pd
 import os
 import logging
@@ -32,6 +34,7 @@ from typing import List, Dict, Any
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
 from ._report_utils import get_valid_dataframe, create_output_directory, save_debug_data, ComparativeHeatmapChart
+from ..data_aggregators.matrix_stats import MatrixAggregator
 
 class Report(ContestReport):
     """
@@ -42,33 +45,26 @@ class Report(ContestReport):
     report_type: str = "plot"
     supports_multi = True
 
-    def _generate_plot_for_slice(self, df1_slice: pd.DataFrame, df2_slice: pd.DataFrame, time_bins: pd.DatetimeIndex, log1: ContestLog, log2: ContestLog, output_path: str, part_info_str: str, filename_suffix: str, **kwargs):
-        """Helper function to generate a single heatmap plot for a given data slice."""
+    def _generate_plot_for_slice(self, matrix_data: Dict, log1: ContestLog, log2: ContestLog, output_path: str, part_info_str: str, filename_suffix: str, **kwargs):
+        """Helper function to generate a single heatmap plot for a given data slice (DAL-based)."""
         call1 = log1.get_metadata().get('MyCall', 'Log1')
         call2 = log2.get_metadata().get('MyCall', 'Log2')
         debug_data_flag = kwargs.get("debug_data", False)
         
-        if df1_slice.empty and df2_slice.empty:
-            return None # Skip plot generation if no data for this slice
-
-        # --- Data Preparation for the slice ---
-        dfs = {call1: df1_slice, call2: df2_slice}
+        # --- Data Reconstitution ---
+        time_bins_str = matrix_data['time_bins']
+        all_bands = matrix_data['bands']
         
-        all_bands_with_activity = sorted(list(
-            set(dfs[call1]['Band'].unique()) | set(dfs[call2]['Band'].unique())
-        ))
-        if not all_bands_with_activity:
+        if not time_bins_str or not all_bands:
             return None
 
+        time_bins = pd.to_datetime(time_bins_str)
+        
+        # Reconstruct Pandas DataFrames for slicing and Chart helper
         pivot_dfs = {}
-        for call, df in dfs.items():
-            if df.empty:
-                pivot = pd.DataFrame(0, index=all_bands_with_activity, columns=time_bins)
-            else:
-                pivot = df.pivot_table(index='Band', columns=pd.Grouper(key='Datetime', freq='15min'), aggfunc='size', fill_value=0)
-            
-            pivot = pivot.reindex(index=all_bands_with_activity, columns=time_bins, fill_value=0)
-            pivot_dfs[call] = pivot
+        for call in [call1, call2]:
+            qso_grid = matrix_data['logs'][call]['qso_counts']
+            pivot_dfs[call] = pd.DataFrame(qso_grid, index=all_bands, columns=time_bins)
 
         # --- Handle Multi-Part Plots for Long Contests ---
         intervals_per_day = 96
@@ -88,16 +84,15 @@ class Report(ContestReport):
 
             part_suffix_text = f"(Part {part_num + 1} of {num_parts})" if num_parts > 1 else ""
             part_suffix_file = f"_Part_{part_num + 1}_of_{num_parts}" if num_parts > 1 else ""
-            
+
             final_part_info = f"{part_info_str} {part_suffix_text}".strip()
             
             filename = f"{self.report_id}_{call1}_vs_{call2}{filename_suffix}{part_suffix_file}.png"
             filepath = os.path.join(output_path, filename)
             
-            # --- Save Debug Data ---
+            # --- Save Debug Data (Modified for JSON compatibility) ---
             debug_filename = f"{self.report_id}_{call1}_vs_{call2}{filename_suffix}{part_suffix_file}.txt"
             
-            # Create copies and convert Timestamp columns to strings for JSON compatibility
             debug_data1 = data1_part.copy()
             debug_data2 = data2_part.copy()
             debug_data1.columns = debug_data1.columns.map(lambda ts: ts.isoformat())
@@ -118,51 +113,102 @@ class Report(ContestReport):
         """Orchestrates the generation of all pairwise, per-band, and per-mode plots."""
         if len(self.logs) < 2:
             return f"Report '{self.report_name}' requires at least two logs for comparison."
-
         created_files = []
         
         for log1, log2 in itertools.combinations(self.logs, 2):
-            df1 = get_valid_dataframe(log1, include_dupes=False)
-            df2 = get_valid_dataframe(log2, include_dupes=False)
+            aggregator = MatrixAggregator([log1, log2])
             
-            if df1.empty and df2.empty: continue
-            
-            all_datetimes = pd.concat([df1['Datetime'], df2['Datetime']])
-            min_time = all_datetimes.min().floor('h')
-            max_time = all_datetimes.max().ceil('h')
-            time_bins = pd.date_range(start=min_time, end=max_time, freq='15min', tz='UTC')
+            # A. Get Full Data to determine bands present
+            matrix_data_full = aggregator.get_matrix_data(bin_size='15min')
+            all_bands_in_pair = matrix_data_full['bands']
 
-            all_bands_in_pair = sorted(list(set(df1['Band'].unique()) | set(df2['Band'].unique())))
             for band in all_bands_in_pair:
                 band_output_path = os.path.join(output_path, band)
                 create_output_directory(band_output_path)
                 
-                df1_band = df1[df1['Band'] == band]
-                df2_band = df2[df2['Band'] == band]
-
+                # Note: The Aggregator gets the whole log. We need to filter by Band HERE? 
+                # No, the MatrixAggregator returns a grid for ALL bands. 
+                # We need to slice the 2D grid for just this band.
+                # However, the generic slicer `_generate_plot_for_slice` expects a matrix_data object.
+                # Construct a single-band matrix_data subset manually?
+                # Or better: Just pass the full matrix and let the helper slice? 
+                # Actually, the original code looped bands and modes. 
+                # To maintain parity, we should filter the raw DFs or use the Aggregator cleverly.
+                
+                # Strategy: 
+                # 1. Band-Level: Filter DFs by Band, then pass to Aggregator?
+                # The Aggregator takes Logs. 
+                # Simplest: Modify `_generate_plot_for_slice` to accept the *Full* matrix and the *Band Name*.
+                # But we also have "Mode" loop below.
+                
+                # Let's perform the filtering at the Log/DF level before calling the aggregator 
+                # is not possible because Aggregator takes Logs.
+                # We will instantiate temporary Logs or just rely on the fact that `get_matrix_data` returns 
+                # a grid where we can select the index for 'band'.
+                
+                # BUT: `_generate_plot_for_slice` reconstructs the DF from `qso_counts`.
+                # If we pass the full `qso_counts`, the DF has all bands.
+                # We can filter that DF inside `_generate_plot_for_slice`? 
+                # No, `_generate_plot_for_slice` expects to plot what it is given.
+                
+                # REVISED STRATEGY: 
+                # We will construct a synthetic "Matrix Data" dict that only contains the rows for the current band.
+                
                 # 1. Generate "Band Overall" Plot
-                filepath = self._generate_plot_for_slice(
-                    df1_slice=df1_band, df2_slice=df2_band, time_bins=time_bins, log1=log1, log2=log2,
-                    output_path=band_output_path, part_info_str=f"({band})",
-                    filename_suffix=f"_{band.lower()}", **kwargs
-                )
-                if filepath: created_files.append(filepath)
+                # Extract the row for 'band' from `matrix_data_full`
+                
+                # (Refactoring `_generate_plot_for_slice` to accept filtered data is cleanest)
+                # Let's manually construct the filtered matrix data dict
+                
+                def filter_matrix_by_band(m_data, target_band):
+                    if target_band not in m_data['bands']: return None
+                    idx = m_data['bands'].index(target_band)
+                    new_data = {
+                        "time_bins": m_data['time_bins'],
+                        "bands": [target_band],
+                        "logs": {}
+                    }
+                    for c, d in m_data['logs'].items():
+                        new_data['logs'][c] = {
+                            "qso_counts": [d['qso_counts'][idx]],
+                            "activity_status": [d['activity_status'][idx]]
+                        }
+                    return new_data
+
+                band_matrix_data = filter_matrix_by_band(matrix_data_full, band)
+                if band_matrix_data:
+                    filepath = self._generate_plot_for_slice(
+                        matrix_data=band_matrix_data, log1=log1, log2=log2,
+                        output_path=band_output_path, part_info_str=f"({band})",
+                        filename_suffix=f"_{band.lower()}", **kwargs
+                    )
+                    if filepath: created_files.append(filepath)
 
                 # 2. Generate "Band-Mode" Plots
-                modes_in_band = sorted(list(set(df1_band['Mode'].unique()) | set(df2_band['Mode'].unique())))
+                # We need to ask the Aggregator for specific modes.
+                # We can't use `matrix_data_full` because that merges modes.
+                
+                # Check which modes exist in raw logs to save time
+                df1 = get_valid_dataframe(log1, include_dupes=False)
+                df2 = get_valid_dataframe(log2, include_dupes=False)
+                modes_in_band = sorted(list(set(df1[df1['Band']==band]['Mode'].unique()) | set(df2[df2['Band']==band]['Mode'].unique())))
+                
                 if len(modes_in_band) > 1:
                     for mode in modes_in_band:
-                        df1_mode = df1_band[df1_band['Mode'] == mode]
-                        df2_mode = df2_band[df2_band['Mode'] == mode]
+                        # Get Matrix for this Mode specifically
+                        matrix_data_mode = aggregator.get_matrix_data(bin_size='15min', mode_filter=mode)
                         
-                        filepath = self._generate_plot_for_slice(
-                            df1_slice=df1_mode, df2_slice=df2_mode, time_bins=time_bins, log1=log1, log2=log2,
-                            output_path=band_output_path, part_info_str=f"({band} - {mode})",
-                            filename_suffix=f"_{band.lower()}_{mode.lower()}", **kwargs
-                        )
-                        if filepath: created_files.append(filepath)
+                        # Now filter for the band
+                        band_mode_matrix = filter_matrix_by_band(matrix_data_mode, band)
+                        
+                        if band_mode_matrix:
+                            filepath = self._generate_plot_for_slice(
+                                matrix_data=band_mode_matrix, log1=log1, log2=log2,
+                                output_path=band_output_path, part_info_str=f"({band} - {mode})",
+                                filename_suffix=f"_{band.lower()}_{mode.lower()}", **kwargs
+                            )
+                            if filepath: created_files.append(filepath)
 
         if not created_files:
             return f"Report '{self.report_name}' was generated, but no files were created."
-
         return f"Plot report(s) saved to relevant subdirectories in:\n  - {output_path}"

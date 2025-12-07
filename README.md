@@ -1,10 +1,19 @@
 # Contest Log Analyzer
 
-**Version: 0.91.1-Beta**
-**Date: 2025-10-11**
+**Version: 1.0.0**
+**Date: 2025-12-06**
 
 ---
 ### --- Revision History ---
+## [1.0.0] - 2025-12-06
+### Added
+# - Added `wrtc_propagation` and `wrtc_propagation_animation` to the list
+#   of Available Reports.
+## [0.94.0-Beta] - 2025-12-06
+### Changed
+# - Updated version to 0.94.0-Beta to reflect the Phase 1.5 Stabilization release.
+### Removed
+# - Removed `multipliers_by_hour` from the list of Available Reports.
 ## [0.91.1-Beta] - 2025-10-11
 ### Added
 # - Added an introduction to explain the concept of Contest Analytics.
@@ -34,9 +43,7 @@
 # - Initial release.
 ---
 
-The Contest Log Analyzer is a powerful tool for post-contest analysis, designed to uncover the strategic insights hidden within amateur radio contest logs. While logging software is excellent for real-time operations, this tool is designed specifically for post-contest log comparison, which is essential for detailed performance analysis. By comparing logs head-to-head, this tool helps the user to visualize the story of the contest: who was on what band and when, how an advantage was gained, and which missed opportunities were the most costly.
-
-It answers the critical questions that lead to better performance: Was my strategy of running on 20 meters more effective than my competitor's S&P strategy? Which specific multipliers did they work that I missed? How did our hourly rates compare during the critical European opening? By transforming raw log data into actionable intelligence, the analyzer provides a clear path for improving your operating strategy for the next event.
+The Contest Log Analyzer is a powerful tool for post-contest analysis, designed to uncover the strategic insights hidden within amateur radio contest logs. While logging software is excellent for real-time operations, this tool is designed specifically for post-contest log comparison, which is essential for detailed performance analysis. By comparing logs head-to-head, this tool helps the user to visualize the story of the contest: who was on what band and when, how an advantage was gained, and which missed opportunities were the most costly. It answers the critical questions that lead to better performance: Was my strategy of running on 20 meters more effective than my competitor's S&P strategy? Which specific multipliers did they work that I missed? How did our hourly rates compare during the critical European opening? By transforming raw log data into actionable intelligence, the analyzer provides a clear path for improving your operating strategy for the next event.
 
 ---
 ## Key Features
@@ -49,6 +56,7 @@ It answers the critical questions that lead to better performance: Was my strate
 * **Annotated CSV Output**: Generates detailed, "annotated" CSV files from the processed logs, perfect for loading into Excel or other tools for custom analysis and prototyping.
 * **Contest-Specific Scoring**: A modular system calculates QSO points based on the official rules for supported contests (ARRL-DX, ARRL-SS, CQ-WPX, CQ-WW).
 * **Dynamic Reporting Engine**: A flexible, "plug-and-play" system for generating a wide variety of text, plot, and chart-based reports.
+
 ---
 ## Installation and Setup
 
@@ -57,9 +65,7 @@ Before using the analyzer, you must set up your environment and install the requ
 ---
 ## Usage
 
-The analyzer is run from the command line using `main_cli.py`.
-
-The examples below show basic usage. For a complete list of all command-line options, available reports, and usage details, please refer to the `Docs/UsersGuide.md`.
+The analyzer is run from the command line using `main_cli.py`. The examples below show basic usage. For a complete list of all command-line options, available reports, and usage details, please refer to the `Docs/UsersGuide.md`.
 
 #### **Basic Syntax**
 
@@ -69,21 +75,21 @@ The examples below show basic usage. For a complete list of all command-line opt
 
 * **Generate all available reports for two logs:**
 
-__CODE_BLOCK__
+```
 python main_cli.py --report all Logs/2024/cq-ww-cw/k3lr.log Logs/2024/cq-ww-cw/kc1xx.log
-__CODE_BLOCK__
+```
 
 * **Generate a specific report (Score Summary) for a single log:**
 
-__CODE_BLOCK__
+```
 python main_cli.py --report score_report Logs/2024/cq-ww-cw/k3lr.log
-__CODE_BLOCK__
+```
 
 * **Generate a Missed Multipliers report for CQ WW Zones:**
 
-__CODE_BLOCK__
+```
 python main_cli.py --report missed_multipliers --mult-name Zones Logs/2024/cq-ww-cw/k3lr.log Logs/2024/cq-ww-cw/kc1xx.log
-__CODE_BLOCK__
+```
 
 ---
 ## Supported Contests
@@ -101,15 +107,15 @@ The analyzer uses the `CONTEST:` field in the Cabrillo header to apply contest-s
 * North American QSO Party (NAQP)
 * WAE (CW & SSB)
 * WRTC (via IARU-HF log)
+
 ---
 ## Available Reports
 
-All generated files are saved to a structured directory under `reports/YYYY/CONTEST_NAME/`.
-
-For a detailed explanation of how to interpret each report, please see the `Docs/ReportInterpretationGuide.md`.
+All generated files are saved to a structured directory under `reports/YYYY/CONTEST_NAME/`. For a detailed explanation of how to interpret each report, please see the `Docs/ReportInterpretationGuide.md`.
 
 #### **Animation Reports (`animations/`)**
 * `hourly_animation`: Hourly Rate Animation
+* `wrtc_propagation_animation`: WRTC Propagation Animation
 
 #### **HTML Reports (`html/`)**
 * `html_qso_comparison`: HTML QSO Comparison Report
@@ -127,6 +133,7 @@ For a detailed explanation of how to interpret each report, please see the `Docs
 * `cumulative_difference_plots`: Cumulative Difference Plots
 * `point_rate_plots`: Point Rate Comparison Plots
 * `qso_rate_plots`: QSO Rate Comparison Plots
+* `wrtc_propagation`: WRTC Propagation by Continent
 
 #### **Text Reports (`text/`)**
 * `comparative_continent_summary`: Comparative Continent QSO Summary
@@ -136,13 +143,13 @@ For a detailed explanation of how to interpret each report, please see the `Docs
 * `continent_summary`: Continent QSO Summary
 * `missed_multipliers`: Missed Multipliers Report
 * `multiplier_summary`: Multiplier Summary
-* `multipliers_by_hour`: Multipliers by Hour
 * `qso_comparison`: QSO Comparison Summary
 * `rate_sheet`: Hourly Rate Sheet
 * `score_report`: Score Summary
 * `summary`: QSO Summary
 * `text_wae_comparative_score_report`: WAE Comparative Score Report
 * `text_wae_score_report`: WAE Score Summary
+
 ---
 ## License
 

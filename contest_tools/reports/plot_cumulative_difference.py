@@ -4,8 +4,8 @@
 #          comparing two logs.
 #
 # Author: Gemini AI
-# Date: 2025-10-01
-# Version: 0.90.0-Beta
+# Date: 2025-11-24
+# Version: 1.0.0
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -14,9 +14,14 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
 # --- Revision History ---
+# [1.0.0] - 2025-11-24
+# - Refactored to use Data Abstraction Layer (TimeSeriesAggregator).
+# - Enabled Run/S&P plots for Points metric via 'run_points' schema.
 # [0.90.0-Beta] - 2025-10-01
 # Set new baseline version for release.
 
@@ -30,6 +35,7 @@ import logging
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
 from ._report_utils import create_output_directory, get_valid_dataframe, save_debug_data
+from ..data_aggregators.time_series import TimeSeriesAggregator
 
 class Report(ContestReport):
     """
@@ -41,39 +47,7 @@ class Report(ContestReport):
     report_type: str = "plot"
     supports_pairwise = True
     
-    def _prepare_qso_data_for_plot(self, log: ContestLog, df: pd.DataFrame, band_filter: str) -> pd.DataFrame:
-        """
-        Prepares a single log's QSO data for plotting by grouping, aggregating,
-        and aligning to the master time index.
-        """
-        if band_filter != "All":
-            df = df[df['Band'] == band_filter]
-
-        master_time_index = log._log_manager_ref.master_time_index
-
-        if df.empty:
-            empty_data = {'Run': 0, 'S&P+Unknown': 0}
-            cumulative_data = pd.DataFrame(empty_data, index=master_time_index)
-            return cumulative_data
-        
-        df_cleaned = df.dropna(subset=['Datetime', 'Run', 'Call'])
-        rate_data = df_cleaned.groupby([df_cleaned['Datetime'].dt.floor('h'), 'Run'])['Call'].count().unstack(fill_value=0)
-
-        for col in ['Run', 'S&P', 'Unknown']:
-            if col not in rate_data.columns:
-                rate_data[col] = 0
-        
-        rate_data['S&P+Unknown'] = rate_data['S&P'] + rate_data['Unknown']
-        
-        cumulative_data = rate_data.cumsum()
-            
-        if master_time_index is not None:
-            cumulative_data = cumulative_data.reindex(master_time_index, method='pad').fillna(0)
-        
-        return cumulative_data[['Run', 'S&P+Unknown']]
-
-
-    def _generate_single_plot(self, df1_slice: pd.DataFrame, df2_slice: pd.DataFrame, output_path: str, band_filter: str, mode_filter: str, **kwargs):
+    def _generate_single_plot(self, output_path: str, band_filter: str, mode_filter: str, **kwargs):
         """
         Helper function to generate a single cumulative difference plot.
         """
@@ -82,8 +56,17 @@ class Report(ContestReport):
         log1, log2 = self.logs[0], self.logs[1]
         call1 = log1.get_metadata().get('MyCall', 'Log1')
         call2 = log2.get_metadata().get('MyCall', 'Log2')
-        master_time_index = log1._log_manager_ref.master_time_index
         
+        # --- DAL Integration (v1.3.1) ---
+        agg = TimeSeriesAggregator([log1, log2])
+        ts_data = agg.get_time_series_data(band_filter=band_filter, mode_filter=mode_filter)
+        time_bins = [pd.Timestamp(t) for t in ts_data['time_bins']]
+
+        # Helper to extract series
+        def get_series(call_key, field):
+            vals = ts_data['logs'][call_key]['cumulative'][field]
+            return pd.Series(vals, index=time_bins)
+
         sns.set_theme(style="whitegrid")
         fig = plt.figure(figsize=(12, 9))
         gs = fig.add_gridspec(5, 1)
@@ -93,33 +76,37 @@ class Report(ContestReport):
         
         if metric == 'points':
             metric_name = log1.contest_definition.points_header_label or "Points"
-            score1_ts = log1.time_series_score_df.reindex(master_time_index, method='pad').fillna(0)
-            score2_ts = log2.time_series_score_df.reindex(master_time_index, method='pad').fillna(0)
-            if log1.contest_definition.contest_name.startswith('WAE'):
-                # WAE has non-linear scoring, so only show the overall difference
-                fig.delaxes(ax2)
-                fig.delaxes(ax3)
-                gs.set_height_ratios([1])
-                overall_diff = score1_ts['score'] - score2_ts['score']
-                run_diff = pd.Series(0, index=overall_diff.index)
-                sp_unk_diff = pd.Series(0, index=overall_diff.index)
-            else:
-                run_diff = score1_ts['run_score'] - score2_ts['run_score']
-                sp_unk_diff = score1_ts['sp_unk_score'] - score2_ts['sp_unk_score']
-                overall_diff = score1_ts['score'] - score2_ts['score']
-            debug_df = pd.concat([score1_ts.add_suffix(f'_{call1}'), score2_ts.add_suffix(f'_{call2}')], axis=1)
+            
+            run1 = get_series(call1, 'run_points')
+            sp1 = get_series(call1, 'sp_unk_points')
+            run2 = get_series(call2, 'run_points')
+            sp2 = get_series(call2, 'sp_unk_points')
+            
+            run_diff = run1 - run2
+            sp_unk_diff = sp1 - sp2
+            overall_diff = (run1 + sp1) - (run2 + sp2)
+
+            debug_df = pd.DataFrame({
+                f'run_pts_{call1}': run1, f'sp_pts_{call1}': sp1,
+                f'run_pts_{call2}': run2, f'sp_pts_{call2}': sp2,
+                'run_diff': run_diff, 'sp_unk_diff': sp_unk_diff, 'overall_diff': overall_diff
+            })
+            
         else: # metric == 'qsos'
             metric_name = "QSOs"
-            data1 = self._prepare_qso_data_for_plot(log1, df1_slice, band_filter)
-            data2 = self._prepare_qso_data_for_plot(log2, df2_slice, band_filter)
-
-            run_diff = data1['Run'] - data2['Run']
-            sp_unk_diff = data1['S&P+Unknown'] - data2['S&P+Unknown']
-            overall_diff = run_diff + sp_unk_diff
+            
+            run1 = get_series(call1, 'run_qsos')
+            sp1 = get_series(call1, 'sp_unk_qsos')
+            run2 = get_series(call2, 'run_qsos')
+            sp2 = get_series(call2, 'sp_unk_qsos')
+            
+            run_diff = run1 - run2
+            sp_unk_diff = sp1 - sp2
+            overall_diff = (run1 + sp1) - (run2 + sp2)
             
             debug_df = pd.DataFrame({
-                f'run_{call1}': data1['Run'], f'sp_unk_{call1}': data1['S&P+Unknown'],
-                f'run_{call2}': data2['Run'], f'sp_unk_{call2}': data2['S&P+Unknown'],
+                f'run_qso_{call1}': run1, f'sp_qso_{call1}': sp1,
+                f'run_qso_{call2}': run2, f'sp_qso_{call2}': sp2,
                 'run_diff': run_diff, 'sp_unk_diff': sp_unk_diff, 'overall_diff': overall_diff
             })
         
@@ -203,8 +190,6 @@ class Report(ContestReport):
                         save_path = os.path.join(output_path, band)
                 
                 filepath = self._generate_single_plot(
-                    df1_slice=dfs[0],
-                    df2_slice=dfs[1],
                     output_path=save_path,
                     band_filter=band,
                     mode_filter=mode_filter,

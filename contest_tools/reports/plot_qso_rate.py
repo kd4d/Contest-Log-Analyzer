@@ -4,8 +4,8 @@
 #          and for each individual band.
 #
 # Author: Gemini AI
-# Date: 2025-10-01
-# Version: 0.90.0-Beta
+# Date: 2025-11-24
+# Version: 1.0.0
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -14,9 +14,13 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
 # --- Revision History ---
+# [1.0.0] - 2025-11-24
+# - Refactored to use Data Abstraction Layer (TimeSeriesAggregator).
 # [0.90.0-Beta] - 2025-10-01
 # Set new baseline version for release.
 
@@ -29,6 +33,7 @@ import logging
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
 from ._report_utils import create_output_directory, get_valid_dataframe, save_debug_data
+from ..data_aggregators.time_series import TimeSeriesAggregator
 
 class Report(ContestReport):
     """
@@ -112,43 +117,52 @@ class Report(ContestReport):
         summary_data = []
         all_series = []
         
-        value_column = 'Call'
-        agg_func = 'count'
         metric_name = "QSOs"
+        
+        # --- DAL Integration (v1.3.1) ---
+        # Initialize Aggregator with all logs
+        agg = TimeSeriesAggregator(self.logs)
+        # Fetch Data with filters
+        ts_data = agg.get_time_series_data(band_filter=band_filter, mode_filter=mode_filter)
+        time_bins = [pd.Timestamp(t) for t in ts_data['time_bins']]
 
         for i, df in enumerate(dfs):
             log = self.logs[i]
             call = log.get_metadata().get('MyCall', 'Unknown')
             all_calls.append(call)
 
-            if band_filter != "All":
-                df = df[df['Band'] == band_filter]
-            
-            if df.empty:
+            # Get log-specific data from DAL structure
+            log_data = ts_data['logs'].get(call)
+            if not log_data:
                 continue
+                
+            cumulative_values = log_data['cumulative']['qsos']
+            scalars = log_data['scalars']
             
-            df_cleaned = df.dropna(subset=['Datetime', value_column]).set_index('Datetime')
-            
-            hourly_rate = df_cleaned.resample('h')[value_column].agg(agg_func)
-            cumulative_rate = hourly_rate.cumsum()
-            
-            master_time_index = log._log_manager_ref.master_time_index
-            if master_time_index is not None:
-                cumulative_rate = cumulative_rate.reindex(master_time_index, method='pad').fillna(0)
-            
-            ax.plot(cumulative_rate.index, cumulative_rate.values, marker='o', linestyle='-', markersize=4, label=call)
-            
-            cumulative_rate.name = call
-            all_series.append(cumulative_rate)
+            # Check if we have data to plot
+            if scalars['net_qsos'] == 0:
+                continue
 
-            total_value = len(df)
+            # Plot
+            series = pd.Series(cumulative_values, index=time_bins, name=call)
+            ax.plot(series.index, series.values, marker='o', linestyle='-', markersize=4, label=call)
+            all_series.append(series)
+
+            # NOTE: Run/S&P split for summary table is currently NOT in DAL v1.3.1 scalars,
+            # but is available in cumulative series. For now, we calculate summary from 
+            # the passed dataframe slice to maintain the table accuracy without expanding Schema yet.
+            # (Plan does not require scalar schema update for this specific table).
+            if band_filter != "All":
+                 df_filtered = df[df['Band'] == band_filter]
+            else:
+                 df_filtered = df
 
             summary_data.append([
                 call,
-                f"{total_value:,}",
-                f"{(df['Run'] == 'Run').sum():,}",
-                f"{(df['Run'] == 'S&P').sum():,}",
-                f"{(df['Run'] == 'Unknown').sum():,}"
+                f"{scalars['net_qsos']:,}", # Use DAL scalar for total
+                f"{(df_filtered['Run'] == 'Run').sum():,}",
+                f"{(df_filtered['Run'] == 'S&P').sum():,}",
+                f"{(df_filtered['Run'] == 'Unknown').sum():,}"
             ])
 
         metadata = self.logs[0].get_metadata()

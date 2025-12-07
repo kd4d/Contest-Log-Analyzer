@@ -4,8 +4,8 @@
 #          log, broken down by band.
 #
 # Author: Gemini AI
-# Date: 2025-10-09
-# Version: 0.91.0-Beta
+# Date: 2025-12-06
+# Version: 0.92.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -14,9 +14,14 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.92.0-Beta] - 2025-12-06
+# - Refactored score summary to use a hierarchical layout (Band -> Mode).
+# - Implemented strict multiplier counts per mode row, with an 'ALL' summary row
+#   showing the band total union.
 # [0.91.0-Beta] - 2025-10-09
 # - Added support for the 'once_per_band_no_mode' multiplier totaling
 #   method to correctly calculate WRTC scores.
@@ -26,7 +31,6 @@
 #   correct logic in `wae_calculator.py`.
 # [0.90.0-Beta] - 2025-10-01
 # - Set new baseline version for release.
-
 from typing import List, Dict, Set, Tuple
 import pandas as pd
 import os
@@ -99,6 +103,7 @@ class Report(ContestReport):
             
             report_lines = []
             header_width = max(table_width, len(title1), len(title2))
+            
             report_lines.append(title1.center(header_width))
             report_lines.append(title2.center(header_width))
             
@@ -111,11 +116,16 @@ class Report(ContestReport):
             report_lines.append(header)
             report_lines.append(separator)
 
-            # Sort data for display
-            canonical_band_order = [band[1] for band in ContestLog._HAM_BANDS]
-            summary_data.sort(key=lambda x: (canonical_band_order.index(x['Band']), x['Mode']))
+            # Data is already sorted hierarchically by _calculate_all_scores
 
+            previous_band = None
             for item in summary_data:
+                # Add separator between band groups
+                current_band = item.get('Band')
+                if previous_band is not None and current_band != previous_band:
+                     report_lines.append(separator)
+                previous_band = current_band
+
                 data_parts = [f"{str(item.get(name, '')):{'>' if name != 'Band' else '<'}{col_widths[name]}}" for name in ['Band', 'Mode']]
                 data_parts.append(f"{item.get('QSOs', 0):>{col_widths['QSOs']},.0f}")
                 data_parts.extend([f"{item.get(name, 0):>{col_widths[name]},.0f}" for name in mult_names])
@@ -215,8 +225,9 @@ class Report(ContestReport):
     def _calculate_all_scores(self, log: ContestLog, output_path: str, **kwargs) -> Tuple[List[Dict], Dict, int]:
         """
         Performs all score and multiplier calculations for the report.
-        This function has been refactored to fix bugs in both per-band/mode
-        and total multiplier calculations.
+        This function uses a hierarchical approach (Band -> Mode) for the summary rows,
+        calculating strict multiplier counts for each slice, while using standard logic
+        for the final total score.
         """
         df_full = log.get_processed_data()
         contest_def = log.contest_definition
@@ -230,7 +241,7 @@ class Report(ContestReport):
         if not contest_def.mults_from_zero_point_qsos:
             df_net = df_net[df_net['QSOPoints'] > 0].copy()
         
-        # --- Pre-computation for all multiplier types ---
+        # --- Pre-computation for TOTAL multiplier calculations ---
         per_band_mult_counts = {}
         first_worked_mult_counts = {}
         
@@ -256,39 +267,59 @@ class Report(ContestReport):
                 pivot = calculate_multiplier_pivot(df_valid_mults, mult_col, group_by_call=False)
                 per_band_mult_counts[mult_col] = (pivot > 0).sum(axis=0)
 
-        # --- Per-Band/Mode Summary Calculation ---
+        # --- Hierarchical Band/Mode Summary Calculation ---
         summary_data = []
         if not df_net.empty:
-            band_mode_groups = df_net.groupby(['Band', 'Mode'])
-            for (band, mode), group_df in band_mode_groups:
-                band_mode_summary = {'Band': band, 'Mode': mode}
-                band_mode_summary['QSOs'] = len(group_df)
-                band_mode_summary['Points'] = group_df['QSOPoints'].sum()
-                
+            
+            # Helper to calculate a summary row for a specific data slice
+            def process_slice(slice_df, slice_band, slice_mode):
+                row_summary = {'Band': slice_band, 'Mode': slice_mode}
+                row_summary['QSOs'] = len(slice_df)
+                row_summary['Points'] = slice_df['QSOPoints'].sum()
+
                 for rule in multiplier_rules:
                     m_name = rule['name']
                     m_col = rule['value_column']
-                    
                     applies_to = rule.get('applies_to')
+
                     if applies_to and log_location_type and applies_to != log_location_type:
-                        band_mode_summary[m_name] = 0
+                        row_summary[m_name] = 0
                         continue
+                    
+                    if m_col not in slice_df.columns:
+                        row_summary[m_name] = 0
+                        continue
+                    
+                    df_slice_valid = slice_df[slice_df[m_col].notna() & (slice_df[m_col] != 'Unknown')]
+                    
+                    # Calculate strict unique count for this slice.
+                    # This satisfies "Strict Count for that mode" and "Union... (Band Total)" for ALL row.
+                    row_summary[m_name] = df_slice_valid[m_col].nunique()
 
-                    if rule.get('totaling_method') == 'once_per_log':
-                        band_mode_summary[m_name] = first_worked_mult_counts.get(m_col, {}).get((band, mode), 0)
-                    elif rule.get('totaling_method') == 'once_per_mode':
-                        df_valid_mults_per_mode = group_df[group_df[m_col].notna() & (group_df[m_col] != 'Unknown')]
-                        band_mode_summary[m_name] = df_valid_mults_per_mode[m_col].nunique()
-                    else: # Default to sum_by_band
-                        band_counts_series = per_band_mult_counts.get(m_col)
-                        if band_counts_series is not None:
-                            band_mode_summary[m_name] = band_counts_series.get(band, 0)
-                        else:
-                            band_mode_summary[m_name] = 0
+                row_summary['AVG'] = (row_summary['Points'] / row_summary['QSOs']) if row_summary['QSOs'] > 0 else 0
+                return row_summary
 
-                band_mode_summary['AVG'] = (band_mode_summary['Points'] / band_mode_summary['QSOs']) if band_mode_summary['QSOs'] > 0 else 0
-                summary_data.append(band_mode_summary)
-                
+            # Iterate through canonical bands present in the data
+            canonical_bands = [b[1] for b in ContestLog._HAM_BANDS]
+            present_bands = [b for b in canonical_bands if b in df_net['Band'].unique()]
+
+            for band in present_bands:
+                band_df = df_net[df_net['Band'] == band]
+                # Sort modes alphabetically for consistent output
+                modes_on_band = sorted(band_df['Mode'].unique())
+
+                if len(modes_on_band) > 1:
+                    # Create 'ALL' summary row (Union of mults on band)
+                    summary_data.append(process_slice(band_df, band, 'ALL'))
+                    # Create individual mode rows (Strict count for mode)
+                    for mode in modes_on_band:
+                        mode_df = band_df[band_df['Mode'] == mode]
+                        summary_data.append(process_slice(mode_df, band, mode))
+                elif len(modes_on_band) == 1:
+                     # Single mode: just create that mode row
+                     mode = modes_on_band[0]
+                     summary_data.append(process_slice(band_df, band, mode))
+            
         # --- TOTAL Summary Calculation ---
         total_summary = {'Band': 'TOTAL', 'Mode': ''}
         total_summary['QSOs'] = df_net.shape[0]
