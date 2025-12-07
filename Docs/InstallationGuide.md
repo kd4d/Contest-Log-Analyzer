@@ -1,10 +1,14 @@
 # Contest Log Analyzer - Installation Guide
 
-**Version: 0.94.0-Beta**
-**Date: 2025-12-06**
+**Version: 0.94.1-Beta**
+**Date: 2025-12-07**
 
 ---
 ### --- Revision History ---
+## [0.94.1-Beta] - 2025-12-07
+### Changed
+# - Added `python-kaleido` to the required libraries in Step 3 to support
+#   static image export for Plotly reports.
 ## [0.94.0-Beta] - 2025-12-06
 ### Changed
 # - Added `plotly` to the required libraries in Step 3 to support the
@@ -93,6 +97,7 @@ git clone https://github.com/user/Contest-Log-Analyzer.git
 cd Contest-Log-Analyzer
 ```
 This will create the project directory (`Contest-Log-Analyzer`) on your local machine.
+
 ### Step 2: Create and Activate the Conda Environment
 It is a best practice to create an isolated environment for the project's dependencies.
 This prevents conflicts with other Python projects on your system.
@@ -108,7 +113,7 @@ conda activate cla
 With the `cla` environment active, use the following single command to install all required libraries from the recommended `conda-forge` channel.
 This includes `ffmpeg` for video creation and `plotly` for interactive charts.
 ```
-conda install -c conda-forge pandas numpy matplotlib seaborn imageio imageio-ffmpeg ffmpeg prettytable tabulate requests beautifulsoup4 plotly
+conda install -c conda-forge pandas numpy matplotlib seaborn imageio imageio-ffmpeg ffmpeg prettytable tabulate requests beautifulsoup4 plotly python-kaleido
 ```
 
 ### Step 4: Set Up the Input and Output Directories
@@ -140,6 +145,7 @@ You must set two system environment variables that point to the directories you 
 2.  In the System Properties window, click the "Environment Variables..." button.
 3.  In the "User variables" section, click "New..." and create both variables.
 4.  Click OK to close all windows. You must **restart** your terminal or command prompt for the changes to take effect.
+
 ### Step 6: Obtain and Place Data Files
 The analyzer relies on several external data files.
 Download the following files and place them inside the **`data/`** subdirectory within your **Input Directory** (`CONTEST_INPUT_DIR`).

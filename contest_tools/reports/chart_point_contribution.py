@@ -4,8 +4,8 @@
 #          point value, comparing multiple logs side-by-side.
 #
 # Author: Gemini AI
-# Date: 2025-12-04
-# Version: 0.93.7-Beta
+# Date: 2025-12-07
+# Version: 1.0.0
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -14,22 +14,29 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
 # --- Revision History ---
+# [1.0.0] - 2025-12-07
+# - Refactored visualization engine from Matplotlib to Plotly.
+# - Added HTML export capability alongside standard PNG export.
+# - Integrated PlotlyStyleManager for consistent styling.
 # [0.93.7-Beta] - 2025-12-04
 # - Fixed runtime crash by ensuring the output directory is created before
 #   saving the chart file.
 
 import os
-from typing import List, Dict
+from typing import List, Dict, Any, Optional
 import pandas as pd
-import matplotlib.pyplot as plt
-from matplotlib.gridspec import GridSpec
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+
 from contest_tools.reports.report_interface import ContestReport
 from contest_tools.contest_log import ContestLog
 from contest_tools.data_aggregators.categorical_stats import CategoricalAggregator
-from contest_tools.styles.mpl_style_manager import MPLStyleManager
+from contest_tools.styles.plotly_style_manager import PlotlyStyleManager
 from contest_tools.reports._report_utils import create_output_directory
 
 class Report(ContestReport):
@@ -47,36 +54,30 @@ class Report(ContestReport):
         super().__init__(logs)
         self.aggregator = CategoricalAggregator()
 
-    def _create_plot_for_log(self, callsign: str, log_data: Dict, ax: plt.Axes) -> None:
-        """Creates a single pie chart for a specific log's total data."""
+    def _create_trace_for_log(self, log_data: Dict, color_map: Dict[Any, str]) -> Optional[go.Pie]:
+        """Creates a single pie chart trace for a specific log's total data."""
         point_breakdown = log_data['breakdown']
         
         if not point_breakdown:
-            ax.text(0.5, 0.5, "No Data", 
-                    ha='center', va='center', transform=ax.transAxes, color='gray')
-            ax.set_title(callsign)
-            return
+            return None
 
-        total_points = log_data['total_points']
+        # Sort items by count descending
         sorted_items = sorted(point_breakdown.items(), key=lambda item: item[1], reverse=True)
         sizes = [item[1] for item in sorted_items]
-        labels = [f"{item[0]} Point ({item[1]})" for item in sorted_items]
+        labels = [f"{item[0]} Point" for item in sorted_items]
         
+        # Get colors based on the point keys
         sorted_keys = [item[0] for item in sorted_items]
-        color_map = MPLStyleManager.get_point_color_map(sorted_keys)
-        colors = [color_map[k] for k in sorted_keys]
+        colors = [color_map.get(k, '#7f7f7f') for k in sorted_keys]
         
-        wedges, texts, autotexts = ax.pie(
-            sizes, 
-            labels=labels, 
-            autopct='%1.1f%%', 
-            startangle=90, 
-            wedgeprops={'edgecolor': 'black', 'linewidth': 0.5},
-            colors=colors
+        return go.Pie(
+            labels=labels,
+            values=sizes,
+            marker=dict(colors=colors, line=dict(color='#000000', width=1)),
+            textinfo='label+percent',
+            hoverinfo='label+value+percent',
+            hole=0.0 # Full Pie, set > 0 for Donut
         )
-        
-        ax.axis('equal')
-        ax.set_title(f"{callsign} (Total: {total_points:.0f})", fontsize=12, weight='bold')
 
     def generate(self, output_path: str, **kwargs) -> List[str]:
         # Get data for ALL logs, no filters (Grand Totals)
@@ -86,17 +87,39 @@ class Report(ContestReport):
         cols = num_logs
         rows = 1
 
-        fig_width = 5 * cols
-        fig_height = 5
-        
-        fig = plt.figure(figsize=(fig_width, fig_height))
-        gs = GridSpec(rows, cols, figure=fig)
-
+        # Calculate subplot titles based on callsigns and total points
+        subplot_titles = []
         for i, log in enumerate(self.logs):
             callsign = log.get_metadata().get('MyCall', f'Log{i+1}')
             if callsign in agg_result['logs']:
-                ax = fig.add_subplot(gs[0, i])
-                self._create_plot_for_log(callsign, agg_result['logs'][callsign], ax)
+                total = agg_result['logs'][callsign]['total_points']
+                subplot_titles.append(f"{callsign}<br>(Total: {total:.0f})")
+            else:
+                subplot_titles.append(f"{callsign}<br>(No Data)")
+
+        # Create Subplots
+        fig = make_subplots(
+            rows=rows, 
+            cols=cols, 
+            subplot_titles=subplot_titles,
+            specs=[[{'type': 'domain'}] * cols]
+        )
+
+        # Collect all unique point values across all logs for consistent coloring
+        all_point_values = set()
+        for log_data in agg_result['logs'].values():
+            if log_data['breakdown']:
+                all_point_values.update(log_data['breakdown'].keys())
+        
+        color_map = PlotlyStyleManager.get_point_color_map(list(all_point_values))
+
+        # Add traces
+        for i, log in enumerate(self.logs):
+            callsign = log.get_metadata().get('MyCall', f'Log{i+1}')
+            if callsign in agg_result['logs']:
+                trace = self._create_trace_for_log(agg_result['logs'][callsign], color_map)
+                if trace:
+                    fig.add_trace(trace, row=1, col=i+1)
 
         # Standard Title Construction
         first_log = self.logs[0]
@@ -104,15 +127,31 @@ class Report(ContestReport):
         contest_name = first_log.get_metadata().get('ContestName', 'Unknown')
         all_calls = sorted([l.get_metadata().get('MyCall') for l in self.logs])
         
-        fig.suptitle(f"Comparative Point Contribution: {year} {contest_name} - {', '.join(all_calls)}", 
-                     fontsize=16, weight='bold')
-        fig.tight_layout(rect=[0, 0, 1, 0.90])
-
-        create_output_directory(output_path)
-        filename = f"{self.report_id}_{'_vs_'.join(all_calls)}.png"
-        output_file = os.path.join(output_path, filename)
+        chart_title = f"Comparative Point Contribution: {year} {contest_name} - {', '.join(all_calls)}"
         
-        fig.savefig(output_file)
-        plt.close(fig)
+        # Apply standard layout
+        layout_config = PlotlyStyleManager.get_standard_layout(chart_title)
+        fig.update_layout(**layout_config)
 
-        return [output_file]
+        # Ensure output directory exists
+        create_output_directory(output_path)
+        
+        # Define Filenames
+        base_filename = f"{self.report_id}_{'_vs_'.join(all_calls)}"
+        png_file = os.path.join(output_path, f"{base_filename}.png")
+        html_file = os.path.join(output_path, f"{base_filename}.html")
+        
+        generated_files = []
+
+        # Save PNG (Legacy Requirement)
+        try:
+            fig.write_image(png_file, width=500 * cols, height=500)
+            generated_files.append(png_file)
+        except Exception as e:
+            print(f"Warning: Could not save PNG (kaleido might be missing): {e}")
+
+        # Save HTML (New Interactive Requirement)
+        fig.write_html(html_file, include_plotlyjs='cdn')
+        generated_files.append(html_file)
+
+        return generated_files

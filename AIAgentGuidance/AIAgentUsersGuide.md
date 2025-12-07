@@ -1,104 +1,100 @@
 # **AI Agent User's Guide (Split-Role Workflow)**
 
-Version: 3.2.0
-Date: 2025-12-06
+Version: 4.0.0
+Date: 2025-12-07
 
 ### **--- Revision History ---**
+## **[4.0.0] - 2025-12-07**
+# - Major rewrite to align with `AIAgentWorkflow.md` v4.5.0.
+# - Defined the "Two-Step" Architect workflow (Analysis -> Halt -> Planning).
+# - Documented new triggers: "Generate Builder Execution Kit" and "Initiate Architect Handoff".
+# - Added "Operational Disciplines" section covering Macros, Overrides, and Exact Prompts.
 ## **[3.2.0] - 2025-12-06**
 # - Updated Phase 1 Output: Added "Reconciliation Updates" to Roadmap expectations.
 # - Added "Troubleshooting State Drift" section.
-## **[3.1.0] - 2025-12-06**
-# - Updated Phase 1 Bootstrap: Architect receives Full Context (Source + Docs + Data).
-# - Added "Handling Technical Debt" to Phase 1 Output.
-# - Refined Phase 3: Explicit check for "Manifest Heuristics" success.
 
 ## **1. The Workflow Concept**
 
-We use a **"Funnel Architecture"** to manage context:
+The workflow is a strict **State Machine** designed to prevent hallucinations and ensure code integrity. It operates on a **"Funnel Architecture"**:
 
-* **The Architect (Maximum Context):** Sees the **Full World Truth** (Code, Docs, Data). Designs the solution and identifies *implicit* dependencies. Produces the **Builder Execution Kit**.
-* **The Builder (Minimum Viable Context):** Sees **Only** what is in the Manifest. This strictly limits hallucinations and forces adherence to the Plan.
-* **You (The User):** The "Message Bus" and "FileSystem." You move files between agents and persist state.
+* **The Architect (Maximum Context):** Sees the **Full World Truth** (Code, Docs, Data). Analyzes the problem, defines the solution, and generates the *instructions* for the Builder.
+* **The Builder (Minimum Viable Context):** Sees **Only** the files listed in the Manifest. Operates in a "Safe Mode" to execute the plan without inventing non-existent dependencies.
+* **You (The User):** The "Message Bus" and "FileSystem." You act as the bridge, moving files and authorizing state transitions.
 
 ## **2. Phase 1: The Architect Session**
 
-**Goal:** Define *what* to do and *how* it fits the long-term vision.
+**Goal:** Analyze the problem and generate the blueprints (`ImplementationPlan.md`).
 
 1.  **Start:** Open a new session.
-2.  **Bootstrap (The World Truth):** Upload the **FULL** project context to ensure the Architect sees everything:
+2.  **Bootstrap (The World Truth):** Upload the **FULL** project context:
     * `AIAgentWorkflow.md` (The Rules)
     * **`project_bundle.txt`** (The Source Code)
     * **`documentation_bundle.txt`** (The Docs)
     * **`data_bundle.txt`** (The Data Schemas)
     * **`ArchitectureRoadmap.md`** (The Long-Term Memory)
 3.  **Prompt:** "Act as Architect. [Describe task]."
-4.  **Output:** The Architect produces the **Builder Execution Kit**:
-    * **Implementation Plan:** The specific blueprints for the immediate task.
-    * **Manifest:** A precise list of files (Code + Data) required for the Builder.
-    * **Technical Debt Register:** (Passive) A list of cleanup opportunities noticed during analysis.
-    * **Updated Architecture Roadmap:** (State Reconciliation) The Architect will auto-update items from "Planned" to "Completed" if it sees the code in the bundle.
+4.  **Analysis Phase:** The Architect will analyze the request, identify scope, and check files.
+    * **CRITICAL:** The Architect will **HALT** here. It will *not* generate the plan yet.
+5.  **Triggering the Plan:** The Architect will ask you to proceed.
+    * **Command:** **"Generate Builder Execution Kit"**
+    * *Note:* This command is universal for creating or updating the plan.
+6.  **Output:** The Architect produces the **Builder Execution Kit**:
+    * **Implementation Plan:** The specific blueprints.
+    * **Manifest:** A precise list of files required.
+    * **Technical Debt Register:** (Passive) Cleanup opportunities.
 
-### **Crucial Step: Persistence**
-* **Roadmap:** If the Architect outputs an updated `ArchitectureRoadmap.md` (even if it's just status updates), **overwrite your local copy immediately**. This prevents the Agent from re-planning work that is already done.
-* **Technical Debt:** Review the "Technical Debt Register" in the Plan. If an item is critical, manually add it to `ArchitectureRoadmap.md` as a future task. **Do not** ask the Builder to fix these now unless they block the current task.
+### **Phase 1.5: The Architectural Relay**
 
-### **Phase 1.5: The Architectural Relay & Health Checks**
+**Goal:** Save state before ending the session to prevent "Context Amnesia."
 
-**Goal:** Manage complex features that require multiple design sessions.
+1.  **Trigger:** When you are ready to stop or switch sessions.
+    * **Command:** **"Initiate Architect Handoff"**
+2.  **Output:** The Architect generates the **Initialization Kit**:
+    * **`ArchitectureRoadmap.md`:** Updated status of all phases.
+    * **`ArchitectHandoff.md`:** Narrative context and ephemeral constraints.
+3.  **Action:** Save these files immediately. They are required to start the next Architect session.
 
-#### **Session Health Monitoring**
-In long sessions, check for "Context Decay":
-> **"System Health Check: Estimate your current context usage and risk of decay."**
+## **3. Phase 2: The Bridge (The Trinity)**
 
-* **Green:** Continue.
-* **Yellow/Red:** Perform a Relay immediately.
+To move from Planning to Execution, you must assemble **"The Trinity"**:
 
-#### **Executing the Relay**
-1.  **Saturation:** Ask for a **State Snapshot**.
-2.  **Save:** Copy the Snapshot to a file (e.g., `Plan_Part1.md`).
-3.  **Re-Bootstrap:** Open a **FRESH** session.
-4.  **Upload:** All Bootstrap files from Phase 1 + `Plan_Part1.md`.
-5.  **Prompt:** "Act as Architect. Resume design based on the attached Plan and Roadmap."
-
-## **3. Phase 2: The Bridge**
-
-1.  **Manifest:** Copy `manifest.txt` from the Plan to your project root.
-2.  **Bundle:** Run `python test_code/create_project_bundle.py --manifest manifest.txt` to create the targeted **`builder_bundle.txt`**.
-    * *Note:* This bundle will be significantly smaller than the Architect's context. This is intentional.
+1.  **Workflow:** `AIAgentWorkflow.md`
+2.  **Plan:** `ImplementationPlan.md` (Generated by Architect)
+3.  **Bundle:** `builder_bundle.txt`
+    * *Action:* Create this file containing **ONLY** the files listed in the `manifest.txt`.
 
 ## **4. Phase 3: The Builder Session**
 
 **Goal:** Execute the plan with rigorous verification.
 
 1.  **Start:** Open a **FRESH** session.
-2.  **Upload:** Upload the **Trinity**:
-    * `AIAgentWorkflow.md`
-    * `builder_bundle.txt` (The Targeted Context)
-    * `ImplementationPlan.md`
-3.  **Prompt:** Simply type: **"Act as Builder"**.
-    *(Do not paste complex prompts; the Builder reads the Plan directly.)*
+2.  **Upload:** Upload **The Trinity**.
+3.  **Trigger:** **"Act as Builder"**
+    * *Note:* This is a **System Macro**. It automatically loads strict formatting rules (Anti-Nesting, Headers).
 4.  **Confirm Context:** The Builder will list the files it is locking to.
-    * **Action:** Reply with **"Confirmed"**.
+    * **Command:** **"Confirmed"**
 5.  **Execute:** Follow the delivery loop.
-    * **Pre-Flight Checklist:** The Builder MUST output a checklist of files to change. If skipped, stop.
+    * **Pre-Flight Checklist:** The Builder MUST output a checklist of files to change.
     * **Proceed:** Type `Proceed` to authorize file generation.
 6.  **Sanitize (CRITICAL):**
-    * When the Builder delivers a file (especially Python scripts with docstrings), it may replace internal triple-backticks with `__CODE_BLOCK__` to prevent chat rendering errors.
-    * **Action:** After saving the file, **Find & Replace** `__CODE_BLOCK__` with real triple-backticks (` ``` `) in your text editor.
-7.  **Verify:** At the very end of the session, the Builder MUST provide a specific **Verification Command** (e.g., `python main_cli.py ...`). Run this command immediately to verify the work.
+    * The Builder will replace internal triple-backticks (in docstrings/markdown) with `__CODE_BLOCK__`.
+    * **Action:** **Find & Replace** `__CODE_BLOCK__` with real triple-backticks (` ``` `) in your editor after saving.
+7.  **Verify:**
+    * **Code:** Run the provided CLI command (e.g., `python main_cli.py ...`).
+    * **Docs:** "Verification: Visual Inspection of the output above."
 
-## **5. Workflow & Roadmap Maintenance**
+## **5. Operational Disciplines**
 
-* **Workflow (`AIAgentWorkflow.md`):** Defines *how the Agent behaves*. Update this if the process feels broken.
-* **Roadmap (`ArchitectureRoadmap.md`):** Defines *where the Project is going*. Update this when you finish a Phase or change strategy.
-* **User Responsibility:** You are the guardian of these files. The AI cannot save them to your disk; you must copy/paste them when the AI generates updates.
+### **The Exact Prompt Protocol**
+If the Agent asks you to provide a specific phrase (e.g., *"To proceed, please type: 'Generate Builder Execution Kit'"*), you **MUST** type it exactly. Synonyms or "Okay, do it" will be rejected to ensure safety.
+
+### **The Doctrine of Conversational Override**
+* **Rule:** Your verbal instructions in the chat **supersede** any written plan or file.
+* **Warning:** If you give an instruction that conflicts with the protocols, the Agent will output:
+  `[OVERRIDE WARNING] Your verbal instruction X conflicts with Protocol Y...`
+  This confirms the Agent heard you and is consciously disobeying the protocol to serve your request.
 
 ## **6. Troubleshooting**
 
-* **"Missing Context" Error:** If the Architect claims a feature doesn't exist but you know it does:
-    1.  Check your `project_bundle.txt` generation. Did you include the right directory?
-    2.  Check `AIAgentWorkflow.md` version. Ensure Protocol 1.2 is active.
-* **"Hallucinated Methods" in Builder:** The Manifest was likely incomplete.
-    1.  Fail the session.
-    2.  Go back to Architect.
-    3.  Explicitly ask: "Update the Manifest to include the file defining [Method Name]."
+* **"Missing Context" Error:** The Builder only sees `builder_bundle.txt`. If it needs a file not in the bundle, you must go back to the Architect and update the Manifest.
+* **Agent Stalls/Refuses:** Check if you used the **Exact Prompt**. Did you say "Make the plan" instead of "Generate Builder Execution Kit"?

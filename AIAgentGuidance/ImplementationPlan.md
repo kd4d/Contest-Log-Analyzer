@@ -1,106 +1,52 @@
-# Implementation Plan - Stacked Butterfly Chart
+# Implementation Plan - Phase 2: Visualization Standardization (Tracer Bullet)
 
-## **Goal**
-Create a new chart report (`chart_comparative_activity_butterfly`) that visualizes hourly QSO rates for two logs as a "Butterfly Chart" (diverging bar chart).
-* **Structure:** One subplot per band (up to 6 per page).
-* **Data:** QSOs per hour.
-* **Segmentation:** Stacked bars showing **Run** (Green), **S&P** (Red), and **Unknown** (Yellow).
-* **Orientation:** Log 1 extends Up (Positive), Log 2 extends Down (Negative).
+**Version:** 2.0.0
+**Date:** 2025-12-07
 
-## **Proposed Changes**
+## 1. Builder Bootstrap Context
+* **Goal:** Migrate the visualization engine for `chart_point_contribution.py` from Matplotlib to Plotly.
+* **Deliverables:**
+    1.  **Static Output:** A `.png` file (via `kaleido`) to satisfy legacy CLI contracts.
+    2.  **Interactive Output:** A `.html` file (via `fig.write_html`) as a Phase 3 Proof-of-Concept.
+* **Standards:**
+    * **Style Guide:** `Docs/CLAReportsStyleGuide.md` (Section 5.2 - Interactive Plots).
+    * **Styling:** Must use a new `PlotlyStyleManager` class to ensure "Brand Consistency" (colors, layouts) without relying on Matplotlib dependencies.
+* **Data Source:** `CategoricalAggregator` (Existing DAL).
 
-### **1. Data Abstraction Layer (DAL) Update**
-**Target File:** `contest_tools/data_aggregators/matrix_stats.py`
+## 2. Safety Protocols
+* **Visual Parity:** The new Plotly chart must visually match the legacy Matplotlib charts (Pie charts for each log) as closely as possible.
+* **File Contract:** The report MUST still output a `.png` file to the `charts/` directory. The `.html` file is an *additive* feature.
+* **Parallel Co-existence:** Do **NOT** modify or remove `MPLStyleManager`. It is required for the 10+ other reports that have not yet been converted.
+* **No Aggregator Changes:** Do not modify the `CategoricalAggregator`. We are only changing the Presentation Layer.
 
-We need a new aggregation method because the existing `get_matrix_data` flattens the "Run/S&P" status into a single "Dominant" status per hour. We need the raw counts for *each* status per hour.
+## 3. Technical Debt Register (Observer)
+* **Observation:** `MPLStyleManager` is tightly coupled to Matplotlib. We are creating a parallel `PlotlyStyleManager`. In Phase 4, these should be consolidated into a generic `StyleConfig` dictionary.
 
-**New Method:** `get_stacked_matrix_data(bin_size='60min', mode_filter=None)`
+## 4. Execution Steps
+
+### Step 1: Create `contest_tools/styles/plotly_style_manager.py`
+* **Action:** Create a new class `PlotlyStyleManager`.
 * **Logic:**
-    1.  Iterate through logs.
-    2.  Filter DataFrame by `mode_filter` if provided.
-    3.  Group by `[Datetime, Band, Run]`.
-    4.  Pivot/Unstack to create a grid where the columns are Time and the index is `(Band, RunStatus)`.
-    5.  Reindex to the master time index (filling 0).
-    6.  Convert to a nested dictionary structure for JSON-safe return:
-        * `{ CALLSIGN: { BAND: { 'Run': [list_of_ints], 'S&P': [...], 'Unknown': [...] } } }`
+    * Port the color palette from `MPLStyleManager` to pure Python lists/dictionaries (removing `matplotlib` imports).
+    * Implement `get_point_color_map(point_values)` (Business Logic parity).
+    * Implement `get_qso_mode_colors()` (Business Logic parity).
+    * **NEW:** Implement `get_standard_layout(title)` to return a standard `go.Layout` dictionary (fonts, margins, template) compliant with the Style Guide.
 
-### **2. Report Generation**
-**New File:** `contest_tools/reports/chart_comparative_activity_butterfly.py`
+### Step 2: Refactor `contest_tools/reports/chart_point_contribution.py`
+* **Action:** Rewrite the `Report` class to use Plotly.
+* **Changes:**
+    * **Imports:** Remove `matplotlib`, `gridspec`. Add `plotly.graph_objects`, `plotly.subplots`. Import `PlotlyStyleManager`.
+    * **Method `_create_plot_for_log`:**
+        * Replace `ax.pie` with `go.Pie`.
+        * Use `PlotlyStyleManager.get_point_color_map` for consistent coloring.
+    * **Method `generate`:**
+        * Replace `plt.figure` / `GridSpec` with `plotly.subplots.make_subplots`.
+        * Define rows/cols logic similar to the existing math.
+        * Apply `PlotlyStyleManager.get_standard_layout`.
+        * **Save Operation 1 (Static):** Use `fig.write_image` to save the PNG.
+        * **Save Operation 2 (Interactive):** Use `fig.write_html(..., include_plotlyjs='cdn')` to save the HTML bundle.
+    * **Verification:** Ensure `create_output_directory` is called before saving.
 
-**Class Structure:**
-* Inherits from `ContestReport`.
-* `report_id`: "chart_comparative_activity_butterfly"
-* `supports_pairwise`: True
-
-**Generation Logic (`generate` method):**
-1.  **Data Fetch:** Call `aggregator.get_stacked_matrix_data(bin_size='60min')`.
-2.  **Band Identification:** Identify all bands present in the data.
-3.  **Pagination:** Calculate pages needed (Max 6 bands per page). Loop through pages.
-4.  **Plotting (per page):**
-    * Create `plt.subplots` (Nx1 grid).
-    * **Loop Bands:**
-        * **Log 1 (Upper Stack):**
-            * `y_run` = Data['Run']
-            * `y_sp` = Data['S&P']
-            * `y_unk` = Data['Unknown']
-            * Plot `y_run` (Green).
-            * Plot `y_sp` (Red, bottom=`y_run`).
-            * Plot `y_unk` (Yellow, bottom=`y_run + y_sp`).
-        * **Log 2 (Lower Stack):**
-            * Negate values.
-            * Plot `-y_run` (Green).
-            * Plot `-y_sp` (Red, bottom=`-y_run`).
-            * Plot `-y_unk` (Yellow, bottom=`-(y_run + y_sp)`).
-        * **Styling:**
-            * Add horizontal line at y=0.
-            * Calculate dynamic Y-limit (round up to nearest 5 or 10 based on max hourly rate).
-            * Add gridlines.
-            * Label Y-axis with Band Name.
-    * **Formatting:**
-        * Title: "Comparative Activity Breakdown: [Year] [Contest] - [Call1] vs [Call2]".
-        * Legend: "Run (Green), S&P (Red), Unknown (Yellow)".
-        * Save to `reports/.../charts/`.
-
-## **Verification Plan**
-
-### **Automated Verification**
-The Builder will not run the full suite but should verify syntax.
-
-### **Manual Verification Command**
-To be run by the user after implementation:
-__CODE_BLOCK__python
-python main_cli.py --report chart_comparative_activity_butterfly <Log1> <Log2>
-__CODE_BLOCK__
-
-## **Detailed Specifications**
-
-### **A. `contest_tools/data_aggregators/matrix_stats.py`**
-
-Add `get_stacked_matrix_data`:
-
-__CODE_BLOCK__python
-    def get_stacked_matrix_data(self, bin_size: str = '60min', mode_filter: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Generates 3D data (Band x Time x RunStatus) for stacked charts.
-        """
-        # ... Implementation details ...
-        # 1. Establish Master Time Index
-        # 2. Iterate Logs
-        # 3. Pivot table on ['Band', 'Run'] vs Datetime
-        # 4. Fill missing Run/S&P/Unknown columns with 0
-        # 5. Export to dict structure
-__CODE_BLOCK__
-
-### **B. `contest_tools/reports/chart_comparative_activity_butterfly.py`**
-
-__CODE_BLOCK__python
-class Report(ContestReport):
-    report_id = 'chart_comparative_activity_butterfly'
-    # ...
-    
-    # Colors defined per user request
-    COLORS = {'Run': 'green', 'S&P': 'red', 'Unknown': 'yellow'}
-
-    def generate(self, output_path: str, **kwargs) -> str:
-        # ... Logic for pagination and stacking ...
-__CODE_BLOCK__
+## 5. Verification
+* **Command:** `python run_regression_test.py`
+* **Expected Result:** The test should run without errors. The `charts/` directory should contain both `.png` and `.html` versions of the point contribution chart.
