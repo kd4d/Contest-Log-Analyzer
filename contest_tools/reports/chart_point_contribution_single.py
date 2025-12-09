@@ -4,8 +4,8 @@
 #          point value, presented as a series of pie charts per band for a SINGLE log.
 #
 # Author: Gemini AI
-# Date: 2025-12-04
-# Version: 0.93.7-Beta
+# Date: 2025-12-08
+# Version: 1.0.1
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -14,9 +14,17 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
 # --- Revision History ---
+# [1.0.1] - 2025-12-08
+# - Fixed PNG layout issues by implementing dynamic figure sizing and explicit vertical spacing.
+# [1.0.0] - 2025-12-08
+# - Migrated visualization engine from Matplotlib to Plotly.
+# - Implemented dual-stack output (.png and .html).
+# - Integrated PlotlyStyleManager for consistent styling.
 # [0.93.7-Beta] - 2025-12-04
 # - Fixed runtime crash by ensuring the output directory is created before
 #   saving the chart file.
@@ -24,18 +32,19 @@
 import os
 from typing import List, Dict
 import pandas as pd
-import matplotlib.pyplot as plt
-from matplotlib.gridspec import GridSpec
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+
 from contest_tools.reports.report_interface import ContestReport
 from contest_tools.contest_log import ContestLog
 from contest_tools.data_aggregators.categorical_stats import CategoricalAggregator
-from contest_tools.styles.mpl_style_manager import MPLStyleManager
+from contest_tools.styles.plotly_style_manager import PlotlyStyleManager
 from contest_tools.reports._report_utils import get_valid_dataframe, create_output_directory
 
 class Report(ContestReport):
     """
     Generates a series of pie charts showing the breakdown of QSO points
-    (1-point, 3-point, etc.) for each band in a single log.
+    (1-point, 3-point, etc.) for each band in a single log using Plotly.
     """
     report_id = 'chart_point_contribution_single'
     report_name = 'Point Contribution Breakdown (Single Log)'
@@ -46,41 +55,8 @@ class Report(ContestReport):
         super().__init__(logs)
         self.aggregator = CategoricalAggregator()
 
-    def _create_plot_for_band(self, band: str, ax: plt.Axes) -> None:
-        """Creates a single pie chart for the given band data."""
-        agg_result = self.aggregator.get_points_breakdown(self.logs, band_filter=band)
-        
-        log_data = list(agg_result['logs'].values())[0] 
-        point_breakdown = log_data['breakdown']
-    
-        if not point_breakdown:
-            ax.text(0.5, 0.5, "No Data for this Band", 
-                    ha='center', va='center', transform=ax.transAxes, color='gray')
-            ax.set_title(f"{band} Band Points")
-            return
-
-        total_points = log_data['total_points']
-        sorted_items = sorted(point_breakdown.items(), key=lambda item: item[1], reverse=True)
-        sizes = [item[1] for item in sorted_items]
-        labels = [f"{item[0]} Point ({item[1]})" for item in sorted_items]
-        
-        sorted_keys = [item[0] for item in sorted_items]
-        color_map = MPLStyleManager.get_point_color_map(sorted_keys)
-        colors = [color_map[k] for k in sorted_keys]
-        
-        wedges, texts, autotexts = ax.pie(
-            sizes, 
-            labels=labels, 
-            autopct='%1.1f%%', 
-            startangle=90, 
-            wedgeprops={'edgecolor': 'black', 'linewidth': 0.5},
-            colors=colors
-        )
-        
-        ax.axis('equal')
-        ax.set_title(f"{band} Band Points (Total: {total_points:.0f})", fontsize=10, weight='bold')
-
     def generate(self, output_path: str, **kwargs) -> List[str]:
+        # 1. Validation and Setup
         if not self.logs or get_valid_dataframe(self.logs[0]).empty:
             return []
 
@@ -90,30 +66,109 @@ class Report(ContestReport):
         if not bands:
             return []
 
+        callsign = self.logs[0].get_metadata().get('MyCall', 'Unknown')
+
+        # 2. Data Pre-Fetching & Title Generation
+        # We need to fetch data first to generate dynamic titles for the subplots
+        band_data_map = {}
+        subplot_titles = []
+
+        for band in bands:
+            agg_result = self.aggregator.get_points_breakdown(self.logs, band_filter=band)
+            # Single log report, extract first log result
+            log_data = list(agg_result['logs'].values())[0]
+            band_data_map[band] = log_data
+            
+            total_points = log_data['total_points']
+            subplot_titles.append(f"{band} Band Points (Total: {total_points:.0f})")
+
+        # 3. Layout Configuration
         num_bands = len(bands)
         cols = min(4, num_bands)
         rows = (num_bands + cols - 1) // cols
 
-        fig_width = 4 * cols
-        fig_height = 4 * rows
-        
-        fig = plt.figure(figsize=(fig_width, fig_height))
-        gs = GridSpec(rows, cols, figure=fig)
+        # Dynamic Sizing: Calculate strict dimensions to prevent PNG overlap
+        # Plotly default autosizing often fails for multi-row pie charts in static export
+        PIXELS_PER_CHART = 400
+        fig_width = cols * PIXELS_PER_CHART
+        fig_height = rows * PIXELS_PER_CHART
 
+        # Plotly requires 'domain' type for Pie charts
+        specs = [[{'type': 'domain'} for _ in range(cols)] for _ in range(rows)]
+
+        fig = make_subplots(
+            rows=rows, 
+            cols=cols, 
+            subplot_titles=subplot_titles,
+            specs=specs,
+            vertical_spacing=0.1  # Increased spacing to clear titles
+        )
+
+        # 4. Trace Generation
         for i, band in enumerate(bands):
-            ax = fig.add_subplot(gs[i // cols, i % cols])
-            self._create_plot_for_band(band, ax) 
+            row = (i // cols) + 1
+            col = (i % cols) + 1
+            
+            log_data = band_data_map[band]
+            point_breakdown = log_data['breakdown']
 
-        fig.suptitle(f"Point Contribution Breakdown: {self.logs[0].get_metadata().get('MyCall')}", 
-                     fontsize=16, weight='bold')
-        fig.tight_layout(rect=[0, 0, 1, 0.96])
+            if not point_breakdown:
+                # Add an empty annotation if no data (though aggregation usually handles this)
+                fig.add_annotation(
+                    text="No Data", 
+                    xref=f"x{i+1}", yref=f"y{i+1}",
+                    showarrow=False,
+                    row=row, col=col
+                )
+                continue
+
+            # Sort by point value (descending frequency or value)
+            # Logic: Sort by frequency descending for visual clarity
+            sorted_items = sorted(point_breakdown.items(), key=lambda item: item[1], reverse=True)
+            
+            sizes = [item[1] for item in sorted_items]
+            # Key is the point value (e.g., '1', '3')
+            point_keys = [item[0] for item in sorted_items]
+            labels = [f"{k} Point" for k in point_keys]
+
+            # Consistent Coloring
+            color_map = PlotlyStyleManager.get_point_color_map(point_keys)
+            colors = [color_map[k] for k in point_keys]
+
+            trace = go.Pie(
+                labels=labels,
+                values=sizes,
+                marker=dict(colors=colors, line=dict(color='#000000', width=1)),
+                textinfo='percent+label',
+                hoverinfo='label+value+percent',
+                name=f"{band} Band"
+            )
+            
+            fig.add_trace(trace, row=row, col=col)
+
+        # 5. Styling and Output
+        title_text = f"Point Contribution Breakdown: {callsign}"
+        layout_config = PlotlyStyleManager.get_standard_layout(title_text)
+        
+        # Merge dynamic size into standard layout
+        layout_config.update({
+            'width': fig_width, 
+            'height': fig_height
+        })
+        
+        fig.update_layout(layout_config)
+        
+        # Ensure titles don't overlap with pies
+        fig.update_annotations(font_size=14, yshift=10)
 
         create_output_directory(output_path)
-        callsign = self.logs[0].get_metadata().get('MyCall', 'Unknown')
-        filename = f"{self.report_id}_{callsign}.png"
-        output_file = os.path.join(output_path, filename)
         
-        fig.savefig(output_file)
-        plt.close(fig)
+        base_filename = f"{self.report_id}_{callsign}"
+        png_file = os.path.join(output_path, f"{base_filename}.png")
+        html_file = os.path.join(output_path, f"{base_filename}.html")
+        
+        # Save Dual Outputs
+        fig.write_image(png_file)
+        fig.write_html(html_file)
 
-        return [output_file]
+        return [png_file, html_file]
