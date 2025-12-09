@@ -1,26 +1,36 @@
 # Architect Handoff Notes
 
-**Date:** 2025-12-07
-**To:** Incoming Architect
-**Focus:** Phase 2 - Visualization Standardization (Tracer Bullet)
+**Date:** 2025-12-08
+**To:** Incoming Architect / Builder
+**Focus:** Phase 2 - Visualization Standardization (Migration)
 
 ## Context
-We have just completed a major hardening of the `AIAgentWorkflow.md` (v4.4.0). The system now enforces strict output sanitization automatically via the "Act as Builder" macro and requires explicit triggers for Handoffs and Overrides. We are now ready to resume the technical work of Phase 2.
+The Tracer Bullet (Phase 2 initial test) was successful. `chart_point_contribution.py` and its single-log counterpart have been fully migrated to Plotly, implementing the "Dual Output" standard (PNG + HTML) and utilizing the `PlotlyStyleManager`.
 
-## The Immediate Task: Plotly Migration (Tracer Bullet)
-The next task is to convert `chart_point_contribution.py` from Matplotlib to Plotly.
+We are now proceeding with the general rollout of this standard to the remaining reports.
 
-### **Critical Requirement (Ephemeral Constraint)**
-The Builder Plan **MUST** mandate that `chart_point_contribution.py` generates **two** output files for every run. This requirement exists only in this handoff, not yet in the code:
-1.  **Static (`.png`):** Via `kaleido` (to preserve legacy CLI contract).
-2.  **Interactive (`.html`):** Via `fig.write_html(include_plotlyjs='cdn')`. This is a proof-of-concept for the future Web UI.
+## The Immediate Task: `chart_qso_breakdown.py`
+The next report to migrate is `chart_qso_breakdown.py`. This is a stacked bar chart comparing two logs.
+
+### **Technical Requirements**
+1.  **Visualization Engine:** Replace `matplotlib` with `plotly.graph_objects`.
+2.  **Chart Type:** Use `go.Bar`.
+    * **Mode:** `barmode='stack'`.
+    * **Layout:** The chart must support multiple subplots (one per band), similar to the Matplotlib version. Use `plotly.subplots.make_subplots`.
+3.  **Data Source:** Continue using `CategoricalAggregator.compute_comparison_breakdown`.
+    * Iterate through the dictionary keys (`Run`, `S&P`, `Mixed/Unk`) to create traces.
+4.  **Styling:**
+    * Use `PlotlyStyleManager.get_qso_mode_colors()` to ensure the colors (Green/Blue/Gray) match the text reports and previous charts.
+    * Use `PlotlyStyleManager.get_standard_layout()` for title and margins.
+5.  **Output:**
+    * **Static:** `.png` (via `fig.write_image`).
+    * **Interactive:** `.html` (via `fig.write_html`, `include_plotlyjs='cdn'`).
 
 ## Decisions
-1.  **Parallel Styles:** We are creating a new `PlotlyStyleManager` class. Do **NOT** modify the existing `MPLStyleManager`, as it is still used by legacy reports.
-2.  **Standard Layout:** The new Style Manager must provide a `get_standard_layout(title)` method to enforce consistent margins and titles across all Plotly charts.
+* **Dual Output Mandate:** Every converted chart MUST output both formats to support the legacy CLI contract and the future Web UI.
+* **Style Consistency:** Do not hardcode colors. Always fetch from `PlotlyStyleManager`.
 
 ## Instructions for Next Session
-1.  **Bootstrap:** Ingest the **Full Project Bundle** + this **Handoff** + the **Roadmap**.
-2.  **Workflow Check:** Ensure you are using `AIAgentWorkflow.md` v4.4.0.
-3.  **Planning:** Generate the **Builder Execution Kit** for the `chart_point_contribution` migration. Ensure the Plan explicitly includes the **HTML Bundle** requirement described above.
-4.  **Execution:** When prompting the user, provide the simple trigger **"Act as Builder"**, as Protocol 1.6 now handles the formatting constraints automatically.
+1.  **Bootstrap:** Ingest the **Full Project Bundle**.
+2.  **Verification:** Confirm `chart_qso_breakdown.py` is the target in `ImplementationPlan.md`.
+3.  **Execution:** Generate the **Builder Execution Kit** for this migration.

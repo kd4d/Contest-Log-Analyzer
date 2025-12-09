@@ -1,74 +1,71 @@
-# Implementation Plan - Phase 2: Visualization Standardization (Batch 2)
+# Implementation Plan - Phase 2: Visualization Standardization (chart_qso_breakdown)
 
-**Version:** 1.0.0
-**Date:** 2025-12-08
-**Target:** `chart_point_contribution_single.py`
+**Goal:** Migrate `contest_tools/reports/chart_qso_breakdown.py` from Matplotlib to Plotly to support interactive web reports while maintaining legacy static image generation.
 
-## 1\. Builder Bootstrap Context
+## 1. Builder Bootstrap Context
+* **Target File:** `contest_tools/reports/chart_qso_breakdown.py`
+* **Reference Files:**
+    * `contest_tools/styles/plotly_style_manager.py` (Style Authority)
+    * `contest_tools/data_aggregators/categorical_stats.py` (Data Source)
+    * `contest_tools/reports/_report_utils.py` (Utils)
 
-The Builder requires the following files to execute this plan:
+## 2. Technical Design & Constraints
 
-  * `contest_tools/reports/chart_point_contribution_single.py` (Target)
-  * `contest_tools/styles/plotly_style_manager.py` (Style Dependency)
-  * `contest_tools/data_aggregators/categorical_stats.py` (Data Dependency)
-  * `contest_tools/reports/_report_utils.py` (Utility Dependency)
+### 2.1. Visualization Engine
+* **Library:** `plotly.graph_objects` (via `go.Figure`, `go.Bar`) and `plotly.subplots`.
+* **Chart Type:** Stacked Bar Chart.
+    * **X-Axis:** Categories (Unique Log1, Common, Unique Log2).
+    * **Y-Axis:** QSO Counts.
+    * **Stacks:** Run, S&P, Mixed/Unk.
+* **Subplots:** One subplot per Band (plus 'All Bands' if applicable, though the current logic iterates bands). Use dynamic row/col calculation based on band count.
 
-## 2\. Technical Debt Register
+### 2.2. Styling (Mandatory)
+* **Colors:** MUST use `PlotlyStyleManager.get_qso_mode_colors()` to ensure consistency:
+    * Run: Green
+    * S&P: Blue
+    * Mixed/Unk: Gray
+* **Layout:** MUST use `PlotlyStyleManager.get_standard_layout(title)` as the base configuration.
+* **Annotations:** Subplot titles must be generated dynamically.
 
-  * **Report Returns:** The `generate` method signature for reports typically returns a `str` (message) or `List[str]` (files). We must ensure consistent return types across the unified engine in Phase 3. For now, we return `List[str]` containing both the PNG and HTML paths.
+### 2.3. Data Source
+* **Aggregator:** Continue using `self.aggregator.compute_comparison_breakdown`.
+* **Logic:** The existing `_prepare_data` method returns a dictionary `{'data': {'Run': [...], 'S&P': [...]}}`. This structure maps directly to Plotly traces.
 
-## 3\. Safety Protocols
+### 2.4. Output Standards (Dual Output)
+* **Static:** Save as `.png` using `fig.write_image()`.
+* **Interactive:** Save as `.html` using `fig.write_html(include_plotlyjs='cdn')`.
+* **Directory:** Ensure the output directory exists using `create_output_directory`.
 
-  * **Visual Parity:** The new Plotly charts must maintain the same "Drill-Down" logic (One pie per band) as the Matplotlib version.
-  * **Output Dual-Stack:** The report **MUST** output both a static `.png` (for legacy CLI compatibility) and an interactive `.html` (for future Web UI).
-  * **Zero Logic Duplication:** Do not calculate stats inside the report. Use `CategoricalAggregator`.
+## 3. Execution Steps
 
-## 4\. Execution Steps
+### Step 1: Update Imports
+* Remove `matplotlib.pyplot`.
+* Add `plotly.graph_objects` as `go`.
+* Add `plotly.subplots.make_subplots`.
+* Import `PlotlyStyleManager` from `contest_tools.styles.plotly_style_manager`.
 
-### Task 1: Migrate `chart_point_contribution_single.py` to Plotly
+### Step 2: Refactor `generate` Method
+* Calculate grid dimensions (rows/cols) based on the number of bands.
+* Initialize `fig` using `make_subplots` with `subplot_titles`.
+* Iterate through bands:
+    1.  Call `self._prepare_data(band)`.
+    2.  Iterate through modes (`Run`, `S&P`, `Mixed/Unk`).
+    3.  Add a `go.Bar` trace for each mode to the specific subplot.
+        * **Crucial:** Set `showlegend=True` only for the first subplot to avoid duplicate legend entries.
+* Update Layout:
+    * Set `barmode='stack'`.
+    * Apply `PlotlyStyleManager.get_standard_layout()`.
+    * Set dynamic height based on row count (`400 * rows`).
 
-  * **Goal:** Replace the Matplotlib engine with Plotly Graph Objects while maintaining the exact data flow.
-  * **Imports:**
-      * Remove: `matplotlib.pyplot`, `matplotlib.gridspec`.
-      * Add: `plotly.graph_objects` as `go`, `plotly.subplots` (`make_subplots`).
-      * Add: `contest_tools.styles.plotly_style_manager` import `PlotlyStyleManager`.
-  * **Method Refactor: `generate(self, output_path, **kwargs)`**
-    1.  **Data Fetching:**
-          * Keep existing `get_valid_dataframe` logic to identify active bands.
-          * Call `self.aggregator.get_points_breakdown(self.logs, band_filter=band)` inside the band loop.
-    2.  **Layout Logic:**
-          * Calculate `rows` and `cols` using the existing logic (Max 4 cols).
-          * Initialize `fig = make_subplots(...)` with `specs=[[{'type': 'domain'}, ...]]` for Pie charts.
-          * Generate subplot titles dynamically (e.g., `"{band} Band Points (Total: {N})"`).
-    3.  **Trace Generation:**
-          * Iterate through bands.
-          * Extract breakdown data.
-          * Generate consistent colors using `PlotlyStyleManager.get_point_color_map` (ensure global consistency across all pies).
-          * Create `go.Pie` traces.
-          * Add traces to specific grid cells (`row=..., col=...`).
-    4.  **Styling:**
-          * Apply `PlotlyStyleManager.get_standard_layout(title)`.
-    5.  **Output:**
-          * Construct filenames: `..._single.png` and `..._single.html`.
-          * Save PNG via `fig.write_image`.
-          * Save HTML via `fig.write_html`.
-          * Return list of *both* file paths.
+### Step 3: Implement Dual Save
+* Save `filename.png`.
+* Save `filename.html`.
+* Return list of saved paths.
 
------
+## 4. Safety Protocols
+* **Zero-Inference:** Do not guess color codes; use the Style Manager.
+* **Preservation:** Do not modify the Aggregator logic.
+* **Verification:** Verify the file saves to the correct path.
 
-# Manifest
-
-```text
-contest_tools/reports/chart_point_contribution_single.py
-contest_tools/styles/plotly_style_manager.py
-contest_tools/data_aggregators/categorical_stats.py
-contest_tools/reports/_report_utils.py
-```
-
------
-
-### **Next Steps**
-
-1.  Create `builder_bundle.txt` containing the files listed in the Manifest.
-2.  Upload `builder_bundle.txt`.
-3.  To proceed, please provide the exact prompt: **"Act as Builder"**.
+## 5. Technical Debt Register
+* *Observation:* The `MatrixAggregator` (used in other reports) uses raw lists while `CategoricalAggregator` uses Dictionaries. Future refactoring should standardize DAL return types, but this is out of scope for this migration.

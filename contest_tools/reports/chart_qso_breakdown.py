@@ -4,8 +4,8 @@
 #          on common/unique QSOs broken down by Run vs. Search & Pounce (S&P) mode.
 #
 # Author: Gemini AI
-# Date: 2025-12-04
-# Version: 0.93.7-Beta
+# Date: 2025-12-08
+# Version: 1.0.1
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -14,21 +14,28 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [1.0.1] - 2025-12-08
+# - Updated PNG output to use landscape orientation (width=1600px).
+# [1.0.0] - 2025-12-08
+# - Migrated visualization engine from Matplotlib to Plotly.
+# - Added interactive HTML output support.
+# - Applied standard Phase 2 styling via PlotlyStyleManager.
 # [0.93.7-Beta] - 2025-12-04
 # - Fixed runtime crash by ensuring the output directory is created before
 #   saving the chart file.
-
 import os
 from typing import List, Dict, Tuple
 import pandas as pd
-import matplotlib.pyplot as plt
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from contest_tools.reports.report_interface import ContestReport
 from contest_tools.contest_log import ContestLog
 from contest_tools.data_aggregators.categorical_stats import CategoricalAggregator
-from contest_tools.styles.mpl_style_manager import MPLStyleManager
+from contest_tools.styles.plotly_style_manager import PlotlyStyleManager
 from contest_tools.reports._report_utils import get_valid_dataframe, create_output_directory
 
 class Report(ContestReport):
@@ -84,7 +91,7 @@ class Report(ContestReport):
                 comparison_data['log2_unique']['unk']
             ]
         }
-        
+         
         return {
             'categories': categories,
             'modes': modes,
@@ -94,7 +101,8 @@ class Report(ContestReport):
 
     def generate(self, output_path: str, **kwargs) -> List[str]:
         """
-        Generates the stacked bar chart report and saves it to a file.
+        Generates the stacked bar chart report and saves it to file(s).
+        Returns a list of generated file paths.
         """
         df1 = get_valid_dataframe(self.log1)
         df2 = get_valid_dataframe(self.log2)
@@ -104,66 +112,84 @@ class Report(ContestReport):
         if not bands:
             return []
 
+        # Grid Calculation
         num_bands = len(bands)
         cols = min(3, num_bands)
         rows = (num_bands + cols - 1) // cols
-
-        fig_width = 6 * cols
-        fig_height = 4.5 * rows
         
-        fig, axes = plt.subplots(rows, cols, figsize=(fig_width, fig_height), sharey=True)
-        
-        if num_bands > 1:
-            axes = axes.flatten()
-        elif num_bands == 1:
-            axes = [axes] 
+        subplot_titles = [f"{band} Band Breakdown" for band in bands]
 
-        colors = MPLStyleManager.get_qso_mode_colors()
+        fig = make_subplots(
+            rows=rows, 
+            cols=cols, 
+            subplot_titles=subplot_titles, 
+            shared_yaxes=True
+        )
+
+        colors = PlotlyStyleManager.get_qso_mode_colors()
 
         for i, band in enumerate(bands):
-            ax = axes[i]
+            # Plotly uses 1-based indexing for rows/cols
+            row = (i // cols) + 1
+            col = (i % cols) + 1
             
             data_dict = self._prepare_data(band)
             categories = data_dict['categories']
             modes = data_dict['modes']
             data = data_dict['data']
             
-            x_pos = range(len(categories))
-            bottom_data = [0] * len(categories)
-            
-            for j, mode in enumerate(modes):
-                current_data = data[mode]
-                ax.bar(
-                    x_pos, 
-                    current_data, 
-                    bottom=bottom_data, 
-                    label=mode, 
-                    color=colors[mode]
+            # Show legend only on the first subplot to prevent duplication
+            show_legend = (i == 0)
+
+            for mode in modes:
+                fig.add_trace(
+                    go.Bar(
+                        name=mode,
+                        x=categories,
+                        y=data[mode],
+                        marker_color=colors[mode],
+                        showlegend=show_legend,
+                        legendgroup=mode # Groups traces so toggling 'Run' toggles it on all subplots
+                    ),
+                    row=row, col=col
                 )
-                bottom_data = [bottom_data[k] + current_data[k] for k in range(len(categories))]
 
-            ax.set_xticks(x_pos)
-            ax.set_xticklabels(categories, rotation=45, ha="right", fontsize=8)
-            ax.set_title(f"{band} Band Breakdown", fontsize=11, weight='bold')
-            ax.yaxis.grid(True, linestyle='--', alpha=0.7)
-            
-            if i == 0:
-                ax.legend(title="QSO Mode", loc='upper left', bbox_to_anchor=(1.05, 1), fontsize=8)
-
-        for i in range(num_bands, rows * cols):
-            fig.delaxes(axes[i])
-            
-        fig.suptitle(f"QSO Set Comparison: {self.log1.get_metadata().get('MyCall')} vs. {self.log2.get_metadata().get('MyCall')}", 
-                     fontsize=16, weight='bold')
-        fig.tight_layout(rect=[0, 0, 1, 0.96])
-
-        create_output_directory(output_path)
+        # Standard Layout Application
         call1 = self.log1.get_metadata().get('MyCall')
         call2 = self.log2.get_metadata().get('MyCall')
-        filename = f"{self.report_id}_{call1}_{call2}.png"
-        output_file = os.path.join(output_path, filename)
+        title_text = f"QSO Set Comparison: {call1} vs. {call2}"
         
-        fig.savefig(output_file)
-        plt.close(fig)
+        layout_config = PlotlyStyleManager.get_standard_layout(title_text)
+        fig.update_layout(layout_config)
+        
+        # Specific Adjustments
+        fig.update_layout(
+            barmode='stack', 
+            height=400 * rows # Dynamic height scaling
+        )
 
-        return [output_file]
+        create_output_directory(output_path)
+        base_filename = f"{self.report_id}_{call1}_{call2}"
+        
+        # 1. Save Static Image (PNG)
+        # Use specific width=1600 to enforce landscape orientation for standard reports
+        png_file = os.path.join(output_path, f"{base_filename}.png")
+        try:
+            fig.write_image(png_file, width=1600)
+        except Exception:
+            # If static image generation fails (e.g. missing kaleido), logging would go here.
+            # We proceed to save HTML.
+            pass
+
+        # 2. Save Interactive HTML
+        html_file = os.path.join(output_path, f"{base_filename}.html")
+        fig.write_html(html_file, include_plotlyjs='cdn')
+
+        # Return list of successfully created files (checking existence)
+        outputs = []
+        if os.path.exists(png_file):
+            outputs.append(png_file)
+        if os.path.exists(html_file):
+            outputs.append(html_file)
+
+        return outputs

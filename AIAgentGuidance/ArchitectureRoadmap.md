@@ -1,8 +1,8 @@
 # Architecture Roadmap: The Unified Engine Migration
 
-**Version:** 1.8.0 (Active)
-**Date:** 2025-12-07
-**Status:** Phase 2 Execution (Tracer Bullet) - Ready
+**Version:** 1.9.0 (Active)
+**Date:** 2025-12-08
+**Status:** Phase 2 Execution (General Rollout)
 
 ---
 
@@ -33,15 +33,19 @@
 
 ### **Phase 1.5: Stabilization (COMPLETE)**
 * **Goal:** Synchronize documentation and fix "Phantom Dependencies."
-* **Status:** Verified. `redis`/`celery` removed; deprecated reports cleaned up.
+* **Status:** Verified.
 
 ### **Phase 2: Visualization Standardization (IN PROGRESS)**
 * **Goal:** Replace Matplotlib with Plotly/Jinja2.
 * **Constraint:** Must be completed BEFORE Web Foundation to ensure charts work in browsers.
 * **Tasks:**
-    * [ ] Create `plotly_style_manager.py` (Designed; Ready for Builder).
-    * [ ] Convert `chart_point_contribution.py` (Tracer Bullet) (Designed; Ready for Builder).
-    * [ ] Convert remaining plots.
+    * [x] Create `plotly_style_manager.py`.
+    * [x] Convert `chart_point_contribution.py` (Tracer Bullet).
+    * [x] Convert `chart_point_contribution_single.py`.
+    * [ ] Convert `chart_qso_breakdown.py` (Current Target).
+    * [ ] Convert `plot_cumulative_difference.py`.
+    * [ ] Convert `plot_rate_sheets` (QSO/Points).
+    * [ ] Convert `plot_band_activity`.
 
 ### **Phase 3: The Web Foundation (Simplified)**
 * **Goal:** Initialize Django *Synchronously*.
