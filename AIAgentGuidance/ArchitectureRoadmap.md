@@ -1,7 +1,7 @@
 # Architecture Roadmap: The Unified Engine Migration
 
-**Version:** 1.9.0 (Active)
-**Date:** 2025-12-08
+**Version:** 1.9.9 (Active)
+**Date:** 2025-12-10
 **Status:** Phase 2 Execution (General Rollout)
 
 ---
@@ -24,6 +24,9 @@
 * **Mechanism:** It must point to the existing `contest_tools/templates`.
 * **Reason:** Ensures CLI HTML reports and Web Views are bit-for-bit identical.
 
+### ADR-008: Title Layout Protocol
+* **Decision:** Multi-subplot reports with 2-line titles must use `margin=dict(t=140)` to prevent overlap.
+
 ---
 
 ## 3. Master Transition Timeline
@@ -40,12 +43,16 @@
 * **Constraint:** Must be completed BEFORE Web Foundation to ensure charts work in browsers.
 * **Tasks:**
     * [x] Create `plotly_style_manager.py`.
-    * [x] Convert `chart_point_contribution.py` (Tracer Bullet).
+    * [x] Convert `chart_point_contribution.py`.
     * [x] Convert `chart_point_contribution_single.py`.
-    * [ ] Convert `chart_qso_breakdown.py` (Current Target).
-    * [ ] Convert `plot_cumulative_difference.py`.
-    * [ ] Convert `plot_rate_sheets` (QSO/Points).
-    * [ ] Convert `plot_band_activity`.
+    * [x] Convert `chart_qso_breakdown.py`.
+    * [x] Convert `plot_cumulative_difference.py`.
+    * [x] Convert `plot_point_rate.py`.
+    * [x] Convert `plot_qso_rate.py`.
+    * [x] Convert `band_activity_heatmap`.
+    * [x] Convert `comparative_band_activity`.
+    * [x] Convert `comparative_band_activity_heatmap`.
+    * [ ] Convert `comparative_run_sp_timeline` (Current Target).
 
 ### **Phase 3: The Web Foundation (Simplified)**
 * **Goal:** Initialize Django *Synchronously*.

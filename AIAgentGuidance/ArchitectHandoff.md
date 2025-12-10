@@ -1,36 +1,45 @@
 # Architect Handoff Notes
 
-**Date:** 2025-12-08
+**Date:** 2025-12-10
 **To:** Incoming Architect / Builder
 **Focus:** Phase 2 - Visualization Standardization (Migration)
 
 ## Context
-The Tracer Bullet (Phase 2 initial test) was successful. `chart_point_contribution.py` and its single-log counterpart have been fully migrated to Plotly, implementing the "Dual Output" standard (PNG + HTML) and utilizing the `PlotlyStyleManager`.
+We are at the final visual report for Phase 2!
 
-We are now proceeding with the general rollout of this standard to the remaining reports.
-
-## The Immediate Task: `chart_qso_breakdown.py`
-The next report to migrate is `chart_qso_breakdown.py`. This is a stacked bar chart comparing two logs.
+## The Immediate Task: `plot_comparative_run_sp.py`
+This report visualizes the "Mode of Operation" (Run vs S&P) as a timeline for two logs.
 
 ### **Technical Requirements**
 1.  **Visualization Engine:** Replace `matplotlib` with `plotly.graph_objects`.
-2.  **Chart Type:** Use `go.Bar`.
-    * **Mode:** `barmode='stack'`.
-    * **Layout:** The chart must support multiple subplots (one per band), similar to the Matplotlib version. Use `plotly.subplots.make_subplots`.
-3.  **Data Source:** Continue using `CategoricalAggregator.compute_comparison_breakdown`.
-    * Iterate through the dictionary keys (`Run`, `S&P`, `Mixed/Unk`) to create traces.
-4.  **Styling:**
-    * Use `PlotlyStyleManager.get_qso_mode_colors()` to ensure the colors (Green/Blue/Gray) match the text reports and previous charts.
-    * Use `PlotlyStyleManager.get_standard_layout()` for title and margins.
+2.  **Chart Type:** Discrete Heatmap (Gantt-style).
+    * **Layout:** `make_subplots(rows=len(bands), cols=1, shared_xaxes=True)`.
+    * **Margins:** `margin=dict(t=140)` (ADR-008).
+3.  **Data Source:** `MatrixAggregator` (Already integrated).
+    * Returns `activity_status` (List of Lists of Strings: 'Run', 'S&P', 'Mixed', 'Inactive').
+4.  **Implementation Strategy (Discrete Heatmap):**
+    * Map the status strings to Integers:
+        * 'Inactive' -> `np.nan`
+        * 'Run' -> 1
+        * 'S&P' -> 2
+        * 'Mixed' -> 3
+    * **Color Scale:** Construct a custom `colorscale` to map these integers to `PlotlyStyleManager` colors:
+        * 1: Green (`#2ca02c`)
+        * 2: Blue (`#1f77b4`)
+        * 3: Gray (`#7f7f7f`)
+    * **Traces:** One `go.Heatmap` per Band.
+        * `z`: 2D array `[ [Log2_Ints], [Log1_Ints] ]`.
+        * `y`: `[Call2, Call1]` (Log 1 on top).
+        * `x`: Time bins.
+        * `xgap=0`, `ygap=2` (Small vertical gap between the two operator lanes).
 5.  **Output:**
-    * **Static:** `.png` (via `fig.write_image`).
-    * **Interactive:** `.html` (via `fig.write_html`, `include_plotlyjs='cdn'`).
+    * **Static:** `.png` (width=1600).
+    * **Interactive:** `.html`.
 
-## Decisions
-* **Dual Output Mandate:** Every converted chart MUST output both formats to support the legacy CLI contract and the future Web UI.
-* **Style Consistency:** Do not hardcode colors. Always fetch from `PlotlyStyleManager`.
+### **Migration Notes**
+* **Colors:** The legacy code used Red/Green/Yellow. **We are switching to Green/Blue/Gray** to match the application standard. This is a deliberate design change.
+* **Pagination:** Preserve the logic that splits bands across pages (`_run_plot_for_slice`). Replace the plotting logic inside `_generate_plot_for_page`.
 
 ## Instructions for Next Session
-1.  **Bootstrap:** Ingest the **Full Project Bundle**.
-2.  **Verification:** Confirm `chart_qso_breakdown.py` is the target in `ImplementationPlan.md`.
-3.  **Execution:** Generate the **Builder Execution Kit** for this migration.
+1.  **Execution:** Convert `plot_comparative_run_sp.py`.
+2.  **Completion:** This concludes Phase 2 visualization tasks.

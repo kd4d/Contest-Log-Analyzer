@@ -4,8 +4,8 @@
 #          the operating style (Run, S&P, or Mixed) of two operators over time.
 #
 # Author: Gemini AI
-# Date: 2025-11-24
-# Version: 1.0.0
+# Date: 2025-12-10
+# Version: 1.1.1
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,32 +18,30 @@
 # If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [1.1.1] - 2025-12-10
+# - Fixed Legend Visibility Bug: Replaced opacity=0 hack with empty-data traces to ensure
+#   legend markers remain visible.
+# [1.1.0] - 2025-12-10
+# - Migrated visualization engine from Matplotlib to Plotly (Phase 2).
+# - Implemented Discrete Heatmap strategy for timeline visualization.
+# - Added HTML export capability.
 # [1.0.0] - 2025-11-24
 # Refactored to use MatrixAggregator (DAL).
 # [0.90.0-Beta] - 2025-10-01
 # Set new baseline version for release.
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-import matplotlib.dates as mdates
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import os
-import logging
 import math
-import itertools
 from typing import List, Dict, Any
 
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
 from ._report_utils import get_valid_dataframe, create_output_directory, save_debug_data
 from ..data_aggregators.matrix_stats import MatrixAggregator
-
-# Define the color scheme for the timeline blocks
-ACTIVITY_COLORS = {
-    'Run': '#FF4136',          # Red
-    'S&P': '#2ECC40',          # Green
-    'Mixed': '#FFDC00',        # Yellow
-}
+from ..styles.plotly_style_manager import PlotlyStyleManager
 
 class Report(ContestReport):
     """
@@ -65,77 +63,113 @@ class Report(ContestReport):
         time_bins = pd.to_datetime(time_bins_str)
         all_bands = matrix_data['bands']
         
-        # --- Create figure with one subplot per band ---
-        height = max(8.0, 1.5 * len(bands_on_page))
-        fig, axes = plt.subplots(
-            nrows=len(bands_on_page), 
-            ncols=1, 
-            figsize=(20, height), 
-            sharex=True
+        # --- Map Styles to Integers for Heatmap ---
+        # 0=Inactive (NaN), 1=Run, 2=S&P, 3=Mixed
+        STYLE_MAP = {'Run': 1, 'S&P': 2, 'Mixed': 3, 'Inactive': np.nan}
+        
+        # Get standard colors
+        mode_colors = PlotlyStyleManager.get_qso_mode_colors()
+        
+        # Colors:
+        c_run = mode_colors['Run']
+        c_sp = mode_colors['S&P']
+        c_mix = mode_colors['Mixed/Unk']
+        
+        # Discrete scale for values 1, 2, 3
+        # We define a hard-edged colorscale for the heatmap
+        colorscale = [
+            [0.0, c_run],   [0.33, c_run],   # 1 maps here (conceptually)
+            [0.33, c_sp],   [0.66, c_sp],    # 2 maps here
+            [0.66, c_mix],  [1.0, c_mix]     # 3 maps here
+        ]
+
+        # --- Create Subplots ---
+        # One row per band
+        fig = make_subplots(
+            rows=len(bands_on_page),
+            cols=1,
+            shared_xaxes=True,
+            vertical_spacing=0.03,
+            subplot_titles=[f"Band: {b}" for b in bands_on_page]
         )
-        if len(bands_on_page) == 1:
-            axes = np.array([axes])
 
         plot_data_for_debug = {}
 
         for i, band in enumerate(bands_on_page):
-            ax = axes[i]
+            row_idx = i + 1
             plot_data_for_debug[band] = {call1: {}, call2: {}}
 
-            # --- Plot data for both callsigns on the same subplot (ax) ---
-            for y_position, call in [(0.75, call1), (0.25, call2)]:
-                
-                # Retrieve pre-calculated grid from Aggregator
-                try:
-                    band_idx = all_bands.index(band)
-                    activity_row = matrix_data['logs'][call]['activity_status'][band_idx]
-                except (ValueError, KeyError):
-                    activity_row = ['Inactive'] * len(time_bins)
+            # --- Prepare Data Vectors ---
+            # Retrieve pre-calculated grid from Aggregator
+            try:
+                band_idx = all_bands.index(band)
+                row1_raw = matrix_data['logs'][call1]['activity_status'][band_idx]
+                row2_raw = matrix_data['logs'][call2]['activity_status'][band_idx]
+            except (ValueError, KeyError):
+                row1_raw = ['Inactive'] * len(time_bins)
+                row2_raw = ['Inactive'] * len(time_bins)
 
-                # Use ax.barh to draw the timeline
-                # We iterate the activity row and plot 15min blocks
-                for j, activity in enumerate(activity_row):
-                    interval_start = time_bins[j]
-                    
-                    if call == call1: # Only save debug data once per interval
-                        plot_data_for_debug[band][call][interval_start.isoformat()] = activity
-                    
-                    if activity != 'Inactive':
-                        ax.barh(
-                            y=y_position,
-                            width=1/96, # Width of a 15-minute interval in days
-                            height=0.5,
-                            left=mdates.date2num(interval_start),
-                            color=ACTIVITY_COLORS.get(activity, '#888888'),
-                            edgecolor='none'
-                        )
+            # Convert to integers for Heatmap
+            row1_ints = [STYLE_MAP.get(x, np.nan) for x in row1_raw]
+            row2_ints = [STYLE_MAP.get(x, np.nan) for x in row2_raw]
+
+            # Construct Z Matrix
+            # Row 0 (Bottom) = Log2 (call2)
+            # Row 1 (Top)    = Log1 (call1)
+            z_matrix = [row2_ints, row1_ints]
+
+            # Collect Debug Data
+            for j, ts in enumerate(time_bins):
+                ts_iso = ts.isoformat()
+                if row1_raw[j] != 'Inactive':
+                    plot_data_for_debug[band][call1][ts_iso] = row1_raw[j]
+                if row2_raw[j] != 'Inactive':
+                    plot_data_for_debug[band][call2][ts_iso] = row2_raw[j]
+
+            # --- Add Heatmap Trace ---
+            fig.add_trace(
+                go.Heatmap(
+                    x=time_bins,
+                    y=[call2, call1], # y[0] matches z[0] (Log2)
+                    z=z_matrix,
+                    colorscale=colorscale,
+                    zmin=0.5, # Ensure 1 falls in first bin
+                    zmax=3.5, # Ensure 3 falls in last bin
+                    showscale=False,
+                    xgap=0,
+                    ygap=2, # Visual separation between operator lanes
+                    hoverongaps=False,
+                    hovertemplate="%{y}<br>%{x}<br>Status: %{text}<extra></extra>",
+                    text=[[row2_raw, row1_raw]] # Hover text needs to match Z structure (list of lists)
+                ),
+                row=row_idx, col=1
+            )
             
-            # --- Formatting for each band's subplot ---
-            ax.axhline(0.5, color='black', linewidth=0.8)
-            ax.set_ylabel(band, rotation=0, ha='right', va='center', fontweight='bold', fontsize=12)
-            ax.set_yticks([0.25, 0.75])
-            ax.set_yticklabels([call2, call1])
-            ax.tick_params(axis='y', length=0)
-            ax.set_ylim(0, 1)
-            ax.grid(False, axis='y') # Disable horizontal gridlines
+            # Note: fig.data[-1].text assignment above might be interpreted as a single list if not careful.
+            # Heatmap text argument expects a 2D array if z is 2D.
+            # Passing list of lists directly in constructor usually works.
+            
+            # --- Y-Axis Correction ---
+            # Force the Y-axis to display the callsigns as categories, not numbers
+            fig.update_yaxes(type='category', categoryorder='array', categoryarray=[call2, call1], row=row_idx, col=1)
 
-            # Add hourly gridlines
-            for ts in time_bins:
-                if ts.minute == 0:
-                    ax.axvline(x=mdates.date2num(ts), color='gray', linestyle=':', linewidth=0.75)
+        # --- Add Dummy Traces for Legend ---
+        # Strategy: Add traces with no data (None) so they appear in legend but not on plot.
+        # This avoids the opacity=0 issue where the legend icon also becomes invisible.
+        for label, color, val in [('Run', c_run, 1), ('S&P', c_sp, 2), ('Mixed', c_mix, 3)]:
+            fig.add_trace(
+                go.Scatter(
+                    x=[None], 
+                    y=[None],
+                    mode='markers',
+                    marker=dict(size=10, color=color, symbol='square'),
+                    name=label,
+                    showlegend=True
+                ),
+                row=1, col=1
+            )
 
-        # --- Overall Figure Formatting ---
-        fig.gca().xaxis.set_major_formatter(mdates.DateFormatter('%d-%H%M'))
-        fig.gca().xaxis.set_major_locator(mdates.HourLocator(interval=3))
-        plt.xticks(rotation=45, ha='right')
-        
-        # --- Set X-axis limits ---
-        if not time_bins.empty:
-            x_min = mdates.date2num(time_bins[0])
-            x_max = mdates.date2num(time_bins[-1])
-            axes[-1].set_xlim(x_min, x_max)
-
-        # --- Title ---
+        # --- Formatting ---
         year = get_valid_dataframe(self.logs[0])['Date'].dropna().iloc[0].split('-')[0]
         contest_name = log1_meta.get('ContestName', '')
         event_id = log1_meta.get('EventID', '')
@@ -145,29 +179,33 @@ class Report(ContestReport):
         
         title_line1 = f"{self.report_name}{mode_title_str}{page_title_suffix}"
         title_line2 = f"{year} {event_id} {contest_name} - {callsign_str}".strip().replace("  ", " ")
-        final_title = f"{title_line1}\n{title_line2}"
-        fig.suptitle(final_title, fontsize=16, fontweight='bold')
         
-        # --- Legend ---
-        legend_handles = [
-            mpatches.Patch(color=ACTIVITY_COLORS['Run'], label='Pure Run'),
-            mpatches.Patch(color=ACTIVITY_COLORS['S&P'], label='Pure S&P'),
-            mpatches.Patch(color=ACTIVITY_COLORS['Mixed'], label='Mixed / Unknown')
-        ]
-        fig.legend(handles=legend_handles, loc='upper right', ncol=3)
-        fig.tight_layout(rect=[0, 0, 0.9, 0.9])
-
-        # --- Save File ---
+        # Apply standard layout
+        layout_cfg = PlotlyStyleManager.get_standard_layout(f"{title_line1}<br><sub>{title_line2}</sub>")
+        
+        # Customize for this specific report
+        fig.update_layout(layout_cfg)
+        fig.update_layout(
+            height=max(600, 200 * len(bands_on_page)),
+            width=1600,
+            margin=dict(t=140), # ADR-008 Override
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        )
+        
+        # --- Save Files ---
         mode_filename_str = f"_{mode_filter.lower()}" if mode_filter else ""
-        filename = f"{self.report_id}{mode_filename_str}_{call1}_vs_{call2}{page_file_suffix}.png"
-        filepath = os.path.join(output_path, filename)
+        base_filename = f"{self.report_id}{mode_filename_str}_{call1}_vs_{call2}{page_file_suffix}"
         
-        debug_filename = f"{self.report_id}{mode_filename_str}_{call1}_vs_{call2}{page_file_suffix}.txt"
+        html_path = os.path.join(output_path, f"{base_filename}.html")
+        png_path = os.path.join(output_path, f"{base_filename}.png")
+        
+        debug_filename = f"{base_filename}.json"
         save_debug_data(debug_data_flag, output_path, plot_data_for_debug, custom_filename=debug_filename)
         
-        fig.savefig(filepath)
-        plt.close(fig)
-        return filepath
+        fig.write_html(html_path)
+        fig.write_image(png_path)
+        
+        return html_path # Return HTML as primary interactive artifact
 
     def generate(self, output_path: str, **kwargs) -> str:
         """Orchestrates the generation of the combined plot and per-mode plots."""
@@ -186,6 +224,7 @@ class Report(ContestReport):
         filepath = self._run_plot_for_slice(matrix_data_all, log1, log2, output_path, BANDS_PER_PAGE, mode_filter=None, **kwargs)
         if filepath:
             created_files.append(filepath)
+            created_files.append(filepath.replace('.html', '.png'))
         
         # --- 2. Generate per-mode plots if necessary ---
         df1 = get_valid_dataframe(log1, include_dupes=False)
@@ -200,15 +239,15 @@ class Report(ContestReport):
                     filepath = self._run_plot_for_slice(matrix_data_mode, log1, log2, output_path, BANDS_PER_PAGE, mode_filter=mode, **kwargs)
                     if filepath:
                         created_files.append(filepath)
+                        created_files.append(filepath.replace('.html', '.png'))
 
         if not created_files:
             return f"Report '{self.report_name}' did not generate any files."
+
         return f"Report file(s) saved to:\n" + "\n".join([f"  - {fp}" for fp in created_files])
 
     def _run_plot_for_slice(self, matrix_data, log1, log2, output_path, bands_per_page, mode_filter, **kwargs):
         """Helper to run the paginated plot generation for a specific data slice (DAL-based)."""
-        # Determine active bands from matrix data by checking counts?
-        # Actually, matrix data returns sorted bands. We can check if a band is empty for BOTH logs.
         all_bands = matrix_data['bands']
         active_bands = []
         
