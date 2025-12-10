@@ -5,7 +5,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-10-01
-# Version: 0.90.0-Beta
+# Version: 0.90.18-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -14,12 +14,21 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.90.18-Beta] - 2025-12-10
+# Switched scraper logic to target `cty-XXXX.zip` (Standard CTY) to retrieve `cty_wt_mod.dat`.
+# Renamed output file to `cty_wt_mod_{version}.dat` for clarity.
+# [0.90.17-Beta] - 2025-12-10
+# Switched target source to Standard CTY zip (`cty-XXXX.zip`) to retrieve `cty_wt_mod.dat`.
+# [0.90.16-Beta] - 2025-12-10
+# Relaxed validation in `find_cty_file_by_date` to fallback to Web Index Date.
+# [0.90.14-Beta] - 2025-12-10
+# Completely refactored `_build_full_index` to use Sequential Pagination.
 # [0.90.0-Beta] - 2025-10-01
 # Set new baseline version for release.
-
 import os
 import sys
 import json
@@ -32,6 +41,7 @@ from urllib.parse import urljoin
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
+from contest_tools.core_annotations.get_cty import CtyLookup
 
 class CtyManager:
     """Manages downloading, caching, and finding CTY.DAT files."""
@@ -45,6 +55,7 @@ class CtyManager:
         self.root_input_path = pathlib.Path(root_input_dir)
         self.cty_root_path = self.root_input_path / "data" / "CTY"
         self.zips_path = self.cty_root_path / "zips"
+   
         self.index_path = self.cty_root_path / self._INDEX_FILENAME
         self._setup_directories()
         self.index = self._load_index()
@@ -55,35 +66,47 @@ class CtyManager:
         self.zips_path.mkdir(exist_ok=True)
 
     def _build_full_index(self) -> list:
-        """Performs a one-time, full scrape of the website to build the index."""
-        logging.info("Performing initial full build, this may take a moment...")
-        headers = {'User-Agent': self._USER_AGENT}
-        try:
-            response = requests.get(self._BASE_URL, headers=headers, timeout=10)
-            response.raise_for_status()
-            soup = BeautifulSoup(response.text, 'html.parser')
-            archive_widget = soup.select_one('aside#baw_widgetarchives_widget_my_archives-2')
-            if not archive_widget:
-                logging.error("Could not find the Archives widget for initial build.")
-                return []
-            year_links = [a['href'] for a in archive_widget.select('li.baw-year > a')]
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Could not fetch base URL for initial build: {e}")
-            return []
-
+        """
+        Performs a full scrape of the website to build the index.
+        Uses Sequential Pagination (Page 1, 2, 3...) to traverse history.
+        """
+        logging.info("Performing initial full build using Sequential Pagination...")
         full_index = []
-        for year_url in year_links:
-            year = year_url.rstrip('/').split('/')[-1]
-            logging.info(f"--- Scanning Year: {year} ---")
-            page_num = 1
-            while True:
-                page_url = f"{year_url}page/{page_num}/"
-                html_content = self._fetch_index_page(page_url)
-                if not html_content: break
-                files_on_page = self._parse_archive_page(html_content)
-                if not files_on_page: break
+        page_num = 1
+        
+        while True:
+            if page_num == 1:
+                page_url = self._BASE_URL
+            else:
+                page_url = f"{self._BASE_URL}page/{page_num}/"
+                
+            logging.info(f"Scanning {page_url} ...")
+            
+            html_content = self._fetch_index_page(page_url)
+            if not html_content:
+                logging.info(f"Stopping scan: Page {page_num} could not be fetched or does not exist.")
+                break
+                
+            files_on_page = self._parse_archive_page(html_content)
+            
+            if files_on_page:
                 full_index.extend(files_on_page)
-                page_num += 1
+                logging.info(f"Found {len(files_on_page)} files on page {page_num}.")
+            else:
+                logging.info(f"No CTY files found on page {page_num}.")
+
+            soup = BeautifulSoup(html_content, 'html.parser')
+            next_page_link = soup.select_one('.nav-previous a')
+            
+            if not next_page_link:
+                logging.info("No 'Older posts' link found. Reached end of archives.")
+                break
+                
+            page_num += 1
+            
+            if page_num > 50:
+                logging.warning("Safety limit reached (50 pages). Stopping scan.")
+                break
 
         full_index.sort(key=lambda x: x['date'], reverse=True)
         return full_index
@@ -95,29 +118,38 @@ class CtyManager:
 
         latest_date_in_index = existing_index[0]['date']
         logging.info(f"Checking for files newer than {latest_date_in_index}...")
-        start_year = pd.to_datetime(latest_date_in_index).year
-        current_year = datetime.datetime.now().year
-
+        
         new_files = []
-        for year in range(current_year, start_year - 1, -1):
-            logging.info(f"--- Checking for updates in {year} ---")
-            page_num = 1
-            while True:
-                page_url = f"{self._BASE_URL}{year}/page/{page_num}/"
-                should_stop = False
-                html_content = self._fetch_index_page(page_url)
-                if not html_content: break
-                files_on_page = self._parse_archive_page(html_content)
-                if not files_on_page: break
+        page_num = 1
+        
+        while True:
+            if page_num == 1:
+                page_url = self._BASE_URL
+            else:
+                page_url = f"{self._BASE_URL}page/{page_num}/"
 
-                for file_entry in files_on_page:
-                    if file_entry['date'] > latest_date_in_index:
-                        new_files.append(file_entry)
-                    else:
-                        should_stop = True
-                        break
-                if should_stop: break
-                page_num += 1
+            html_content = self._fetch_index_page(page_url)
+            if not html_content: break
+            
+            files_on_page = self._parse_archive_page(html_content)
+            if not files_on_page: 
+                if page_num > 1: break
+
+            should_stop = False
+            for file_entry in files_on_page:
+                if file_entry['date'] > latest_date_in_index:
+                    new_files.append(file_entry)
+                else:
+                    should_stop = True
+                    break
+            
+            if should_stop: break
+            
+            soup = BeautifulSoup(html_content, 'html.parser')
+            if not soup.select_one('.nav-previous a'):
+                break
+                
+            page_num += 1
 
         if new_files:
             logging.info(f"Found {len(new_files)} new files.")
@@ -137,11 +169,14 @@ class CtyManager:
             response.raise_for_status()
             return response.text
         except requests.exceptions.RequestException as e:
-            logging.warning(f"Could not connect to {url} (likely end of pages): {e}")
+            logging.warning(f"Could not connect to {url}: {e}")
             return None
 
     def _parse_archive_page(self, html_content: str) -> list:
-        """Parses the HTML of an archive page to extract CTY file metadata."""
+        """
+        Parses the HTML of an archive page to extract CTY file metadata.
+        Targets the STANDARD CTY zip (e.g., 'cty-3538.zip').
+        """
         soup = BeautifulSoup(html_content, 'html.parser')
         articles = soup.find_all('article')
         if not articles:
@@ -149,14 +184,28 @@ class CtyManager:
 
         data = []
         for article in articles:
-            link = article.select_one('a[href*="/cty/download/"][href$=".zip"]')
             time_tag = article.find('time', class_='entry-date')
-            if link and time_tag:
-                data.append({
-                    "date": time_tag['datetime'],
-                    "url": urljoin(self._BASE_URL, link['href']),
-                    "filename": os.path.basename(link['href'])
-                })
+            if not time_tag or not time_tag.has_attr('datetime'):
+                continue
+            date_str = time_tag['datetime']
+
+            # Target standard CTY zip: cty-XXXX.zip
+            link = article.select_one('a[href*="/cty/download/"][href$=".zip"]')
+            if not link:
+                continue
+
+            href = link['href']
+            filename = os.path.basename(href)
+
+            # Strict filter: Must start with 'cty-' and look like 'cty-1234.zip'
+            if not re.match(r'^cty-\d+\.zip$', filename):
+                continue
+
+            data.append({
+                "date": date_str,
+                "url": urljoin(self._BASE_URL, href),
+                "filename": filename
+            })
         return data
 
     def _load_index(self) -> list:
@@ -165,6 +214,7 @@ class CtyManager:
             try:
                 with open(self.index_path, 'r', encoding='utf-8') as f:
                     return json.load(f)
+   
             except (json.JSONDecodeError, IOError):
                 logging.error(f"Could not read or parse local index file at {self.index_path}")
         return []
@@ -173,13 +223,14 @@ class CtyManager:
         """Saves the CTY index data to a JSON file."""
         try:
             with open(self.index_path, 'w', encoding='utf-8') as f:
+       
                 json.dump(data, f, indent=2)
             logging.info(f"CTY index successfully saved with {len(data)} entries.")
         except IOError:
             logging.error(f"Could not write to local index file at {self.index_path}")
 
     def _download_and_unzip(self, file_info: dict) -> pathlib.Path | None:
-        """Downloads and unzips a CTY file, returning the path to the .dat file."""
+        """Downloads and unzips the Standard CTY file, extracting cty_wt_mod.dat."""
         zip_filename_str = file_info.get('filename') or file_info.get('zip_name')
         if not zip_filename_str:
             logging.error("CTY index entry is missing a valid filename key.")
@@ -200,33 +251,42 @@ class CtyManager:
             logging.error(f"Download failed for {file_info['url']}: {e}")
             return None
             
-        # Unzip
+        # Unzip and Find cty_wt_mod.dat
+        target_file = 'cty_wt_mod.dat'
+        
         try:
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                dat_filename_in_zip = next((name for name in zip_ref.namelist() if name.lower().endswith('.dat')), None)
-                if not dat_filename_in_zip:
-                    logging.error(f"No .dat file found in {zip_path}")
-                    return None
+                # Case-insensitive search for target file
+                file_in_zip = next((name for name in zip_ref.namelist() if name.lower() == target_file), None)
                 
+                if not file_in_zip:
+                    logging.error(f"Target file '{target_file}' not found in {zip_path}")
+                    logging.info(f"Files available: {zip_ref.namelist()}")
+                    return None
+               
                 year = pd.to_datetime(file_info['date']).year
                 target_dir = self.cty_root_path / str(year)
                 target_dir.mkdir(exist_ok=True)
 
-                target_dat_filename = zip_path.stem + ".dat"
-                target_path = target_dir / target_dat_filename
+                # Rename to cty_wt_mod_{ver}.dat
+                version_match = re.search(r'(\d+)', zip_path.stem)
+                version_part = version_match.group(1) if version_match else "unknown"
                 
-                # Extract, then rename to the final versioned filename
-                extracted_temp_path_str = zip_ref.extract(dat_filename_in_zip, path=target_dir)
+                final_filename = f"cty_wt_mod_{version_part}.dat"
+                target_path = target_dir / final_filename
+                
+                # Extract to temp location then rename
+                extracted_temp_path_str = zip_ref.extract(file_in_zip, path=target_dir)
                 pathlib.Path(extracted_temp_path_str).rename(target_path)
 
-                logging.info(f"Unzipped to {target_path}")
+                logging.info(f"Unzipped and renamed to {target_path}")
                 return target_path
         except (zipfile.BadZipFile, FileNotFoundError, IOError) as e:
             logging.error(f"Failed to unzip {zip_path}: {e}")
             return None
 
     def find_cty_file_by_name(self, filename: str) -> tuple[pathlib.Path, dict] | tuple[None, None]:
-        """Finds a CTY file by its specific filename (e.g., 'cty-3401.dat')."""
+        """Finds a CTY file by its specific filename (e.g., 'cty-3538.zip')."""
         if filename.lower().endswith('.zip'):
             stem = filename[:-4]
         elif filename.lower().endswith('.dat'):
@@ -234,10 +294,13 @@ class CtyManager:
         else:
             stem = filename
 
-        dat_filename = f"{stem}.dat"
-        zip_filename = f"{stem}.zip"
-
-        # First, find the file's metadata in the index to determine its year
+        # Version extraction logic
+        version_match = re.search(r'(\d+)', stem)
+        version_part = version_match.group(1) if version_match else "unknown"
+        
+        # Expected target name: cty_wt_mod_{ver}.dat
+        dat_filename_str = f"cty_wt_mod_{version_part}.dat"
+        
         file_info = next((item for item in self.index
                           if (item.get('filename') or item.get('zip_name', '')).startswith(stem)), None)
 
@@ -245,20 +308,16 @@ class CtyManager:
             logging.error(f"Filename '{filename}' not found in the CTY index.")
             return None, None
 
-        dat_filename_str = f"{stem}.dat"
-        logging.info(f"{dat_filename_str} file selected, Date: {file_info['date']}")
+        logging.info(f"Searching for {dat_filename_str}, Date: {file_info['date']}")
 
-        # Now, construct the full, correct path including the year-based subdirectory
         try:
             year = pd.to_datetime(file_info['date']).year
             target_dir = self.cty_root_path / str(year)
-            target_dat_filename = stem + ".dat"
-            target_path = target_dir / target_dat_filename
+            target_path = target_dir / dat_filename_str
         except Exception as e:
             logging.error(f"Could not parse date or construct path for '{filename}': {e}")
             return None, None
 
-        # Check if the file *already exists* at the correct final destination
         if target_path.exists():
             return target_path, file_info
 
@@ -269,19 +328,19 @@ class CtyManager:
             return None, None
 
     def find_cty_file_by_date(self, contest_date: pd.Timestamp, specifier: str) -> tuple[pathlib.Path, dict] | tuple[None, None]:
-        """Finds the most appropriate CTY file based on a contest date."""
+        """
+        Finds the most appropriate CTY file based on a contest date.
+        Uses Hybrid Validation (Header check -> Fallback to Web Date).
+        """
         if not self.index:
             logging.error("CTY index is empty. Cannot find file by date.")
             return None, None
 
-        # Ensure the contest_date is timezone-aware for correct comparison
         if contest_date.tzinfo is None:
-            contest_date = contest_date.tz_localize('UTC')
+             contest_date = contest_date.tz_localize('UTC')
 
-        # Convert index dates to datetime objects for comparison
         for item in self.index:
             try:
-                # Handle various date formats gracefully
                 dt_aware = pd.to_datetime(item['date'], errors='coerce')
                 item['datetime'] = dt_aware.tz_convert('UTC') if dt_aware.tzinfo else dt_aware.tz_localize('UTC')
             except Exception:
@@ -290,18 +349,71 @@ class CtyManager:
         valid_entries = [item for item in self.index if item['datetime'] is not None]
 
         if specifier == 'before':
-            # Find the latest file dated on or before the contest
-            candidates = [item for item in valid_entries if item['datetime'] < contest_date]
-            if not candidates: return None, None
-            target_entry = max(candidates, key=lambda x: x['datetime'])
+            candidates = sorted(
+                [item for item in valid_entries if item['datetime'] < contest_date],
+                key=lambda x: x['datetime'],
+                reverse=True
+            )
         else: # Default to 'after'
-            # Find the earliest file dated on or after the contest
-            candidates = [item for item in valid_entries if item['datetime'] > contest_date]
-            if not candidates: return None, None
-            target_entry = min(candidates, key=lambda x: x['datetime'])
+            candidates = sorted(
+                [item for item in valid_entries if item['datetime'] > contest_date],
+                key=lambda x: x['datetime']
+            )
 
-        filename_to_find = target_entry.get('filename') or target_entry.get('zip_name')
-        return self.find_cty_file_by_name(filename_to_find)
+        if not candidates:
+            logging.warning(f"No CTY candidates found matching specifier '{specifier}' for date {contest_date}.")
+            if valid_entries:
+                logging.warning("Falling back to latest available CTY file in index.")
+                latest_entry = max(valid_entries, key=lambda x: x['datetime'])
+                candidates = [latest_entry]
+            else:
+                return None, None
+
+        for candidate in candidates:
+            path, _ = self.find_cty_file_by_name(candidate.get('filename') or candidate.get('zip_name'))
+            
+            if not path or not path.exists():
+                logging.warning(f"Could not retrieve CTY file for candidate: {candidate.get('filename')}. Trying next.")
+                continue
+
+            # Hybrid Validation: Check internal date
+            internal_date = CtyLookup.extract_version_date(str(path))
+            
+            check_date = None
+            date_source = ""
+
+            if internal_date:
+                if internal_date.tzinfo is None:
+                    internal_date = internal_date.tz_localize('UTC')
+                check_date = internal_date
+                date_source = "Internal Header"
+            else:
+                # Fallback to Web Index Date
+                logging.warning(f"Could not extract internal date from {path}. Falling back to Web Index Date.")
+                check_date = candidate['datetime']
+                date_source = "Web Index Date"
+
+            is_valid = False
+            if specifier == 'before':
+                is_valid = check_date < contest_date
+            else: # after
+                is_valid = check_date > contest_date
+            
+            if is_valid:
+                logging.info(f"Selected CTY file {path.name} via {date_source} ({check_date.date()}) for contest date {contest_date.date()}.")
+                return path, candidate
+            else:
+                logging.warning(f"File {path.name} ({date_source}: {check_date.date()}) failed validation for contest date {contest_date.date()} (Specifier: {specifier}).")
+        
+        # Fallback
+        logging.warning("No candidate passed validation. Returning latest available file from index as fallback.")
+        
+        if valid_entries:
+            latest_entry = max(valid_entries, key=lambda x: x['datetime'])
+            path, _ = self.find_cty_file_by_name(latest_entry.get('filename') or latest_entry.get('zip_name'))
+            return path, latest_entry
+            
+        return None, None
 
     def sync_index(self, contest_date: pd.Timestamp):
         """
@@ -316,6 +428,7 @@ class CtyManager:
             update_needed = True
             new_index = self._build_full_index()
             if new_index:
+          
                 self._save_index(new_index)
                 self.index = new_index
             else:
@@ -323,12 +436,14 @@ class CtyManager:
         else:
             latest_index_date = pd.to_datetime(local_index[0]['date']).tz_convert('UTC')
             if contest_date > latest_index_date:
+      
                 logging.info(f"Contest date ({contest_date.date()}) is newer than latest index entry ({latest_index_date.date()}). Checking for updates.")
                 update_needed = True
                 updated_index = self._update_index_incrementally(local_index)
                 if len(updated_index) > len(local_index):
                     self._save_index(updated_index)
-                self.index = updated_index
+   
+                    self.index = updated_index
 
         if not update_needed:
             logging.info("CTY index is sufficiently current for this contest.")
