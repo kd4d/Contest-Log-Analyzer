@@ -1,40 +1,35 @@
-# Implementation Plan - CTY Manager: Writelog Support & Hybrid Validation
+# Implementation Plan - Run/SP Plot Standardization
 
-**Date:** 2025-12-10
-**Target Version:** 0.90.13-Beta
-**Builder Bootstrap Context:**
-- **Goal:** Switch the CTY data source to `wl_cty.dat`, rename files using the Zip Stem versioning (e.g., `wl_cty_3501.dat`), and implement "Lazy Validation" using the internal `=VER` date.
-- **Constraint:** Do not download all files to build the index. Use web metadata for indexing and internal content for validation upon usage.
+## 1. Builder Bootstrap Context
+* **Target File:** `plot_comparative_run_sp.py`
+* **Goal:** Refactor legacy script to meet Phase 2 Visualization Standards (Two-line titles, flexible I/O, robust styling).
+* **Context:** This script analyzes the ratio of Run (calling CQ) vs. Search & Pounce (S/P) QSOs.
 
-## Phase 1: Parsing Logic Update
-**Target File:** `contest_tools/core_annotations/get_cty.py`
+## 2. Technical Debt Register
+* **Observed:** The current script likely uses hardcoded filenames or legacy command-line parsing.
+* **Remediation:** Implement `argparse` for robust input/output handling.
 
-### Step 1.1: Add Date Extraction Helper
-- Add a static method `extract_version_date(filepath: str) -> Optional[pd.Timestamp]` to the `CtyLookup` class.
-- **Logic:** Open file -> Regex search for `r'=VER(\d{8})'` -> Parse YYYYMMDD -> Return Timestamp.
-- This centralizes the parsing logic where it belongs.
+## 3. Proposed Changes
 
-## Phase 2: CTY Manager Overhaul
-**Target File:** `contest_tools/utils/cty_manager.py`
+### 3.1 Refactor `plot_comparative_run_sp.py`
+* **Action:** Rewrite the script structure to separate data loading, processing, and visualization.
+* **Standardization Requirements (Protocol 2.5.7):**
+    * **CLI:** Use `argparse`. Accept `--input` (CSV/Log), `--output` (Image path), and `--title` (Optional override).
+    * **Visuals:**
+        * **Title:** Enforce "Two-Line Title" format (Main Title in bold/larger, Subtitle with context).
+        * **Layout:** Use `constrained_layout=True` or `tight_layout`.
+        * **Typography:** Ensure axis labels and legends are Left-Anchored where possible/applicable.
+    * **Logic:**
+        * Load data (Pandas recommended).
+        * Calculate Run vs S/P intervals (if not pre-calculated).
+        * Plot Stacked Bar or Line chart (preserve original logic but enhance style).
+* **Output:** The script must save the figure to the specified output path without displaying the GUI (non-interactive backend).
 
-### Step 2.1: Update Extraction Target
-- Modify `_download_and_unzip` to specifically look for `wl_cty.dat` in the zip archive.
-- Update the renaming logic: `target_dat_filename = f"wl_cty_{zip_stem.replace('cty-', '')}.dat"` (e.g., `wl_cty_3501.dat`).
+## 4. Verification Plan
+### 4.1 Automated Verification
+* **Command:** `python plot_comparative_run_sp.py --help`
+* **Success Criteria:** The help message must display the new arguments (`--input`, `--output`).
 
-### Step 2.2: Implement Validation & Fallback
-- Modify `find_cty_file_by_date` to implement the Hybrid Strategy:
-    1.  **Filter:** Select candidates based on the existing index (Web Date).
-    2.  **Iterate:** Loop through candidates.
-    3.  **Verify:** After `_download_and_unzip`, call `CtyLookup.extract_version_date`.
-    4.  **Check:** Compare the *Internal Date* against `contest_date`.
-        * If valid: Return file.
-        * If invalid: Log warning, delete/ignore, try next candidate.
-    5.  **Fallback:** If no "After" file is found (e.g., running during contest), log a warning and return the **latest available** file from the index.
-
-## 3. Safety Protocols
-- **Regex Safety:** Ensure the VER regex matches strict 8-digit format to avoid false positives.
-- **File Integrity:** Ensure `wl_cty.dat` is actually found; if not, raise a clear error (do not fallback to `cty.dat`).
-
-## 4. Verification
-- **Unit Test:** Verify `extract_version_date` correctly parses `=VER20251209`.
-- **Integration Test:** Verify `CtyManager` correctly identifies `wl_cty.dat`, renames it, and updates the index.
+### 4.2 Visual Verification
+* **Command:** (Builder to provide specific test command based on available data)
+* **Success Criteria:** Visual inspection of the generated PNG to confirm Two-Line Title and layout.
