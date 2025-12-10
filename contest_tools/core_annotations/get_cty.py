@@ -6,7 +6,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-10-01
-# Version: 0.90.0-Beta
+# Version: 0.90.12-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,9 +18,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.90.12-Beta] - 2025-12-10
+# Enhanced `_parse_cty_file` to support `wl_cty.dat` format by stripping comments and sanitizing trailing commas.
 # [0.90.0-Beta] - 2025-10-01
 # Set new baseline version for release.
-
 from typing import List, Dict, Optional, Tuple
 import re
 from collections import namedtuple
@@ -39,6 +40,7 @@ class CtyLookup:
 
     CtyInfo = namedtuple('CtyInfo', 'name CQZone ITUZone Continent Lat Lon Tzone DXCC portableid')
     FullCtyInfo = namedtuple('FullCtyInfo', 'DXCCName DXCCPfx CQZone ITUZone Continent Lat Lon Tzone WAEName WAEPfx portableid')
+   
     UNKNOWN_ENTITY = CtyInfo("Unknown", "Unknown", "Unknown", "Unknown", "0.0", "0.0", "0.0", "Unknown", "")
 
     _US_PATTERN = re.compile(r'^(A[A-L]|K|N|W)[A-Z]?[0-9]')
@@ -62,6 +64,10 @@ class CtyLookup:
                 content = f.read()
         except Exception as e:
             raise IOError(f"Error reading CTY.DAT file {self.filename}: {e}")
+
+        # Pre-process content to handle wl_cty.dat quirks (comments and trailing commas)
+        content = re.sub(r'(?m)^#.*$', '', content)
+        content = re.sub(r',\s*;', ';', content)
 
         content = re.sub(r';[^\n\r]*', ';', content)
         content = re.sub(r'\s*&\s*', ',', content)
@@ -135,7 +141,8 @@ class CtyLookup:
 
     def get_cty_DXCC_WAE(self, callsign: str) -> FullCtyInfo:
         """
-        Primary entry point. Performs two lookups and merges the results.
+        Primary entry point.
+        Performs two lookups and merges the results.
         """
         dxcc_res_obj = self.get_cty(callsign, wae=False)
         wae_res_obj = self.get_cty(callsign, wae=True)
