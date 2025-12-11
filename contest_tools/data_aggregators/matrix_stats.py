@@ -33,12 +33,13 @@ class MatrixAggregator:
         else:
             return 'Mixed'
 
-    def get_matrix_data(self, bin_size: str = '15min', mode_filter: Optional[str] = None) -> Dict[str, Any]:
+    def get_matrix_data(self, bin_size: str = '15min', mode_filter: Optional[str] = None, time_index: pd.DatetimeIndex = None) -> Dict[str, Any]:
         """
         Generates aligned 2D grids for all logs.
         Args:
             bin_size: Pandas frequency string (default '15min').
             mode_filter: Optional mode string (e.g., 'CW', 'PH') to filter data.
+            time_index: Optional pre-calculated DatetimeIndex to force alignment.
         Returns:
         {
             "time_bins": [iso_str, ...], # X-Axis
@@ -69,10 +70,11 @@ class MatrixAggregator:
             return {"time_bins": [], "bands": [], "logs": {}}
 
         # Global Time Range
-        full_concat = pd.concat(all_dfs)
-        min_time = full_concat['Datetime'].min().floor('h')
-        max_time = full_concat['Datetime'].max().ceil('h')
-        time_index = pd.date_range(start=min_time, end=max_time, freq=bin_size, tz='UTC')
+        if time_index is None:
+            full_concat = pd.concat(all_dfs)
+            min_time = full_concat['Datetime'].min().floor('h')
+            max_time = full_concat['Datetime'].max().ceil('h')
+            time_index = pd.date_range(start=min_time, end=max_time, freq=bin_size, tz='UTC')
         
         # Global Band Order
         canonical_band_order = [b[1] for b in ContestLog._HAM_BANDS]
@@ -139,9 +141,13 @@ class MatrixAggregator:
 
         return result
 
-    def get_stacked_matrix_data(self, bin_size: str = '60min', mode_filter: Optional[str] = None) -> Dict[str, Any]:
+    def get_stacked_matrix_data(self, bin_size: str = '60min', mode_filter: Optional[str] = None, time_index: pd.DatetimeIndex = None) -> Dict[str, Any]:
         """
         Generates 3D data (Band x Time x RunStatus) for stacked charts.
+        Args:
+            bin_size: Pandas frequency string.
+            mode_filter: Optional filter.
+            time_index: Optional pre-calculated DatetimeIndex to force alignment.
         Returns:
         {
             "time_bins": [iso_str, ...],
@@ -175,10 +181,11 @@ class MatrixAggregator:
             return {"time_bins": [], "bands": [], "logs": {}}
 
         # Global Time Range
-        full_concat = pd.concat(all_dfs)
-        min_time = full_concat['Datetime'].min().floor('h')
-        max_time = full_concat['Datetime'].max().ceil('h')
-        time_index = pd.date_range(start=min_time, end=max_time, freq=bin_size, tz='UTC')
+        if time_index is None:
+            full_concat = pd.concat(all_dfs)
+            min_time = full_concat['Datetime'].min().floor('h')
+            max_time = full_concat['Datetime'].max().ceil('h')
+            time_index = pd.date_range(start=min_time, end=max_time, freq=bin_size, tz='UTC')
         
         # Global Band Order
         canonical_band_order = [b[1] for b in ContestLog._HAM_BANDS]
@@ -213,7 +220,7 @@ class MatrixAggregator:
                 continue
 
             # Standardize Run Status for grouping
-            # If 'Run' column exists, map NaNs to 'Unknown'. 
+            # If 'Run' column exists, map NaNs to 'Unknown'.
             # If it doesn't exist, treat all as 'Unknown'.
             if 'Run' in df.columns:
                 df = df.copy()

@@ -1,10 +1,17 @@
---- FILE: AIAgentWorkflow.md ---
 # AIAgentWorkflow.md
 
-**Version: 4.9.0**
+**Version: 4.11.0**
 **Date: 2025-12-11**
 ---
 ### --- Revision History ---
+## [4.11.0] - 2025-12-11
+### Changed
+# - Added Protocol 5.7: "Report Plugin Naming Standard" to enforce strict class naming for dynamic loaders.
+## [4.10.0] - 2025-12-11
+### Changed
+# - Codified Builder Version Extraction Logic.
+# - Updated Protocol 2.5 to mandate a Metadata Header in Implementation Plans.
+# - Updated Protocol 3.4 to enforce strict version extraction from the Target field.
 ## [4.9.0] - 2025-12-11
 ### Changed
 # - Replaced Protocol 3.4 with "Release Train Versioning Protocol" to eliminate version number randomness.
@@ -235,6 +242,9 @@ This workflow is a formal state machine that governs all development tasks, from
         2.  Upload the Trinity (Workflow, Plan, Bundle).
         3.  Issue the command: **"Act as Builder"**.
 2.5. **Plan Content Mandates**: The Plan must contain the following sections for each file to be modified, formatted with bolded headers:
+    **0. Plan Metadata Header:** Every Implementation Plan must begin with a standardized metadata block containing:
+    * **`**Version:**`**: The revision number of the Plan document itself (e.g., `1.0.0`).
+    * **`**Target:**`**: The specific version number to be applied to the generated code files (e.g., `0.102.0-Beta`).
     **1.  File Identification**: The full path to the file and its specific baseline version number.
     **2.  Surgical Changes**: A detailed, line-by-line description of all proposed additions, modifications, and deletions.
     **3.  Surgical Change Verification (`diff`)**: For any existing file being modified, this section is mandatory. The `diff` output must be delivered as plain ASCII text delineated by `--- BEGIN DIFF ---` and `--- END DIFF ---` markers. This section is not applicable for new files.
@@ -319,6 +329,9 @@ This workflow is a formal state machine that governs all development tasks, from
         * **Scenario B (Catch-Up/Re-baseline):** If `Old_X.Old_Y` **differs** from `Target_X.Target_Y`, reset to the baseline: `New_Version = Target_X.Target_Y.0`.
         * **Scenario C (New File):** Initialize at the baseline: `New_Version = Target_X.Target_Y.0`.
     4.  **History Mandate:** The Revision History must be **appended**, preserving the link to previous versions.
+    5. **The Builder Extraction Mandate.**
+        * **Constraint:** When generating code, the Builder MUST extract the version string **exclusively** from the `**Target:**` field defined in the Protocol 2.5 Metadata Header.
+        * **Prohibition:** The Builder is strictly forbidden from using the `**Version:**` field of the Implementation Plan document for file headers.
 
 3.5. **File Naming Convention Protocol.** All generated report files must adhere to the standardized naming convention: `<report_id>_<details>_<callsigns>.<ext>`.
 
@@ -420,6 +433,9 @@ These protocols describe specific, named patterns for implementing features in t
     1.  **Activation**: A new key, `"custom_adif_exporter": "module_name"`, is added to the contest's `.json` file.
     2.  **Hook**: The `log_manager.py` script detects this key and calls the specified module instead of the generic ADIF exporter.
     3.  **Implementation**: The custom exporter module is placed in the new `contest_tools/adif_exporters/` directory and must contain an `export_log(log, output_filepath)` function.
+5.7. **Report Plugin Naming Standard.**
+    * **Mandate:** To ensure discovery by the dynamic loader (`contest_tools/reports/__init__.py`), the main class within any report module **MUST** be named exactly **`class Report(ContestReport):`**.
+    * **Prohibition:** Do not use descriptive class names (e.g., `class MySpecialReport`). Descriptive naming is handled solely via the `report_id` and `report_name` attributes.
 ---
 ## Part IV: Special Case & Recovery Protocols
 
