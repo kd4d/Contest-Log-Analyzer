@@ -5,8 +5,10 @@
 **Focus:** Phase 2.5 (Animation Modernization)
 
 ## Context
-We have codified the "Golden Path" workflow in Roadmap v2.0.2 (Three-Slot, Stateless, Source-Agnostic).
-We are now clearing the final technical debt (Matplotlib/FFmpeg) before starting the Web Infrastructure build.
+We have finalized the Roadmap (v2.0.3).
+* **Strategy:** Stateless, Three-Slot UI.
+* **Next Phase (Phase 3):** Building the Web MVP using CQ WW as the "Pathfinder" test case.
+* **Current Block:** We must finish **Phase 2.5** to remove `ffmpeg` dependencies before we start Dockerizing in Phase 3.
 
 ## The Immediate Task: Phase 2.5
 We must convert the Animation report to Plotly. This allows us to build a lean Docker container in Phase 3 without complex video libraries.
