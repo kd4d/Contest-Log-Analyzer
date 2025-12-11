@@ -1,69 +1,82 @@
 # Architecture Roadmap: The Unified Engine Migration
 
-**Version:** 1.9.10
-**Date:** 2025-12-10
-**Status:** Roadmap Paused (Phase 2 Complete)
+**Version:** 2.0.2
+**Date:** 2025-12-11
+**Status:** Active
 
 ---
 
 ## 1. The Strategic Vision
-**Goal:** Create a single analysis engine that powers both a Command-Line Interface (CLI) and a future Web Interface (Django).
-**Core Constraint:** "Write Once, Render Everywhere." Logic must not be duplicated between CLI and Web.
+**Goal:** Create a single analysis engine that powers both a Command-Line Interface (CLI) and a Web Interface (Django).
+**Core Constraint:** "Write Once, Render Everywhere." Logic must not be duplicated.
+**Deployment Model:** **Stateless & Portable.**
+* No User Accounts. No User Database. Atomic Sessions.
+* Containerized (Docker) to ensure "Laptop == Server".
 
-## 2. Architectural Decision Records (ADRs)
+## 2. The "Golden Path" Workflow
+This defines the specific user experience and data flow for the Web Interface.
+
+1.  **The Three-Slot Model:** The analyzer presents **three generic input slots** (Log A, Log B, Log C).
+2.  **Identity Agnostic:** There is no concept of "My Log" vs. "Competitor."
+    * Valid Use Case: User compares *Winner A* vs. *Winner B* (neither is the user).
+    * Valid Use Case: User compares *My Log* vs. *My Log (Previous Year)*.
+3.  **Source Agnostic:** Each slot can be filled by either:
+    * **Direct Upload:** User uploads a local `.log` file.
+    * **Public Fetch:** User selects a contest/year/callsign. The system attempts to fetch the log from a public repository.
+4.  **Zero Persistence:**
+    * Files (uploaded or fetched) exist only for the duration of the request processing.
+    * Once the report is delivered to the browser, all source logs are purged.
+5.  **Opportunistic Fetching:**
+    * We acknowledge that **most contests do not publish public logs**.
+    * The "Fetch" feature is strictly an *optional utility* for supported contests (e.g., CQWW, WAE). It is not a requirement for the engine to function.
+
+## 3. Architectural Decision Records (ADRs)
 
 ### ADR-001: Data Abstraction Layer (DAL)
-* **Decision:** All business logic must be extracted into `data_aggregators/`.
-* **Constraint:** Aggregators must return **Pure Python Primitives**.
+* **Decision:** All business logic exists in `data_aggregators/`. Returns **Pure Python Primitives**.
 
-### ADR-002: Unified Visualization (Plotly + Jinja2)
-* **Decision:** Replace Matplotlib with **Plotly**. Use **Jinja2** for HTML generation.
+### ADR-002: Unified Visualization (Client-Side Rendering)
+* **Decision:** Replace Matplotlib with **Plotly**.
+* **Animation:** Replace server-side MP4 generation (FFmpeg) with **Plotly HTML Animations**. This offloads rendering to the client browser and removes binary dependencies.
 
 ### ADR-007: Shared Presentation Layer
-* **Decision:** The Django Web App must NOT have its own template directory.
-* **Mechanism:** It must point to the existing `contest_tools/templates`.
+* **Decision:** The Web App (Django) must point to the existing `contest_tools/templates`.
 * **Reason:** Ensures CLI HTML reports and Web Views are bit-for-bit identical.
 
-### ADR-008: Title Layout Protocol
-* **Decision:** Multi-subplot reports with 2-line titles must use `margin=dict(t=140)` to prevent overlap.
+### ADR-009: The Ephemeral Fetcher Pattern
+* **Decision:** Public Logs are **not** stored permanently.
+* **Mechanism:** The system fetches specific logs on-demand (via URL scraping or API) into a temporary session directory.
+* **Lifecycle:** Fetch -> Process -> Report -> Delete.
 
 ---
 
-## 3. Master Transition Timeline
+## 4. Master Transition Timeline
 
 ### **Phase 1: Data Decoupling (COMPLETE)**
 * **Status:** Complete. DAL is operational.
 
-### **Phase 1.5: Stabilization (COMPLETE)**
-* **Goal:** Synchronize documentation and fix "Phantom Dependencies."
-* **Status:** Verified.
-
 ### **Phase 2: Visualization Standardization (COMPLETE)**
-* **Goal:** Replace Matplotlib with Plotly/Jinja2.
-* **Constraint:** Must be completed BEFORE Web Foundation to ensure charts work in browsers.
-* **Tasks:**
-    * [x] Create `plotly_style_manager.py`.
-    * [x] Convert `chart_point_contribution.py`.
-    * [x] Convert `chart_point_contribution_single.py`.
-    * [x] Convert `chart_qso_breakdown.py`.
-    * [x] Convert `plot_cumulative_difference.py`.
-    * [x] Convert `plot_point_rate.py`.
-    * [x] Convert `plot_qso_rate.py`.
-    * [x] Convert `band_activity_heatmap`.
-    * [x] Convert `comparative_band_activity`.
-    * [x] Convert `comparative_band_activity_heatmap`.
-    * [x] Convert `comparative_run_sp_timeline`.
+* **Status:** Complete. Static charts migrated to Plotly.
 
-### **Phase 3: The Web Foundation (Simplified)**
-* **Goal:** Initialize Django *Synchronously*.
-* **Constraint:** **NO Celery/Redis yet.** The initial deployment must be a simple monolithic app to reduce complexity.
+### **Phase 2.5: Animation Modernization (IMMEDIATE)**
+* **Goal:** Eliminate Matplotlib/FFmpeg dependencies for animations.
+* **Constraint:** Establish the `.html` file as the definitive artifact for regression testing.
 * **Tasks:**
-    * Initialize Django Project.
-    * Mount `contest_tools` as an app.
-    * Wire up Views to Aggregators.
+    * [ ] Implement `plot_interactive_animation.py` (Plotly).
+    * [ ] Deprecate `plot_hourly_animation.py` (Matplotlib).
+    * [ ] Update `run_regression_test.py` to verify HTML JSON payloads.
 
-### **Phase 4: Advanced Features**
-* **Goal:** Async Processing & Persistence.
+### **Phase 3: The Web Infrastructure (Foundation)**
+* **Goal:** A working, deployable Web Container.
+* **Constraint:** No "Features" yet. Just the pipe.
 * **Tasks:**
-    * Introduce Celery/Redis (Only if processing time > 30s).
-    * User Authentication.
+    * [ ] **Dockerize:** Create `Dockerfile` and `docker-compose.yml`.
+    * [ ] **Django Skeleton:** Initialize project *inside* the container.
+    * [ ] **The Loop:** Implement the "Upload -> Process -> View" synchronous pipeline.
+
+### **Phase 4: The Data Layer (Public Log Access)**
+* **Goal:** Enable "Select from Public Source" in the UI.
+* **Tasks:**
+    * [ ] **Scrapers:** Create lightweight Python adapters to find/fetch logs from supported sources (CQWW, etc.).
+    * [ ] **UI Integration:** Add "Fetch URL" tabs to the Input slots.
+    * [ ] **Async Workers:** Introduce Celery/Redis *only if* fetching/processing exceeds HTTP timeouts.

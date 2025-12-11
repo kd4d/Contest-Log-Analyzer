@@ -5,7 +5,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-10
-# Version: 1.1.1
+# Version: 1.2.0
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,9 @@
 # If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [1.2.0] - 2025-12-10
+# - Added CLI entry point (argparse) for standalone execution.
+# - Updated documentation to reflect CLI usage.
 # [1.1.1] - 2025-12-10
 # - Fixed Legend Visibility Bug: Replaced opacity=0 hack with empty-data traces to ensure
 #   legend markers remain visible.
@@ -26,15 +29,18 @@
 # - Implemented Discrete Heatmap strategy for timeline visualization.
 # - Added HTML export capability.
 # [1.0.0] - 2025-11-24
-# Refactored to use MatrixAggregator (DAL).
+# - Refactored to use MatrixAggregator (DAL).
 # [0.90.0-Beta] - 2025-10-01
-# Set new baseline version for release.
+# - Set new baseline version for release.
+
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import os
 import math
+import argparse
+import sys
 from typing import List, Dict, Any
 
 from ..contest_log import ContestLog
@@ -148,7 +154,6 @@ class Report(ContestReport):
             # Note: fig.data[-1].text assignment above might be interpreted as a single list if not careful.
             # Heatmap text argument expects a 2D array if z is 2D.
             # Passing list of lists directly in constructor usually works.
-            
             # --- Y-Axis Correction ---
             # Force the Y-axis to display the callsigns as categories, not numbers
             fig.update_yaxes(type='category', categoryorder='array', categoryarray=[call2, call1], row=row_idx, col=1)
@@ -211,7 +216,7 @@ class Report(ContestReport):
         """Orchestrates the generation of the combined plot and per-mode plots."""
         if len(self.logs) != 2:
             return f"Error: Report '{self.report_name}' requires exactly two logs."
-
+        
         BANDS_PER_PAGE = 8
         log1, log2 = self.logs[0], self.logs[1]
         created_files = []
@@ -243,7 +248,6 @@ class Report(ContestReport):
 
         if not created_files:
             return f"Report '{self.report_name}' did not generate any files."
-
         return f"Report file(s) saved to:\n" + "\n".join([f"  - {fp}" for fp in created_files])
 
     def _run_plot_for_slice(self, matrix_data, log1, log2, output_path, bands_per_page, mode_filter, **kwargs):
@@ -285,3 +289,38 @@ class Report(ContestReport):
                 mode_filter=mode_filter,
                 **kwargs
             )
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Generate Comparative Run/S&P Timeline (Standalone)")
+    parser.add_argument("--input", nargs='+', required=True, help="Path to input log files (Requires exactly 2 logs for comparison)")
+    parser.add_argument("--output", required=True, help="Directory to save the output report files")
+    parser.add_argument("--debug", action="store_true", help="Enable debug data export")
+
+    args = parser.parse_args()
+
+    # Validate input count for comparative report
+    if len(args.input) != 2:
+        print("Error: Comparative report requires exactly two input log files.", file=sys.stderr)
+        sys.exit(1)
+
+    # Ensure output directory exists
+    if not os.path.exists(args.output):
+        try:
+            os.makedirs(args.output)
+        except OSError as e:
+            print(f"Error creating output directory: {e}", file=sys.stderr)
+            sys.exit(1)
+
+    try:
+        # Load Logs
+        logs = [ContestLog(f) for f in args.input]
+        
+        # Instantiate and Run Report
+        report = Report(logs)
+        result = report.generate(output_path=args.output, debug_data=args.debug)
+        
+        print(result)
+
+    except Exception as e:
+        print(f"Execution Error: {e}", file=sys.stderr)
+        sys.exit(1)

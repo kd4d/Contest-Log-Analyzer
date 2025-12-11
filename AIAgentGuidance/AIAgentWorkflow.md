@@ -1,9 +1,11 @@
 # **AIAgentWorkflow.md**
 
-Version: 4.6.0
-Date: 2025-12-07
+Version: 4.7.0
+Date: 2025-12-10
 
 ### **--- Revision History ---**
+## **[4.7.0] - 2025-12-10**
+# - Refactored Protocol 1.2: Added "The Index Echo" to mandate proof of read access for Project Bundles.
 ## **[4.6.0] - 2025-12-07**
 # - Refined Protocol 2.1: Enforced strict separation of "Analysis" and "Planning" phases.
 # - Refactored Protocol 2.3: Renamed to "Analysis Phase Termination" to mandate a Hard Stop before planning.
@@ -73,7 +75,8 @@ This document is the definitive technical specification for the AI agent's behav
 ### **1. Initialization**
 * **1.1 Role Declaration:** User declares role.
 * **1.2 Architect Context Receipt:** Architect parses the **Full Project Bundle**.
-    * **Verification:** Architect confirms receipt of the comprehensive codebase.
+    * **Verification (The Index Echo):** The Architect **MUST** explicitly list **three specific filenames** found in the `project_bundle.txt` (or source list) to prove active read access.
+    * **Constraint:** If the Architect cannot cite three actual filenames from the user's upload, it **MUST HALT** and report a "Context Read Error" immediately. Generic confirmations (e.g., "I have the files") are strictly forbidden.
 * **1.2.1 Roadmap Reconciliation:**
     * **Trigger:** Immediately upon receiving the Full Context.
     * **Action:** The Architect scans the `project_bundle.txt` against the "Planned" features in `ArchitectureRoadmap.md`.
