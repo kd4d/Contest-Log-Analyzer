@@ -23,8 +23,6 @@
 # - Initial creation for Phase 3.
 # - Maps port 8000 and sets CONTEST_INPUT/REPORTS_DIR to /app/CONTEST_LOGS_REPORTS.
 
-version: '3.8'
-
 services:
   web:
     build: .
