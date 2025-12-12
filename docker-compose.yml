@@ -1,0 +1,37 @@
+# docker-compose.yml
+#
+# Purpose: Defines the Docker services for the Contest Log Analyzer Web App.
+#          It configures the 'web' service to build from the local Dockerfile,
+#          maps the project directory for development (hot-reloading), and
+#          sets required environment variables.
+#
+# Author: Gemini AI
+# Date: 2025-12-11
+# Version: 0.102.0-Beta
+#
+# Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
+#
+# License: Mozilla Public License, v. 2.0
+#          (https://www.mozilla.org/MPL/2.0/)
+#
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+# --- Revision History ---
+# [0.102.0-Beta] - 2025-12-11
+# - Initial creation for Phase 3.
+# - Maps port 8000 and sets CONTEST_INPUT/REPORTS_DIR to /app/CONTEST_LOGS_REPORTS.
+
+services:
+  web:
+    build: .
+    command: python web_app/manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - CONTEST_INPUT_DIR=/app/CONTEST_LOGS_REPORTS
+      - CONTEST_REPORTS_DIR=/app/CONTEST_LOGS_REPORTS
+      - DEBUG=1

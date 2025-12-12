@@ -5,7 +5,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-11-24
-# Version: 1.0.0
+# Version: 1.1.0
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [1.1.0] - 2025-12-07
+# - Migrated visualization engine from Matplotlib to Plotly.
+# - Implemented dual output (PNG/HTML).
+# - Replaced manual table stats with TimeSeriesAggregator cumulative data.
 # [1.0.0] - 2025-11-24
 # - Refactored to use Data Abstraction Layer (TimeSeriesAggregator).
 # [0.90.0-Beta] - 2025-10-01
@@ -27,18 +31,20 @@
 from typing import List
 import os
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
 import logging
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
 from ._report_utils import create_output_directory, get_valid_dataframe, save_debug_data
 from ..data_aggregators.time_series import TimeSeriesAggregator
+from ..styles.plotly_style_manager import PlotlyStyleManager
 
 class Report(ContestReport):
     """
     Generates a series of plots comparing QSO rates: one for all bands
-    combined, and one for each individual contest band.
+    combined, and for each individual contest band.
     """
     report_id: str = "qso_rate_plots"
     report_name: str = "QSO Rate Comparison Plots"
@@ -110,27 +116,33 @@ class Report(ContestReport):
 
     def _create_plot(self, dfs: List[pd.DataFrame], output_path: str, band_filter: str, mode_filter: str, **kwargs) -> str:
         debug_data_flag = kwargs.get("debug_data", False)
-        fig, ax = plt.subplots(figsize=(12, 8))
-        sns.set_theme(style="whitegrid")
-
-        all_calls = []
-        summary_data = []
-        all_series = []
-        
         metric_name = "QSOs"
         
-        # --- DAL Integration (v1.3.1) ---
+        # --- DAL Integration ---
         # Initialize Aggregator with all logs
         agg = TimeSeriesAggregator(self.logs)
         # Fetch Data with filters
         ts_data = agg.get_time_series_data(band_filter=band_filter, mode_filter=mode_filter)
+        
         time_bins = [pd.Timestamp(t) for t in ts_data['time_bins']]
 
-        for i, df in enumerate(dfs):
-            log = self.logs[i]
+        # Initialize Plotly Subplots
+        fig = make_subplots(
+            rows=2, cols=1,
+            shared_xaxes=False,
+            vertical_spacing=0.1,
+            row_heights=[0.7, 0.3],
+            specs=[[{"type": "xy"}], [{"type": "table"}]]
+        )
+
+        all_calls = []
+        summary_rows = []
+        all_series = [] # For debug export
+
+        for i, log in enumerate(self.logs):
             call = log.get_metadata().get('MyCall', 'Unknown')
             all_calls.append(call)
-
+            
             # Get log-specific data from DAL structure
             log_data = ts_data['logs'].get(call)
             if not log_data:
@@ -142,84 +154,117 @@ class Report(ContestReport):
             # Check if we have data to plot
             if scalars['net_qsos'] == 0:
                 continue
+            
+            # Color Management
+            color = PlotlyStyleManager._COLOR_PALETTE[i % len(PlotlyStyleManager._COLOR_PALETTE)]
 
-            # Plot
+            # 1. Add Line Trace
+            fig.add_trace(
+                go.Scatter(
+                    x=time_bins,
+                    y=cumulative_values,
+                    mode='lines+markers',
+                    name=call,
+                    line=dict(color=color, width=2),
+                    marker=dict(size=4)
+                ),
+                row=1, col=1
+            )
+            
+            # Store for debug
             series = pd.Series(cumulative_values, index=time_bins, name=call)
-            ax.plot(series.index, series.values, marker='o', linestyle='-', markersize=4, label=call)
             all_series.append(series)
-
-            # NOTE: Run/S&P split for summary table is currently NOT in DAL v1.3.1 scalars,
-            # but is available in cumulative series. For now, we calculate summary from 
-            # the passed dataframe slice to maintain the table accuracy without expanding Schema yet.
-            # (Plan does not require scalar schema update for this specific table).
-            if band_filter != "All":
-                 df_filtered = df[df['Band'] == band_filter]
-            else:
-                 df_filtered = df
-
-            summary_data.append([
+            
+            # 2. Prepare Table Data (from DAL accumulators)
+            # Safe retrieval of last values for cumulative breakdown
+            run_qsos_final = log_data['cumulative']['run_qsos'][-1] if log_data['cumulative']['run_qsos'] else 0
+            sp_qsos_final = log_data['cumulative']['sp_unk_qsos'][-1] if log_data['cumulative']['sp_unk_qsos'] else 0
+            
+            summary_rows.append([
                 call,
-                f"{scalars['net_qsos']:,}", # Use DAL scalar for total
-                f"{(df_filtered['Run'] == 'Run').sum():,}",
-                f"{(df_filtered['Run'] == 'S&P').sum():,}",
-                f"{(df_filtered['Run'] == 'Unknown').sum():,}"
+                f"{scalars['net_qsos']:,}",
+                f"{run_qsos_final:,}",
+                f"{sp_qsos_final:,}"
             ])
 
+        # If no data plotted, return None
+        if not summary_rows:
+            logging.info(f"Skipping {metric_name} plot for {band_filter}: No data available.")
+            return None
+
+        # 3. Add Summary Table
+        headers = ['Call', 'Total QSOs', 'Run QSOs', 'S&P/Unk QSOs']
+        # Transpose rows for Plotly Table (it expects Column-major lists)
+        table_columns = list(map(list, zip(*summary_rows))) if summary_rows else [[], [], [], []]
+        
+        fig.add_trace(
+            go.Table(
+                header=dict(
+                    values=headers,
+                    fill_color='paleturquoise',
+                    align='center',
+                    font=dict(size=12, weight='bold')
+                ),
+                cells=dict(
+                    values=table_columns,
+                    fill_color='white',
+                    align='center',
+                    font=dict(size=11),
+                    height=30
+                )
+            ),
+            row=2, col=1
+        )
+
+        # 4. Styling & Layout
         metadata = self.logs[0].get_metadata()
         year = get_valid_dataframe(self.logs[0])['Date'].dropna().iloc[0].split('-')[0] if not get_valid_dataframe(self.logs[0]).empty and not get_valid_dataframe(self.logs[0])['Date'].dropna().empty else "----"
         contest_name = metadata.get('ContestName', '')
         event_id = metadata.get('EventID', '')
         
-        is_single_band = len(self.logs[0].contest_definition.valid_bands) == 1
-        band_text = self.logs[0].contest_definition.valid_bands[0].replace('M', ' Meters') if is_single_band else band_filter.replace('M', ' Meters')
         mode_text = f" ({mode_filter})" if mode_filter else ""
         callsign_str = ", ".join(all_calls)
 
         title_line1 = f"{self.report_name}{mode_text}"
         title_line2 = f"{year} {event_id} {contest_name} - {callsign_str}".strip().replace("  ", " ")
-        final_title = f"{title_line1}\n{title_line2}"
-        
-        ax.set_title(final_title, fontsize=16, fontweight='bold')
-        ax.set_xlabel("Contest Time")
-        ax.set_ylabel(f"Cumulative {metric_name}")
-        
-        if ax.get_lines():
-            ax.legend(loc='upper left')
+        final_title = f"{title_line1}<br>{title_line2}" # Use <br> for HTML/Plotly newline
 
-        ax.grid(True, which='both', linestyle='--')
-        
-        if summary_data:
-            col_labels = ["Call", f"Total {metric_name}", "Run", "S&P", "Unk"]
-            table = ax.table(cellText=summary_data, colLabels=col_labels, loc='lower right', cellLoc='center', colLoc='center')
-            table.auto_set_font_size(False)
-            table.set_fontsize(10)
-            table.scale(0.7, 1.2)
-            table.set_zorder(10)
-            
-            for key, cell in table.get_celld().items():
-                cell.set_facecolor('white')
-        
-        # Check if any data was actually plotted before saving
-        if not ax.get_lines():
-            logging.info(f"Skipping {metric_name} plot for {band_filter}: No data available for any log on this band.")
-            plt.close(fig)
-            return None
-            
-        fig.tight_layout()
+        # Apply Standard Layout
+        layout_cfg = PlotlyStyleManager.get_standard_layout(final_title)
+        fig.update_layout(**layout_cfg)
+        fig.update_layout(
+            width=1200,
+            height=900,
+            xaxis_title="Contest Time",
+            yaxis_title=f"Cumulative {metric_name}",
+            legend=dict(x=0.01, y=0.99)
+        )
+
         create_output_directory(output_path)
         
+        # Construct Filenames
+        is_single_band = len(self.logs[0].contest_definition.valid_bands) == 1
         filename_band = self.logs[0].contest_definition.valid_bands[0].lower() if is_single_band else band_filter.lower().replace('m', '')
         filename_calls = '_vs_'.join(sorted(all_calls))
         mode_suffix = f"_{mode_filter.lower()}" if mode_filter else ""
         
+        base_filename = f"{self.report_id}_{filename_band}{mode_suffix}_{filename_calls}"
+        
         # --- Save Debug Data ---
         if all_series:
             debug_df = pd.concat(all_series, axis=1).fillna(0)
-            debug_filename = f"{self.report_id}_{filename_band}{mode_suffix}_{filename_calls}.txt"
-            save_debug_data(debug_data_flag, output_path, debug_df, custom_filename=debug_filename)
+            save_debug_data(debug_data_flag, output_path, debug_df, custom_filename=f"{base_filename}.txt")
         
-        filename = f"{self.report_id}_{filename_band}{mode_suffix}_{filename_calls}.png"
-        filepath = os.path.join(output_path, filename)
-        fig.savefig(filepath)
-        plt.close(fig)
-        return filepath
+        # --- Save Outputs ---
+        # 1. HTML (Interactive)
+        html_path = os.path.join(output_path, f"{base_filename}.html")
+        fig.write_html(html_path, include_plotlyjs='cdn')
+        
+        # 2. PNG (Static) - Return this path for consistency with report list
+        png_path = os.path.join(output_path, f"{base_filename}.png")
+        try:
+            fig.write_image(png_path, width=1200, height=900)
+            return png_path
+        except Exception as e:
+            logging.warning(f"Static image generation failed (Kaleido missing?): {e}")
+            return html_path # Fallback to HTML if PNG fails

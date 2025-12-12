@@ -1,13 +1,14 @@
 # run_regression_test.py
 #
 # Purpose: This script provides an automated regression test for the Contest Log
-#          Analyzer. It archives the last known-good reports, runs a series of
+#          Analyzer.
+#          It archives the last known-good reports, runs a series of
 #          pre-defined test cases from a batch file, and compares the new
 #          output against the archived baseline to detect any regressions.
 #
 # Author: Gemini AI
 # Date: 2025-10-01
-# Version: 0.90.1-Beta
+# Version: 0.94.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -16,15 +17,18 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.94.2-Beta] - 2025-12-11
+# - Updated to support text-based diff comparison for .html files (Plotly reports).
+# - Removed obsolete regression checks for animation frames (_frame_NNN).
 # [0.90.1-Beta] - 2025-10-01
 # - Refactored comparison logic to summarize failures for sequential files
 #   (e.g., animation frames), showing a count and only the first/last diffs.
 # [0.90.0-Beta] - 2025-10-01
 # Set new baseline version for release.
-
 import os
 import sys
 import argparse
@@ -57,10 +61,6 @@ def _parse_sequence_filename(filename: str):
     Checks if a filename is part of a sequence and extracts its number.
     Returns a tuple of (group_name, number) or (None, None).
     """
-    frame_match = re.search(r'_frame_(\d{3})\.(txt|json)$', filename, re.IGNORECASE)
-    if frame_match:
-        return "Animation Frames", int(frame_match.group(1))
-        
     page_match = re.search(r'_Page_(\d+)_of_(\d+)\.(png|txt|json)$', filename, re.IGNORECASE)
     if page_match:
         return "Paginated Reports", int(page_match.group(1))
@@ -197,7 +197,7 @@ def compare_outputs(new_items: set, reports_dir: str, archive_dir: str, ignore_w
         failures = []
 
         if not os.path.exists(baseline_path):
-            if item_path.endswith(('.png', '.mp4', '.txt', '.adi', '_processed.csv')):
+            if item_path.endswith(('.png', '.html', '.txt', '.adi', '_processed.csv')):
                 failures.append(f"Missing Baseline: {relative_path}")
             if failures:
                 all_failures.extend(failures)
@@ -304,7 +304,7 @@ def compare_outputs(new_items: set, reports_dir: str, archive_dir: str, ignore_w
             except Exception as e:
                 failures.append(f"File: {relative_path}\nERROR during ADIF diff: {e}")
 
-        elif item_path.endswith('.txt'):
+        elif item_path.endswith(('.txt', '.html')):
             try:
                 with open(item_path, 'r', encoding='utf-8') as f_new:
                     lines_new = f_new.readlines()
@@ -380,6 +380,7 @@ def main():
         sys.exit(1)
 
     root_dir, reports_dir = get_report_dirs(root_reports_dir_env)
+    
     
     # 1. Archive existing reports
     print("\n--- Step 1: Archiving Baseline Reports ---")

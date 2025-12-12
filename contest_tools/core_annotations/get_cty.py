@@ -6,7 +6,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-10-01
-# Version: 0.90.0-Beta
+# Version: 0.90.18-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -15,12 +15,24 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.90.18-Beta] - 2025-12-10
+# Updated `extract_version_date` to prioritize parsing the `# RELEASE` header.
+# Retained full-file scan for embedded `=VER` tags as fallback.
+# [0.90.17-Beta] - 2025-12-10
+# Confirmed `extract_version_date` logic for `cty_wt_mod.dat` (embedded =VER tag).
+# [0.90.16-Beta] - 2025-12-10
+# Updated `extract_version_date` to scan entire file.
+# Fixed IndentationError.
+# [0.90.13-Beta] - 2025-12-10
+# Added `extract_version_date` static method to parse internal =VER tag.
+# [0.90.12-Beta] - 2025-12-10
+# Enhanced `_parse_cty_file` to support `wl_cty.dat` format by stripping comments and sanitizing trailing commas.
 # [0.90.0-Beta] - 2025-10-01
 # Set new baseline version for release.
-
 from typing import List, Dict, Optional, Tuple
 import re
 from collections import namedtuple
@@ -28,6 +40,7 @@ import sys
 import os
 import argparse
 import logging
+import pandas as pd
 from Utils.logger_config import setup_logging
 
 class CtyLookup:
@@ -39,6 +52,7 @@ class CtyLookup:
 
     CtyInfo = namedtuple('CtyInfo', 'name CQZone ITUZone Continent Lat Lon Tzone DXCC portableid')
     FullCtyInfo = namedtuple('FullCtyInfo', 'DXCCName DXCCPfx CQZone ITUZone Continent Lat Lon Tzone WAEName WAEPfx portableid')
+    
     UNKNOWN_ENTITY = CtyInfo("Unknown", "Unknown", "Unknown", "Unknown", "0.0", "0.0", "0.0", "Unknown", "")
 
     _US_PATTERN = re.compile(r'^(A[A-L]|K|N|W)[A-Z]?[0-9]')
@@ -51,9 +65,41 @@ class CtyLookup:
 
         if not os.path.exists(self.filename):
             raise FileNotFoundError(f"CTY.DAT file not found: {self.filename}")
-        
+         
         self._parse_cty_file()
         self._validate_patterns()
+
+    @staticmethod
+    def extract_version_date(filepath: str) -> Optional[pd.Timestamp]:
+        """
+        Extracts the version date from the CTY file.
+        Priority 1: Header Comment (# RELEASE YYYY.MM.DD)
+        Priority 2: Embedded Tag (=VERYYYYMMDD)
+        Returns a pandas Timestamp or None if not found.
+        """
+        try:
+            # Check 1: Header (Efficient)
+            with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+                head = f.read(1024)
+            
+            # Match: # RELEASE 2025.12.09
+            header_match = re.search(r'^#\s*RELEASE\s+(\d{4})\.(\d{2})\.(\d{2})', head, re.MULTILINE)
+            if header_match:
+                date_str = f"{header_match.group(1)}{header_match.group(2)}{header_match.group(3)}"
+                return pd.to_datetime(date_str, format='%Y%m%d')
+
+            # Check 2: Embedded Tag (Robust Fallback - scans whole file)
+            with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+                content = f.read()
+
+            match = re.search(r'=VER(\d{8})', content)
+            if match:
+                return pd.to_datetime(match.group(1), format='%Y%m%d')
+                
+        except Exception as e:
+            logging.error(f"Failed to extract version date from {filepath}: {e}")
+        
+        return None
 
     def _parse_cty_file(self):
         """Parses the CTY.DAT file and populates the prefix dictionaries."""
@@ -62,6 +108,10 @@ class CtyLookup:
                 content = f.read()
         except Exception as e:
             raise IOError(f"Error reading CTY.DAT file {self.filename}: {e}")
+
+        # Pre-process content to handle wl_cty.dat quirks (comments and trailing commas)
+        content = re.sub(r'(?m)^#.*$', '', content)
+        content = re.sub(r',\s*;', ';', content)
 
         content = re.sub(r';[^\n\r]*', ';', content)
         content = re.sub(r'\s*&\s*', ',', content)
@@ -303,6 +353,7 @@ if __name__ == "__main__":
     setup_logging(verbose=True)
 
     root_dir = os.environ.get('CONTEST_INPUT_DIR')
+    
     if not root_dir:
         logging.critical("CONTEST_INPUT_DIR environment variable not set.")
         sys.exit(1)

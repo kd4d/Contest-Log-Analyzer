@@ -6,8 +6,8 @@
 #          analysis engine.
 #
 # Author: Gemini AI
-# Date: 2025-10-09
-# Version: 0.91.5-Beta
+# Date: 2025-12-10
+# Version: 0.91.6-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.91.6-Beta] - 2025-12-10
+# - Removed the "Hourly ADIF Debug File Generation" block from finalize_loading
+#   to disable the creation of partial ADIF files in the Debug/ directory.
 # [0.91.5-Beta] - 2025-10-09
 # - Removed obsolete warning suppression logic for hourly ADIF files and
 #   updated the `export_to_adif` call to pass a new context parameter.
@@ -43,7 +46,6 @@
 # --- Revision History ---
 # [0.90.0-Beta] - 2025-10-01
 # Set new baseline version for release.
-
 import pandas as pd
 from typing import List
 from .contest_log import ContestLog
@@ -71,6 +73,7 @@ class LogManager:
         if len(log_filepaths) > 1:
             logging.info("Performing pre-flight validation on log batch...")
             header_data = []
+            
             for path in log_filepaths:
                 call = self._get_callsign_from_header(path)
                 
@@ -208,31 +211,6 @@ class LogManager:
                     qtcs_df.to_csv(qtcs_filepath, index=False, na_rep='')
                     logging.info(f"WAE QTC data saved to: {qtcs_filepath}")
 
-            # --- Hourly ADIF Debug File Generation ---
-            if debug_data:
-                debug_adif_dir = os.path.join(output_dir, "Debug", "adif_files")
-                os.makedirs(debug_adif_dir, exist_ok=True)
-                logging.info(f"Generating hourly ADIF debug files in: {debug_adif_dir}")
-
-                if log._log_manager_ref and log._log_manager_ref.master_time_index is not None:
-                    for hour in log._log_manager_ref.master_time_index:
-                        hourly_df = log.qsos_df[log.qsos_df['Datetime'].dt.floor('h') == hour]
-
-                        filename = f"{hour.strftime('%Y-%m-%d_%H00')}.adi"
-                        filepath = os.path.join(debug_adif_dir, filename)
-                        
-                        # Create a lightweight, temporary log object for export
-                        temp_log = ContestLog(
-                            contest_name=log.contest_name, cabrillo_filepath=None,
-                            root_input_dir=log.root_input_dir, cty_dat_path=log.cty_dat_path
-                        )
-                        temp_log.qsos_df = hourly_df
-                        temp_log.metadata = log.metadata
-                        
-                        # The standard ADIF export handles empty dataframes gracefully
-                        temp_log.export_to_adif(filepath, is_debug_hour=True)
-
-            
             # --- ADIF Export (if enabled for this contest) ---
             if getattr(log.contest_definition, 'enable_adif_export', False):
                 adif_filename = f"{base_filename}_N1MMADIF.adi"

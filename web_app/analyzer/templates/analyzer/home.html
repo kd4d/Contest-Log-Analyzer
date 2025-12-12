@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="text-center mb-5">
+        <h1 class="display-4 fw-bold text-primary">Contest Log Analyzer</h1>
+        <p class="lead text-muted">Upload your Cabrillo logs to generate detailed statistics and visualizations.</p>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card shadow-lg border-0">
+                <div class="card-body p-5">
+                    <form method="post" action="{% url 'analyze' %}" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <div class="row justify-content-center">
+                            {% for field in form %}
+                            <div class="col-md-4 mb-4">
+                                <div class="card h-100 shadow-sm border-0">
+                                    <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
+                                        <h5 class="card-title text-primary fw-bold mb-0">
+                                            <i class="bi bi-file-earmark-text me-2"></i>{{ field.label }}
+                                        </h5>
+                                    </div>
+                                    <div class="card-body">
+                                        {{ field }}
+                                        {% if field.help_text %}
+                                        <div class="form-text text-muted small mt-2">{{ field.help_text }}</div>
+                                        {% endif %}
+                                        {% for error in field.errors %}
+                                        <div class="text-danger small mt-1">{{ error }}</div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="d-grid gap-2 col-md-6 mx-auto mt-4">
+                            <button type="submit" class="btn btn-primary btn-lg shadow-sm">
+                                <i class="bi bi-bar-chart-fill me-2"></i>Analyze Logs
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

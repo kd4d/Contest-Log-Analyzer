@@ -4,8 +4,8 @@
 #          reporting engine.
 #
 # Author: Gemini AI
-# Date: 2025-11-24
-# Version: 0.93.2-Beta
+# Date: 2025-12-10
+# Version: 1.0.0
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,17 +19,16 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [1.0.0] - 2025-12-10
+# - Removed ComparativeHeatmapChart and associated matplotlib imports (Phase 2 Migration).
 # [0.93.2-Beta] - 2025-11-24
 # - Fixed Critical SyntaxError in _prepare_time_series_data (Line 100).
 # - Consolidated cosmetic line breaks for stability.
 # [0.93.0-Beta] - 2025-11-24
 # - Refactored NpEncoder to contest_tools.utils.json_encoders.
-
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
-from matplotlib.patches import Rectangle
-from matplotlib.colors import Normalize, ListedColormap
 import os
 import numpy as np
 import re
@@ -74,7 +73,7 @@ def _prepare_time_series_data(log1: ContestLog, log2: Optional[ContestLog], metr
     metric_col = metrics_map.get(metric)
     
     all_ts = []
- 
+
     for log in [log1, log2]:
         if log is None:
             all_ts.append(None)
@@ -177,122 +176,6 @@ class DonutChartComponent:
         table.auto_set_font_size(False)
         table.set_fontsize(12)
         table.scale(1.2, 1.2)
-
-class ComparativeHeatmapChart:
-    """Helper class to generate a 'split cell' comparative heatmap."""
-    
-    def __init__(self, data1, data2, call1, call2, metadata: Dict[str, Any], output_filename: str, report_name: str, part_info: str = ""):
-        self.data1 = data1
-        self.data2 = data2
-        self.call1 = call1
-        self.call2 = call2
-        self.metadata = metadata
-        self.output_filename = output_filename
-        self.report_name = report_name
-        self.part_info = part_info
-
-    def plot(self):
-        """Generates and saves the heatmap plot."""
-        bands = self.data1.index
-        num_bands = len(bands)
-        num_cols = len(self.data1.columns)
-        
-        # Enforce a minimum height for single-band plots
-        height = max(6.0, 1 + num_bands * 1.2)
-        fig = plt.figure(figsize=(11, height))
-        
-        # --- Explicit Layout Control using GridSpec ---
-        gs = fig.add_gridspec(2, 1, height_ratios=[1, 15], hspace=0.05)
-        ax_legend = fig.add_subplot(gs[0])
-        ax = fig.add_subplot(gs[1])
-        ax_legend.axis('off')
-
-
-        max_val = max(self.data1.max().max(), self.data2.max().max())
-        norm = Normalize(vmin=0, vmax=max_val)
-        
-        base_cmap = plt.get_cmap('hot')
-        cmap_colors = base_cmap(np.linspace(0.1, 1.0, 256)) 
-        cmap = ListedColormap(cmap_colors)
-
-        # --- Stage 1: Draw filled rectangles ---
-        for band_idx, band in enumerate(bands):
-            for time_idx in range(num_cols):
-                qso_count1 = self.data1.iloc[band_idx, time_idx]
-                qso_count2 = self.data2.iloc[band_idx, time_idx]
-
-                if qso_count1 > 0:
-                    ax.add_patch(Rectangle((time_idx, band_idx + 0.5), 1, 0.5, facecolor=cmap(norm(qso_count1)), edgecolor='none'))
-                
-                if qso_count2 > 0:
-                    ax.add_patch(Rectangle((time_idx, band_idx), 1, 0.5, facecolor=cmap(norm(qso_count2)), edgecolor='white', hatch='..'))
-
-        # --- Stage 2: Manually draw custom grid lines ---
-        for time_idx in range(num_cols + 1):
-            ax.axvline(time_idx, color='white', linewidth=1.5)
-        
-        for band_idx in range(num_bands):
-            ax.axhline(band_idx + 0.5, color='black', linewidth=0.75)
-            
-        for band_idx in range(num_bands + 1):
-            ax.axhline(band_idx, color='black', linewidth=2.0, zorder=10)
-
-        # --- Formatting ---
-        ax.set_xlim(0, num_cols)
-        ax.set_ylim(0, num_bands)
-        ax.set_yticks(np.arange(num_bands) + 0.5)
-        ax.set_yticklabels(bands)
-        
-        min_time = self.data1.columns[0]
-        max_time = self.data1.columns[-1]
-        contest_duration_hours = (max_time - min_time).total_seconds() / 3600
-        
-        if contest_duration_hours <= 12:
-            hour_interval = 2
-            date_format_str = '%H:%M'
-        else:
-            hour_interval = 3
-            date_format_str = '%H:%M'
-            
-        tick_step = hour_interval * 4
-        tick_positions = np.arange(0.5, num_cols, tick_step)
-        tick_labels = [self.data1.columns[int(i)].strftime(date_format_str) for i in tick_positions]
-        ax.set_xticks(tick_positions)
-        ax.set_xticklabels(tick_labels, rotation=45, ha='right')
-        
-        ax.set_xlabel("Contest Time (UTC)")
-        
-        # --- Standard Title and Legend ---
-        year = self.metadata.get('Year', '')
-        contest_name = self.metadata.get('ContestName', '')
-        event_id = self.metadata.get('EventID', '')
-        
-        callsign_str = f"{self.call1} vs. {self.call2}"
-        title_line1 = f"{self.report_name} {self.part_info}".strip()
-        title_line2 = f"{year} {event_id} {contest_name} - {callsign_str}".strip().replace("  ", " ")
-        final_title = f"{title_line1}\n{title_line2}"
-        fig.suptitle(final_title, fontsize=16, fontweight='bold', y=0.99)
-        
-        medium_color = cmap(0.5)
-        legend_patches = [
-            Rectangle((0, 0), 1, 1, facecolor=medium_color, label=self.call1),
-            Rectangle((0, 0), 1, 1, facecolor=medium_color, hatch='..', edgecolor='white', label=self.call2),
-        ]
-        ax_legend.legend(handles=legend_patches, loc='center', ncol=2, frameon=False)
-
-        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-        sm.set_array([])
-        cbar = plt.colorbar(sm, ax=ax, aspect=40, pad=0.02)
-        cbar.set_label('QSOs / 15 min')
-        
-        try:
-            fig.savefig(self.output_filename)
-            plt.close(fig)
-            return self.output_filename
-        except Exception as e:
-            logging.error(f"Error saving split heatmap: {e}")
-            plt.close(fig)
-            return None
 
 def save_debug_data(debug_flag: bool, output_path: str, data, custom_filename: str = None):
     """

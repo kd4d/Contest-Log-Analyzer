@@ -1,58 +1,81 @@
-# Architecture Roadmap: The Unified Engine Migration
+# ArchitectureRoadmap.md
 
-**Version:** 1.8.0 (Active)
-**Date:** 2025-12-07
-**Status:** Phase 2 Execution (Tracer Bullet) - Ready
+**Version:** 2.0.0
+**Date:** 2025-12-12
+**Status:** Active
 
 ---
 
 ## 1. The Strategic Vision
-**Goal:** Create a single analysis engine that powers both a Command-Line Interface (CLI) and a future Web Interface (Django).
-**Core Constraint:** "Write Once, Render Everywhere." Logic must not be duplicated between CLI and Web.
+**Goal:** Create a single analysis engine that powers both a Command-Line Interface (CLI) and a Web Interface (Django).
+**Core Constraint:** "Write Once, Render Everywhere." Logic must not be duplicated.
+**Deployment Model:** **Stateless & Portable.**
+* No User Accounts. No User Database. Atomic Sessions.
+* Containerized (Docker) to ensure "Laptop == Server".
 
-## 2. Architectural Decision Records (ADRs)
+## 2. The "Golden Path" Workflow
+This defines the specific user experience and data flow for the Web Interface.
+
+1.  **The Three-Slot Model:** The analyzer presents **three generic input slots** (Log A, Log B, Log C).
+2.  **Identity Agnostic:** There is no concept of "My Log" vs. "Competitor."
+3.  **Source Agnostic:** Each slot can be filled by either:
+    * **Direct Upload:** User uploads a local `.log` file.
+    * **Public Fetch:** User selects a contest/year/callsign (Phase 4).
+4.  **Zero Persistence:**
+    * Files (uploaded or fetched) exist only for the duration of the request processing.
+    * Once the report is delivered to the browser, all source logs are purged.
+
+## 3. Architectural Decision Records (ADRs)
 
 ### ADR-001: Data Abstraction Layer (DAL)
-* **Decision:** All business logic must be extracted into `data_aggregators/`.
-* **Constraint:** Aggregators must return **Pure Python Primitives**.
+* **Decision:** All business logic exists in `data_aggregators/`. Returns **Pure Python Primitives**.
 
-### ADR-002: Unified Visualization (Plotly + Jinja2)
-* **Decision:** Replace Matplotlib with **Plotly**. Use **Jinja2** for HTML generation.
+### ADR-002: Unified Visualization (Client-Side Rendering)
+* **Decision:** Replace Matplotlib with **Plotly**.
+* **Animation:** Replace server-side MP4 generation with **Plotly HTML Animations**.
 
 ### ADR-007: Shared Presentation Layer
-* **Decision:** The Django Web App must NOT have its own template directory.
-* **Mechanism:** It must point to the existing `contest_tools/templates`.
+* **Decision:** The Web App (Django) must point to the existing `contest_tools/templates`.
 * **Reason:** Ensures CLI HTML reports and Web Views are bit-for-bit identical.
+
+### ADR-009: The Ephemeral Fetcher Pattern
+* **Decision:** Public Logs are **not** stored permanently.
+* **Mechanism:** The system fetches specific logs on-demand into a temporary session directory.
 
 ---
 
-## 3. Master Transition Timeline
+## 4. Master Transition Timeline
 
 ### **Phase 1: Data Decoupling (COMPLETE)**
 * **Status:** Complete. DAL is operational.
 
-### **Phase 1.5: Stabilization (COMPLETE)**
-* **Goal:** Synchronize documentation and fix "Phantom Dependencies."
-* **Status:** Verified. `redis`/`celery` removed; deprecated reports cleaned up.
+### **Phase 2: Visualization Standardization (COMPLETE)**
+* **Status:** Complete. Static charts migrated to Plotly.
 
-### **Phase 2: Visualization Standardization (IN PROGRESS)**
-* **Goal:** Replace Matplotlib with Plotly/Jinja2.
-* **Constraint:** Must be completed BEFORE Web Foundation to ensure charts work in browsers.
+### **Phase 2.5: Animation Modernization (COMPLETE)**
+* **Status:** Complete. `plot_interactive_animation.py` implemented and legacy code removed.
+* **Goal:** Eliminate Matplotlib/FFmpeg dependencies for animations.
+* **Constraint:** Establish the `.html` file as the definitive artifact for regression testing.
 * **Tasks:**
-    * [ ] Create `plotly_style_manager.py` (Designed; Ready for Builder).
-    * [ ] Convert `chart_point_contribution.py` (Tracer Bullet) (Designed; Ready for Builder).
-    * [ ] Convert remaining plots.
+    * [x] Implement `plot_interactive_animation.py` (Plotly).
+    * [x] Deprecate `plot_hourly_animation.py` (Matplotlib).
+    * [x] Update `run_regression_test.py`.
 
-### **Phase 3: The Web Foundation (Simplified)**
-* **Goal:** Initialize Django *Synchronously*.
-* **Constraint:** **NO Celery/Redis yet.** The initial deployment must be a simple monolithic app to reduce complexity.
+### **Phase 3: The Web Pathfinder (VALIDATION ACTIVE)**
+* **Status:** Code Complete. Verification Active.
+* **Goal:** A fully functional, stateless web application (MVP) running locally and deployable.
+* **The Pathfinder:** We use **CQ WW** as the primary test case to validate the UI/UX.
 * **Tasks:**
-    * Initialize Django Project.
-    * Mount `contest_tools` as an app.
-    * Wire up Views to Aggregators.
+    * [x] **Containerization:** Create `Dockerfile` and `docker-compose.yml` (Python only, no FFmpeg).
+    * [x] **Django Bootstrap:** Initialize the project skeleton.
+    * [x] **UI Implementation:**
+        * [x] Build the **Three-Slot Upload Form**.
+        * [x] Build the **Report Dashboard View**.
+    * [ ] **Validation (The Pathfinder Run):** Verify full "Upload -> Process -> View" loop using complex **CQ WW** logs.
 
-### **Phase 4: Advanced Features**
-* **Goal:** Async Processing & Persistence.
+### **Phase 4: The Data Layer (Public Log Access)**
+* **Goal:** Enable "Select from Public Source" in the UI.
 * **Tasks:**
-    * Introduce Celery/Redis (Only if processing time > 30s).
-    * User Authentication.
+    * [ ] **Scrapers:** Create lightweight Python adapters to find/fetch logs.
+    * [ ] **UI Integration:** Add "Fetch URL" tabs to the Input slots.
+    * [ ] **Async Workers:** Introduce Celery/Redis *only if* fetching/processing exceeds HTTP timeouts.
