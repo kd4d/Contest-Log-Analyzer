@@ -1,4 +1,4 @@
-# Contest Log Analyzer/contest_tools/event_resolvers/__init__.py
+# Contest Log Analytics/contest_tools/event_resolvers/__init__.py
 #
 # Purpose: This file marks the `event_resolvers` directory as a Python package.
 #

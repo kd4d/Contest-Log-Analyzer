@@ -1,4 +1,4 @@
-# Contest Log Analyzer/test_code/create_project_bundle.py
+# Contest Log Analytics/test_code/create_project_bundle.py
 #
 # Purpose: This utility traverses a directory to find all relevant project
 #          files and consolidates them into a single text file. By default,

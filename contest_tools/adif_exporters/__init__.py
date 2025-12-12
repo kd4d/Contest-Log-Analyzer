@@ -1,4 +1,4 @@
-# Contest Log Analyzer/contest_tools/adif_exporters/__init__.py
+# Contest Log Analytics/contest_tools/adif_exporters/__init__.py
 #
 # Author: Gemini AI
 # Date: 2025-08-30

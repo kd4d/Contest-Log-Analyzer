@@ -87,7 +87,7 @@ def analyze_uniques(file1: str, file2: str, include_dupes: bool = False):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Analyzes two processed CSV files from the Contest Log Analyzer to find unique QSOs."
+        description="Analyzes two processed CSV files from the Contest Log Analytics to find unique QSOs."
     )
     parser.add_argument("file1", help="The file path for the first CSV file.")
     parser.add_argument("file2", help="The file path for the second CSV file.")

@@ -75,7 +75,7 @@
 #   This new protocol mandates a full state reconciliation upon self-detection of any protocol violation.
 
 
-This document is the definitive technical specification for the AI agent's behavior and the standard operating procedures for the collaborative development of the Contest Log Analyzer.
+This document is the definitive technical specification for the AI agent's behavior and the standard operating procedures for the collaborative development of the Contest Log Analytics.
 
 **The primary audience for this document is the Gemini AI agent.** It is a machine-readable set of rules and protocols.
 
@@ -438,7 +438,7 @@ This workflow is a formal state machine that governs all development tasks, from
 ---
 ## Part III: Project-Specific Implementation Patterns
 
-These protocols describe specific, named patterns for implementing features in the Contest Log Analyzer.
+These protocols describe specific, named patterns for implementing features in the Contest Log Analytics.
 5.1. **Custom Parser Protocol.** For contests with highly complex or asymmetric exchanges.
     1.  **Activation**: A new key, `"custom_parser_module": "module_name"`, is added to the contest's `.json` file.
     2.  **Hook**: The `contest_log.py` script detects this key and calls the specified module.
@@ -551,7 +551,7 @@ These protocols are for troubleshooting, error handling, and non-standard situat
         * **D.** A specific corrective action to ensure future adherence.
     .  **Resume**: After the analysis is delivered, resume the original task from the state it was in before the violation.
 7.1. **Technical Debt Cleanup Protocol.** When code becomes convoluted, a **Technical Debt Cleanup Sprint** will be conducted to refactor the code for clarity, consistency, and maintainability.
-7.7. **Ad-Hoc Task Protocol.** This protocol is for handling self-contained, one-off tasks that are unrelated to the primary "Contest Log Analyzer" project.
+7.7. **Ad-Hoc Task Protocol.** This protocol is for handling self-contained, one-off tasks that are unrelated to the primary "Contest Log Analytics" project.
     1.  **Trigger**: The user initiates a task and provides files that are explicitly separate from the primary project.
     2.  **AI Acknowledgment**: The AI will acknowledge the task as "Ad-Hoc" and ask the user to confirm this status.
     3.  **Partial Protocol Agreement**: Upon confirmation, both parties agree to a "partial protocol" session.

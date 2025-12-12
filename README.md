@@ -1,4 +1,4 @@
-# Contest Log Analyzer
+# Contest Log Analytics
 
 **Version: 1.0.0**
 **Date: 2025-12-06**
@@ -43,7 +43,7 @@
 # - Initial release.
 ---
 
-The Contest Log Analyzer is a powerful tool for post-contest analysis, designed to uncover the strategic insights hidden within amateur radio contest logs. While logging software is excellent for real-time operations, this tool is designed specifically for post-contest log comparison, which is essential for detailed performance analysis. By comparing logs head-to-head, this tool helps the user to visualize the story of the contest: who was on what band and when, how an advantage was gained, and which missed opportunities were the most costly. It answers the critical questions that lead to better performance: Was my strategy of running on 20 meters more effective than my competitor's S&P strategy? Which specific multipliers did they work that I missed? How did our hourly rates compare during the critical European opening? By transforming raw log data into actionable intelligence, the analyzer provides a clear path for improving your operating strategy for the next event.
+The Contest Log Analytics is a powerful tool for post-contest analysis, designed to uncover the strategic insights hidden within amateur radio contest logs. While logging software is excellent for real-time operations, this tool is designed specifically for post-contest log comparison, which is essential for detailed performance analysis. By comparing logs head-to-head, this tool helps the user to visualize the story of the contest: who was on what band and when, how an advantage was gained, and which missed opportunities were the most costly. It answers the critical questions that lead to better performance: Was my strategy of running on 20 meters more effective than my competitor's S&P strategy? Which specific multipliers did they work that I missed? How did our hourly rates compare during the critical European opening? By transforming raw log data into actionable intelligence, the analyzer provides a clear path for improving your operating strategy for the next event.
 
 ---
 ## Key Features

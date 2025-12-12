@@ -1,4 +1,4 @@
-# Contest Log Analyzer/test_code/missed_mults_formatter_prototype.py
+# Contest Log Analytics/test_code/missed_mults_formatter_prototype.py
 #
 # Version: 1.6.2-Beta
 # Date: 2025-08-27

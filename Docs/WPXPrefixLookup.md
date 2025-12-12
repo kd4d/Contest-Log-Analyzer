@@ -33,7 +33,7 @@
 # ---
 
 ## 1. Introduction
-This document provides the definitive technical specification for how WPX (Worked All Prefixes) multipliers are calculated and processed by the Contest Log Analyzer. It covers both the abstract algorithm and its concrete implementation in the Python source code.
+This document provides the definitive technical specification for how WPX (Worked All Prefixes) multipliers are calculated and processed by the Contest Log Analytics. It covers both the abstract algorithm and its concrete implementation in the Python source code.
 ---
 ## 2. The Prefix Lookup Algorithm
 This section defines the formal, step-by-step logic for determining a valid WPX prefix from a single amateur radio callsign. The process is hierarchical, checking for special cases before proceeding to the standard calculation.

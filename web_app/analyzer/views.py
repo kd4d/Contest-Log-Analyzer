@@ -1,6 +1,6 @@
 # web_app/analyzer/views.py
 #
-# Purpose: Django views for the Contest Log Analyzer application.
+# Purpose: Django views for the Contest Log Analytics application.
 #          Handles log file uploads, invokes the core LogManager for parsing,
 #          aggregates data using DAL components, and renders the dashboard.
 #

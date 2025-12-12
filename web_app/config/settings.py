@@ -1,6 +1,6 @@
 # web_app/config/settings.py
 #
-# Purpose: Django settings for the Contest Log Analyzer Web App.
+# Purpose: Django settings for the Contest Log Analytics Web App.
 #          It configures the web application for a stateless, containerized
 #          environment and explicitly integrates the 'contest_tools' template
 #          directory to ensure a Shared Presentation Layer (ADR-007).

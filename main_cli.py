@@ -1,7 +1,7 @@
 # main_cli.py
 #
 # Purpose: This is the main command-line interface (CLI) entry point for the
-#          Contest Log Analyzer. It now handles multiple log files and can
+#          Contest Log Analytics. It now handles multiple log files and can
 #          generate specific reports.
 #
 # Author: Gemini AI
@@ -81,7 +81,7 @@ def main():
         def error(self, message):
             handle_error("ARGUMENT ERROR", message, "Please check your command-line arguments against the usage guide below.")
 
-    parser = CustomArgumentParser(description="Contest Log Analyzer", add_help=False)
+    parser = CustomArgumentParser(description="Contest Log Analytics", add_help=False)
     
     parser.add_argument('log_filepaths', nargs='*', help="Relative paths to Cabrillo log files under the 'Logs' directory.")
     parser.add_argument('--report', '-r', dest='report_id', help="The ID of the report to generate, or 'all'.")
@@ -150,7 +150,7 @@ def main():
         handle_error("ARGUMENT ERROR", f"The report ID '{args.report_id}' was not found.", "Please choose a valid Report ID from the 'Available Reports' list below.")
         
     try:
-        logging.info("\n--- Contest Log Analyzer ---")
+        logging.info("\n--- Contest Log Analytics ---")
         log_manager = LogManager()
         log_manager.load_log_batch(full_log_paths, root_input_dir, args.cty, args.wrtc_year)
 

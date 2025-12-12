@@ -1,7 +1,7 @@
 # contest_tools/utils/json_encoders.py
 #
 # Purpose: A utility module providing custom JSON encoders for the
-#          Contest Log Analyzer.
+#          Contest Log Analytics.
 #
 # Author: Gemini AI
 # Date: 2025-11-24

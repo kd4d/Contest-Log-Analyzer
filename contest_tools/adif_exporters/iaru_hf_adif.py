@@ -72,7 +72,7 @@ def export_log(log: ContestLog, output_filepath: str):
     # --- Generate ADIF Content ---
     adif_records: List[str] = []
     adif_records.append("ADIF Export from Contest-Log-Analyzer\n")
-    adif_records.append(f"<PROGRAMID:22>Contest-Log-Analyzer\n")
+    adif_records.append(f"<PROGRAMID:21>Contest-Log-Analytics\n")
     adif_records.append(f"<PROGRAMVERSION:11>0.56.27-Beta\n")
     adif_records.append("<EOH>\n\n")
 

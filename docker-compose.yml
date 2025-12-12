@@ -1,6 +1,6 @@
 # docker-compose.yml
 #
-# Purpose: Defines the Docker services for the Contest Log Analyzer Web App.
+# Purpose: Defines the Docker services for the Contest Log Analytics Web App.
 #          It configures the 'web' service to build from the local Dockerfile,
 #          maps the project directory for development (hot-reloading), and
 #          sets required environment variables.

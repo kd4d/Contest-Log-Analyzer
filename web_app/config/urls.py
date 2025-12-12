@@ -1,6 +1,6 @@
 # web_app/config/urls.py
 #
-# Purpose: Root URL configuration for the Contest Log Analyzer Web App.
+# Purpose: Root URL configuration for the Contest Log Analytics Web App.
 #          It maps URL patterns to Django views. Currently configured
 #          with the default admin route as a placeholder for Phase 3 bootstrapping.
 #

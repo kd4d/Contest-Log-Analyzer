@@ -1,4 +1,4 @@
-# Contest Log Analyzer - Installation Guide
+# Contest Log Analytics - Installation Guide
 
 **Version: 0.94.1-Beta**
 **Date: 2025-12-07**
@@ -79,7 +79,7 @@
 # ---
 
 ## Introduction
-This document provides instructions for setting up the Contest Log Analyzer application and its dependencies on a local computer.
+This document provides instructions for setting up the Contest Log Analytics application and its dependencies on a local computer.
 Following these steps will ensure that the application can find the necessary data files and has a place to write its output reports.
 ---
 ## 1. Prerequisites

@@ -1,4 +1,4 @@
-# Contest Log Analyzer/contest_tools/utils/__init__.py
+# Contest Log Analytics/contest_tools/utils/__init__.py
 #
 # Purpose: Makes the 'utils' directory a Python package.
 #

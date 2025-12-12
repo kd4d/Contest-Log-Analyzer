@@ -1,4 +1,4 @@
-# Contest Log Analyzer - Programmer's Guide
+# Contest Log Analytics - Programmer's Guide
 
 **Version: 0.94.1-Beta**
 **Date: 2025-12-06**
@@ -177,7 +177,7 @@
 
 ## Introduction
 
-This document provides a technical guide for developers (both human and AI) looking to extend the functionality of the Contest Log Analyzer.
+This document provides a technical guide for developers (both human and AI) looking to extend the functionality of the Contest Log Analytics.
 The project is built on a few core principles:
 
 * **Data-Driven:** The behavior of the analysis engine is primarily controlled by data, not code.

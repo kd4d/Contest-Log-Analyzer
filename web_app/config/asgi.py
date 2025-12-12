@@ -1,6 +1,6 @@
 # web_app/config/asgi.py
 #
-# Purpose: ASGI config for the Contest Log Analyzer Web App.
+# Purpose: ASGI config for the Contest Log Analytics Web App.
 #          It exposes the ASGI callable as a module-level variable named ``application``.
 #
 # Author: Gemini AI

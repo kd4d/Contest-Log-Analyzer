@@ -1,4 +1,4 @@
-# Contest Log Analyzer - User Guide
+# Contest Log Analytics - User Guide
 
 **Version: 1.0.0**
 **Date: 2025-12-06**
@@ -97,8 +97,8 @@
 
 ---
 
-## 1. Introduction: What is the Contest Log Analyzer?
-The Contest Log Analyzer is a powerful command-line tool designed for amateur radio contesters who want to perform deep, data-driven analysis of their operating performance. It goes beyond the simple score summary provided by most logging software, allowing you to:
+## 1. Introduction: What is the Contest Log Analytics?
+The Contest Log Analytics is a powerful command-line tool designed for amateur radio contesters who want to perform deep, data-driven analysis of their operating performance. It goes beyond the simple score summary provided by most logging software, allowing you to:
 
 * Process raw Cabrillo log files into a clean, standardized format.
 * Automatically classify every QSO as "Run," "Search & Pounce," or "Unknown" to analyze your operating strategy.

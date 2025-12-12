@@ -1,4 +1,4 @@
-# Contest Log Analyzer/test_code/adif2csv.py
+# Contest Log Analytics/test_code/adif2csv.py
 #
 # Purpose: This utility converts a standard ADIF file into a comma-separated
 #          values (CSV) file. It accepts a single command-line argument for
