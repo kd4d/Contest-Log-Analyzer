@@ -1,9 +1,12 @@
 # AIAgentWorkflow.md
 
-**Version: 4.11.0**
+**Version: 4.12.0**
 **Date: 2025-12-11**
 ---
 ### --- Revision History ---
+## [4.12.0] - 2025-12-11
+### Changed
+# - Updated Protocol 2.4.1 to mandate `cla-bundle` encapsulation for Implementation Plans.
 ## [4.11.0] - 2025-12-11
 ### Changed
 # - Added Protocol 5.7: "Report Plugin Naming Standard" to enforce strict class naming for dynamic loaders.
@@ -235,7 +238,7 @@ This workflow is a formal state machine that governs all development tasks, from
 2.4. **Implementation Plan Generation (The Builder Execution Kit)**:
     * **Trigger:** The User issues the command **"Generate Builder Execution Kit"**. This command is universal (used for the initial Kit and all subsequent iterations/updates).
     * **Baseline Consistency Check:** This check verifies that all proposed actions (e.g., adding a function, changing a variable, removing a line) are logically possible and consistent with the current, definitive state of the files to be modified.
-    * **2.4.1 The Plan Artifact:** Delivery of **`ImplementationPlan.md`**. Must include "Builder Bootstrap Context", "Safety Protocols", and "Technical Debt Register".
+    * **2.4.1 The Plan Artifact:** Delivery of **`ImplementationPlan.md`**. **Format Mandate:** This file **MUST** be delivered enclosed in a `cla-bundle` code block (per Protocol 3.2.4) to ensure it renders as raw text for easy copying. Must include "Builder Bootstrap Context", "Safety Protocols", and "Technical Debt Register".
     * **2.4.2 The Manifest Artifact:** Delivery of **`manifest.txt`**. The Architect must leverage Full Context to identify all dependencies.
     * **2.4.3 The Trinity Instructions:** The Architect must explicitly instruct the User to:
         1.  Create `builder_bundle.txt` from the Manifest files.
@@ -407,7 +410,7 @@ This workflow is a formal state machine that governs all development tasks, from
 ---
 ## Part III: Project-Specific Implementation Patterns
 
-These protocols describe specific, named patterns for implementing features in the Contest Log Analyzer software.
+These protocols describe specific, named patterns for implementing features in the Contest Log Analyzer.
 5.1. **Custom Parser Protocol.** For contests with highly complex or asymmetric exchanges.
     1.  **Activation**: A new key, `"custom_parser_module": "module_name"`, is added to the contest's `.json` file.
     2.  **Hook**: The `contest_log.py` script detects this key and calls the specified module.

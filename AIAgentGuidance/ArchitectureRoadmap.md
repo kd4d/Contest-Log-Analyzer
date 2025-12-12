@@ -1,6 +1,6 @@
 # Architecture Roadmap: The Unified Engine Migration
 
-**Version:** 2.0.3
+**Version:** 2.0.4
 **Date:** 2025-12-11
 **Status:** Active
 
@@ -52,13 +52,13 @@ This defines the specific user experience and data flow for the Web Interface.
 ### **Phase 2: Visualization Standardization (COMPLETE)**
 * **Status:** Complete. Static charts migrated to Plotly.
 
-### **Phase 2.5: Animation Modernization (IMMEDIATE)**
+### **Phase 2.5: Animation Modernization (ACTIVE)**
 * **Goal:** Eliminate Matplotlib/FFmpeg dependencies for animations.
 * **Constraint:** Establish the `.html` file as the definitive artifact for regression testing.
 * **Tasks:**
-    * [ ] Implement `plot_interactive_animation.py` (Plotly).
-    * [ ] Deprecate `plot_hourly_animation.py` (Matplotlib).
-    * [ ] Update `run_regression_test.py`.
+    * [x] Implement `plot_interactive_animation.py` (Plotly).
+    * [ ] Deprecate `plot_hourly_animation.py` (Matplotlib). *(Plan Delivered)*
+    * [ ] Update `run_regression_test.py`. *(Plan Delivered)*
 
 ### **Phase 3: The Web Pathfinder (CQ WW & Uploads)**
 * **Goal:** A fully functional, stateless web application (MVP) running locally and deployable.
