@@ -1,9 +1,20 @@
 # AIAgentWorkflow.md
 
-**Version: 4.12.0**
-**Date: 2025-12-11**
+**Version: 4.15.0**
+**Date: 2025-12-12**
 ---
 ### --- Revision History ---
+## [4.15.0] - 2025-12-12
+### Changed
+# - Added Protocol 2.4.6: "The Formatting Checkpoint" to enforce `cla-bundle` encapsulation as a blocking logic gate.
+## [4.14.0] - 2025-12-12
+### Changed
+# - Strengthened Protocol 4.1 to explicitly forbid synonyms and mandate strict re-prompting.
+# - Updated Protocol 4.4 to enforce Protocol 4.1 strictness during file delivery.
+## [4.13.0] - 2025-12-12
+### Changed
+# - Added Protocol 2.4.4: "The Compliance Stamp" to mandate explicit pass/fail checks in every Kit.
+# - Added Protocol 2.4.5: "The Manifest Isolation" to require a separate code block for manifest.txt.
 ## [4.12.0] - 2025-12-11
 ### Changed
 # - Updated Protocol 2.4.1 to mandate `cla-bundle` encapsulation for Implementation Plans.
@@ -244,6 +255,19 @@ This workflow is a formal state machine that governs all development tasks, from
         1.  Create `builder_bundle.txt` from the Manifest files.
         2.  Upload the Trinity (Workflow, Plan, Bundle).
         3.  Issue the command: **"Act as Builder"**.
+    * **2.4.4 The Compliance Stamp:** Every Builder Execution Kit MUST define a visible "Compliance Report" section validating:
+        * **Protocol 2.1.1 (Architecture):** PASS/FAIL
+        * **Protocol 3.3 (Context Audit):** PASS/FAIL
+        * **Protocol 3.2.4 (Sanitization):** PASS/FAIL
+    * **2.4.5 The Manifest Isolation:** The `manifest.txt` list MUST be provided in its own distinct code block, separate from the `cla-bundle` block, to facilitate easy extraction by the user.
+    * **2.4.6. The Formatting Checkpoint (The "Meta-Pre-Flight").**
+        * **Trigger:** Immediately before generating the final response containing a Builder Execution Kit.
+        * **The Check:** The Architect must perform an explicit internal verification of the output structure.
+        * **The Logic Gate:**
+            * **Question:** "Is the `ImplementationPlan.md` text enclosed in a `cla-bundle` code block?"
+            * **If NO:** The generation is **FORBIDDEN**. I must abort and restart the response generation with the correct wrapper.
+            * **If YES:** Proceed with delivery.
+        * **Sanitization Check:** "Are all internal code fences within the plan replaced with `__CODE_BLOCK__`?"
 2.5. **Plan Content Mandates**: The Plan must contain the following sections for each file to be modified, formatted with bolded headers:
     **0. Plan Metadata Header:** Every Implementation Plan must begin with a standardized metadata block containing:
     * **`**Version:**`**: The revision number of the Plan document itself (e.g., `1.0.0`).
@@ -362,6 +386,10 @@ This workflow is a formal state machine that governs all development tasks, from
     * **Mandate:** Whenever the AI requires user input to proceed (e.g., 'Approved', 'Proceed', 'Act as Builder', 'Generate Builder Execution Kit'), it must explicitly provide the exact text required.
     * **Format:** "To proceed, please provide the exact prompt: **'[REQUIRED_PHRASE]'**."
     * **Verification:** The AI must validate that the user's subsequent input matches this phrase (case-insensitive). If it does not match, the AI must **HALT** and re-request the exact phrase.
+    * **Strict Enforcement:** The AI **MUST NOT** accept synonyms (e.g., accepting 'Confirmed' when 'Acknowledged' is required). Use of a synonym constitutes a Protocol Violation.
+    * **Allowed Variances:** Only casing (uppercase/lowercase) and a single optional trailing period (.) are permitted.
+    * **Failure Response:** Upon detecting a mismatch, the AI must output:
+      `Protocol Violation: Input does not match the required prompt. To proceed, you must provide the exact prompt: '[REQUIRED_PHRASE]'.`
 
 4.2. **Definition of Prefixes.** The standard definitions for binary and decimal prefixes will be strictly followed (e.g., Kilo (k) = 1,000; Kibi (Ki) = 1,024).
 4.3. **Large File Transmission Protocol.** This protocol is used to reliably transmit a single large file that has been split into multiple parts.
@@ -376,12 +404,12 @@ This workflow is a formal state machine that governs all development tasks, from
 4.4. **Confirmed File Delivery Protocol.** This protocol governs the per-file execution loop for an approved implementation plan. It uses a two-stage (confirmation, delivery) transaction for each file to ensure maximum context integrity.
     1.  **Initiate File Lock-In**: For the next file in the plan, I will issue a statement declaring which file I am about to generate and its specific baseline version number from the implementation plan.
     2.  **Request Confirmation**: I will then issue a standardized prompt for the `Confirmed` keyword.
-    3.  **User Confirmation**: You must provide the exact, literal string `Confirmed`. This authorizes the generation and delivery of that single file. If any other input is received, I will state that the action is not confirmed and re-issue the prompt.
+    3.  **User Confirmation**: You must provide the exact, literal string `Confirmed`. This authorizes the generation and delivery of that single file. **Strict Enforcement (Protocol 4.1) applies.**
     4.  **Internal Generative `diff` Verification:** After generating the new file content but before delivering it, I will perform an internal `diff` between the baseline file text and my newly generated file text. I will then verify that this new "generative `diff`" is identical in form and function to the `diff` you approved in the implementation plan. If a discrepancy is found, I will discard the generated file and report an internal consistency failure by initiating the **Error Analysis Protocol (6.3)**.
     5.  **Deliver File**: Upon successful internal verification, I will deliver the updated file in a single response.
     6.  **Append Verification**: I will append the mandatory execution verification statement to the same response: "**I have verified that the file just delivered was generated by applying only the approved surgical changes to the baseline text, in compliance with Principle 13. Generative `diff` verification is complete and the delivered file is a confirmed match to the approved plan.**"
     7.  **Request Acknowledgment**: I will append a standardized prompt for the `Acknowledged` keyword to the same response.
-    8.  **User Acknowledgment**: You must provide the exact, literal string `Acknowledged`. This completes the transaction for the file and updates the definitive state. If any other input is received, I will state that the delivery is not acknowledged and re-issue the prompt.
+    8.  **User Acknowledgment**: You must provide the exact, literal string `Acknowledged`. This completes the transaction for the file and updates the definitive state. **Strict Enforcement (Protocol 4.1) applies.**
     9.  **Provide Plan Execution Status Update**: After receiving the `Acknowledged` keyword, I must provide a status update.
         * **A. If files remain:** State which file has been completed and that I am proceeding to the next file in the plan. For example: *"Acknowledgment received for file 1 of 3. Proceeding to the next file in the plan."*
         * **B. If all files are complete:** State that all files have been delivered and that I am proceeding to the final step of the task. For example: *"Acknowledgment received. All 3 of 3 files in the implementation plan have been delivered and acknowledged. Proceeding to propose the verification command as required by Protocol 2.9."*
@@ -397,7 +425,7 @@ This workflow is a formal state machine that governs all development tasks, from
         * **User Responsibility (User Enforcement):** If you detect a malformed prompt that I failed to self-correct, you should not respond to the flawed request. Instead, your response should be to point out the violation. This will trigger a full **Protocol Violation Analysis (6.12)**.
 4.6. **Context Lock-In Protocol.**
     * **Trigger:** Before creating an Implementation Plan or generating code.
-    * **Action:** Issue the statement: *"I am locking my context to the following files from the Project Bundle: [List Files]. I will not reference any outside knowledge."*
+    * **Action:** Issue the statement: *"I am locking my context to the following files from the Project Bundle: [List Files]. I will not reference any prior chat history for file content. Please confirm to proceed."*
     * **User Action:** User must confirm (`Confirmed`) to proceed.
 4.7. **Next Action Declaration Protocol.** This protocol makes the AI's internal state transitions explicit and verifiable to improve workflow reliability.
     1.  **Trigger**: This protocol is triggered at the end of any response that completes a major step in the **Task Execution Workflow (Section 2)**, such as delivering an analysis or an implementation plan.
@@ -463,7 +491,7 @@ These protocols are for troubleshooting, error handling, and non-standard situat
         * **C. Proposed Action:** The specific, procedural next step. This will either be a request for the evidence needed to test the hypothesis or, if the evidence is sufficient, a statement of readiness to create an implementation plan. If the cause of the bug is not immediately obvious from the available output, this proposed action **must be** to request relevant intermediate diagnostic data (e.g., a `_processed.csv` file or a log from a `--verbose` run). This section must also:
             * Include a proactive check for systemic bugs as per **Protocol 7.6**.
             * Propose a workflow amendment per step 5 of this protocol if the workflow itself is a root cause.
-    4.  **Post-Analysis Verification:** The AI must explicitly confirm that the analysis it has provided contains all the steps and the mandatory three-part structure required by this protocol.
+    4.  **Post-Analysis Verification.** The AI must explicitly confirm that the analysis it has provided contains all the steps and the mandatory three-part structure required by this protocol.
     5.  **Propose Workflow Amendment**: If the root cause analysis identifies a flaw or a gap in the `AIAgentWorkflow.md` protocols themselves, the Proposed Action (Step 3.C) must include a proposal to create a separate implementation plan to amend the workflow document.
 6.4. **Corrupted User Input Protocol.** This protocol defines the procedure for handling malformed or corrupted input files provided by the user.
     1.  Halt the current task immediately.

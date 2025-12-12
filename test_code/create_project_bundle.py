@@ -1,151 +1,123 @@
-#!/usr/bin/env python3
-#
-# create_project_bundle.py
-#
-# A utility script to bundle project files into a single text file for easy
-# submission to an AI model.
-#
-# Version: 0.92.0-Beta
-# Date: 2025-11-23
-#
-# --- Revision History ---
-# [0.92.0-Beta] - 2025-11-23
-# - Added --manifest argument to bundle files listed in a specified text file.
-# [0.91.0-Beta] - 2025-10-10
-# - Amended get_docs_files to include the root Readme.md in the documentation
-#   bundle.
-# [1.0.2-Beta] - 2025-09-28
-# - Updated get_data_files to use os.walk to correctly find files in
-#   subdirectories.
-# [1.0.1-Beta] - 2025-09-28
-# - Fixed a bug where --txt and --data flags failed to find their
-#   respective directories. The script now correctly uses the
-#   CONTEST_INPUT_DIR environment variable as the base path, per project
-#   architecture standards.
-# [1.0.0-Beta] - 2025-09-28
-# - Added a metadata header to the bundle output to include a file count,
-#   improving the robustness of the AI's initialization protocol.
-#
+# test_tools/create_project_bundle.py
+# Version: 1.2.2
 
 import os
-import argparse
+import datetime
+import fnmatch
 
-
-def create_bundle(file_paths, bundle_file_path):
-    """Creates a bundle file from a list of file paths."""
-    with open(bundle_file_path, "w", encoding="utf-8") as bundle_file:
-        file_count = len(file_paths)
-        bundle_file.write(f"# --- METADATA: FILE_COUNT={file_count} ---\n")
-        for file_path in file_paths:
-            # Normalize path to avoid issues with mix of slashes
-            relative_path = os.path.relpath(file_path, ".").replace("\\", "/")
-            bundle_file.write(f"--- FILE: {relative_path} ---\n")
-            try:
-                with open(file_path, "r", encoding="utf-8") as f:
-                    bundle_file.write(f.read())
-            except Exception as e:
-                print(f"Error reading {file_path}: {e}")
-                bundle_file.write(f"[Error reading file: {e}]")
-            bundle_file.write("\n")
-    print(f"Created bundle: {bundle_file_path}")
-
-
-def get_project_files():
-    """Returns a list of all .py and .json files in the project."""
-    project_files = []
-    for root, _, files in os.walk("."):
-        if "test_code" in root or "CONTEST_LOGS_REPORTS" in root:
-            continue
-        for file in files:
-            if file.endswith((".py", ".json")):
-                project_files.append(os.path.join(root, file))
-    return project_files
-
-
-def get_docs_files():
-    """Returns a list of Readme.md and all .md files in the Docs/ directory."""
-    docs_files = []
-    docs_dir = "Docs"
-    if os.path.isdir(docs_dir):
-        for file in os.listdir(docs_dir):
-            if file.endswith(".md"):
-                docs_files.append(os.path.join(docs_dir, file))
-    if os.path.isfile("Readme.md"):
-        docs_files.append("Readme.md")
-    return docs_files
-
-
-def get_data_files():
-    """Returns a list of all .dat files in the data/ directory."""
-    data_files = []
-    in_dir = os.environ.get('CONTEST_INPUT_DIR')
-    # Fallback to current directory if env var not set, prevents crash
-    if not in_dir:
-        in_dir = "."
-        
-    data_dir = os.path.join(in_dir, "data")
-    if os.path.isdir(data_dir):
-        for root, _, files in os.walk(data_dir):
-            for file in files:
-                if file.endswith(".dat") and not file.startswith("cty"):
-                    data_files.append(os.path.join(root, file))
-    return data_files
-
-
-def get_manifest_files(manifest_path):
-    """Returns a list of files specified in the manifest file."""
-    manifest_files = []
-    if not os.path.isfile(manifest_path):
-        print(f"Error: Manifest file '{manifest_path}' not found.")
-        return manifest_files
-
-    with open(manifest_path, 'r', encoding='utf-8') as f:
-        for line in f:
-            # Strip whitespace and ignore empty lines or comments
-            file_path = line.strip()
-            if file_path and not file_path.startswith("#"):
-                if os.path.isfile(file_path):
-                    manifest_files.append(file_path)
-                else:
-                    print(f"Warning: File listed in manifest not found: {file_path}")
+def create_project_bundle():
+    # --- Configuration ---
+    # Root directory of the project (relative to this script)
+    # Assumes script is in 'test_tools/' and project root is one level up
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     
-    return manifest_files
+    # Specific files to include (relative to project root)
+    include_files = [
+        'main_cli.py',
+        'run_regression_test.py',
+        'AIAgentGuidance/AIAgentWorkflow.md',
+        'Dockerfile',
+        'docker-compose.yml',
+        '.gitignore'
+    ]
 
+    # Directories to recursively include
+    include_dirs = [
+        'contest_tools',
+        'Utils',
+        'web_app'
+    ]
 
-def main():
-    """Main function."""
-    parser = argparse.ArgumentParser(
-        description="Bundle project files into a single text file."
-    )
-    parser.add_argument(
-        "--txt", action="store_true", help="Bundle documentation files (.md)."
-    )
-    parser.add_argument(
-        "--data", action="store_true", help="Bundle data files (.dat)."
-    )
-    parser.add_argument(
-        "--manifest", type=str, help="Bundle files listed in the specified manifest file."
-    )
-    args = parser.parse_args()
+    # Subdirectories to EXCLUDE within the included dirs
+    exclude_dirs = [
+        '__pycache__',
+        '.git',
+        '.idea',
+        '.vscode',
+        'reports', # Don't include output reports
+        'Logs',    # Don't include input logs
+        'data',    # Don't include large data files
+        'tests'    # Don't include tests unless specified
+    ]
+    
+    # Files to EXCLUDE (by extension or exact name)
+    exclude_extensions = ['.pyc', '.png', '.jpg', '.pdf', '.zip']
+    exclude_filenames = ['.DS_Store']
+    
+    # Patterns to EXCLUDE (Shell-style wildcards)
+    exclude_patterns = ['*.zip', '*cty*.dat']
 
-    if args.manifest:
-        files_to_bundle = get_manifest_files(args.manifest)
-        bundle_name = "manifest_bundle.txt"
-    elif args.txt:
-        files_to_bundle = get_docs_files()
-        bundle_name = "documentation_bundle.txt"
-    elif args.data:
-        files_to_bundle = get_data_files()
-        bundle_name = "data_bundle.txt"
-    else:
-        files_to_bundle = get_project_files()
-        bundle_name = "project_bundle.txt"
+    output_filename = "project_bundle.txt"
 
-    if files_to_bundle:
-        create_bundle(files_to_bundle, bundle_name)
-    else:
-        print(f"No files found to create {bundle_name}.")
+    # --- Processing ---
+    
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    with open(output_filename, 'w', encoding='utf-8') as outfile:
+        file_count = 0
+        
+        # 1. Process specific files
+        for filename in include_files:
+            filepath = os.path.join(project_root, filename)
+            if os.path.exists(filepath):
+                try:
+                    with open(filepath, 'r', encoding='utf-8') as infile:
+                        content = infile.read()
+                        outfile.write(f"--- FILE: {filename} ---\n")
+                        outfile.write(content)
+                        outfile.write("\n")
+                        file_count += 1
+                        print(f"Added: {filename}")
+                except Exception as e:
+                    print(f"Error reading {filename}: {e}")
+            else:
+                print(f"Warning: Specific file not found: {filename}")
 
+        # 2. Process directories
+        for dirname in include_dirs:
+            dirpath = os.path.join(project_root, dirname)
+            if not os.path.exists(dirpath):
+                print(f"Warning: Directory not found: {dirname}")
+                continue
+
+            for root, dirs, files in os.walk(dirpath):
+                # Modify dirs in-place to skip excluded directories
+                dirs[:] = [d for d in dirs if d not in exclude_dirs]
+                
+                for file in files:
+                    if any(file.endswith(ext) for ext in exclude_extensions):
+                        continue
+                    if file in exclude_filenames:
+                        continue
+                        
+                    if any(fnmatch.fnmatch(file, pattern) for pattern in exclude_patterns):
+                        continue
+                        
+                    full_path = os.path.join(root, file)
+                    rel_path = os.path.relpath(full_path, project_root)
+                    
+                    try:
+                        with open(full_path, 'r', encoding='utf-8') as infile:
+                            content = infile.read()
+                            outfile.write(f"--- FILE: {rel_path} ---\n")
+                            outfile.write(content)
+                            outfile.write("\n")
+                            file_count += 1
+                            print(f"Added: {rel_path}")
+                    except UnicodeDecodeError:
+                        print(f"Skipping binary file: {rel_path}")
+                    except Exception as e:
+                        print(f"Error reading {rel_path}: {e}")
+
+    # Prepend Metadata
+    with open(output_filename, 'r', encoding='utf-8') as f:
+        existing_content = f.read()
+        
+    with open(output_filename, 'w', encoding='utf-8') as f:
+        f.write(f"# --- METADATA: FILE_COUNT={file_count} ---\n")
+        f.write(existing_content)
+
+    print(f"\nSuccessfully created '{output_filename}' with {file_count} files.")
 
 if __name__ == "__main__":
-    main()
+    create_project_bundle()

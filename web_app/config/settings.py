@@ -6,8 +6,8 @@
 #          directory to ensure a Shared Presentation Layer (ADR-007).
 #
 # Author: Gemini AI
-# Date: 2025-12-11
-# Version: 0.102.0-Beta
+# Date: 2025-12-12
+# Version: 0.103.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,7 +18,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
 # --- Revision History ---
+# [0.103.0-Beta] - 2025-12-12
+# - Registered 'web_app.analyzer' app.
 # [0.102.0-Beta] - 2025-12-11
 # - Initial creation for Phase 3.
 # - Implemented ADR-007: Mapped TEMPLATES to ../contest_tools/templates.
@@ -47,7 +50,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    # Future apps will go here
+    'web_app.analyzer',
 ]
 
 MIDDLEWARE = [

@@ -1,7 +1,7 @@
-# Architecture Roadmap: The Unified Engine Migration
+# ArchitectureRoadmap.md
 
-**Version:** 2.0.4
-**Date:** 2025-12-11
+**Version:** 2.0.0
+**Date:** 2025-12-12
 **Status:** Active
 
 ---
@@ -52,23 +52,25 @@ This defines the specific user experience and data flow for the Web Interface.
 ### **Phase 2: Visualization Standardization (COMPLETE)**
 * **Status:** Complete. Static charts migrated to Plotly.
 
-### **Phase 2.5: Animation Modernization (ACTIVE)**
+### **Phase 2.5: Animation Modernization (COMPLETE)**
+* **Status:** Complete. `plot_interactive_animation.py` implemented and legacy code removed.
 * **Goal:** Eliminate Matplotlib/FFmpeg dependencies for animations.
 * **Constraint:** Establish the `.html` file as the definitive artifact for regression testing.
 * **Tasks:**
     * [x] Implement `plot_interactive_animation.py` (Plotly).
-    * [ ] Deprecate `plot_hourly_animation.py` (Matplotlib). *(Plan Delivered)*
-    * [ ] Update `run_regression_test.py`. *(Plan Delivered)*
+    * [x] Deprecate `plot_hourly_animation.py` (Matplotlib).
+    * [x] Update `run_regression_test.py`.
 
-### **Phase 3: The Web Pathfinder (CQ WW & Uploads)**
+### **Phase 3: The Web Pathfinder (VALIDATION ACTIVE)**
+* **Status:** Code Complete. Verification Active.
 * **Goal:** A fully functional, stateless web application (MVP) running locally and deployable.
 * **The Pathfinder:** We use **CQ WW** as the primary test case to validate the UI/UX.
 * **Tasks:**
-    * [ ] **Containerization:** Create `Dockerfile` and `docker-compose.yml` (Python only, no FFmpeg).
-    * [ ] **Django Bootstrap:** Initialize the project skeleton.
-    * [ ] **UI Implementation:**
-        * Build the **Three-Slot Upload Form**.
-        * Build the **Report Dashboard View** (Rendering DAL outputs via Jinja2).
+    * [x] **Containerization:** Create `Dockerfile` and `docker-compose.yml` (Python only, no FFmpeg).
+    * [x] **Django Bootstrap:** Initialize the project skeleton.
+    * [x] **UI Implementation:**
+        * [x] Build the **Three-Slot Upload Form**.
+        * [x] Build the **Report Dashboard View**.
     * [ ] **Validation (The Pathfinder Run):** Verify full "Upload -> Process -> View" loop using complex **CQ WW** logs.
 
 ### **Phase 4: The Data Layer (Public Log Access)**

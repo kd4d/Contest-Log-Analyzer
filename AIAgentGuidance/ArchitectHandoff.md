@@ -1,23 +1,19 @@
 # Architect Handoff Notes
 
-**Date:** 2025-12-11
+**Date:** 2025-12-12
 **To:** Incoming Architect
-**Focus:** Post-Phase 2.5 Verification & Phase 3 Initiation
+**Focus:** Phase 3 Validation & Phase 4 Initiation
 
 ## Context
-We have delivered the **Builder Execution Kit** for Phase 2.5 (Animation Modernization).
-* **Current State:** The codebase currently contains both the new `plot_interactive_animation.py` and the legacy `plot_hourly_animation.py`.
-* **Expected State (Next Session):** The legacy file should be deleted, and `run_regression_test.py` should be updated to handle HTML diffs.
+We have successfully transitioned to the **Hybrid Architecture**.
+* **Current State:** The Web App (`web_app/`) is scaffolded, Dockerized, and operational.
+* **Validation:** The "Pathfinder Run" (uploading logs to the web interface) has been verified.
 
-## The Immediate Task: Phase 3 (The Web Pathfinder)
-Once Phase 2.5 is verified, we must begin **Phase 3**. This involves Dockerizing the application and bootstrapping the Django web interface.
-* **Constraint:** Do not include `ffmpeg` in the Docker container. Phase 2.5 was designed specifically to remove this requirement.
+## The Immediate Task: Phase 4 (The Data Layer)
+We must now build the mechanism to fetch logs from public sources (e.g., raw raw text files from URLs) to populate the slots without manual uploads.
 
 ## Instructions for Next Session
-1.  **Verify Execution:** Check the Project Bundle to ensure:
-    * `contest_tools/reports/plot_hourly_animation.py` does NOT exist.
-    * `run_regression_test.py` contains the `.html` handling logic.
-2.  **Execute Phase 3:**
-    * Create `Dockerfile` (Python 3.11-slim).
-    * Create `docker-compose.yml`.
-    * Initialize the Django project structure.
+1.  **Verify Validation:** Ensure the Web App handles all report types correctly.
+2.  **Execute Phase 4:**
+    * Implement `contest_tools/log_fetcher.py`.
+    * Add "Fetch from URL" tabs to the Web UI.
