@@ -6,8 +6,8 @@
 #
 #
 # Author: Gemini AI
-# Date: 2025-10-01
-# Version: 0.90.4-Beta
+# Date: 2025-12-11
+# Version: 0.102.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.102.1-Beta] - 2025-12-11
+# - Decoupled point/QSO scoring from multiplier filtering to ensure zero-point
+#   QSOs still count towards totals if they are valid QSOs.
+# - Added enforcement of `mults_from_zero_point_qsos` definition flag to
+#   exclude zero-point QSOs from multiplier contribution when required.
 # [0.90.4-Beta] - 2025-10-01
 # - Added filter to drop QSOs where all multiplier columns are NaN before
 #   calculating QSO/Point counts, ensuring alignment with multiplier counts.
@@ -60,6 +65,7 @@ class StandardCalculator(TimeSeriesCalculator):
         if df_non_dupes.empty or not all(c in df_non_dupes.columns for c in required_cols) or master_index is None:
             return pd.DataFrame()
 
+    
         df_original_sorted = df_non_dupes.dropna(subset=['Datetime', 'QSOPoints']).sort_values(by='Datetime')
         
         # --- Multiplier Counting based on Contest Rules ---
@@ -67,6 +73,11 @@ class StandardCalculator(TimeSeriesCalculator):
 
         # Create a filtered DataFrame for multiplier counting, excluding "Unknown"
         df_for_mults = df_original_sorted.copy()
+        
+        # If contest prohibits zero-point mults (e.g. ARRL DX), filter them out now
+        if not log.contest_definition.mults_from_zero_point_qsos:
+            df_for_mults = df_for_mults[df_for_mults['QSOPoints'] > 0]
+
         for col in multiplier_columns:
             if col in df_for_mults.columns:
                 df_for_mults = df_for_mults[df_for_mults[col] != 'Unknown']
@@ -77,17 +88,17 @@ class StandardCalculator(TimeSeriesCalculator):
         mult_count_ts = pd.Series(0.0, index=master_index)
         per_band_mult_ts_dict = {}
 
-        # --- Time-series calculation (now based on the filtered df_for_mults) ---
-        hourly_groups = df_for_mults.set_index('Datetime').groupby(pd.Grouper(freq='h'))
+        # --- Time-series calculation (Points/QSOs based on FULL valid log) ---
+        hourly_groups_all = df_original_sorted.set_index('Datetime').groupby(pd.Grouper(freq='h'))
         
         # Cumulative QSO Points
-        cum_points_ts = hourly_groups['QSOPoints'].sum().cumsum().reindex(master_index, method='ffill').fillna(0)
-        run_points_ts = df_for_mults[df_for_mults['Run'] == 'Run'].set_index('Datetime')['QSOPoints'].resample('h').sum().cumsum().reindex(master_index, method='ffill').fillna(0)
+        cum_points_ts = hourly_groups_all['QSOPoints'].sum().cumsum().reindex(master_index, method='ffill').fillna(0)
+        run_points_ts = df_original_sorted[df_original_sorted['Run'] == 'Run'].set_index('Datetime')['QSOPoints'].resample('h').sum().cumsum().reindex(master_index, method='ffill').fillna(0)
         sp_unk_points_ts = cum_points_ts - run_points_ts
         
         # Cumulative QSO Counts
-        cum_qso_ts = hourly_groups.size().cumsum().reindex(master_index, method='ffill').fillna(0)
-        run_qso_ts = df_for_mults[df_for_mults['Run'] == 'Run'].set_index('Datetime')['Call'].resample('h').count().cumsum().reindex(master_index, method='ffill').fillna(0)
+        cum_qso_ts = hourly_groups_all.size().cumsum().reindex(master_index, method='ffill').fillna(0)
+        run_qso_ts = df_original_sorted[df_original_sorted['Run'] == 'Run'].set_index('Datetime')['Call'].resample('h').count().cumsum().reindex(master_index, method='ffill').fillna(0)
         sp_unk_qso_ts = cum_qso_ts - run_qso_ts
 
         # Determine if all rules use the simple 'sum_by_band' method.
@@ -102,11 +113,13 @@ class StandardCalculator(TimeSeriesCalculator):
                         mult_set_ts = mult_set_ts.apply(lambda x: x if isinstance(x, set) else set())
 
                         running_set = set()
+                
                         cumulative_sets_list = [running_set.update(s) or running_set.copy() for s in mult_set_ts]
 
                         band_mult_ts = pd.Series(cumulative_sets_list, index=master_index).apply(len)
                         mult_count_ts += band_mult_ts
                         per_band_mult_ts_dict[f"total_mults_{band}"] = band_mult_ts
+     
         else: # once_per_log or once_per_mode
             all_cumulative_mults_ts = []
             for rule in log.contest_definition.multiplier_rules:

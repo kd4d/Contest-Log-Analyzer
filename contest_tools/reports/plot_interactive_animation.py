@@ -1,5 +1,5 @@
 # contest_tools/reports/plot_interactive_animation.py
-# Version: 0.102.0-Beta
+# Version: 0.102.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -12,6 +12,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.102.3-Beta] - 2025-12-11
+# - Implemented user-accessible FPS dropdown control (0.5 to 5 FPS).
+# - Changed default playback speed to 1 FPS.
 # [0.102.0-Beta] - 2025-12-11
 # - Initial creation. Implements "3-Pane" layout (Score Race, Hourly Rate, Cumulative Rate).
 # - Uses Plotly frames for client-side animation.
@@ -203,12 +206,25 @@ class Report(ContestReport):
                 "buttons": [{
                     "label": "Play",
                     "method": "animate",
-                    "args": [None, {"frame": {"duration": 200, "redraw": True}, "fromcurrent": True}]
+                    "args": [None, {"frame": {"duration": 1000, "redraw": True}, "fromcurrent": True}]
                 }, {
                     "label": "Pause",
                     "method": "animate",
                     "args": [[None], {"frame": {"duration": 0, "redraw": False}, "mode": "immediate", "transition": {"duration": 0}}]
                 }]
+            }, {
+                "type": "dropdown",
+                "direction": "down",
+                "showactive": True,
+                "x": 0.15,
+                "y": 1.15,
+                "active": 1,
+                "buttons": [
+                    {"label": "FPS: 0.5", "method": "animate", "args": [None, {"frame": {"duration": 2000, "redraw": True}, "mode": "immediate", "transition": {"duration": 2000}}]},
+                    {"label": "FPS: 1",   "method": "animate", "args": [None, {"frame": {"duration": 1000, "redraw": True}, "mode": "immediate", "transition": {"duration": 1000}}]},
+                    {"label": "FPS: 2",   "method": "animate", "args": [None, {"frame": {"duration": 500, "redraw": True}, "mode": "immediate", "transition": {"duration": 500}}]},
+                    {"label": "FPS: 5",   "method": "animate", "args": [None, {"frame": {"duration": 200, "redraw": True}, "mode": "immediate", "transition": {"duration": 200}}]}
+                ]
             }],
             sliders=[{
                 "currentvalue": {"prefix": "Time: "},
