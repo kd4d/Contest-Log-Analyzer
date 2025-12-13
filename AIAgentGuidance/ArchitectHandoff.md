@@ -2,23 +2,23 @@
 
 **Date:** 2025-12-13
 **To:** Incoming Architect
-**Focus:** Phase 4, Step 2 (Stabilization & Routing Fix)
+**Focus:** Phase 4, Step 3 (Sub-Page Views)
 
 ## Context & Status
-We are stabilizing the Web Dashboard. The critical "Dependency Poisoning" (Matplotlib crash) and "Missing Directory" (FileNotFoundError) issues have been **SOLVED**.
-* **Guard & Triage:** `_report_utils.py` and `reports/__init__.py` now handle missing `matplotlib` dependencies gracefully. Logs show legacy reports are being skipped without crashing the container.
-* **Scaffolding:** `report_generator.py` now systemically creates output directories (`os.makedirs`). Verification logs show reports successfully writing to disk.
-
-## The Current Blocker: "The Animation 404"
-The "Interactive Animation" report generates successfully but returns a **404 Not Found** in the browser.
-* **Diagnosis:** **Path Mismatch / Semantic Error.**
-* **Evidence:** The generator logs show it writing to `.../reports/.../html/`. The browser requests `.../reports/.../animations/`.
-* **Root Cause:** The `plot_interactive_animation.py` plugin currently defines itself as `report_type = 'html'`. The generator routes this to a generic `html` folder, but the Dashboard expects it in the semantic `animations` folder.
-
-## Strategic Decision: Deprecate the `html` Folder
-We have decided to **remove the `html` output folder entirely**.
-* **Reason:** `html` was a "Pathfinder" artifact for proof-of-concept. It represents a file extension, not a semantic function.
-* **New Standard:** All reports must be routed based on their semantic function (`plot`, `text`, `animation`, `chart`), regardless of their file format.
+The Web Dashboard is now **Stable, Branded, and Semantically Correct**.
+* **Routing:** The "Animation 404" issue is resolved. `plot_interactive_animation.py` now correctly identifies as `report_type='animation'`, and the `html/` output bucket has been removed from `report_generator.py`.
+* **Branding:** The "Application Shell" (`base.html`) now features the "Contest Log Analytics by KD4D" brand and a copyright footer.
+* **Data Provenance:** The Dashboard now explicitly lists the **CTY File Version** used for scoring and displays the **Full Contest Title** (e.g., "CQ WW CW 2024").
 
 ## Immediate Priorities
-The Incoming Architect must execute the **"Semantic Routing Fix"** defined in the attached `TechnicalDirective.md`.
+The system works, but the links on the dashboard point directly to static files served by `MEDIA_URL`.
+* **Current Behavior:** Clicking "QSO Reports" opens `.../media/sessions/.../qso_rate.html` directly.
+* **Target Behavior (Step 3):** We need to implement **Sub-Page Views**.
+    * Create a Django view (e.g., `view_report`) that accepts a session ID and report path.
+    * This allows us to wrap the report content in our standard `base.html` shell (preserving navigation) or at least control access permissions in the future.
+
+## Recommended Next Action
+Begin **Phase 4, Step 3**.
+1.  Define a new URL pattern: `path('report/<str:session_id>/<path:report_path>', views.view_report, name='view_report')`.
+2.  Update `dashboard.html` links to use this new URL pattern.
+3.  Implement `view_report` to securely serve the requested file content.

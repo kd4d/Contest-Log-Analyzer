@@ -6,7 +6,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-13
-# Version: 0.105.4-Beta
+# Version: 0.108.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -20,6 +20,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.108.0-Beta] - 2025-12-13
+# - Injected CtyLookup version info and full contest title into dashboard context.
 # [0.105.4-Beta] - 2025-12-13
 # - Explicitly instantiated ReportGenerator to create physical report files.
 # - Added dynamic filename generation for animation, plot, and mult reports to context.
@@ -53,6 +55,7 @@ from .forms import UploadLogForm
 from contest_tools.log_manager import LogManager
 from contest_tools.data_aggregators.time_series import TimeSeriesAggregator
 from contest_tools.report_generator import ReportGenerator
+from contest_tools.core_annotations import CtyLookup
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +122,7 @@ def analyze_logs(request):
                 # 5. Aggregate Data (Dashboard Scalars)
                 ts_agg = TimeSeriesAggregator(lm.logs)
                 ts_data = ts_agg.get_time_series_data()
-                
+                 
                 # Extract basic scalars for dashboard
                 # Construct relative path components for the template
                 first_log_meta = lm.logs[0].get_metadata()
@@ -130,6 +133,16 @@ def analyze_logs(request):
                 
                 # Re-derive event_id locally or fetch from metadata if available (LogManager stores it there now)
                 event_id = first_log_meta.get('EventID', '')
+
+                # Construct Full Title: "CQ-WW-CW 2024" or "NAQP 2025 JAN"
+                full_contest_title = f"{contest_name.replace('_', ' ')} {year} {event_id}".strip()
+
+                # Extract CTY Version Info
+                cty_path = lm.logs[0].cty_dat_path
+                cty_date = CtyLookup.extract_version_date(cty_path)
+                cty_date_str = cty_date.strftime('%Y-%m-%d') if cty_date else "Unknown Date"
+                cty_filename = os.path.basename(cty_path)
+                cty_version_info = f"{cty_filename} ({cty_date_str})"
                 
                 all_calls = sorted([l.get_metadata().get('MyCall', f'Log{i+1}') for i, l in enumerate(lm.logs)])
                 combo_id = '_'.join(all_calls)
@@ -152,7 +165,8 @@ def analyze_logs(request):
                     'mult_file': mult_filename,
                     'logs': [],
                     'mult_headers': [],
-                    'contest_name': contest_name.replace('_', ' '),
+                    'full_contest_title': full_contest_title,
+                    'cty_version_info': cty_version_info,
                 }
                 
                 # Determine multiplier headers from the first log (assuming all are same contest)

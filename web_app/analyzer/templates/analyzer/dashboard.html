@@ -24,7 +24,7 @@
 
 <div class="container mt-5">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="mb-0 text-secondary">Analysis Results: <span class="text-dark">{{ contest_name }}</span></h2>
+        <h2 class="mb-0 text-secondary">Analysis Results: <span class="text-dark">{{ full_contest_title }}</span></h2>
         <a href="{% url 'home' %}" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-1"></i>New Analysis
         </a>
@@ -67,6 +67,9 @@
                     {% endfor %}
                 </tbody>
             </table>
+            <div class="card-footer bg-light py-2">
+                <small class="text-muted"><i class="bi bi-info-circle me-1"></i>Scored using {{ cty_version_info }}</small>
+            </div>
         </div>
     </div>
 

@@ -1,8 +1,8 @@
 # ArchitectureRoadmap.md
 
-**Version:** 2.2.0
+**Version:** 2.3.0
 **Date:** 2025-12-13
-**Status:** Phase 4 (Analytics Refactor) - Step 2 (Drill-Down UI) Active
+**Status:** Phase 4 (Analytics Refactor) - Step 3 (Sub-Page Views) Active
 
 ---
 
@@ -56,22 +56,19 @@ This defines the specific user experience and data flow for the Web Interface.
 * **Status:** Complete. `plot_interactive_animation.py` implemented.
 
 ### **Phase 3: The Web Pathfinder (COMPLETE)**
-* **Status:** Complete.
-* **Tasks:**
-    * [x] **Containerization:** Create `Dockerfile` and `docker-compose.yml`.
-    * [x] **Django Bootstrap:** Initialize the project skeleton.
-    * [x] **UI Implementation:** Three-Slot Upload Form & Basic Dashboard.
-    * [x] **Validation:** "Pathfinder Run" successful with CQ WW logs.
+* **Status:** Complete. Containerization, Django Bootstrap, and Validation successful.
 
 ### **Phase 4: The Strategy Board & Analytics Refactor (ACTIVE)**
 * **Status:** In Progress.
 * **Goal:** Implement the "Top-Down" UI strategy ("The Arena", "The War Room").
 * **Tasks:**
     * [x] **Step 1: The Strategy Board:** Upgrade Dashboard table with "Run %" metrics.
-    * [x] **Step 2: The Drill-Down UI:** Implement the "Triptych" (Animation/Plots/Mults) using Session Persistence.
+    * [x] **Step 2: The Drill-Down UI:** Implement the "Triptych" (Animation/Plots/Mults).
         * [x] **UI Overhaul:** Implemented `dashboard.html` with Card layout.
         * [x] **Persistence:** Implemented `media/sessions` with Lazy Cleanup.
         * [x] **Dynamic Linking:** Solved URL construction issues for empty Event IDs.
-        * [ ] **Stability:** Fix dependency crashes caused by legacy Matplotlib imports.
-    * [ ] **Step 3: Sub-Page Views:** Create generic viewer views for the drill-down reports.
+        * [x] **Stability:** Fixed dependency crashes (Matplotlib guard).
+        * [x] **Semantic Routing:** Deprecated `html/` folder; forced Animation to `animations/`.
+        * [x] **Branding & Context:** Added "KD4D" branding, Copyright Footer, and CTY Provenance.
+    * [ ] **Step 3: Sub-Page Views:** Create Django views to wrap raw report files (preventing raw file access in browser).
     * [ ] **Step 4: Public Log Fetcher:** (Deferred to Phase 4.1).
