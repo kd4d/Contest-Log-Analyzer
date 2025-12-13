@@ -18,6 +18,8 @@
                     <tr>
                         <th class="py-3 ps-4">Callsign</th>
                         <th class="py-3 text-end">Total QSOs</th>
+                        <th class="py-3 text-end">Run QSOs</th>
+                        <th class="py-3 text-end">Run %</th>
                         {% for header in mult_headers %}
                         <th class="py-3 text-end">{{ header }}</th>
                         {% endfor %}
@@ -29,6 +31,8 @@
                     <tr>
                         <td class="ps-4 fw-bold text-primary">{{ log.callsign }}</td>
                         <td class="text-end">{{ log.qsos }}</td>
+                        <td class="text-end fw-bold">{{ log.run_qsos }}</td>
+                        <td class="text-end">{{ log.run_percent }}%</td>
                         {% for header in mult_headers %}
                         <td class="text-end">{{ log.mults|get_item:header }}</td>
                         {% endfor %}

@@ -1,8 +1,8 @@
 # ArchitectureRoadmap.md
 
-**Version:** 2.0.0
-**Date:** 2025-12-12
-**Status:** Active
+**Version:** 2.1.0
+**Date:** 2025-12-13
+**Status:** Phase 3 Complete / Phase 4 (Analytics Refactor) Active
 
 ---
 
@@ -20,10 +20,10 @@ This defines the specific user experience and data flow for the Web Interface.
 2.  **Identity Agnostic:** There is no concept of "My Log" vs. "Competitor."
 3.  **Source Agnostic:** Each slot can be filled by either:
     * **Direct Upload:** User uploads a local `.log` file.
-    * **Public Fetch:** User selects a contest/year/callsign (Phase 4).
-4.  **Zero Persistence:**
-    * Files (uploaded or fetched) exist only for the duration of the request processing.
-    * Once the report is delivered to the browser, all source logs are purged.
+    * **Public Fetch:** User selects a contest/year/callsign (Phase 4.2).
+4.  **Session Persistence:**
+    * Files exist in `media/sessions/<session_key>/` for the duration of the analysis session.
+    * Lazy Cleanup ensures old sessions are purged automatically.
 
 ## 3. Architectural Decision Records (ADRs)
 
@@ -38,9 +38,9 @@ This defines the specific user experience and data flow for the Web Interface.
 * **Decision:** The Web App (Django) must point to the existing `contest_tools/templates`.
 * **Reason:** Ensures CLI HTML reports and Web Views are bit-for-bit identical.
 
-### ADR-009: The Ephemeral Fetcher Pattern
-* **Decision:** Public Logs are **not** stored permanently.
-* **Mechanism:** The system fetches specific logs on-demand into a temporary session directory.
+### ADR-009: Session-Scoped Persistence
+* **Decision:** Replace "Ephemeral I/O" (tempfile) with Session-Scoped Storage (`media/sessions/`).
+* **Reason:** Required to support drill-down navigation and static asset serving (images/HTML) in the browser.
 
 ---
 
@@ -53,29 +53,21 @@ This defines the specific user experience and data flow for the Web Interface.
 * **Status:** Complete. Static charts migrated to Plotly.
 
 ### **Phase 2.5: Animation Modernization (COMPLETE)**
-* **Status:** Complete. `plot_interactive_animation.py` implemented and legacy code removed.
-* **Goal:** Eliminate Matplotlib/FFmpeg dependencies for animations.
-* **Constraint:** Establish the `.html` file as the definitive artifact for regression testing.
-* **Tasks:**
-    * [x] Implement `plot_interactive_animation.py` (Plotly).
-    * [x] Deprecate `plot_hourly_animation.py` (Matplotlib).
-    * [x] Update `run_regression_test.py`.
+* **Status:** Complete. `plot_interactive_animation.py` implemented.
 
-### **Phase 3: The Web Pathfinder (VALIDATION ACTIVE)**
-* **Status:** Code Complete. Verification Active.
-* **Goal:** A fully functional, stateless web application (MVP) running locally and deployable.
-* **The Pathfinder:** We use **CQ WW** as the primary test case to validate the UI/UX.
+### **Phase 3: The Web Pathfinder (COMPLETE)**
+* **Status:** Complete.
 * **Tasks:**
-    * [x] **Containerization:** Create `Dockerfile` and `docker-compose.yml` (Python only, no FFmpeg).
+    * [x] **Containerization:** Create `Dockerfile` and `docker-compose.yml`.
     * [x] **Django Bootstrap:** Initialize the project skeleton.
-    * [x] **UI Implementation:**
-        * [x] Build the **Three-Slot Upload Form**.
-        * [x] Build the **Report Dashboard View**.
-    * [ ] **Validation (The Pathfinder Run):** Verify full "Upload -> Process -> View" loop using complex **CQ WW** logs.
+    * [x] **UI Implementation:** Three-Slot Upload Form & Basic Dashboard.
+    * [x] **Validation:** "Pathfinder Run" successful with CQ WW logs.
 
-### **Phase 4: The Data Layer (Public Log Access)**
-* **Goal:** Enable "Select from Public Source" in the UI.
+### **Phase 4: The Strategy Board & Analytics Refactor (ACTIVE)**
+* **Status:** In Progress.
+* **Goal:** Implement the "Top-Down" UI strategy ("The Arena", "The War Room").
 * **Tasks:**
-    * [ ] **Scrapers:** Create lightweight Python adapters to find/fetch logs.
-    * [ ] **UI Integration:** Add "Fetch URL" tabs to the Input slots.
-    * [ ] **Async Workers:** Introduce Celery/Redis *only if* fetching/processing exceeds HTTP timeouts.
+    * [x] **Step 1: The Strategy Board:** Upgrade Dashboard table with "Run %" metrics.
+    * [ ] **Step 2: The Drill-Down UI:** Implement the "Triptych" (Animation/Plots/Mults) using Session Persistence.
+    * [ ] **Step 3: Sub-Page Views:** Create generic viewer views for the drill-down reports.
+    * [ ] **Step 4: Public Log Fetcher:** (Deferred to Phase 4.1).

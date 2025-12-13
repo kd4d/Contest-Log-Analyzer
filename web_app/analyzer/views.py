@@ -6,7 +6,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-12
-# Version: 0.104.0-Beta
+# Version: 0.105.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,8 @@
 # If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.105.0-Beta] - 2025-12-13
+# - Added 'run_qsos' and 'run_percent' to the dashboard context context.
 # [0.104.0-Beta] - 2025-12-12
 # - Updated analyze_logs to consume new 'final_score' and 'mult_breakdown'
 #   from TimeSeriesAggregator instead of raw points.
@@ -98,7 +100,9 @@ def analyze_logs(request):
                         'callsign': call,
                         'score': data['scalars'].get('final_score', 0),
                         'qsos': data['scalars']['net_qsos'],
-                        'mults': data['scalars'].get('mult_breakdown', {})
+                        'mults': data['scalars'].get('mult_breakdown', {}),
+                        'run_qsos': data['scalars'].get('run_qsos', 0),
+                        'run_percent': data['scalars'].get('run_percent', 0.0)
                     })
 
                 return render(request, 'analyzer/dashboard.html', context)
