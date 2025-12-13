@@ -1,4 +1,6 @@
 {% extends 'base.html' %}
+{% load humanize %}
+{% load analyzer_extras %}
 
 {% block content %}
 <div class="container mt-5">
@@ -16,6 +18,9 @@
                     <tr>
                         <th class="py-3 ps-4">Callsign</th>
                         <th class="py-3 text-end">Total QSOs</th>
+                        {% for header in mult_headers %}
+                        <th class="py-3 text-end">{{ header }}</th>
+                        {% endfor %}
                         <th class="py-3 text-end pe-4">Score</th>
                     </tr>
                 </thead>
@@ -24,7 +29,10 @@
                     <tr>
                         <td class="ps-4 fw-bold text-primary">{{ log.callsign }}</td>
                         <td class="text-end">{{ log.qsos }}</td>
-                        <td class="text-end pe-4">{{ log.score }}</td>
+                        {% for header in mult_headers %}
+                        <td class="text-end">{{ log.mults|get_item:header }}</td>
+                        {% endfor %}
+                        <td class="text-end pe-4 fw-bold">{{ log.score|intcomma }}</td>
                     </tr>
                     {% empty %}
                     <tr>

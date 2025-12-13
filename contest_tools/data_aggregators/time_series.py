@@ -4,8 +4,8 @@
 #          JSON-compatible structure (Pure Python Primitives).
 #
 # Author: Gemini AI
-# Date: 2025-12-06
-# Version: 1.4.0
+# Date: 2025-12-12
+# Version: 1.5.0
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [1.5.0] - 2025-12-12
+# - Added final_score and mult_breakdown to the scalar output to support
+#   high-fidelity dashboards.
 # [1.4.0] - 2025-12-06
 # - Updated get_time_series_data to populate 'by_mode' and 'by_band_mode'.
 # - Improved groupby logic to handle multi-level aggregation.
@@ -28,6 +31,7 @@
 # - Enforced strict separation: Points are raw sums, Score is from calculator.
 # [1.2.0] - 2025-11-24
 # - Initial creation implementing the TimeSeriesData v1.2 schema.
+
 import pandas as pd
 import numpy as np
 from typing import List, Dict, Any
@@ -76,7 +80,7 @@ class TimeSeriesAggregator:
             
             # --- Prepare Data ---
             df_full = log.get_processed_data()
-            
+
             # Apply Filters (Schema v1.3.1)
             if band_filter and band_filter != 'All':
                 df_full = df_full[df_full['Band'] == band_filter]
@@ -103,6 +107,21 @@ class TimeSeriesAggregator:
 
             on_time = metadata.get('OnTime', "") 
             contest_name = metadata.get('ContestName', 'UnknownContest')
+            
+            # Calculate Multiplier Breakdown (Scalars)
+            mult_breakdown = {}
+            final_score_scalar = 0
+            
+            if not df_full.empty:
+                df_valid_scalars = df_full[df_full['Dupe'] == False].copy()
+                if not df_valid_scalars.empty:
+                    for rule in contest_def.multiplier_rules:
+                        mult_name = rule.get('name', 'Unknown')
+                        col = rule.get('value_column')
+                        if col and col in df_valid_scalars.columns:
+                            # Filter out 'Unknown' or NaNs before counting
+                            valid_mults = df_valid_scalars[df_valid_scalars[col].notna() & (df_valid_scalars[col] != 'Unknown')]
+                            mult_breakdown[mult_name] = int(valid_mults[col].nunique())
 
             log_entry = {
                 "scalars": {
@@ -112,7 +131,9 @@ class TimeSeriesAggregator:
                     "points_sum": int(points_sum),
                     "on_time": str(on_time),
                     "contest_name": str(contest_name),
-                    "year": str(year)
+                    "year": str(year),
+                    "final_score": int(final_score_scalar),
+                    "mult_breakdown": mult_breakdown
                 },
                 "cumulative": {
                     "qsos": [], "points": [], "mults": [], 
@@ -142,7 +163,7 @@ class TimeSeriesAggregator:
                 if not df_valid.empty:
                     # Resample Setup
                     hourly_grp = df_valid.set_index('Datetime').resample('h')
-                    
+                
                     # 1. Total QSOs
                     s_qsos = hourly_grp.size()
                     log_entry["cumulative"]["qsos"] = process_series(s_qsos)
@@ -190,6 +211,10 @@ class TimeSeriesAggregator:
             is_filtered = (band_filter and band_filter != 'All') or (mode_filter is not None)
 
             if not is_filtered and hasattr(log, 'time_series_score_df') and log.time_series_score_df is not None:
+                # Extract final score for scalars
+                if not log.time_series_score_df.empty and 'score' in log.time_series_score_df.columns:
+                    log_entry["scalars"]["final_score"] = int(log.time_series_score_df['score'].iloc[-1])
+                
                 # Use ffill to propagate the score across hours where no QSOs occurred
                 ts_df = log.time_series_score_df.reindex(master_index).ffill().fillna(0)
                 
@@ -241,7 +266,7 @@ class TimeSeriesAggregator:
                         grp_bm = df_hourly.groupby([df_hourly['Datetime'].dt.floor('h'), 'Band', 'Mode']).size().unstack(['Band', 'Mode'], fill_value=0)
                         grp_bm = grp_bm.reindex(master_index).fillna(0).astype(int)
 
-                        # grp_bm columns are MultiIndex (Band, Mode). 
+                        # grp_bm columns are MultiIndex (Band, Mode).
                         # Flatten to keys "Band_Mode" (e.g. "20M_CW")
                         for col in grp_bm.columns:
                             # col is tuple (Band, Mode)

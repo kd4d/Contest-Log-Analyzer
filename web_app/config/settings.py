@@ -1,13 +1,13 @@
 # web_app/config/settings.py
 #
-# Purpose: Django settings for the Contest Log Analytics Web App.
+# Purpose: Django settings for the Contest Log Analyzer Web App.
 #          It configures the web application for a stateless, containerized
 #          environment and explicitly integrates the 'contest_tools' template
 #          directory to ensure a Shared Presentation Layer (ADR-007).
 #
 # Author: Gemini AI
 # Date: 2025-12-12
-# Version: 0.103.0-Beta
+# Version: 0.104.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -16,16 +16,18 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.104.1-Beta] - 2025-12-12
+# - Added 'django.contrib.humanize' to INSTALLED_APPS to support template filters.
 # [0.103.0-Beta] - 2025-12-12
 # - Registered 'web_app.analyzer' app.
 # [0.102.0-Beta] - 2025-12-11
 # - Initial creation for Phase 3.
 # - Implemented ADR-007: Mapped TEMPLATES to ../contest_tools/templates.
-
 from pathlib import Path
 import os
 
@@ -50,6 +52,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.humanize',
     'web_app.analyzer',
 ]
 

@@ -1,12 +1,12 @@
 # web_app/analyzer/views.py
 #
-# Purpose: Django views for the Contest Log Analytics application.
+# Purpose: Django views for the Contest Log Analyzer application.
 #          Handles log file uploads, invokes the core LogManager for parsing,
 #          aggregates data using DAL components, and renders the dashboard.
 #
 # Author: Gemini AI
-# Date: 2025-12-11
-# Version: 0.103.0-Beta
+# Date: 2025-12-12
+# Version: 0.104.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -15,15 +15,19 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.104.0-Beta] - 2025-12-12
+# - Updated analyze_logs to consume new 'final_score' and 'mult_breakdown'
+#   from TimeSeriesAggregator instead of raw points.
+# - Added logic to dynamically determine multiplier headers.
 # [0.103.3-Beta] - 2025-12-12
 # - Added logging to capture stack traces for debugging upload failures.
 # [0.103.0-Beta] - 2025-12-11
 # - Initial creation for Phase 3.
 # - Implements the "Ephemeral I/O" pattern using tempfile.
-
 import os
 import tempfile
 import shutil
@@ -79,14 +83,22 @@ def analyze_logs(request):
                 # Extract basic scalars for dashboard
                 context = {
                     'logs': [],
+                    'mult_headers': [],
                     'contest_name': lm.logs[0].metadata.get('ContestName', 'Unknown'),
                 }
                 
+                # Determine multiplier headers from the first log (assuming all are same contest)
+                if ts_data['logs']:
+                    first_log_key = list(ts_data['logs'].keys())[0]
+                    if 'mult_breakdown' in ts_data['logs'][first_log_key]['scalars']:
+                        context['mult_headers'] = list(ts_data['logs'][first_log_key]['scalars']['mult_breakdown'].keys())
+
                 for call, data in ts_data['logs'].items():
                     context['logs'].append({
                         'callsign': call,
-                        'score': data['scalars']['points_sum'], # Using raw points for simple verify
-                        'qsos': data['scalars']['net_qsos']
+                        'score': data['scalars'].get('final_score', 0),
+                        'qsos': data['scalars']['net_qsos'],
+                        'mults': data['scalars'].get('mult_breakdown', {})
                     })
 
                 return render(request, 'analyzer/dashboard.html', context)
