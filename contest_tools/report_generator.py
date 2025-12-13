@@ -6,8 +6,8 @@
 #          execute it (e.g., single-log, pairwise, multi-log).
 #
 # Author: Gemini AI
-# Date: 2025-10-10
-# Version: 0.91.1-Beta
+# Date: 2025-12-13
+# Version: 0.107.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -16,15 +16,22 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
 # --- Revision History ---
+# [0.107.0-Beta] - 2025-12-13
+# - Removed 'html' output directory support to enforce semantic routing.
+# - Removed temporary debug logging and traceback imports.
+# [0.106.0-Beta] - 2025-12-13
+# - Added Systemic Directory Scaffolding (os.makedirs) to run_reports to prevent
+#   FileNotFoundError in dynamic session environments.
 # [0.91.1-Beta] - 2025-10-10
 # - Implemented hybrid "opt-in/opt-out" report model to handle
 #   specialized, contest-specific reports.
 # [0.90.0-Beta] - 2025-10-01
-# Set new baseline version for release.
-
+# - Set new baseline version for release.
 import os
 import itertools
 import importlib
@@ -77,7 +84,6 @@ class ReportGenerator:
         self.plots_output_dir = os.path.join(self.base_output_dir, "plots")
         self.charts_output_dir = os.path.join(self.base_output_dir, "charts")
         self.animations_output_dir = os.path.join(self.base_output_dir, "animations")
-        self.html_output_dir = os.path.join(self.base_output_dir, "html")
 
     def run_reports(self, report_id, **report_kwargs):
         """
@@ -122,8 +128,13 @@ class ReportGenerator:
             elif report_type == 'plot': output_path = self.plots_output_dir
             elif report_type == 'chart': output_path = self.charts_output_dir
             elif report_type == 'animation': output_path = self.animations_output_dir
-            elif report_type == 'html': output_path = self.html_output_dir
             else: output_path = self.base_output_dir
+
+            # --- SYSTEMIC FIX: Scaffold Output Directory ---
+            # Ensures the specific report type sub-directory (e.g., /plots) exists
+            # before passing it to the plugin. Required for dynamic sessions.
+            import os
+            os.makedirs(output_path, exist_ok=True)
 
             is_multiplier_report = r_id in ['missed_multipliers', 'multiplier_summary', 'multipliers_by_hour']
 
@@ -166,27 +177,46 @@ class ReportGenerator:
                         if ReportClass.supports_single:
                             for log in self.logs:
                                 instance = ReportClass([log])
-                                result = instance.generate(output_path=output_path, **current_kwargs)
-                                logging.info(result)
+                                try:
+                                    result = instance.generate(output_path=output_path, **current_kwargs)
+                                    logging.info(result)
+                                except Exception as e:
+                                    logging.error(f"Error generating '{r_id}': {e}")
                         
                         if (ReportClass.supports_multi or ReportClass.supports_pairwise) and len(self.logs) >= 2:
                             instance = ReportClass(self.logs)
-                            result = instance.generate(output_path=output_path, **current_kwargs)
-                            logging.info(result)
+                            try:
+                                result = instance.generate(output_path=output_path, **current_kwargs)
+                                logging.info(result)
+                            except Exception as e:
+                                logging.error(f"Error generating '{r_id}': {e}")
+            
             else:
                 # --- Path 2: Non-Multiplier Reports ---
                 logging.info(f"\nGenerating report: '{ReportClass.report_name}'...")
+                
                 if ReportClass.supports_multi and len(self.logs) >= 2:
                     instance = ReportClass(self.logs)
-                    result = instance.generate(output_path=output_path, **report_kwargs)
-                    logging.info(result)
+                    try:
+                        result = instance.generate(output_path=output_path, **report_kwargs)
+                        logging.info(result)
+                    except Exception as e:
+                        logging.error(f"Error generating '{r_id}': {e}")
+
                 if ReportClass.supports_pairwise and len(self.logs) >= 2:
                     for log_pair in itertools.combinations(self.logs, 2):
                         instance = ReportClass(list(log_pair))
-                        result = instance.generate(output_path=output_path, **report_kwargs)
-                        logging.info(result)
+                        try:
+                            result = instance.generate(output_path=output_path, **report_kwargs)
+                            logging.info(result)
+                        except Exception as e:
+                            logging.error(f"Error generating '{r_id}': {e}")
+
                 if ReportClass.supports_single:
                     for log in self.logs:
                         instance = ReportClass([log])
-                        result = instance.generate(output_path=output_path, **report_kwargs)
-                        logging.info(result)
+                        try:
+                            result = instance.generate(output_path=output_path, **report_kwargs)
+                            logging.info(result)
+                        except Exception as e:
+                            logging.error(f"Error generating '{r_id}': {e}")

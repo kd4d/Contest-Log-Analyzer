@@ -1,25 +1,47 @@
 {% extends 'base.html' %}
 {% load humanize %}
 {% load analyzer_extras %}
+{% load static %}
 
 {% block content %}
+<style>
+    .hover-shadow:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important;
+    }
+    .transition {
+        transition: all 0.3s ease;
+    }
+    .card-img-top-container {
+        height: 200px;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #f8f9fa;
+    }
+</style>
+
 <div class="container mt-5">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="mb-0">Analysis Results: {{ contest_name }}</h2>
+        <h2 class="mb-0 text-secondary">Analysis Results: <span class="text-dark">{{ contest_name }}</span></h2>
         <a href="{% url 'home' %}" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-1"></i>New Analysis
         </a>
     </div>
 
-    <div class="card shadow-sm border-0">
+    <div class="card shadow-sm border-0 mb-5">
+        <div class="card-header bg-white py-3">
+            <h5 class="mb-0 fw-bold text-primary"><i class="bi bi-trophy me-2"></i>The Scoreboard</h5>
+        </div>
         <div class="card-body p-0">
             <table class="table table-hover table-striped mb-0">
                 <thead class="table-light">
                     <tr>
                         <th class="py-3 ps-4">Callsign</th>
                         <th class="py-3 text-end">Total QSOs</th>
-                        <th class="py-3 text-end">Run QSOs</th>
-                        <th class="py-3 text-end">Run %</th>
+                        <th class="py-3 text-end text-success">Run QSOs</th>
+                        <th class="py-3 text-end text-success">Run %</th>
                         {% for header in mult_headers %}
                         <th class="py-3 text-end">{{ header }}</th>
                         {% endfor %}
@@ -30,9 +52,9 @@
                     {% for log in logs %}
                     <tr>
                         <td class="ps-4 fw-bold text-primary">{{ log.callsign }}</td>
-                        <td class="text-end">{{ log.qsos }}</td>
-                        <td class="text-end fw-bold">{{ log.run_qsos }}</td>
-                        <td class="text-end">{{ log.run_percent }}%</td>
+                        <td class="text-end">{{ log.qsos|intcomma }}</td>
+                        <td class="text-end fw-bold text-success">{{ log.run_qsos|intcomma }}</td>
+                        <td class="text-end fw-bold text-success">{{ log.run_percent }}%</td>
                         {% for header in mult_headers %}
                         <td class="text-end">{{ log.mults|get_item:header }}</td>
                         {% endfor %}
@@ -40,11 +62,79 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="3" class="text-center py-4 text-muted">No valid logs found.</td>
+                        <td colspan="10" class="text-center py-4 text-muted">No valid logs found.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-12">
+            <h4 class="text-secondary fw-bold"><i class="bi bi-layers me-2"></i>Strategic Breakdown</h4>
+            <hr>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-5">
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100 border-0 hover-shadow transition">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-film text-primary mb-3" style="font-size: 4rem;"></i>
+                    <h5 class="card-title fw-bold">Hourly Breakdown</h5>
+                    <p class="card-text text-muted small px-3">Interactive time-lapse animation.</p>
+                </div>
+                <div class="card-footer bg-white border-0 pb-4 text-center">
+                    <a href="{{ MEDIA_URL }}sessions/{{ session_key }}/reports/{{ report_url_path }}/animations/{{ animation_file }}" target="_blank" class="btn btn-outline-primary stretched-link">
+                        <i class="bi bi-play-circle me-1"></i>Hourly Breakdown
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100 border-0 hover-shadow transition">
+                <div class="card-img-top-container border-bottom">
+                    <i class="bi bi-bar-chart-line text-success" style="font-size: 4rem;"></i>
+                </div>
+                <div class="card-body text-center py-4">
+                    <h5 class="card-title fw-bold">QSO Reports</h5>
+                    <p class="card-text text-muted small px-3">Rate charts and band comparisons.</p>
+                </div>
+                <div class="card-footer bg-white border-0 pb-4 text-center">
+                    <a href="{{ MEDIA_URL }}sessions/{{ session_key }}/reports/{{ report_url_path }}/html/{{ plot_file }}" target="_blank" class="btn btn-outline-success stretched-link">
+                        <i class="bi bi-graph-up me-1"></i>QSO Reports
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100 border-0 hover-shadow transition">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-table text-info mb-3" style="font-size: 4rem;"></i>
+                    <h5 class="card-title fw-bold">Multiplier Reports</h5>
+                    <p class="card-text text-muted small px-3">Missing multipliers and band-fills.</p>
+                </div>
+                <div class="card-footer bg-white border-0 pb-4 text-center">
+                    <a href="{{ MEDIA_URL }}sessions/{{ session_key }}/reports/{{ report_url_path }}/text/{{ mult_file }}" target="_blank" class="btn btn-outline-info stretched-link">
+                        <i class="bi bi-list-check me-1"></i>Multiplier Reports
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-5 mb-5">
+        <div class="col-12 text-center">
+            <div class="p-4 bg-white rounded shadow-sm border">
+                <h5 class="fw-bold text-secondary mb-3">Raw Data Access</h5>
+                <a href="#" class="btn btn-secondary disabled">
+                    <i class="bi bi-folder2-open me-2"></i>All Reports (Archive)
+                </a>
+                <p class="text-muted x-small mt-2 mb-0">Full file browser coming in Phase 4.1</p>
+            </div>
         </div>
     </div>
 </div>

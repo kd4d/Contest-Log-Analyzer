@@ -35,10 +35,10 @@ def create_project_bundle(manifest_file=None):
         '.git',
         '.idea',
         '.vscode',
-        'reports', # Don't include output reports
         'Logs',    # Don't include input logs
         'data',    # Don't include large data files
-        'tests'    # Don't include tests unless specified
+        'tests',   # Don't include tests unless specified
+        'media'    # Don't include session logs
     ]
     
     # Files to EXCLUDE (by extension or exact name)

@@ -1,5 +1,5 @@
 # contest_tools/reports/plot_interactive_animation.py
-# Version: 0.102.3-Beta
+# Version: 0.107.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -12,6 +12,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.107.0-Beta] - 2025-12-13
+# - Changed report_type from 'html' to 'animation' to enforce semantic routing
+#   to the 'animations/' directory (Fixes 404 in Web Dashboard).
 # [0.102.3-Beta] - 2025-12-11
 # - Implemented user-accessible FPS dropdown control (0.5 to 5 FPS).
 # - Changed default playback speed to 1 FPS.
@@ -48,7 +51,7 @@ class Report(ContestReport):
     
     report_id: str = "interactive_animation"
     report_name: str = "Interactive Contest Animation"
-    report_type: str = "html"
+    report_type: str = "animation"
     is_specialized: bool = False
     supports_multi: bool = True
 

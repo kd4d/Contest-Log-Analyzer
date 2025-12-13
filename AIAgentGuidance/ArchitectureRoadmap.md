@@ -1,8 +1,8 @@
 # ArchitectureRoadmap.md
 
-**Version:** 2.1.0
+**Version:** 2.2.0
 **Date:** 2025-12-13
-**Status:** Phase 3 Complete / Phase 4 (Analytics Refactor) Active
+**Status:** Phase 4 (Analytics Refactor) - Step 2 (Drill-Down UI) Active
 
 ---
 
@@ -68,6 +68,10 @@ This defines the specific user experience and data flow for the Web Interface.
 * **Goal:** Implement the "Top-Down" UI strategy ("The Arena", "The War Room").
 * **Tasks:**
     * [x] **Step 1: The Strategy Board:** Upgrade Dashboard table with "Run %" metrics.
-    * [ ] **Step 2: The Drill-Down UI:** Implement the "Triptych" (Animation/Plots/Mults) using Session Persistence.
+    * [x] **Step 2: The Drill-Down UI:** Implement the "Triptych" (Animation/Plots/Mults) using Session Persistence.
+        * [x] **UI Overhaul:** Implemented `dashboard.html` with Card layout.
+        * [x] **Persistence:** Implemented `media/sessions` with Lazy Cleanup.
+        * [x] **Dynamic Linking:** Solved URL construction issues for empty Event IDs.
+        * [ ] **Stability:** Fix dependency crashes caused by legacy Matplotlib imports.
     * [ ] **Step 3: Sub-Page Views:** Create generic viewer views for the drill-down reports.
     * [ ] **Step 4: Public Log Fetcher:** (Deferred to Phase 4.1).

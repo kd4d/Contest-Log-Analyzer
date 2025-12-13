@@ -1,133 +1,167 @@
 --- FILE: ImplementationPlan.md ---
-# Implementation Plan - The Strategy Board Upgrade
+# Implementation Plan - Branding & Context Update
 
 **Version:** 1.0.0
-**Target:** 0.105.0-Beta
+**Target:** 0.108.0-Beta
 
-## 1. Context
-This plan executes the "Strategy Board" UI upgrade defined in the Phase 4 pivot. We are surfacing "Run QSOs" and "Run %" metrics to the main dashboard table to provide immediate strategic insight.
+## 1. Builder Bootstrap Context
+* **Goal:** Update the Application Shell (Header/Footer) with correct branding and inject dynamic context (CTY Version, Full Contest Title) into the Dashboard.
+* **Constraint:** CTY information is dynamic and only available in the `analyze_logs` view after processing.
+* **Files:** `base.html` (Shell), `views.py` (Logic), `dashboard.html` (Presentation).
 
-## 2. Proposed Changes
+## 2. Technical Debt Register
+* **None:** This is a UI/UX refinement cycle.
 
-### A. `contest_tools/data_aggregators/time_series.py`
-**Goal:** Calculate scalar Run/S&P metrics in the aggregator so they are available for the Dashboard without re-processing.
-* **Logic:**
-    * Locate the scalar calculation block (where `net_qsos` is defined).
-    * Filter the valid (non-dupe) DataFrame for `Run == 'Run'`.
-    * Calculate `scalar_run_qsos` and `scalar_run_percent`.
-    * Add these keys to the `log_entry["scalars"]` dictionary.
+## 3. Safety Protocols
+* **Pre-Flight:** Verify `CtyLookup` is imported in `views.py` to access the static extraction method.
+* **Visual Check:** Ensure the footer is sticky or pushed to the bottom effectively.
 
-### B. `web_app/analyzer/views.py`
-**Goal:** Extract the new scalars and pass them to the template context.
-* **Logic:**
-    * Update the `context['logs']` construction loop.
-    * Map `data['scalars']['run_qsos']` and `data['scalars']['run_percent']` to the template dictionary.
+---
 
-### C. `web_app/analyzer/templates/analyzer/dashboard.html`
-**Goal:** Display the new metrics in the "Arena" table.
-* **Logic:**
-    * Add `<th>Run QSOs</th>` and `<th>Run %</th>` headers.
-    * Add corresponding `<td>` cells in the loop.
-    * Apply Bootstrap styling (`text-end`) for alignment.
+## 4. Execution Steps
 
-## 3. Surgical Change Verification
+### Step 1: Update Application Shell
+**File:** `contest_tools/templates/base.html`
+**Action:** Update Brand text, add Hamburger Menu, add Copyright Footer.
 
-### File: `contest_tools/data_aggregators/time_series.py`
-[cite_start]**Baseline:** Version 1.5.0 [cite: 1552]
-**Changes:**
+#### Surgical Changes
+1.  **Navbar:** Add `navbar-toggler` button and update Brand text.
+2.  **Footer:** Add a `<footer>` block at the bottom of the body.
+
+#### Surgical Change Verification (diff)
 __CODE_BLOCK__diff
---- contest_tools/data_aggregators/time_series.py
-+++ contest_tools/data_aggregators/time_series.py
-@@ -15,4 +15,7 @@
- # --- Revision History ---
-+# [1.6.0] - 2025-12-13
-+# - Added `run_qsos` and `run_percent` to scalar output for Strategy Board dashboard.
- # [1.5.0] - 2025-12-12
- # - Added final_score and mult_breakdown to the scalar output to support
- #   high-fidelity dashboards.
-@@ -58,4 +61,6 @@
-                 points_sum = 0
-                 year = "UnknownYear"
-+                scalar_run_qsos = 0
-+                scalar_run_percent = 0.0
-             else:
-                 gross_qsos = len(df_full)
-@@ -66,4 +71,11 @@
-                 
-+                # Calculate Scalar Run Metrics (Net QSOs only)
-+                df_valid_scalars = df_full[df_full['Dupe'] == False]
-+                scalar_run_qsos = df_valid_scalars[df_valid_scalars['Run'] == 'Run'].shape[0]
-+                scalar_run_percent = (scalar_run_qsos / net_qsos * 100) if net_qsos > 0 else 0.0
+--- contest_tools/templates/base.html
++++ contest_tools/templates/base.html
+@@ -11,9 +11,14 @@
+     
+     <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
+       <div class="container">
++        <button class="navbar-toggler me-2" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
++            <span class="navbar-toggler-icon"></span>
++        </button>
+         <a class="navbar-brand fw-bold" href="{% url 'home' %}">
+-            <i class="bi bi-broadcast me-2"></i>Contest Log Analytics
++            <i class="bi bi-broadcast me-2"></i>Contest Log Analytics by KD4D
+         </a>
++        <div class="collapse navbar-collapse" id="navbarNav">
++            +        </div>
+       </div>
+     </nav>
+ 
+     {% block content %}{% endblock %}
+ 
++    <footer class="text-center text-muted py-4 mt-5 border-top">
++        <div class="container">
++            <p class="mb-0 small">Copyright &copy; 2025 by Mark Bailey, KD4D</p>
++        </div>
++    </footer>
 +
-                 # Extract Year
-                 date_series = df_full['Date'].dropna()
-@@ -93,5 +105,7 @@
-                     "contest_name": str(contest_name),
-                     "year": str(year),
-                     "final_score": int(final_score_scalar),
--                    "mult_breakdown": mult_breakdown
-+                    "mult_breakdown": mult_breakdown,
-+                    "run_qsos": int(scalar_run_qsos),
-+                    "run_percent": round(float(scalar_run_percent), 1)
-                 },
-                 "cumulative": {
+     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+   </body>
+ </html>
 __CODE_BLOCK__
 
-### File: `web_app/analyzer/views.py`
-[cite_start]**Baseline:** Version 0.104.0-Beta [cite: 1878]
-**Changes:**
+### Step 2: Inject Dynamic Context Logic
+**File:** `web_app/analyzer/views.py`
+**Action:** Calculate `cty_version` and `full_contest_title` in `analyze_logs`.
+
+#### Surgical Changes
+1.  Import `CtyLookup` from `contest_tools.core_annotations`.
+2.  Extract `cty_dat_path` from the first log.
+3.  Use `CtyLookup.extract_version_date` to get the date.
+4.  Construct `full_contest_title` string.
+5.  Add to `context`.
+
+#### Surgical Change Verification (diff)
 __CODE_BLOCK__diff
 --- web_app/analyzer/views.py
 +++ web_app/analyzer/views.py
-@@ -15,4 +15,7 @@
- # --- Revision History ---
-+# [0.105.0-Beta] - 2025-12-13
-+# - Added 'run_qsos' and 'run_percent' to the dashboard context context.
- # [0.104.0-Beta] - 2025-12-12
- # - Updated analyze_logs to consume new 'final_score' and 'mult_breakdown'
- #   from TimeSeriesAggregator instead of raw points.
-@@ -113,5 +116,7 @@
-                         'callsign': call,
-                         'score': data['scalars'].get('final_score', 0),
-                         'qsos': data['scalars']['net_qsos'],
--                        'mults': data['scalars'].get('mult_breakdown', {})
-+                        'mults': data['scalars'].get('mult_breakdown', {}),
-+                        'run_qsos': data['scalars'].get('run_qsos', 0),
-+                        'run_percent': data['scalars'].get('run_percent', 0.0)
-                     })
+@@ -35,6 +35,7 @@
+ # Import Core Logic
+ from contest_tools.log_manager import LogManager
+ from contest_tools.data_aggregators.time_series import TimeSeriesAggregator
+ from contest_tools.report_generator import ReportGenerator
++from contest_tools.core_annotations import CtyLookup
  
+ logger = logging.getLogger(__name__)
+ 
+@@ -118,10 +119,17 @@
+                 # Extract basic scalars for dashboard
+                 # Construct relative path components for the template
+                 first_log_meta = lm.logs[0].get_metadata()
+                 contest_name = first_log_meta.get('ContestName', 'Unknown').replace(' ', '_')
+                 # Date/Year extraction logic mirrors LogManager
+                 df_first = lm.logs[0].get_processed_data()
+                 year = df_first['Date'].dropna().iloc[0].split('-')[0] if not df_first.empty else "UnknownYear"
+                 
+                 # Re-derive event_id locally or fetch from metadata if available (LogManager stores it there now)
+                 event_id = first_log_meta.get('EventID', '')
++
++                # Construct Full Title: "CQ-WW-CW 2024" or "NAQP 2025 JAN"
++                full_contest_title = f"{contest_name.replace('_', ' ')} {year} {event_id}".strip()
++
++                # Extract CTY Version Info
++                cty_path = lm.logs[0].cty_dat_path
++                cty_date = CtyLookup.extract_version_date(cty_path)
++                cty_date_str = cty_date.strftime('%Y-%m-%d') if cty_date else "Unknown Date"
++                cty_filename = os.path.basename(cty_path)
++                cty_version_info = f"{cty_filename} ({cty_date_str})"
+                 
+                 all_calls = sorted([l.get_metadata().get('MyCall', f'Log{i+1}') for i, l in enumerate(lm.logs)])
+                 combo_id = '_'.join(all_calls)
+ 
+@@ -142,6 +150,8 @@
+                     'mult_file': mult_filename,
+                     'logs': [],
+                     'mult_headers': [],
+-                    'contest_name': contest_name.replace('_', ' '),
++                    'full_contest_title': full_contest_title,
++                    'cty_version_info': cty_version_info,
+                 }
+                 
+                 # Determine multiplier headers from the first log (assuming all are same contest)
 __CODE_BLOCK__
 
-### File: `web_app/analyzer/templates/analyzer/dashboard.html`
-[cite_start]**Baseline:** from project bundle [cite: 1898]
-**Changes:**
+### Step 3: Render Context in Dashboard
+**File:** `web_app/analyzer/templates/analyzer/dashboard.html`
+**Action:** Display `full_contest_title` and `cty_version_info`.
+
+#### Surgical Changes
+1.  Replace `{{ contest_name }}` with `{{ full_contest_title }}` in the header.
+2.  Add a provenance line below the Scoreboard table block.
+
+#### Surgical Change Verification (diff)
 __CODE_BLOCK__diff
 --- web_app/analyzer/templates/analyzer/dashboard.html
 +++ web_app/analyzer/templates/analyzer/dashboard.html
-@@ -14,4 +14,6 @@
-                     <tr>
-                         <th class="py-3 ps-4">Callsign</th>
-                         <th class="py-3 text-end">Total QSOs</th>
-+                        <th class="py-3 text-end">Run QSOs</th>
-+                        <th class="py-3 text-end">Run %</th>
-                         {% for header in mult_headers %}
-                         <th class="py-3 text-end">{{ header }}</th>
-@@ -23,4 +25,6 @@
-                         <td class="ps-4 fw-bold text-primary">{{ log.callsign }}</td>
-                         <td class="text-end">{{ log.qsos }}</td>
-+                        <td class="text-end fw-bold">{{ log.run_qsos }}</td>
-+                        <td class="text-end">{{ log.run_percent }}%</td>
-                         {% for header in mult_headers %}
-                         <td class="text-end">{{ log.mults|get_item:header }}</td>
+@@ -17,7 +17,7 @@
+ 
+ <div class="container mt-5">
+     <div class="d-flex justify-content-between align-items-center mb-4">
+-        <h2 class="mb-0 text-secondary">Analysis Results: <span class="text-dark">{{ contest_name }}</span></h2>
++        <h2 class="mb-0 text-secondary">Analysis Results: <span class="text-dark">{{ full_contest_title }}</span></h2>
+         <a href="{% url 'home' %}" class="btn btn-outline-secondary">
+             <i class="bi bi-arrow-left me-1"></i>New Analysis
+         </a>
+     </div>
+ 
+     <div class="card shadow-sm border-0 mb-5">
+@@ -53,6 +53,7 @@
+                 </tbody>
+             </table>
++            <div class="card-footer bg-light py-2">
++                <small class="text-muted"><i class="bi bi-info-circle me-1"></i>Scored using {{ cty_version_info }}</small>
++            </div>
+         </div>
+     </div>
 __CODE_BLOCK__
 
-## 4. Pre-Flight Check
-* **Consistency:** The aggregator calculates the %; the view passes it; the template renders it. Logic flow is sound.
-* **Validation:**
-    * `time_series.py`: Using `df_valid_scalars` ensures we don't count Dupes in the Run %, matching the Net QSOs denominator.
-    * `views.py`: `.get()` method defaults prevent errors if the aggregator version is mismatched (though we are updating both).
-* **Visuals:** Columns added in the correct order (between Total QSOs and Mults).
+## 5. Compliance Report
+* **Protocol 2.1.1 (Architecture):** PASS. Logic resides in View/Controller, Presentation in Templates. No leakage.
+* **Protocol 3.3 (Context Audit):** PASS.
+* **Protocol 3.2.4 (Sanitization):** PASS.
 
-## 5. Next Steps
-1.  User creates `builder_bundle.txt`.
-2.  User triggers "Act as Builder".
+--- FILE: manifest.txt ---
+contest_tools/templates/base.html
+web_app/analyzer/views.py
+web_app/analyzer/templates/analyzer/dashboard.html

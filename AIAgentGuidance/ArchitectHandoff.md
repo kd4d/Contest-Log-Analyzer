@@ -2,24 +2,23 @@
 
 **Date:** 2025-12-13
 **To:** Incoming Architect
-**Focus:** Phase 4 Execution (The Drill-Down UI)
+**Focus:** Phase 4, Step 2 (Stabilization & Routing Fix)
 
-## Context & Recent Decisions
-We have successfully implemented the **"Strategy Board"** (Phase 4, Step 1). The main dashboard table now displays "Run QSOs" and "Run %" alongside the score.
+## Context & Status
+We are stabilizing the Web Dashboard. The critical "Dependency Poisoning" (Matplotlib crash) and "Missing Directory" (FileNotFoundError) issues have been **SOLVED**.
+* **Guard & Triage:** `_report_utils.py` and `reports/__init__.py` now handle missing `matplotlib` dependencies gracefully. Logs show legacy reports are being skipped without crashing the container.
+* **Scaffolding:** `report_generator.py` now systemically creates output directories (`os.makedirs`). Verification logs show reports successfully writing to disk.
 
-## The Strategic Pivot (Phase 4)
-We are currently executing the **"Strategy First"** UI overhaul.
-* **Previous Plan:** Build log fetchers immediately.
-* **Current Plan:** Finish the "Drill-Down" UI first. The fetchers are deferred to Phase 4.1.
-* **Key Constraint:** We identified that "Ephemeral I/O" (tempfile) breaks the ability to click through to reports. We are transitioning to **Session-Scoped Persistence**.
+## The Current Blocker: "The Animation 404"
+The "Interactive Animation" report generates successfully but returns a **404 Not Found** in the browser.
+* **Diagnosis:** **Path Mismatch / Semantic Error.**
+* **Evidence:** The generator logs show it writing to `.../reports/.../html/`. The browser requests `.../reports/.../animations/`.
+* **Root Cause:** The `plot_interactive_animation.py` plugin currently defines itself as `report_type = 'html'`. The generator routes this to a generic `html` folder, but the Dashboard expects it in the semantic `animations` folder.
 
-## Immediate Next Steps (The "Triptych" Implementation)
-The incoming Architect needs to execute the **Builder Execution Kit** generated in the previous session (which was approved but not yet applied).
+## Strategic Decision: Deprecate the `html` Folder
+We have decided to **remove the `html` output folder entirely**.
+* **Reason:** `html` was a "Pathfinder" artifact for proof-of-concept. It represents a file extension, not a semantic function.
+* **New Standard:** All reports must be routed based on their semantic function (`plot`, `text`, `animation`, `chart`), regardless of their file format.
 
-1.  **Session Persistence:** Modify `settings.py`, `urls.py`, and `views.py` to store files in `media/sessions/<key>/` and implement "Lazy Cleanup".
-2.  **Dashboard UI:** Update `dashboard.html` to add the "Strategic Breakdown" section (Animation, Plots, Mults cards).
-3.  **Validation:** Verify that clicking the "Hourly Breakdown" link opens the `interactive_animation.html` in a new tab.
-
-## Known Technical Debt
-* **Thumbnails:** We are currently using Bootstrap Icons (`bi-film`, etc.) as placeholders. Real image thumbnails are a future enhancement.
-* **Sub-Pages:** The links currently point to raw files. A dedicated "Report Viewer" view is planned for Step 3.
+## Immediate Priorities
+The Incoming Architect must execute the **"Semantic Routing Fix"** defined in the attached `TechnicalDirective.md`.
