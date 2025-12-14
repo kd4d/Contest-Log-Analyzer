@@ -4,8 +4,8 @@
 #          comparing two logs.
 #
 # Author: Gemini AI
-# Date: 2025-12-10
-# Version: 1.1.1
+# Date: 2025-12-14
+# Version: 0.113.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.113.0-Beta] - 2025-12-13
+# - Standardized filename generation: removed '_vs_' separator to match Web Dashboard conventions.
+# [1.1.2] - 2025-12-14
+# - Updated file generation to use `_sanitize_filename_part` for strict lowercase naming.
 # [1.1.1] - 2025-12-10
 # - Fixed visualization bug: Increased top margin to prevent Main Title/Subplot Title overlap.
 # [1.1.0] - 2025-12-10
@@ -39,7 +43,7 @@ import logging
 
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from ._report_utils import create_output_directory, get_valid_dataframe, save_debug_data
+from ._report_utils import create_output_directory, get_valid_dataframe, save_debug_data, _sanitize_filename_part
 from ..data_aggregators.time_series import TimeSeriesAggregator
 from ..styles.plotly_style_manager import PlotlyStyleManager
 
@@ -201,12 +205,14 @@ class Report(ContestReport):
         mode_suffix = f"_{mode_filter.lower()}" if mode_filter else ""
         
         # Debug Data
-        debug_filename = f"{self.report_id}_{metric}{mode_suffix}_{filename_band}_{call1}_vs_{call2}.txt"
+        c1_safe = _sanitize_filename_part(call1)
+        c2_safe = _sanitize_filename_part(call2)
+        debug_filename = f"{self.report_id}_{metric}{mode_suffix}_{filename_band}_{c1_safe}_{c2_safe}.txt"
         save_debug_data(debug_data_flag, output_path, debug_df, custom_filename=debug_filename)
         
         create_output_directory(output_path)
         
-        base_filename = f"{self.report_id}_{metric}{mode_suffix}_{filename_band}_{call1}_vs_{call2}"
+        base_filename = f"{self.report_id}_{metric}{mode_suffix}_{filename_band}_{c1_safe}_{c2_safe}"
         html_filename = f"{base_filename}.html"
         png_filename = f"{base_filename}.png"
         

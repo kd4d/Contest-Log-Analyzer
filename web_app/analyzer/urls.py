@@ -4,8 +4,8 @@
 #          Maps the home page and analysis endpoint to views.
 #
 # Author: Gemini AI
-# Date: 2025-12-13
-# Version: 0.110.0-Beta
+# Date: 2025-12-14
+# Version: 0.111.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,11 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.111.2-Beta] - 2025-12-14
+# - Fixed routing conflict by moving 'qso_dashboard' pattern above the greedy
+#   'view_report' pattern to prevent 404 errors.
+# [0.111.0-Beta] - 2025-12-13
+# - Added 'qso_dashboard' route for the dedicated QSO Reports Sub-Dashboard.
 # [0.110.0-Beta] - 2025-12-13
 # - Added 'get_progress' endpoint for polling analysis status.
 # [0.103.1-Beta] - 2025-12-13
@@ -34,5 +39,6 @@ urlpatterns = [
     path('', views.home, name='home'),
     path('analyze/', views.analyze_logs, name='analyze'),
     path('analyze/progress/<str:request_id>/', views.get_progress, name='get_progress'),
+    path('report/<str:session_id>/dashboard/qso/', views.qso_dashboard, name='qso_dashboard'),
     path('report/<str:session_id>/<path:file_path>', views.view_report, name='view_report'),
 ]

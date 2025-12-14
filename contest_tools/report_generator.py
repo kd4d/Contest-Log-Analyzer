@@ -1,13 +1,14 @@
 # contest_tools/report_generator.py
 #
-# Purpose: This class orchestrates the generation of reports. It takes a list
+# Purpose: This class orchestrates the generation of reports.
+#          It takes a list
 #          of loaded ContestLog objects and user-specified options, then uses
 #          the properties of each available report class to determine how to
 #          execute it (e.g., single-log, pairwise, multi-log).
 #
 # Author: Gemini AI
 # Date: 2025-12-13
-# Version: 0.107.0-Beta
+# Version: 0.113.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -21,6 +22,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.113.0-Beta] - 2025-12-13
+# - Enforced strict lowercase sanitization for all output directory paths (contest, event, callsigns).
 # [0.107.0-Beta] - 2025-12-13
 # - Removed 'html' output directory support to enforce semantic routing.
 # - Removed temporary debug logging and traceback imports.
@@ -32,6 +35,7 @@
 #   specialized, contest-specific reports.
 # [0.90.0-Beta] - 2025-10-01
 # - Set new baseline version for release.
+
 import os
 import itertools
 import importlib
@@ -57,7 +61,7 @@ class ReportGenerator:
         
         # --- Define Fully Unique Output Directory Structure ---
         first_log = self.logs[0]
-        contest_name = first_log.get_metadata().get('ContestName', 'UnknownContest').replace(' ', '_')
+        contest_name = first_log.get_metadata().get('ContestName', 'UnknownContest').replace(' ', '_').lower()
         
         df = first_log.get_processed_data()
         year = df['Date'].dropna().iloc[0].split('-')[0] if not df.empty and not df['Date'].dropna().empty else "UnknownYear"
@@ -75,11 +79,11 @@ class ReportGenerator:
                 event_id = "UnknownEvent"
 
         # --- Get Callsign Combination ID ---
-        all_calls = sorted([log.get_metadata().get('MyCall', f'Log{i+1}') for i, log in enumerate(self.logs)])
+        all_calls = sorted([log.get_metadata().get('MyCall', f'Log{i+1}').lower() for i, log in enumerate(self.logs)])
         callsign_combo_id = '_'.join(all_calls)
 
         # --- Construct Final Path ---
-        self.base_output_dir = os.path.join(root_output_dir, 'reports', year, contest_name, event_id, callsign_combo_id)
+        self.base_output_dir = os.path.join(root_output_dir, 'reports', year, contest_name, event_id.lower(), callsign_combo_id)
         self.text_output_dir = os.path.join(self.base_output_dir, "text")
         self.plots_output_dir = os.path.join(self.base_output_dir, "plots")
         self.charts_output_dir = os.path.join(self.base_output_dir, "charts")
@@ -132,7 +136,8 @@ class ReportGenerator:
 
             # --- SYSTEMIC FIX: Scaffold Output Directory ---
             # Ensures the specific report type sub-directory (e.g., /plots) exists
-            # before passing it to the plugin. Required for dynamic sessions.
+            # before passing it to the plugin.
+            # Required for dynamic sessions.
             import os
             os.makedirs(output_path, exist_ok=True)
 
@@ -166,7 +171,7 @@ class ReportGenerator:
                     for mult_rule in mult_rules_to_run:
                         mult_name = mult_rule.get('name')
                         if not mult_name:
-                            continue
+                             continue
 
                         logging.info(f"  - Generating for: {mult_name}")
                         current_kwargs = report_kwargs.copy()

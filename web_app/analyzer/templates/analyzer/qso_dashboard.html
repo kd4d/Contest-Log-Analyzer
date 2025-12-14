@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-speedometer2 me-2"></i>Global Context</h5>
+                    <a href="#" class="btn btn-sm btn-light disabled">QSO Rate</a>
+                </div>
+                <div class="card-body p-0" style="height: 500px;">
+                    <iframe src="{% url 'view_report' session_id global_qso_rate_file %}" style="width: 100%; height: 100%; border: none;"></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <ul class="nav nav-tabs mb-3" id="qsoTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="strategy-tab" data-bs-toggle="tab" data-bs-target="#strategy" type="button" role="tab">
+                <i class="bi bi-chess me-2"></i>Pairwise Strategy
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="rates-tab" data-bs-toggle="tab" data-bs-target="#rates" type="button" role="tab">
+                <i class="bi bi-table me-2"></i>Rate Detail
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="points-tab" data-bs-toggle="tab" data-bs-target="#points" type="button" role="tab">
+                <i class="bi bi-geo-alt me-2"></i>Points & Bands
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="qsoTabsContent">
+        
+        <div class="tab-pane fade show active" id="strategy" role="tabpanel">
+            <div class="btn-group mb-3" role="group">
+                {% for m in matchups %}
+                <button type="button" class="btn btn-outline-primary strategy-btn {% if forloop.first %}active{% endif %}" 
+                        data-breakdown="{% url 'view_report' session_id m.qso_breakdown_file %}"
+                        data-diff="{% url 'view_report' session_id m.diff_plot_file %}">
+                    {{ m.label }}
+                </button>
+                {% endfor %}
+            </div>
+
+            <div class="row">
+                <div class="col-lg-6 mb-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-header">Strategy Breakdown (Uniques)</div>
+                        <div class="card-body p-0" style="height: 600px;">
+                            <iframe id="frame-breakdown" src="" style="width: 100%; height: 100%; border: none;"></iframe>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6 mb-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-header">Rate Differential (Momentum)</div>
+                        <div class="card-body p-0" style="height: 600px;">
+                            <iframe id="frame-diff" src="" style="width: 100%; height: 100%; border: none;"></iframe>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="rates" role="tabpanel">
+            <div class="btn-group mb-3" role="group">
+                <button type="button" class="btn btn-outline-secondary rate-btn active" 
+                        data-src="{% url 'view_report' session_id rate_sheet_comparison %}">Comparison</button>
+                {% for call in callsigns %}
+                <button type="button" class="btn btn-outline-secondary rate-btn" 
+                        data-src="{% url 'view_report' session_id report_base|add:'/text/rate_sheet_'|add:call|add:'.txt' %}">{{ call }}</button>
+                {% endfor %}
+            </div>
+            <div class="card shadow-sm">
+                <div class="card-body p-0" style="height: 800px;">
+                    <iframe id="frame-rates" src="" style="width: 100%; height: 100%; border: none;"></iframe>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="points" role="tabpanel">
+             <div class="row">
+                <div class="col-12 mb-4">
+                    <div class="card shadow-sm">
+                        <div class="card-header">Cumulative Points</div>
+                        <div class="card-body p-0" style="height: 500px;">
+                             <iframe src="{% url 'view_report' session_id global_point_rate_file %}" style="width: 100%; height: 100%; border: none;"></iframe>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Strategy Tab Logic
+        const stratBtns = document.querySelectorAll('.strategy-btn');
+        const frameBreakdown = document.getElementById('frame-breakdown');
+        const frameDiff = document.getElementById('frame-diff');
+
+        function updateStrategy(btn) {
+            stratBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            frameBreakdown.src = btn.dataset.breakdown;
+            frameDiff.src = btn.dataset.diff;
+        }
+
+        if(stratBtns.length > 0) updateStrategy(stratBtns[0]);
+
+        stratBtns.forEach(btn => {
+            btn.addEventListener('click', () => updateStrategy(btn));
+        });
+
+        // Rate Tab Logic
+        const rateBtns = document.querySelectorAll('.rate-btn');
+        const frameRates = document.getElementById('frame-rates');
+
+        function updateRates(btn) {
+            rateBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            frameRates.src = btn.dataset.src;
+        }
+
+        if(rateBtns.length > 0) updateRates(rateBtns[0]);
+
+        rateBtns.forEach(btn => {
+            btn.addEventListener('click', () => updateRates(btn));
+        });
+    });
+</script>
+{% endblock %}

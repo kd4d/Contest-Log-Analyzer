@@ -4,21 +4,23 @@
 #          reporting engine.
 #
 # Author: Gemini AI
-# Date: 2025-12-13
-# Version: 0.106.0-Beta
+# Date: 2025-12-14
+# Version: 0.107.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
-#          ([https://www.mozilla.org/MPL/2.0/](https://www.mozilla.org/MPL/2.0/))
+#          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0.
 # If a copy of the MPL was not distributed with this
-# file, You can obtain one at [http://mozilla.org/MPL/2.0/](http://mozilla.org/MPL/2.0/).
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.107.0-Beta] - 2025-12-14
+# - Updated `_sanitize_filename_part` to enforce strict lowercase conversion.
 # [0.106.0-Beta] - 2025-12-13
 # - Validated Matplotlib Import Guard (Stabilization Phase).
 # [0.105.5-Beta] - 2025-12-13
@@ -59,7 +61,7 @@ def create_output_directory(path: str):
 
 def _sanitize_filename_part(part: str) -> str:
     """Sanitizes a string to be used as part of a filename."""
-    return re.sub(r'[\s/\\:]+', '_', part.lower())
+    return re.sub(r'[\s/\\:]+', '_', str(part)).lower()
 
 def calculate_multiplier_pivot(df: pd.DataFrame, mult_col: str, group_by_call: bool = False) -> pd.DataFrame:
     """

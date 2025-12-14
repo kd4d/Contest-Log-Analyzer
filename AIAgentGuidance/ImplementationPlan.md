@@ -1,167 +1,87 @@
---- FILE: ImplementationPlan.md ---
-# Implementation Plan - Branding & Context Update
+# ImplementationPlan.md
 
 **Version:** 1.0.0
-**Target:** 0.108.0-Beta
+**Target:** 4.17.0
 
 ## 1. Builder Bootstrap Context
-* **Goal:** Update the Application Shell (Header/Footer) with correct branding and inject dynamic context (CTY Version, Full Contest Title) into the Dashboard.
-* **Constraint:** CTY information is dynamic and only available in the `analyze_logs` view after processing.
-* **Files:** `base.html` (Shell), `views.py` (Logic), `dashboard.html` (Presentation).
+The Architect has identified a critical workflow failure where the "Builder Execution Kit" is delivered in a fragmented, conversational format, violating the need for a machine-readable "Monolithic Bundle." This plan updates `AIAgentWorkflow.md` to define a formal "Kit Assembly State," mandating a rigid, template-driven output structure for Protocol 2.4.
 
-## 2. Technical Debt Register
-* **None:** This is a UI/UX refinement cycle.
+## 2. Safety Protocols
+* **No Logic Changes:** This plan only affects the workflow documentation (`AIAgentWorkflow.md`). No code files are touched.
+* **Self-Hosting:** The workflow update uses the very format it seeks to enforce, serving as a live validation of the new standard.
 
-## 3. Safety Protocols
-* **Pre-Flight:** Verify `CtyLookup` is imported in `views.py` to access the static extraction method.
-* **Visual Check:** Ensure the footer is sticky or pushed to the bottom effectively.
+## 3. Technical Debt Register
+* **Eliminated:** Ambiguity in Architect output structure which allowed conversational drift.
 
 ---
 
-## 4. Execution Steps
+## 4. Proposed Changes
 
-### Step 1: Update Application Shell
-**File:** `contest_tools/templates/base.html`
-**Action:** Update Brand text, add Hamburger Menu, add Copyright Footer.
+### **File 1: `AIAgentWorkflow.md`**
+* **Goal:** Enforce a strict "Kit Assembly State" that prohibits conversational filler and mandates a rigid output template.
+* **Action:**
+    * Add **Protocol 2.4.0: "The Kit Assembly State"**.
+    * Refactor **Protocol 2.4.1** to define "The Monolithic Bundle" structure.
+    * Refactor **Protocol 2.4.6** to be "The Structural Gate," enforcing the template.
 
-#### Surgical Changes
-1.  **Navbar:** Add `navbar-toggler` button and update Brand text.
-2.  **Footer:** Add a `<footer>` block at the bottom of the body.
-
-#### Surgical Change Verification (diff)
+#### **Surgical Change Verification (`diff`)**
 __CODE_BLOCK__diff
---- contest_tools/templates/base.html
-+++ contest_tools/templates/base.html
-@@ -11,9 +11,14 @@
-     
-     <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
-       <div class="container">
-+        <button class="navbar-toggler me-2" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-+            <span class="navbar-toggler-icon"></span>
-+        </button>
-         <a class="navbar-brand fw-bold" href="{% url 'home' %}">
--            <i class="bi bi-broadcast me-2"></i>Contest Log Analytics
-+            <i class="bi bi-broadcast me-2"></i>Contest Log Analytics by KD4D
-         </a>
-+        <div class="collapse navbar-collapse" id="navbarNav">
-+            +        </div>
-       </div>
-     </nav>
- 
-     {% block content %}{% endblock %}
- 
-+    <footer class="text-center text-muted py-4 mt-5 border-top">
-+        <div class="container">
-+            <p class="mb-0 small">Copyright &copy; 2025 by Mark Bailey, KD4D</p>
-+        </div>
-+    </footer>
-+
-     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-   </body>
- </html>
+--- AIAgentWorkflow.md
++++ AIAgentWorkflow.md
+@@ -5,6 +5,9 @@
+ ---
+ ### --- Revision History ---
++## [4.17.0] - 2025-12-13
++### Changed
++# - Added Protocol 2.4.0 "The Kit Assembly State" to enforce rigid output templates.
++# - Refactored Protocol 2.4.1 to define "The Monolithic Bundle" structure.
++# - Refactored Protocol 2.4.6 to "The Structural Gate" for template validation.
+ ## [4.16.0] - 2025-12-13
+ ### Changed
+ # - Refined Protocol 9.2 (Builder Output Standard) to strictly limit sanitization scope to internal content only.
+@@ -142,12 +145,21 @@
+     * **Trigger:** The User issues the command **"Generate Builder Execution Kit"**. This command is universal (used for the initial Kit and all subsequent iterations/updates).
+     * **Baseline Consistency Check:** This check verifies that all proposed actions (e.g., adding a function, changing a variable, removing a line) are logically possible and consistent with the current, definitive state of the files to be modified.
+-    * **2.4.1 The Plan Artifact:** Delivery of **`ImplementationPlan.md`**. **Format Mandate:** This file **MUST** be delivered enclosed in a `cla-bundle` code block (per Protocol 3.2.4) to ensure it renders as raw text for easy copying. Must include "Builder Bootstrap Context", "Safety Protocols", and "Technical Debt Register".
+-    * **2.4.2 The Manifest Artifact:** Delivery of **`manifest.txt`**. The Architect must leverage Full Context to identify all dependencies.
++    * **2.4.0. The Kit Assembly State:**
++        * **Definition:** Upon receiving the trigger, the Architect enters a restricted state.
++        * **Constraint:** Conversational filler (e.g., "Here is the plan...") is **strictly forbidden**.
++        * **Mandate:** The output **MUST** follow a rigid, pre-defined template with no deviation.
++    * **2.4.1. The Monolithic Bundle:** The response must consist **ONLY** of these four components in order:
++        1.  **Header:** The Compliance Report (Protocol 2.4.4).
++        2.  **Artifact 1:** `ImplementationPlan.md` (Wrapped in `cla-bundle`).
++        3.  **Artifact 2:** `manifest.txt` (Wrapped in `text`).
++        4.  **Footer:** The Trinity Instructions (Protocol 2.4.3).
++    * **2.4.2 (Deprecated):** Merged into 2.4.1.
+     * **2.4.3 The Trinity Instructions:** The Architect must explicitly instruct the User to:
+         1.  Create `builder_bundle.txt` from the Manifest files.
+         2.  Upload the Trinity (Workflow, Plan, Bundle).
+         3.  Issue the command: **"Act as Builder"**.
+     * **2.4.4 The Compliance Stamp:** Every Builder Execution Kit MUST define a visible "Compliance Report" section validating:
+         * **Protocol 2.1.1 (Architecture):** PASS/FAIL
+         * **Protocol 3.3 (Context Audit):** PASS/FAIL
+         * **Protocol 3.2.4 (Sanitization):** PASS/FAIL
+     * **2.4.5 The Manifest Isolation:** The `manifest.txt` list MUST be provided in its own distinct code block, separate from the `cla-bundle` block, to facilitate easy extraction by the user.
+-    * **2.4.6. The Formatting Checkpoint (The "Meta-Pre-Flight").**
++    * **2.4.6. The Structural Gate (The "Meta-Pre-Flight").**
+         * **Trigger:** Immediately before generating the final response containing a Builder Execution Kit.
+         * **The Check:** The Architect must perform an explicit internal verification of the output structure.
+         * **The Logic Gate:**
+-            * **Question:** "Is the `ImplementationPlan.md` text enclosed in a `cla-bundle` code block?"
++            * **Question:** "Does the response strictly follow the Monolithic Bundle template (Compliance -> Plan -> Manifest -> Instructions) with ZERO conversational filler?"
+             * **If NO:** The generation is **FORBIDDEN**. I must abort and restart the response generation with the correct wrapper.
+             * **If YES:** Proceed with delivery.
+         * **Sanitization Check:** "Are all internal code fences within the plan replaced with `__CODE_BLOCK__`?"
 __CODE_BLOCK__
 
-### Step 2: Inject Dynamic Context Logic
-**File:** `web_app/analyzer/views.py`
-**Action:** Calculate `cty_version` and `full_contest_title` in `analyze_logs`.
-
-#### Surgical Changes
-1.  Import `CtyLookup` from `contest_tools.core_annotations`.
-2.  Extract `cty_dat_path` from the first log.
-3.  Use `CtyLookup.extract_version_date` to get the date.
-4.  Construct `full_contest_title` string.
-5.  Add to `context`.
-
-#### Surgical Change Verification (diff)
-__CODE_BLOCK__diff
---- web_app/analyzer/views.py
-+++ web_app/analyzer/views.py
-@@ -35,6 +35,7 @@
- # Import Core Logic
- from contest_tools.log_manager import LogManager
- from contest_tools.data_aggregators.time_series import TimeSeriesAggregator
- from contest_tools.report_generator import ReportGenerator
-+from contest_tools.core_annotations import CtyLookup
- 
- logger = logging.getLogger(__name__)
- 
-@@ -118,10 +119,17 @@
-                 # Extract basic scalars for dashboard
-                 # Construct relative path components for the template
-                 first_log_meta = lm.logs[0].get_metadata()
-                 contest_name = first_log_meta.get('ContestName', 'Unknown').replace(' ', '_')
-                 # Date/Year extraction logic mirrors LogManager
-                 df_first = lm.logs[0].get_processed_data()
-                 year = df_first['Date'].dropna().iloc[0].split('-')[0] if not df_first.empty else "UnknownYear"
-                 
-                 # Re-derive event_id locally or fetch from metadata if available (LogManager stores it there now)
-                 event_id = first_log_meta.get('EventID', '')
-+
-+                # Construct Full Title: "CQ-WW-CW 2024" or "NAQP 2025 JAN"
-+                full_contest_title = f"{contest_name.replace('_', ' ')} {year} {event_id}".strip()
-+
-+                # Extract CTY Version Info
-+                cty_path = lm.logs[0].cty_dat_path
-+                cty_date = CtyLookup.extract_version_date(cty_path)
-+                cty_date_str = cty_date.strftime('%Y-%m-%d') if cty_date else "Unknown Date"
-+                cty_filename = os.path.basename(cty_path)
-+                cty_version_info = f"{cty_filename} ({cty_date_str})"
-                 
-                 all_calls = sorted([l.get_metadata().get('MyCall', f'Log{i+1}') for i, l in enumerate(lm.logs)])
-                 combo_id = '_'.join(all_calls)
- 
-@@ -142,6 +150,8 @@
-                     'mult_file': mult_filename,
-                     'logs': [],
-                     'mult_headers': [],
--                    'contest_name': contest_name.replace('_', ' '),
-+                    'full_contest_title': full_contest_title,
-+                    'cty_version_info': cty_version_info,
-                 }
-                 
-                 # Determine multiplier headers from the first log (assuming all are same contest)
-__CODE_BLOCK__
-
-### Step 3: Render Context in Dashboard
-**File:** `web_app/analyzer/templates/analyzer/dashboard.html`
-**Action:** Display `full_contest_title` and `cty_version_info`.
-
-#### Surgical Changes
-1.  Replace `{{ contest_name }}` with `{{ full_contest_title }}` in the header.
-2.  Add a provenance line below the Scoreboard table block.
-
-#### Surgical Change Verification (diff)
-__CODE_BLOCK__diff
---- web_app/analyzer/templates/analyzer/dashboard.html
-+++ web_app/analyzer/templates/analyzer/dashboard.html
-@@ -17,7 +17,7 @@
- 
- <div class="container mt-5">
-     <div class="d-flex justify-content-between align-items-center mb-4">
--        <h2 class="mb-0 text-secondary">Analysis Results: <span class="text-dark">{{ contest_name }}</span></h2>
-+        <h2 class="mb-0 text-secondary">Analysis Results: <span class="text-dark">{{ full_contest_title }}</span></h2>
-         <a href="{% url 'home' %}" class="btn btn-outline-secondary">
-             <i class="bi bi-arrow-left me-1"></i>New Analysis
-         </a>
-     </div>
- 
-     <div class="card shadow-sm border-0 mb-5">
-@@ -53,6 +53,7 @@
-                 </tbody>
-             </table>
-+            <div class="card-footer bg-light py-2">
-+                <small class="text-muted"><i class="bi bi-info-circle me-1"></i>Scored using {{ cty_version_info }}</small>
-+            </div>
-         </div>
-     </div>
-__CODE_BLOCK__
+---
 
 ## 5. Compliance Report
-* **Protocol 2.1.1 (Architecture):** PASS. Logic resides in View/Controller, Presentation in Templates. No leakage.
+* **Protocol 2.1.1 (Architecture):** PASS.
 * **Protocol 3.3 (Context Audit):** PASS.
 * **Protocol 3.2.4 (Sanitization):** PASS.
 
---- FILE: manifest.txt ---
-contest_tools/templates/base.html
-web_app/analyzer/views.py
-web_app/analyzer/templates/analyzer/dashboard.html
+## 6. Pre-Flight Check
+* **Validation:** This plan updates the workflow document to enforce the very structure being used here.
+* **Impact:** Prevents future formatting errors by defining a strict "Kit Assembly State."

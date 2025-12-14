@@ -1,12 +1,13 @@
 # contest_tools/reports/text_comparative_score_report.py
 #
 # Purpose: A text report that generates an interleaved, comparative score
-#          summary, broken down by band, for multiple logs. This version
+#          summary, broken down by band, for multiple logs.
+#          This version
 #          serves as a proof-of-concept for using the tabulate library.
 #
 # Author: Gemini AI
 # Date: 2025-10-09
-# Version: 0.91.0-Beta
+# Version: 0.113.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -15,9 +16,13 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
 # --- Revision History ---
+# [0.113.0-Beta] - 2025-12-13
+# - Standardized filename generation: removed '_vs_' separator and applied strict sanitization to callsigns.
 # [0.91.0-Beta] - 2025-10-09
 # - Added support for the 'once_per_band_no_mode' multiplier totaling
 #   method to correctly calculate WRTC scores.
@@ -26,7 +31,7 @@
 #   counting all non-dupe QSOs, bringing it into alignment with the
 #   correct logic in `wae_calculator.py`.
 # [0.90.0-Beta] - 2025-10-01
-# Set new baseline version for release.
+# - Set new baseline version for release.
 
 from typing import List, Set, Dict, Tuple
 import pandas as pd
@@ -35,6 +40,7 @@ from tabulate import tabulate
 from ..contest_log import ContestLog
 from ..contest_definitions import ContestDefinition
 from .report_interface import ContestReport
+from ._report_utils import _sanitize_filename_part
 
 class Report(ContestReport):
     """
@@ -158,7 +164,7 @@ class Report(ContestReport):
         # --- Save to File ---
         report_content = "\n".join(report_lines) + "\n"
         os.makedirs(output_path, exist_ok=True)
-        filename_calls = '_vs_'.join(all_calls)
+        filename_calls = '_'.join([_sanitize_filename_part(c) for c in sorted(all_calls)])
         filename = f"{self.report_id}_{filename_calls}.txt"
         filepath = os.path.join(output_path, filename)
         
