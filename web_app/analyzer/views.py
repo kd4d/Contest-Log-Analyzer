@@ -6,7 +6,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-14
-# Version: 0.113.1-Beta
+# Version: 0.113.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -15,10 +15,14 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.113.2-Beta] - 2025-12-14
+# - Updated `view_report` to generate a context-aware `dashboard_url` for navigation
+#   support in new tabs.
 # [0.113.1-Beta] - 2025-12-14
 # - Fixed 404 error for Global QSO Rate Plot by adding missing '_all' suffix
 #   to the constructed filename in `qso_dashboard`.
@@ -249,15 +253,20 @@ def get_progress(request, request_id):
 
 def view_report(request, session_id, file_path):
     """Wraps a generated report file in the application shell (header/footer)."""
+    
     # Security Check: Verify file exists within the session
     abs_path = os.path.join(settings.MEDIA_ROOT, 'sessions', session_id, file_path)
     
     if not os.path.exists(abs_path):
         raise Http404("Report not found")
 
+    # Construct dashboard URL for the "Back" button
+    dashboard_url = f"/report/{session_id}/dashboard/qso/"
+
     context = {
         'iframe_src': f"{settings.MEDIA_URL}sessions/{session_id}/{file_path}",
-        'filename': os.path.basename(file_path)
+        'filename': os.path.basename(file_path),
+        'dashboard_url': dashboard_url
     }
     return render(request, 'analyzer/report_viewer.html', context)
 
@@ -294,7 +303,8 @@ def qso_dashboard(request, session_id):
         raise Http404("Analysis data not found")
 
     # 2. Re-construct Callsigns from the combo_id
-    # combo_id is sanitized "call1_call2_call3". We can split by '_'.
+    # combo_id is sanitized "call1_call2_call3".
+    # We can split by '_'.
     # However, to be safe and get original display names, we should ideally check metadata.
     # For now, we'll split and upper() for display, but keep lower for linking.
     callsigns_safe = combo_id.split('_')

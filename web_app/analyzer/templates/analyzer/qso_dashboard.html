@@ -8,7 +8,9 @@
             <div class="card shadow-sm">
                 <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="bi bi-speedometer2 me-2"></i>Global Context</h5>
-                    <a href="#" class="btn btn-sm btn-light disabled">QSO Rate</a>
+                    <a href="{% url 'view_report' session_id global_qso_rate_file %}" target="_blank" class="btn btn-sm btn-light">
+                        <i class="bi bi-box-arrow-up-right"></i>
+                    </a>
                 </div>
                 <div class="card-body p-0" style="height: 500px;">
                     <iframe src="{% url 'view_report' session_id global_qso_rate_file %}" style="width: 100%; height: 100%; border: none;"></iframe>
@@ -51,7 +53,10 @@
             <div class="row">
                 <div class="col-lg-6 mb-4">
                     <div class="card h-100 shadow-sm">
-                        <div class="card-header">Strategy Breakdown (Uniques)</div>
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span>Strategy Breakdown (Uniques)</span>
+                            <a id="link-breakdown" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
+                        </div>
                         <div class="card-body p-0" style="height: 600px;">
                             <iframe id="frame-breakdown" src="" style="width: 100%; height: 100%; border: none;"></iframe>
                         </div>
@@ -59,7 +64,10 @@
                 </div>
                 <div class="col-lg-6 mb-4">
                     <div class="card h-100 shadow-sm">
-                        <div class="card-header">Rate Differential (Momentum)</div>
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span>Rate Differential (Momentum)</span>
+                            <a id="link-diff" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
+                        </div>
                         <div class="card-body p-0" style="height: 600px;">
                             <iframe id="frame-diff" src="" style="width: 100%; height: 100%; border: none;"></iframe>
                         </div>
@@ -78,7 +86,11 @@
                 {% endfor %}
             </div>
             <div class="card shadow-sm">
-                <div class="card-body p-0" style="height: 800px;">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>Rate Detail</span>
+                    <a id="link-rates" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
+                </div>
+                <div class="card-body p-0" style="height: 600px;">
                     <iframe id="frame-rates" src="" style="width: 100%; height: 100%; border: none;"></iframe>
                 </div>
             </div>
@@ -88,7 +100,10 @@
              <div class="row">
                 <div class="col-12 mb-4">
                     <div class="card shadow-sm">
-                        <div class="card-header">Cumulative Points</div>
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span>Cumulative Points</span>
+                            <a href="{% url 'view_report' session_id global_point_rate_file %}" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
+                        </div>
                         <div class="card-body p-0" style="height: 500px;">
                              <iframe src="{% url 'view_report' session_id global_point_rate_file %}" style="width: 100%; height: 100%; border: none;"></iframe>
                         </div>
@@ -105,12 +120,16 @@
         const stratBtns = document.querySelectorAll('.strategy-btn');
         const frameBreakdown = document.getElementById('frame-breakdown');
         const frameDiff = document.getElementById('frame-diff');
+        const linkBreakdown = document.getElementById('link-breakdown');
+        const linkDiff = document.getElementById('link-diff');
 
         function updateStrategy(btn) {
             stratBtns.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             frameBreakdown.src = btn.dataset.breakdown;
             frameDiff.src = btn.dataset.diff;
+            linkBreakdown.href = btn.dataset.breakdown;
+            linkDiff.href = btn.dataset.diff;
         }
 
         if(stratBtns.length > 0) updateStrategy(stratBtns[0]);
@@ -122,15 +141,16 @@
         // Rate Tab Logic
         const rateBtns = document.querySelectorAll('.rate-btn');
         const frameRates = document.getElementById('frame-rates');
+        const linkRates = document.getElementById('link-rates');
 
         function updateRates(btn) {
             rateBtns.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             frameRates.src = btn.dataset.src;
+            linkRates.href = btn.dataset.src;
         }
 
         if(rateBtns.length > 0) updateRates(rateBtns[0]);
-
         rateBtns.forEach(btn => {
             btn.addEventListener('click', () => updateRates(btn));
         });

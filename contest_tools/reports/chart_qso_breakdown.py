@@ -5,7 +5,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-14
-# Version: 1.0.2
+# Version: 1.0.3
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [1.0.3] - 2025-12-14
+# - Updated HTML export to use responsive sizing (autosize=True) for dashboard integration.
+# - Maintained fixed resolution for PNG exports.
 # [1.0.2] - 2025-12-14
 # - Updated file generation to use `_sanitize_filename_part` for strict lowercase naming.
 # [1.0.1] - 2025-12-08
@@ -30,6 +33,7 @@
 # [0.93.7-Beta] - 2025-12-04
 # - Fixed runtime crash by ensuring the output directory is created before
 #   saving the chart file.
+
 import os
 from typing import List, Dict, Tuple
 import pandas as pd
@@ -167,8 +171,7 @@ class Report(ContestReport):
         
         # Specific Adjustments
         fig.update_layout(
-            barmode='stack', 
-            height=400 * rows # Dynamic height scaling
+            barmode='stack'
         )
 
         create_output_directory(output_path)
@@ -180,6 +183,12 @@ class Report(ContestReport):
         # Use specific width=1600 to enforce landscape orientation for standard reports
         png_file = os.path.join(output_path, f"{base_filename}.png")
         try:
+            # Fixed sizing for PNG
+            fig.update_layout(
+                autosize=False,
+                width=1600,
+                height=400 * rows
+            )
             fig.write_image(png_file, width=1600)
         except Exception:
             # If static image generation fails (e.g. missing kaleido), logging would go here.
@@ -188,6 +197,13 @@ class Report(ContestReport):
 
         # 2. Save Interactive HTML
         html_file = os.path.join(output_path, f"{base_filename}.html")
+        
+        # Responsive sizing for HTML
+        fig.update_layout(
+            autosize=True,
+            width=None,
+            height=None
+        )
         fig.write_html(html_file, include_plotlyjs='cdn')
 
         # Return list of successfully created files (checking existence)

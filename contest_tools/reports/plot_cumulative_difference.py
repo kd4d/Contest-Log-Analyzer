@@ -5,7 +5,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-14
-# Version: 0.113.0-Beta
+# Version: 0.114.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.114.0-Beta] - 2025-12-14
+# - Updated HTML export to use responsive sizing (autosize=True) for dashboard integration.
+# - Maintained fixed 1600x900 resolution for PNG exports.
 # [0.113.0-Beta] - 2025-12-13
 # - Standardized filename generation: removed '_vs_' separator to match Web Dashboard conventions.
 # [1.1.2] - 2025-12-14
@@ -71,6 +74,7 @@ class Report(ContestReport):
         # --- DAL Integration (v1.3.1) ---
         agg = TimeSeriesAggregator([log1, log2])
         ts_data = agg.get_time_series_data(band_filter=band_filter, mode_filter=mode_filter)
+ 
         time_bins = [pd.Timestamp(t) for t in ts_data['time_bins']]
 
         # Helper to extract series
@@ -80,7 +84,7 @@ class Report(ContestReport):
 
         if metric == 'points':
             metric_name = log1.contest_definition.points_header_label or "Points"
-            
+             
             run1 = get_series(call1, 'run_points')
             sp1 = get_series(call1, 'sp_unk_points')
             run2 = get_series(call2, 'run_points')
@@ -188,12 +192,13 @@ class Report(ContestReport):
         # --- Layout Standardization ---
         layout = PlotlyStyleManager.get_standard_layout(final_title)
         fig.update_layout(layout)
+        
+        # Base layout properties common to both
         fig.update_layout(
-            height=900, 
-            width=1600,
-            showlegend=False, # Legend redundant given subplot titles
-            margin=dict(t=140) # FIX: Increase top margin to prevent title overlap
+            showlegend=False,
+            margin=dict(t=140)
         )
+
         # Update Axis Labels
         fig.update_yaxes(title_text="Diff", row=1, col=1)
         fig.update_yaxes(title_text="Diff", row=2, col=1)
@@ -223,6 +228,12 @@ class Report(ContestReport):
         
         # Save HTML
         try:
+            # Responsive Layout for HTML
+            fig.update_layout(
+                autosize=True,
+                width=None,
+                height=None
+            )
             fig.write_html(html_path, include_plotlyjs='cdn')
             generated_files.append(html_path)
         except Exception as e:
@@ -230,6 +241,12 @@ class Report(ContestReport):
 
         # Save PNG (Requires Kaleido)
         try:
+            # Fixed Layout for PNG
+            fig.update_layout(
+                autosize=False,
+                width=1600,
+                height=900
+            )
             fig.write_image(png_path, width=1600, height=900)
             generated_files.append(png_path)
         except Exception as e:

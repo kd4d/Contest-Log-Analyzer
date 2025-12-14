@@ -2,7 +2,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-14
-# Version: 0.113.0-Beta
+# Version: 0.114.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,9 @@
 #          visualize the band activity of two logs side-by-side using Plotly.
 #
 # --- Revision History ---
+# [0.114.0-Beta] - 2025-12-14
+# - Updated HTML export to use responsive sizing (autosize=True) for dashboard integration.
+# - Maintained fixed resolution for PNG exports.
 # [0.113.0-Beta] - 2025-12-13
 # - Standardized filename generation: removed '_vs_' separator to match Web Dashboard conventions.
 # [1.1.2] - 2025-12-14
@@ -181,8 +184,6 @@ class Report(ContestReport):
         fig.update_layout(layout_config)
         
         fig.update_layout(
-            height=plot_height,
-            width=1600,
             margin=dict(t=150), # Increased top margin for 2-line title
             bargap=0, # Histogram look
             showlegend=True,
@@ -200,10 +201,22 @@ class Report(ContestReport):
         
         results = []
         try:
+            # Fixed sizing for PNG
+            fig.update_layout(
+                autosize=False,
+                height=plot_height,
+                width=1600
+            )
             # Save PNG
             fig.write_image(filepath_png)
             results.append(f"Plot saved: {filepath_png}")
             
+            # Responsive sizing for HTML
+            fig.update_layout(
+                autosize=True,
+                height=None,
+                width=None
+            )
             # Save HTML
             fig.write_html(filepath_html, include_plotlyjs='cdn')
             results.append(f"Interactive plot saved: {filepath_html}")
