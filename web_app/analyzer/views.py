@@ -6,7 +6,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-14
-# Version: 0.114.0-Beta
+# Version: 0.115.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -20,6 +20,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.115.0-Beta] - 2025-12-14
+# - Fixed 404 errors on Linux/Docker by lowercasing report URL path components
+#   to match the filesystem structure created by ReportGenerator.
 # [0.114.0-Beta] - 2025-12-14
 # - Added `dashboard_view` to load dashboard context from disk, fixing navigation loops.
 # - Updated `analyze_logs` to persist context to JSON and redirect to `dashboard_view`.
@@ -201,8 +204,8 @@ def analyze_logs(request):
                 all_calls = sorted([l.get_metadata().get('MyCall', f'Log{i+1}') for i, l in enumerate(lm.logs)])
                 combo_id = '_'.join(all_calls)
 
-                # Construct safe URL path by filtering out empty components (e.g. empty event_id)
-                path_components = [year, contest_name, event_id, combo_id]
+                # Construct safe URL path (LOWERCASE to match ReportGenerator's disk output)
+                path_components = [year, contest_name.lower(), event_id.lower(), combo_id.lower()]
                 report_url_path = "/".join([str(p) for p in path_components if p])
 
                 # Protocol 3.5: Construct Standardized Filenames <report_id>_<callsigns>.<ext>
