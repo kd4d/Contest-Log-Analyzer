@@ -2,12 +2,14 @@
 
 {% block content %}
 <div class="container-fluid p-0" style="height: calc(100vh - 56px - 70px);">
+    {% if not chromeless %}
     <div class="bg-white border-bottom py-2 px-3 d-flex justify-content-between align-items-center">
         <h5 class="mb-0 text-secondary">{{ filename }}</h5>
-        <a href="{{ dashboard_url }}" class="btn btn-sm btn-outline-secondary">
-            <i class="bi bi-arrow-left me-1"></i>Return to Dashboard
+        <a href="{{ back_url }}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>{{ back_label }}
         </a>
     </div>
+    {% endif %}
     <iframe src="{{ iframe_src }}" style="width: 100%; height: 100%; border: none;"></iframe>
 </div>
 {% endblock %}

@@ -6,7 +6,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-14
-# Version: 0.113.2-Beta
+# Version: 0.114.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -20,6 +20,13 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.114.0-Beta] - 2025-12-14
+# - Added `dashboard_view` to load dashboard context from disk, fixing navigation loops.
+# - Updated `analyze_logs` to persist context to JSON and redirect to `dashboard_view`.
+# - Updated `view_report` to point "Back" links to the persisted dashboard URL.
+# [0.113.3-Beta] - 2025-12-14
+# - Updated `view_report` to process `chromeless` parameter and improved
+#   `dashboard_url` logic for context-aware navigation ("Back to..." link).
 # [0.113.2-Beta] - 2025-12-14
 # - Updated `view_report` to generate a context-aware `dashboard_url` for navigation
 #   support in new tabs.
@@ -55,7 +62,7 @@ import logging
 import uuid
 import json
 import time
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, reverse
 from django.http import Http404, JsonResponse
 from django.conf import settings
 from .forms import UploadLogForm
@@ -233,14 +240,33 @@ def analyze_logs(request):
                         'run_percent': data['scalars'].get('run_percent', 0.0)
                     })
 
+                # --- Session Persistence (Fix Navigation Loop) ---
+                # Save the context to disk so it can be reloaded via GET request
+                context_path = os.path.join(session_path, 'dashboard_context.json')
+                with open(context_path, 'w') as f:
+                    json.dump(context, f)
+
                 _update_progress(request_id, 5) # Step 5: Finalizing/Ready
-                return render(request, 'analyzer/dashboard.html', context)
+                return redirect('dashboard_view', session_id=session_key)
 
             except Exception as e:
                 logger.exception("Log analysis failed")
                 return render(request, 'analyzer/home.html', {'form': form, 'error': str(e)})
     
     return redirect('home')
+
+def dashboard_view(request, session_id):
+    """Persisted view of the main dashboard, loaded from session JSON."""
+    session_path = os.path.join(settings.MEDIA_ROOT, 'sessions', session_id)
+    context_path = os.path.join(session_path, 'dashboard_context.json')
+
+    if not os.path.exists(context_path):
+        return redirect('home') # Session expired or invalid
+
+    with open(context_path, 'r') as f:
+        context = json.load(f)
+    
+    return render(request, 'analyzer/dashboard.html', context)
 
 def get_progress(request, request_id):
     """Returns the current progress step for the given request ID."""
@@ -252,7 +278,10 @@ def get_progress(request, request_id):
     return JsonResponse({'step': 0})
 
 def view_report(request, session_id, file_path):
-    """Wraps a generated report file in the application shell (header/footer)."""
+    """
+    Wraps a generated report file in the application shell (header/footer).
+    Supports 'chromeless' mode for iframe embedding and context-aware 'Back' links.
+    """
     
     # Security Check: Verify file exists within the session
     abs_path = os.path.join(settings.MEDIA_ROOT, 'sessions', session_id, file_path)
@@ -260,13 +289,31 @@ def view_report(request, session_id, file_path):
     if not os.path.exists(abs_path):
         raise Http404("Report not found")
 
-    # Construct dashboard URL for the "Back" button
-    dashboard_url = f"/report/{session_id}/dashboard/qso/"
+    # Extract query params
+    source = request.GET.get('source')
+    is_chromeless = request.GET.get('chromeless') == '1'
+
+    # Determine Back Button Logic
+    if source == 'main':
+        back_label = "Back to Main Dashboard"
+        # We redirect to the analyze endpoint (which usually resets state, but mimics user request)
+        # In a real persistence model, we'd link to a persisted dashboard view.
+        # For now, we link to the URL pattern for 'analyze', which is '/analyze/'.
+        back_url = reverse('dashboard_view', args=[session_id])
+    elif source == 'qso':
+        back_label = "Back to QSO Dashboard"
+        back_url = f"/report/{session_id}/dashboard/qso/"
+    else:
+        # Default behavior (likely accessed from QSO dashboard before this fix)
+        back_label = "Back to Dashboard"
+        back_url = f"/report/{session_id}/dashboard/qso/"
 
     context = {
         'iframe_src': f"{settings.MEDIA_URL}sessions/{session_id}/{file_path}",
         'filename': os.path.basename(file_path),
-        'dashboard_url': dashboard_url
+        'back_label': back_label,
+        'back_url': back_url,
+        'chromeless': is_chromeless
     }
     return render(request, 'analyzer/report_viewer.html', context)
 
@@ -277,22 +324,13 @@ def qso_dashboard(request, session_id):
         raise Http404("Session not found")
 
     # 1. Discover the "Deep Path"
-    # The reports are nested in reports/YEAR/CONTEST/...
-    # We need to find the relative path from session_root to where the 'animations' folder lives.
     report_rel_path = ""
     combo_id = ""
     
     for root, dirs, filenames in os.walk(session_path):
         for f in filenames:
             if f.startswith('interactive_animation_') and f.endswith('.html'):
-                # Found the anchor file
-                # interactive_animation_call1_call2_call3.html
                 combo_id = f.replace('interactive_animation_', '').replace('.html', '')
-                
-                # Calculate relative path from session_id to the parent of 'animations' directory
-                # The file is in .../animations/file.html
-                # We want the path to .../ (the parent of animations, charts, plots)
-                
                 full_dir = os.path.dirname(os.path.join(root, f)) # .../animations
                 parent_dir = os.path.dirname(full_dir) # .../
                 report_rel_path = os.path.relpath(parent_dir, session_path)
@@ -303,25 +341,17 @@ def qso_dashboard(request, session_id):
         raise Http404("Analysis data not found")
 
     # 2. Re-construct Callsigns from the combo_id
-    # combo_id is sanitized "call1_call2_call3".
-    # We can split by '_'.
-    # However, to be safe and get original display names, we should ideally check metadata.
-    # For now, we'll split and upper() for display, but keep lower for linking.
     callsigns_safe = combo_id.split('_')
     callsigns_display = [c.upper() for c in callsigns_safe]
     
     # 3. Identify Pairs for Strategy Tab
     import itertools
-    # Use safe (lowercase) callsigns for file matching
     pairs = list(itertools.combinations(callsigns_safe, 2))
     
     matchups = []
     for p in pairs:
-        c1, c2 = sorted(p) # Sort alphabetically
-        
+        c1, c2 = sorted(p)
         label = f"{c1.upper()} vs {c2.upper()}"
-        
-        # Construct paths using the discovered report_rel_path
         base_path = report_rel_path
         
         matchups.append({

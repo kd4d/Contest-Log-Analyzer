@@ -4,8 +4,8 @@
 #          and for each individual band.
 #
 # Author: Gemini AI
-# Date: 2025-11-24
-# Version: 0.113.0-Beta
+# Date: 2025-12-14
+# Version: 0.113.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.113.3-Beta] - 2025-12-14
+# - Fixed HTML layout issue by explicitly setting autosize=True and clearing
+#   fixed dimensions before saving the HTML file.
 # [0.113.0-Beta] - 2025-12-13
 # - Standardized filename generation: removed '_vs_' separator and applied strict sanitization to callsigns.
 # [1.1.0] - 2025-12-07
@@ -259,12 +262,24 @@ class Report(ContestReport):
         # --- Save Outputs ---
         # 1. HTML (Interactive)
         html_path = os.path.join(output_path, f"{base_filename}.html")
+        # FORCE RESPONSIVE FOR HTML
+        fig.update_layout(
+            autosize=True,
+            width=None,
+            height=None
+        )
         fig.write_html(html_path, include_plotlyjs='cdn')
         
         # 2. PNG (Static) - Return this path for consistency with report list
         png_path = os.path.join(output_path, f"{base_filename}.png")
         try:
-            fig.write_image(png_path, width=1200, height=900)
+            # FORCE FIXED SIZE FOR PNG
+            fig.update_layout(
+                autosize=False,
+                width=1200,
+                height=900
+            )
+            fig.write_image(png_path)
             return png_path
         except Exception as e:
             logging.warning(f"Static image generation failed (Kaleido missing?): {e}")
