@@ -5,7 +5,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-11-24
-# Version: 0.91.5-Beta
+# Version: 0.113.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -14,10 +14,13 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
+#
 # --- Revision History ---
+# [0.113.0-Beta] - 2025-12-13
+# - Standardized filename generation: removed '_vs_' separator and applied strict sanitization to callsigns.
 # [0.91.5-Beta] - 2025-11-24
 # - Refactored to use WaeStatsAggregator (DAL).
 # [0.91.4-Beta] - 2025-10-10
@@ -30,7 +33,7 @@
 #   counting all non-dupe QSOs, bringing it into alignment with the
 #   correct logic in `wae_calculator.py`.
 # [0.90.0-Beta] - 2025-10-01
-# Set new baseline version for release.
+# - Set new baseline version for release.
 
 from typing import List, Set, Dict, Tuple
 import pandas as pd
@@ -39,7 +42,7 @@ from prettytable import PrettyTable
 from ..contest_log import ContestLog
 from ..contest_definitions import ContestDefinition
 from .report_interface import ContestReport
-from ._report_utils import get_valid_dataframe, create_output_directory
+from ._report_utils import get_valid_dataframe, create_output_directory, _sanitize_filename_part
 from ..data_aggregators.wae_stats import WaeStatsAggregator
 
 class Report(ContestReport):
@@ -79,7 +82,7 @@ class Report(ContestReport):
 
         # --- Report Generation using PrettyTable ---
         # Sorting keys based on aggregator's canonical order isn't directly exposed, 
-        # so we rely on the internal knowledge or re-sort. 
+        # so we rely on the internal knowledge or re-sort.
         # The aggregator output for each log is sorted, but the keys of band_mode_summaries need sorting.
         canonical_band_order = [band[1] for band in ContestLog._HAM_BANDS]
         sorted_keys = sorted(band_mode_summaries.keys(), key=lambda x: (
@@ -148,7 +151,7 @@ class Report(ContestReport):
         
         # --- Save to File ---
         create_output_directory(output_path)
-        filename_calls = '_vs_'.join(all_calls)
+        filename_calls = '_'.join([_sanitize_filename_part(c) for c in sorted(all_calls)])
         filename = f"{self.report_id}_{filename_calls}.txt"
         filepath = os.path.join(output_path, filename)
         

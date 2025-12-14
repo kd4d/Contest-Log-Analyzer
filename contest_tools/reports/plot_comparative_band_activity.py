@@ -1,8 +1,8 @@
 # contest_tools/reports/plot_comparative_band_activity.py
 #
 # Author: Gemini AI
-# Date: 2025-12-10
-# Version: 1.1.1
+# Date: 2025-12-14
+# Version: 0.114.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,13 @@
 #          visualize the band activity of two logs side-by-side using Plotly.
 #
 # --- Revision History ---
+# [0.114.0-Beta] - 2025-12-14
+# - Updated HTML export to use responsive sizing (autosize=True) for dashboard integration.
+# - Maintained fixed resolution for PNG exports.
+# [0.113.0-Beta] - 2025-12-13
+# - Standardized filename generation: removed '_vs_' separator to match Web Dashboard conventions.
+# [1.1.2] - 2025-12-14
+# - Updated file generation to use `_sanitize_filename_part` for strict lowercase naming.
 # [1.1.1] - 2025-12-10
 # - Adjusted layout margins to fix overlap between Main Title and Subplot Title.
 # [1.1.0] - 2025-12-10
@@ -41,7 +48,7 @@ from typing import List, Dict, Any
 
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from ._report_utils import get_valid_dataframe, create_output_directory
+from ._report_utils import get_valid_dataframe, create_output_directory, _sanitize_filename_part
 from ..data_aggregators.matrix_stats import MatrixAggregator
 from ..styles.plotly_style_manager import PlotlyStyleManager
 
@@ -177,8 +184,6 @@ class Report(ContestReport):
         fig.update_layout(layout_config)
         
         fig.update_layout(
-            height=plot_height,
-            width=1600,
             margin=dict(t=150), # Increased top margin for 2-line title
             bargap=0, # Histogram look
             showlegend=True,
@@ -189,17 +194,29 @@ class Report(ContestReport):
 
         # --- 5. Save Files ---
         mode_filename_str = f"_{mode_filter.lower()}" if mode_filter else ""
-        filename_base = f"{self.report_id}{mode_filename_str}_{call1}_vs_{call2}"
+        filename_base = f"{self.report_id}{mode_filename_str}_{_sanitize_filename_part(call1)}_{_sanitize_filename_part(call2)}"
         
         filepath_png = os.path.join(output_path, f"{filename_base}.png")
         filepath_html = os.path.join(output_path, f"{filename_base}.html")
         
         results = []
         try:
+            # Fixed sizing for PNG
+            fig.update_layout(
+                autosize=False,
+                height=plot_height,
+                width=1600
+            )
             # Save PNG
             fig.write_image(filepath_png)
             results.append(f"Plot saved: {filepath_png}")
             
+            # Responsive sizing for HTML
+            fig.update_layout(
+                autosize=True,
+                height=None,
+                width=None
+            )
             # Save HTML
             fig.write_html(filepath_html, include_plotlyjs='cdn')
             results.append(f"Interactive plot saved: {filepath_html}")

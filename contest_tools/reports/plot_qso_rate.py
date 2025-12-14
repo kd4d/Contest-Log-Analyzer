@@ -5,7 +5,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-11-24
-# Version: 1.1.0
+# Version: 0.113.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.113.0-Beta] - 2025-12-13
+# - Standardized filename generation: removed '_vs_' separator and applied strict sanitization to callsigns.
 # [1.1.0] - 2025-12-07
 # - Migrated visualization engine from Matplotlib to Plotly.
 # - Implemented dual output (PNG/HTML).
@@ -37,7 +39,7 @@ from plotly.subplots import make_subplots
 
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from ._report_utils import create_output_directory, get_valid_dataframe, save_debug_data
+from ._report_utils import create_output_directory, get_valid_dataframe, save_debug_data, _sanitize_filename_part
 from ..data_aggregators.time_series import TimeSeriesAggregator
 from ..styles.plotly_style_manager import PlotlyStyleManager
 
@@ -79,7 +81,6 @@ class Report(ContestReport):
         
         if not all_created_files:
             return "No QSO rate plots were generated."
-
         return "QSO rate plots saved to:\n" + "\n".join([f"  - {fp}" for fp in all_created_files])
 
     def _orchestrate_plot_generation(self, dfs: List[pd.DataFrame], output_path: str, mode_filter: str, **kwargs) -> List[str]:
@@ -147,7 +148,7 @@ class Report(ContestReport):
             log_data = ts_data['logs'].get(call)
             if not log_data:
                 continue
-                
+            
             cumulative_values = log_data['cumulative']['qsos']
             scalars = log_data['scalars']
             
@@ -245,7 +246,7 @@ class Report(ContestReport):
         # Construct Filenames
         is_single_band = len(self.logs[0].contest_definition.valid_bands) == 1
         filename_band = self.logs[0].contest_definition.valid_bands[0].lower() if is_single_band else band_filter.lower().replace('m', '')
-        filename_calls = '_vs_'.join(sorted(all_calls))
+        filename_calls = '_'.join([_sanitize_filename_part(c) for c in sorted(all_calls)])
         mode_suffix = f"_{mode_filter.lower()}" if mode_filter else ""
         
         base_filename = f"{self.report_id}_{filename_band}{mode_suffix}_{filename_calls}"

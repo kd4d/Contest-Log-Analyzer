@@ -3,8 +3,8 @@
 # Purpose: A text report that generates a comparative hourly rate sheet for two or more logs.
 #
 # Author: Gemini AI
-# Date: 2025-12-06
-# Version: 2.1.0
+# Date: 2025-12-14
+# Version: 0.113.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.113.0-Beta] - 2025-12-13
+# - Standardized filename generation: removed '_vs_' separator to match Web Dashboard conventions.
+# [2.1.1] - 2025-12-14
+# - Updated file generation to use `_sanitize_filename_part` for strict lowercase naming.
 # [2.1.0] - 2025-12-06
 # - Implemented Smart Suppression: Skips Band Detail blocks if only one mode is active.
 # [2.0.2] - 2025-12-06
@@ -38,6 +42,7 @@ import os
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
 from ..data_aggregators.time_series import TimeSeriesAggregator
+from ._report_utils import _sanitize_filename_part
 
 class Report(ContestReport):
     """
@@ -55,7 +60,7 @@ class Report(ContestReport):
         """
         if len(self.logs) < 2:
             return "Error: The Comparative Rate Sheet report requires at least two logs."
-        
+
         all_calls = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])
         first_log = self.logs[0]
         contest_def = first_log.contest_definition
@@ -164,7 +169,7 @@ class Report(ContestReport):
         full_content = "\n\n".join(report_blocks) + "\n"
         
         os.makedirs(output_path, exist_ok=True)
-        filename_calls = '_vs_'.join(sorted(all_calls))
+        filename_calls = '_'.join([_sanitize_filename_part(c) for c in sorted(all_calls)])
         filename = f"{self.report_id}_{filename_calls}.txt"
         filepath = os.path.join(output_path, filename)
         

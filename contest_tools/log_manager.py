@@ -7,7 +7,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-10
-# Version: 0.91.6-Beta
+# Version: 0.113.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.113.1-Beta] - 2025-12-14
+# - Enforced strict lowercase standards for report directory creation to ensure
+#   cross-platform compatibility (Linux/Windows).
 # [0.91.6-Beta] - 2025-12-10
 # - Removed the "Hourly ADIF Debug File Generation" block from finalize_loading
 #   to disable the creation of partial ADIF files in the Debug/ directory.
@@ -147,6 +150,7 @@ class LogManager:
                 log = ContestLog(contest_name=contest_name, cabrillo_filepath=path, root_input_dir=root_input_dir, cty_dat_path=cty_dat_path)
                 setattr(log, '_log_manager_ref', self)
                 log.apply_annotations()
+                
                 self.logs.append(log)
                 logging.info(f"Successfully loaded and processed log for {log.get_metadata().get('MyCall', 'Unknown')}.")
 
@@ -177,16 +181,16 @@ class LogManager:
         # The root directory is now passed in as a parameter.
         root_dir = root_reports_dir
         first_log = self.logs[0]
-        contest_name = first_log.get_metadata().get('ContestName', 'UnknownContest').replace(' ', '_')
+        contest_name = first_log.get_metadata().get('ContestName', 'UnknownContest').replace(' ', '_').lower()
         
         df_first_log = first_log.get_processed_data()
         year = df_first_log['Date'].dropna().iloc[0].split('-')[0] if not df_first_log.empty and not df_first_log['Date'].dropna().empty else "UnknownYear"
 
-        event_id = self._get_event_id(first_log)
+        event_id = self._get_event_id(first_log).lower()
         for log in self.logs:
             log.metadata['EventID'] = event_id
         
-        all_calls = sorted([log.get_metadata().get('MyCall', f'Log{i+1}') for i, log in enumerate(self.logs)])
+        all_calls = sorted([log.get_metadata().get('MyCall', f'Log{i+1}').lower() for i, log in enumerate(self.logs)])
         callsign_combo_id = '_'.join(all_calls)
 
         output_dir = os.path.join(root_dir, 'reports', year, contest_name, event_id, callsign_combo_id)

@@ -1,167 +1,357 @@
---- FILE: ImplementationPlan.md ---
-# Implementation Plan - Branding & Context Update
+***ImplementationPlan.md***
+**Plan Metadata:**
+* **Version:** 1.0.0
+* **Target:** 0.114.0-Beta
 
-**Version:** 1.0.0
-**Target:** 0.108.0-Beta
+**1. contest_tools/reports/plot_cumulative_difference.py (0.113.0-Beta)**
+* **Surgical Changes:**
+    * Modify `_generate_single_plot` to separate the layout configuration for HTML (responsive) vs PNG (fixed).
+    * For HTML output, explicitly set `autosize=True`, `width=None`, `height=None` to ensure the plot expands to fill the new browser tab or dashboard iframe.
+    * For PNG output, enforce the fixed 1600x900 resolution.
 
-## 1. Builder Bootstrap Context
-* **Goal:** Update the Application Shell (Header/Footer) with correct branding and inject dynamic context (CTY Version, Full Contest Title) into the Dashboard.
-* **Constraint:** CTY information is dynamic and only available in the `analyze_logs` view after processing.
-* **Files:** `base.html` (Shell), `views.py` (Logic), `dashboard.html` (Presentation).
+**2. contest_tools/reports/chart_qso_breakdown.py (1.0.2)**
+* **Surgical Changes:**
+    * Modify `generate` to decouple HTML and PNG layout logic.
+    * Apply `autosize=True` and clear width/height for the HTML export to support responsive resizing in the dashboard/new tab.
+    * Retain strict pixel dimensions for the PNG export.
 
-## 2. Technical Debt Register
-* **None:** This is a UI/UX refinement cycle.
+**3. contest_tools/reports/plot_comparative_band_activity.py (0.113.0-Beta)**
+* **Surgical Changes:**
+    * Modify `_generate_plot_for_slice` to separate HTML and PNG layout application.
+    * Apply responsive settings (`autosize=True`) for the HTML build.
 
-## 3. Safety Protocols
-* **Pre-Flight:** Verify `CtyLookup` is imported in `views.py` to access the static extraction method.
-* **Visual Check:** Ensure the footer is sticky or pushed to the bottom effectively.
+**4. web_app/analyzer/views.py (0.113.1-Beta)**
+* **Surgical Changes:**
+    * Update `view_report` to dynamically construct a `dashboard_url` pointing back to the QSO Dashboard (`/report/<session_id>/dashboard/qso/`).
+    * Pass this URL to the template context.
 
----
+**5. web_app/analyzer/templates/analyzer/report_viewer.html**
+* **Surgical Changes:**
+    * Replace the JavaScript `history.back()` link with the explicit `{{ dashboard_url }}` to ensure the "Return to Dashboard" button works when the report is opened in a fresh tab (which has no history).
 
-## 4. Execution Steps
+**6. web_app/analyzer/templates/analyzer/qso_dashboard.html**
+* **Surgical Changes:**
+    * Add "Open in New Tab" anchor tags (`target="_blank"`) to the headers of the Strategy and Rate cards.
+    * Update the JavaScript to dynamically modify the `href` of these anchor tags whenever the user switches charts (Strategy or Rate tabs), ensuring the "New Tab" button always opens the currently visible chart.
 
-### Step 1: Update Application Shell
-**File:** `contest_tools/templates/base.html`
-**Action:** Update Brand text, add Hamburger Menu, add Copyright Footer.
-
-#### Surgical Changes
-1.  **Navbar:** Add `navbar-toggler` button and update Brand text.
-2.  **Footer:** Add a `<footer>` block at the bottom of the body.
-
-#### Surgical Change Verification (diff)
-__CODE_BLOCK__diff
---- contest_tools/templates/base.html
-+++ contest_tools/templates/base.html
-@@ -11,9 +11,14 @@
+--- BEGIN DIFF ---
+--- contest_tools/reports/plot_cumulative_difference.py
++++ contest_tools/reports/plot_cumulative_difference.py
+@@ -14,6 +14,9 @@
+ #
+ # --- Revision History ---
++# [0.114.0-Beta] - 2025-12-14
++# - Updated HTML export to use responsive sizing (autosize=True) for dashboard integration.
++# - Maintained fixed 1600x900 resolution for PNG exports.
+ # [0.113.0-Beta] - 2025-12-13
+ # - Standardized filename generation: removed '_vs_' separator to match Web Dashboard conventions.
+ # [1.1.2] - 2025-12-14
+@@ -129,9 +132,16 @@
+         layout = PlotlyStyleManager.get_standard_layout(final_title)
+         fig.update_layout(layout)
+-        fig.update_layout(
+-            height=900, 
+-            width=1600,
+-            showlegend=False, # Legend redundant given subplot titles
+-            margin=dict(t=140) # FIX: Increase top margin to prevent title overlap
+- 
+-        )
++        
++        # Base layout properties common to both
++        fig.update_layout(
++            showlegend=False,
++            margin=dict(t=140)
++        )
++        
+         # Update Axis Labels
+         fig.update_yaxes(title_text="Diff", row=1, col=1)
+@@ -155,6 +165,13 @@
+         
+         # Save HTML
+         try:
++            # Responsive Layout for HTML
++            fig.update_layout(
++                autosize=True,
++                width=None,
++                height=None
++            )
+             fig.write_html(html_path, include_plotlyjs='cdn')
      
-     <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
-       <div class="container">
-+        <button class="navbar-toggler me-2" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-+            <span class="navbar-toggler-icon"></span>
-+        </button>
-         <a class="navbar-brand fw-bold" href="{% url 'home' %}">
--            <i class="bi bi-broadcast me-2"></i>Contest Log Analytics
-+            <i class="bi bi-broadcast me-2"></i>Contest Log Analytics by KD4D
-         </a>
-+        <div class="collapse navbar-collapse" id="navbarNav">
-+            +        </div>
-       </div>
-     </nav>
+             generated_files.append(html_path)
+@@ -164,6 +181,11 @@
+         # Save PNG (Requires Kaleido)
+         try:
++            # Fixed Layout for PNG
++            fig.update_layout(
++                autosize=False,
++                width=1600,
++                height=900
++            )
+             fig.write_image(png_path, width=1600, height=900)
+             generated_files.append(png_path)
+
+--- contest_tools/reports/chart_qso_breakdown.py
++++ contest_tools/reports/chart_qso_breakdown.py
+@@ -14,6 +14,9 @@
+ #
+ # --- Revision History ---
++# [1.0.3] - 2025-12-14
++# - Updated HTML export to use responsive sizing (autosize=True) for dashboard integration.
++# - Maintained fixed resolution for PNG exports.
+ # [1.0.2] - 2025-12-14
+ # - Updated file generation to use `_sanitize_filename_part` for strict lowercase naming.
+ # [1.0.1] - 2025-12-08
+@@ -112,8 +115,7 @@
+         
+         # Specific Adjustments
+         fig.update_layout(
+-            barmode='stack', 
+-    
+-            height=400 * rows # Dynamic height scaling
++            barmode='stack'
+         )
  
-     {% block content %}{% endblock %}
+         create_output_directory(output_path)
+@@ -124,7 +126,14 @@
+         # 1. Save Static Image (PNG)
+         # Use specific width=1600 to enforce landscape orientation for standard reports
+    
+         png_file = os.path.join(output_path, f"{base_filename}.png")
+         try:
++            # Fixed sizing for PNG
++            fig.update_layout(
++                autosize=False,
++                width=1600,
++                height=400 * rows
++            )
+             fig.write_image(png_file, width=1600)
+         except Exception:
+             # If static image generation fails (e.g. missing kaleido), logging would go here.
+@@ -133,6 +142,12 @@
  
-+    <footer class="text-center text-muted py-4 mt-5 border-top">
-+        <div class="container">
-+            <p class="mb-0 small">Copyright &copy; 2025 by Mark Bailey, KD4D</p>
-+        </div>
-+    </footer>
-+
-     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-   </body>
- </html>
-__CODE_BLOCK__
+         # 2. Save Interactive HTML
+         html_file = os.path.join(output_path, f"{base_filename}.html")
++        # Responsive sizing for HTML
++        fig.update_layout(
++            autosize=True,
++            width=None,
++            height=None
++        )
+         fig.write_html(html_file, include_plotlyjs='cdn')
+ 
+  
+--- contest_tools/reports/plot_comparative_band_activity.py
++++ contest_tools/reports/plot_comparative_band_activity.py
+@@ -14,6 +14,9 @@
+ #
+ # --- Revision History ---
++# [0.114.0-Beta] - 2025-12-14
++# - Updated HTML export to use responsive sizing (autosize=True) for dashboard integration.
++# - Maintained fixed resolution for PNG exports.
+ # [0.113.0-Beta] - 2025-12-13
+ # - Standardized filename generation: removed '_vs_' separator to match Web Dashboard conventions.
+ # [1.1.2] - 2025-12-14
+@@ -123,8 +126,6 @@
+         layout_config = PlotlyStyleManager.get_standard_layout(full_title)
+         fig.update_layout(layout_config)
+         
+         fig.update_layout(
+-            height=plot_height,
+-            width=1600,
+             margin=dict(t=150), # Increased top margin for 2-line title
+             bargap=0, # Histogram look
+             showlegend=True,
+@@ -142,11 +143,23 @@
+         
+         results = []
+         try:
++            # Fixed sizing for PNG
++            fig.update_layout(
++                autosize=False,
++                height=plot_height,
++                width=1600
++            )
+             # Save PNG
+             fig.write_image(filepath_png)
+             results.append(f"Plot saved: {filepath_png}")
+             
++            # Responsive sizing for HTML
++            fig.update_layout(
++                autosize=True,
++                height=None,
++                width=None
++            )
+             # Save HTML
+       
+             fig.write_html(filepath_html, include_plotlyjs='cdn')
+             results.append(f"Interactive plot saved: {filepath_html}")
 
-### Step 2: Inject Dynamic Context Logic
-**File:** `web_app/analyzer/views.py`
-**Action:** Calculate `cty_version` and `full_contest_title` in `analyze_logs`.
-
-#### Surgical Changes
-1.  Import `CtyLookup` from `contest_tools.core_annotations`.
-2.  Extract `cty_dat_path` from the first log.
-3.  Use `CtyLookup.extract_version_date` to get the date.
-4.  Construct `full_contest_title` string.
-5.  Add to `context`.
-
-#### Surgical Change Verification (diff)
-__CODE_BLOCK__diff
 --- web_app/analyzer/views.py
 +++ web_app/analyzer/views.py
-@@ -35,6 +35,7 @@
- # Import Core Logic
- from contest_tools.log_manager import LogManager
- from contest_tools.data_aggregators.time_series import TimeSeriesAggregator
- from contest_tools.report_generator import ReportGenerator
-+from contest_tools.core_annotations import CtyLookup
+@@ -14,6 +14,9 @@
+ #
+ # --- Revision History ---
++# [0.113.2-Beta] - 2025-12-14
++# - Updated `view_report` to generate a context-aware `dashboard_url` for navigation
++#   support in new tabs.
+ # [0.113.1-Beta] - 2025-12-14
+ # - Fixed 404 error for Global QSO Rate Plot by adding missing '_all' suffix
+ #   to the constructed filename in `qso_dashboard`.
+@@ -232,10 +235,13 @@
+     if not os.path.exists(abs_path):
+         raise Http404("Report not found")
  
- logger = logging.getLogger(__name__)
- 
-@@ -118,10 +119,17 @@
-                 # Extract basic scalars for dashboard
-                 # Construct relative path components for the template
-                 first_log_meta = lm.logs[0].get_metadata()
-                 contest_name = first_log_meta.get('ContestName', 'Unknown').replace(' ', '_')
-                 # Date/Year extraction logic mirrors LogManager
-                 df_first = lm.logs[0].get_processed_data()
-                 year = df_first['Date'].dropna().iloc[0].split('-')[0] if not df_first.empty else "UnknownYear"
-                 
-                 # Re-derive event_id locally or fetch from metadata if available (LogManager stores it there now)
-                 event_id = first_log_meta.get('EventID', '')
++    # Construct dashboard URL for the "Back" button
++    dashboard_url = f"/report/{session_id}/dashboard/qso/"
 +
-+                # Construct Full Title: "CQ-WW-CW 2024" or "NAQP 2025 JAN"
-+                full_contest_title = f"{contest_name.replace('_', ' ')} {year} {event_id}".strip()
-+
-+                # Extract CTY Version Info
-+                cty_path = lm.logs[0].cty_dat_path
-+                cty_date = CtyLookup.extract_version_date(cty_path)
-+                cty_date_str = cty_date.strftime('%Y-%m-%d') if cty_date else "Unknown Date"
-+                cty_filename = os.path.basename(cty_path)
-+                cty_version_info = f"{cty_filename} ({cty_date_str})"
-                 
-                 all_calls = sorted([l.get_metadata().get('MyCall', f'Log{i+1}') for i, l in enumerate(lm.logs)])
-                 combo_id = '_'.join(all_calls)
+     context = {
+         'iframe_src': f"{settings.MEDIA_URL}sessions/{session_id}/{file_path}",
+-        'filename': os.path.basename(file_path)
++        'filename': os.path.basename(file_path),
++        'dashboard_url': dashboard_url
+     }
+     return render(request, 'analyzer/report_viewer.html', context)
  
-@@ -142,6 +150,8 @@
-                     'mult_file': mult_filename,
-                     'logs': [],
-                     'mult_headers': [],
--                    'contest_name': contest_name.replace('_', ' '),
-+                    'full_contest_title': full_contest_title,
-+                    'cty_version_info': cty_version_info,
-                 }
-                 
-                 # Determine multiplier headers from the first log (assuming all are same contest)
-__CODE_BLOCK__
-
-### Step 3: Render Context in Dashboard
-**File:** `web_app/analyzer/templates/analyzer/dashboard.html`
-**Action:** Display `full_contest_title` and `cty_version_info`.
-
-#### Surgical Changes
-1.  Replace `{{ contest_name }}` with `{{ full_contest_title }}` in the header.
-2.  Add a provenance line below the Scoreboard table block.
-
-#### Surgical Change Verification (diff)
-__CODE_BLOCK__diff
---- web_app/analyzer/templates/analyzer/dashboard.html
-+++ web_app/analyzer/templates/analyzer/dashboard.html
-@@ -17,7 +17,7 @@
- 
- <div class="container mt-5">
-     <div class="d-flex justify-content-between align-items-center mb-4">
--        <h2 class="mb-0 text-secondary">Analysis Results: <span class="text-dark">{{ contest_name }}</span></h2>
-+        <h2 class="mb-0 text-secondary">Analysis Results: <span class="text-dark">{{ full_contest_title }}</span></h2>
-         <a href="{% url 'home' %}" class="btn btn-outline-secondary">
-             <i class="bi bi-arrow-left me-1"></i>New Analysis
+--- web_app/analyzer/templates/analyzer/report_viewer.html
++++ web_app/analyzer/templates/analyzer/report_viewer.html
+@@ -4,7 +4,7 @@
+ <div class="container-fluid p-0" style="height: calc(100vh - 56px - 70px);"> <div class="bg-white border-bottom py-2 px-3 d-flex justify-content-between align-items-center">
+         <h5 class="mb-0 text-secondary">{{ filename }}</h5>
+-        <a href="javascript:history.back()" class="btn btn-sm btn-outline-secondary">
+-            <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
++        <a href="{{ dashboard_url }}" class="btn btn-sm btn-outline-secondary">
++            <i class="bi bi-arrow-left me-1"></i>Return to Dashboard
          </a>
      </div>
- 
-     <div class="card shadow-sm border-0 mb-5">
-@@ -53,6 +53,7 @@
-                 </tbody>
-             </table>
-+            <div class="card-footer bg-light py-2">
-+                <small class="text-muted"><i class="bi bi-info-circle me-1"></i>Scored using {{ cty_version_info }}</small>
-+            </div>
+     <iframe src="{{ iframe_src }}" style="width: 100%; height: 100%; border: none;"></iframe>
+
+--- web_app/analyzer/templates/analyzer/qso_dashboard.html
++++ web_app/analyzer/templates/analyzer/qso_dashboard.html
+@@ -5,8 +5,10 @@
+     <div class="row mb-4">
+  
+         <div class="col-12">
+             <div class="card shadow-sm">
+                 <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                     <h5 class="mb-0"><i class="bi bi-speedometer2 me-2"></i>Global Context</h5>
+-                    <a href="#" class="btn btn-sm btn-light disabled">QSO Rate</a>
++                    <a href="{% url 'view_report' session_id global_qso_rate_file %}" target="_blank" class="btn btn-sm btn-light">
++                        <i class="bi bi-box-arrow-up-right"></i>
++                    </a>
+                 </div>
+                 <div class="card-body p-0" style="height: 500px;">
+                     <iframe src="{% url 'view_report' session_id global_qso_rate_file %}" style="width: 100%; height: 100%; border: none;"></iframe>
+@@ -37,13 +39,17 @@
+             <div class="row">
+                 <div class="col-lg-6 mb-4">
+                     <div class="card h-100 shadow-sm">
+-                        <div class="card-header">Strategy Breakdown (Uniques)</div>
++                        <div class="card-header d-flex justify-content-between align-items-center">
++                            <span>Strategy Breakdown (Uniques)</span>
++                            <a id="link-breakdown" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
++                        </div>
+                         <div class="card-body p-0" style="height: 600px;">
+                             <iframe id="frame-breakdown" src="" style="width: 100%; height: 100%; border: none;"></iframe>
+                         </div>
+                     </div>
+                 </div>
+                 <div class="col-lg-6 mb-4">
+                     <div class="card h-100 shadow-sm">
+-                        <div class="card-header">Rate Differential (Momentum)</div>
++                        <div class="card-header d-flex justify-content-between align-items-center">
++                            <span>Rate Differential (Momentum)</span>
++                            <a id="link-diff" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
++                        </div>
+                         <div class="card-body p-0" style="height: 600px;">
+                             <iframe id="frame-diff" src="" style="width: 100%; height: 100%; border: none;"></iframe>
+                         </div>
+@@ -58,7 +64,10 @@
+                 {% for call in callsigns %}
+                 <button type="button" class="btn btn-outline-secondary rate-btn" 
+                         data-src="{% url 'view_report' session_id report_base|add:'/text/rate_sheet_'|add:call|add:'.txt' %}">{{ call }}</button>
+                 {% 
+ endfor %}
+             </div>
+             <div class="card shadow-sm">
+-                <div class="card-body p-0" style="height: 800px;">
++                <div class="card-header d-flex justify-content-between align-items-center">
++                    <span>Rate Detail</span>
++                    <a id="link-rates" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
++                </div>
++                <div class="card-body p-0" style="height: 600px;">
+                     <iframe id="frame-rates" src="" style="width: 100%; height: 100%; border: none;"></iframe>
+                 </div>
+            
+             </div>
          </div>
-     </div>
-__CODE_BLOCK__
+@@ -69,7 +78,10 @@
+             <div class="row">
+                 <div class="col-12 mb-4">
+                     <div class="card shadow-sm">
+-                        <div class="card-header">Cumulative Points</div>
++                        <div class="card-header d-flex justify-content-between align-items-center">
++                            <span>Cumulative Points</span>
++                            <a href="{% url 'view_report' session_id global_point_rate_file %}" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
++                        </div>
+                         <div class="card-body p-0" style="height: 500px;">
+                              <iframe src="{% url 'view_report' session_id global_point_rate_file %}" style="width: 100%; height: 100%; border: none;"></iframe>
+                         </div>
+@@ -82,6 +94,10 @@
+         // Strategy Tab Logic
+         const stratBtns = document.querySelectorAll('.strategy-btn');
+         const frameBreakdown = document.getElementById('frame-breakdown');
+         const frameDiff = document.getElementById('frame-diff');
++        const linkBreakdown = document.getElementById('link-breakdown');
++        const linkDiff = document.getElementById('link-diff');
+ 
+   
+         function updateStrategy(btn) {
+             stratBtns.forEach(b => b.classList.remove('active'));
+             btn.classList.add('active');
+             frameBreakdown.src = btn.dataset.breakdown;
+             frameDiff.src = btn.dataset.diff;
++            linkBreakdown.href = btn.dataset.breakdown;
++            linkDiff.href = btn.dataset.diff;
+         }
+ 
+         if(stratBtns.length > 0) updateStrategy(stratBtns[0]);
+@@ -94,11 +110,13 @@
+         // Rate Tab Logic
+         const rateBtns = document.querySelectorAll('.rate-btn');
+         const frameRates = document.getElementById('frame-rates');
++        const linkRates = document.getElementById('link-rates');
+ 
+         function updateRates(btn) {
+             rateBtns.forEach(b => b.classList.remove('active'));
+             btn.classList.add('active');
+             frameRates.src = btn.dataset.src;
++            linkRates.href = btn.dataset.src;
+         }
+ 
+         if(rateBtns.length > 0) updateRates(rateBtns[0]);
+--- END DIFF ---
 
-## 5. Compliance Report
-* **Protocol 2.1.1 (Architecture):** PASS. Logic resides in View/Controller, Presentation in Templates. No leakage.
-* **Protocol 3.3 (Context Audit):** PASS.
-* **Protocol 3.2.4 (Sanitization):** PASS.
+**7. Affected Modules Checklist:**
+* `contest_tools/reports/plot_cumulative_difference.py`
+* `contest_tools/reports/chart_qso_breakdown.py`
+* `contest_tools/reports/plot_comparative_band_activity.py`
+* `web_app/analyzer/views.py`
+* `web_app/analyzer/templates/analyzer/report_viewer.html`
+* `web_app/analyzer/templates/analyzer/qso_dashboard.html`
 
---- FILE: manifest.txt ---
-contest_tools/templates/base.html
-web_app/analyzer/views.py
-web_app/analyzer/templates/analyzer/dashboard.html
+**8. Pre-Flight Check:**
+* **Inputs:** `0.113.0-Beta` versions of report generators and `0.113.1-Beta` views.
+* **Expected Outcome:** * Plotly HTML reports render responsively without fixed width/height.
+    * Plotly PNG reports retain 1600x900 resolution.
+    * QSO Dashboard cards have "Open in New Tab" icons.
+    * Clicking these icons opens the report in a new tab.
+    * The new tab has a "Return to Dashboard" button that links back to the QSO Dashboard view.
+* **Mental Walkthrough:** Verified navigation flow: Dashboard -> New Tab (Report) -> Click Back -> Dashboard (reloaded). Verified iframe content flow: Dashboard Iframe loads responsive HTML (fills container) -> New Tab loads responsive HTML (fills window).
+* **Backward Compatibility:** PNG exports remain unchanged for legacy uses.
+* **Refactoring Impact:** Minimal. Only visualization layout parameters changed.
+
+**9. Post-Generation Verification:**
+* Plan includes metadata? Yes.
+* Plan includes diffs? Yes.
+* Plan includes pre-flight check? Yes.
+* Next Action declared? Yes.

@@ -1,9 +1,14 @@
 # AIAgentWorkflow.md
 
-**Version: 4.16.0**
+**Version: 4.17.0**
 **Date: 2025-12-13**
 ---
 ### --- Revision History ---
+## [4.17.0] - 2025-12-13
+### Changed
+# - Added Protocol 2.4.0 "The Kit Assembly State" to enforce rigid output templates.
+# - Refactored Protocol 2.4.1 to define "The Monolithic Bundle" structure.
+# - Refactored Protocol 2.4.6 to "The Structural Gate" for template validation.
 ## [4.16.0] - 2025-12-13
 ### Changed
 # - Refined Protocol 9.2 (Builder Output Standard) to strictly limit sanitization scope to internal content only.
@@ -245,8 +250,16 @@ This workflow is a formal state machine that governs all development tasks, from
 2.4. **Implementation Plan Generation (The Builder Execution Kit)**:
     * **Trigger:** The User issues the command **"Generate Builder Execution Kit"**. This command is universal (used for the initial Kit and all subsequent iterations/updates).
     * **Baseline Consistency Check:** This check verifies that all proposed actions (e.g., adding a function, changing a variable, removing a line) are logically possible and consistent with the current, definitive state of the files to be modified.
-    * **2.4.1 The Plan Artifact:** Delivery of **`ImplementationPlan.md`**. **Format Mandate:** This file **MUST** be delivered enclosed in a `cla-bundle` code block (per Protocol 3.2.4) to ensure it renders as raw text for easy copying. Must include "Builder Bootstrap Context", "Safety Protocols", and "Technical Debt Register".
-    * **2.4.2 The Manifest Artifact:** Delivery of **`manifest.txt`**. The Architect must leverage Full Context to identify all dependencies.
+    * **2.4.0. The Kit Assembly State:**
+        * **Definition:** Upon receiving the trigger, the Architect enters a restricted state.
+        * **Constraint:** Conversational filler (e.g., "Here is the plan...") is **strictly forbidden**.
+        * **Mandate:** The output **MUST** follow a rigid, pre-defined template with no deviation.
+    * **2.4.1. The Monolithic Bundle:** The response must consist **ONLY** of these four components in order:
+        1.  **Header:** The Compliance Report (Protocol 2.4.4).
+        2.  **Artifact 1:** `ImplementationPlan.md` (Wrapped in `cla-bundle`).
+        3.  **Artifact 2:** `manifest.txt` (Wrapped in `text`).
+        4.  **Footer:** The Trinity Instructions (Protocol 2.4.3).
+    * **2.4.2 (Deprecated):** Merged into 2.4.1.
     * **2.4.3 The Trinity Instructions:** The Architect must explicitly instruct the User to:
         1.  Create `builder_bundle.txt` from the Manifest files.
         2.  Upload the Trinity (Workflow, Plan, Bundle).
@@ -256,11 +269,11 @@ This workflow is a formal state machine that governs all development tasks, from
         * **Protocol 3.3 (Context Audit):** PASS/FAIL
         * **Protocol 3.2.4 (Sanitization):** PASS/FAIL
     * **2.4.5 The Manifest Isolation:** The `manifest.txt` list MUST be provided in its own distinct code block, separate from the `cla-bundle` block, to facilitate easy extraction by the user.
-    * **2.4.6. The Formatting Checkpoint (The "Meta-Pre-Flight").**
+    * **2.4.6. The Structural Gate (The "Meta-Pre-Flight").**
         * **Trigger:** Immediately before generating the final response containing a Builder Execution Kit.
         * **The Check:** The Architect must perform an explicit internal verification of the output structure.
         * **The Logic Gate:**
-            * **Question:** "Is the `ImplementationPlan.md` text enclosed in a `cla-bundle` code block?"
+            * **Question:** "Does the response strictly follow the Monolithic Bundle template (Compliance -> Plan -> Manifest -> Instructions) with ZERO conversational filler?"
             * **If NO:** The generation is **FORBIDDEN**. I must abort and restart the response generation with the correct wrapper.
             * **If YES:** Proceed with delivery.
         * **Sanitization Check:** "Are all internal code fences within the plan replaced with `__CODE_BLOCK__`?"

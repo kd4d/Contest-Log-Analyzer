@@ -4,8 +4,8 @@
 #          comparing two logs.
 #
 # Author: Gemini AI
-# Date: 2025-12-10
-# Version: 1.1.1
+# Date: 2025-12-14
+# Version: 0.114.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,13 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.114.0-Beta] - 2025-12-14
+# - Updated HTML export to use responsive sizing (autosize=True) for dashboard integration.
+# - Maintained fixed 1600x900 resolution for PNG exports.
+# [0.113.0-Beta] - 2025-12-13
+# - Standardized filename generation: removed '_vs_' separator to match Web Dashboard conventions.
+# [1.1.2] - 2025-12-14
+# - Updated file generation to use `_sanitize_filename_part` for strict lowercase naming.
 # [1.1.1] - 2025-12-10
 # - Fixed visualization bug: Increased top margin to prevent Main Title/Subplot Title overlap.
 # [1.1.0] - 2025-12-10
@@ -39,7 +46,7 @@ import logging
 
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from ._report_utils import create_output_directory, get_valid_dataframe, save_debug_data
+from ._report_utils import create_output_directory, get_valid_dataframe, save_debug_data, _sanitize_filename_part
 from ..data_aggregators.time_series import TimeSeriesAggregator
 from ..styles.plotly_style_manager import PlotlyStyleManager
 
@@ -67,6 +74,7 @@ class Report(ContestReport):
         # --- DAL Integration (v1.3.1) ---
         agg = TimeSeriesAggregator([log1, log2])
         ts_data = agg.get_time_series_data(band_filter=band_filter, mode_filter=mode_filter)
+ 
         time_bins = [pd.Timestamp(t) for t in ts_data['time_bins']]
 
         # Helper to extract series
@@ -76,7 +84,7 @@ class Report(ContestReport):
 
         if metric == 'points':
             metric_name = log1.contest_definition.points_header_label or "Points"
-            
+             
             run1 = get_series(call1, 'run_points')
             sp1 = get_series(call1, 'sp_unk_points')
             run2 = get_series(call2, 'run_points')
@@ -184,12 +192,13 @@ class Report(ContestReport):
         # --- Layout Standardization ---
         layout = PlotlyStyleManager.get_standard_layout(final_title)
         fig.update_layout(layout)
+        
+        # Base layout properties common to both
         fig.update_layout(
-            height=900, 
-            width=1600,
-            showlegend=False, # Legend redundant given subplot titles
-            margin=dict(t=140) # FIX: Increase top margin to prevent title overlap
+            showlegend=False,
+            margin=dict(t=140)
         )
+
         # Update Axis Labels
         fig.update_yaxes(title_text="Diff", row=1, col=1)
         fig.update_yaxes(title_text="Diff", row=2, col=1)
@@ -201,12 +210,14 @@ class Report(ContestReport):
         mode_suffix = f"_{mode_filter.lower()}" if mode_filter else ""
         
         # Debug Data
-        debug_filename = f"{self.report_id}_{metric}{mode_suffix}_{filename_band}_{call1}_vs_{call2}.txt"
+        c1_safe = _sanitize_filename_part(call1)
+        c2_safe = _sanitize_filename_part(call2)
+        debug_filename = f"{self.report_id}_{metric}{mode_suffix}_{filename_band}_{c1_safe}_{c2_safe}.txt"
         save_debug_data(debug_data_flag, output_path, debug_df, custom_filename=debug_filename)
         
         create_output_directory(output_path)
         
-        base_filename = f"{self.report_id}_{metric}{mode_suffix}_{filename_band}_{call1}_vs_{call2}"
+        base_filename = f"{self.report_id}_{metric}{mode_suffix}_{filename_band}_{c1_safe}_{c2_safe}"
         html_filename = f"{base_filename}.html"
         png_filename = f"{base_filename}.png"
         
@@ -217,6 +228,12 @@ class Report(ContestReport):
         
         # Save HTML
         try:
+            # Responsive Layout for HTML
+            fig.update_layout(
+                autosize=True,
+                width=None,
+                height=None
+            )
             fig.write_html(html_path, include_plotlyjs='cdn')
             generated_files.append(html_path)
         except Exception as e:
@@ -224,6 +241,12 @@ class Report(ContestReport):
 
         # Save PNG (Requires Kaleido)
         try:
+            # Fixed Layout for PNG
+            fig.update_layout(
+                autosize=False,
+                width=1600,
+                height=900
+            )
             fig.write_image(png_path, width=1600, height=900)
             generated_files.append(png_path)
         except Exception as e:

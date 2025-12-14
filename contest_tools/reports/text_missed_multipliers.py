@@ -6,7 +6,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-11-24
-# Version: 0.93.1
+# Version: 0.113.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -20,6 +20,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.113.0-Beta] - 2025-12-13
+# - Standardized filename generation: removed '_vs_' separator and applied strict sanitization to callsigns.
 # [0.93.1] - 2025-11-24
 # - Refactored to consume JSON-serializable types (Dicts/Lists) from
 #   MultiplierStatsAggregator, removing direct Pandas dependencies.
@@ -28,7 +30,7 @@
 # [0.93.0-Beta] - 2025-11-23
 # - Fixed header generation to preserve "Countries" and "Prefixes" as plurals.
 # [0.90.0-Beta] - 2025-10-01
-# Set new baseline version for release.
+# - Set new baseline version for release.
 
 from typing import List, Dict, Any, Set
 import os
@@ -37,6 +39,7 @@ from prettytable import PrettyTable
 from ..contest_log import ContestLog
 from ..data_aggregators.multiplier_stats import MultiplierStatsAggregator
 from .report_interface import ContestReport
+from ._report_utils import _sanitize_filename_part
 
 class Report(ContestReport):
     """
@@ -217,7 +220,7 @@ class Report(ContestReport):
 
         report_content = "\n".join(report_lines) + "\n"
         os.makedirs(output_path, exist_ok=True)
-        filename_calls = '_vs_'.join(sorted(all_calls))
+        filename_calls = '_'.join([_sanitize_filename_part(c) for c in sorted(all_calls)])
         safe_mult_name = mult_name.lower().replace('/', '_')
         mode_suffix = f"_{mode_filter.lower()}" if mode_filter else ""
         filename = f"{self.report_id}_{safe_mult_name}{mode_suffix}_{filename_calls}.txt"

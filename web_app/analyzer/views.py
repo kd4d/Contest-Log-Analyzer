@@ -5,8 +5,8 @@
 #          aggregates data using DAL components, and renders the dashboard.
 #
 # Author: Gemini AI
-# Date: 2025-12-13
-# Version: 0.110.0-Beta
+# Date: 2025-12-14
+# Version: 0.113.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -20,42 +20,35 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.113.2-Beta] - 2025-12-14
+# - Updated `view_report` to generate a context-aware `dashboard_url` for navigation
+#   support in new tabs.
+# [0.113.1-Beta] - 2025-12-14
+# - Fixed 404 error for Global QSO Rate Plot by adding missing '_all' suffix
+#   to the constructed filename in `qso_dashboard`.
+# [0.112.0-Beta] - 2025-12-14
+# - Updated `qso_dashboard` to dynamically discover the deep report path.
+# - Re-implemented path construction using sanitized, lowercase callsigns to
+#   match the standardized report generator output.
+# [0.111.4-Beta] - 2025-12-14
+# - Fixed 404 errors in 'qso_dashboard' by prepending correct subdirectories
+#   (plots/, charts/, text/) to report filenames.
+# - Enforced lowercase filenames for all generated report links to ensure
+#   compatibility with Linux/Docker filesystems.
+# [0.111.0-Beta] - 2025-12-13
+# - Implemented 'qso_dashboard' view logic to power the new QSO Reports Sub-Dashboard.
+# - Added dynamic session scanning for rate sheets and animation files to build
+#   the pairwise strategy context.
 # [0.110.0-Beta] - 2025-12-13
 # - Implemented "Honest Progress Bar": Added backend logic to track and report
-#   analysis status (Uploading, Parsing, Aggregating, Generating, Ready) via
-#   transient JSON files and a polling endpoint.
+#   analysis status.
 # [0.109.5-Beta] - 2025-12-13
-# - Reverted diagnostic logging in `view_report` now that the root cause
-#   (missing animation directory due to import failure) has been resolved.
-# [0.109.4-Beta] - 2025-12-13
-# - Injected deep diagnostic logging into `view_report` to debug persistent 404 errors.
-# - Added directory crawling logic to map filesystem state upon 404.
-# [0.109.1-Beta] - 2025-12-13
-# - Fixed 404 error by enforcing lowercase for animation filenames to match filesystem.
-# [0.109.0-Beta] - 2025-12-13
-# - Added 'view_report' view to wrap static reports in the application shell.
-# [0.108.0-Beta] - 2025-12-13
-# - Injected CtyLookup version info and full contest title into dashboard context.
-# [0.105.4-Beta] - 2025-12-13
-# - Explicitly instantiated ReportGenerator to create physical report files.
-# - Added dynamic filename generation for animation, plot, and mult reports to context.
-# [0.105.3-Beta] - 2025-12-13
-# - Updated context to include pre-assembled 'report_url_path' to handle empty event IDs safely.
+# - Reverted diagnostic logging in `view_report`.
 # [0.105.1-Beta] - 2025-12-13
 # - Replaced ephemeral tempfile storage with session-based storage in MEDIA_ROOT.
-# - Implemented lazy cleanup for old sessions.
-# - Updated context to include drill-down parameters (year, event, combo).
-# [0.105.0-Beta] - 2025-12-13
-# - Added 'run_qsos' and 'run_percent' to the dashboard context context.
-# [0.104.0-Beta] - 2025-12-12
-# - Updated analyze_logs to consume new 'final_score' and 'mult_breakdown'
-#   from TimeSeriesAggregator instead of raw points.
-# - Added logic to dynamically determine multiplier headers.
-# [0.103.3-Beta] - 2025-12-12
-# - Added logging to capture stack traces for debugging upload failures.
 # [0.103.0-Beta] - 2025-12-11
 # - Initial creation for Phase 3.
-# - Implements the "Ephemeral I/O" pattern using tempfile.
+
 import os
 import shutil
 import logging
@@ -72,6 +65,7 @@ from contest_tools.log_manager import LogManager
 from contest_tools.data_aggregators.time_series import TimeSeriesAggregator
 from contest_tools.report_generator import ReportGenerator
 from contest_tools.core_annotations import CtyLookup
+from contest_tools.reports._report_utils import _sanitize_filename_part
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +85,7 @@ def _cleanup_old_sessions(max_age_seconds=3600):
             try:
                 if os.stat(item_path).st_mtime < (now - max_age_seconds):
                     os.remove(item_path)
+        
             except Exception as e:
                 logger.warning(f"Failed to cleanup progress file {item}: {e}")
 
@@ -167,14 +162,14 @@ def analyze_logs(request):
                 # Note: ReportGenerator implicitly aggregates if needed, but we treat it as the bridge
                 # Step 4: Generating
                 _update_progress(request_id, 4) 
-                
+        
                 generator = ReportGenerator(lm.logs, root_output_dir=session_path)
                 generator.run_reports('all')
                 
                 # 5. Aggregate Data (Dashboard Scalars)
                 ts_agg = TimeSeriesAggregator(lm.logs)
                 ts_data = ts_agg.get_time_series_data()
-                 
+                
                 # Extract basic scalars for dashboard
                 # Construct relative path components for the template
                 first_log_meta = lm.logs[0].get_metadata()
@@ -205,9 +200,10 @@ def analyze_logs(request):
 
                 # Protocol 3.5: Construct Standardized Filenames <report_id>_<callsigns>.<ext>
                 # Note: 'qso_rate' is the ID for the main plot report.
+                # CRITICAL: Filenames on disk are lowercased by ReportGenerator. We must match that.
                 animation_filename = f"interactive_animation_{combo_id.lower()}.html"
-                plot_filename = f"qso_rate_{combo_id}.html"
-                mult_filename = f"missed_multipliers_{combo_id}.txt"
+                plot_filename = f"qso_rate_{combo_id.lower()}.html"
+                mult_filename = f"missed_multipliers_{combo_id.lower()}.txt"
 
                 context = {
                     'session_key': session_key,
@@ -257,14 +253,95 @@ def get_progress(request, request_id):
 
 def view_report(request, session_id, file_path):
     """Wraps a generated report file in the application shell (header/footer)."""
+    
     # Security Check: Verify file exists within the session
     abs_path = os.path.join(settings.MEDIA_ROOT, 'sessions', session_id, file_path)
     
     if not os.path.exists(abs_path):
         raise Http404("Report not found")
 
+    # Construct dashboard URL for the "Back" button
+    dashboard_url = f"/report/{session_id}/dashboard/qso/"
+
     context = {
         'iframe_src': f"{settings.MEDIA_URL}sessions/{session_id}/{file_path}",
-        'filename': os.path.basename(file_path)
+        'filename': os.path.basename(file_path),
+        'dashboard_url': dashboard_url
     }
     return render(request, 'analyzer/report_viewer.html', context)
+
+def qso_dashboard(request, session_id):
+    """Renders the dedicated QSO Reports Sub-Dashboard."""
+    session_path = os.path.join(settings.MEDIA_ROOT, 'sessions', session_id)
+    if not os.path.exists(session_path):
+        raise Http404("Session not found")
+
+    # 1. Discover the "Deep Path"
+    # The reports are nested in reports/YEAR/CONTEST/...
+    # We need to find the relative path from session_root to where the 'animations' folder lives.
+    report_rel_path = ""
+    combo_id = ""
+    
+    for root, dirs, filenames in os.walk(session_path):
+        for f in filenames:
+            if f.startswith('interactive_animation_') and f.endswith('.html'):
+                # Found the anchor file
+                # interactive_animation_call1_call2_call3.html
+                combo_id = f.replace('interactive_animation_', '').replace('.html', '')
+                
+                # Calculate relative path from session_id to the parent of 'animations' directory
+                # The file is in .../animations/file.html
+                # We want the path to .../ (the parent of animations, charts, plots)
+                
+                full_dir = os.path.dirname(os.path.join(root, f)) # .../animations
+                parent_dir = os.path.dirname(full_dir) # .../
+                report_rel_path = os.path.relpath(parent_dir, session_path)
+                break
+        if combo_id: break
+    
+    if not combo_id:
+        raise Http404("Analysis data not found")
+
+    # 2. Re-construct Callsigns from the combo_id
+    # combo_id is sanitized "call1_call2_call3".
+    # We can split by '_'.
+    # However, to be safe and get original display names, we should ideally check metadata.
+    # For now, we'll split and upper() for display, but keep lower for linking.
+    callsigns_safe = combo_id.split('_')
+    callsigns_display = [c.upper() for c in callsigns_safe]
+    
+    # 3. Identify Pairs for Strategy Tab
+    import itertools
+    # Use safe (lowercase) callsigns for file matching
+    pairs = list(itertools.combinations(callsigns_safe, 2))
+    
+    matchups = []
+    for p in pairs:
+        c1, c2 = sorted(p) # Sort alphabetically
+        
+        label = f"{c1.upper()} vs {c2.upper()}"
+        
+        # Construct paths using the discovered report_rel_path
+        base_path = report_rel_path
+        
+        matchups.append({
+            'label': label,
+            'id': f"{c1}_{c2}",
+            'qso_breakdown_file': os.path.join(base_path, f"charts/qso_breakdown_chart_{c1}_{c2}.html"),
+            'diff_plot_file': os.path.join(base_path, f"plots/cumulative_difference_plots_qsos_all_{c1}_{c2}.html"),
+            'band_activity_file': os.path.join(base_path, f"plots/comparative_band_activity_{c1}_{c2}.html"),
+            'continent_file': os.path.join(base_path, f"text/comparative_continent_summary_{c1}_{c2}.txt")
+        })
+
+    context = {
+        'session_id': session_id,
+        'callsigns': callsigns_display,
+        'matchups': matchups,
+        # Global Files
+        'global_qso_rate_file': os.path.join(report_rel_path, f"plots/qso_rate_plots_all_{combo_id}.html"),
+        'global_point_rate_file': os.path.join(report_rel_path, f"plots/point_rate_plots_all_{combo_id}.html"),
+        'rate_sheet_comparison': os.path.join(report_rel_path, f"text/rate_sheet_comparison_{'_vs_'.join(sorted(callsigns_safe))}.txt"),
+        'report_base': os.path.join(report_rel_path) # Pass base path for template filters
+    }
+    
+    return render(request, 'analyzer/qso_dashboard.html', context)
