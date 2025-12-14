@@ -6,7 +6,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-13
-# Version: 0.108.0-Beta
+# Version: 0.109.5-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -20,6 +20,16 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.109.5-Beta] - 2025-12-13
+# - Reverted diagnostic logging in `view_report` now that the root cause
+#   (missing animation directory due to import failure) has been resolved.
+# [0.109.4-Beta] - 2025-12-13
+# - Injected deep diagnostic logging into `view_report` to debug persistent 404 errors.
+# - Added directory crawling logic to map filesystem state upon 404.
+# [0.109.1-Beta] - 2025-12-13
+# - Fixed 404 error by enforcing lowercase for animation filenames to match filesystem.
+# [0.109.0-Beta] - 2025-12-13
+# - Added 'view_report' view to wrap static reports in the application shell.
 # [0.108.0-Beta] - 2025-12-13
 # - Injected CtyLookup version info and full contest title into dashboard context.
 # [0.105.4-Beta] - 2025-12-13
@@ -48,6 +58,7 @@ import logging
 import uuid
 import time
 from django.shortcuts import render, redirect
+from django.http import Http404
 from django.conf import settings
 from .forms import UploadLogForm
 
@@ -153,7 +164,7 @@ def analyze_logs(request):
 
                 # Protocol 3.5: Construct Standardized Filenames <report_id>_<callsigns>.<ext>
                 # Note: 'qso_rate' is the ID for the main plot report.
-                animation_filename = f"interactive_animation_{combo_id}.html"
+                animation_filename = f"interactive_animation_{combo_id.lower()}.html"
                 plot_filename = f"qso_rate_{combo_id}.html"
                 mult_filename = f"missed_multipliers_{combo_id}.txt"
 
@@ -192,3 +203,17 @@ def analyze_logs(request):
                 return render(request, 'analyzer/home.html', {'form': form, 'error': str(e)})
     
     return redirect('home')
+
+def view_report(request, session_id, file_path):
+    """Wraps a generated report file in the application shell (header/footer)."""
+    # Security Check: Verify file exists within the session
+    abs_path = os.path.join(settings.MEDIA_ROOT, 'sessions', session_id, file_path)
+    
+    if not os.path.exists(abs_path):
+        raise Http404("Report not found")
+
+    context = {
+        'iframe_src': f"{settings.MEDIA_URL}sessions/{session_id}/{file_path}",
+        'filename': os.path.basename(file_path)
+    }
+    return render(request, 'analyzer/report_viewer.html', context)

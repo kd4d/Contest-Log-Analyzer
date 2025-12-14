@@ -7,7 +7,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-13
-# Version: 0.105.2-Beta
+# Version: 0.105.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -21,6 +21,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.105.3-Beta] - 2025-12-13
+# - Explicitly set X_FRAME_OPTIONS to 'SAMEORIGIN' to allow Sub-Page Views (iframe).
 # [0.105.2-Beta] - 2025-12-13
 # - Added 'django.template.context_processors.media' to TEMPLATES context_processors.
 # [0.105.1-Beta] - 2025-12-13
@@ -125,3 +127,6 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Security: Allow iframes from the same origin (Required for Sub-Page Views)
+X_FRAME_OPTIONS = 'SAMEORIGIN'
