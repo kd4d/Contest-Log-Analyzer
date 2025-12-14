@@ -13,6 +13,8 @@
                 <div class="card-body p-5">
                     <form method="post" action="{% url 'analyze' %}" enctype="multipart/form-data">
                         {% csrf_token %}
+                        <input type="hidden" id="request_id" name="request_id" value="">
+                        
                         <div class="row justify-content-center">
                             {% for field in form %}
                             <div class="col-md-4 mb-4">
@@ -42,9 +44,110 @@
                             </button>
                         </div>
                     </form>
+                    
+                    <div id="progress-container" class="d-none mt-5 w-100">
+                        <div class="position-relative d-flex align-items-center justify-content-between">
+                            <div class="position-absolute start-0 top-50 translate-middle-y h-1 bg-light w-100" style="height: 3px; z-index: 0;"></div>
+                            
+                            <div class="d-flex flex-column align-items-center step-item" style="z-index: 1;" data-step="1">
+                                <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center fw-bold transition-all circle" style="width: 40px; height: 40px;">1</div>
+                                <div class="mt-2 small fw-bold text-muted text-uppercase">Uploading</div>
+                            </div>
+
+                            <div class="d-flex flex-column align-items-center step-item" style="z-index: 1;" data-step="2">
+                                <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center fw-bold transition-all circle" style="width: 40px; height: 40px;">2</div>
+                                <div class="mt-2 small fw-bold text-muted text-uppercase">Parsing</div>
+                            </div>
+
+                            <div class="d-flex flex-column align-items-center step-item" style="z-index: 1;" data-step="3">
+                                <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center fw-bold transition-all circle" style="width: 40px; height: 40px;">3</div>
+                                <div class="mt-2 small fw-bold text-muted text-uppercase">Aggregating</div>
+                            </div>
+
+                            <div class="d-flex flex-column align-items-center step-item" style="z-index: 1;" data-step="4">
+                                <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center fw-bold transition-all circle" style="width: 40px; height: 40px;">4</div>
+                                <div class="mt-2 small fw-bold text-muted text-uppercase">Generating</div>
+                            </div>
+
+                            <div class="d-flex flex-column align-items-center step-item" style="z-index: 1;" data-step="5">
+                                <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center fw-bold transition-all circle" style="width: 40px; height: 40px;">5</div>
+                                <div class="mt-2 small fw-bold text-muted text-uppercase">Ready</div>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </div>
     </div>
+    
+    {% if error %}
+    <div class="row justify-content-center mt-3">
+        <div class="col-lg-10">
+            <div class="alert alert-danger shadow-sm">
+                {{ error }}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.querySelector('form');
+            const progressContainer = document.getElementById('progress-container');
+            const requestIdInput = document.getElementById('request_id');
+            
+            // Generate UUID-like ID for this request
+            const requestId = 'req_' + Math.random().toString(36).substr(2, 9);
+            requestIdInput.value = requestId;
+
+            form.addEventListener('submit', function() {
+                // Show progress bar
+                progressContainer.classList.remove('d-none');
+                
+                // Start polling
+                const pollInterval = setInterval(() => {
+                    fetch(`/analyze/progress/${requestId}/`)
+                        .then(response => response.json())
+                        .then(data => {
+                            updateProgress(data.step);
+                            if (data.step >= 5) {
+                                clearInterval(pollInterval);
+                            }
+                        })
+                        .catch(err => console.error('Polling error:', err));
+                }, 500);
+            });
+
+            function updateProgress(currentStep) {
+                const steps = document.querySelectorAll('.step-item');
+                steps.forEach(item => {
+                    const stepNum = parseInt(item.getAttribute('data-step'));
+                    const circle = item.querySelector('.circle');
+                    const label = item.querySelector('div:last-child');
+
+                    // Reset classes
+                    circle.classList.remove('bg-secondary', 'bg-primary', 'bg-success', 'pulse-animation');
+                    label.classList.remove('text-primary', 'text-success');
+
+                    if (stepNum < currentStep) {
+                        // Completed
+                        circle.classList.add('bg-success');
+                        circle.innerHTML = '<i class="bi bi-check"></i>';
+                        label.classList.add('text-success');
+                    } else if (stepNum === currentStep) {
+                        // Active
+                        circle.classList.add('bg-primary');
+                        circle.innerHTML = stepNum;
+                        label.classList.add('text-primary');
+                    } else {
+                        // Pending
+                        circle.classList.add('bg-secondary');
+                        circle.innerHTML = stepNum;
+                    }
+                });
+            }
+        });
+    </script>
 </div>
 {% endblock %}

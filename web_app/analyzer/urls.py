@@ -5,7 +5,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-13
-# Version: 0.103.1-Beta
+# Version: 0.110.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -14,10 +14,13 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.110.0-Beta] - 2025-12-13
+# - Added 'get_progress' endpoint for polling analysis status.
 # [0.103.1-Beta] - 2025-12-13
 # - Removed trailing slash from 'view_report' pattern to support clean file paths.
 # [0.103.0-Beta] - 2025-12-12
@@ -30,5 +33,6 @@ from . import views
 urlpatterns = [
     path('', views.home, name='home'),
     path('analyze/', views.analyze_logs, name='analyze'),
+    path('analyze/progress/<str:request_id>/', views.get_progress, name='get_progress'),
     path('report/<str:session_id>/<path:file_path>', views.view_report, name='view_report'),
 ]

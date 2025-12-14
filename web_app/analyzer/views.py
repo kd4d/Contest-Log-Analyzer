@@ -6,7 +6,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-13
-# Version: 0.109.5-Beta
+# Version: 0.110.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -20,6 +20,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.110.0-Beta] - 2025-12-13
+# - Implemented "Honest Progress Bar": Added backend logic to track and report
+#   analysis status (Uploading, Parsing, Aggregating, Generating, Ready) via
+#   transient JSON files and a polling endpoint.
 # [0.109.5-Beta] - 2025-12-13
 # - Reverted diagnostic logging in `view_report` now that the root cause
 #   (missing animation directory due to import failure) has been resolved.
@@ -56,9 +60,10 @@ import os
 import shutil
 import logging
 import uuid
+import json
 import time
 from django.shortcuts import render, redirect
-from django.http import Http404
+from django.http import Http404, JsonResponse
 from django.conf import settings
 from .forms import UploadLogForm
 
@@ -77,6 +82,18 @@ def _cleanup_old_sessions(max_age_seconds=3600):
         return
 
     now = time.time()
+    
+    # Cleanup progress files too
+    progress_root = os.path.join(settings.MEDIA_ROOT, 'progress')
+    if os.path.exists(progress_root):
+        for item in os.listdir(progress_root):
+            item_path = os.path.join(progress_root, item)
+            try:
+                if os.stat(item_path).st_mtime < (now - max_age_seconds):
+                    os.remove(item_path)
+            except Exception as e:
+                logger.warning(f"Failed to cleanup progress file {item}: {e}")
+
     for item in os.listdir(sessions_root):
         item_path = os.path.join(sessions_root, item)
         if os.path.isdir(item_path):
@@ -87,6 +104,18 @@ def _cleanup_old_sessions(max_age_seconds=3600):
             except Exception as e:
                 logger.warning(f"Failed to cleanup session {item}: {e}")
 
+def _update_progress(request_id, step):
+    """Writes the current progress step to a transient JSON file."""
+    if not request_id:
+        return
+    
+    progress_dir = os.path.join(settings.MEDIA_ROOT, 'progress')
+    os.makedirs(progress_dir, exist_ok=True)
+    
+    file_path = os.path.join(progress_dir, f"{request_id}.json")
+    with open(file_path, 'w') as f:
+        json.dump({'step': step}, f)
+
 def home(request):
     form = UploadLogForm()
     return render(request, 'analyzer/home.html', {'form': form})
@@ -94,6 +123,11 @@ def home(request):
 def analyze_logs(request):
     if request.method == 'POST':
         _cleanup_old_sessions()  # Trigger lazy cleanup
+        
+        # Retrieve the request_id from the form to track progress
+        request_id = request.POST.get('request_id')
+        _update_progress(request_id, 1) # Step 1: Uploading (Done, moving to Parsing)
+
         form = UploadLogForm(request.POST, request.FILES)
         if form.is_valid():
             # 1. Create Session Context
@@ -120,6 +154,7 @@ def analyze_logs(request):
                 # Note: We rely on docker-compose env vars for CONTEST_INPUT_DIR
                 root_input = os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
                 
+                _update_progress(request_id, 2) # Step 2: Parsing
                 lm = LogManager()
                 # Load logs (auto-detect contest type)
                 lm.load_log_batch(log_paths, root_input, 'after')
@@ -127,6 +162,12 @@ def analyze_logs(request):
                 lm.finalize_loading(session_path)
 
                 # 4. Generate Physical Reports (Drill-Down Assets)
+                _update_progress(request_id, 3) # Step 3: Aggregating
+                
+                # Note: ReportGenerator implicitly aggregates if needed, but we treat it as the bridge
+                # Step 4: Generating
+                _update_progress(request_id, 4) 
+                
                 generator = ReportGenerator(lm.logs, root_output_dir=session_path)
                 generator.run_reports('all')
                 
@@ -196,6 +237,7 @@ def analyze_logs(request):
                         'run_percent': data['scalars'].get('run_percent', 0.0)
                     })
 
+                _update_progress(request_id, 5) # Step 5: Finalizing/Ready
                 return render(request, 'analyzer/dashboard.html', context)
 
             except Exception as e:
@@ -203,6 +245,15 @@ def analyze_logs(request):
                 return render(request, 'analyzer/home.html', {'form': form, 'error': str(e)})
     
     return redirect('home')
+
+def get_progress(request, request_id):
+    """Returns the current progress step for the given request ID."""
+    file_path = os.path.join(settings.MEDIA_ROOT, 'progress', f"{request_id}.json")
+    if os.path.exists(file_path):
+        with open(file_path, 'r') as f:
+            data = json.load(f)
+        return JsonResponse(data)
+    return JsonResponse({'step': 0})
 
 def view_report(request, session_id, file_path):
     """Wraps a generated report file in the application shell (header/footer)."""
