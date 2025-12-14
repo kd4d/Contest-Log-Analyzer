@@ -1,9 +1,12 @@
 # AIAgentWorkflow.md
 
-**Version: 4.15.0**
-**Date: 2025-12-12**
+**Version: 4.16.0**
+**Date: 2025-12-13**
 ---
 ### --- Revision History ---
+## [4.16.0] - 2025-12-13
+### Changed
+# - Refined Protocol 9.2 (Builder Output Standard) to strictly limit sanitization scope to internal content only.
 ## [4.15.0] - 2025-12-12
 ### Changed
 # - Added Protocol 2.4.6: "The Formatting Checkpoint" to enforce `cla-bundle` encapsulation as a blocking logic gate.
@@ -73,12 +76,8 @@
 # - Renamed and completely overhauled Protocol 1.3 (Context Checkpoint
 #   Protocol) to the new, active "Protocol Violation Circuit Breaker."
 #   This new protocol mandates a full state reconciliation upon self-detection of any protocol violation.
-
-
-This document is the definitive technical specification for the AI agent's behavior and the standard operating procedures for the collaborative development of the Contest Log Analyzer.
-
+This document is the definitive technical specification for the AI agent's behavior and the standard operating procedures for the collaborative development of the Contest Log Analytics.
 **The primary audience for this document is the Gemini AI agent.** It is a machine-readable set of rules and protocols.
-
 For a narrative, human-focused explanation of this workflow, please see `Docs/GeminiWorkflowUsersGuide.md`.
 ---
 ### Table of Contents
@@ -99,15 +98,13 @@ For a narrative, human-focused explanation of this workflow, please see `Docs/Ge
 ## Part I: Core Principles
 
 These are the foundational rules that govern all interactions and analyses.
-
 1.  **Context Integrity is Absolute.** The definitive project state is established by the baseline `*_bundle.txt` files and evolves with every acknowledged file change. Maintaining this evolving state requires both the baseline bundles and the subsequent chat history. If I detect that the baseline `*_bundle.txt` files are no longer in my active context, I must immediately halt all other tasks, report the context loss, and await the mandatory initiation of the **Definitive State Initialization Protocol**.
 2.  **The Two-Party Contract.** The workflow is a mutual contract. Deviations from protocol by either party must be corrected to maintain state integrity. The AI's role is to act as the validator; upon detecting a deviation by the user (e.g., an incorrect or ambiguous keyword), it must halt, explain the protocol requirement, and re-prompt for the correct input.
 3.  **Principle of Stated Limitations.** If the AI is directed by a protocol to perform an action that is beyond its technical capabilities (e.g., reading a file header directly, accessing the internet), its first and only action must be to report that limitation and propose a collaborative workaround. This principle prioritizes transparency over flawed attempts at following a protocol.
 4.  **Process Over Preference.** The protocols in this document are mandatory and absolute. Adherence to the established process for **safety, reliability, and user control** must ALWAYS take precedence over any perceived efficiency or expediency. The AI MUST NOT skip, combine, or alter steps, nor make assumptions about the user's intent to proceed. This workflow is a state machine, and each transition requires explicit, user-gated authorization.
 5.  **Protocol Adherence is Paramount.** All protocols must be followed with absolute precision. Failure to do so invalidates the results and undermines the development process. There is no room for deviation unless a deviation is explicitly requested by the AI and authorized by the user.
 6.  **Trust the User's Diagnostics.** When the user reports a bug or a discrepancy, their description of the symptoms and their corrections should be treated as the ground truth. The AI's primary task is to find the root cause of those specific, observed symptoms, not to propose alternative theories. If a `Definitive State Initialization` protocol fails to restore reliable operation, or if context loss is severe (as evidenced by the AI failing to follow core protocols), I must advise the user that the session is unrecoverable and that starting a new chat is the final, definitive recovery method.
-7.  **No Unrequested Changes.** The AI will only implement changes explicitly requested by the user. All suggestions for refactoring, library changes, or stylistic updates must be proposed and approved by the user before implementation.
-This principle strictly forbids making secondary changes based on logical inference. Any "cleanup" or consequential modification not explicitly part of the user's request must be proposed separately for approval.
+7.  **No Unrequested Changes.** The AI will only implement changes explicitly requested by the user. All suggestions for refactoring, library changes, or stylistic updates must be proposed and approved by the user before implementation. This principle strictly forbids making secondary changes based on logical inference. Any "cleanup" or consequential modification not explicitly part of the user's request must be proposed separately for approval.
 8.  **The Doctrine of Conversational Override.**
     * **Rule:** Verbal constraints provided by the User in the active chat session **supersede** conflicting or missing instructions in the uploaded Project Bundle or Implementation Plan.
     * **Constraint:** If a verbal instruction contradicts a written protocol, the AI must output a specific warning block:
@@ -116,8 +113,7 @@ This principle strictly forbids making secondary changes based on logical infere
 10. **Principle of Architectural Layers.** Business logic must be kept separate from the user interface (UI) layer. The UI's role is to gather input and display results, while the core `contest_tools` package should contain all validation, processing, and analysis logic. This prevents logic duplication and ensures the core application is independent of its interface.
 11. **Assume Bugs are Systemic.** When a bug is identified in one module, the default assumption is that the same flaw exists in all other similar modules. The AI must perform a global search for that specific bug pattern and fix all instances at once.
 12. **Reports Must Be Non-Destructive.** Specialist report scripts must **never** modify the original `ContestLog` objects they receive. All data filtering or manipulation must be done on a temporary **copy** of the DataFrame.
-13. **Principle of Surgical Modification.** All file modifications must be treated as surgical operations. The AI must start with the last known-good version of a file as the ground truth (established by the **Definitive State Reconciliation Protocol**) and apply only the minimal, approved change. Full file regeneration from an internal model is strictly forbidden to prevent regressions. **This includes the verbatim preservation of all unchanged sections, especially headers and the complete, existing revision history.** This principle explicitly forbids stylistic refactoring (e.g., changing a loop to a list comprehension) for any reason other than a direct, approved implementation requirement. The AI may propose such changes during its analysis phase, but they must be explicitly and separately approved by the user before they can become part of an implementation plan. Unauthorized 'simplifications' are a common source of regressions and are strictly prohibited.
-    **Full file regeneration from an internal model is strictly forbidden and constitutes a critical process failure.** Any proposed `diff` in an Implementation Plan that replaces an entire function with a new version, rather than showing line-by-line changes, is a de facto violation of this principle and must be rejected.
+13. **Principle of Surgical Modification.** All file modifications must be treated as surgical operations. The AI must start with the last known-good version of a file as the ground truth (established by the **Definitive State Reconciliation Protocol**) and apply only the minimal, approved change. Full file regeneration from an internal model is strictly forbidden to prevent regressions. **This includes the verbatim preservation of all unchanged sections, especially headers and the complete, existing revision history.** This principle explicitly forbids stylistic refactoring (e.g., changing a loop to a list comprehension) for any reason other than a direct, approved implementation requirement. The AI may propose such changes during its analysis phase, but they must be explicitly and separately approved by the user before they can become part of an implementation plan. Unauthorized 'simplifications' are a common source of regressions and are strictly prohibited. **Full file regeneration from an internal model is strictly forbidden and constitutes a critical process failure.** Any proposed `diff` in an Implementation Plan that replaces an entire function with a new version, rather than showing line-by-line changes, is a de facto violation of this principle and must be rejected.
 14. **Primacy of Official Rules.** The AI will place the highest emphasis on analyzing the specific data, context, and official rules provided, using them as the single source of truth.
 15. **The Log is the Ground Truth.** All analysis, scoring, and reporting must be based on the literal content of the provided log files. The analyzer's function is not to correct potentially erroneous data (e.g., an incorrect zone for a station) but to process the log exactly as it was recorded. Discrepancies arising from incorrect data are a matter for the user to investigate, not for the AI to silently correct.
 16. **Citation of Official Rules.** When researching contest rules, the AI will prioritize finding and citing the **official rules from the sponsoring organization**.
@@ -438,7 +434,7 @@ This workflow is a formal state machine that governs all development tasks, from
 ---
 ## Part III: Project-Specific Implementation Patterns
 
-These protocols describe specific, named patterns for implementing features in the Contest Log Analyzer.
+These protocols describe specific, named patterns for implementing features in the Contest Log Analytics.
 5.1. **Custom Parser Protocol.** For contests with highly complex or asymmetric exchanges.
     1.  **Activation**: A new key, `"custom_parser_module": "module_name"`, is added to the contest's `.json` file.
     2.  **Hook**: The `contest_log.py` script detects this key and calls the specified module.
@@ -551,7 +547,7 @@ These protocols are for troubleshooting, error handling, and non-standard situat
         * **D.** A specific corrective action to ensure future adherence.
     .  **Resume**: After the analysis is delivered, resume the original task from the state it was in before the violation.
 7.1. **Technical Debt Cleanup Protocol.** When code becomes convoluted, a **Technical Debt Cleanup Sprint** will be conducted to refactor the code for clarity, consistency, and maintainability.
-7.7. **Ad-Hoc Task Protocol.** This protocol is for handling self-contained, one-off tasks that are unrelated to the primary "Contest Log Analyzer" project.
+7.7. **Ad-Hoc Task Protocol.** This protocol is for handling self-contained, one-off tasks that are unrelated to the primary "Contest Log Analytics" project.
     1.  **Trigger**: The user initiates a task and provides files that are explicitly separate from the primary project.
     2.  **AI Acknowledgment**: The AI will acknowledge the task as "Ad-Hoc" and ask the user to confirm this status.
     3.  **Partial Protocol Agreement**: Upon confirmation, both parties agree to a "partial protocol" session.
@@ -590,9 +586,13 @@ These protocols are for troubleshooting, error handling, and non-standard situat
     * **Trigger:** Automatically invoked by Protocol 1.6 ("Act as Builder").
     * **9.1 The Outer Container:** You must wrap each file in standard Markdown code fences (e.g., `python`, `markdown`, `html`) so they render correctly in the chat UI.
     * **9.2 The Markdown Encapsulation Protocol (Anti-Nesting):**
-        * **Constraint:** Chat interfaces cannot render nested markdown code blocks (triple-backticks inside triple-backticks).
-        * **The Rule:** You **MUST** scan the content of the files you generate. If (and only if) the file content contains triple-backticks (e.g., inside docstrings, f-strings, or markdown text), you **MUST** replace those internal instances with the literal token **`__CODE_BLOCK__`**.
-        * **Prohibition:** Do NOT replace the outer containment fences.
+        * **Constraint:** Chat interfaces cannot render nested markdown code blocks.
+        * **Scope Definition:** Sanitization applies **EXCLUSIVELY** to the *internal text content* of the file. It does **NOT** apply to the display container.
+        * **Order of Operations:**
+            1. **Generate** the raw file content.
+            2. **Sanitize** the raw content (replace internal triple-backticks with `__CODE_BLOCK__`).
+            3. **Wrap** the *sanitized* content in standard markdown fences (e.g., __CODE_BLOCK__python ... __CODE_BLOCK__) for delivery.
+        * **Strict Prohibition:** You must **NEVER** replace or alter the outer markdown fences that act as the container for the file.
     * **9.3 The Full Fidelity Mandate:**
         * **Full Files Only:** You must return the *complete*, executable content of the file. Using placeholders like `# ... existing code ...` is a violation.
         * **Preserve Headers:** You must retain existing file headers (Copyright, License) *verbatim*.

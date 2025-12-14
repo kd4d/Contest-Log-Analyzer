@@ -4,21 +4,25 @@
 #          reporting engine.
 #
 # Author: Gemini AI
-# Date: 2025-12-10
-# Version: 1.0.0
+# Date: 2025-12-13
+# Version: 0.106.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
-#          (https://www.mozilla.org/MPL/2.0/)
+#          ([https://www.mozilla.org/MPL/2.0/](https://www.mozilla.org/MPL/2.0/))
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0.
 # If a copy of the MPL was not distributed with this
-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+# file, You can obtain one at [http://mozilla.org/MPL/2.0/](http://mozilla.org/MPL/2.0/).
 #
 # --- Revision History ---
+# [0.106.0-Beta] - 2025-12-13
+# - Validated Matplotlib Import Guard (Stabilization Phase).
+# [0.105.5-Beta] - 2025-12-13
+# - Wrapped matplotlib imports in try/except to support lightweight containers (Guard & Triage).
 # [1.0.0] - 2025-12-10
 # - Removed ComparativeHeatmapChart and associated matplotlib imports (Phase 2 Migration).
 # [0.93.2-Beta] - 2025-11-24
@@ -27,8 +31,12 @@
 # [0.93.0-Beta] - 2025-11-24
 # - Refactored NpEncoder to contest_tools.utils.json_encoders.
 import pandas as pd
-import matplotlib.pyplot as plt
-from matplotlib.gridspec import GridSpec
+try:
+    import matplotlib.pyplot as plt
+    from matplotlib.gridspec import GridSpec
+except ImportError:
+    plt = None
+    GridSpec = None
 import os
 import numpy as np
 import re

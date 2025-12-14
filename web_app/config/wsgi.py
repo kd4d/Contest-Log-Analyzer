@@ -1,6 +1,6 @@
 # web_app/config/wsgi.py
 #
-# Purpose: WSGI config for the Contest Log Analyzer Web App.
+# Purpose: WSGI config for the Contest Log Analytics Web App.
 #          It exposes the WSGI callable as a module-level variable named ``application``.
 #
 # Author: Gemini AI

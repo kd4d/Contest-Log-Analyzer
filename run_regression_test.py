@@ -366,7 +366,7 @@ def compare_outputs(new_items: set, reports_dir: str, archive_dir: str, ignore_w
     return all_failures
 
 def main():
-    parser = argparse.ArgumentParser(description="Run regression tests for the Contest Log Analyzer.")
+    parser = argparse.ArgumentParser(description="Run regression tests for the Contest Log Analytics.")
     parser.add_argument(
         "--nowhitespace",
         action="store_true",

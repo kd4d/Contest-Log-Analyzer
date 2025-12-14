@@ -6,8 +6,8 @@
 #          directory to ensure a Shared Presentation Layer (ADR-007).
 #
 # Author: Gemini AI
-# Date: 2025-12-12
-# Version: 0.103.0-Beta
+# Date: 2025-12-13
+# Version: 0.105.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -16,16 +16,24 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.105.3-Beta] - 2025-12-13
+# - Explicitly set X_FRAME_OPTIONS to 'SAMEORIGIN' to allow Sub-Page Views (iframe).
+# [0.105.2-Beta] - 2025-12-13
+# - Added 'django.template.context_processors.media' to TEMPLATES context_processors.
+# [0.105.1-Beta] - 2025-12-13
+# - Added MEDIA_ROOT and MEDIA_URL configurations for session storage.
+# [0.104.1-Beta] - 2025-12-12
+# - Added 'django.contrib.humanize' to INSTALLED_APPS to support template filters.
 # [0.103.0-Beta] - 2025-12-12
 # - Registered 'web_app.analyzer' app.
 # [0.102.0-Beta] - 2025-12-11
 # - Initial creation for Phase 3.
 # - Implemented ADR-007: Mapped TEMPLATES to ../contest_tools/templates.
-
 from pathlib import Path
 import os
 
@@ -50,6 +58,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.humanize',
     'web_app.analyzer',
 ]
 
@@ -82,6 +91,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'django.template.context_processors.media',
             ],
         },
     },
@@ -112,4 +122,11 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
+# Media files (Reports/Sessions)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Security: Allow iframes from the same origin (Required for Sub-Page Views)
+X_FRAME_OPTIONS = 'SAMEORIGIN'

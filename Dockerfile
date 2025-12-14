@@ -1,6 +1,6 @@
 # Dockerfile
 #
-# Purpose: Defines the Docker container image for the Contest Log Analyzer
+# Purpose: Defines the Docker container image for the Contest Log Analytics
 #          Web Application (Phase 3). It sets up a lightweight Python 3.11-slim
 #          environment, installs dependencies, and explicitly excludes multimedia
 #          libraries (ffmpeg) to enforce architectural constraints.

@@ -1,4 +1,4 @@
-# Contest Log Analyzer/test_code/html_table_prototype_generator.py
+# Contest Log Analytics/test_code/html_table_prototype_generator.py
 #
 # Purpose: A standalone script to generate a styled HTML report from data,
 #          serving as a prototype for web-based reporting.

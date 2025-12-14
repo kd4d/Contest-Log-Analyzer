@@ -1,7 +1,7 @@
-# Contest Log Analyzer/test_code/generate_checksums.py
+# Contest Log Analytics/test_code/generate_checksums.py
 #
 # Purpose: This utility calculates and displays the SHA-256 checksum for all
-#          .py and .json files within the Contest Log Analyzer project,
+#          .py and .json files within the Contest Log Analytics project,
 #          excluding the 'test_code' directory itself. This is used to
 #          verify that file versions are consistent.
 #
@@ -34,7 +34,7 @@ def main():
     """
     Main function to walk the project directory and generate checksums.
     """
-    print("--- Contest Log Analyzer File Checksums (SHA-256) ---")
+    print("--- Contest Log Analytics File Checksums (SHA-256) ---")
     
     # The script is in 'test_code', so the project root is the parent directory.
     script_path = os.path.realpath(__file__)

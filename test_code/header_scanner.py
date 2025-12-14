@@ -1,4 +1,4 @@
-# Contest Log Analyzer/test_code/header_scanner.py
+# Contest Log Analytics/test_code/header_scanner.py
 #
 # Purpose: A diagnostic script to scan Python files for header anomalies.
 #          It identifies any .py files that contain non-comment, non-blank

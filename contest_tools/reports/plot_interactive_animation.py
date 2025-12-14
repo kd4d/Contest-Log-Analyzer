@@ -1,5 +1,5 @@
 # contest_tools/reports/plot_interactive_animation.py
-# Version: 0.102.3-Beta
+# Version: 0.109.7-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -12,14 +12,19 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
-# [0.102.3-Beta] - 2025-12-11
-# - Implemented user-accessible FPS dropdown control (0.5 to 5 FPS).
-# - Changed default playback speed to 1 FPS.
-# [0.102.0-Beta] - 2025-12-11
-# - Initial creation. Implements "3-Pane" layout (Score Race, Hourly Rate, Cumulative Rate).
-# - Uses Plotly frames for client-side animation.
-# - Depends on TimeSeriesAggregator and MatrixAggregator.
-# - Updated _prepare_data to inject master_time_index into MatrixAggregator to fix shape mismatch.
+# [0.109.7-Beta] - 2025-12-13
+# - Removed 'save_debug_data' call to clean up production code.
+# [0.109.6-Beta] - 2025-12-13
+# - Improved UI Layout: Moved animation controls (Play/Pause/FPS) to bottom (y=-0.15)
+#   to prevent overlapping the chart title.
+# - Implemented standard "Two-Line" title format (Report Name + Context).
+# - Configured descriptive default filename for image downloads (contest_progress_<calls>).
+# [0.109.5-Beta] - 2025-12-13
+# - Replaced 'matplotlib.colors' dependency with native hex-to-rgba conversion.
+# [0.108.0-Beta] - 2025-12-13
+# - Implemented "Monochromatic Intensity" color strategy for animation bars.
+# [0.107.0-Beta] - 2025-12-13
+# - Changed report_type from 'html' to 'animation'.
 
 import os
 import logging
@@ -31,7 +36,7 @@ from typing import List, Dict, Any, Tuple
 from pathlib import Path
 
 from .report_interface import ContestReport
-from ._report_utils import create_output_directory, _sanitize_filename_part, save_debug_data
+from ._report_utils import create_output_directory, _sanitize_filename_part
 from ..data_aggregators.time_series import TimeSeriesAggregator
 from ..data_aggregators.matrix_stats import MatrixAggregator
 from ..styles.plotly_style_manager import PlotlyStyleManager
@@ -48,16 +53,27 @@ class Report(ContestReport):
     
     report_id: str = "interactive_animation"
     report_name: str = "Interactive Contest Animation"
-    report_type: str = "html"
+    report_type: str = "animation"
     is_specialized: bool = False
     supports_multi: bool = True
 
-    # Legacy Color Scheme Preserved for Continuity
-    _MODE_COLORS = {
-        'Run': '#2ca02c',       # Green
-        'S&P': '#1f77b4',       # Blue
-        'Unknown': '#7f7f7f'    # Gray
-    }
+    def _get_mode_color(self, base_hex: str, mode: str) -> str:
+        """Calculates color based on mode: Run=Solid, S&P=50% Opacity, Unknown=Light Gray."""
+        if mode == 'Unknown':
+            return '#d3d3d3'  # Neutral Light Gray
+        
+        if mode == 'Run':
+            return base_hex
+            
+        # S&P: Manual Hex to RGBA (No matplotlib dependency)
+        hex_clean = base_hex.lstrip('#')
+        if len(hex_clean) == 3:
+            hex_clean = ''.join([c*2 for c in hex_clean])
+            
+        r = int(hex_clean[0:2], 16)
+        g = int(hex_clean[2:4], 16)
+        b = int(hex_clean[4:6], 16)
+        return f"rgba({r},{g},{b},0.5)"
 
     def generate(self, output_path: str, **kwargs) -> str:
         """
@@ -68,9 +84,6 @@ class Report(ContestReport):
         # 1. Prepare Data
         data = self._prepare_data()
         
-        # Save debug data for regression testing verification
-        save_debug_data(True, output_path, data, "animation_source_data.json")
-
         time_bins = data['time_bins']
         callsigns = data['callsigns']
         
@@ -110,14 +123,18 @@ class Report(ContestReport):
         # They share the X-axis (Bands).
         # We use 'offsetgroup' to group by Call, but stack by Mode within that group.
         bands = data['bands']
+        base_palette = PlotlyStyleManager._COLOR_PALETTE
         modes = ['Run', 'S&P', 'Unknown']
         
         for i, call in enumerate(callsigns):
             # Calculate offset to group bars side-by-side
             # This is handled automatically if we assign unique offsetgroups per call
             
+            # Assign base color cyclically based on station index
+            base_color = base_palette[i % len(base_palette)]
+            
             for mode in modes:
-                color = self._MODE_COLORS.get(mode, '#7f7f7f')
+                color = self._get_mode_color(base_color, mode)
                 
                 # Bottom Left: Hourly
                 fig.add_trace(
@@ -192,17 +209,30 @@ class Report(ContestReport):
         fig.update_xaxes(title_text="Band", row=2, col=1)
         fig.update_xaxes(title_text="Band", row=2, col=2)
 
+        # Construct Standard Title
+        log1_meta = self.logs[0].get_metadata()
+        year = kwargs.get('year', '2024') # Fallback
+        if not kwargs.get('year'):
+             year = "2024"
+
+        contest = log1_meta.get('ContestName', 'Contest')
+        title_line1 = self.report_name
+        title_line2 = f"{year} {contest} - {', '.join(callsigns)}"
+
         # Animation Settings
         fig.update_layout(
             template="plotly_white",
             height=900,
-            title_text=f"Contest Progress Animation: {', '.join(callsigns)}",
+            # Initial placeholder title, will be updated below
+            title_text=f"{title_line1}",
             barmode='stack', # Enables stacking within offsetgroups
             updatemenus=[{
                 "type": "buttons",
                 "showactive": False,
-                "x": 0.05,
-                "y": 1.15,
+                "x": 0.0,
+                "y": -0.15,
+                "xanchor": "left",
+                "yanchor": "top",
                 "buttons": [{
                     "label": "Play",
                     "method": "animate",
@@ -214,10 +244,12 @@ class Report(ContestReport):
                 }]
             }, {
                 "type": "dropdown",
-                "direction": "down",
+                "direction": "up",
                 "showactive": True,
                 "x": 0.15,
-                "y": 1.15,
+                "y": -0.15,
+                "xanchor": "left",
+                "yanchor": "top",
                 "active": 1,
                 "buttons": [
                     {"label": "FPS: 0.5", "method": "animate", "args": [None, {"frame": {"duration": 2000, "redraw": True}, "mode": "immediate", "transition": {"duration": 2000}}]},
@@ -237,12 +269,19 @@ class Report(ContestReport):
             }]
         )
 
+        # Update Title with Standard Formatting
+        fig.update_layout(title_text=f"{title_line1}<br><sub>{title_line2}</sub>")
+
         # 6. Save
         sanitized_calls = "_".join([_sanitize_filename_part(c) for c in callsigns])
         filename = f"interactive_animation_{sanitized_calls}.html"
         full_path = os.path.join(output_path, filename)
         
-        fig.write_html(full_path, auto_play=False)
+        # Config for Download Filename
+        download_filename = f"contest_progress_{sanitized_calls}"
+        config = {'toImageButtonOptions': {'filename': download_filename, 'format': 'png'}}
+        
+        fig.write_html(full_path, auto_play=False, config=config)
         logging.info(f"Generated interactive animation: {full_path}")
 
         return f"Interactive animation generated: {filename}"

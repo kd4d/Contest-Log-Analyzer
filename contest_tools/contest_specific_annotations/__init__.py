@@ -1,4 +1,4 @@
-# Contest Log Analyzer/contest_tools/contest_specific_annotations/__init__.py
+# Contest Log Analytics/contest_tools/contest_specific_annotations/__init__.py
 #
 # Purpose: Makes the 'contest_specific_annotations' directory a Python package.
 #

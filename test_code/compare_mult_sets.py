@@ -1,4 +1,4 @@
-# Contest Log Analyzer/test_code/compare_mult_sets.py
+# Contest Log Analytics/test_code/compare_mult_sets.py
 #
 # Purpose: This utility compares the diagnostic multiplier set JSON file
 #          with the generated text report to definitively identify any

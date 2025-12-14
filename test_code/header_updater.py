@@ -1,4 +1,4 @@
-# Contest Log Analyzer/test_code/header_updater.py
+# Contest Log Analytics/test_code/header_updater.py
 #
 # Purpose: A utility script to standardize the headers of all Python files
 #          in a target directory. It requires either a --check (dry run)
@@ -110,7 +110,7 @@ def generate_new_content(filepath: str, project_root: str) -> Optional[str]:
 
     if not original_path_comment:
         relative_path = os.path.relpath(filepath, project_root).replace('\\', '/')
-        original_path_comment = f"# Contest Log Analyzer/{relative_path}\n"
+        original_path_comment = f"# Contest Log Analytics/{relative_path}\n"
 
     new_header_lines = [
         original_path_comment,
