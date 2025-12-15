@@ -1,5 +1,5 @@
 # contest_tools/reports/plot_interactive_animation.py
-# Version: 0.109.7-Beta
+# Version: 0.115.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -8,10 +8,16 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.115.1-Beta] - 2025-12-15
+# - Implemented "Representative Legend" strategy:
+#   1. Renamed station legend entries to show only the Callsign (Station=Hue).
+#   2. Added dummy legend entries using the first palette color (Blue) to explain
+#      the Mode encoding (Run=Solid, S&P=Translucent, Unknown=Gray).
 # [0.109.7-Beta] - 2025-12-13
 # - Removed 'save_debug_data' call to clean up production code.
 # [0.109.6-Beta] - 2025-12-13
@@ -139,7 +145,7 @@ class Report(ContestReport):
                 # Bottom Left: Hourly
                 fig.add_trace(
                     go.Bar(
-                        name=f"{call} {mode}",
+                        name=call,
                         x=bands,
                         y=[0] * len(bands),
                         marker_color=color,
@@ -154,7 +160,7 @@ class Report(ContestReport):
                 # Bottom Right: Cumulative
                 fig.add_trace(
                     go.Bar(
-                        name=f"{call} {mode}",
+                        name=call,
                         x=bands,
                         y=[0] * len(bands),
                         marker_color=color,
@@ -165,6 +171,28 @@ class Report(ContestReport):
                     ),
                     row=2, col=2
                 )
+
+        # --- Legend Decoder (Representative Keys) ---
+        # Add dummy traces to explain the Color Intensity/Gray logic.
+        # We use the first color in the palette (Blue) as the example.
+        example_blue = base_palette[0]
+        
+        decoder_items = [
+            ("Mode: Run", self._get_mode_color(example_blue, 'Run')),
+            ("Mode: S&P", self._get_mode_color(example_blue, 'S&P')),
+            ("Mode: Unknown", self._get_mode_color(example_blue, 'Unknown'))
+        ]
+
+        for label, color in decoder_items:
+            fig.add_trace(
+                go.Bar(
+                    x=[None], y=[None],
+                    name=label,
+                    marker_color=color,
+                    showlegend=True,
+                ),
+                row=1, col=1 # Assign to any subplot, it won't render data
+            )
 
         # 4. Generate Frames
         frames = []

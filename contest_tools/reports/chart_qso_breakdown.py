@@ -5,7 +5,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-14
-# Version: 1.0.3
+# Version: 0.115.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.115.1-Beta] - 2025-12-15
+# - Standardized chart header to the two-line format (Report Name + Context).
+# - Optimized x-axis labels ("Unique Call" -> "Call", "Common (Both)" -> "Common")
+#   to prevent overlapping text in the 3-column layout.
 # [1.0.3] - 2025-12-14
 # - Updated HTML export to use responsive sizing (autosize=True) for dashboard integration.
 # - Maintained fixed resolution for PNG exports.
@@ -33,7 +37,6 @@
 # [0.93.7-Beta] - 2025-12-04
 # - Fixed runtime crash by ensuring the output directory is created before
 #   saving the chart file.
-
 import os
 from typing import List, Dict, Tuple
 import pandas as pd
@@ -53,6 +56,7 @@ class Report(ContestReport):
     report_id = 'qso_breakdown_chart' # Aligned with Interpretation Guide
     report_name = 'QSO Breakdown Chart'
     report_type = 'chart'
+    
     supports_pairwise = True
 
     def __init__(self, logs: List[ContestLog]):
@@ -74,9 +78,9 @@ class Report(ContestReport):
         )
         
         categories = [
-            f"Unique {self.log1.get_metadata().get('MyCall')}",
-            "Common (Both Logs)",
-            f"Unique {self.log2.get_metadata().get('MyCall')}"
+            f"{self.log1.get_metadata().get('MyCall')}",
+            "Common",
+            f"{self.log2.get_metadata().get('MyCall')}"
         ]
         
         modes = ['Run', 'S&P', 'Mixed/Unk']
@@ -99,6 +103,7 @@ class Report(ContestReport):
             ]
         }
          
+    
         return {
             'categories': categories,
             'modes': modes,
@@ -148,6 +153,7 @@ class Report(ContestReport):
             # Show legend only on the first subplot to prevent duplication
             show_legend = (i == 0)
 
+    
             for mode in modes:
                 fig.add_trace(
                     go.Bar(
@@ -162,11 +168,18 @@ class Report(ContestReport):
                 )
 
         # Standard Layout Application
+        metadata = self.log1.get_metadata()
+        year = df1['Date'].dropna().iloc[0].split('-')[0] if not df1.empty else "----"
+        contest_name = metadata.get('ContestName', '')
+        event_id = metadata.get('EventID', '')
         call1 = self.log1.get_metadata().get('MyCall')
         call2 = self.log2.get_metadata().get('MyCall')
-        title_text = f"QSO Set Comparison: {call1} vs. {call2}"
         
-        layout_config = PlotlyStyleManager.get_standard_layout(title_text)
+        title_line1 = self.report_name
+        title_line2 = f"{year} {event_id} {contest_name} - {call1} vs. {call2}".strip().replace("  ", " ")
+        final_title = f"{title_line1}<br>{title_line2}"
+        
+        layout_config = PlotlyStyleManager.get_standard_layout(final_title)
         fig.update_layout(layout_config)
         
         # Specific Adjustments
