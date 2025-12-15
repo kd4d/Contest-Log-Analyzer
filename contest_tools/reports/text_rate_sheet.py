@@ -4,7 +4,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-06
-# Version: 2.0.1
+# Version: 0.116.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.116.0-Beta] - 2025-12-15
+# - Removed usage of get_copyright_footer.
+# [0.115.3-Beta] - 2025-12-15
+# - Added standardized copyright footer.
 # [2.0.1] - 2025-12-06
 # - Fixed IndexError in lookup logic for missing bands/modes.
 # [2.0.0] - 2025-12-06
@@ -31,6 +35,7 @@ import pandas as pd
 import os
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
+from ._report_utils import create_output_directory # (Note: clean up unused import if necessary, but focusing on footer removal)
 from ..data_aggregators.time_series import TimeSeriesAggregator
 
 class Report(ContestReport):
@@ -78,7 +83,7 @@ class Report(ContestReport):
             hourly_data = log_data['hourly']
             available_modes = sorted(list(hourly_data.get('by_mode', {}).keys()))
             if not available_modes:
-                 available_modes = ["QSO"] # Fallback
+                available_modes = ["QSO"] # Fallback
 
             report_blocks = []
 
@@ -124,7 +129,7 @@ class Report(ContestReport):
 
                     detail_col_defs = []
                     for m in available_modes:
-                        detail_col_defs.append({'key': f'bm_{band}_{m}', 'header': m, 'width': 5, 'type': 'band_mode'})
+                         detail_col_defs.append({'key': f'bm_{band}_{m}', 'header': m, 'width': 5, 'type': 'band_mode'})
                     
                     detail_col_defs.append({'key': f'band_total_{band}', 'header': 'Total', 'width': 7, 'type': 'calc'})
                     detail_col_defs.append({'key': f'band_cumul_{band}', 'header': 'Cumul', 'width': 8, 'type': 'calc'})
@@ -137,7 +142,7 @@ class Report(ContestReport):
                         bands=[band], # Restrict context
                         available_modes=available_modes,
                         force_band_context=band
-                    )
+                     )
                     report_blocks.append(block_detail)
 
             # --- Footer ---
@@ -220,10 +225,11 @@ class Report(ContestReport):
                     m = key.replace('mode_', '')
                     data_list = data_source['by_mode'].get(m, [])
                     val = data_list[i] if data_list else 0
-                    if force_band_context: 
+            
+                if force_band_context: 
                         # This should theoretically not happen in Summary block, 
                         # but if mode column used in detail block, it maps to band_mode
-                        pass
+                    pass
                 elif ctype == 'band_mode':
                     # key = bm_10M_CW
                     # lookup in by_band_mode

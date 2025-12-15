@@ -4,7 +4,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-14
-# Version: 0.113.0-Beta
+# Version: 0.116.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.116.0-Beta] - 2025-12-15
+# - Removed usage of get_copyright_footer.
+# [0.115.3-Beta] - 2025-12-15
+# - Added standardized copyright footer.
 # [0.113.0-Beta] - 2025-12-13
 # - Standardized filename generation: removed '_vs_' separator to match Web Dashboard conventions.
 # [2.1.1] - 2025-12-14
@@ -35,7 +39,6 @@
 # - Optimized column width usage for comparison data.
 # [0.90.0-Beta] - 2025-10-01
 # - Set new baseline version for release.
-
 from typing import List
 import pandas as pd
 import os
@@ -299,6 +302,7 @@ class Report(ContestReport):
                     line_parts.append(f"{val:>{w}}")
                     
                 lines.append(" ".join(line_parts))
+                
                 first_call_line = False
             
             # Optional spacer between hours?

@@ -5,7 +5,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-14
-# Version: 0.107.0-Beta
+# Version: 0.116.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.116.0-Beta] - 2025-12-15
+# - Removed get_copyright_footer helper function.
+# [0.115.3-Beta] - 2025-12-15
+# - Added `get_copyright_footer` to standardize text report footers.
 # [0.107.0-Beta] - 2025-12-14
 # - Updated `_sanitize_filename_part` to enforce strict lowercase conversion.
 # [0.106.0-Beta] - 2025-12-13

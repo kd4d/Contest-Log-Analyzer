@@ -5,7 +5,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-06
-# Version: 0.92.0-Beta
+# Version: 0.116.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,10 @@
 # If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.116.0-Beta] - 2025-12-15
+# - Removed usage of get_copyright_footer.
+# [0.115.3-Beta] - 2025-12-15
+# - Added standardized copyright footer.
 # [0.92.0-Beta] - 2025-12-06
 # - Refactored score summary to use a hierarchical layout (Band -> Mode).
 # - Implemented strict multiplier counts per mode row, with an 'ALL' summary row
@@ -89,6 +93,7 @@ class Report(ContestReport):
                         val_len = len(f"{value:,.0f}") if isinstance(value, (int, float)) and key not in ['AVG'] else len(str(value))
                         if isinstance(value, float) and key == 'AVG':
                             val_len = len(f"{value:.2f}")
+                        
                         col_widths[key] = max(col_widths.get(key, 0), val_len)
 
             year = df_full['Date'].iloc[0].split('-')[0] if not df_full.empty and not df_full['Date'].dropna().empty else "----"
@@ -137,6 +142,7 @@ class Report(ContestReport):
             
             report_lines.append(separator)
             
+            
             total_parts = [f"{str(total_summary.get(name, '')):{'>' if name != 'Band' else '<'}{col_widths[name]}}" for name in ['Band', 'Mode']]
             total_parts.append(f"{total_summary.get('QSOs', 0):>{col_widths['QSOs']},.0f}")
             total_parts.extend([f"{total_summary.get(name, 0):>{col_widths[name]},.0f}" for name in mult_names])
@@ -171,7 +177,7 @@ class Report(ContestReport):
         contest_def = log.contest_definition
         if getattr(contest_def, 'suppress_blank_mult_warnings', False):
             return
-            
+        
         log_location_type = getattr(log, '_my_location_type', None)
         exclusive_groups = contest_def.mutually_exclusive_mults
 
