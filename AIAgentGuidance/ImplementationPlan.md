@@ -1,223 +1,150 @@
-# ImplementationPlan.md
-
 **Version:** 1.0.0
-**Target:** 0.118.0-Beta
+**Target:** 0.119.0-Beta
 
-## 1. File: `web_app/analyzer/templates/analyzer/report_viewer.html`
-**Version:** 0.115.0-Beta (Baseline)
+# Implementation Plan - Download All Reports Feature
 
-### Surgical Changes
-I will add a "Download" button to the report viewer toolbar. This button uses the HTML5 `download` attribute to trigger the browser's save dialog (or auto-save), utilizing the provided descriptive filename.
+This plan implements the backend logic and frontend interface to zip and download all generated reports for a specific session.
 
-* **Change 1:** Inside the toolbar `div`, immediately after the "Back" button, insert the new "Download" button anchor tag.
+## User Story
+As a user, I want a single button on the dashboard to download all generated reports (charts, text, animations) as a ZIP archive, named with the year and contest, so I can easily archive the analysis.
 
-### Surgical Change Verification (`diff`)
---- BEGIN DIFF ---
-@@ -7,4 +7,5 @@
-         <a href="{{ back_url }}" class="btn btn-sm btn-outline-secondary">
-             <i class="bi bi-arrow-left me-1"></i>{{ back_label }}
-         </a>
-+        <a href="{{ iframe_src }}" download="{{ filename }}" class="btn btn-sm btn-outline-primary ms-2">
-+            <i class="bi bi-download me-1"></i>Download
-+        </a>
-     </div>
---- END DIFF ---
+## Proposed Changes
 
----
+### 1. `web_app/analyzer/views.py`
+* **Import:** Add `shutil`, `FileResponse` from `django.http`, and `_sanitize_filename_part`.
+* **New View:** Implement `download_all_reports(request, session_id)`.
+    * **Context Loading:** Load `dashboard_context.json` to extract metadata safely without re-parsing files.
+    * **Filename Construction:** Parse `report_url_path` from context to get `year` and `contest_name`.
+    * **Archiving:** Use `shutil.make_archive` to zip the `reports/` directory located within the session storage.
+    * **Streaming:** Return the zip file as a downloadable attachment.
 
-## 2. File: `contest_tools/reports/plot_qso_rate.py`
-**Version:** 0.113.3-Beta (Baseline)
+### 2. `web_app/analyzer/urls.py`
+* **Route:** Register `path('report/<str:session_id>/download_all/', views.download_all_reports, name='download_all_reports')`.
 
-### Surgical Changes
-I will inject the Plotly configuration object into the `write_html` call to ensure the "Camera" icon downloads a file with the correct descriptive name instead of `newplot.png`.
-
-* **Change 1:** In `_create_plot`, define the `config` dictionary using `base_filename`.
-* **Change 2:** Pass `config=config` to `fig.write_html`.
-
-### Surgical Change Verification (`diff`)
---- BEGIN DIFF ---
-@@ -253,3 +253,5 @@
-             width=None,
-             height=None
-         )
--        fig.write_html(html_path, include_plotlyjs='cdn')
-+        
-+        config = {'toImageButtonOptions': {'filename': base_filename, 'format': 'png'}}
-+        fig.write_html(html_path, include_plotlyjs='cdn', config=config)
-         
-         # 2. PNG (Static) - Return this path for consistency with report list
---- END DIFF ---
+### 3. `web_app/analyzer/templates/analyzer/dashboard.html`
+* **UI Update:** Locate the "Raw Data Access" card.
+* **Button Activation:** Convert the disabled button into a live primary button pointing to the new URL.
+* **Styling:** Ensure the button is "prominent" (Primary color) as requested.
 
 ---
 
-## 3. File: `contest_tools/reports/plot_point_rate.py`
-**Version:** 0.113.3-Beta (Baseline)
+## Verification Plan
 
-### Surgical Changes
-Similar to `plot_qso_rate.py`, I will inject the filename configuration for the interactive HTML export.
+### Automated Verification
+* **Syntax Check:** The Builder will verify Python syntax.
+* **Link Verification:** Verify the URL template tag generates a valid path.
 
-* **Change 1:** In `_create_plot`, define `config` using `base_filename`.
-* **Change 2:** Update `fig.write_html`.
-
-### Surgical Change Verification (`diff`)
---- BEGIN DIFF ---
-@@ -232,3 +232,5 @@
-             width=None,
-             height=None
-         )
--        fig.write_html(html_path, include_plotlyjs='cdn')
-+
-+        config = {'toImageButtonOptions': {'filename': base_filename, 'format': 'png'}}
-+        fig.write_html(html_path, include_plotlyjs='cdn', config=config)
-         
-         # Save PNG (Static)
---- END DIFF ---
+### Manual Verification Steps
+1.  Run a standard analysis (e.g., `test_code/Test_Logs/CQWW_CW`).
+2.  On the dashboard, scroll to the bottom.
+3.  Click "Download All Reports".
+4.  **Verify:** A file named like `2024_cq_ww_cw.zip` is downloaded.
+5.  **Verify:** Unzipping the file reveals the `reports/` directory structure containing `.png`, `.html`, and `.txt` files.
 
 ---
 
-## 4. File: `contest_tools/reports/plot_cumulative_difference.py`
-**Version:** 0.115.0-Beta (Baseline)
+## Surgical Changes
 
-### Surgical Changes
-Apply the configuration injection to the cumulative difference plot generator.
+### File: `web_app/analyzer/views.py`
+**Version:** 0.117.1-Beta -> 0.119.0-Beta
 
-* **Change 1:** In `_generate_single_plot`, define `config` using `base_filename`.
-* **Change 2:** Update `fig.write_html`.
+__CODE_BLOCK__python
+# ... existing imports ...
+import shutil # Added
+from django.http import Http404, JsonResponse, FileResponse # Added FileResponse
+# ... existing code ...
+from contest_tools.reports._report_utils import _sanitize_filename_part
 
-### Surgical Change Verification (`diff`)
---- BEGIN DIFF ---
-@@ -124,3 +124,5 @@
-                 height=None
-             )
--            fig.write_html(html_path, include_plotlyjs='cdn')
-+            
-+            config = {'toImageButtonOptions': {'filename': base_filename, 'format': 'png'}}
-+            fig.write_html(html_path, include_plotlyjs='cdn', config=config)
-             generated_files.append(html_path)
---- END DIFF ---
+# ... existing code ...
 
----
+def qso_dashboard(request, session_id):
+    # ... existing implementation ...
+    return render(request, 'analyzer/qso_dashboard.html', context)
 
-## 5. File: `contest_tools/reports/chart_qso_breakdown.py`
-**Version:** 0.115.2-Beta (Baseline)
+def download_all_reports(request, session_id):
+    """
+    Zips the entire 'reports' directory for the session and serves it as a download.
+    Filename format: YYYY_CONTEST_NAME.zip
+    """
+    session_path = os.path.join(settings.MEDIA_ROOT, 'sessions', session_id)
+    context_path = os.path.join(session_path, 'dashboard_context.json')
 
-### Surgical Changes
-Apply configuration injection to the QSO Breakdown chart.
+    if not os.path.exists(session_path) or not os.path.exists(context_path):
+        raise Http404("Session or context not found")
 
-* **Change 1:** In `generate`, define `config` using `base_filename`.
-* **Change 2:** Update `fig.write_html`.
+    # 1. Get Metadata for Filename
+    try:
+        with open(context_path, 'r') as f:
+            context = json.load(f)
+        
+        # report_url_path format: "YYYY/contest_name/event/calls"
+        path_parts = context.get('report_url_path', '').split('/')
+        if len(path_parts) >= 2:
+            year = _sanitize_filename_part(path_parts[0])
+            contest = _sanitize_filename_part(path_parts[1])
+            zip_filename = f"{year}_{contest}.zip"
+        else:
+            zip_filename = "contest_reports.zip"
+    except Exception:
+        zip_filename = "contest_reports.zip"
 
-### Surgical Change Verification (`diff`)
---- BEGIN DIFF ---
-@@ -140,3 +140,5 @@
-             height=None
-         )
--        fig.write_html(html_file, include_plotlyjs='cdn')
-+        
-+        config = {'toImageButtonOptions': {'filename': base_filename, 'format': 'png'}}
-+        fig.write_html(html_file, include_plotlyjs='cdn', config=config)
- 
-         # Return list of successfully created files (checking existence)
---- END DIFF ---
+    # 2. Create Zip Archive
+    # We zip 'reports' directory relative to session_path to avoid recursive loops
+    reports_root = os.path.join(session_path, 'reports')
+    if not os.path.exists(reports_root):
+        raise Http404("No reports found to archive")
 
----
+    # Output zip path (stored in session root, not inside reports!)
+    zip_output_base = os.path.join(session_path, 'archive_temp')
+    
+    try:
+        # make_archive appends .zip automatically
+        archive_path = shutil.make_archive(
+            base_name=zip_output_base,
+            format='zip',
+            root_dir=session_path,
+            base_dir='reports'
+        )
+        
+        # 3. Serve File
+        response = FileResponse(open(archive_path, 'rb'), as_attachment=True, filename=zip_filename)
+        return response
+    except Exception as e:
+        logger.error(f"Failed to zip reports: {e}")
+        raise Http404("Failed to generate archive")
+__CODE_BLOCK__
 
-## 6. File: `contest_tools/reports/plot_comparative_band_activity.py`
-**Version:** 0.114.0-Beta (Baseline)
+### File: `web_app/analyzer/urls.py`
+**Version:** 0.114.0-Beta -> 0.119.0-Beta
 
-### Surgical Changes
-Apply configuration injection. Note that this file uses `filename_base` variable name instead of `base_filename`.
+__CODE_BLOCK__python
+# ... existing imports ...
+urlpatterns = [
+    path('', views.home, name='home'),
+    path('analyze/', views.analyze_logs, name='analyze'),
+    path('analyze/progress/<str:request_id>/', views.get_progress, name='get_progress'),
+    path('report/<str:session_id>/dashboard/', views.dashboard_view, name='dashboard_view'),
+    path('report/<str:session_id>/dashboard/qso/', views.qso_dashboard, name='qso_dashboard'),
+    path('report/<str:session_id>/download_all/', views.download_all_reports, name='download_all_reports'), # Added
+    path('report/<str:session_id>/<path:file_path>', views.view_report, name='view_report'),
+]
+__CODE_BLOCK__
 
-* **Change 1:** In `_generate_plot_for_slice`, define `config` using `filename_base`.
-* **Change 2:** Update `fig.write_html`.
+### File: `web_app/analyzer/templates/analyzer/dashboard.html`
+**Version:** N/A (Template)
 
-### Surgical Change Verification (`diff`)
---- BEGIN DIFF ---
-@@ -163,3 +163,5 @@
-             # Save HTML
--            fig.write_html(filepath_html, include_plotlyjs='cdn')
-+            
-+            config = {'toImageButtonOptions': {'filename': filename_base, 'format': 'png'}}
-+            fig.write_html(filepath_html, include_plotlyjs='cdn', config=config)
-             results.append(f"Interactive plot saved: {filepath_html}")
-             
---- END DIFF ---
-
----
-
-## 7. File: `contest_tools/reports/plot_comparative_run_sp.py`
-**Version:** 1.2.0 (Baseline)
-
-### Surgical Changes
-Apply configuration injection. Uses `base_filename`.
-
-* **Change 1:** In `_generate_plot_for_page`, define `config` using `base_filename`.
-* **Change 2:** Update `fig.write_html`.
-
-### Surgical Change Verification (`diff`)
---- BEGIN DIFF ---
-@@ -190,3 +190,5 @@
-         save_debug_data(debug_data_flag, output_path, plot_data_for_debug, custom_filename=debug_filename)
-         
--        fig.write_html(html_path)
-+        config = {'toImageButtonOptions': {'filename': base_filename, 'format': 'png'}}
-+        fig.write_html(html_path, config=config)
-         fig.write_image(png_path)
-         
---- END DIFF ---
-
----
-
-## 8. File: `contest_tools/reports/chart_point_contribution.py`
-**Version:** 1.0.0 (Baseline)
-
-### Surgical Changes
-Apply configuration injection. Uses `base_filename`.
-
-* **Change 1:** In `generate`, define `config` using `base_filename`.
-* **Change 2:** Update `fig.write_html`.
-
-### Surgical Change Verification (`diff`)
---- BEGIN DIFF ---
-@@ -116,3 +116,5 @@
- 
-         # Save HTML (New Interactive Requirement)
--        fig.write_html(html_file, include_plotlyjs='cdn')
-+        
-+        config = {'toImageButtonOptions': {'filename': base_filename, 'format': 'png'}}
-+        fig.write_html(html_file, include_plotlyjs='cdn', config=config)
-         generated_files.append(html_file)
- 
---- END DIFF ---
-
----
-
-## 9. File: `contest_tools/reports/chart_point_contribution_single.py`
-**Version:** 1.0.1 (Baseline)
-
-### Surgical Changes
-Apply configuration injection. Uses `base_filename`.
-
-* **Change 1:** In `generate`, define `config` using `base_filename`.
-* **Change 2:** Update `fig.write_html`.
-
-### Surgical Change Verification (`diff`)
---- BEGIN DIFF ---
-@@ -118,3 +118,5 @@
-         # Save Dual Outputs
-         fig.write_image(png_file)
--        fig.write_html(html_file)
-+        
-+        config = {'toImageButtonOptions': {'filename': base_filename, 'format': 'png'}}
-+        fig.write_html(html_file, config=config)
- 
-         return [png_file, html_file]
---- END DIFF ---
-
-## 10. Pre-Flight Check
-* **Inputs:** 9 source files (1 Template, 8 Python Reports).
-* **Expected Outcome:**
-    * The report viewer will show a "Download" button that triggers a save dialog for text files.
-    * All Plotly charts (except the animation, which was already done) will have a Camera icon that saves a PNG with a descriptive filename (e.g., `qso_rate_plots_all_call1_call2.png`) instead of `newplot.png`.
-* **Mental Walkthrough:** Verified variable names for each Python file (`base_filename` vs `filename_base`). Verified HTML syntax for the download attribute.
-* **Visual Compliance:** N/A (Backend/Template Logic).
+__CODE_BLOCK__html
+<div class="row mt-5 mb-5">
+        <div class="col-12 text-center">
+            <div class="p-4 bg-white rounded shadow-sm border">
+                <h5 class="fw-bold text-secondary mb-3">Raw Data Access</h5>
+                <a href="{% url 'download_all_reports' session_key %}" class="btn btn-primary btn-lg">
+                     <i class="bi bi-file-earmark-zip me-2"></i>Download All Reports
+                </a>
+                <p class="text-muted x-small mt-2 mb-0">Contains all Charts (PNG/HTML) and Text Reports.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+__CODE_BLOCK__

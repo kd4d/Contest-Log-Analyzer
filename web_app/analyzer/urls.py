@@ -4,8 +4,8 @@
 #          Maps the home page and analysis endpoint to views.
 #
 # Author: Gemini AI
-# Date: 2025-12-14
-# Version: 0.114.0-Beta
+# Date: 2025-12-15
+# Version: 0.119.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.119.0-Beta] - 2025-12-15
+# - Added 'download_all_reports' pattern to support ZIP archive downloads.
 # [0.114.0-Beta] - 2025-12-14
 # - Added 'dashboard_view' pattern to support persisted dashboard states.
 # [0.111.2-Beta] - 2025-12-14
@@ -43,5 +45,6 @@ urlpatterns = [
     path('analyze/progress/<str:request_id>/', views.get_progress, name='get_progress'),
     path('report/<str:session_id>/dashboard/', views.dashboard_view, name='dashboard_view'),
     path('report/<str:session_id>/dashboard/qso/', views.qso_dashboard, name='qso_dashboard'),
+    path('report/<str:session_id>/download_all/', views.download_all_reports, name='download_all_reports'),
     path('report/<str:session_id>/<path:file_path>', views.view_report, name='view_report'),
 ]

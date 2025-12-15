@@ -133,10 +133,10 @@
         <div class="col-12 text-center">
             <div class="p-4 bg-white rounded shadow-sm border">
                 <h5 class="fw-bold text-secondary mb-3">Raw Data Access</h5>
-                <a href="#" class="btn btn-secondary disabled">
-                     <i class="bi bi-folder2-open me-2"></i>All Reports (Archive)
+                <a href="{% url 'download_all_reports' session_key %}" class="btn btn-primary btn-lg">
+                     <i class="bi bi-file-earmark-zip me-2"></i>Download All Reports
                 </a>
-                <p class="text-muted x-small mt-2 mb-0">Full file browser coming in Phase 4.1</p>
+                <p class="text-muted x-small mt-2 mb-0">Contains all Charts (PNG/HTML) and Text Reports.</p>
             </div>
         </div>
     </div>

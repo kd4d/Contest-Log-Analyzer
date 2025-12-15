@@ -6,7 +6,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-15
-# Version: 0.117.1-Beta
+# Version: 0.119.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -20,6 +20,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.119.0-Beta] - 2025-12-15
+# - Added `download_all_reports` view to zip and serve the session's 'reports' directory.
+# - Added `FileResponse` import and `_sanitize_filename_part` for archive handling.
 # [0.117.1-Beta] - 2025-12-15
 # - Fixed 404 error for rate sheet comparison in 'qso_dashboard' by correcting filename construction
 #   (removed '_vs_' separator to match ReportGenerator output).
@@ -69,7 +72,7 @@ import uuid
 import json
 import time
 from django.shortcuts import render, redirect, reverse
-from django.http import Http404, JsonResponse
+from django.http import Http404, JsonResponse, FileResponse
 from django.conf import settings
 from .forms import UploadLogForm
 
@@ -174,7 +177,7 @@ def analyze_logs(request):
                 # Note: ReportGenerator implicitly aggregates if needed, but we treat it as the bridge
                 # Step 4: Generating
                 _update_progress(request_id, 4) 
-        
+                
                 generator = ReportGenerator(lm.logs, root_output_dir=session_path)
                 generator.run_reports('all')
                 
@@ -380,3 +383,55 @@ def qso_dashboard(request, session_id):
     }
     
     return render(request, 'analyzer/qso_dashboard.html', context)
+
+def download_all_reports(request, session_id):
+    """
+    Zips the entire 'reports' directory for the session and serves it as a download.
+    Filename format: YYYY_CONTEST_NAME.zip
+    """
+    session_path = os.path.join(settings.MEDIA_ROOT, 'sessions', session_id)
+    context_path = os.path.join(session_path, 'dashboard_context.json')
+
+    if not os.path.exists(session_path) or not os.path.exists(context_path):
+        raise Http404("Session or context not found")
+
+    # 1. Get Metadata for Filename
+    try:
+        with open(context_path, 'r') as f:
+            context = json.load(f)
+        
+        # report_url_path format: "YYYY/contest_name/event/calls"
+        path_parts = context.get('report_url_path', '').split('/')
+        if len(path_parts) >= 2:
+            year = _sanitize_filename_part(path_parts[0])
+            contest = _sanitize_filename_part(path_parts[1])
+            zip_filename = f"{year}_{contest}.zip"
+        else:
+            zip_filename = "contest_reports.zip"
+    except Exception:
+        zip_filename = "contest_reports.zip"
+
+    # 2. Create Zip Archive
+    # We zip 'reports' directory relative to session_path to avoid recursive loops
+    reports_root = os.path.join(session_path, 'reports')
+    if not os.path.exists(reports_root):
+        raise Http404("No reports found to archive")
+
+    # Output zip path (stored in session root, not inside reports!)
+    zip_output_base = os.path.join(session_path, 'archive_temp')
+    
+    try:
+        # make_archive appends .zip automatically
+        archive_path = shutil.make_archive(
+            base_name=zip_output_base,
+            format='zip',
+            root_dir=session_path,
+            base_dir='reports'
+        )
+        
+        # 3. Serve File
+        response = FileResponse(open(archive_path, 'rb'), as_attachment=True, filename=zip_filename)
+        return response
+    except Exception as e:
+        logger.error(f"Failed to zip reports: {e}")
+        raise Http404("Failed to generate archive")

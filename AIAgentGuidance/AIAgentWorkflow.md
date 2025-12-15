@@ -1,9 +1,13 @@
 # AIAgentWorkflow.md
 
-**Version: 4.17.0**
-**Date: 2025-12-13**
+**Version: 4.18.0**
+**Date: 2025-12-15**
 ---
 ### --- Revision History ---
+## [4.18.0] - 2025-12-15
+### Changed
+# - Replaced Section 9 with "The Standard Markdown Fence Protocol" to harden output formatting logic.
+# - Updated Protocol 3.2.4 to reference Protocol 9.0.
 ## [4.17.0] - 2025-12-13
 ### Changed
 # - Added Protocol 2.4.0 "The Kit Assembly State" to enforce rigid output templates.
@@ -343,10 +347,7 @@ This workflow is a formal state machine that governs all development tasks, from
     1.  **Single File Per Response**: Only one file will be delivered in a single response. The "bundle" terminology (e.g., `project_bundle.txt`) refers exclusively to the user-provided files used for a Definitive State Initialization; all file deliveries from the AI are strictly individual.
     2.  **Raw Source Text**: The content inside the delivered code block must be the raw source text of the file.
     3.  **Code File Delivery**: For code files (e.g., `.py`, `.json`), the content will be delivered in a standard fenced code block with the appropriate language specifier.
-    4.  **Markdown File Delivery**: To prevent the user interface from rendering markdown and to provide a "Copy" button, the entire raw content of a documentation file (`.md`) must be delivered inside a single, **`cla-bundle`**-specified code block.
-        * **Internal Code Fence Substitution**: To prevent the `cla-bundle` block from terminating prematurely, **all** internal three-backtick code fences must be replaced with the `__CODE_BLOCK__` placeholder. This rule is absolute and applies to both opening and closing fences.
-        * **Example (Opening Fence)**: `__CODE_BLOCK__python` **must be replaced with** `__CODE_BLOCK__python`.
-        * **Example (Closing Fence)**: `__CODE_BLOCK__` **must be replaced with** `__CODE_BLOCK__`.
+    4.  **Markdown File Delivery**: Documentation files (`.md`) must be delivered inside a `cla-bundle` specified code block, strictly adhering to **Protocol 9.0 (The Standard Markdown Fence Protocol)** regarding the sanitization of internal code fences.
         * **Clarification**: This substitution is a requirement of the AI's web interface. The user will provide files back with standard markdown fences, which is the expected behavior.
     5.  **Remove Citation Tags**: All internal AI development citation tags must be removed from the content before the file is delivered. The tag is a literal text sequence: an open square bracket, the string "cite: ", one or more digits, and a close square bracket (e.g.,). This pattern does not include Markdown backticks.
     6.  **Post-Delivery Protocol Verification.** Immediately following any file delivery, the AI must explicitly state which sub-protocol from Section 3.2 it followed and confirm that its last output was fully compliant.
@@ -595,18 +596,13 @@ These protocols are for troubleshooting, error handling, and non-standard situat
     4.  **Plan**: The implementation plan must address all identified instances of the bug in a single, coordinated set of changes.
     5.  **Verify**: The pre-flight checklist must include a confirmation that all identified instances have been addressed.
 
-7.8. **The Builder Output Standard.**
-    * **Trigger:** Automatically invoked by Protocol 1.6 ("Act as Builder").
-    * **9.1 The Outer Container:** You must wrap each file in standard Markdown code fences (e.g., `python`, `markdown`, `html`) so they render correctly in the chat UI.
-    * **9.2 The Markdown Encapsulation Protocol (Anti-Nesting):**
-        * **Constraint:** Chat interfaces cannot render nested markdown code blocks.
-        * **Scope Definition:** Sanitization applies **EXCLUSIVELY** to the *internal text content* of the file. It does **NOT** apply to the display container.
-        * **Order of Operations:**
-            1. **Generate** the raw file content.
-            2. **Sanitize** the raw content (replace internal triple-backticks with `__CODE_BLOCK__`).
-            3. **Wrap** the *sanitized* content in standard markdown fences (e.g., __CODE_BLOCK__python ... __CODE_BLOCK__) for delivery.
-        * **Strict Prohibition:** You must **NEVER** replace or alter the outer markdown fences that act as the container for the file.
-    * **9.3 The Full Fidelity Mandate:**
-        * **Full Files Only:** You must return the *complete*, executable content of the file. Using placeholders like `# ... existing code ...` is a violation.
-        * **Preserve Headers:** You must retain existing file headers (Copyright, License) *verbatim*.
-        * **Update History:** You must append a new entry to the "Revision History" section with today's date and a summary of your changes.
+7.8. **(Deprecated)** Merged into Section 9.
+
+9.0. **The Standard Markdown Fence Protocol.**
+    * **Definition:** All file content must be delivered inside a standard Markdown code block using triple backticks (```).
+    * **Language Specifier:** The opening fence must include the correct language identifier (e.g., `python`, `html`, `json`) to enable syntax highlighting in the chat interface.
+    * **Sanitization Scope:**
+        * **External Container:** The outer triple backticks that create the block are the **"Display Container."** These **MUST NOT** be sanitized or altered.
+        * **Internal Content:** Only triple backticks inside the file content itself (e.g., a Python docstring or a Markdown file being delivered) must be sanitized (replaced with `__CODE_BLOCK__`) to prevent breaking the outer container.
+    * **Visual Check:** The final output must look like a rendered code box in the chat window, not plain text starting with `__CODE_BLOCK__...`.
+    * **Example:** "Wrap the file content in standard markdown fences (`python` ... ). Do not replace these outer fences with placeholders. Only sanitize triple backticks that appear within the code itself."
