@@ -5,7 +5,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-14
-# Version: 0.114.0-Beta
+# Version: 0.115.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.115.0-Beta] - 2025-12-14
+# - Consolidated 3-subplot layout into a single chart with superimposed lines
+#   (Total, Run, S&P, Unknown) for better readability and vertical resolution.
 # [0.114.0-Beta] - 2025-12-14
 # - Updated HTML export to use responsive sizing (autosize=True) for dashboard integration.
 # - Maintained fixed 1600x900 resolution for PNG exports.
@@ -52,8 +55,8 @@ from ..styles.plotly_style_manager import PlotlyStyleManager
 
 class Report(ContestReport):
     """
-    Generates a three-subplot plot showing the cumulative difference in
-    QSOs or Points between two logs.
+    Generates a single plot showing the cumulative difference in QSOs or Points
+    between two logs, with superimposed lines for Total, Run, S&P, and Unknown.
     """
     report_id: str = "cumulative_difference_plots"
     report_name: str = "Cumulative Difference Plots"
@@ -86,93 +89,104 @@ class Report(ContestReport):
             metric_name = log1.contest_definition.points_header_label or "Points"
              
             run1 = get_series(call1, 'run_points')
-            sp1 = get_series(call1, 'sp_unk_points')
+            sp1 = get_series(call1, 'sp_points')
+            unk1 = get_series(call1, 'unknown_points')
             run2 = get_series(call2, 'run_points')
-            sp2 = get_series(call2, 'sp_unk_points')
+            sp2 = get_series(call2, 'sp_points')
+            unk2 = get_series(call2, 'unknown_points')
             
             run_diff = run1 - run2
-            sp_unk_diff = sp1 - sp2
-            overall_diff = (run1 + sp1) - (run2 + sp2)
+            sp_diff = sp1 - sp2
+            unk_diff = unk1 - unk2
+            overall_diff = (run1 + sp1 + unk1) - (run2 + sp2 + unk2)
 
             debug_df = pd.DataFrame({
-                f'run_pts_{call1}': run1, f'sp_pts_{call1}': sp1,
-                f'run_pts_{call2}': run2, f'sp_pts_{call2}': sp2,
-                'run_diff': run_diff, 'sp_unk_diff': sp_unk_diff, 'overall_diff': overall_diff
+                f'run_{call1}': run1, f'sp_{call1}': sp1, f'unk_{call1}': unk1,
+                f'run_{call2}': run2, f'sp_{call2}': sp2, f'unk_{call2}': unk2,
+                'run_diff': run_diff, 'sp_diff': sp_diff, 'unk_diff': unk_diff,
+                'overall_diff': overall_diff
             })
             
         else: # metric == 'qsos'
             metric_name = "QSOs"
             
             run1 = get_series(call1, 'run_qsos')
-            sp1 = get_series(call1, 'sp_unk_qsos')
+            sp1 = get_series(call1, 'sp_qsos')
+            unk1 = get_series(call1, 'unknown_qsos')
             run2 = get_series(call2, 'run_qsos')
-            sp2 = get_series(call2, 'sp_unk_qsos')
+            sp2 = get_series(call2, 'sp_qsos')
+            unk2 = get_series(call2, 'unknown_qsos')
             
             run_diff = run1 - run2
-            sp_unk_diff = sp1 - sp2
-            overall_diff = (run1 + sp1) - (run2 + sp2)
+            sp_diff = sp1 - sp2
+            unk_diff = unk1 - unk2
+            overall_diff = (run1 + sp1 + unk1) - (run2 + sp2 + unk2)
             
             debug_df = pd.DataFrame({
-                f'run_qso_{call1}': run1, f'sp_qso_{call1}': sp1,
-                f'run_qso_{call2}': run2, f'sp_qso_{call2}': sp2,
-                'run_diff': run_diff, 'sp_unk_diff': sp_unk_diff, 'overall_diff': overall_diff
+                f'run_{call1}': run1, f'sp_{call1}': sp1, f'unk_{call1}': unk1,
+                f'run_{call2}': run2, f'sp_{call2}': sp2, f'unk_{call2}': unk2,
+                'run_diff': run_diff, 'sp_diff': sp_diff, 'unk_diff': unk_diff,
+                'overall_diff': overall_diff
             })
         
         # --- Plotting Preparation ---
-        if overall_diff.abs().sum() == 0 and run_diff.abs().sum() == 0 and sp_unk_diff.abs().sum() == 0:
+        if overall_diff.abs().sum() == 0:
             logging.info(f"Skipping {band_filter} difference plot: no data available for this band.")
             return []
 
         # Get Standard Colors
         mode_colors = PlotlyStyleManager.get_qso_mode_colors()
         
-        # Create Subplots
-        fig = make_subplots(
-            rows=3, cols=1,
-            shared_xaxes=True,
-            vertical_spacing=0.08,
-            subplot_titles=(f"Overall Diff ({metric_name})", "Run Diff", "S&P+Unk Diff")
-        )
+        # Single Plot
+        fig = go.Figure()
 
-        # --- Row 1: Overall Difference (Black) ---
+        # --- Trace 1: Overall Difference (Black) ---
         fig.add_trace(
             go.Scatter(
                 x=overall_diff.index, y=overall_diff,
                 mode='lines+markers',
                 name='Overall',
-                line=dict(color='black', width=2),
-                marker=dict(size=4)
-            ),
-            row=1, col=1
+                line=dict(color='black', width=3),
+                marker=dict(size=3)
+            )
         )
 
-        # --- Row 2: Run Difference (Green) ---
+        # --- Trace 2: Run Difference (Green) ---
         fig.add_trace(
             go.Scatter(
                 x=run_diff.index, y=run_diff,
                 mode='lines+markers',
                 name='Run',
                 line=dict(color=mode_colors['Run'], width=2),
-                marker=dict(size=4)
-            ),
-            row=2, col=1
+                marker=dict(size=3)
+            )
         )
 
-        # --- Row 3: S&P Difference (Blue) ---
+        # --- Trace 3: S&P Difference (Blue) ---
         fig.add_trace(
             go.Scatter(
-                x=sp_unk_diff.index, y=sp_unk_diff,
+                x=sp_diff.index, y=sp_diff,
                 mode='lines+markers',
                 name='S&P',
                 line=dict(color=mode_colors['S&P'], width=2),
-                marker=dict(size=4)
-            ),
-            row=3, col=1
+                marker=dict(size=3)
+            )
+        )
+        
+        # --- Trace 4: Unknown Difference (Gray) ---
+        fig.add_trace(
+            go.Scatter(
+                x=unk_diff.index, y=unk_diff,
+                mode='lines+markers',
+                name='Unknown',
+                line=dict(color=mode_colors['Mixed/Unk'], width=2, dash='dot'),
+                marker=dict(size=3),
+                visible='legendonly' if unk_diff.abs().sum() == 0 else True
+            )
         )
 
         # --- Zero Reference Lines ---
-        for i in range(1, 4):
-            fig.add_hline(y=0, line_width=1, line_color="black", row=i, col=1)
+        fig.add_hline(y=0, line_width=1, line_color="gray")
 
         # --- Metadata & Titles ---
         metadata = log1.get_metadata()
@@ -195,15 +209,12 @@ class Report(ContestReport):
         
         # Base layout properties common to both
         fig.update_layout(
-            showlegend=False,
-            margin=dict(t=140)
+            showlegend=True,
+            margin=dict(t=140),
+            xaxis_title="Contest Time",
+            yaxis_title=f"Cumulative Diff ({metric_name})",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
-
-        # Update Axis Labels
-        fig.update_yaxes(title_text="Diff", row=1, col=1)
-        fig.update_yaxes(title_text="Diff", row=2, col=1)
-        fig.update_yaxes(title_text="Diff", row=3, col=1)
-        fig.update_xaxes(title_text="Contest Time", row=3, col=1)
 
         # --- Saving Files (Dual Output) ---
         filename_band = log1.contest_definition.valid_bands[0].lower() if is_single_band else band_filter.lower().replace('m', '')
