@@ -5,7 +5,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-14
-# Version: 0.115.2-Beta
+# Version: 0.118.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -14,10 +14,13 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.118.0-Beta] - 2025-12-15
+# - Injected descriptive filename configuration for interactive HTML plot downloads.
 # [0.115.2-Beta] - 2025-12-15
 # - Increased top margin to 140px to prevent the two-line header from overlapping subplot titles.
 # [0.115.1-Beta] - 2025-12-15
@@ -38,6 +41,7 @@
 # [0.93.7-Beta] - 2025-12-04
 # - Fixed runtime crash by ensuring the output directory is created before
 #   saving the chart file.
+
 import os
 from typing import List, Dict, Tuple
 import pandas as pd
@@ -154,7 +158,6 @@ class Report(ContestReport):
             # Show legend only on the first subplot to prevent duplication
             show_legend = (i == 0)
 
-    
             for mode in modes:
                 fig.add_trace(
                     go.Bar(
@@ -219,7 +222,9 @@ class Report(ContestReport):
             width=None,
             height=None
         )
-        fig.write_html(html_file, include_plotlyjs='cdn')
+        
+        config = {'toImageButtonOptions': {'filename': base_filename, 'format': 'png'}}
+        fig.write_html(html_file, include_plotlyjs='cdn', config=config)
 
         # Return list of successfully created files (checking existence)
         outputs = []

@@ -5,8 +5,8 @@
 #          aggregates data using DAL components, and renders the dashboard.
 #
 # Author: Gemini AI
-# Date: 2025-12-14
-# Version: 0.115.0-Beta
+# Date: 2025-12-15
+# Version: 0.117.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -20,6 +20,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.117.1-Beta] - 2025-12-15
+# - Fixed 404 error for rate sheet comparison in 'qso_dashboard' by correcting filename construction
+#   (removed '_vs_' separator to match ReportGenerator output).
 # [0.115.0-Beta] - 2025-12-14
 # - Fixed 404 errors on Linux/Docker by lowercasing report URL path components
 #   to match the filesystem structure created by ReportGenerator.
@@ -95,7 +98,6 @@ def _cleanup_old_sessions(max_age_seconds=3600):
             try:
                 if os.stat(item_path).st_mtime < (now - max_age_seconds):
                     os.remove(item_path)
-        
             except Exception as e:
                 logger.warning(f"Failed to cleanup progress file {item}: {e}")
 
@@ -373,7 +375,7 @@ def qso_dashboard(request, session_id):
         # Global Files
         'global_qso_rate_file': os.path.join(report_rel_path, f"plots/qso_rate_plots_all_{combo_id}.html"),
         'global_point_rate_file': os.path.join(report_rel_path, f"plots/point_rate_plots_all_{combo_id}.html"),
-        'rate_sheet_comparison': os.path.join(report_rel_path, f"text/rate_sheet_comparison_{'_vs_'.join(sorted(callsigns_safe))}.txt"),
+        'rate_sheet_comparison': os.path.join(report_rel_path, f"text/rate_sheet_comparison_{'_'.join(sorted(callsigns_safe))}.txt"),
         'report_base': os.path.join(report_rel_path) # Pass base path for template filters
     }
     

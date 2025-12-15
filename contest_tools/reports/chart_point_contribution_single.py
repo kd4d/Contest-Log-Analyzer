@@ -5,7 +5,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-08
-# Version: 1.0.1
+# Version: 0.118.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.118.0-Beta] - 2025-12-15
+# - Injected descriptive filename configuration for interactive HTML plot downloads.
 # [1.0.1] - 2025-12-08
 # - Fixed PNG layout issues by implementing dynamic figure sizing and explicit vertical spacing.
 # [1.0.0] - 2025-12-08
@@ -108,7 +110,7 @@ class Report(ContestReport):
         for i, band in enumerate(bands):
             row = (i // cols) + 1
             col = (i % cols) + 1
-            
+        
             log_data = band_data_map[band]
             point_breakdown = log_data['breakdown']
 
@@ -169,6 +171,8 @@ class Report(ContestReport):
         
         # Save Dual Outputs
         fig.write_image(png_file)
-        fig.write_html(html_file)
+        
+        config = {'toImageButtonOptions': {'filename': base_filename, 'format': 'png'}}
+        fig.write_html(html_file, config=config)
 
         return [png_file, html_file]

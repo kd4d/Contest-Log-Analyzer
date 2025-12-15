@@ -5,7 +5,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-10
-# Version: 1.2.0
+# Version: 1.3.0
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,8 @@
 # If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [1.3.0] - 2025-12-15
+# - Injected descriptive filename configuration for interactive HTML plot downloads.
 # [1.2.0] - 2025-12-10
 # - Added CLI entry point (argparse) for standalone execution.
 # - Updated documentation to reflect CLI usage.
@@ -154,6 +156,7 @@ class Report(ContestReport):
             # Note: fig.data[-1].text assignment above might be interpreted as a single list if not careful.
             # Heatmap text argument expects a 2D array if z is 2D.
             # Passing list of lists directly in constructor usually works.
+
             # --- Y-Axis Correction ---
             # Force the Y-axis to display the callsigns as categories, not numbers
             fig.update_yaxes(type='category', categoryorder='array', categoryarray=[call2, call1], row=row_idx, col=1)
@@ -207,7 +210,8 @@ class Report(ContestReport):
         debug_filename = f"{base_filename}.json"
         save_debug_data(debug_data_flag, output_path, plot_data_for_debug, custom_filename=debug_filename)
         
-        fig.write_html(html_path)
+        config = {'toImageButtonOptions': {'filename': base_filename, 'format': 'png'}}
+        fig.write_html(html_path, config=config)
         fig.write_image(png_path)
         
         return html_path # Return HTML as primary interactive artifact
@@ -216,7 +220,7 @@ class Report(ContestReport):
         """Orchestrates the generation of the combined plot and per-mode plots."""
         if len(self.logs) != 2:
             return f"Error: Report '{self.report_name}' requires exactly two logs."
-        
+
         BANDS_PER_PAGE = 8
         log1, log2 = self.logs[0], self.logs[1]
         created_files = []
@@ -248,6 +252,7 @@ class Report(ContestReport):
 
         if not created_files:
             return f"Report '{self.report_name}' did not generate any files."
+
         return f"Report file(s) saved to:\n" + "\n".join([f"  - {fp}" for fp in created_files])
 
     def _run_plot_for_slice(self, matrix_data, log1, log2, output_path, bands_per_page, mode_filter, **kwargs):

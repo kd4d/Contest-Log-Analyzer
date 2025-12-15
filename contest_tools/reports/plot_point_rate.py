@@ -4,8 +4,8 @@
 #          and for each individual band.
 #
 # Author: Gemini AI
-# Date: 2025-12-14
-# Version: 0.113.3-Beta
+# Date: 2025-12-15
+# Version: 0.118.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.118.0-Beta] - 2025-12-15
+# - Injected descriptive filename configuration for interactive HTML plot downloads.
+# [0.117.0-Beta] - 2025-12-15
+# - Moved legend to top-left internal position to match QSO Rate Plot.
 # [0.113.3-Beta] - 2025-12-14
 # - Fixed HTML layout issue by explicitly setting autosize=True and clearing
 #   fixed dimensions before saving the HTML file.
@@ -85,6 +89,7 @@ class Report(ContestReport):
         
         if not all_created_files:
             return "No point rate plots were generated."
+
         return "Point rate plots saved to:\n" + "\n".join([f"  - {fp}" for fp in all_created_files])
 
     def _orchestrate_plot_generation(self, dfs: List[pd.DataFrame], output_path: str, mode_filter: str, **kwargs) -> List[str]:
@@ -252,7 +257,7 @@ class Report(ContestReport):
             height=900,
             xaxis_title="Contest Time",
             yaxis_title=f"Cumulative {metric_name}",
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+            legend=dict(x=0.01, y=0.99)
         )
 
         create_output_directory(output_path)
@@ -290,7 +295,9 @@ class Report(ContestReport):
             width=None,
             height=None
         )
-        fig.write_html(html_path, include_plotlyjs='cdn')
+        
+        config = {'toImageButtonOptions': {'filename': base_filename, 'format': 'png'}}
+        fig.write_html(html_path, include_plotlyjs='cdn', config=config)
         
         # Save PNG (Static)
         png_path = os.path.join(output_path, f"{base_filename}.png")

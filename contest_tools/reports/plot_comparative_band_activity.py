@@ -1,8 +1,8 @@
 # contest_tools/reports/plot_comparative_band_activity.py
 #
 # Author: Gemini AI
-# Date: 2025-12-14
-# Version: 0.114.0-Beta
+# Date: 2025-12-15
+# Version: 0.118.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,8 @@
 #          visualize the band activity of two logs side-by-side using Plotly.
 #
 # --- Revision History ---
+# [0.118.0-Beta] - 2025-12-15
+# - Injected descriptive filename configuration for interactive HTML plot downloads.
 # [0.114.0-Beta] - 2025-12-14
 # - Updated HTML export to use responsive sizing (autosize=True) for dashboard integration.
 # - Maintained fixed resolution for PNG exports.
@@ -218,7 +220,8 @@ class Report(ContestReport):
                 width=None
             )
             # Save HTML
-            fig.write_html(filepath_html, include_plotlyjs='cdn')
+            config = {'toImageButtonOptions': {'filename': filename_base, 'format': 'png'}}
+            fig.write_html(filepath_html, include_plotlyjs='cdn', config=config)
             results.append(f"Interactive plot saved: {filepath_html}")
             
             return "\n".join(results)
@@ -230,7 +233,6 @@ class Report(ContestReport):
         """Orchestrates the generation of the combined plot and per-mode plots."""
         if len(self.logs) != 2:
             return f"Error: Report '{self.report_name}' requires exactly two logs."
-
         log1, log2 = self.logs[0], self.logs[1]
         created_files = []
 

@@ -5,7 +5,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-07
-# Version: 1.0.0
+# Version: 0.118.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.118.0-Beta] - 2025-12-15
+# - Injected descriptive filename configuration for interactive HTML plot downloads.
 # [1.0.0] - 2025-12-07
 # - Refactored visualization engine from Matplotlib to Plotly.
 # - Added HTML export capability alongside standard PNG export.
@@ -151,7 +153,8 @@ class Report(ContestReport):
             print(f"Warning: Could not save PNG (kaleido might be missing): {e}")
 
         # Save HTML (New Interactive Requirement)
-        fig.write_html(html_file, include_plotlyjs='cdn')
+        config = {'toImageButtonOptions': {'filename': base_filename, 'format': 'png'}}
+        fig.write_html(html_file, include_plotlyjs='cdn', config=config)
         generated_files.append(html_file)
 
         return generated_files

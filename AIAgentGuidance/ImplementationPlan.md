@@ -1,24 +1,26 @@
 # ImplementationPlan.md
 
 **Version:** 1.0.0
-**Target:** 0.117.0-Beta
+**Target:** 0.118.0-Beta
 
-## 1. File: `contest_tools/reports/plot_point_rate.py`
-**Version:** 0.113.3-Beta (Baseline)
+## 1. File: `web_app/analyzer/templates/analyzer/report_viewer.html`
+**Version:** 0.115.0-Beta (Baseline)
 
 ### Surgical Changes
-I will update the `fig.update_layout` call responsible for the specific layout overrides to move the legend from the top-right (external) to the top-left (internal), matching the behavior of the QSO Rate Plot.
+I will add a "Download" button to the report viewer toolbar. This button uses the HTML5 `download` attribute to trigger the browser's save dialog (or auto-save), utilizing the provided descriptive filename.
 
-* **Change 1:** In `_create_plot`, modify the `legend` dictionary within `fig.update_layout` from `dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)` to `dict(x=0.01, y=0.99)`.
+* **Change 1:** Inside the toolbar `div`, immediately after the "Back" button, insert the new "Download" button anchor tag.
 
 ### Surgical Change Verification (`diff`)
 --- BEGIN DIFF ---
-@@ -233,3 +233,3 @@
-             xaxis_title="Contest Time",
-             yaxis_title=f"Cumulative {metric_name}",
--            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-+            legend=dict(x=0.01, y=0.99)
-         )
+@@ -7,4 +7,5 @@
+         <a href="{{ back_url }}" class="btn btn-sm btn-outline-secondary">
+             <i class="bi bi-arrow-left me-1"></i>{{ back_label }}
+         </a>
++        <a href="{{ iframe_src }}" download="{{ filename }}" class="btn btn-sm btn-outline-primary ms-2">
++            <i class="bi bi-download me-1"></i>Download
++        </a>
+     </div>
 --- END DIFF ---
 
 ---
@@ -27,44 +29,195 @@ I will update the `fig.update_layout` call responsible for the specific layout o
 **Version:** 0.113.3-Beta (Baseline)
 
 ### Surgical Changes
-I will update the `go.Table` definition in `_create_plot` to match the "grid style" used in the Point Rate Plot.
+I will inject the Plotly configuration object into the `write_html` call to ensure the "Camera" icon downloads a file with the correct descriptive name instead of `newplot.png`.
 
-* **Change 1:** In `go.Table` -> `header`, change `fill_color` from `'paleturquoise'` to `"#f0f0f0"` and add `line_color="darkgray"`.
-* **Change 2:** In `go.Table` -> `cells`, add `line_color="lightgray"`.
+* **Change 1:** In `_create_plot`, define the `config` dictionary using `base_filename`.
+* **Change 2:** Pass `config=config` to `fig.write_html`.
 
 ### Surgical Change Verification (`diff`)
 --- BEGIN DIFF ---
-@@ -262,7 +262,7 @@
-                 header=dict(
-                     values=headers,
--                    fill_color='paleturquoise',
-+                    fill_color="#f0f0f0",
-+                    line_color="darkgray",
-                     align='center',
-                     font=dict(size=12, weight='bold')
-                 ),
-                 cells=dict(
-@@ -270,4 +270,5 @@
-                     fill_color='white',
-+                    line_color="lightgray",
-                     align='center',
-                     font=dict(size=11),
-                     height=30
+@@ -253,3 +253,5 @@
+             width=None,
+             height=None
+         )
+-        fig.write_html(html_path, include_plotlyjs='cdn')
++        
++        config = {'toImageButtonOptions': {'filename': base_filename, 'format': 'png'}}
++        fig.write_html(html_path, include_plotlyjs='cdn', config=config)
+         
+         # 2. PNG (Static) - Return this path for consistency with report list
 --- END DIFF ---
 
 ---
 
-## 3. Affected Modules Checklist
-* **Protocol 7.6 (Systemic Bug Eradication):** I have reviewed other chart reports. `plot_cumulative_difference.py` and `plot_comparative_band_activity.py` use `showlegend=True` with default positioning or specific horizontal layouts appropriate for their data density. Only these two "Rate Comparison" plots share the specific `XY Plot + Table` layout that benefits from this alignment. No other modules require changes.
+## 3. File: `contest_tools/reports/plot_point_rate.py`
+**Version:** 0.113.3-Beta (Baseline)
 
-## 4. Pre-Flight Check
-* **Inputs:**
-    * `contest_tools/reports/plot_point_rate.py` (v0.113.3-Beta)
-    * `contest_tools/reports/plot_qso_rate.py` (v0.113.3-Beta)
+### Surgical Changes
+Similar to `plot_qso_rate.py`, I will inject the filename configuration for the interactive HTML export.
+
+* **Change 1:** In `_create_plot`, define `config` using `base_filename`.
+* **Change 2:** Update `fig.write_html`.
+
+### Surgical Change Verification (`diff`)
+--- BEGIN DIFF ---
+@@ -232,3 +232,5 @@
+             width=None,
+             height=None
+         )
+-        fig.write_html(html_path, include_plotlyjs='cdn')
++
++        config = {'toImageButtonOptions': {'filename': base_filename, 'format': 'png'}}
++        fig.write_html(html_path, include_plotlyjs='cdn', config=config)
+         
+         # Save PNG (Static)
+--- END DIFF ---
+
+---
+
+## 4. File: `contest_tools/reports/plot_cumulative_difference.py`
+**Version:** 0.115.0-Beta (Baseline)
+
+### Surgical Changes
+Apply the configuration injection to the cumulative difference plot generator.
+
+* **Change 1:** In `_generate_single_plot`, define `config` using `base_filename`.
+* **Change 2:** Update `fig.write_html`.
+
+### Surgical Change Verification (`diff`)
+--- BEGIN DIFF ---
+@@ -124,3 +124,5 @@
+                 height=None
+             )
+-            fig.write_html(html_path, include_plotlyjs='cdn')
++            
++            config = {'toImageButtonOptions': {'filename': base_filename, 'format': 'png'}}
++            fig.write_html(html_path, include_plotlyjs='cdn', config=config)
+             generated_files.append(html_path)
+--- END DIFF ---
+
+---
+
+## 5. File: `contest_tools/reports/chart_qso_breakdown.py`
+**Version:** 0.115.2-Beta (Baseline)
+
+### Surgical Changes
+Apply configuration injection to the QSO Breakdown chart.
+
+* **Change 1:** In `generate`, define `config` using `base_filename`.
+* **Change 2:** Update `fig.write_html`.
+
+### Surgical Change Verification (`diff`)
+--- BEGIN DIFF ---
+@@ -140,3 +140,5 @@
+             height=None
+         )
+-        fig.write_html(html_file, include_plotlyjs='cdn')
++        
++        config = {'toImageButtonOptions': {'filename': base_filename, 'format': 'png'}}
++        fig.write_html(html_file, include_plotlyjs='cdn', config=config)
+ 
+         # Return list of successfully created files (checking existence)
+--- END DIFF ---
+
+---
+
+## 6. File: `contest_tools/reports/plot_comparative_band_activity.py`
+**Version:** 0.114.0-Beta (Baseline)
+
+### Surgical Changes
+Apply configuration injection. Note that this file uses `filename_base` variable name instead of `base_filename`.
+
+* **Change 1:** In `_generate_plot_for_slice`, define `config` using `filename_base`.
+* **Change 2:** Update `fig.write_html`.
+
+### Surgical Change Verification (`diff`)
+--- BEGIN DIFF ---
+@@ -163,3 +163,5 @@
+             # Save HTML
+-            fig.write_html(filepath_html, include_plotlyjs='cdn')
++            
++            config = {'toImageButtonOptions': {'filename': filename_base, 'format': 'png'}}
++            fig.write_html(filepath_html, include_plotlyjs='cdn', config=config)
+             results.append(f"Interactive plot saved: {filepath_html}")
+             
+--- END DIFF ---
+
+---
+
+## 7. File: `contest_tools/reports/plot_comparative_run_sp.py`
+**Version:** 1.2.0 (Baseline)
+
+### Surgical Changes
+Apply configuration injection. Uses `base_filename`.
+
+* **Change 1:** In `_generate_plot_for_page`, define `config` using `base_filename`.
+* **Change 2:** Update `fig.write_html`.
+
+### Surgical Change Verification (`diff`)
+--- BEGIN DIFF ---
+@@ -190,3 +190,5 @@
+         save_debug_data(debug_data_flag, output_path, plot_data_for_debug, custom_filename=debug_filename)
+         
+-        fig.write_html(html_path)
++        config = {'toImageButtonOptions': {'filename': base_filename, 'format': 'png'}}
++        fig.write_html(html_path, config=config)
+         fig.write_image(png_path)
+         
+--- END DIFF ---
+
+---
+
+## 8. File: `contest_tools/reports/chart_point_contribution.py`
+**Version:** 1.0.0 (Baseline)
+
+### Surgical Changes
+Apply configuration injection. Uses `base_filename`.
+
+* **Change 1:** In `generate`, define `config` using `base_filename`.
+* **Change 2:** Update `fig.write_html`.
+
+### Surgical Change Verification (`diff`)
+--- BEGIN DIFF ---
+@@ -116,3 +116,5 @@
+ 
+         # Save HTML (New Interactive Requirement)
+-        fig.write_html(html_file, include_plotlyjs='cdn')
++        
++        config = {'toImageButtonOptions': {'filename': base_filename, 'format': 'png'}}
++        fig.write_html(html_file, include_plotlyjs='cdn', config=config)
+         generated_files.append(html_file)
+ 
+--- END DIFF ---
+
+---
+
+## 9. File: `contest_tools/reports/chart_point_contribution_single.py`
+**Version:** 1.0.1 (Baseline)
+
+### Surgical Changes
+Apply configuration injection. Uses `base_filename`.
+
+* **Change 1:** In `generate`, define `config` using `base_filename`.
+* **Change 2:** Update `fig.write_html`.
+
+### Surgical Change Verification (`diff`)
+--- BEGIN DIFF ---
+@@ -118,3 +118,5 @@
+         # Save Dual Outputs
+         fig.write_image(png_file)
+-        fig.write_html(html_file)
++        
++        config = {'toImageButtonOptions': {'filename': base_filename, 'format': 'png'}}
++        fig.write_html(html_file, config=config)
+ 
+         return [png_file, html_file]
+--- END DIFF ---
+
+## 10. Pre-Flight Check
+* **Inputs:** 9 source files (1 Template, 8 Python Reports).
 * **Expected Outcome:**
-    * The Point Rate Plot legend will appear in the top-left corner, avoiding cutoff.
-    * The QSO Rate Plot table will have distinct grid lines and a gray header, matching the Point Rate Plot table.
-* **Mental Walkthrough:**
-    * `plot_point_rate`: The `update_layout` call is near line 233. The dictionary key is `legend`. I will replace the complex anchor logic with simple x/y coordinates.
-    * `plot_qso_rate`: The `go.Table` is near line 258. I will inject the `line_color` attributes into the `header` and `cells` dictionaries.
-* **Visual Compliance:** Explicitly verified adherence to the user's styling preference.
+    * The report viewer will show a "Download" button that triggers a save dialog for text files.
+    * All Plotly charts (except the animation, which was already done) will have a Camera icon that saves a PNG with a descriptive filename (e.g., `qso_rate_plots_all_call1_call2.png`) instead of `newplot.png`.
+* **Mental Walkthrough:** Verified variable names for each Python file (`base_filename` vs `filename_base`). Verified HTML syntax for the download attribute.
+* **Visual Compliance:** N/A (Backend/Template Logic).

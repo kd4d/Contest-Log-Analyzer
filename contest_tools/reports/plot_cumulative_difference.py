@@ -4,8 +4,8 @@
 #          comparing two logs.
 #
 # Author: Gemini AI
-# Date: 2025-12-14
-# Version: 0.115.0-Beta
+# Date: 2025-12-15
+# Version: 0.118.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.118.0-Beta] - 2025-12-15
+# - Injected descriptive filename configuration for interactive HTML plot downloads.
 # [0.115.0-Beta] - 2025-12-14
 # - Consolidated 3-subplot layout into a single chart with superimposed lines
 #   (Total, Run, S&P, Unknown) for better readability and vertical resolution.
@@ -77,7 +79,7 @@ class Report(ContestReport):
         # --- DAL Integration (v1.3.1) ---
         agg = TimeSeriesAggregator([log1, log2])
         ts_data = agg.get_time_series_data(band_filter=band_filter, mode_filter=mode_filter)
- 
+        
         time_bins = [pd.Timestamp(t) for t in ts_data['time_bins']]
 
         # Helper to extract series
@@ -87,7 +89,7 @@ class Report(ContestReport):
 
         if metric == 'points':
             metric_name = log1.contest_definition.points_header_label or "Points"
-             
+            
             run1 = get_series(call1, 'run_points')
             sp1 = get_series(call1, 'sp_points')
             unk1 = get_series(call1, 'unknown_points')
@@ -245,8 +247,11 @@ class Report(ContestReport):
                 width=None,
                 height=None
             )
-            fig.write_html(html_path, include_plotlyjs='cdn')
+            
+            config = {'toImageButtonOptions': {'filename': base_filename, 'format': 'png'}}
+            fig.write_html(html_path, include_plotlyjs='cdn', config=config)
             generated_files.append(html_path)
+        
         except Exception as e:
             logging.error(f"Failed to save HTML report: {e}")
 
