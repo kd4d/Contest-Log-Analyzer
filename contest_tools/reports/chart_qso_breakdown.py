@@ -5,7 +5,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-14
-# Version: 0.115.1-Beta
+# Version: 0.115.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -14,11 +14,12 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0.
-# If a copy of the MPL was not distributed with this
+# License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.115.2-Beta] - 2025-12-15
+# - Increased top margin to 140px to prevent the two-line header from overlapping subplot titles.
 # [0.115.1-Beta] - 2025-12-15
 # - Standardized chart header to the two-line format (Report Name + Context).
 # - Optimized x-axis labels ("Unique Call" -> "Call", "Common (Both)" -> "Common")
@@ -184,7 +185,8 @@ class Report(ContestReport):
         
         # Specific Adjustments
         fig.update_layout(
-            barmode='stack'
+            barmode='stack',
+            margin=dict(t=140) # Increased top margin to prevent title overlap
         )
 
         create_output_directory(output_path)
