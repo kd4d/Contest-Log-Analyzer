@@ -5,8 +5,8 @@
 #          aggregates data using DAL components, and renders the dashboard.
 #
 # Author: Gemini AI
-# Date: 2025-12-15
-# Version: 0.120.0-Beta
+# Date: 2025-12-16
+# Version: 0.121.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -20,6 +20,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.121.0-Beta] - 2025-12-16
+# - Updated `analyze_logs` to pass raw `contest_name` to dashboard context.
+# - Updated `dashboard_view` to route non-CQ-WW contests to a construction page.
 # [0.120.0-Beta] - 2025-12-15
 # - Added `multiplier_dashboard` view to dynamically discover and display
 #   multiplier reports in a tabbed interface, resolving 404 errors.
@@ -235,6 +238,7 @@ def analyze_logs(request):
                     'mult_headers': [],
                     'full_contest_title': full_contest_title,
                     'cty_version_info': cty_version_info,
+                    'contest_name': contest_name,
                 }
                 
                 # Determine multiplier headers from the first log (assuming all are same contest)
@@ -278,6 +282,11 @@ def dashboard_view(request, session_id):
 
     with open(context_path, 'r') as f:
         context = json.load(f)
+
+    # Contest-Specific Routing
+    contest_name = context.get('contest_name', '').upper()
+    if not contest_name.startswith('CQ-WW'):
+        return render(request, 'analyzer/dashboard_construction.html', context)
     
     return render(request, 'analyzer/dashboard.html', context)
 
@@ -361,7 +370,6 @@ def multiplier_dashboard(request, session_id):
     # 2. Scan and Group Reports
     # Expected format: missed_multipliers_{TYPE}_{COMBO_ID}.txt
     # We strip prefix and suffix to find {TYPE}.
-    
     suffix = f"_{combo_id}.txt"
     multipliers = {}
 
