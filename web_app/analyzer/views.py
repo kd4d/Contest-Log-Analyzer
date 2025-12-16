@@ -6,7 +6,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-15
-# Version: 0.119.2-Beta
+# Version: 0.120.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -20,6 +20,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.120.0-Beta] - 2025-12-15
+# - Added `multiplier_dashboard` view to dynamically discover and display
+#   multiplier reports in a tabbed interface, resolving 404 errors.
+# - Updated `analyze_logs` to remove the fragile `mult_file` context variable.
 # [0.119.2-Beta] - 2025-12-15
 # - Added `help_about`, `help_dashboard`, and `help_reports` views for static documentation pages.
 # [0.119.0-Beta] - 2025-12-15
@@ -216,18 +220,17 @@ def analyze_logs(request):
                 report_url_path = "/".join([str(p) for p in path_components if p])
 
                 # Protocol 3.5: Construct Standardized Filenames <report_id>_<callsigns>.<ext>
-                # Note: 'qso_rate' is the ID for the main plot report.
                 # CRITICAL: Filenames on disk are lowercased by ReportGenerator. We must match that.
                 animation_filename = f"interactive_animation_{combo_id.lower()}.html"
                 plot_filename = f"qso_rate_{combo_id.lower()}.html"
-                mult_filename = f"missed_multipliers_{combo_id.lower()}.txt"
+                
+                # Note: Multiplier filename removed here. It is now dynamically resolved in multiplier_dashboard view.
 
                 context = {
                     'session_key': session_key,
                     'report_url_path': report_url_path,
                     'animation_file': animation_filename,
                     'plot_file': plot_filename,
-                    'mult_file': mult_filename,
                     'logs': [],
                     'mult_headers': [],
                     'full_contest_title': full_contest_title,
@@ -292,7 +295,7 @@ def view_report(request, session_id, file_path):
     Wraps a generated report file in the application shell (header/footer).
     Supports 'chromeless' mode for iframe embedding and context-aware 'Back' links.
     """
-    
+
     # Security Check: Verify file exists within the session
     abs_path = os.path.join(settings.MEDIA_ROOT, 'sessions', session_id, file_path)
     
@@ -306,17 +309,16 @@ def view_report(request, session_id, file_path):
     # Determine Back Button Logic
     if source == 'main':
         back_label = "Back to Main Dashboard"
-        # We redirect to the analyze endpoint (which usually resets state, but mimics user request)
-        # In a real persistence model, we'd link to a persisted dashboard view.
-        # For now, we link to the URL pattern for 'analyze', which is '/analyze/'.
         back_url = reverse('dashboard_view', args=[session_id])
     elif source == 'qso':
         back_label = "Back to QSO Dashboard"
         back_url = f"/report/{session_id}/dashboard/qso/"
+    elif source == 'mult':
+        back_label = "Back to Multiplier Dashboard"
+        back_url = f"/report/{session_id}/dashboard/multipliers/"
     else:
-        # Default behavior (likely accessed from QSO dashboard before this fix)
         back_label = "Back to Dashboard"
-        back_url = f"/report/{session_id}/dashboard/qso/"
+        back_url = reverse('dashboard_view', args=[session_id])
 
     context = {
         'iframe_src': f"{settings.MEDIA_URL}sessions/{session_id}/{file_path}",
@@ -326,6 +328,71 @@ def view_report(request, session_id, file_path):
         'chromeless': is_chromeless
     }
     return render(request, 'analyzer/report_viewer.html', context)
+
+def multiplier_dashboard(request, session_id):
+    """
+    Renders the dedicated Multiplier Reports Sub-Dashboard.
+    Dynamically discovers and groups multiplier reports by type (Zones, Countries, etc.).
+    """
+    session_path = os.path.join(settings.MEDIA_ROOT, 'sessions', session_id)
+    if not os.path.exists(session_path):
+        raise Http404("Session not found")
+
+    # 1. Discover the "Deep Path" to reports
+    report_rel_path = ""
+    combo_id = ""
+    for root, dirs, filenames in os.walk(session_path):
+        for f in filenames:
+            if f.startswith('interactive_animation_') and f.endswith('.html'):
+                combo_id = f.replace('interactive_animation_', '').replace('.html', '')
+                full_dir = os.path.dirname(os.path.join(root, f)) # .../animations
+                parent_dir = os.path.dirname(full_dir) # .../
+                report_rel_path = os.path.relpath(parent_dir, session_path)
+                break
+        if combo_id: break
+    
+    if not report_rel_path:
+        raise Http404("Analysis data structure not found")
+
+    text_dir = os.path.join(session_path, report_rel_path, 'text')
+    if not os.path.exists(text_dir):
+        raise Http404("No text reports found")
+
+    # 2. Scan and Group Reports
+    # Expected format: missed_multipliers_{TYPE}_{COMBO_ID}.txt
+    # We strip prefix and suffix to find {TYPE}.
+    
+    suffix = f"_{combo_id}.txt"
+    multipliers = {}
+
+    for filename in os.listdir(text_dir):
+        if not filename.endswith(suffix):
+            continue
+        
+        mult_type = None
+        if filename.startswith('missed_multipliers_'):
+            mult_type = filename.replace('missed_multipliers_', '').replace(suffix, '').replace('_', ' ').title()
+            report_key = 'missed'
+        elif filename.startswith('multiplier_summary_'):
+            mult_type = filename.replace('multiplier_summary_', '').replace(suffix, '').replace('_', ' ').title()
+            report_key = 'summary'
+        
+        if mult_type:
+            if mult_type not in multipliers:
+                multipliers[mult_type] = {'label': mult_type, 'missed': None, 'summary': None}
+            
+            # Store relative path for template
+            file_rel_path = os.path.join(report_rel_path, 'text', filename)
+            multipliers[mult_type][report_key] = file_rel_path
+
+    # Convert dict to sorted list for template
+    sorted_mults = sorted(multipliers.values(), key=lambda x: x['label'])
+
+    context = {
+        'session_id': session_id,
+        'multipliers': sorted_mults,
+    }
+    return render(request, 'analyzer/multiplier_dashboard.html', context)
 
 def qso_dashboard(request, session_id):
     """Renders the dedicated QSO Reports Sub-Dashboard."""

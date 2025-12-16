@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-3">
+        <div class="col-12 d-flex justify-content-end">
+            <a href="{% url 'dashboard_view' session_id %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>Back to Main Dashboard
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-3 col-lg-2">
+            <h5 class="fw-bold text-secondary mb-3"><i class="bi bi-tags me-2"></i>Multipliers</h5>
+            <div class="nav flex-column nav-pills me-3" id="v-pills-tab" role="tablist" aria-orientation="vertical">
+                {% for mult in multipliers %}
+                <button class="nav-link text-start {% if forloop.first %}active{% endif %}" id="v-pills-{{ forloop.counter }}-tab" data-bs-toggle="pill" data-bs-target="#v-pills-{{ forloop.counter }}" type="button" role="tab" aria-controls="v-pills-{{ forloop.counter }}" aria-selected="{% if forloop.first %}true{% else %}false{% endif %}">
+                    {{ mult.label }}
+                </button>
+                {% empty %}
+                <div class="alert alert-warning small">No multiplier reports found.</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="col-md-9 col-lg-10">
+            <div class="tab-content" id="v-pills-tabContent">
+                {% for mult in multipliers %}
+                <div class="tab-pane fade {% if forloop.first %}show active{% endif %}" id="v-pills-{{ forloop.counter }}" role="tabpanel" aria-labelledby="v-pills-{{ forloop.counter }}-tab">
+                    
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4 class="mb-0 fw-bold">{{ mult.label }}</h4>
+                        <div class="btn-group" role="group">
+                            {% if mult.missed %}
+                            <button type="button" class="btn btn-outline-danger report-toggle active" data-target="#frame-{{ forloop.counter }}" data-src="{% url 'view_report' session_id mult.missed %}?chromeless=1">
+                                Missed Multipliers
+                            </button>
+                            {% endif %}
+                            {% if mult.summary %}
+                            <button type="button" class="btn btn-outline-primary report-toggle {% if not mult.missed %}active{% endif %}" data-target="#frame-{{ forloop.counter }}" data-src="{% url 'view_report' session_id mult.summary %}?chromeless=1">
+                                Summary
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="card shadow-sm border">
+                        <div class="card-body p-0" style="height: 800px;">
+                            <iframe id="frame-{{ forloop.counter }}" 
+                                    src="{% if mult.missed %}{% url 'view_report' session_id mult.missed %}?chromeless=1{% elif mult.summary %}{% url 'view_report' session_id mult.summary %}?chromeless=1{% endif %}" 
+                                    style="width: 100%; height: 100%; border: none;"></iframe>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const toggles = document.querySelectorAll('.report-toggle');
+        
+        toggles.forEach(btn => {
+            btn.addEventListener('click', function() {
+                // Find all buttons in the same group
+                const group = this.parentElement;
+                group.querySelectorAll('.report-toggle').forEach(b => b.classList.remove('active'));
+                
+                // Activate clicked button
+                this.classList.add('active');
+                
+                // Update iframe
+                const targetId = this.dataset.target;
+                const src = this.dataset.src;
+                document.querySelector(targetId).src = src;
+            });
+        });
+    });
+</script>
+{% endblock %}

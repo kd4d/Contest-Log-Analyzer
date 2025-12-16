@@ -101,12 +101,12 @@
                 <div class="card-img-top-container border-bottom">
                     <i class="bi bi-bar-chart-line text-success" style="font-size: 4rem;"></i>
                  </div>
-               <div class="card-body text-center py-4">
+                <div class="card-body text-center py-4">
                     <h5 class="card-title fw-bold">QSO Reports</h5>
                     <p class="card-text text-muted small px-3">Rate charts and band comparisons.</p>
                 </div>
                 <div class="card-footer bg-white border-0 pb-4 text-center">
-                    <a href="{% url 'qso_dashboard' session_key %}?source=main" class="btn btn-outline-success stretched-link">
+                     <a href="{% url 'qso_dashboard' session_key %}?source=main" class="btn btn-outline-success stretched-link">
                         <i class="bi bi-graph-up me-1"></i>QSO Reports
                     </a>
                 </div>
@@ -121,7 +121,7 @@
                     <p class="card-text text-muted small px-3">Missing multipliers and band-fills.</p>
                 </div>
                 <div class="card-footer bg-white border-0 pb-4 text-center">
-                     <a href="{% url 'view_report' session_key 'reports/'|add:report_url_path|add:'/text/'|add:mult_file %}?source=main" class="btn btn-outline-info stretched-link">
+                     <a href="{% url 'multiplier_dashboard' session_key %}" class="btn btn-outline-info stretched-link">
                         <i class="bi bi-list-check me-1"></i>Multiplier Reports
                     </a>
                 </div>
