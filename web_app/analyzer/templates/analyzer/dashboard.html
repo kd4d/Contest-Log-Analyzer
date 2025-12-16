@@ -29,7 +29,8 @@
             <i class="bi bi-arrow-left me-1"></i>New Analysis
         </a>
     </div>
-    <p class="lead text-muted mb-5">Analysis complete. These interactive visualizations and reports were generated directly from your uploaded logs.</p>
+    <p class="lead text-muted mb-5">Analysis complete.
+    These interactive visualizations and reports were generated directly from your uploaded logs.</p>
 
     <div class="card shadow-sm border-0 mb-5">
         <div class="card-header bg-white py-3">
@@ -101,7 +102,7 @@
             <div class="card shadow-sm h-100 border-0 hover-shadow transition">
                 <div class="card-img-top-container border-bottom">
                     <i class="bi bi-bar-chart-line text-success" style="font-size: 4rem;"></i>
-                 </div>
+                </div>
                 <div class="card-body text-center py-4">
                     <h5 class="card-title fw-bold">QSO Reports</h5>
                     <p class="card-text text-muted small px-3">Rate charts and band comparisons.</p>
@@ -122,7 +123,7 @@
                     <p class="card-text text-muted small px-3">Missing multipliers and band-fills.</p>
                 </div>
                 <div class="card-footer bg-white border-0 pb-4 text-center">
-                     <a href="{% url 'multiplier_dashboard' session_key %}" class="btn btn-outline-info stretched-link">
+                    <a href="{% url 'multiplier_dashboard' session_key %}" class="btn btn-outline-info stretched-link">
                         <i class="bi bi-list-check me-1"></i>Multiplier Reports
                     </a>
                 </div>
@@ -135,9 +136,9 @@
             <div class="p-4 bg-white rounded shadow-sm border">
                 <h5 class="fw-bold text-secondary mb-3">Raw Data Access</h5>
                 <a href="{% url 'download_all_reports' session_key %}" class="btn btn-primary btn-lg">
-                     <i class="bi bi-file-earmark-zip me-2"></i>Download All Reports
+                      <i class="bi bi-file-earmark-zip me-2"></i>Download All Reports
                 </a>
-                <p class="text-muted x-small mt-2 mb-0">Contains all Charts (PNG/HTML) and Text Reports.</p>
+                <p class="text-muted small mt-3 mb-0">We have successfully processed your logs and generated the full suite of static reports.</p>
             </div>
         </div>
     </div>
