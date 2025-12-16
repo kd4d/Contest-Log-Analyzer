@@ -1,64 +1,563 @@
+# --- METADATA: FILE_COUNT=4 ---
+--- FILE: ImplementationPlan.md ---
 **Version:** 1.0.0
-**Target:** 0.119.0-Beta
+**Target:** 0.120.0-Beta
 
-# Implementation Plan - Download All Reports Feature
+# Implementation Plan - The Multiplier Dashboard
 
-This plan implements the backend logic and frontend interface to zip and download all generated reports for a specific session.
+This plan resolves the **404 Error** on the "Multiplier Reports" link and implements the requested **Tabbed Interface** to handle contests with multiple multipliers (e.g., CQ WW with Zones and Countries).
 
-## User Story
-As a user, I want a single button on the dashboard to download all generated reports (charts, text, animations) as a ZIP archive, named with the year and contest, so I can easily archive the analysis.
+## 1. Architecture
+We will create a new "Sub-Dashboard" (`multiplier_dashboard`) that acts as a container for all multiplier-related text reports.
+* **Discovery:** The view will dynamically scan the session's `text/` directory to find all available multiplier reports.
+* **Organization:** Reports will be grouped by **Multiplier Type** (e.g., "Zones", "Countries", "Prefixes").
+* **Presentation:** A tabbed interface will allow the user to switch between multiplier types. Inside each tab, users can toggle between the "Missed Multipliers" report and the "Multiplier Summary".
 
-## Proposed Changes
+## 2. Proposed Changes
 
-### 1. `web_app/analyzer/views.py`
-* **Import:** Add `shutil`, `FileResponse` from `django.http`, and `_sanitize_filename_part`.
-* **New View:** Implement `download_all_reports(request, session_id)`.
-    * **Context Loading:** Load `dashboard_context.json` to extract metadata safely without re-parsing files.
-    * **Filename Construction:** Parse `report_url_path` from context to get `year` and `contest_name`.
-    * **Archiving:** Use `shutil.make_archive` to zip the `reports/` directory located within the session storage.
-    * **Streaming:** Return the zip file as a downloadable attachment.
+### A. URL Configuration (`web_app/analyzer/urls.py`)
+* Add a new route `report/<str:session_id>/dashboard/multipliers/` pointing to `views.multiplier_dashboard`.
 
-### 2. `web_app/analyzer/urls.py`
-* **Route:** Register `path('report/<str:session_id>/download_all/', views.download_all_reports, name='download_all_reports')`.
+### B. View Logic (`web_app/analyzer/views.py`)
+* Implement `multiplier_dashboard(request, session_id)`.
+    * **Logic:** Reconstructs the report directory path.
+    * **Scanning:** Lists files in `text/`. Matches `missed_multipliers_*.txt` and `multiplier_summary_*.txt`.
+    * **Parsing:** Extracts the "Multiplier Name" (e.g., `zones`) from the filename by stripping the known prefix and the known callsign suffix.
+    * **Context:** Passes a structured dictionary `{'Zones': {'missed': '...', 'summary': '...'}, ...}` to the template.
 
-### 3. `web_app/analyzer/templates/analyzer/dashboard.html`
-* **UI Update:** Locate the "Raw Data Access" card.
-* **Button Activation:** Convert the disabled button into a live primary button pointing to the new URL.
-* **Styling:** Ensure the button is "prominent" (Primary color) as requested.
+### C. Template (`web_app/analyzer/templates/analyzer/multiplier_dashboard.html`)
+* **New File.**
+* **Layout:**
+    * **Header:** Standard navigation ("Back to Dashboard").
+    * **Nav Tabs:** One tab for each Multiplier Type found (e.g., [Zones] [Countries]).
+    * **Tab Content:**
+        * **Button Group:** Toggle between [Missed List] and [Summary Table].
+        * **Viewer:** An `<iframe>` to display the selected text file content.
 
----
+### D. Main Dashboard Update (`web_app/analyzer/templates/analyzer/dashboard.html`)
+* Update the "Multiplier Reports" card link to point to the new `multiplier_dashboard` URL instead of the hardcoded (and incorrect) file link.
 
-## Verification Plan
+## 3. Verification Plan
+* **Automated Check:** Verify `urls.py` resolves the new path.
+* **Manual Verification:**
+    1.  Click "Multiplier Reports" on the main dashboard.
+    2.  Verify the new dashboard loads (no 404).
+    3.  Verify tabs appear for all generated multipliers (e.g., Zones AND Countries).
+    4.  Verify switching tabs loads the correct text file in the frame.
 
-### Automated Verification
-* **Syntax Check:** The Builder will verify Python syntax.
-* **Link Verification:** Verify the URL template tag generates a valid path.
+--- FILE: web_app/analyzer/urls.py ---
+# web_app/analyzer/urls.py
+#
+# Purpose: URL configuration for the analyzer application.
+#          Maps the home page and analysis endpoint to views.
+#
+# Author: Gemini AI
+# Date: 2025-12-15
+# Version: 0.120.0-Beta
+#
+# Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
+#
+# License: Mozilla Public License, v. 2.0
+#          (https://www.mozilla.org/MPL/2.0/)
+#
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+# --- Revision History ---
+# [0.120.0-Beta] - 2025-12-15
+# - Added 'multiplier_dashboard' route for the Multiplier Reports Sub-Dashboard.
+# [0.119.2-Beta] - 2025-12-15
+# - Added routes for 'help_about', 'help_dashboard', and 'help_reports'.
+# [0.119.0-Beta] - 2025-12-15
+# - Added 'download_all_reports' pattern to support ZIP archive downloads.
+# [0.114.0-Beta] - 2025-12-14
+# - Added 'dashboard_view' pattern to support persisted dashboard states.
+# [0.111.2-Beta] - 2025-12-14
+# - Fixed routing conflict by moving 'qso_dashboard' pattern above the greedy
+#   'view_report' pattern to prevent 404 errors.
+# [0.111.0-Beta] - 2025-12-13
+# - Added 'qso_dashboard' route for the dedicated QSO Reports Sub-Dashboard.
+# [0.110.0-Beta] - 2025-12-13
+# - Added 'get_progress' endpoint for polling analysis status.
+# [0.103.1-Beta] - 2025-12-13
+# - Removed trailing slash from 'view_report' pattern to support clean file paths.
+# [0.103.0-Beta] - 2025-12-12
+# - Initial creation.
+# - Defined routes for 'home' and 'analyze'.
 
-### Manual Verification Steps
-1.  Run a standard analysis (e.g., `test_code/Test_Logs/CQWW_CW`).
-2.  On the dashboard, scroll to the bottom.
-3.  Click "Download All Reports".
-4.  **Verify:** A file named like `2024_cq_ww_cw.zip` is downloaded.
-5.  **Verify:** Unzipping the file reveals the `reports/` directory structure containing `.png`, `.html`, and `.txt` files.
+from django.urls import path
+from . import views
 
----
+urlpatterns = [
+    path('', views.home, name='home'),
+    path('analyze/', views.analyze_logs, name='analyze'),
+    path('analyze/progress/<str:request_id>/', views.get_progress, name='get_progress'),
+    path('report/<str:session_id>/dashboard/', views.dashboard_view, name='dashboard_view'),
+    path('report/<str:session_id>/dashboard/qso/', views.qso_dashboard, name='qso_dashboard'),
+    path('report/<str:session_id>/dashboard/multipliers/', views.multiplier_dashboard, name='multiplier_dashboard'),
+    path('report/<str:session_id>/download_all/', views.download_all_reports, name='download_all_reports'),
+    path('report/<str:session_id>/<path:file_path>', views.view_report, name='view_report'),
+    path('help/about/', views.help_about, name='help_about'),
+    path('help/dashboard/', views.help_dashboard, name='help_dashboard'),
+    path('help/reports/', views.help_reports, name='help_reports'),
+]
+--- FILE: web_app/analyzer/views.py ---
+# web_app/analyzer/views.py
+#
+# Purpose: Django views for the Contest Log Analyzer application.
+#          Handles log file uploads, invokes the core LogManager for parsing,
+#          aggregates data using DAL components, and renders the dashboard.
+#
+# Author: Gemini AI
+# Date: 2025-12-15
+# Version: 0.120.0-Beta
+#
+# Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
+#
+# License: Mozilla Public License, v. 2.0
+#          (https://www.mozilla.org/MPL/2.0/)
+#
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+# --- Revision History ---
+# [0.120.0-Beta] - 2025-12-15
+# - Added `multiplier_dashboard` view to dynamically discover and display
+#   multiplier reports in a tabbed interface, resolving 404 errors.
+# - Updated `analyze_logs` to remove the fragile `mult_file` context variable.
+# [0.119.2-Beta] - 2025-12-15
+# - Added `help_about`, `help_dashboard`, and `help_reports` views for static documentation pages.
+# [0.119.0-Beta] - 2025-12-15
+# - Added `download_all_reports` view to zip and serve the session's 'reports' directory.
+# - Added `FileResponse` import and `_sanitize_filename_part` for archive handling.
+# [0.117.1-Beta] - 2025-12-15
+# - Fixed 404 error for rate sheet comparison in 'qso_dashboard' by correcting filename construction
+#   (removed '_vs_' separator to match ReportGenerator output).
+# [0.115.0-Beta] - 2025-12-14
+# - Fixed 404 errors on Linux/Docker by lowercasing report URL path components
+#   to match the filesystem structure created by ReportGenerator.
+# [0.114.0-Beta] - 2025-12-14
+# - Added `dashboard_view` to load dashboard context from disk, fixing navigation loops.
+# - Updated `analyze_logs` to persist context to JSON and redirect to `dashboard_view`.
+# - Updated `view_report` to point "Back" links to the persisted dashboard URL.
+# [0.113.3-Beta] - 2025-12-14
+# - Updated `view_report` to process `chromeless` parameter and improved
+#   `dashboard_url` logic for context-aware navigation ("Back to..." link).
+# [0.113.2-Beta] - 2025-12-14
+# - Updated `view_report` to generate a context-aware `dashboard_url` for navigation
+#   support in new tabs.
+# [0.113.1-Beta] - 2025-12-14
+# - Fixed 404 error for Global QSO Rate Plot by adding missing '_all' suffix
+#   to the constructed filename in `qso_dashboard`.
+# [0.112.0-Beta] - 2025-12-14
+# - Updated `qso_dashboard` to dynamically discover the deep report path.
+# - Re-implemented path construction using sanitized, lowercase callsigns to
+#   match the standardized report generator output.
+# [0.111.4-Beta] - 2025-12-14
+# - Fixed 404 errors in 'qso_dashboard' by prepending correct subdirectories
+#   (plots/, charts/, text/) to report filenames.
+# - Enforced lowercase filenames for all generated report links to ensure
+#   compatibility with Linux/Docker filesystems.
+# [0.111.0-Beta] - 2025-12-13
+# - Implemented 'qso_dashboard' view logic to power the new QSO Reports Sub-Dashboard.
+# - Added dynamic session scanning for rate sheets and animation files to build
+#   the pairwise strategy context.
+# [0.110.0-Beta] - 2025-12-13
+# - Implemented "Honest Progress Bar": Added backend logic to track and report
+#   analysis status.
+# [0.109.5-Beta] - 2025-12-13
+# - Reverted diagnostic logging in `view_report`.
+# [0.105.1-Beta] - 2025-12-13
+# - Replaced ephemeral tempfile storage with session-based storage in MEDIA_ROOT.
+# [0.103.0-Beta] - 2025-12-11
+# - Initial creation for Phase 3.
 
-## Surgical Changes
+import os
+import shutil
+import logging
+import uuid
+import json
+import time
+from django.shortcuts import render, redirect, reverse
+from django.http import Http404, JsonResponse, FileResponse
+from django.conf import settings
+from .forms import UploadLogForm
 
-### File: `web_app/analyzer/views.py`
-**Version:** 0.117.1-Beta -> 0.119.0-Beta
-
-__CODE_BLOCK__python
-# ... existing imports ...
-import shutil # Added
-from django.http import Http404, JsonResponse, FileResponse # Added FileResponse
-# ... existing code ...
+# Import Core Logic
+from contest_tools.log_manager import LogManager
+from contest_tools.data_aggregators.time_series import TimeSeriesAggregator
+from contest_tools.report_generator import ReportGenerator
+from contest_tools.core_annotations import CtyLookup
 from contest_tools.reports._report_utils import _sanitize_filename_part
 
-# ... existing code ...
+logger = logging.getLogger(__name__)
+
+def _cleanup_old_sessions(max_age_seconds=3600):
+    """Lazy cleanup: Deletes session directories older than 1 hour."""
+    sessions_root = os.path.join(settings.MEDIA_ROOT, 'sessions')
+    if not os.path.exists(sessions_root):
+        return
+
+    now = time.time()
+    
+    # Cleanup progress files too
+    progress_root = os.path.join(settings.MEDIA_ROOT, 'progress')
+    if os.path.exists(progress_root):
+        for item in os.listdir(progress_root):
+            item_path = os.path.join(progress_root, item)
+            try:
+                if os.stat(item_path).st_mtime < (now - max_age_seconds):
+                    os.remove(item_path)
+            except Exception as e:
+                logger.warning(f"Failed to cleanup progress file {item}: {e}")
+
+    for item in os.listdir(sessions_root):
+        item_path = os.path.join(sessions_root, item)
+        if os.path.isdir(item_path):
+            try:
+                if os.stat(item_path).st_mtime < (now - max_age_seconds):
+                    shutil.rmtree(item_path)
+                    logger.info(f"Cleaned up old session: {item}")
+            except Exception as e:
+                logger.warning(f"Failed to cleanup session {item}: {e}")
+
+def _update_progress(request_id, step):
+    """Writes the current progress step to a transient JSON file."""
+    if not request_id:
+        return
+    
+    progress_dir = os.path.join(settings.MEDIA_ROOT, 'progress')
+    os.makedirs(progress_dir, exist_ok=True)
+    
+    file_path = os.path.join(progress_dir, f"{request_id}.json")
+    with open(file_path, 'w') as f:
+        json.dump({'step': step}, f)
+
+def home(request):
+    form = UploadLogForm()
+    return render(request, 'analyzer/home.html', {'form': form})
+
+def analyze_logs(request):
+    if request.method == 'POST':
+        _cleanup_old_sessions()  # Trigger lazy cleanup
+        
+        # Retrieve the request_id from the form to track progress
+        request_id = request.POST.get('request_id')
+        _update_progress(request_id, 1) # Step 1: Uploading (Done, moving to Parsing)
+
+        form = UploadLogForm(request.POST, request.FILES)
+        if form.is_valid():
+            # 1. Create Session Context
+            session_key = str(uuid.uuid4())
+            session_path = os.path.join(settings.MEDIA_ROOT, 'sessions', session_key)
+            os.makedirs(session_path, exist_ok=True)
+
+            try:
+                # 2. Save Uploads
+                log_paths = []
+                # Ensure data directory exists for CTY lookups if not mapped (Docker handles this though)
+                
+                files = [request.FILES.get('log1'), request.FILES.get('log2'), request.FILES.get('log3')]
+                files = [f for f in files if f] # Filter None
+
+                for f in files:
+                    file_path = os.path.join(session_path, f.name)
+                    with open(file_path, 'wb+') as destination:
+                        for chunk in f.chunks():
+                            destination.write(chunk)
+                    log_paths.append(file_path)
+
+                # 3. Process with LogManager
+                # Note: We rely on docker-compose env vars for CONTEST_INPUT_DIR
+                root_input = os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
+                
+                _update_progress(request_id, 2) # Step 2: Parsing
+                lm = LogManager()
+                # Load logs (auto-detect contest type)
+                lm.load_log_batch(log_paths, root_input, 'after')
+
+                lm.finalize_loading(session_path)
+
+                # 4. Generate Physical Reports (Drill-Down Assets)
+                _update_progress(request_id, 3) # Step 3: Aggregating
+                
+                # Note: ReportGenerator implicitly aggregates if needed, but we treat it as the bridge
+                # Step 4: Generating
+                _update_progress(request_id, 4) 
+                
+                generator = ReportGenerator(lm.logs, root_output_dir=session_path)
+                generator.run_reports('all')
+                
+                # 5. Aggregate Data (Dashboard Scalars)
+                ts_agg = TimeSeriesAggregator(lm.logs)
+                ts_data = ts_agg.get_time_series_data()
+                
+                # Extract basic scalars for dashboard
+                # Construct relative path components for the template
+                first_log_meta = lm.logs[0].get_metadata()
+                contest_name = first_log_meta.get('ContestName', 'Unknown').replace(' ', '_')
+                # Date/Year extraction logic mirrors LogManager
+                df_first = lm.logs[0].get_processed_data()
+                year = df_first['Date'].dropna().iloc[0].split('-')[0] if not df_first.empty else "UnknownYear"
+                
+                # Re-derive event_id locally or fetch from metadata if available (LogManager stores it there now)
+                event_id = first_log_meta.get('EventID', '')
+
+                # Construct Full Title: "CQ-WW-CW 2024" or "NAQP 2025 JAN"
+                full_contest_title = f"{contest_name.replace('_', ' ')} {year} {event_id}".strip()
+
+                # Extract CTY Version Info
+                cty_path = lm.logs[0].cty_dat_path
+                cty_date = CtyLookup.extract_version_date(cty_path)
+                cty_date_str = cty_date.strftime('%Y-%m-%d') if cty_date else "Unknown Date"
+                cty_filename = os.path.basename(cty_path)
+                cty_version_info = f"{cty_filename} ({cty_date_str})"
+                
+                all_calls = sorted([l.get_metadata().get('MyCall', f'Log{i+1}') for i, l in enumerate(lm.logs)])
+                combo_id = '_'.join(all_calls)
+
+                # Construct safe URL path (LOWERCASE to match ReportGenerator's disk output)
+                path_components = [year, contest_name.lower(), event_id.lower(), combo_id.lower()]
+                report_url_path = "/".join([str(p) for p in path_components if p])
+
+                # Protocol 3.5: Construct Standardized Filenames <report_id>_<callsigns>.<ext>
+                # CRITICAL: Filenames on disk are lowercased by ReportGenerator. We must match that.
+                animation_filename = f"interactive_animation_{combo_id.lower()}.html"
+                plot_filename = f"qso_rate_{combo_id.lower()}.html"
+                
+                # Note: Multiplier filename removed here. It is now dynamically resolved in multiplier_dashboard view.
+
+                context = {
+                    'session_key': session_key,
+                    'report_url_path': report_url_path,
+                    'animation_file': animation_filename,
+                    'plot_file': plot_filename,
+                    'logs': [],
+                    'mult_headers': [],
+                    'full_contest_title': full_contest_title,
+                    'cty_version_info': cty_version_info,
+                }
+                
+                # Determine multiplier headers from the first log (assuming all are same contest)
+                if ts_data['logs']:
+                    first_log_key = list(ts_data['logs'].keys())[0]
+                    if 'mult_breakdown' in ts_data['logs'][first_log_key]['scalars']:
+                        context['mult_headers'] = list(ts_data['logs'][first_log_key]['scalars']['mult_breakdown'].keys())
+
+                for call, data in ts_data['logs'].items():
+                    context['logs'].append({
+                        'callsign': call,
+                        'score': data['scalars'].get('final_score', 0),
+                        'qsos': data['scalars']['net_qsos'],
+                        'mults': data['scalars'].get('mult_breakdown', {}),
+                        'run_qsos': data['scalars'].get('run_qsos', 0),
+                        'run_percent': data['scalars'].get('run_percent', 0.0)
+                    })
+
+                # --- Session Persistence (Fix Navigation Loop) ---
+                # Save the context to disk so it can be reloaded via GET request
+                context_path = os.path.join(session_path, 'dashboard_context.json')
+                with open(context_path, 'w') as f:
+                    json.dump(context, f)
+
+                _update_progress(request_id, 5) # Step 5: Finalizing/Ready
+                return redirect('dashboard_view', session_id=session_key)
+
+            except Exception as e:
+                logger.exception("Log analysis failed")
+                return render(request, 'analyzer/home.html', {'form': form, 'error': str(e)})
+    
+    return redirect('home')
+
+def dashboard_view(request, session_id):
+    """Persisted view of the main dashboard, loaded from session JSON."""
+    session_path = os.path.join(settings.MEDIA_ROOT, 'sessions', session_id)
+    context_path = os.path.join(session_path, 'dashboard_context.json')
+
+    if not os.path.exists(context_path):
+        return redirect('home') # Session expired or invalid
+
+    with open(context_path, 'r') as f:
+        context = json.load(f)
+    
+    return render(request, 'analyzer/dashboard.html', context)
+
+def get_progress(request, request_id):
+    """Returns the current progress step for the given request ID."""
+    file_path = os.path.join(settings.MEDIA_ROOT, 'progress', f"{request_id}.json")
+    if os.path.exists(file_path):
+        with open(file_path, 'r') as f:
+            data = json.load(f)
+        return JsonResponse(data)
+    return JsonResponse({'step': 0})
+
+def view_report(request, session_id, file_path):
+    """
+    Wraps a generated report file in the application shell (header/footer).
+    Supports 'chromeless' mode for iframe embedding and context-aware 'Back' links.
+    """
+
+    # Security Check: Verify file exists within the session
+    abs_path = os.path.join(settings.MEDIA_ROOT, 'sessions', session_id, file_path)
+    
+    if not os.path.exists(abs_path):
+        raise Http404("Report not found")
+
+    # Extract query params
+    source = request.GET.get('source')
+    is_chromeless = request.GET.get('chromeless') == '1'
+
+    # Determine Back Button Logic
+    if source == 'main':
+        back_label = "Back to Main Dashboard"
+        back_url = reverse('dashboard_view', args=[session_id])
+    elif source == 'qso':
+        back_label = "Back to QSO Dashboard"
+        back_url = f"/report/{session_id}/dashboard/qso/"
+    elif source == 'mult':
+        back_label = "Back to Multiplier Dashboard"
+        back_url = f"/report/{session_id}/dashboard/multipliers/"
+    else:
+        back_label = "Back to Dashboard"
+        back_url = reverse('dashboard_view', args=[session_id])
+
+    context = {
+        'iframe_src': f"{settings.MEDIA_URL}sessions/{session_id}/{file_path}",
+        'filename': os.path.basename(file_path),
+        'back_label': back_label,
+        'back_url': back_url,
+        'chromeless': is_chromeless
+    }
+    return render(request, 'analyzer/report_viewer.html', context)
+
+def multiplier_dashboard(request, session_id):
+    """
+    Renders the dedicated Multiplier Reports Sub-Dashboard.
+    Dynamically discovers and groups multiplier reports by type (Zones, Countries, etc.).
+    """
+    session_path = os.path.join(settings.MEDIA_ROOT, 'sessions', session_id)
+    if not os.path.exists(session_path):
+        raise Http404("Session not found")
+
+    # 1. Discover the "Deep Path" to reports
+    report_rel_path = ""
+    combo_id = ""
+    for root, dirs, filenames in os.walk(session_path):
+        for f in filenames:
+            if f.startswith('interactive_animation_') and f.endswith('.html'):
+                combo_id = f.replace('interactive_animation_', '').replace('.html', '')
+                full_dir = os.path.dirname(os.path.join(root, f)) # .../animations
+                parent_dir = os.path.dirname(full_dir) # .../
+                report_rel_path = os.path.relpath(parent_dir, session_path)
+                break
+        if combo_id: break
+    
+    if not report_rel_path:
+        raise Http404("Analysis data structure not found")
+
+    text_dir = os.path.join(session_path, report_rel_path, 'text')
+    if not os.path.exists(text_dir):
+        raise Http404("No text reports found")
+
+    # 2. Scan and Group Reports
+    # Expected format: missed_multipliers_{TYPE}_{COMBO_ID}.txt
+    # We strip prefix and suffix to find {TYPE}.
+    
+    suffix = f"_{combo_id}.txt"
+    multipliers = {}
+
+    for filename in os.listdir(text_dir):
+        if not filename.endswith(suffix):
+            continue
+        
+        mult_type = None
+        if filename.startswith('missed_multipliers_'):
+            mult_type = filename.replace('missed_multipliers_', '').replace(suffix, '').replace('_', ' ').title()
+            report_key = 'missed'
+        elif filename.startswith('multiplier_summary_'):
+            mult_type = filename.replace('multiplier_summary_', '').replace(suffix, '').replace('_', ' ').title()
+            report_key = 'summary'
+        
+        if mult_type:
+            if mult_type not in multipliers:
+                multipliers[mult_type] = {'label': mult_type, 'missed': None, 'summary': None}
+            
+            # Store relative path for template
+            file_rel_path = os.path.join(report_rel_path, 'text', filename)
+            multipliers[mult_type][report_key] = file_rel_path
+
+    # Convert dict to sorted list for template
+    sorted_mults = sorted(multipliers.values(), key=lambda x: x['label'])
+
+    context = {
+        'session_id': session_id,
+        'multipliers': sorted_mults,
+    }
+    return render(request, 'analyzer/multiplier_dashboard.html', context)
 
 def qso_dashboard(request, session_id):
-    # ... existing implementation ...
+    """Renders the dedicated QSO Reports Sub-Dashboard."""
+    session_path = os.path.join(settings.MEDIA_ROOT, 'sessions', session_id)
+    if not os.path.exists(session_path):
+        raise Http404("Session not found")
+
+    # 1. Discover the "Deep Path"
+    report_rel_path = ""
+    combo_id = ""
+    
+    for root, dirs, filenames in os.walk(session_path):
+        for f in filenames:
+            if f.startswith('interactive_animation_') and f.endswith('.html'):
+                combo_id = f.replace('interactive_animation_', '').replace('.html', '')
+                full_dir = os.path.dirname(os.path.join(root, f)) # .../animations
+                parent_dir = os.path.dirname(full_dir) # .../
+                report_rel_path = os.path.relpath(parent_dir, session_path)
+                break
+        if combo_id: break
+    
+    if not combo_id:
+        raise Http404("Analysis data not found")
+
+    # 2. Re-construct Callsigns from the combo_id
+    callsigns_safe = combo_id.split('_')
+    callsigns_display = [c.upper() for c in callsigns_safe]
+    
+    # 3. Identify Pairs for Strategy Tab
+    import itertools
+    pairs = list(itertools.combinations(callsigns_safe, 2))
+    
+    matchups = []
+    for p in pairs:
+        c1, c2 = sorted(p)
+        label = f"{c1.upper()} vs {c2.upper()}"
+        base_path = report_rel_path
+        
+        matchups.append({
+            'label': label,
+            'id': f"{c1}_{c2}",
+            'qso_breakdown_file': os.path.join(base_path, f"charts/qso_breakdown_chart_{c1}_{c2}.html"),
+            'diff_plot_file': os.path.join(base_path, f"plots/cumulative_difference_plots_qsos_all_{c1}_{c2}.html"),
+            'band_activity_file': os.path.join(base_path, f"plots/comparative_band_activity_{c1}_{c2}.html"),
+            'continent_file': os.path.join(base_path, f"text/comparative_continent_summary_{c1}_{c2}.txt")
+        })
+
+    context = {
+        'session_id': session_id,
+        'callsigns': callsigns_display,
+        'matchups': matchups,
+        # Global Files
+        'global_qso_rate_file': os.path.join(report_rel_path, f"plots/qso_rate_plots_all_{combo_id}.html"),
+        'global_point_rate_file': os.path.join(report_rel_path, f"plots/point_rate_plots_all_{combo_id}.html"),
+        'rate_sheet_comparison': os.path.join(report_rel_path, f"text/rate_sheet_comparison_{'_'.join(sorted(callsigns_safe))}.txt"),
+        'report_base': os.path.join(report_rel_path) # Pass base path for template filters
+    }
+    
     return render(request, 'analyzer/qso_dashboard.html', context)
 
 def download_all_reports(request, session_id):
@@ -112,29 +611,151 @@ def download_all_reports(request, session_id):
     except Exception as e:
         logger.error(f"Failed to zip reports: {e}")
         raise Http404("Failed to generate archive")
-__CODE_BLOCK__
 
-### File: `web_app/analyzer/urls.py`
-**Version:** 0.114.0-Beta -> 0.119.0-Beta
+def help_about(request):
+    """Renders the About / Intro page."""
+    return render(request, 'analyzer/about.html')
 
-__CODE_BLOCK__python
-# ... existing imports ...
-urlpatterns = [
-    path('', views.home, name='home'),
-    path('analyze/', views.analyze_logs, name='analyze'),
-    path('analyze/progress/<str:request_id>/', views.get_progress, name='get_progress'),
-    path('report/<str:session_id>/dashboard/', views.dashboard_view, name='dashboard_view'),
-    path('report/<str:session_id>/dashboard/qso/', views.qso_dashboard, name='qso_dashboard'),
-    path('report/<str:session_id>/download_all/', views.download_all_reports, name='download_all_reports'), # Added
-    path('report/<str:session_id>/<path:file_path>', views.view_report, name='view_report'),
-]
-__CODE_BLOCK__
+def help_dashboard(request):
+    """Renders the Dashboard Help page."""
+    return render(request, 'analyzer/help_dashboard.html')
 
-### File: `web_app/analyzer/templates/analyzer/dashboard.html`
-**Version:** N/A (Template)
+def help_reports(request):
+    """Renders the Report Interpretation Guide."""
+    return render(request, 'analyzer/help_reports.html')
+--- FILE: web_app/analyzer/templates/analyzer/dashboard.html ---
+{% extends 'base.html' %}
+{% load humanize %}
+{% load analyzer_extras %}
+{% load static %}
 
-__CODE_BLOCK__html
-<div class="row mt-5 mb-5">
+{% block content %}
+<style>
+    .hover-shadow:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important;
+    }
+    .transition {
+        transition: all 0.3s ease;
+    }
+    .card-img-top-container {
+        height: 200px;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #f8f9fa;
+    }
+</style>
+
+<div class="container mt-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0 text-secondary">Analysis Results: <span class="text-dark">{{ full_contest_title }}</span></h2>
+        <a href="{% url 'home' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>New Analysis
+        </a>
+    </div>
+
+    <div class="card shadow-sm border-0 mb-5">
+        <div class="card-header bg-white py-3">
+            <h5 class="mb-0 fw-bold text-primary"><i class="bi bi-trophy me-2"></i>The Scoreboard</h5>
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-hover table-striped mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="py-3 ps-4">Callsign</th>
+                        <th class="py-3 text-end">Total QSOs</th>
+                        <th class="py-3 text-end text-success">Run QSOs</th>
+                        <th class="py-3 text-end text-success">Run %</th>
+                        {% for header in mult_headers %}
+                        <th class="py-3 text-end">{{ header }}</th>
+                        {% endfor %}
+                        <th class="py-3 text-end pe-4">Score</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                    <tr>
+                        <td class="ps-4 fw-bold text-primary">{{ log.callsign }}</td>
+                        <td class="text-end">{{ log.qsos|intcomma }}</td>
+                        <td class="text-end fw-bold text-success">{{ log.run_qsos|intcomma }}</td>
+                        <td class="text-end fw-bold text-success">{{ log.run_percent }}%</td>
+                        {% for header in mult_headers %}
+                        <td class="text-end">{{ log.mults|get_item:header }}</td>
+                        {% endfor %}
+                        <td class="text-end pe-4 fw-bold">{{ log.score|intcomma }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="10" class="text-center py-4 text-muted">No valid logs found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+             <div class="card-footer bg-light py-2">
+                <small class="text-muted"><i class="bi bi-info-circle me-1"></i>Scored using {{ cty_version_info }}</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-12">
+            <h4 class="text-secondary fw-bold"><i class="bi bi-layers me-2"></i>Strategic Breakdown</h4>
+            <hr>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-5">
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100 border-0 hover-shadow transition">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-film text-primary mb-3" style="font-size: 4rem;"></i>
+                    <h5 class="card-title fw-bold">Hourly Breakdown</h5>
+                    <p class="card-text text-muted small px-3">Interactive time-lapse animation.</p>
+                </div>
+                <div class="card-footer bg-white border-0 pb-4 text-center">
+                    <a href="{% url 'view_report' session_key 'reports/'|add:report_url_path|add:'/animations/'|add:animation_file %}?source=main" class="btn btn-outline-primary stretched-link">
+                        <i class="bi bi-play-circle me-1"></i>Hourly Breakdown
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100 border-0 hover-shadow transition">
+                <div class="card-img-top-container border-bottom">
+                    <i class="bi bi-bar-chart-line text-success" style="font-size: 4rem;"></i>
+                 </div>
+                <div class="card-body text-center py-4">
+                    <h5 class="card-title fw-bold">QSO Reports</h5>
+                    <p class="card-text text-muted small px-3">Rate charts and band comparisons.</p>
+                </div>
+                <div class="card-footer bg-white border-0 pb-4 text-center">
+                     <a href="{% url 'qso_dashboard' session_key %}?source=main" class="btn btn-outline-success stretched-link">
+                        <i class="bi bi-graph-up me-1"></i>QSO Reports
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100 border-0 hover-shadow transition">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-table text-info mb-3" style="font-size: 4rem;"></i>
+                    <h5 class="card-title fw-bold">Multiplier Reports</h5>
+                    <p class="card-text text-muted small px-3">Missing multipliers and band-fills.</p>
+                </div>
+                <div class="card-footer bg-white border-0 pb-4 text-center">
+                     <a href="{% url 'multiplier_dashboard' session_key %}" class="btn btn-outline-info stretched-link">
+                        <i class="bi bi-list-check me-1"></i>Multiplier Reports
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-5 mb-5">
         <div class="col-12 text-center">
             <div class="p-4 bg-white rounded shadow-sm border">
                 <h5 class="fw-bold text-secondary mb-3">Raw Data Access</h5>
@@ -147,4 +768,94 @@ __CODE_BLOCK__html
     </div>
 </div>
 {% endblock %}
-__CODE_BLOCK__
+--- FILE: web_app/analyzer/templates/analyzer/multiplier_dashboard.html ---
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-3">
+        <div class="col-12 d-flex justify-content-end">
+            <a href="{% url 'dashboard_view' session_id %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>Back to Main Dashboard
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-3 col-lg-2">
+            <h5 class="fw-bold text-secondary mb-3"><i class="bi bi-tags me-2"></i>Multipliers</h5>
+            <div class="nav flex-column nav-pills me-3" id="v-pills-tab" role="tablist" aria-orientation="vertical">
+                {% for mult in multipliers %}
+                <button class="nav-link text-start {% if forloop.first %}active{% endif %}" id="v-pills-{{ forloop.counter }}-tab" data-bs-toggle="pill" data-bs-target="#v-pills-{{ forloop.counter }}" type="button" role="tab" aria-controls="v-pills-{{ forloop.counter }}" aria-selected="{% if forloop.first %}true{% else %}false{% endif %}">
+                    {{ mult.label }}
+                </button>
+                {% empty %}
+                <div class="alert alert-warning small">No multiplier reports found.</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="col-md-9 col-lg-10">
+            <div class="tab-content" id="v-pills-tabContent">
+                {% for mult in multipliers %}
+                <div class="tab-pane fade {% if forloop.first %}show active{% endif %}" id="v-pills-{{ forloop.counter }}" role="tabpanel" aria-labelledby="v-pills-{{ forloop.counter }}-tab">
+                    
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4 class="mb-0 fw-bold">{{ mult.label }}</h4>
+                        <div class="btn-group" role="group">
+                            {% if mult.missed %}
+                            <button type="button" class="btn btn-outline-danger report-toggle active" data-target="#frame-{{ forloop.counter }}" data-src="{% url 'view_report' session_id mult.missed %}?chromeless=1">
+                                Missed Multipliers
+                            </button>
+                            {% endif %}
+                            {% if mult.summary %}
+                            <button type="button" class="btn btn-outline-primary report-toggle {% if not mult.missed %}active{% endif %}" data-target="#frame-{{ forloop.counter }}" data-src="{% url 'view_report' session_id mult.summary %}?chromeless=1">
+                                Summary
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="card shadow-sm border">
+                        <div class="card-body p-0" style="height: 800px;">
+                            <iframe id="frame-{{ forloop.counter }}" 
+                                    src="{% if mult.missed %}{% url 'view_report' session_id mult.missed %}?chromeless=1{% elif mult.summary %}{% url 'view_report' session_id mult.summary %}?chromeless=1{% endif %}" 
+                                    style="width: 100%; height: 100%; border: none;"></iframe>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const toggles = document.querySelectorAll('.report-toggle');
+        
+        toggles.forEach(btn => {
+            btn.addEventListener('click', function() {
+                // Find all buttons in the same group
+                const group = this.parentElement;
+                group.querySelectorAll('.report-toggle').forEach(b => b.classList.remove('active'));
+                
+                // Activate clicked button
+                this.classList.add('active');
+                
+                // Update iframe
+                const targetId = this.dataset.target;
+                const src = this.dataset.src;
+                document.querySelector(targetId).src = src;
+            });
+        });
+    });
+</script>
+{% endblock %}
+--- FILE: manifest.txt ---
+ImplementationPlan.md
+web_app/analyzer/urls.py
+web_app/analyzer/views.py
+web_app/analyzer/templates/analyzer/dashboard.html
+web_app/analyzer/templates/analyzer/multiplier_dashboard.html

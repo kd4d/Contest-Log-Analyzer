@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="text-center mb-5">
+                <h1 class="display-5 fw-bold text-primary">Interpreting the Reports</h1>
+                <p class="lead text-muted">A guide to finding the "Winning Margin" in your data.</p>
+            </div>
+
+            <div class="card shadow-sm border-0 mb-5">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0 fw-bold text-primary"><i class="bi bi-film me-2"></i>Interactive Animation</h5>
+                </div>
+                <div class="card-body p-4">
+                    <p>The animation allows you to replay the contest hour-by-hour to visualize momentum shifts.</p>
+                    <ul>
+                        <li><strong>Top Chart (The Horse Race):</strong> Cumulative score progression. Watch for "crossover events" where leads change.</li>
+                        <li><strong>Bottom-Left (Hourly Rates):</strong> Moment-to-moment action grouped by station and stacked by mode.</li>
+                        <li><strong>Bottom-Right (Cumulative by Band):</strong> Shows which bands were most productive over the entire event.</li>
+                    </ul>
+                    <div class="row text-center mt-4">
+                        <div class="col-md-4">
+                            <h6 class="fw-bold">Play / Pause</h6>
+                            <p class="small text-muted">Control the flow of time.</p>
+                        </div>
+                        <div class="col-md-4">
+                            <h6 class="fw-bold">Time Slider</h6>
+                            <p class="small text-muted">"Scrub" back and forth to inspect specific hours (e.g., sunrise/sunset).</p>
+                        </div>
+                        <div class="col-md-4">
+                            <h6 class="fw-bold">Hover Data</h6>
+                            <p class="small text-muted">Mouse over any bar to see the exact QSO counts for that hour.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm border-0 mb-5">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0 fw-bold text-primary"><i class="bi bi-graph-up me-2"></i>Visualizations (Plots & Charts)</h5>
+                </div>
+                <div class="card-body p-4">
+                    
+                    <h5 class="fw-bold text-dark mt-3">Cumulative Difference Plots</h5>
+                    <p>The most powerful tool for head-to-head analysis. It visualizes the "Zero Line" of competition.</p>
+                    <ul>
+                        <li><strong>Above Zero:</strong> You (Log 1) are building a lead.</li>
+                        <li><strong>Below Zero:</strong> You are falling behind.</li>
+                        <li><strong>Slope:</strong> Indicates <em>momentum</em>. A steep upward slope means you are gaining points faster than your competitor.</li>
+                        <li><strong>Run/S&P Lines:</strong> The chart breaks down the advantage. Is the lead coming from superior Running (Green line) or better S&P (Blue line)?</li>
+                    </ul>
+                    <hr>
+
+                    <h5 class="fw-bold text-dark mt-3">QSO Breakdown Chart (Unique vs. Common)</h5>
+                    <p>Isolates where the battle was won.</p>
+                    <ul>
+                        <li><strong>Common (Center):</strong> Stations worked by both logs.</li>
+                        <li><strong>Unique (Sides):</strong> The differentiators. 
+                            <ul>
+                                <li><strong>Unique Run:</strong> Indicates superior signal strength or a better "Run" frequency.</li>
+                                <li><strong>Unique S&P:</strong> Indicates superior tuning agility (finding weak stations the other missed).</li>
+                            </ul>
+                        </li>
+                    </ul>
+                    <hr>
+
+                    <h5 class="fw-bold text-dark mt-3">Point Contribution Breakdown</h5>
+                    <p>Shows where your points came from (Pie Chart).</p>
+                    <ul>
+                        <li>In contests like CQ WW, high-value (3-point) QSOs are critical. This chart reveals if a competitor beat you by focusing on high-value DX despite having fewer total QSOs.</li>
+                    </ul>
+                    <hr>
+
+                    <h5 class="fw-bold text-dark mt-3">Rate Comparisons (QSO & Point)</h5>
+                    <p>Standard cumulative line graphs showing the "Horse Race."</p>
+                    <ul>
+                        <li><strong>Steep Slope:</strong> High rate/activity.</li>
+                        <li><strong>Plateau:</strong> Off-time or dead bands.</li>
+                    </ul>
+                    <hr>
+                    
+                    <h5 class="fw-bold text-dark mt-3">Comparative Activity Timeline</h5>
+                    <p>A "Paired Timeline" showing minute-by-minute activity.</p>
+                    <ul>
+                        <li><strong>Color Code:</strong> Run (Green), S&P (Blue), Mixed (Gray).</li>
+                        <li>Use this to see who was active during a specific band opening and what strategy they were using.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card shadow-sm border-0 mb-5">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0 fw-bold text-success"><i class="bi bi-file-text me-2"></i>Text Reports (Deep Dive)</h5>
+                </div>
+                <div class="card-body p-4">
+                    
+                    <h5 class="fw-bold text-dark mt-3">Score Summaries</h5>
+                    <p>Comprehensive summaries broken down by band.</p>
+                    <ul>
+                        <li><strong>AVG:</strong> Average Points per QSO. An AVG close to 3.0 (in DX contests) indicates a strong focus on inter-continental QSOs.</li>
+                        <li><strong>Comparative Score Report:</strong> Interleaves data from multiple logs for direct band-by-band comparison.</li>
+                    </ul>
+                    <hr>
+
+                    <h5 class="fw-bold text-dark mt-3">Hourly Rate Sheets</h5>
+                    <p>Follows a "Drill-Down" structure.</p>
+                    <ul>
+                        <li><strong>Executive Summary:</strong> All-band hourly totals.</li>
+                        <li><strong>Band Details:</strong> Specific breakdowns (e.g., "Detail: 20M") showing Mode splits (CW/PH) per hour.</li>
+                    </ul>
+                    <hr>
+
+                    <h5 class="fw-bold text-dark mt-3">Missed Multipliers</h5>
+                    <p>The "Checklist" of costly missed opportunities.</p>
+                    <ul>
+                        <li>Lists multipliers worked by at least one person in the group but missed by others.</li>
+                        <li><strong>(Run) vs (S&P):</strong> Shows <em>how</em> the competitor worked it. If they worked a rare mult via (Run), it called them. If via (S&P), they found it.</li>
+                    </ul>
+                    <hr>
+
+                    <h5 class="fw-bold text-dark mt-3">Continent Reports</h5>
+                    <p>Geographic analysis.</p>
+                    <ul>
+                        <li><strong>Continent Breakdown:</strong> Shows Run/S&P splits per continent. Did you Run Europeans while S&P-ing Africans?</li>
+                    </ul>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

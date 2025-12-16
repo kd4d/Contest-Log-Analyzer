@@ -1,10 +1,14 @@
 # Contest Log Analytics
 
-**Version: 1.0.0**
-**Date: 2025-12-06**
+**Version: 1.1.0**
+**Date: 2025-12-15**
 
 ---
 ### --- Revision History ---
+## [1.1.0] - 2025-12-15
+### Changed
+# - Updated "Introduction" to use "Sports Analytics" metaphor.
+# - Replaced CLI-focused "Installation and Setup" with "Web Dashboard" focus.
 ## [1.0.0] - 2025-12-06
 ### Added
 # - Added `wrtc_propagation` and `wrtc_propagation_animation` to the list
@@ -43,16 +47,16 @@
 # - Initial release.
 ---
 
-The Contest Log Analytics is a powerful tool for post-contest analysis, designed to uncover the strategic insights hidden within amateur radio contest logs. While logging software is excellent for real-time operations, this tool is designed specifically for post-contest log comparison, which is essential for detailed performance analysis. By comparing logs head-to-head, this tool helps the user to visualize the story of the contest: who was on what band and when, how an advantage was gained, and which missed opportunities were the most costly. It answers the critical questions that lead to better performance: Was my strategy of running on 20 meters more effective than my competitor's S&P strategy? Which specific multipliers did they work that I missed? How did our hourly rates compare during the critical European opening? By transforming raw log data into actionable intelligence, the analyzer provides a clear path for improving your operating strategy for the next event.
+The Contest Log Analytics is a "Sports Analytics" engine for amateur radio contesting. Just as a sports team watches "game tape" to understand why a play failed, this tool analyzes your logs to understand *why* a score was achieved. It answers the critical questions: Was my strategy of running on 20 meters more effective than my competitor's S&P strategy? Which specific multipliers did they work that I missed?
 
 ---
 ## Key Features
 
 * **Data-Driven Architecture**: Uses simple JSON files to define the rules, scoring, and exchange formats for each contest, making the tool highly extensible.
-* **Run/S&P Heuristics**: A sophisticated, multi-pass heuristic analyzes QSO timing and frequency to classify each contact as "Run," "Search & Pounce," or "Unknown," providing a clear picture of operating strategy.
+* **Run/S&P Heuristics**: A sophisticated, multi-pass heuristic analyzes QSO timing and frequency to classify each contact as "Run," "Search & Pounce," or "Unknown," providing a clear picture of operating strategy even though Cabrillo logs do not record this data explicitly.
 * **Unique vs. Common QSO Analysis**: The analyzer precisely identifies "unique" QSOs (worked by only one of two logs) and "common" QSOs (worked by both), breaking them down by Run/S&P status to reveal strategic advantages.
-* **Cumulative Difference Plots**: Goes beyond traditional rate graphs by presenting QSO and Point rate data in "Cumulative Difference Plots," which visualize performance trends and momentum shifts much more clearly.
-* **Animated Hourly Replay**: Generates an MP4 video that visualizes the entire contest on an hour-by-hour basis, showing cumulative scores, QSO rates, and band-by-band totals for up to three logs.
+* **Cumulative Difference Plots**: Visualizes the "Zero Line" of competition. Above zero means you are leading; the slope indicates your momentum relative to your competitor.
+* **Interactive Replay**: Generates an interactive HTML dashboard that replays the contest hour-by-hour, allowing you to visualize momentum shifts.
 * **Annotated CSV Output**: Generates detailed, "annotated" CSV files from the processed logs, perfect for loading into Excel or other tools for custom analysis and prototyping.
 * **Contest-Specific Scoring**: A modular system calculates QSO points based on the official rules for supported contests (ARRL-DX, ARRL-SS, CQ-WPX, CQ-WW).
 * **Dynamic Reporting Engine**: A flexible, "plug-and-play" system for generating a wide variety of text, plot, and chart-based reports.
@@ -60,7 +64,16 @@ The Contest Log Analytics is a powerful tool for post-contest analysis, designed
 ---
 ## Installation and Setup
 
-Before using the analyzer, you must set up your environment and install the required dependencies. For complete, step-by-step instructions, please see the `Docs/InstallationGuide.md`.
+### Preferred Method: Web Dashboard (Docker)
+The easiest way to use the analyzer is via the containerized Web Dashboard.
+
+1.  **Install Docker Desktop.**
+2.  **Clone the Repository.**
+3.  **Run:** `docker-compose up --build`
+4.  **Open Browser:** Navigate to `http://localhost:8000`.
+
+### Advanced Method: CLI
+For automated workflows or developers, the Command Line Interface is available. See `Docs/InstallationGuide.md` for detailed Python/Conda setup instructions.
 
 ---
 ## Usage

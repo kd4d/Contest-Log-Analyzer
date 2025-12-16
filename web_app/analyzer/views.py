@@ -6,7 +6,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-15
-# Version: 0.119.0-Beta
+# Version: 0.119.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -20,6 +20,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.119.2-Beta] - 2025-12-15
+# - Added `help_about`, `help_dashboard`, and `help_reports` views for static documentation pages.
 # [0.119.0-Beta] - 2025-12-15
 # - Added `download_all_reports` view to zip and serve the session's 'reports' directory.
 # - Added `FileResponse` import and `_sanitize_filename_part` for archive handling.
@@ -435,3 +437,15 @@ def download_all_reports(request, session_id):
     except Exception as e:
         logger.error(f"Failed to zip reports: {e}")
         raise Http404("Failed to generate archive")
+
+def help_about(request):
+    """Renders the About / Intro page."""
+    return render(request, 'analyzer/about.html')
+
+def help_dashboard(request):
+    """Renders the Dashboard Help page."""
+    return render(request, 'analyzer/help_dashboard.html')
+
+def help_reports(request):
+    """Renders the Report Interpretation Guide."""
+    return render(request, 'analyzer/help_reports.html')

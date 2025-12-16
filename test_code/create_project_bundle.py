@@ -1,5 +1,5 @@
 # test_tools/create_project_bundle.py
-# Version: 1.3.0
+# Version: 1.3.1
 
 import os
 import datetime
@@ -19,14 +19,16 @@ def create_project_bundle(manifest_file=None):
         'AIAgentGuidance/AIAgentWorkflow.md',
         'Dockerfile',
         'docker-compose.yml',
-        '.gitignore'
+        '.gitignore',
+        'README.md'
     ]
 
     # Directories to recursively include
     include_dirs = [
         'contest_tools',
         'Utils',
-        'web_app'
+        'web_app',
+        'Docs'
     ]
 
     # Subdirectories to EXCLUDE within the included dirs

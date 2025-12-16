@@ -12,13 +12,14 @@
     
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
       <div class="container-fluid">
-        <button class="btn btn-primary me-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMenu" aria-controls="offcanvasMenu">
+        <button class="btn btn-primary me-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMenu" aria-controls="offcanvasMenu" title="Menu & Documentation">
             <span class="navbar-toggler-icon"></span>
       
       </button>
         <a class="navbar-brand fw-bold" href="{% url 'home' %}">
             <i class="bi bi-broadcast me-2"></i>Contest Log Analytics by KD4D
         </a>
+        <a href="{% url 'home' %}" class="btn btn-outline-light ms-auto fw-bold btn-sm">New Analysis</a>
       </div>
     </nav>
 
@@ -32,7 +33,13 @@
         <ul class="nav flex-column">
       
           <li class="nav-item">
-            <a class="nav-link active text-dark" href="{% url 'home' %}"><i class="bi bi-house-door me-2"></i>Home</a>
+            <a class="nav-link active text-dark" href="{% url 'home' %}"><i class="bi bi-house-door me-2"></i>New Analysis</a>
+          </li>
+          <li class="nav-item mt-3">
+            <span class="text-muted small text-uppercase fw-bold px-3">Help & Documentation</span>
+            <a class="nav-link text-dark" href="{% url 'help_about' %}"><i class="bi bi-info-circle me-2"></i>About</a>
+            <a class="nav-link text-dark" href="{% url 'help_dashboard' %}"><i class="bi bi-layout-text-window-reverse me-2"></i>Dashboard Guide</a>
+            <a class="nav-link text-dark" href="{% url 'help_reports' %}"><i class="bi bi-book me-2"></i>Report Guide</a>
           </li>
           <li class="nav-item mt-3">
             <span class="text-muted small text-uppercase fw-bold px-3">Recent Sessions</span>

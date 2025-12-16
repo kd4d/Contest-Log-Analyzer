@@ -1,10 +1,13 @@
 # Contest Log Analytics - User Guide
 
-**Version: 1.0.0**
-**Date: 2025-12-06**
+**Version: 1.1.0**
+**Date: 2025-12-15**
 
 ---
 ### --- Revision History ---
+## [1.1.0] - 2025-12-15
+### Added
+# - Added Section 6 "The Web Dashboard" to document the containerized workflow.
 ## [1.0.0] - 2025-12-06
 ### Added
 # - Added `wrtc_propagation` and `wrtc_propagation_animation` to the list
@@ -154,21 +157,25 @@ The program is run from your command prompt or terminal using `main_cli.py`.
 #### **Examples**
 
 * **Generate all available reports for two logs:**
+
 ```
 python main_cli.py --report all 2025/cq-160-cw/kd4d.log 2025/cq-160-cw/n0ni.log
 ```
 
 * **Generate only the text reports for two logs:**
+
 ```
 python main_cli.py --report text 2025/cq-160-cw/kd4d.log 2025/cq-160-cw/n0ni.log
 ```
 
 * **Generate a specific report (Score Summary) for a single log:**
+
 ```
 python main_cli.py --report score_report 2025/cq-160-cw/kd4d.log
 ```
 
 * **Generate a Missed Multipliers report for CQ WW Zones:**
+
 ```
 python main_cli.py --report missed_multipliers --mult-name Zones 2024/cq-ww-cw/k3lr.log 2024/cq-ww-cw/kc1xx.log
 ```
@@ -210,9 +217,9 @@ Use the `Report ID` with the `--report` command-line option.
 * `html_qso_comparison`: HTML QSO Comparison Report
 
 #### **Chart Reports (`charts/`)**
-* `chart_point_contribution`: Point Contribution Breakdown (Comparative)
+* `chart_point_contribution`: Point Contribution Breakdown
 * `chart_point_contribution_single`: Point Contribution Breakdown (Single Log)
-* `qso_breakdown_chart`: QSO Breakdown by Run/S&P
+* `qso_breakdown_chart`: QSO Breakdown Chart
 
 #### **Plot Reports (`plots/`)**
 * `band_activity_heatmap`: Band Activity Heatmap
@@ -238,7 +245,31 @@ Use the `Report ID` with the `--report` command-line option.
 * `summary`: QSO Summary by Run/S&P
 * `text_wae_comparative_score_report`: WAE Comparative Score Report
 * `text_wae_score_report`: WAE Score Summary
+
 ---
 ## License
 
 This project is licensed under the **Mozilla Public License, v. 2.0**.
+
+---
+
+## 6. The Web Dashboard
+
+The Contest Log Analytics now features a "Stateless" Web Interface designed for ease of use.
+
+### Launching the App
+1. Ensure Docker is running.
+2. Navigate to the project root.
+3. Run: `docker-compose up --build`
+4. Open your browser to `http://localhost:8000`.
+
+### Identity Agnostic Workflow
+The analyzer does not know "who you are." It simply compares logs.
+* **Log 1:** Upload your primary log here (The "Hero").
+* **Log 2 & 3:** Upload competitor logs here (The "Villains").
+
+### The Dashboard
+Once analyzed, you are presented with a "Strategy Board":
+* **The Scoreboard:** High-level metrics including Run % and total score.
+* **The Triptych:** Three paths for deeper analysis (Animation, QSO Reports, Multiplier Reports).
+* **Raw Data:** A button to download the full set of generated reports as a ZIP file.

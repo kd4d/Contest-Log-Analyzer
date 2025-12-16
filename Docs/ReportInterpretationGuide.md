@@ -1,10 +1,14 @@
 # Report Interpretation Guide
 
-**Version: 1.0.0**
-**Date: 2025-12-06**
+**Version: 0.119.1-Beta**
+**Date: 2025-12-15**
 
 ---
 ### --- Revision History ---
+## [0.119.1-Beta] - 2025-12-15
+### Changed
+# - Replaced "Animation Reports" (MP4) with "Interactive Animation Reports" (HTML).
+# - Updated descriptions for Plotly interactivity.
 ## [1.0.0] - 2025-12-06
 ### Added
 # - Added Section 6 "WRTC Reports" to document `wrtc_propagation` and
@@ -249,20 +253,23 @@ For each band, bars for one station go up, and bars for the other go down. This 
 
 ## 4. Animation Reports
 
-Animation reports provide an hour-by-hour replay of the entire contest.
+Animation reports provide an interactive, hour-by-hour replay of the entire contest directly in your browser.
 
-### Hourly Animation (`hourly_animation`)
-This report generates an MP4 video that visualizes the contest progression between up to three logs. It is composed of three main charts.
+### Interactive Contest Animation (`interactive_animation`)
+This report generates an interactive HTML dashboard that visualizes the contest progression between up to three logs. It allows you to "scrub" through time using a slider or play the contest back in real-time.
 
 #### How to Interpret This Animation
+* **Controls:** Use the **Play/Pause** buttons or drag the **Time Slider** at the bottom to jump to any specific hour. Hover over any bar to see exact numbers.
 
-* **Top Chart (Cumulative Totals)**: This horizontal bar chart shows the overall "horse race."
+* **Top Chart (The Horse Race)**: This horizontal "Racing Bar" chart shows the overall progression.
     * The top bar for each station shows the cumulative score.
-    * The bottom bar shows the cumulative QSO count.
-    * The scales are independent, allowing you to see how QSO count translates into score over time.
+    * The labels update dynamically as the contest progresses.
+    * **Interpretation:** Watch for "crossover events" where one station overtakes another in score, even if their QSO counts are similar (indicating better multiplier hunting).
+
 * **Bottom-Left Chart (Hourly Rates)**: This vertical bar chart shows the moment-to-moment action.
     * It displays the number of QSOs made in the current hour, broken down by band and mode.
     * The bars are stacked and color-coded by Run/S&P/Unknown status, showing *how* the QSOs were made.
+
 * **Bottom-Right Chart (Cumulative by Band)**: This vertical bar chart shows the cumulative QSO totals for each band.
     * Like the hourly chart, it is a stacked, color-coded bar chart showing the breakdown of Run, S&P, and Unknown QSOs.
     * Use this chart to see which bands were most productive over the entire contest and how each operator's band strategy differed.
