@@ -5,8 +5,8 @@
 #          aggregates data using DAL components, and renders the dashboard.
 #
 # Author: Gemini AI
-# Date: 2025-12-16
-# Version: 0.121.0-Beta
+# Date: 2025-12-17
+# Version: 0.125.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -15,11 +15,17 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0.
-# If a copy of the MPL was not distributed with this
+# License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.125.0-Beta] - 2025-12-17
+# - Updated `multiplier_dashboard` to consume hierarchical `breakdown_rows`
+#   instead of the legacy `matrix_data`.
+# [0.124.1-Beta] - 2025-12-17
+# - Updated `multiplier_dashboard` view to calculate and pass `col_width` for Bootstrap grid.
+# [0.124.0-Beta] - 2025-12-17
+# - Updated `multiplier_dashboard` to hydrate live data for the Opportunity Matrix.
 # [0.121.0-Beta] - 2025-12-16
 # - Updated `analyze_logs` to pass raw `contest_name` to dashboard context.
 # - Updated `dashboard_view` to route non-CQ-WW contests to a construction page.
@@ -88,6 +94,7 @@ from .forms import UploadLogForm
 # Import Core Logic
 from contest_tools.log_manager import LogManager
 from contest_tools.data_aggregators.time_series import TimeSeriesAggregator
+from contest_tools.data_aggregators.multiplier_stats import MultiplierStatsAggregator
 from contest_tools.report_generator import ReportGenerator
 from contest_tools.core_annotations import CtyLookup
 from contest_tools.reports._report_utils import _sanitize_filename_part
@@ -341,7 +348,7 @@ def view_report(request, session_id, file_path):
 def multiplier_dashboard(request, session_id):
     """
     Renders the dedicated Multiplier Reports Sub-Dashboard.
-    Dynamically discovers and groups multiplier reports by type (Zones, Countries, etc.).
+    Dynamically discovers and display multiplier reports in a tabbed interface.
     """
     session_path = os.path.join(settings.MEDIA_ROOT, 'sessions', session_id)
     if not os.path.exists(session_path):
@@ -366,6 +373,53 @@ def multiplier_dashboard(request, session_id):
     text_dir = os.path.join(session_path, report_rel_path, 'text')
     if not os.path.exists(text_dir):
         raise Http404("No text reports found")
+
+    # 3. Hydrate Live Data (Scoreboard & Matrix)
+    # We must reload logs to perform live aggregation
+    # Note: We rely on the session directory containing the source logs
+    lm = LogManager()
+    # Find log files in session root (excluding directories and known generated files)
+    log_candidates = []
+    for f in os.listdir(session_path):
+        f_path = os.path.join(session_path, f)
+        if os.path.isfile(f_path) and not f.startswith('dashboard_context') and not f.endswith('.zip'):
+            log_candidates.append(f_path)
+    
+    # Load without progress tracking (fast for reload)
+    root_input = os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
+    lm.load_log_batch(log_candidates, root_input, 'after')
+    
+    # Aggregate Matrix
+    mult_agg = MultiplierStatsAggregator(lm.logs)
+    breakdown_rows = mult_agg.get_multiplier_breakdown_data()
+
+    # Aggregate Scoreboard (Simple scalars)
+    # We can reuse TimeSeriesAggregator for consistency or just pull from logs
+    scoreboard = []
+    for log in lm.logs:
+        meta = log.get_metadata()
+        df = log.get_processed_data()
+        # Basic calc
+        score = meta.get('Score', 0) # Usually calc'd by report gen, might be missing in raw load
+        # If raw load, we might need to rely on the persisted dashboard context for scores
+        # But let's trust the log object's simple stats for now
+        scoreboard.append({
+            'call': meta.get('MyCall', 'Unknown'),
+            'qsos': len(df),
+            'zones': len(df['Zone'].unique()) if 'Zone' in df.columns else 0, # Approx
+            'countries': len(df['Country'].unique()) if 'Country' in df.columns else 0 # Approx
+        })
+    
+    # Re-fetch persisted context for accurate scores (since LM reload is raw)
+    context_path = os.path.join(session_path, 'dashboard_context.json')
+    persisted_logs = []
+    if os.path.exists(context_path):
+        with open(context_path, 'r') as f:
+            d_ctx = json.load(f)
+            persisted_logs = d_ctx.get('logs', [])
+
+    # Calculate optimal column width for scoreboard
+    col_width = 12 // len(persisted_logs) if persisted_logs else 12
 
     # 2. Scan and Group Reports
     # Expected format: missed_multipliers_{TYPE}_{COMBO_ID}.txt
@@ -398,6 +452,10 @@ def multiplier_dashboard(request, session_id):
 
     context = {
         'session_id': session_id,
+        'scoreboard': persisted_logs, # Use persisted logs for accurate scores
+        'col_width': col_width,
+        'breakdown_rows': breakdown_rows,
+        'all_calls': sorted([l['callsign'] for l in persisted_logs]),
         'multipliers': sorted_mults,
     }
     return render(request, 'analyzer/multiplier_dashboard.html', context)

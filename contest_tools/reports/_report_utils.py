@@ -4,8 +4,8 @@
 #          reporting engine.
 #
 # Author: Gemini AI
-# Date: 2025-12-14
-# Version: 0.116.0-Beta
+# Date: 2025-12-17
+# Version: 0.125.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -14,11 +14,12 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0.
-# If a copy of the MPL was not distributed with this
+# License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.125.0-Beta] - 2025-12-17
+# - Removed calculate_multiplier_pivot (moved to contest_tools.utils.pivot_utils).
 # [0.116.0-Beta] - 2025-12-15
 # - Removed get_copyright_footer helper function.
 # [0.115.3-Beta] - 2025-12-15
@@ -66,20 +67,6 @@ def create_output_directory(path: str):
 def _sanitize_filename_part(part: str) -> str:
     """Sanitizes a string to be used as part of a filename."""
     return re.sub(r'[\s/\\:]+', '_', str(part)).lower()
-
-def calculate_multiplier_pivot(df: pd.DataFrame, mult_col: str, group_by_call: bool = False) -> pd.DataFrame:
-    """
-    Creates an authoritative pivot table for a given multiplier column.
-    This is the single source of truth for multiplier counting.
-    """
-    if df.empty or mult_col not in df.columns:
-        return pd.DataFrame()
-    
-    index_cols = [mult_col]
-    if group_by_call and 'MyCall' in df.columns:
-        index_cols.append('MyCall')
-    
-    return df.pivot_table(index=index_cols, columns='Band', aggfunc='size', fill_value=0)
 
 def _prepare_time_series_data(log1: ContestLog, log2: Optional[ContestLog], metric: str) -> tuple:
     """Prepares time-series data for one or two logs."""

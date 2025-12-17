@@ -4,8 +4,8 @@
 #          log, broken down by band.
 #
 # Author: Gemini AI
-# Date: 2025-12-06
-# Version: 0.116.0-Beta
+# Date: 2025-12-17
+# Version: 0.125.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -14,10 +14,12 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0.
-# If a copy of the MPL was not distributed with this
+# License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
 # --- Revision History ---
+# [0.125.0-Beta] - 2025-12-17
+# - Updated import to use contest_tools.utils.pivot_utils for calculate_multiplier_pivot.
 # [0.116.0-Beta] - 2025-12-15
 # - Removed usage of get_copyright_footer.
 # [0.115.3-Beta] - 2025-12-15
@@ -45,7 +47,7 @@ import hashlib
 from ..contest_log import ContestLog
 from ..contest_definitions import ContestDefinition
 from .report_interface import ContestReport
-from ._report_utils import calculate_multiplier_pivot
+from ..utils.pivot_utils import calculate_multiplier_pivot
 
 class Report(ContestReport):
     """
@@ -141,7 +143,6 @@ class Report(ContestReport):
                 report_lines.append("  ".join(data_parts))
             
             report_lines.append(separator)
-            
             
             total_parts = [f"{str(total_summary.get(name, '')):{'>' if name != 'Band' else '<'}{col_widths[name]}}" for name in ['Band', 'Mode']]
             total_parts.append(f"{total_summary.get('QSOs', 0):>{col_widths['QSOs']},.0f}")

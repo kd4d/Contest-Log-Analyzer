@@ -5,7 +5,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-17
-# Version: 0.123.0-Beta
+# Version: 0.127.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,19 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.127.0-Beta] - 2025-12-17
+# - Refactored get_dashboard_matrix_data to get_multiplier_breakdown_data.
+# - Implemented hierarchical aggregation (Total -> Band -> Rule) for dashboard.
+# [0.126.0-Beta] - 2025-12-17
+# - Updated get_dashboard_matrix_data to return raw lists of missed multipliers
+#   instead of just counts, enabling detailed tooltips in the dashboard.
+# [0.125.0-Beta] - 2025-12-17
+# - Updated import to use contest_tools.utils.pivot_utils for calculate_multiplier_pivot.
+# [0.124.1-Beta] - 2025-12-17
+# - Fixed AttributeError in get_dashboard_matrix_data by accessing correct
+#   ComparisonResult attributes (common_count, universe_count).
+# [0.124.0-Beta] - 2025-12-17
+# - Added get_dashboard_matrix_data for high-level Opportunity Matrix metrics.
 # [0.123.0-Beta] - 2025-12-17
 # - Refactored get_missed_data to use the centralized ComparativeEngine for set logic.
 # [0.93.0] - 2025-11-24
@@ -31,7 +44,7 @@ from typing import List, Dict, Any, Set
 import pandas as pd
 from ..contest_log import ContestLog
 from .comparative_engine import ComparativeEngine
-from ..reports._report_utils import calculate_multiplier_pivot
+from ..utils.pivot_utils import calculate_multiplier_pivot
 from ..utils.json_encoders import NpEncoder
 
 class MultiplierStatsAggregator:
@@ -181,6 +194,7 @@ class MultiplierStatsAggregator:
                 
                 df_scope = df_scope[df_scope[mult_column] != 'Unknown']
                 df_scope = df_scope[df_scope[mult_column].notna()]
+                
                 if df_scope.empty: continue
                 
                 if name_column and name_column in df_scope.columns:
@@ -220,3 +234,131 @@ class MultiplierStatsAggregator:
             }
 
         return full_results
+
+    def get_multiplier_breakdown_data(self) -> List[Dict[str, Any]]:
+        """
+        Generates hierarchical metrics for the Multiplier Breakdown table.
+        Returns a list of rows (Total -> Band -> Rule) with par/delta metrics.
+        """
+        all_calls = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])
+        
+        # 1. Collect all raw multiplier sets
+        # Structure: sets[log_call] = set of items
+        # Items are composite keys: (rule_name, band, value) to ensure uniqueness logic matches scoring
+        
+        raw_sets = {call: set() for call in all_calls}
+        
+        # We also need subsets for aggregations
+        # subset_keys: 'TOTAL', 'TOTAL_{Rule}', '{Band}', '{Band}_{Rule}'
+        subsets = {call: {} for call in all_calls}
+        
+        valid_bands = self.contest_def.valid_bands
+        
+        for rule in self.contest_def.multiplier_rules:
+            mult_name = rule['name']
+            mult_column = rule['value_column']
+            method = rule.get('totaling_method', 'sum_by_band')
+            
+            for log in self.logs:
+                call = log.get_metadata().get('MyCall', 'Unknown')
+                df = log.get_processed_data()
+                
+                if df.empty or mult_column not in df.columns: continue
+                
+                # Filter valid
+                valid = df[df[mult_column].notna() & (df[mult_column] != 'Unknown')]
+                
+                if method == 'once_per_log':
+                    # Scope: Global. Key: (Rule, Value)
+                    # Just grab unique values
+                    uniques = valid[mult_column].unique()
+                    for val in uniques:
+                        composite_key = (mult_name, 'All', val)
+                        raw_sets[call].add(composite_key)
+                        
+                        # Populate Subsets
+                        # 1. Total
+                        subsets[call].setdefault('TOTAL', set()).add(composite_key)
+                        # 2. Total_Rule
+                        subsets[call].setdefault(f'TOTAL_{mult_name}', set()).add(composite_key)
+                        # No band breakdown for once_per_log in this table
+                        
+                else:
+                    # Scope: Per Band. Key: (Rule, Band, Value)
+                    grouped = valid.groupby('Band')[mult_column].unique()
+                    for band, values in grouped.items():
+                        for val in values:
+                            composite_key = (mult_name, band, val)
+                            raw_sets[call].add(composite_key)
+                            
+                            # Populate Subsets
+                            # 1. Total (Global Score Sum)
+                            subsets[call].setdefault('TOTAL', set()).add(composite_key)
+                            # 2. Total_Rule (Global Rule Sum)
+                            subsets[call].setdefault(f'TOTAL_{mult_name}', set()).add(composite_key)
+                            # 3. Band Total (Sum of all rules on this band)
+                            subsets[call].setdefault(band, set()).add(composite_key)
+                            # 4. Band_Rule (Specific)
+                            subsets[call].setdefault(f'{band}_{mult_name}', set()).add(composite_key)
+
+        # 2. Helper to run comparison and build row
+        def build_row(label, set_key, indent=0, is_bold=False):
+            # Build dictionary of sets for this specific key across all logs
+            sets_to_compare = {}
+            for call in all_calls:
+                sets_to_compare[call] = subsets[call].get(set_key, set())
+            
+            comp = ComparativeEngine.compare_logs(sets_to_compare)
+            
+            stations_data = {}
+            for call in all_calls:
+                metrics = comp.station_metrics.get(call)
+                if metrics:
+                    stations_data[call] = {
+                        'count': metrics.count,
+                        'delta': metrics.count - comp.universe_count # Delta from Par (Total Worked)
+                    }
+                else:
+                    stations_data[call] = {'count': 0, 'delta': -comp.universe_count}
+
+            return {
+                'label': label,
+                'indent': indent,
+                'is_bold': is_bold,
+                'total_worked': comp.universe_count,
+                'common': comp.common_count,
+                'stations': stations_data
+            }
+
+        rows = []
+        
+        # 3. Build Table Rows
+        # A. Grand Total
+        rows.append(build_row("TOTAL", "TOTAL", indent=0, is_bold=True))
+        
+        # B. Global Rule Breakdowns
+        for rule in self.contest_def.multiplier_rules:
+            r_name = rule['name']
+            rows.append(build_row(r_name, f"TOTAL_{r_name}", indent=1, is_bold=False))
+            
+        rows.append({'is_spacer': True}) # Spacer for template
+
+        # C. Per Band Breakdowns (only if not once_per_log heavy)
+        # Only show bands if there is data
+        has_band_data = any(len(subsets[c].get(b, set())) > 0 for c in all_calls for b in valid_bands)
+        
+        if has_band_data:
+            for band in valid_bands:
+                # Check if band has activity
+                if not any(len(subsets[c].get(band, set())) > 0 for c in all_calls):
+                    continue
+                    
+                rows.append(build_row(band, band, indent=0, is_bold=True))
+                for rule in self.contest_def.multiplier_rules:
+                    if rule.get('totaling_method') == 'once_per_log': continue
+                    r_name = rule['name']
+                    rows.append(build_row(r_name, f"{band}_{r_name}", indent=1, is_bold=False))
+                
+                rows.append({'is_spacer': True})
+
+        return rows
