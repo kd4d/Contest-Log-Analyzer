@@ -4,8 +4,8 @@
 #          serving both the 'Multiplier Summary' and 'Missed Multipliers' reports.
 #
 # Author: Gemini AI
-# Date: 2025-11-24
-# Version: 0.93.0
+# Date: 2025-12-17
+# Version: 0.123.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -14,11 +14,12 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0.
-# If a copy of the MPL was not distributed with this
+# License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.123.0-Beta] - 2025-12-17
+# - Refactored get_missed_data to use the centralized ComparativeEngine for set logic.
 # [0.93.0] - 2025-11-24
 # - Refactored to return JSON-serializable types (Dicts/Lists) instead of
 #   Pandas objects, enabling the Data Abstraction Layer.
@@ -29,6 +30,7 @@
 from typing import List, Dict, Any, Set
 import pandas as pd
 from ..contest_log import ContestLog
+from .comparative_engine import ComparativeEngine
 from ..reports._report_utils import calculate_multiplier_pivot
 from ..utils.json_encoders import NpEncoder
 
@@ -193,11 +195,21 @@ class MultiplierStatsAggregator:
                 band_data_map[callsign] = agg_data.to_dict(orient='index')
                 mult_sets[callsign].update(agg_data.index)
 
-            union_of_all_mults = set.union(*mult_sets.values()) if mult_sets.values() else set()
+            # Delegate Set Theory math to the ComparativeEngine
+            comparison = ComparativeEngine.compare_logs(mult_sets)
             
+            # Reconstruct aggregates from Engine results
+            # Universe = Station_Log U Station_Missed (valid for any station)
+            union_of_all_mults = set()
+            if comparison.station_metrics:
+                # Pick any station to reconstruct the universe set
+                first_call = next(iter(comparison.station_metrics))
+                first_metrics = comparison.station_metrics[first_call]
+                union_of_all_mults = mult_sets[first_call].union(first_metrics.missed_items)
+
             missed_mults_on_band = set()
-            for call in all_calls:
-                missed_mults_on_band.update(union_of_all_mults.difference(mult_sets[call]))
+            for metrics in comparison.station_metrics.values():
+                missed_mults_on_band.update(metrics.missed_items)
 
             full_results['band_data'][band] = {
                 "band_data": band_data_map, 

@@ -1,9 +1,12 @@
 # AIAgentWorkflow.md
 
-**Version: 4.18.0**
-**Date: 2025-12-15**
+**Version: 4.19.0**
+**Date: 2025-12-17**
 ---
 ### --- Revision History ---
+## [4.19.0] - 2025-12-17
+### Changed
+# - Updated Protocol 3.2.7 to explicitly include the Standard Project Header template, removing the external dependency on Docs/ProgrammersGuide.md.
 ## [4.18.0] - 2025-12-15
 ### Changed
 # - Replaced Section 9 with "The Standard Markdown Fence Protocol" to harden output formatting logic.
@@ -351,7 +354,30 @@ This workflow is a formal state machine that governs all development tasks, from
         * **Clarification**: This substitution is a requirement of the AI's web interface. The user will provide files back with standard markdown fences, which is the expected behavior.
     5.  **Remove Citation Tags**: All internal AI development citation tags must be removed from the content before the file is delivered. The tag is a literal text sequence: an open square bracket, the string "cite: ", one or more digits, and a close square bracket (e.g.,). This pattern does not include Markdown backticks.
     6.  **Post-Delivery Protocol Verification.** Immediately following any file delivery, the AI must explicitly state which sub-protocol from Section 3.2 it followed and confirm that its last output was fully compliant.
-    7.  **Python Header Standard Mandate.** All Python files (`.py`) generated or modified by the AI must conform to the standard header definition found in `Docs/ProgrammersGuide.md`. Before generating a Python file, the AI must consult this guide to ensure compliance.
+    7.  **Python Header Standard Mandate.** All Python files (`.py`) generated or modified by the AI must begin with the following standard header block. The AI must populate the `{placeholders}` with the correct module-specific data.
+        __CODE_BLOCK__ python
+        # {filename}.py
+        #
+        # Purpose: {A concise, one-sentence description of the module's primary responsibility.}
+        #
+        # Author: Gemini AI
+        # Date: {YYYY-MM-DD}
+        # Version: {x.y.z-Beta}
+        #
+        # Copyright (c) 2025 Mark Bailey, KD4D
+        # Contact: kd4d@kd4d.org
+        #
+        # License: Mozilla Public License, v. 2.0
+        #          (https://www.mozilla.org/MPL/2.0/)
+        #
+        # This Source Code Form is subject to the terms of the Mozilla Public
+        # License, v. 2.0. If a copy of the MPL was not distributed with this
+        # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+        #
+        # --- Revision History ---
+        # [{version}] - {YYYY-MM-DD}
+        # - {Description of changes}
+        __CODE_BLOCK__
 3.3. **Context Audit (Mandatory)**: Builder cross-references the Plan's requirements against `builder_bundle.txt`.
     * **Pass:** Proceed to Pre-Flight.
     * **Fail:** Execute Protocol 8.8 (Hard Stop).

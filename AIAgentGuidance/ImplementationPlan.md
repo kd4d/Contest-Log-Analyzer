@@ -1,67 +1,48 @@
-# ImplementationPlan.md
-
 **Version:** 1.0.0
-**Target:** 0.122.0-Beta
+**Target:** 0.124.0-Beta
 
-### 1. File Identification
-* **File:** `web_app/analyzer/templates/base.html`
-* **Baseline:** Version 0.102.0-Beta
+# Implementation Plan - Phase 3: The Opportunity Matrix
 
-### 2. Surgical Changes
-* [cite_start]**Remove Global "New Analysis" Button:** Delete the `<a>` tag in the top navbar [cite: 1585] to prevent accidental session destruction from sub-pages.
-* [cite_start]**Implement Session-Aware Menu:** Update the Offcanvas Menu [cite: 1586] to detect active sessions (`session_id` or `session_key`).
-    * **State A (Active Session):** Show "Current Dashboard" as the primary action. Show "Start New Analysis" as a secondary, muted action.
-    * **State B (No Session):** Show "New Analysis" as the primary action.
+This plan executes Phase 3 of the Multiplier Dashboard roadmap. It transforms the dashboard from a static file list into an interactive analytical tool by implementing the **Opportunity Matrix**.
 
-### 3. Surgical Change Verification
+## Proposed Changes
+
+### 1. Modified File: `contest_tools/data_aggregators/multiplier_stats.py`
+**Purpose:** Extend the aggregator to provide high-level matrix metrics (Common, Differential, Missed) without the overhead of detailed callsign strings.
+* **New Method:** `get_dashboard_matrix_data(self)`.
+* **Logic:**
+    * Iterates through all multiplier rules defined for the contest.
+    * Grouping: Aggregates data by **Band** (and **Mode** if applicable).
+    * Engine Integration: Delegates set logic to `ComparativeEngine`.
+    * Output: Returns a structured dictionary suitable for rendering the "Opportunity Matrix" grid (Integers for Common, Diff, Missed).
+
+### 2. Modified File: `web_app/analyzer/views.py`
+**Purpose:** Update the `multiplier_dashboard` view to hydrate live data instead of just scanning text files.
+* **Logic Update:**
+    * Re-initializes `LogManager` and loads the logs stored in the session directory.
+    * Instantiates `MultiplierStatsAggregator`.
+    * Calls `get_dashboard_matrix_data()` to fetch the matrix metrics.
+    * Context Update: Passes the `matrix_data` and `logs` metadata to the template.
+
+### 3. Modified File: `web_app/analyzer/templates/analyzer/multiplier_dashboard.html`
+**Purpose:** Implement the "Three-Pane" layout (Panes 1 & 2 only for this phase).
+* **Pane 1 (Scoreboards):** Adds a top row of mini-scoreboards for the logs being compared.
+* **Pane 2 (Opportunity Matrix):** Adds a dynamic table rendering the "Common / Diff / Missed" integers.
+    * **Visuals:** Uses standard Bootstrap styling. Negative "Missed" numbers are highlighted in red.
+* **Legacy Support:** Retains the existing "Deep Dive" file list at the bottom for continuity.
+
+## Affected Modules Checklist
+* `contest_tools/data_aggregators/multiplier_stats.py`
+* `web_app/analyzer/views.py`
+* `web_app/analyzer/templates/analyzer/multiplier_dashboard.html`
+
+## Pre-Flight Check
+* **Inputs:** Session ID.
+* **Expected Outcome:** A dashboard page showing a "Scoreboard" and an "Opportunity Matrix" grid populated with correct integers, followed by the original report links.
+* **Backward Compatibility:** Existing text reports are preserved and accessible via the "Deep Dive" section.
+* **Architecture Compliance:** Aggregation logic remains in `contest_tools`; View handles I/O; Template handles presentation.
+* **Constraint Check:** "Unknown" multipliers are filtered by the underlying engine (Phase 1).
+
 --- BEGIN DIFF ---
-@@ -16,7 +16,6 @@
-         <a class="navbar-brand fw-bold" href="{% url 'home' %}">
-             <i class="bi bi-broadcast me-2"></i>Contest Log Analytics by KD4D
-         </a>
--        <a href="{% url 'home' %}" class="btn btn-outline-light ms-auto fw-bold btn-sm">New Analysis</a>
-       </div>
-     </nav>
- 
-@@ -27,8 +26,20 @@
-       </div>
-       <div class="offcanvas-body">
-         <ul class="nav flex-column">
--      
-+          {% with active_session=session_id|default:session_key %}
-+          {% if active_session %}
-           <li class="nav-item">
-+            <a class="nav-link active text-primary fw-bold" href="{% url 'dashboard_view' active_session %}">
-+              <i class="bi bi-speedometer2 me-2"></i>Current Dashboard
-+            </a>
-+          </li>
-+          <li class="nav-item">
-+            <a class="nav-link text-muted" href="{% url 'home' %}">
-+              <i class="bi bi-plus-circle me-2"></i>Start New Analysis
-+            </a>
-+          </li>
-+          {% else %}
-+          <li class="nav-item">
-             <a class="nav-link active text-dark" href="{% url 'home' %}"><i class="bi bi-house-door me-2"></i>New Analysis</a>
--          </li>
-+          </li>
-+          {% endif %}
-+          {% endwith %}
-           <li class="nav-item mt-3">
-             <span class="text-muted small text-uppercase fw-bold px-3">Help & Documentation</span>
+(Surgical diffs not provided for full file replacements in this context to ensure clean integration of the new class structures.)
 --- END DIFF ---
-
-### 4. Affected Modules Checklist
-* `web_app/analyzer/templates/dashboard.html` (Retains its local button; no change needed).
-* `web_app/analyzer/templates/analyzer/qso_dashboard.html` (Navbar button removed; "Back" button remains).
-* `web_app/analyzer/templates/analyzer/multiplier_dashboard.html` (Navbar button removed; "Back" button remains).
-
-### 5. Pre-Flight Check
-* **Expected Outcome:** The top-right "New Analysis" button will disappear from all pages. The side menu will intelligently route users back to their active dashboard if one exists.
-* **Backward Compatibility:** Pages without session context (like the Home page) will default to the standard "New Analysis" menu item.
-* **Visual Compliance:** Uses standard Bootstrap utility classes (`text-primary`, `text-muted`) consistent with the existing design.
-* **Logic Verification:** The `default` filter handles the discrepancy between `session_id` (used in sub-dashboards) and `session_key` (used in the main dashboard context).
-
-### 6. Post-Generation Verification
-* I confirm the plan strictly follows the user's request to limit the proliferation of destructive buttons.
-* Next Action Declaration included.
