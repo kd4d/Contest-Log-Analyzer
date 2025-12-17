@@ -1,104 +1,67 @@
 # ImplementationPlan.md
 
 **Version:** 1.0.0
-**Target:** 0.120.1-Beta
+**Target:** 0.122.0-Beta
 
-## 1. File Identification
-**File:** `web_app/analyzer/templates/analyzer/dashboard_construction.html`
-**Baseline:** Version 0.121.0-Beta (Inferred from bundle context)
+### 1. File Identification
+* **File:** `web_app/analyzer/templates/base.html`
+* **Baseline:** Version 0.102.0-Beta
 
-## 2. Surgical Changes
-This redesign splits the single "Under Construction" card into two distinct tiers:
-1.  **The "Success" Pane (Top):** Focuses on the successful completion of the backend analysis and provides the download button. Uses the new copy requested.
-2.  **The "Coming Soon" Pane (Bottom):** Uses a dark gradient background to implement the "classier" aesthetic for the roadmap messaging.
+### 2. Surgical Changes
+* [cite_start]**Remove Global "New Analysis" Button:** Delete the `<a>` tag in the top navbar [cite: 1585] to prevent accidental session destruction from sub-pages.
+* [cite_start]**Implement Session-Aware Menu:** Update the Offcanvas Menu [cite: 1586] to detect active sessions (`session_id` or `session_key`).
+    * **State A (Active Session):** Show "Current Dashboard" as the primary action. Show "Start New Analysis" as a secondary, muted action.
+    * **State B (No Session):** Show "New Analysis" as the primary action.
 
-**Change 1: Redesign the Layout**
-* Replace the single `.card` container with two distinct `.row` blocks.
-* **Top Block:** White background, standard text. Headline "Analysis Successful".
-* **Bottom Block:** Dark gradient background (`linear-gradient(45deg, #141e30, #243b55)`), white text.
-
-__CODE_BLOCK__diff
+### 3. Surgical Change Verification
 --- BEGIN DIFF ---
-@@ -10,18 +10,19 @@
-     <div class="row justify-content-center text-center">
-         <div class="col-lg-8">
--            <div class="card shadow-sm border-0 py-5">
--                <div class="card-body">
--                    <i class="bi bi-cone-striped text-warning mb-4" style="font-size: 5rem;"></i>
--                    <h3 class="fw-bold text-dark mb-3">Interactive Dashboard Coming Soon</h3>
--                    <p class="lead text-muted mb-4">
--                        Analysis complete. The interactive dashboard for <strong>{{ contest_name }}</strong> is currently under development.
--                        <br>
--                        However, your full report package has been generated and is ready for download.
--                    </p>
--
--                    <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
--                        <a href="{% url 'download_all_reports' session_key %}" class="btn btn-primary btn-lg px-5">
--                            <i class="bi bi-file-earmark-zip me-2"></i>Download All Reports
--                        </a>
--                    </div>
--                    <p class="text-muted small mt-3">Contains all Charts (PNG/HTML) and Text Reports generated from your logs.</p>
--                </div>
--            </div>
-+            +            <div class="card shadow-sm border-0 mb-5">
-+                <div class="card-body p-5">
-+                    <h2 class="fw-bold text-success mb-3"><i class="bi bi-check-circle-fill me-2"></i>Analysis Successful</h2>
-+                    <p class="lead text-muted mb-4">
-+                        We have successfully processed your logs and generated the full suite of static reports. 
-+                        While the interactive strategy board for <strong>{{ contest_name }}</strong> is being built, your complete data package is ready now.
-+                    </p>
-+                    <a href="{% url 'download_all_reports' session_key %}" class="btn btn-primary btn-lg px-5 shadow-sm">
-+                        <i class="bi bi-file-earmark-zip me-2"></i>Download All Reports
-+                    </a>
-+                </div>
-+            </div>
-+
-+            +            <div class="card border-0 shadow-sm text-white" style="background: linear-gradient(45deg, #141e30, #243b55); min-height: 300px;">
-+                <div class="card-body d-flex flex-column justify-content-center align-items-center p-5">
-+                    <h1 class="display-5 fw-bold mb-3">Coming Soon</h1>
-+                    <hr class="border-white opacity-50 w-25 mb-4">
-+                    <p class="lead fw-light">
-+                        We are currently tailoring the interactive widgets for the specific scoring rules of {{ contest_name }}.<br>
-+                        Watch this space.
-+                    </p>
-+                </div>
-+            </div>
-         </div>
-     </div>
+@@ -16,7 +16,6 @@
+         <a class="navbar-brand fw-bold" href="{% url 'home' %}">
+             <i class="bi bi-broadcast me-2"></i>Contest Log Analytics by KD4D
+         </a>
+-        <a href="{% url 'home' %}" class="btn btn-outline-light ms-auto fw-bold btn-sm">New Analysis</a>
+       </div>
+     </nav>
+ 
+@@ -27,8 +26,20 @@
+       </div>
+       <div class="offcanvas-body">
+         <ul class="nav flex-column">
+-      
++          {% with active_session=session_id|default:session_key %}
++          {% if active_session %}
+           <li class="nav-item">
++            <a class="nav-link active text-primary fw-bold" href="{% url 'dashboard_view' active_session %}">
++              <i class="bi bi-speedometer2 me-2"></i>Current Dashboard
++            </a>
++          </li>
++          <li class="nav-item">
++            <a class="nav-link text-muted" href="{% url 'home' %}">
++              <i class="bi bi-plus-circle me-2"></i>Start New Analysis
++            </a>
++          </li>
++          {% else %}
++          <li class="nav-item">
+             <a class="nav-link active text-dark" href="{% url 'home' %}"><i class="bi bi-house-door me-2"></i>New Analysis</a>
+-          </li>
++          </li>
++          {% endif %}
++          {% endwith %}
+           <li class="nav-item mt-3">
+             <span class="text-muted small text-uppercase fw-bold px-3">Help & Documentation</span>
 --- END DIFF ---
-__CODE_BLOCK__
 
----
+### 4. Affected Modules Checklist
+* `web_app/analyzer/templates/dashboard.html` (Retains its local button; no change needed).
+* `web_app/analyzer/templates/analyzer/qso_dashboard.html` (Navbar button removed; "Back" button remains).
+* `web_app/analyzer/templates/analyzer/multiplier_dashboard.html` (Navbar button removed; "Back" button remains).
 
-## 1. File Identification
-**File:** `web_app/analyzer/templates/analyzer/dashboard.html`
-**Baseline:** Version 0.121.0-Beta (Inferred from bundle context)
+### 5. Pre-Flight Check
+* **Expected Outcome:** The top-right "New Analysis" button will disappear from all pages. The side menu will intelligently route users back to their active dashboard if one exists.
+* **Backward Compatibility:** Pages without session context (like the Home page) will default to the standard "New Analysis" menu item.
+* **Visual Compliance:** Uses standard Bootstrap utility classes (`text-primary`, `text-muted`) consistent with the existing design.
+* **Logic Verification:** The `default` filter handles the discrepancy between `session_id` (used in sub-dashboards) and `session_key` (used in the main dashboard context).
 
-## 2. Surgical Changes
-This update standardizes the description in the "Raw Data Access" pane to match the first sentence of the Construction page, as requested.
-
-**Change 1: Update Descriptive Text**
-* Replace "Contains all Charts (PNG/HTML) and Text Reports." with "We have successfully processed your logs and generated the full suite of static reports."
-
-__CODE_BLOCK__diff
---- BEGIN DIFF ---
-@@ -118,3 +118,3 @@
-                 <a href="{% url 'download_all_reports' session_key %}" class="btn btn-primary btn-lg">
-                     <i class="bi bi-file-earmark-zip me-2"></i>Download All Reports
-                 </a>
--                <p class="text-muted x-small mt-2 mb-0">Contains all Charts (PNG/HTML) and Text Reports.</p>
-+                <p class="text-muted small mt-3 mb-0">We have successfully processed your logs and generated the full suite of static reports.</p>
-             </div>
---- END DIFF ---
-__CODE_BLOCK__
-
-## 4. Affected Modules Checklist
-* `dashboard_construction.html` (Redesign)
-* `dashboard.html` (Copy Update)
-
-## 5. Pre-Flight Check
-* **Inputs:** `contest_name` and `session_key` context variables.
-* **Expected Outcome:** * Non-CQ-WW contests show a professional, split-view page (Success top, Dark gradient "Coming Soon" bottom).
-    * CQ-WW contests show the updated text in the bottom "Raw Data" card.
-* **Safety:** HTML/CSS only; no logic changes.
-* **Visual Compliance:** Uses standard Bootstrap 5 classes + inline CSS for the gradient.
+### 6. Post-Generation Verification
+* I confirm the plan strictly follows the user's request to limit the proliferation of destructive buttons.
+* Next Action Declaration included.
