@@ -1,114 +1,146 @@
 **Version:** 1.0.0
-**Target:** 4.20.0
+**Target:** 0.127.2-Beta
 
-# Implementation Plan - Hardened Output Sanitization
+# Implementation Plan - The Inline Scorecard Refactoring
 
-This plan updates `AIAgentWorkflow.md` to strictly enforce the "Search and Replace" logic for Markdown sanitization. It moves the critical instruction from the appendix (Protocol 9.0) directly into the execution triggers (Protocols 3.2.4, 2.4.4, and 2.4.6) to prevent nested fence collisions during file delivery.
+## User Story
+As an Architect, I want to optimize the visual density of the Multiplier Breakdown table by moving the red "missed" delta numbers inline with the total counts (e.g., `99 (-5)`) and spelling out the column headers, so that the report is more readable and requires less vertical scrolling.
 
-## Proposed Changes
+## Technical Approach
+1.  **Template Refactoring (`breakdown_rows.html`):**
+    * Replace the block-level `div` structure for station stats with a single inline format.
+    * Enforce the pattern: `{{ count }} <span class="text-danger">({{ delta }})</span>`.
+    * Hardcode the delta color to `text-danger` as requested.
+    * Add `text-nowrap` to the table cell to strictly enforce the inline requirement on smaller screens.
+2.  **Header Expansion (`multiplier_dashboard.html`):**
+    * Locate the "Low Bands" and "High Bands" table headers.
+    * Replace abbreviations `Wrkd` -> `Worked` and `Com` -> `Common`.
 
-### `AIAgentWorkflow.md`
-
-#### [Modification] Revision History
-* Add entry for version **4.20.0**.
-
-#### [Modification] Protocol 3.2.4 (AI Output Format)
-* **Update Item 4:** Explicitly mandate the literal replacement of triple backticks with `__CODE_BLOCK__` before encapsulation. This removes the reliance on looking up Protocol 9.0.
-
-#### [Modification] Protocol 2.4.4 (The Compliance Stamp)
-* **Update Sanitization Check:** Change the required output from a simple "PASS/FAIL" to the specific confirmation string: `PASS (Internal fences sanitized to __CODE_BLOCK__)`.
-
-#### [Modification] Protocol 2.4.6 (The Structural Gate)
-* **Update Sanitization Check:** Refine the logic gate to explicitly look for triple backticks inside the bundle.
-
-#### [Modification] Protocol 9.0 (The Standard Markdown Fence Protocol)
-* **Add Recursion Mandate:** Add a bullet point strictly defining the handling of Markdown-within-Markdown.
-
----
+## Affected Files
+1.  `web_app/analyzer/templates/analyzer/partials/breakdown_rows.html`
+2.  `web_app/analyzer/templates/analyzer/multiplier_dashboard.html`
 
 ## Surgical Changes
 
-### `AIAgentWorkflow.md`
+### 1. `web_app/analyzer/templates/analyzer/partials/breakdown_rows.html`
+* **Change:** Convert stacked divs to inline span with hardcoded red color and parentheses.
 
-**1. Update Revision History**
-* **Action:** Append new version 4.20.0.
+__CODE_BLOCK__html
+<<<<
+    {% for stat in row.stations %}
+    <td>
+        <div>{{ stat.count }}</div>
+        {% if stat.delta != 0 %}
+        <div class="small {% if stat.delta > 0 %}text-success{% else %}text-danger{% endif %}" style="font-size: 0.75rem;">
+            {{ stat.delta|stringformat:"+d" }}
+        </div>
+        {% endif %}
+    </td>
+    {% endfor %}
+====
+    {% for stat in row.stations %}
+    <td class="text-nowrap">
+        {{ stat.count }}
+        {% if stat.delta != 0 %}
+        <span class="text-danger">({{ stat.delta|stringformat:"+d" }})</span>
+        {% endif %}
+    </td>
+    {% endfor %}
+>>>>
+__CODE_BLOCK__
 
-**2. Update Protocol 2.4.4**
-* **Action:** Update the expected output format for the Sanitization check.
+### 2. `web_app/analyzer/templates/analyzer/multiplier_dashboard.html`
+* **Change:** Expand headers for "Low Bands" section.
 
-**3. Update Protocol 2.4.6**
-* **Action:** Strengthen the internal verification question.
+__CODE_BLOCK__html
+<<<<
+                                    <tr>
+                                        <th class="text-start ps-2" style="width: 20%;">{{ block.label }}</th>
+                                        <th>Wrkd</th>
+                                        <th>Com</th>
+                                        {% for call in all_calls %}<th>{{ call }}</th>{% endfor %}
+                                    </tr>
+====
+                                    <tr>
+                                        <th class="text-start ps-2" style="width: 20%;">{{ block.label }}</th>
+                                        <th>Worked</th>
+                                        <th>Common</th>
+                                        {% for call in all_calls %}<th>{{ call }}</th>{% endfor %}
+                                    </tr>
+>>>>
+__CODE_BLOCK__
 
-**4. Update Protocol 3.2.4**
-* **Action:** Replace Item 4 with the new strict mandate.
+* **Change:** Expand headers for "High Bands" section.
 
-**5. Update Protocol 9.0**
-* **Action:** Add the Recursion Mandate bullet point.
+__CODE_BLOCK__html
+<<<<
+                                    <tr>
+                                        <th class="text-start ps-2" style="width: 20%;">{{ block.label }}</th>
+                                        <th>Wrkd</th>
+                                        <th>Com</th>
+                                        {% for call in all_calls %}<th>{{ call }}</th>{% endfor %}
+                                    </tr>
+====
+                                    <tr>
+                                        <th class="text-start ps-2" style="width: 20%;">{{ block.label }}</th>
+                                        <th>Worked</th>
+                                        <th>Common</th>
+                                        {% for call in all_calls %}<th>{{ call }}</th>{% endfor %}
+                                    </tr>
+>>>>
+__CODE_BLOCK__
 
----
+## Surgical Change Verification (Diff)
 
-### Surgical Change Verification
+__CODE_BLOCK__text
+--- BEGIN DIFF ---
+--- web_app/analyzer/templates/analyzer/partials/breakdown_rows.html
++++ web_app/analyzer/templates/analyzer/partials/breakdown_rows.html
+@@ -7,12 +7,9 @@
+     <td>{{ row.common }}</td>
+     {% for stat in row.stations %}
+-    <td>
+-        <div>{{ stat.count }}</div>
++    <td class="text-nowrap">
++        {{ stat.count }}
+         {% if stat.delta != 0 %}
+-        <div class="small {% if stat.delta > 0 %}text-success{% else %}text-danger{% endif %}" style="font-size: 0.75rem;">
+-            {{ stat.delta|stringformat:"+d" }}
+-        </div>
++        <span class="text-danger">({{ stat.delta|stringformat:"+d" }})</span>
+         {% endif %}
+     </td>
+     {% endfor %}
 
-**Ground Truth Declaration:** The following `diff` is generated against the definitive baseline **Version 4.19.0**.
-
-__CODE_BLOCK__ diff
---- AIAgentWorkflow.md
-+++ AIAgentWorkflow.md
-@@ -6,6 +6,13 @@
- **Date:** 2025-12-17
- ---
- ### --- Revision History ---
-+## [4.20.0] - 2025-12-18
-+### Changed
-+# - Updated Protocol 3.2.4 to explicitly mandate `__CODE_BLOCK__` replacement for Markdown delivery.
-+# - Updated Protocol 2.4.4 to require specific confirmation string for sanitization.
-+# - Updated Protocol 2.4.6 to strengthen the Structural Gate logic.
-+# - Updated Protocol 9.0 to include a Recursion Mandate for nested fences.
- ## [4.19.0] - 2025-12-17
- ### Changed
- # - Updated Protocol 3.2.7 to explicitly include the Standard Project Header template, removing the external dependency on Docs/ProgrammersGuide.md.
-@@ -213,7 +220,7 @@
-     * **2.4.4 The Compliance Stamp:** Every Builder Execution Kit MUST define a visible "Compliance Report" section validating:
-         * **Protocol 2.1.1 (Architecture):** PASS/FAIL
-         * **Protocol 3.3 (Context Audit):** PASS/FAIL
--        * **Protocol 3.2.4 (Sanitization):** PASS/FAIL
-+        * **Protocol 3.2.4 (Sanitization):** **PASS (Internal fences sanitized to `__CODE_BLOCK__`)**
-     * **2.4.5 The Manifest Isolation:** The `manifest.txt` list MUST be provided in its own distinct code block, separate from the `cla-bundle` block, to facilitate easy extraction by the user.
-     * **2.4.6. The Structural Gate (The "Meta-Pre-Flight").**
-         * **Trigger:** Immediately before generating the final response containing a Builder Execution Kit.
-@@ -226,7 +233,7 @@
-             * **If NO:** The generation is **FORBIDDEN**. I must abort and restart the response generation with the correct wrapper.
-             * **If YES:** Proceed with delivery.
--        * **Sanitization Check:** "Are all internal code fences within the plan replaced with `__CODE_BLOCK__`?"
-+        * **Sanitization Check:** "Have I visibly replaced every internal triple-backtick in the `ImplementationPlan.md` content with the string `__CODE_BLOCK__`? If I see a triple-backtick inside the `cla-bundle`, I must stop and fix it."
- 2.5. **Plan Content Mandates**: The Plan must contain the following sections for each file to be modified, formatted with bolded headers:
-     **0. Plan Metadata Header:** Every Implementation Plan must begin with a standardized metadata block containing:
-     * **`**Version:**`**: The revision number of the Plan document itself (e.g., `1.0.0`).
-@@ -341,9 +348,7 @@
-     2.  **Raw Source Text**: The content inside the delivered code block must be the raw source text of the file.
-     3.  **Code File Delivery**: For code files (e.g., `.py`, `.json`), the content will be delivered in a standard fenced code block with the appropriate language specifier.
--    4.  **Markdown File Delivery**: Documentation files (`.md`) must be delivered inside a `cla-bundle` specified code block, strictly adhering to **Protocol 9.0 (The Standard Markdown Fence Protocol)** regarding the sanitization of internal code fences.
--        * **Clarification**: This substitution is a requirement of the AI's web interface. The user will provide files back with standard markdown fences, which is the expected behavior.
-+    4.  **Markdown File Delivery**: Documentation files (`.md`) must be delivered inside a `cla-bundle` specified code block. **CRITICAL:** To prevent nested rendering errors, you must perform a literal Find & Replace on the content *before* encapsulation: **All instances of triple backticks (```) within the file content MUST be replaced with the placeholder `__CODE_BLOCK__`.**
-     5.  **Remove Citation Tags**: All internal AI development citation tags must be removed from the content before the file is delivered. The tag is a literal text sequence: an open square bracket, the string "cite: ", one or more digits, and a close square bracket (e.g.,). This pattern does not include Markdown backticks.
-     6.  **Post-Delivery Protocol Verification.** Immediately following any file delivery, the AI must explicitly state which sub-protocol from Section 3.2 it followed and confirm that its last output was fully compliant.
-     7.  **Python Header Standard Mandate.** All Python files (`.py`) generated or modified by the AI must begin with the following standard header block. The AI must populate the `{placeholders}` with the correct module-specific data.
-@@ -578,4 +583,5 @@
-         * **Internal Content:** Only triple backticks inside the file content itself (e.g., a Python docstring or a Markdown file being delivered) must be sanitized (replaced with `__CODE_BLOCK__`) to prevent breaking the outer container.
-     * **Visual Check:** The final output must look like a rendered code box in the chat window, not plain text starting with `__CODE_BLOCK__...`.
-     * **Example:** "Wrap the file content in standard markdown fences (`python` ... ). Do not replace these outer fences with placeholders. Only sanitize triple backticks that appear within the code itself."
-+    * **Recursion Mandate:** When delivering a Markdown file (like `ImplementationPlan.md`) inside a wrapper, the "internal content" rule applies. The Agent must simulate a text processor: `content.replace("```", "__CODE_BLOCK__")`.
+--- web_app/analyzer/templates/analyzer/multiplier_dashboard.html
++++ web_app/analyzer/templates/analyzer/multiplier_dashboard.html
+@@ -48,8 +48,8 @@
+                                     <tr>
+                                         <th class="text-start ps-2" style="width: 20%;">{{ block.label }}</th>
+-                                        <th>Wrkd</th>
+-                                        <th>Com</th>
++                                        <th>Worked</th>
++                                        <th>Common</th>
+                                         {% for call in all_calls %}<th>{{ call }}</th>{% endfor %}
+                                     </tr>
+                                 </thead>
+@@ -64,8 +64,8 @@
+                                     <tr>
+                                         <th class="text-start ps-2" style="width: 20%;">{{ block.label }}</th>
+-                                        <th>Wrkd</th>
+-                                        <th>Com</th>
++                                        <th>Worked</th>
++                                        <th>Common</th>
+                                         {% for call in all_calls %}<th>{{ call }}</th>{% endfor %}
+                                     </tr>
+                                 </thead>
+--- END DIFF ---
 __CODE_BLOCK__
 
 ## Pre-Flight Check
-
-* **Inputs:** `AIAgentWorkflow.md` (Version 4.19.0).
-* **Expected Outcome:** A hardened workflow document that explicitly details the string replacement logic for nested markdown fences.
-* **Mental Walkthrough:** I will update the Revision History, then replace the text in Protocols 3.2.4, 2.4.4, 2.4.6, and 9.0 with the new, specific mandates.
-* **State Confirmation:** I will include the confirmation prompt.
-* **Backward Compatibility:** This is a documentation update; it clarifies behavior but does not break existing file formats.
-* **Surgical Modification:** Only the specified protocols are being updated.
-* **Visual Compliance:** N/A (Text file).
-* **Post-Generation Verification:** I have verified that this plan includes all mandatory sections.
-
-**Next Action:** I will issue the standardized prompt for approval.
+1.  **Inputs:** `breakdown_rows.html`, `multiplier_dashboard.html`.
+2.  **Outcome:** The Multiplier Breakdown table will display compact rows. The redundant vertical space from the stacked divs will be eliminated. Headers will be fully readable.
+3.  **Visual Confirmation:**
+    * **Old:** `99` (newline) `-5` (small font)
+    * **New:** `99 (-5)` (base font, red)
+4.  **Impact Analysis:** Changes are restricted to template HTML. No impact on data aggregation logic or Python code.

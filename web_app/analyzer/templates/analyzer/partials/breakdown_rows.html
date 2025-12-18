@@ -6,12 +6,10 @@
     <td>{{ row.total_worked }}</td>
     <td>{{ row.common }}</td>
     {% for stat in row.stations %}
-    <td>
-        <div>{{ stat.count }}</div>
+    <td class="text-nowrap">
+        {{ stat.count }}
         {% if stat.delta != 0 %}
-        <div class="small {% if stat.delta > 0 %}text-success{% else %}text-danger{% endif %}" style="font-size: 0.75rem;">
-            {{ stat.delta|stringformat:"+d" }}
-        </div>
+        <span class="text-danger">({{ stat.delta|stringformat:"+d" }})</span>
         {% endif %}
     </td>
     {% endfor %}
