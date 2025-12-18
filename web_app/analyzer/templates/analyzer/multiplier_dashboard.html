@@ -32,120 +32,95 @@
         {% endfor %}
     </div>
 
-    <div class="row">
-        <div class="col-md-3 col-lg-2">
-            <h5 class="fw-bold text-secondary mb-3"><i class="bi bi-tags me-2"></i>Multipliers</h5>
-            <div class="nav flex-column nav-pills me-3" id="v-pills-tab" role="tablist" aria-orientation="vertical">
-                {% for mult in multipliers %}
-                <button class="nav-link text-start {% if forloop.first %}active{% endif %}" id="v-pills-{{ forloop.counter }}-tab" data-bs-toggle="pill" data-bs-target="#v-pills-{{ forloop.counter }}" type="button" role="tab" aria-controls="v-pills-{{ forloop.counter }}" aria-selected="{% if forloop.first %}true{% else %}false{% endif %}">
-                    {{ mult.label }}
-                </button>
-                {% empty %}
-                <div class="alert alert-warning small">No multiplier reports found.</div>
-                {% endfor %}
-            </div>
+    <div class="card mb-5 border shadow-sm">
+        <div class="card-header fw-bold bg-light text-secondary">
+            <i class="bi bi-grid-3x3-gap me-2"></i>Multiplier Breakdown (Group Par)
         </div>
-
-        <div class="col-md-9 col-lg-10">
-            <div class="card mb-4">
-                <div class="card-header fw-bold bg-light text-secondary">
-                    <i class="bi bi-grid-3x3-gap me-2"></i>Multiplier Breakdown (Group Par)
-                </div>
-                <div class="card-body p-0">
-                    <table class="table table-sm table-hover mb-0 text-center align-middle">
-                        <thead class="table-dark">
-                            <tr>
-                                <th class="text-start ps-3">Scope</th>
-                                <th>Total Worked</th>
-                                <th>Common</th>
-                                {% for call in all_calls %}
-                                <th>{{ call }}</th>
-                                {% endfor %}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for row in breakdown_rows %}
-                                {% if row.is_spacer %}
-                                    <tr class="table-light"><td colspan="{{ all_calls|length|add:3 }}">&nbsp;</td></tr>
-                                {% else %}
-                                    <tr class="{% if row.is_bold %}fw-bold bg-light border-top border-bottom{% endif %}">
-                                        <td class="text-start ps-3">
-                                            {% if row.indent > 0 %}<span class="text-muted ms-3 small"><i class="bi bi-arrow-return-right me-1"></i></span>{% endif %}
-                                            {{ row.label }}
-                                        </td>
-                                        <td class="{% if row.is_bold %}fs-6{% endif %}">{{ row.total_worked }}</td>
-                                        <td class="text-muted">{{ row.common }}</td>
-                                        {% for call in all_calls %}
-                                            {% for station_call, stat in row.stations.items %}
-                                                {% if station_call == call %}
-                                                <td>
-                                                    {{ stat.count }}
-                                                    {% if stat.delta < 0 %}
-                                                    <span class="text-danger small fw-bold ms-1">({{ stat.delta }})</span>
-                                                    {% endif %}
-                                                </td>
-                                                {% endif %}
-                                            {% endfor %}
-                                        {% endfor %}
-                                    </tr>
-                                {% endif %}
+        <div class="card-body p-4">
+            
+            <div class="table-responsive mb-4">
+                <table class="table table-sm table-hover mb-0 text-center align-middle border">
+                    <thead class="table-dark">
+                        <tr>
+                            <th class="text-start ps-3" style="width: 20%;">Scope</th>
+                            <th>Total Worked</th>
+                            <th>Common</th>
+                            {% for call in all_calls %}
+                            <th>{{ call }}</th>
                             {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% include "analyzer/partials/breakdown_rows.html" with rows=breakdown_totals %}
+                    </tbody>
+                </table>
             </div>
 
-            <div class="tab-content" id="v-pills-tabContent">
-                {% for mult in multipliers %}
-                <div class="tab-pane fade {% if forloop.first %}show active{% endif %}" id="v-pills-{{ forloop.counter }}" role="tabpanel" aria-labelledby="v-pills-{{ forloop.counter }}-tab">
-                    
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h4 class="mb-0 fw-bold">{{ mult.label }}</h4>
-                    </div>
-
-                    <div class="card shadow-sm border">
-                        <div class="card-header bg-white p-0 border-bottom-0">
-                            <ul class="nav nav-tabs card-header-tabs m-0" id="tabs-{{ forloop.counter }}" role="tablist">
-                                {% if mult.missed %}
-                                <li class="nav-item" role="presentation">
-                                    <button class="nav-link active text-danger fw-bold" id="missed-{{ forloop.counter }}-tab" data-bs-toggle="tab" data-bs-target="#missed-{{ forloop.counter }}" type="button" role="tab" aria-selected="true">
-                                        <i class="bi bi-exclamation-triangle me-2"></i>Missed Multipliers
-                                    </button>
-                                </li>
-                                {% endif %}
-                                {% if mult.summary %}
-                                <li class="nav-item" role="presentation">
-                                    <button class="nav-link {% if not mult.missed %}active{% endif %} text-primary fw-bold" id="summary-{{ forloop.counter }}-tab" data-bs-toggle="tab" data-bs-target="#summary-{{ forloop.counter }}" type="button" role="tab" aria-selected="{% if not mult.missed %}true{% else %}false{% endif %}">
-                                        <i class="bi bi-table me-2"></i>Summary
-                                    </button>
-                                </li>
-                                {% endif %}
-                            </ul>
+            <div class="row g-4">
+                <div class="col-lg-6">
+                    <h6 class="fw-bold text-secondary mb-2 border-bottom pb-2">Low Bands (160-40M)</h6>
+                    {% for block in low_bands_data %}
+                        <div class="table-responsive mb-3 border rounded">
+                            <table class="table table-sm table-hover mb-0 text-center align-middle">
+                                <thead class="table-light text-muted small">
+                                    <tr>
+                                        <th class="text-start ps-2" style="width: 20%;">{{ block.label }}</th>
+                                        <th>Wrkd</th>
+                                        <th>Com</th>
+                                        {% for call in all_calls %}<th>{{ call }}</th>{% endfor %}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% include "analyzer/partials/breakdown_rows.html" with rows=block.rows %}
+                                </tbody>
+                            </table>
                         </div>
-                        
-                        <div class="card-body p-0 tab-content" style="height: 800px;">
-                            {% if mult.missed %}
-                            <div class="tab-pane fade show active h-100 position-relative" id="missed-{{ forloop.counter }}" role="tabpanel">
-                                <div class="position-absolute top-0 end-0 p-2" style="z-index: 10;">
-                                    <a href="{% url 'view_report' session_id mult.missed %}?source=mult" target="_blank" class="btn btn-sm btn-light border shadow-sm"><i class="bi bi-box-arrow-up-right me-1"></i>Display</a>
-                                </div>
-                                <iframe src="{% url 'view_report' session_id mult.missed %}?chromeless=1" style="width: 100%; height: 100%; border: none;"></iframe>
-                            </div>
-                            {% endif %}
-                            {% if mult.summary %}
-                            <div class="tab-pane fade {% if not mult.missed %}show active{% endif %} h-100 position-relative" id="summary-{{ forloop.counter }}" role="tabpanel">
-                                <div class="position-absolute top-0 end-0 p-2" style="z-index: 10;">
-                                    <a href="{% url 'view_report' session_id mult.summary %}?source=mult" target="_blank" class="btn btn-sm btn-light border shadow-sm"><i class="bi bi-box-arrow-up-right me-1"></i>Display</a>
-                                </div>
-                                <iframe src="{% url 'view_report' session_id mult.summary %}?chromeless=1" style="width: 100%; height: 100%; border: none;"></iframe>
-                            </div>
-                            {% endif %}
-                        </div>
-                    </div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
+
+                <div class="col-lg-6">
+                    <h6 class="fw-bold text-secondary mb-2 border-bottom pb-2">High Bands (20-10M)</h6>
+                    {% for block in high_bands_data %}
+                        <div class="table-responsive mb-3 border rounded">
+                            <table class="table table-sm table-hover mb-0 text-center align-middle">
+                                <thead class="table-light text-muted small">
+                                    <tr>
+                                        <th class="text-start ps-2" style="width: 20%;">{{ block.label }}</th>
+                                        <th>Wrkd</th>
+                                        <th>Com</th>
+                                        {% for call in all_calls %}<th>{{ call }}</th>{% endfor %}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% include "analyzer/partials/breakdown_rows.html" with rows=block.rows %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% endfor %}
+                </div>
             </div>
         </div>
+    </div>
+
+    <h5 class="fw-bold text-secondary mb-3"><i class="bi bi-file-text me-2"></i>Missed Multiplier Reports</h5>
+    <div class="row row-cols-1 row-cols-md-2 row-cols-xl-4 g-4">
+        {% for mult in multipliers %}
+            {% if mult.missed %}
+            <div class="col">
+                <div class="card h-100 shadow-sm border-0">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <span class="fw-bold text-danger">{{ mult.label }}</span>
+                        <a href="{% url 'view_report' session_id mult.missed %}?source=mult" target="_blank" class="btn btn-sm btn-link text-muted p-0" title="Full Screen">
+                            <i class="bi bi-box-arrow-up-right"></i>
+                        </a>
+                    </div>
+                    <div class="card-body p-0" style="height: 500px;">
+                        <iframe src="{% url 'view_report' session_id mult.missed %}?chromeless=1" style="width: 100%; height: 100%; border: none;"></iframe>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        {% endfor %}
     </div>
 </div>
 
@@ -158,4 +133,6 @@
         });
     });
 </script>
+<script type="text/template" id="breakdown-rows-template">
+    </script>
 {% endblock %}

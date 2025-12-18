@@ -5,8 +5,8 @@
 #          aggregates data using DAL components, and renders the dashboard.
 #
 # Author: Gemini AI
-# Date: 2025-12-17
-# Version: 0.125.0-Beta
+# Date: 2025-12-18
+# Version: 0.126.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,15 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.126.0-Beta] - 2025-12-18
+# - Implemented `get_log_index_view` to expose log fetcher API.
+# - Refactored `analyze_logs` to support both manual uploads and public archive fetching.
+# - Extracted `_run_analysis_pipeline` to share processing logic between upload and fetch modes.
+# [0.125.2-Beta] - 2025-12-17
+# - Fixed IndentationError in `_cleanup_old_sessions`.
+# [0.125.1-Beta] - 2025-12-17
+# - Updated `multiplier_dashboard` view to consume structured breakdown data
+#   (totals/bands) and split bands into low/high groups for responsive layout.
 # [0.125.0-Beta] - 2025-12-17
 # - Updated `multiplier_dashboard` to consume hierarchical `breakdown_rows`
 #   instead of the legacy `matrix_data`.
@@ -98,6 +107,7 @@ from contest_tools.data_aggregators.multiplier_stats import MultiplierStatsAggre
 from contest_tools.report_generator import ReportGenerator
 from contest_tools.core_annotations import CtyLookup
 from contest_tools.reports._report_utils import _sanitize_filename_part
+from contest_tools.utils.log_fetcher import fetch_log_index, download_logs
 
 logger = logging.getLogger(__name__)
 
@@ -142,6 +152,20 @@ def _update_progress(request_id, step):
     with open(file_path, 'w') as f:
         json.dump({'step': step}, f)
 
+def get_log_index_view(request):
+    """API Endpoint: Returns list of available callsigns for Year/Mode."""
+    contest = request.GET.get('contest')
+    year = request.GET.get('year')
+    mode = request.GET.get('mode')
+    
+    if contest == 'CQ-WW' and year and mode:
+        try:
+            callsigns = fetch_log_index(year, mode)
+            return JsonResponse({'callsigns': callsigns})
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    return JsonResponse({'callsigns': []})
+
 def home(request):
     form = UploadLogForm()
     return render(request, 'analyzer/home.html', {'form': form})
@@ -154,130 +178,157 @@ def analyze_logs(request):
         request_id = request.POST.get('request_id')
         _update_progress(request_id, 1) # Step 1: Uploading (Done, moving to Parsing)
 
-        form = UploadLogForm(request.POST, request.FILES)
-        if form.is_valid():
-            # 1. Create Session Context
-            session_key = str(uuid.uuid4())
-            session_path = os.path.join(settings.MEDIA_ROOT, 'sessions', session_key)
-            os.makedirs(session_path, exist_ok=True)
+        # Handle Manual Upload
+        if 'log1' in request.FILES:
+            form = UploadLogForm(request.POST, request.FILES)
+            if form.is_valid():
+                # 1. Create Session Context
+                session_key = str(uuid.uuid4())
+                session_path = os.path.join(settings.MEDIA_ROOT, 'sessions', session_key)
+                os.makedirs(session_path, exist_ok=True)
 
+                try:
+                    # 2. Save Uploads
+                    log_paths = []
+                    # Ensure data directory exists for CTY lookups if not mapped (Docker handles this though)
+                    files = [request.FILES.get('log1'), request.FILES.get('log2'), request.FILES.get('log3')]
+                    files = [f for f in files if f] # Filter None
+
+                    for f in files:
+                        file_path = os.path.join(session_path, f.name)
+                        with open(file_path, 'wb+') as destination:
+                            for chunk in f.chunks():
+                                destination.write(chunk)
+                        log_paths.append(file_path)
+
+                    return _run_analysis_pipeline(request_id, log_paths, session_path, session_key)
+                except Exception as e:
+                    logger.exception("Log analysis failed")
+                    return render(request, 'analyzer/home.html', {'form': form, 'error': str(e)})
+        
+        # Handle Public Fetch
+        elif 'fetch_callsigns' in request.POST:
             try:
-                # 2. Save Uploads
-                log_paths = []
-                # Ensure data directory exists for CTY lookups if not mapped (Docker handles this though)
+                # 1. Create Session Context
+                session_key = str(uuid.uuid4())
+                session_path = os.path.join(settings.MEDIA_ROOT, 'sessions', session_key)
+                os.makedirs(session_path, exist_ok=True)
+
+                # 2. Fetch Logs
+                callsigns_raw = request.POST.get('fetch_callsigns') # JSON string
+                year = request.POST.get('fetch_year')
+                mode = request.POST.get('fetch_mode')
                 
-                files = [request.FILES.get('log1'), request.FILES.get('log2'), request.FILES.get('log3')]
-                files = [f for f in files if f] # Filter None
-
-                for f in files:
-                    file_path = os.path.join(session_path, f.name)
-                    with open(file_path, 'wb+') as destination:
-                        for chunk in f.chunks():
-                            destination.write(chunk)
-                    log_paths.append(file_path)
-
-                # 3. Process with LogManager
-                # Note: We rely on docker-compose env vars for CONTEST_INPUT_DIR
-                root_input = os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
+                callsigns = json.loads(callsigns_raw)
                 
-                _update_progress(request_id, 2) # Step 2: Parsing
-                lm = LogManager()
-                # Load logs (auto-detect contest type)
-                lm.load_log_batch(log_paths, root_input, 'after')
-
-                lm.finalize_loading(session_path)
-
-                # 4. Generate Physical Reports (Drill-Down Assets)
-                _update_progress(request_id, 3) # Step 3: Aggregating
+                _update_progress(request_id, 1) # Step 1: Fetching
+                log_paths = download_logs(callsigns, year, mode, session_path)
                 
-                # Note: ReportGenerator implicitly aggregates if needed, but we treat it as the bridge
-                # Step 4: Generating
-                _update_progress(request_id, 4) 
-                
-                generator = ReportGenerator(lm.logs, root_output_dir=session_path)
-                generator.run_reports('all')
-                
-                # 5. Aggregate Data (Dashboard Scalars)
-                ts_agg = TimeSeriesAggregator(lm.logs)
-                ts_data = ts_agg.get_time_series_data()
-                
-                # Extract basic scalars for dashboard
-                # Construct relative path components for the template
-                first_log_meta = lm.logs[0].get_metadata()
-                contest_name = first_log_meta.get('ContestName', 'Unknown').replace(' ', '_')
-                # Date/Year extraction logic mirrors LogManager
-                df_first = lm.logs[0].get_processed_data()
-                year = df_first['Date'].dropna().iloc[0].split('-')[0] if not df_first.empty else "UnknownYear"
-                
-                # Re-derive event_id locally or fetch from metadata if available (LogManager stores it there now)
-                event_id = first_log_meta.get('EventID', '')
-
-                # Construct Full Title: "CQ-WW-CW 2024" or "NAQP 2025 JAN"
-                full_contest_title = f"{contest_name.replace('_', ' ')} {year} {event_id}".strip()
-
-                # Extract CTY Version Info
-                cty_path = lm.logs[0].cty_dat_path
-                cty_date = CtyLookup.extract_version_date(cty_path)
-                cty_date_str = cty_date.strftime('%Y-%m-%d') if cty_date else "Unknown Date"
-                cty_filename = os.path.basename(cty_path)
-                cty_version_info = f"{cty_filename} ({cty_date_str})"
-                
-                all_calls = sorted([l.get_metadata().get('MyCall', f'Log{i+1}') for i, l in enumerate(lm.logs)])
-                combo_id = '_'.join(all_calls)
-
-                # Construct safe URL path (LOWERCASE to match ReportGenerator's disk output)
-                path_components = [year, contest_name.lower(), event_id.lower(), combo_id.lower()]
-                report_url_path = "/".join([str(p) for p in path_components if p])
-
-                # Protocol 3.5: Construct Standardized Filenames <report_id>_<callsigns>.<ext>
-                # CRITICAL: Filenames on disk are lowercased by ReportGenerator. We must match that.
-                animation_filename = f"interactive_animation_{combo_id.lower()}.html"
-                plot_filename = f"qso_rate_{combo_id.lower()}.html"
-                
-                # Note: Multiplier filename removed here. It is now dynamically resolved in multiplier_dashboard view.
-
-                context = {
-                    'session_key': session_key,
-                    'report_url_path': report_url_path,
-                    'animation_file': animation_filename,
-                    'plot_file': plot_filename,
-                    'logs': [],
-                    'mult_headers': [],
-                    'full_contest_title': full_contest_title,
-                    'cty_version_info': cty_version_info,
-                    'contest_name': contest_name,
-                }
-                
-                # Determine multiplier headers from the first log (assuming all are same contest)
-                if ts_data['logs']:
-                    first_log_key = list(ts_data['logs'].keys())[0]
-                    if 'mult_breakdown' in ts_data['logs'][first_log_key]['scalars']:
-                        context['mult_headers'] = list(ts_data['logs'][first_log_key]['scalars']['mult_breakdown'].keys())
-
-                for call, data in ts_data['logs'].items():
-                    context['logs'].append({
-                        'callsign': call,
-                        'score': data['scalars'].get('final_score', 0),
-                        'qsos': data['scalars']['net_qsos'],
-                        'mults': data['scalars'].get('mult_breakdown', {}),
-                        'run_qsos': data['scalars'].get('run_qsos', 0),
-                        'run_percent': data['scalars'].get('run_percent', 0.0)
-                    })
-
-                # --- Session Persistence (Fix Navigation Loop) ---
-                # Save the context to disk so it can be reloaded via GET request
-                context_path = os.path.join(session_path, 'dashboard_context.json')
-                with open(context_path, 'w') as f:
-                    json.dump(context, f)
-
-                _update_progress(request_id, 5) # Step 5: Finalizing/Ready
-                return redirect('dashboard_view', session_id=session_key)
-
+                return _run_analysis_pipeline(request_id, log_paths, session_path, session_key)
             except Exception as e:
-                logger.exception("Log analysis failed")
-                return render(request, 'analyzer/home.html', {'form': form, 'error': str(e)})
-    
+                logger.exception("Public log fetch failed")
+                return render(request, 'analyzer/home.html', {'form': UploadLogForm(), 'error': str(e)})
+        
     return redirect('home')
+
+def _run_analysis_pipeline(request_id, log_paths, session_path, session_key):
+    """Shared logic for processing logs (Manual or Fetched)."""
+    # 3. Process with LogManager
+    # Note: We rely on docker-compose env vars for CONTEST_INPUT_DIR
+    root_input = os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
+    
+    _update_progress(request_id, 2) # Step 2: Parsing
+    lm = LogManager()
+    # Load logs (auto-detect contest type)
+    lm.load_log_batch(log_paths, root_input, 'after')
+
+    lm.finalize_loading(session_path)
+
+    # 4. Generate Physical Reports (Drill-Down Assets)
+    _update_progress(request_id, 3) # Step 3: Aggregating
+    
+    # Note: ReportGenerator implicitly aggregates if needed, but we treat it as the bridge
+    # Step 4: Generating
+    _update_progress(request_id, 4) 
+    
+    generator = ReportGenerator(lm.logs, root_output_dir=session_path)
+    generator.run_reports('all')
+    
+    # 5. Aggregate Data (Dashboard Scalars)
+    ts_agg = TimeSeriesAggregator(lm.logs)
+    ts_data = ts_agg.get_time_series_data()
+    
+    # Extract basic scalars for dashboard
+    # Construct relative path components for the template
+    first_log_meta = lm.logs[0].get_metadata()
+    contest_name = first_log_meta.get('ContestName', 'Unknown').replace(' ', '_')
+    # Date/Year extraction logic mirrors LogManager
+    df_first = lm.logs[0].get_processed_data()
+    year = df_first['Date'].dropna().iloc[0].split('-')[0] if not df_first.empty else "UnknownYear"
+
+    # Re-derive event_id locally or fetch from metadata if available (LogManager stores it there now)
+    event_id = first_log_meta.get('EventID', '')
+
+    # Construct Full Title: "CQ-WW-CW 2024" or "NAQP 2025 JAN"
+    full_contest_title = f"{contest_name.replace('_', ' ')} {year} {event_id}".strip()
+
+    # Extract CTY Version Info
+    cty_path = lm.logs[0].cty_dat_path
+    cty_date = CtyLookup.extract_version_date(cty_path)
+    cty_date_str = cty_date.strftime('%Y-%m-%d') if cty_date else "Unknown Date"
+    cty_filename = os.path.basename(cty_path)
+    cty_version_info = f"{cty_filename} ({cty_date_str})"
+    
+    all_calls = sorted([l.get_metadata().get('MyCall', f'Log{i+1}') for i, l in enumerate(lm.logs)])
+    combo_id = '_'.join(all_calls)
+
+    # Construct safe URL path (LOWERCASE to match ReportGenerator's disk output)
+    path_components = [year, contest_name.lower(), event_id.lower(), combo_id.lower()]
+    report_url_path = "/".join([str(p) for p in path_components if p])
+
+    # Protocol 3.5: Construct Standardized Filenames <report_id>_<callsigns>.<ext>
+    # CRITICAL: Filenames on disk are lowercased by ReportGenerator. We must match that.
+    animation_filename = f"interactive_animation_{combo_id.lower()}.html"
+    plot_filename = f"qso_rate_{combo_id.lower()}.html"
+    
+    # Note: Multiplier filename removed here. It is now dynamically resolved in multiplier_dashboard view.
+
+    context = {
+        'session_key': session_key,
+        'report_url_path': report_url_path,
+        'animation_file': animation_filename,
+        'plot_file': plot_filename,
+        'logs': [],
+        'mult_headers': [],
+        'full_contest_title': full_contest_title,
+        'cty_version_info': cty_version_info,
+        'contest_name': contest_name,
+    }
+    
+    # Determine multiplier headers from the first log (assuming all are same contest)
+    if ts_data['logs']:
+        first_log_key = list(ts_data['logs'].keys())[0]
+        if 'mult_breakdown' in ts_data['logs'][first_log_key]['scalars']:
+            context['mult_headers'] = list(ts_data['logs'][first_log_key]['scalars']['mult_breakdown'].keys())
+
+    for call, data in ts_data['logs'].items():
+        context['logs'].append({
+            'callsign': call,
+            'score': data['scalars'].get('final_score', 0),
+            'qsos': data['scalars']['net_qsos'],
+            'mults': data['scalars'].get('mult_breakdown', {}),
+            'run_qsos': data['scalars'].get('run_qsos', 0),
+            'run_percent': data['scalars'].get('run_percent', 0.0)
+        })
+
+    # --- Session Persistence (Fix Navigation Loop) ---
+    # Save the context to disk so it can be reloaded via GET request
+    context_path = os.path.join(session_path, 'dashboard_context.json')
+    with open(context_path, 'w') as f:
+        json.dump(context, f)
+
+    _update_progress(request_id, 5) # Step 5: Finalizing/Ready
+    return redirect('dashboard_view', session_id=session_key)
 
 def dashboard_view(request, session_id):
     """Persisted view of the main dashboard, loaded from session JSON."""
@@ -391,7 +442,18 @@ def multiplier_dashboard(request, session_id):
     
     # Aggregate Matrix
     mult_agg = MultiplierStatsAggregator(lm.logs)
-    breakdown_rows = mult_agg.get_multiplier_breakdown_data()
+    breakdown_data = mult_agg.get_multiplier_breakdown_data()
+    
+    # Split Bands for Layout
+    low_bands = ['160M', '80M', '40M']
+    low_bands_data = []
+    high_bands_data = []
+    
+    for block in breakdown_data['bands']:
+        if block['label'] in low_bands:
+            low_bands_data.append(block)
+        else:
+            high_bands_data.append(block)
 
     # Aggregate Scoreboard (Simple scalars)
     # We can reuse TimeSeriesAggregator for consistency or just pull from logs
@@ -454,7 +516,9 @@ def multiplier_dashboard(request, session_id):
         'session_id': session_id,
         'scoreboard': persisted_logs, # Use persisted logs for accurate scores
         'col_width': col_width,
-        'breakdown_rows': breakdown_rows,
+        'breakdown_totals': breakdown_data['totals'],
+        'low_bands_data': low_bands_data,
+        'high_bands_data': high_bands_data,
         'all_calls': sorted([l['callsign'] for l in persisted_logs]),
         'multipliers': sorted_mults,
     }

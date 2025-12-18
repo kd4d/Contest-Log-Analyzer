@@ -1,0 +1,19 @@
+{% for row in rows %}
+<tr {% if row.is_bold %}class="fw-bold table-light"{% endif %}>
+    <td class="text-start ps-{{ row.indent|add:'3' }}">
+        {{ row.label }}
+    </td>
+    <td>{{ row.total_worked }}</td>
+    <td>{{ row.common }}</td>
+    {% for stat in row.stations %}
+    <td>
+        <div>{{ stat.count }}</div>
+        {% if stat.delta != 0 %}
+        <div class="small {% if stat.delta > 0 %}text-success{% else %}text-danger{% endif %}" style="font-size: 0.75rem;">
+            {{ stat.delta|stringformat:"+d" }}
+        </div>
+        {% endif %}
+    </td>
+    {% endfor %}
+</tr>
+{% endfor %}

@@ -1,10 +1,13 @@
 # Contest Log Analytics
 
-**Version: 1.1.0**
-**Date: 2025-12-15**
+**Version: 1.2.0**
+**Date: 2025-12-18**
 
 ---
 ### --- Revision History ---
+## [1.2.0] - 2025-12-18
+### Added
+# - Documented Public Log Archive (Fetch API) capabilities.
 ## [1.1.0] - 2025-12-15
 ### Changed
 # - Updated "Introduction" to use "Sports Analytics" metaphor.
@@ -47,7 +50,10 @@
 # - Initial release.
 ---
 
-The Contest Log Analytics is a "Sports Analytics" engine for amateur radio contesting. Just as a sports team watches "game tape" to understand why a play failed, this tool analyzes your logs to understand *why* a score was achieved. It answers the critical questions: Was my strategy of running on 20 meters more effective than my competitor's S&P strategy? Which specific multipliers did they work that I missed?
+The Contest Log Analytics is a "Sports Analytics" engine for amateur radio contesting.
+Just as a sports team watches "game tape" to understand why a play failed, this tool analyzes your logs to understand *why* a score was achieved.
+It answers the critical questions: Was my strategy of running on 20 meters more effective than my competitor's S&P strategy?
+Which specific multipliers did they work that I missed?
 
 ---
 ## Key Features
@@ -55,31 +61,34 @@ The Contest Log Analytics is a "Sports Analytics" engine for amateur radio conte
 * **Data-Driven Architecture**: Uses simple JSON files to define the rules, scoring, and exchange formats for each contest, making the tool highly extensible.
 * **Run/S&P Heuristics**: A sophisticated, multi-pass heuristic analyzes QSO timing and frequency to classify each contact as "Run," "Search & Pounce," or "Unknown," providing a clear picture of operating strategy even though Cabrillo logs do not record this data explicitly.
 * **Unique vs. Common QSO Analysis**: The analyzer precisely identifies "unique" QSOs (worked by only one of two logs) and "common" QSOs (worked by both), breaking them down by Run/S&P status to reveal strategic advantages.
-* **Cumulative Difference Plots**: Visualizes the "Zero Line" of competition. Above zero means you are leading; the slope indicates your momentum relative to your competitor.
+* **Cumulative Difference Plots**: Visualizes the "Zero Line" of competition. Above zero means you are leading;
+the slope indicates your momentum relative to your competitor.
 * **Interactive Replay**: Generates an interactive HTML dashboard that replays the contest hour-by-hour, allowing you to visualize momentum shifts.
 * **Annotated CSV Output**: Generates detailed, "annotated" CSV files from the processed logs, perfect for loading into Excel or other tools for custom analysis and prototyping.
 * **Contest-Specific Scoring**: A modular system calculates QSO points based on the official rules for supported contests (ARRL-DX, ARRL-SS, CQ-WPX, CQ-WW).
 * **Dynamic Reporting Engine**: A flexible, "plug-and-play" system for generating a wide variety of text, plot, and chart-based reports.
+* **Public Log Archive Integration**: Automated fetching of competitor logs from public archives (currently supports CQ WW) directly within the Web Dashboard.
 
 ---
 ## Installation and Setup
 
 ### Preferred Method: Web Dashboard (Docker)
 The easiest way to use the analyzer is via the containerized Web Dashboard.
-
 1.  **Install Docker Desktop.**
 2.  **Clone the Repository.**
 3.  **Run:** `docker-compose up --build`
 4.  **Open Browser:** Navigate to `http://localhost:8000`.
+* **Note:** The Public Log Archive feature requires an active internet connection from within the container to scrape external log sources.
 
 ### Advanced Method: CLI
-For automated workflows or developers, the Command Line Interface is available. See `Docs/InstallationGuide.md` for detailed Python/Conda setup instructions.
+For automated workflows or developers, the Command Line Interface is available.
+See `Docs/InstallationGuide.md` for detailed Python/Conda setup instructions.
 
 ---
 ## Usage
 
-The analyzer is run from the command line using `main_cli.py`. The examples below show basic usage. For a complete list of all command-line options, available reports, and usage details, please refer to the `Docs/UsersGuide.md`.
-
+The analyzer is run from the command line using `main_cli.py`.
+The examples below show basic usage. For a complete list of all command-line options, available reports, and usage details, please refer to the `Docs/UsersGuide.md`.
 #### **Basic Syntax**
 
     python main_cli.py --report <ReportID|all|chart|text|plot|animation|html> <LogFile1> [<LogFile2>...] [options]
@@ -107,7 +116,8 @@ python main_cli.py --report missed_multipliers --mult-name Zones Logs/2024/cq-ww
 ---
 ## Supported Contests
 
-The analyzer uses the `CONTEST:` field in the Cabrillo header to apply contest-specific rules. The following contests are currently supported:
+The analyzer uses the `CONTEST:` field in the Cabrillo header to apply contest-specific rules.
+The following contests are currently supported:
 
 * ARRL 10 Meter
 * ARRL DX (CW & SSB)
@@ -124,8 +134,8 @@ The analyzer uses the `CONTEST:` field in the Cabrillo header to apply contest-s
 ---
 ## Available Reports
 
-All generated files are saved to a structured directory under `reports/YYYY/CONTEST_NAME/`. For a detailed explanation of how to interpret each report, please see the `Docs/ReportInterpretationGuide.md`.
-
+All generated files are saved to a structured directory under `reports/YYYY/CONTEST_NAME/`.
+For a detailed explanation of how to interpret each report, please see the `Docs/ReportInterpretationGuide.md`.
 #### **Animation Reports (`animations/`)**
 * `hourly_animation`: Hourly Rate Animation
 * `wrtc_propagation_animation`: WRTC Propagation Animation

@@ -5,7 +5,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-17
-# Version: 0.127.0-Beta
+# Version: 0.125.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,12 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.125.3-Beta] - 2025-12-17
+# - Refactored build_row to return list of station stats instead of dict,
+#   ensuring ordered iteration in Django templates.
+# [0.127.1-Beta] - 2025-12-17
+# - Refactored get_multiplier_breakdown_data to return structured dictionary
+#   (totals/bands) instead of flat list, enabling responsive dashboard layout.
 # [0.127.0-Beta] - 2025-12-17
 # - Refactored get_dashboard_matrix_data to get_multiplier_breakdown_data.
 # - Implemented hierarchical aggregation (Total -> Band -> Rule) for dashboard.
@@ -235,10 +241,10 @@ class MultiplierStatsAggregator:
 
         return full_results
 
-    def get_multiplier_breakdown_data(self) -> List[Dict[str, Any]]:
+    def get_multiplier_breakdown_data(self) -> Dict[str, Any]:
         """
         Generates hierarchical metrics for the Multiplier Breakdown table.
-        Returns a list of rows (Total -> Band -> Rule) with par/delta metrics.
+        Returns a dictionary with 'totals' and 'bands' for structured rendering.
         """
         all_calls = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])
         
@@ -310,16 +316,16 @@ class MultiplierStatsAggregator:
             
             comp = ComparativeEngine.compare_logs(sets_to_compare)
             
-            stations_data = {}
+            stations_list = []
             for call in all_calls:
                 metrics = comp.station_metrics.get(call)
                 if metrics:
-                    stations_data[call] = {
+                    stations_list.append({
                         'count': metrics.count,
                         'delta': metrics.count - comp.universe_count # Delta from Par (Total Worked)
-                    }
+                    })
                 else:
-                    stations_data[call] = {'count': 0, 'delta': -comp.universe_count}
+                    stations_list.append({'count': 0, 'delta': -comp.universe_count})
 
             return {
                 'label': label,
@@ -327,21 +333,21 @@ class MultiplierStatsAggregator:
                 'is_bold': is_bold,
                 'total_worked': comp.universe_count,
                 'common': comp.common_count,
-                'stations': stations_data
+                'stations': stations_list
             }
 
-        rows = []
+        # Structured Output
+        totals_rows = []
+        band_blocks = []
         
         # 3. Build Table Rows
         # A. Grand Total
-        rows.append(build_row("TOTAL", "TOTAL", indent=0, is_bold=True))
+        totals_rows.append(build_row("TOTAL", "TOTAL", indent=0, is_bold=True))
         
         # B. Global Rule Breakdowns
         for rule in self.contest_def.multiplier_rules:
             r_name = rule['name']
-            rows.append(build_row(r_name, f"TOTAL_{r_name}", indent=1, is_bold=False))
-            
-        rows.append({'is_spacer': True}) # Spacer for template
+            totals_rows.append(build_row(r_name, f"TOTAL_{r_name}", indent=1, is_bold=False))
 
         # C. Per Band Breakdowns (only if not once_per_log heavy)
         # Only show bands if there is data
@@ -352,13 +358,22 @@ class MultiplierStatsAggregator:
                 # Check if band has activity
                 if not any(len(subsets[c].get(band, set())) > 0 for c in all_calls):
                     continue
-                    
-                rows.append(build_row(band, band, indent=0, is_bold=True))
+                
+                # Create block for this band
+                band_rows = []
+                band_rows.append(build_row(band, band, indent=0, is_bold=True))
+                
                 for rule in self.contest_def.multiplier_rules:
                     if rule.get('totaling_method') == 'once_per_log': continue
                     r_name = rule['name']
-                    rows.append(build_row(r_name, f"{band}_{r_name}", indent=1, is_bold=False))
+                    band_rows.append(build_row(r_name, f"{band}_{r_name}", indent=1, is_bold=False))
                 
-                rows.append({'is_spacer': True})
+                band_blocks.append({
+                    'label': band,
+                    'rows': band_rows
+                })
 
-        return rows
+        return {
+            'totals': totals_rows,
+            'bands': band_blocks
+        }
