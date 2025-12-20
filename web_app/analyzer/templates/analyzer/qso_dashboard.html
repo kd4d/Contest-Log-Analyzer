@@ -28,11 +28,6 @@
     </div>
 
     <ul class="nav nav-tabs mb-3" id="qsoTabs" role="tablist">
-        <li class="nav-item" role="presentation">
-            <button class="nav-link {% if is_solo %}active{% endif %}" id="correlations-tab" data-bs-toggle="tab" data-bs-target="#correlations" type="button" role="tab">
-                <i class="bi bi-diagram-2 me-2"></i>Correlations
-            </button>
-        </li>
         {% if not is_solo %}
         <li class="nav-item" role="presentation">
             <button class="nav-link active" id="strategy-tab" data-bs-toggle="tab" data-bs-target="#strategy" type="button" role="tab">
@@ -41,7 +36,7 @@
         </li>
         {% endif %}
         <li class="nav-item" role="presentation">
-            <button class="nav-link" id="rates-tab" data-bs-toggle="tab" data-bs-target="#rates" type="button" role="tab">
+            <button class="nav-link {% if is_solo %}active{% endif %}" id="rates-tab" data-bs-toggle="tab" data-bs-target="#rates" type="button" role="tab">
                 <i class="bi bi-table me-2"></i>Rate Detail
             </button>
         </li>
@@ -54,28 +49,18 @@
 
     <div class="tab-content" id="qsoTabsContent">
         
-        <div class="tab-pane fade {% if is_solo %}show active{% endif %}" id="correlations" role="tabpanel">
-            <div class="card shadow-sm">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <span>Run Traction & Multiplier Yield</span>
-                    <a href="{% url 'view_report' session_id correlation_file %}?source=qso" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
-                </div>
-                <div class="card-body p-0" style="height: 900px;">
-                    <iframe src="{% url 'view_report' session_id correlation_file %}?chromeless=1" style="width: 100%; height: 100%; border: none;"></iframe>
-                </div>
-            </div>
-        </div>
-
         {% if not is_solo %}
         <div class="tab-pane fade show active" id="strategy" role="tabpanel">
             <div class="btn-group mb-3" role="group">
                 {% for m in matchups %}
                 <button type="button" class="btn btn-outline-primary strategy-btn {% if forloop.first %}active{% endif %}" 
+                        id="strat-btn-{{ forloop.counter }}"
                         data-breakdown="{% url 'view_report' session_id m.qso_breakdown_file %}?chromeless=1"
-                        data-diff="{% url 'view_report' session_id m.diff_plot_file %}?chromeless=1"
-                        data-full-breakdown="{% url 'view_report' session_id m.qso_breakdown_file %}?source=qso"
-                        data-full-diff="{% url 'view_report' session_id m.diff_plot_file %}?source=qso">
-                    {{ m.label }}
+                        {% for band, path in m.diff_paths.items %}
+                        data-diff-{{ band }}="{% url 'view_report' session_id path %}?chromeless=1"
+                        {% endfor %}
+                        data-full-breakdown="{% url 'view_report' session_id m.qso_breakdown_file %}?source=qso"> 
+                     {{ m.label }}
                 </button>
                 {% endfor %}
             </div>
@@ -95,7 +80,18 @@
                 <div class="col-lg-6 mb-4">
                     <div class="card h-100 shadow-sm">
                         <div class="card-header d-flex justify-content-between align-items-center">
-                            <span>Rate Differential (Momentum)</span>
+                            <div class="d-flex align-items-center">
+                                <span class="me-2">Rate Differential</span>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button type="button" class="btn btn-outline-secondary diff-band-btn" data-band="160">160</button>
+                                    <button type="button" class="btn btn-outline-secondary diff-band-btn" data-band="80">80</button>
+                                    <button type="button" class="btn btn-outline-secondary diff-band-btn" data-band="40">40</button>
+                                    <button type="button" class="btn btn-outline-secondary diff-band-btn" data-band="20">20</button>
+                                    <button type="button" class="btn btn-outline-secondary diff-band-btn" data-band="15">15</button>
+                                    <button type="button" class="btn btn-outline-secondary diff-band-btn" data-band="10">10</button>
+                                    <button type="button" class="btn btn-outline-secondary diff-band-btn active" data-band="all">All</button>
+                                </div>
+                            </div>
                             <a id="link-diff" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
                         </div>
                         <div class="card-body p-0" style="height: 600px;">
@@ -107,7 +103,7 @@
         </div>
         {% endif %}
 
-        <div class="tab-pane fade" id="rates" role="tabpanel">
+        <div class="tab-pane fade {% if is_solo %}show active{% endif %}" id="rates" role="tabpanel">
             <div class="btn-group mb-3" role="group">
                 <button type="button" class="btn btn-outline-secondary rate-btn active" 
                         data-src="{% url 'view_report' session_id rate_sheet_comparison %}?chromeless=1"
@@ -130,15 +126,22 @@
         </div>
 
         <div class="tab-pane fade" id="points" role="tabpanel">
-             <div class="row">
+            <div class="btn-group mb-3" role="group">
+                {% for p in point_plots %}
+                <button type="button" class="btn btn-outline-secondary points-btn {% if p.active %}active{% endif %}" 
+                        data-src="{% url 'view_report' session_id p.file %}?chromeless=1"
+                        data-full-src="{% url 'view_report' session_id p.file %}?source=qso">{{ p.label }}</button>
+                {% endfor %}
+            </div>
+            <div class="row">
                 <div class="col-12 mb-4">
                     <div class="card shadow-sm">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <span>Cumulative Points</span>
-                            <a href="{% url 'view_report' session_id global_point_rate_file %}?source=qso" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
+                            <a id="link-points" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
                         </div>
                         <div class="card-body p-0" style="height: 900px;">
-                             <iframe src="{% url 'view_report' session_id global_point_rate_file %}?chromeless=1" style="width: 100%; height: 100%; border: none;"></iframe>
+                             <iframe id="frame-points" src="" style="width: 100%; height: 100%; border: none;"></iframe>
                         </div>
                     </div>
                 </div>
@@ -155,19 +158,52 @@
         const frameDiff = document.getElementById('frame-diff');
         const linkBreakdown = document.getElementById('link-breakdown');
         const linkDiff = document.getElementById('link-diff');
+        const diffBandBtns = document.querySelectorAll('.diff-band-btn');
+        
+        let currentDiffBand = 'all';
+        let currentStratBtn = null;
 
         function updateStrategy(btn) {
+            currentStratBtn = btn;
             stratBtns.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
+            
             frameBreakdown.src = btn.dataset.breakdown;
-            frameDiff.src = btn.dataset.diff;
             linkBreakdown.href = btn.dataset.fullBreakdown;
-            linkDiff.href = btn.dataset.fullDiff;
+            
+            updateDiffContent();
+        }
+        
+        function updateDiffContent() {
+            if (!currentStratBtn) return;
+            // Try to find specific band path, fallback to all, fallback to blank
+            // Dataset properties are camelCase (data-diff-160 -> diff160)
+            // Use getAttribute for robust retrieval of numeric keys (e.g. data-diff-160)
+            let diffSrc = currentStratBtn.getAttribute('data-diff-' + currentDiffBand);
+            if (!diffSrc) diffSrc = currentStratBtn.getAttribute('data-diff-all');
+            // Fallback
+            
+            if (diffSrc) {
+                frameDiff.src = diffSrc;
+                // Reconstruct full link from base + path in src (hacky but robust)
+                // Cleaner: Pass base URL and append path?
+                // No, dataset already has full URL.
+                // We can just use the same URL but change ?chromeless=1 to ?source=qso
+                linkDiff.href = diffSrc.replace('?chromeless=1', '?source=qso');
+            }
         }
 
         if(stratBtns.length > 0) updateStrategy(stratBtns[0]);
         stratBtns.forEach(btn => {
             btn.addEventListener('click', () => updateStrategy(btn));
+        });
+        diffBandBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                diffBandBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentDiffBand = btn.dataset.band;
+                updateDiffContent();
+            });
         });
 
         // Rate Tab Logic
@@ -185,6 +221,22 @@
         if(rateBtns.length > 0) updateRates(rateBtns[0]);
         rateBtns.forEach(btn => {
             btn.addEventListener('click', () => updateRates(btn));
+        });
+        // Points Tab Logic
+        const pointsBtns = document.querySelectorAll('.points-btn');
+        const framePoints = document.getElementById('frame-points');
+        const linkPoints = document.getElementById('link-points');
+
+        function updatePoints(btn) {
+            pointsBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            framePoints.src = btn.dataset.src;
+            linkPoints.href = btn.dataset.fullSrc;
+        }
+
+        if(pointsBtns.length > 0) updatePoints(pointsBtns[0]);
+        pointsBtns.forEach(btn => {
+            btn.addEventListener('click', () => updatePoints(btn));
         });
     });
 </script>

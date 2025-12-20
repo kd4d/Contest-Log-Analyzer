@@ -5,8 +5,8 @@
 #          aggregates data using DAL components, and renders the dashboard.
 #
 # Author: Gemini AI
-# Date: 2025-12-18
-# Version: 0.126.1-Beta
+# Date: 2025-12-19
+# Version: 0.129.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -20,7 +20,26 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
-# [0.126.1-Beta] - 2025-12-18
+# [0.129.1-Beta] - 2025-12-19
+# - Fixed Rate Differential plot linking by using raw band name in directory path.
+# [0.129.0-Beta] - 2025-12-19
+# - Updated `qso_dashboard` to support band-specific Drill-Down for Rate Differential plots.
+# - Enforced sort order for Diff Bands (160 -> 10 -> All).
+# [0.128.0-Beta] - 2025-12-19
+# - Updated `qso_dashboard` to filter out "All Bands" plot.
+# - Updated `qso_dashboard` to set 20M as the default active tab.
+# [0.127.2-Beta] - 2025-12-19
+# - Injected diagnostic logging into `qso_dashboard` to trace `point_rate_plots` discovery.
+# [0.127.1-Beta] - 2025-12-19
+# - Updated `qso_dashboard` to use `os.walk` instead of `os.listdir` to
+#   recursively discover Point Rate Plots in subdirectories (e.g., plots/20M/).
+# [0.127.0-Beta] - 2025-12-19
+# - Updated `qso_dashboard` to discover and list Point Rate Plots for all bands,
+#   restoring the Drill-Down functionality to the Points tab.
+# [0.126.2-Beta] - 2025-12-19
+# - Removed Correlation Analysis report context to prevent loading.
+# [0.126.1-Beta] - 2025-12-19
+# - Fixed filename construction for Global QSO Rate plot in `analyze_logs` (added missing `_plots_all` segment).
 # - Updated `analyze_logs` to register `plot_correlation_analysis` report.
 # - Updated `qso_dashboard` to detect solo mode and suppress pairwise matchups.
 # - Updated `multiplier_dashboard` to map 'summary' matrix to 'missed' slot in solo mode.
@@ -57,7 +76,7 @@
 #   (removed '_vs_' separator to match ReportGenerator output).
 # [0.115.0-Beta] - 2025-12-14
 # - Fixed 404 errors on Linux/Docker by lowercasing report URL path components
-#   to match the filesystem structure created by ReportGenerator.
+#   (plots/, charts/, text/) to report filenames.
 # [0.114.0-Beta] - 2025-12-14
 # - Added `dashboard_view` to load dashboard context from disk, fixing navigation loops.
 # - Updated `analyze_logs` to persist context to JSON and redirect to `dashboard_view`.
@@ -70,7 +89,7 @@
 #   support in new tabs.
 # [0.113.1-Beta] - 2025-12-14
 # - Fixed 404 error for Global QSO Rate Plot by adding missing '_all' suffix
-#   to the constructed filename in `qso_dashboard`.
+#   (Note: This previous fix was incomplete or regressed; re-applying correctly in 0.126.1).
 # [0.112.0-Beta] - 2025-12-14
 # - Updated `qso_dashboard` to dynamically discover the deep report path.
 # - Re-implemented path construction using sanitized, lowercase callsigns to
@@ -98,6 +117,7 @@ import os
 import shutil
 import logging
 import uuid
+import re
 import json
 import time
 from django.shortcuts import render, redirect, reverse
@@ -177,7 +197,7 @@ def home(request):
 
 def analyze_logs(request):
     if request.method == 'POST':
-        _cleanup_old_sessions()  # Trigger lazy cleanup
+        _cleanup_old_sessions() # Trigger lazy cleanup
         
         # Retrieve the request_id from the form to track progress
         request_id = request.POST.get('request_id')
@@ -193,6 +213,7 @@ def analyze_logs(request):
                 os.makedirs(session_path, exist_ok=True)
 
                 try:
+    
                     # 2. Save Uploads
                     log_paths = []
                     # Ensure data directory exists for CTY lookups if not mapped (Docker handles this though)
@@ -294,8 +315,7 @@ def _run_analysis_pipeline(request_id, log_paths, session_path, session_key):
     # Protocol 3.5: Construct Standardized Filenames <report_id>_<callsigns>.<ext>
     # CRITICAL: Filenames on disk are lowercased by ReportGenerator. We must match that.
     animation_filename = f"interactive_animation_{combo_id.lower()}.html"
-    plot_filename = f"qso_rate_{combo_id.lower()}.html"
-    correlation_filename = f"plot_correlation_analysis_{combo_id.lower()}.html"
+    plot_filename = f"qso_rate_plots_all_{combo_id.lower()}.html"
     
     # Note: Multiplier filename removed here. It is now dynamically resolved in multiplier_dashboard view.
 
@@ -304,7 +324,6 @@ def _run_analysis_pipeline(request_id, log_paths, session_path, session_key):
         'report_url_path': report_url_path,
         'animation_file': animation_filename,
         'plot_file': plot_filename,
-        'correlation_file': correlation_filename,
         'logs': [],
         'mult_headers': [],
         'full_contest_title': full_contest_title,
@@ -567,6 +586,9 @@ def qso_dashboard(request, session_id):
     
     # 3. Identify Pairs for Strategy Tab
     matchups = []
+    # Requested Sort Order for Diff Plots
+    DIFF_BANDS = ['160M', '80M', '40M', '20M', '15M', '10M', 'ALL']
+
     if not is_solo:
         import itertools
         pairs = list(itertools.combinations(callsigns_safe, 2))
@@ -576,22 +598,93 @@ def qso_dashboard(request, session_id):
             label = f"{c1.upper()} vs {c2.upper()}"
             base_path = report_rel_path
             
+            # Discover available band variants for the diff plot
+            diff_paths = {}
+            for band in DIFF_BANDS:
+                band_slug = band.lower().replace('m', '') if band != 'ALL' else 'all'
+                filename = f"cumulative_difference_plots_qsos_{band_slug}_{c1}_{c2}.html"
+            
+                # Check plots/BAND/filename AND plots/filename (legacy)
+                # Simpler: Construct expected relative path and trust ReportGenerator structure
+                # The view helper usually puts band files in subdirs unless it's ALL
+                if band != 'ALL':
+                    file_rel = os.path.join(base_path, f"plots/{band}/{filename}")
+                else:
+                    file_rel = os.path.join(base_path, f"plots/{filename}")
+                
+                # Verify existence (relative to session root)
+                if os.path.exists(os.path.join(session_path, file_rel)):
+                    diff_paths[band_slug] = file_rel
+
             matchups.append({
                 'label': label,
                 'id': f"{c1}_{c2}",
+                'diff_paths': diff_paths,
                 'qso_breakdown_file': os.path.join(base_path, f"charts/qso_breakdown_chart_{c1}_{c2}.html"),
-                'diff_plot_file': os.path.join(base_path, f"plots/cumulative_difference_plots_qsos_all_{c1}_{c2}.html"),
                 'band_activity_file': os.path.join(base_path, f"plots/comparative_band_activity_{c1}_{c2}.html"),
                 'continent_file': os.path.join(base_path, f"text/comparative_continent_summary_{c1}_{c2}.txt")
             })
+
+    # 4. Discover Point Rate Plots (Band Drill-Down)
+    plots_dir = os.path.join(session_path, report_rel_path, 'plots')
+    point_plots = []
+    BAND_SORT_ORDER = {'ALL': 0, '160M': 1, '80M': 2, '40M': 3, '20M': 4, '15M': 5, '10M': 6, '6M': 7, '2M': 8}
+
+    if os.path.exists(plots_dir):
+        print(f"### DIAGNOSTIC: Scanning plots_dir: {plots_dir}")
+        # Recursive scan to find plots nested in subdirectories (e.g. plots/20M/)
+        for root, dirs, files in os.walk(plots_dir):
+            print(f"### DIAGNOSTIC: Walking root: {root} | Files: {files}")
+            for f in files:
+                if f.startswith('point_rate_plots_') and f.endswith('.html'):
+                    # Filename format: point_rate_plots_{band}_{calls}.html
+                    remainder = f.replace('point_rate_plots_', '')
+                    parts = remainder.split('_')
+                    
+                    if parts:
+                        band_key = parts[0].upper()
+                        if band_key == 'ALL':
+                            continue
+                        label = "All Bands" if band_key == 'ALL' else band_key
+                        sort_val = BAND_SORT_ORDER.get(band_key, 99)
+                        
+                        # Calculate relative path including subdirectory (e.g., plots/20M/file.html)
+                        rel_subdir = os.path.relpath(root, plots_dir)
+                        if rel_subdir == '.':
+                            file_rel = os.path.join(report_rel_path, 'plots', f)
+                        else:
+                            file_rel = os.path.join(report_rel_path, 'plots', rel_subdir, f)
+
+                        point_plots.append({
+                            'label': label,
+                            'file': file_rel,
+                            'sort_val': sort_val
+                        })
+                    else:
+                        print(f"### DIAGNOSTIC: Failed to parse parts from {f}")
+    
+    # Sort by band order
+    point_plots.sort(key=lambda x: x['sort_val'])
+    print(f"### DIAGNOSTIC: Final point_plots list: {point_plots}")
+    
+    # Default active to 20M, fallback to first available
+    active_set = False
+    if point_plots:
+        for p in point_plots:
+            if p['label'] == '20M':
+                p['active'] = True
+                active_set = True
+                break
+        if not active_set:
+            point_plots[0]['active'] = True
 
     context = {
         'session_id': session_id,
         'callsigns': callsigns_display,
         'matchups': matchups,
+        'point_plots': point_plots,
         # Global Files
         'global_qso_rate_file': os.path.join(report_rel_path, f"plots/qso_rate_plots_all_{combo_id}.html"),
-        'global_point_rate_file': os.path.join(report_rel_path, f"plots/point_rate_plots_all_{combo_id}.html"),
         'rate_sheet_comparison': os.path.join(report_rel_path, f"text/rate_sheet_comparison_{'_'.join(sorted(callsigns_safe))}.txt"),
         'correlation_file': os.path.join(report_rel_path, f"plots/plot_correlation_analysis_{combo_id}.html"),
         'report_base': os.path.join(report_rel_path), # Pass base path for template filters
