@@ -4,8 +4,8 @@
 #          and for each individual band.
 #
 # Author: Gemini AI
-# Date: 2025-12-15
-# Version: 0.118.0-Beta
+# Date: 2025-12-20
+# Version: 0.133.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,13 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.133.0-Beta] - 2025-12-20
+# - Refactored `_create_plot` to use centralized `build_filename` utility.
+# - Resolved NameError crash caused by missing `is_single_band` variable in plot generation scope.
+# [0.131.0-Beta] - 2025-12-20
+# - Refactored to use `get_standard_title_lines` for standardized 3-line headers.
+# - Implemented explicit "Smart Scoping" for title generation.
+# - Added footer metadata via `get_cty_metadata`.
 # [0.118.0-Beta] - 2025-12-15
 # - Injected descriptive filename configuration for interactive HTML plot downloads.
 # [0.117.0-Beta] - 2025-12-15
@@ -37,7 +44,6 @@
 # - Refactored to use Data Abstraction Layer (TimeSeriesAggregator).
 # [0.90.0-Beta] - 2025-10-01
 # Set new baseline version for release.
-
 from typing import List
 import os
 import pandas as pd
@@ -47,7 +53,7 @@ from plotly.subplots import make_subplots
 
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from ._report_utils import create_output_directory, get_valid_dataframe, save_debug_data, _sanitize_filename_part
+from ._report_utils import create_output_directory, get_valid_dataframe, save_debug_data, _sanitize_filename_part, get_cty_metadata, get_standard_title_lines, build_filename
 from ..data_aggregators.time_series import TimeSeriesAggregator
 from ..styles.plotly_style_manager import PlotlyStyleManager
 
@@ -71,7 +77,7 @@ class Report(ContestReport):
         full_dfs = [get_valid_dataframe(log) for log in self.logs]
         if any(df.empty for df in full_dfs):
             return "Skipping report: At least one log has no valid QSO data."
-
+        
         # 1. Generate plots for "All Modes"
         all_created_files.extend(
             self._orchestrate_plot_generation(full_dfs, output_path, mode_filter=None, **kwargs)
@@ -89,7 +95,7 @@ class Report(ContestReport):
         
         if not all_created_files:
             return "No point rate plots were generated."
-
+        
         return "Point rate plots saved to:\n" + "\n".join([f"  - {fp}" for fp in all_created_files])
 
     def _orchestrate_plot_generation(self, dfs: List[pd.DataFrame], output_path: str, mode_filter: str, **kwargs) -> List[str]:
@@ -233,22 +239,19 @@ class Report(ContestReport):
         )
 
         # --- Layout & Styling ---
-        metadata = self.logs[0].get_metadata()
-        year = get_valid_dataframe(self.logs[0])['Date'].dropna().iloc[0].split('-')[0] if not get_valid_dataframe(self.logs[0]).empty else "----"
-        contest_name = metadata.get('ContestName', '')
-        event_id = metadata.get('EventID', '')
-        
-        is_single_band = len(self.logs[0].contest_definition.valid_bands) == 1
-        band_text = self.logs[0].contest_definition.valid_bands[0].replace('M', ' Meters') if is_single_band else band_filter.replace('M', ' Meters')
-        mode_text = f" ({mode_filter})" if mode_filter else ""
-        callsign_str = ", ".join(all_calls)
+        # Smart Scoping: Collect unique modes from all dfs
+        modes_present = set()
+        for df in dfs:
+            if 'Mode' in df.columns:
+                modes_present.update(df['Mode'].dropna().unique())
 
-        title_line1 = f"{self.report_name}{mode_text}"
-        title_line2 = f"{year} {event_id} {contest_name} - {callsign_str}".strip().replace("  ", " ")
-        final_title = f"{title_line1}<br>{title_line2}" # Use <br> for Plotly title
+        title_lines = get_standard_title_lines(self.report_name, self.logs, band_filter, mode_filter, modes_present)
+        final_title = f"{title_lines[0]}<br><sub>{title_lines[1]}<br>{title_lines[2]}</sub>"
+
+        footer_text = f"Contest Log Analytics by KD4D\n{get_cty_metadata(self.logs)}"
 
         # Apply standard layout
-        layout_config = PlotlyStyleManager.get_standard_layout(final_title)
+        layout_config = PlotlyStyleManager.get_standard_layout(final_title, footer_text)
         fig.update_layout(layout_config)
         
         # Additional specific layout overrides
@@ -262,9 +265,8 @@ class Report(ContestReport):
 
         create_output_directory(output_path)
         
-        filename_band = self.logs[0].contest_definition.valid_bands[0].lower() if is_single_band else band_filter.lower().replace('m', '')
-        filename_calls = '_'.join([_sanitize_filename_part(c) for c in sorted(all_calls)])
-        mode_suffix = f"_{mode_filter.lower()}" if mode_filter else ""
+        # Use shared utility to prevent NameError regression (is_single_band)
+        base_filename = build_filename(self.report_id, self.logs, band_filter, mode_filter)
         
         # --- Save Debug Data ---
         if all_series:
@@ -281,11 +283,10 @@ class Report(ContestReport):
                         if band_col in score_ts.columns:
                             debug_df[f'mults_{band}_{call}'] = score_ts[band_col]
             
-            debug_filename = f"{self.report_id}_{filename_band}{mode_suffix}_{filename_calls}.txt"
+            debug_filename = f"{base_filename}.txt"
             save_debug_data(debug_data_flag, output_path, debug_df, custom_filename=debug_filename)
 
         # --- Output Generation ---
-        base_filename = f"{self.report_id}_{filename_band}{mode_suffix}_{filename_calls}"
         
         # Save HTML (Interactive)
         html_path = os.path.join(output_path, f"{base_filename}.html")

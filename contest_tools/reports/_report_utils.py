@@ -5,7 +5,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-20
-# Version: 0.130.0-Beta
+# Version: 0.133.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -14,10 +14,17 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.133.0-Beta] - 2025-12-20
+# - Added `build_filename` utility to centralize and stabilize report filename generation.
+# - Re-implemented single-band detection logic within the utility to fix NameError regressions.
+# [0.131.0-Beta] - 2025-12-20
+# - Added `get_standard_title_lines` to centralize "3-Line Title" generation.
+# - Implemented "Smart Scoping" logic for title modes.
 # [0.130.0-Beta] - 2025-12-20
 # - Added `get_cty_metadata` to extract CTY version/date.
 # - Added `format_text_header` to standardize text report branding.
@@ -94,15 +101,74 @@ def get_cty_metadata(logs: list) -> str:
 
     return f"CTY File: {date_str} {version_str}"
 
+def get_standard_title_lines(report_name: str, logs: list, band_filter: str = None, mode_filter: str = None, modes_present_set: set = None) -> list:
+    """
+    Generates the standard 3-Line Title components (Name, Context, Scope).
+    Applies Smart Scoping logic for modes.
+    """
+    if not logs: return [report_name, "", ""]
+    
+    # --- Line 2: Context ---
+    metadata = logs[0].get_metadata()
+    df = get_valid_dataframe(logs[0])
+    year = df['Date'].dropna().iloc[0].split('-')[0] if not df.empty else "----"
+    contest_name = metadata.get('ContestName', '')
+    event_id = metadata.get('EventID', '')
+    all_calls = sorted([l.get_metadata().get('MyCall', 'Unknown') for l in logs])
+    callsign_str = ", ".join(all_calls)
+    
+    line2 = f"{year} {event_id} {contest_name} - {callsign_str}".strip().replace("   ", " ")
+
+    # --- Line 3: Scope ---
+    # Band Logic
+    is_single_band = len(logs[0].contest_definition.valid_bands) == 1
+    if band_filter == 'All' or band_filter is None:
+        band_text = logs[0].contest_definition.valid_bands[0].replace('M', ' Meters') if is_single_band else "All Bands"
+    else:
+        band_text = band_filter.replace('M', ' Meters')
+
+    # Mode Logic (Smart Scoping)
+    if mode_filter:
+        mode_text = f" ({mode_filter})"
+    else:
+        # Only show (All Modes) if multiple modes actually exist in the data
+        if modes_present_set and len(modes_present_set) > 1:
+            mode_text = " (All Modes)"
+        else:
+            mode_text = ""
+            
+    line3 = f"{band_text}{mode_text}"
+    
+    return [report_name, line2, line3]
+
+def build_filename(report_id: str, logs: list, band_filter: str = None, mode_filter: str = None) -> str:
+    """
+    Constructs a standardized, sanitized filename for reports.
+    Format: {report_id}_{band}_{mode}_{callsigns}
+    Example: qso_rate_plots_20_cw_k1lz_k3lr
+    """
+    # Band Part
+    is_single_band = len(logs[0].contest_definition.valid_bands) == 1
+    raw_band = logs[0].contest_definition.valid_bands[0] if is_single_band else (band_filter or 'All')
+    filename_band = raw_band.lower().replace('m', '')
+    
+    # Mode Part
+    mode_suffix = f"_{mode_filter.lower()}" if mode_filter else ""
+    
+    # Callsigns Part
+    all_calls = sorted([l.get_metadata().get('MyCall', 'Unknown') for l in logs])
+    filename_calls = '_'.join([_sanitize_filename_part(c) for c in all_calls])
+    
+    return f"{report_id}_{filename_band}{mode_suffix}_{filename_calls}"
+
 def format_text_header(width: int, title_lines: list, metadata_lines: list = None) -> list:
     """
     Generates a text report header with Left-Aligned Titles and Right-Aligned Metadata.
-    
     Args:
         width: Total width of the report content.
         title_lines: List of title strings (Lines 1-3).
         metadata_lines: Optional list of metadata strings (Branding, CTY).
-                        Defaults to standard CLA branding if None.
+        Defaults to standard CLA branding if None.
     """
     if metadata_lines is None:
         # Default placeholder, caller should usually pass get_cty_metadata result
@@ -236,8 +302,7 @@ class DonutChartComponent:
 
 def save_debug_data(debug_flag: bool, output_path: str, data, custom_filename: str = None):
     """
-    Saves the source data for a report to a .txt file if the 
-    debug flag is set.
+    Saves the source data for a report to a .txt file if the debug flag is set.
     """
     if not debug_flag:
         return

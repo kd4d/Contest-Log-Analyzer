@@ -1,8 +1,8 @@
 # contest_tools/reports/plot_comparative_band_activity.py
 #
 # Author: Gemini AI
-# Date: 2025-12-15
-# Version: 0.118.0-Beta
+# Date: 2025-12-20
+# Version: 0.133.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,13 @@
 #          visualize the band activity of two logs side-by-side using Plotly.
 #
 # --- Revision History ---
+# [0.133.0-Beta] - 2025-12-20
+# - Refactored `_generate_plot_for_slice` to use centralized `build_filename` utility.
+# - Standardized filename format to match other reports.
+# [0.131.0-Beta] - 2025-12-20
+# - Refactored to use `get_standard_title_lines` for standardized 3-line headers.
+# - Implemented explicit "Smart Scoping" for title generation.
+# - Added footer metadata via `get_cty_metadata`.
 # [0.118.0-Beta] - 2025-12-15
 # - Injected descriptive filename configuration for interactive HTML plot downloads.
 # [0.114.0-Beta] - 2025-12-14
@@ -38,7 +45,6 @@
 # - Refactored to use MatrixAggregator (DAL).
 # [0.91.0-Beta] - 2025-10-11
 # - Initial creation of the correct "butterfly chart" implementation.
-
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
@@ -50,7 +56,7 @@ from typing import List, Dict, Any
 
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from ._report_utils import get_valid_dataframe, create_output_directory, _sanitize_filename_part
+from ._report_utils import get_valid_dataframe, create_output_directory, _sanitize_filename_part, get_cty_metadata, get_standard_title_lines, build_filename
 from ..data_aggregators.matrix_stats import MatrixAggregator
 from ..styles.plotly_style_manager import PlotlyStyleManager
 
@@ -169,20 +175,18 @@ class Report(ContestReport):
 
         # --- 4. Layout & Styling ---
         # Prepare Titles
-        metadata = log1.get_metadata()
-        df_first_log = get_valid_dataframe(log1)
-        year = df_first_log['Date'].dropna().iloc[0].split('-')[0] if not df_first_log.empty and not df_first_log['Date'].dropna().empty else "----"
-        contest_name = metadata.get('ContestName', '')
-        event_id = metadata.get('EventID', '')
+        modes_present = set()
+        for log in [log1, log2]:
+            df = get_valid_dataframe(log)
+            if 'Mode' in df.columns:
+                modes_present.update(df['Mode'].dropna().unique())
         
-        mode_title_str = f" ({mode_filter})" if mode_filter else ""
-        title_line1 = f"{self.report_name}{mode_title_str}"
-        context_str = f"{year} {event_id} {contest_name}".strip().replace("  ", " ")
-        calls_str = f"{call1} (Up) vs. {call2} (Down)"
-        title_line2 = f"{context_str} - {calls_str}"
-        full_title = f"{title_line1}<br>{title_line2}"
+        title_lines = get_standard_title_lines(self.report_name, [log1, log2], "All Bands", mode_filter, modes_present)
+        final_title = f"{title_lines[0]}<br><sub>{title_lines[1]}<br>{title_lines[2]}</sub>"
 
-        layout_config = PlotlyStyleManager.get_standard_layout(full_title)
+        footer_text = f"Contest Log Analytics by KD4D\n{get_cty_metadata([log1, log2])}"
+
+        layout_config = PlotlyStyleManager.get_standard_layout(final_title, footer_text)
         fig.update_layout(layout_config)
         
         fig.update_layout(
@@ -195,8 +199,7 @@ class Report(ContestReport):
         fig.update_xaxes(title_text="Contest Time (UTC)", row=num_bands, col=1)
 
         # --- 5. Save Files ---
-        mode_filename_str = f"_{mode_filter.lower()}" if mode_filter else ""
-        filename_base = f"{self.report_id}{mode_filename_str}_{_sanitize_filename_part(call1)}_{_sanitize_filename_part(call2)}"
+        filename_base = build_filename(self.report_id, [log1, log2], "All Bands", mode_filter)
         
         filepath_png = os.path.join(output_path, f"{filename_base}.png")
         filepath_html = os.path.join(output_path, f"{filename_base}.html")
@@ -233,6 +236,7 @@ class Report(ContestReport):
         """Orchestrates the generation of the combined plot and per-mode plots."""
         if len(self.logs) != 2:
             return f"Error: Report '{self.report_name}' requires exactly two logs."
+
         log1, log2 = self.logs[0], self.logs[1]
         created_files = []
 

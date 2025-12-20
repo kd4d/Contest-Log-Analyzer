@@ -5,7 +5,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-20
-# Version: 0.130.2-Beta
+# Version: 0.133.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,15 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.133.0-Beta] - 2025-12-20
+# - Refactored `_create_plot` to use centralized `build_filename` utility.
+# - Resolved NameError crash caused by missing `is_single_band` variable.
+# [0.132.0-Beta] - 2025-12-20
+# - Refactored `generate` to filter for valid logs only, preventing crashes on partial data.
+# - Updated helper methods (`_orchestrate_plot_generation`, `_create_plot`) to accept explicit log lists.
+# [0.131.0-Beta] - 2025-12-20
+# - Refactored to use `get_standard_title_lines` for standardized 3-line headers.
+# - Implemented explicit "Smart Scoping" for title generation.
 # [0.130.2-Beta] - 2025-12-20
 # - Implemented "Smart Scoping": "(All Modes)" label is now suppressed if the
 #   underlying data contains only a single mode.
@@ -45,7 +54,6 @@
 # - Refactored to use Data Abstraction Layer (TimeSeriesAggregator).
 # [0.90.0-Beta] - 2025-10-01
 # Set new baseline version for release.
-
 from typing import List
 import os
 import pandas as pd
@@ -55,7 +63,7 @@ from plotly.subplots import make_subplots
 
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from ._report_utils import create_output_directory, get_valid_dataframe, save_debug_data, _sanitize_filename_part, get_cty_metadata
+from ._report_utils import create_output_directory, get_valid_dataframe, save_debug_data, _sanitize_filename_part, get_cty_metadata, get_standard_title_lines, build_filename
 from ..data_aggregators.time_series import TimeSeriesAggregator
 from ..styles.plotly_style_manager import PlotlyStyleManager
 
@@ -75,34 +83,41 @@ class Report(ContestReport):
         """
         all_created_files = []
 
-        # Prepare full dataframes once
-        full_dfs = [get_valid_dataframe(log) for log in self.logs]
-        if any(df.empty for df in full_dfs):
-            return "Skipping report: At least one log has no valid QSO data."
-
+        # Filter for valid logs only (Partial Failure Resilience)
+        valid_logs = []
+        valid_dfs = []
+        for log in self.logs:
+            df = get_valid_dataframe(log)
+            if not df.empty:
+                valid_logs.append(log)
+                valid_dfs.append(df)
+        
+        if not valid_logs:
+            return "Skipping report: No logs have valid QSO data."
+        
         # 1. Generate plots for "All Modes"
         all_created_files.extend(
-            self._orchestrate_plot_generation(full_dfs, output_path, mode_filter=None, **kwargs)
+            self._orchestrate_plot_generation(valid_dfs, valid_logs, output_path, mode_filter=None, **kwargs)
         )
 
         # 2. Generate plots for each mode if applicable
-        modes_present = pd.concat([df['Mode'] for df in full_dfs]).dropna().unique()
+        modes_present = pd.concat([df['Mode'] for df in valid_dfs]).dropna().unique()
         if len(modes_present) > 1:
             for mode in ['CW', 'PH', 'DG']:
                 if mode in modes_present:
-                    sliced_dfs = [df[df['Mode'] == mode] for df in full_dfs]
+                    sliced_dfs = [df[df['Mode'] == mode] for df in valid_dfs]
                     all_created_files.extend(
-                        self._orchestrate_plot_generation(sliced_dfs, output_path, mode_filter=mode, **kwargs)
+                        self._orchestrate_plot_generation(sliced_dfs, valid_logs, output_path, mode_filter=mode, **kwargs)
                     )
         
         if not all_created_files:
             return "No QSO rate plots were generated."
-
+        
         return "QSO rate plots saved to:\n" + "\n".join([f"  - {fp}" for fp in all_created_files])
 
-    def _orchestrate_plot_generation(self, dfs: List[pd.DataFrame], output_path: str, mode_filter: str, **kwargs) -> List[str]:
+    def _orchestrate_plot_generation(self, dfs: List[pd.DataFrame], logs: List[ContestLog], output_path: str, mode_filter: str, **kwargs) -> List[str]:
         """Helper to generate the full set of plots for a given data slice."""
-        bands = self.logs[0].contest_definition.valid_bands
+        bands = logs[0].contest_definition.valid_bands
         is_single_band = len(bands) == 1
         bands_to_plot = ['All'] if is_single_band else ['All'] + bands
         
@@ -120,6 +135,7 @@ class Report(ContestReport):
 
                 filepath = self._create_plot(
                     dfs=dfs,
+                    logs=logs,
                     output_path=save_path,
                     band_filter=band,
                     mode_filter=mode_filter,
@@ -132,13 +148,13 @@ class Report(ContestReport):
         
         return created_files
 
-    def _create_plot(self, dfs: List[pd.DataFrame], output_path: str, band_filter: str, mode_filter: str, **kwargs) -> str:
+    def _create_plot(self, dfs: List[pd.DataFrame], logs: List[ContestLog], output_path: str, band_filter: str, mode_filter: str, **kwargs) -> str:
         debug_data_flag = kwargs.get("debug_data", False)
         metric_name = "QSOs"
         
         # --- DAL Integration ---
         # Initialize Aggregator with all logs
-        agg = TimeSeriesAggregator(self.logs)
+        agg = TimeSeriesAggregator(logs)
         # Fetch Data with filters
         ts_data = agg.get_time_series_data(band_filter=band_filter, mode_filter=mode_filter)
         
@@ -157,7 +173,7 @@ class Report(ContestReport):
         summary_rows = []
         all_series = [] # For debug export
 
-        for i, log in enumerate(self.logs):
+        for i, log in enumerate(logs):
             call = log.get_metadata().get('MyCall', 'Unknown')
             all_calls.append(call)
             
@@ -237,45 +253,16 @@ class Report(ContestReport):
         )
 
         # 4. Styling & Layout
-        metadata = self.logs[0].get_metadata()
-        year = get_valid_dataframe(self.logs[0])['Date'].dropna().iloc[0].split('-')[0] if not get_valid_dataframe(self.logs[0]).empty and not get_valid_dataframe(self.logs[0])['Date'].dropna().empty else "----"
-        contest_name = metadata.get('ContestName', '')
-        event_id = metadata.get('EventID', '')
+        # Smart Scoping: Collect unique modes from all dfs
+        modes_present = set()
+        for df in dfs:
+            if 'Mode' in df.columns:
+                modes_present.update(df['Mode'].dropna().unique())
         
-        is_single_band = len(self.logs[0].contest_definition.valid_bands) == 1
-        
-        # Determine Band Text
-        if band_filter == 'All':
-            if is_single_band:
-                # ARRL 10M Case: "All" really means the one valid band
-                band_text = self.logs[0].contest_definition.valid_bands[0].replace('M', ' Meters')
-            else:
-                band_text = "All Bands"
-        else:
-            band_text = band_filter.replace('M', ' Meters')
+        title_lines = get_standard_title_lines(self.report_name, logs, band_filter, mode_filter, modes_present)
+        final_title = f"{title_lines[0]}<br><sub>{title_lines[1]}<br>{title_lines[2]}</sub>"
 
-        # Determine Mode Text
-        if mode_filter:
-            mode_text = f" ({mode_filter})"
-        else:
-            # Smart Scoping: Only show (All Modes) if there actually ARE multiple modes
-            modes_present = set()
-            for df in dfs:
-                if 'Mode' in df.columns:
-                    modes_present.update(df['Mode'].dropna().unique())
-            
-            mode_text = " (All Modes)" if len(modes_present) > 1 else ""
-        
-        # Line 3 Scope construction
-        scope_line = f"{band_text}{mode_text}"
-
-        callsign_str = ", ".join(all_calls)
-
-        title_line1 = f"{self.report_name}"
-        title_line2 = f"{year} {event_id} {contest_name} - {callsign_str}".strip().replace("  ", " ")
-        final_title = f"{title_line1}<br><sub>{title_line2}<br>{scope_line}</sub>"
-
-        footer_text = f"Contest Log Analytics by KD4D\n{get_cty_metadata(self.logs)}"
+        footer_text = f"Contest Log Analytics by KD4D\n{get_cty_metadata(logs)}"
 
         # Apply Standard Layout
         layout_cfg = PlotlyStyleManager.get_standard_layout(final_title, footer_text)
@@ -292,11 +279,7 @@ class Report(ContestReport):
 
         create_output_directory(output_path)
         
-        filename_band = self.logs[0].contest_definition.valid_bands[0].lower() if is_single_band else band_filter.lower().replace('m', '')
-        filename_calls = '_'.join([_sanitize_filename_part(c) for c in sorted(all_calls)])
-        mode_suffix = f"_{mode_filter.lower()}" if mode_filter else ""
-        
-        base_filename = f"{self.report_id}_{filename_band}{mode_suffix}_{filename_calls}"
+        base_filename = build_filename(self.report_id, logs, band_filter, mode_filter)
         
         # --- Save Debug Data ---
         if all_series:

@@ -5,8 +5,8 @@
 #          aggregates data using DAL components, and renders the dashboard.
 #
 # Author: Gemini AI
-# Date: 2025-12-19
-# Version: 0.129.1-Beta
+# Date: 2025-12-20
+# Version: 0.133.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -20,6 +20,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.133.1-Beta] - 2025-12-20
+# - Restored "All Bands" button in QSO Dashboard by removing suppression logic.
+# [0.132.0-Beta] - 2025-12-20
+# - Injected pipeline diagnostics to trace log handoff and file generation state.
 # [0.129.1-Beta] - 2025-12-19
 # - Fixed Rate Differential plot linking by using raw band name in directory path.
 # [0.129.0-Beta] - 2025-12-19
@@ -206,6 +210,7 @@ def analyze_logs(request):
         # Handle Manual Upload
         if 'log1' in request.FILES:
             form = UploadLogForm(request.POST, request.FILES)
+        
             if form.is_valid():
                 # 1. Create Session Context
                 session_key = str(uuid.uuid4())
@@ -270,6 +275,14 @@ def _run_analysis_pipeline(request_id, log_paths, session_path, session_key):
 
     lm.finalize_loading(session_path)
 
+    # --- DIAGNOSTIC: Validate Handoff ---
+    valid_count = 0
+    for log in lm.logs:
+        if not log.get_processed_data().empty:
+            valid_count += 1
+    logger.info(f"Pipeline Diagnostic: Loaded {len(lm.logs)} logs. Valid (Non-Empty): {valid_count}.")
+    # ------------------------------------
+
     # 4. Generate Physical Reports (Drill-Down Assets)
     _update_progress(request_id, 3) # Step 3: Aggregating
     
@@ -279,6 +292,15 @@ def _run_analysis_pipeline(request_id, log_paths, session_path, session_key):
     
     generator = ReportGenerator(lm.logs, root_output_dir=session_path)
     generator.run_reports('all')
+    
+    # --- DIAGNOSTIC: Verify Disk State ---
+    generated_files = []
+    for root, dirs, files in os.walk(session_path):
+        for file in files:
+            if file.endswith('.html') or file.endswith('.png'):
+                generated_files.append(file)
+    logger.info(f"Pipeline Diagnostic: Generated {len(generated_files)} artifacts on disk: {generated_files}")
+    # -------------------------------------
     
     # 5. Aggregate Data (Dashboard Scalars)
     ts_agg = TimeSeriesAggregator(lm.logs)
@@ -641,9 +663,8 @@ def qso_dashboard(request, session_id):
                     
                     if parts:
                         band_key = parts[0].upper()
-                        if band_key == 'ALL':
-                            continue
                         label = "All Bands" if band_key == 'ALL' else band_key
+                        
                         sort_val = BAND_SORT_ORDER.get(band_key, 99)
                         
                         # Calculate relative path including subdirectory (e.g., plots/20M/file.html)

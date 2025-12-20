@@ -1,55 +1,47 @@
 # Architecture Roadmap
 
-**Version:** 2.1.0
-**Date:** 2025-12-18
-**Status:** Phase 3 (Web Dashboard) - Active Sprint: "The Solo Audit"
+**Version:** 1.4.0
+**Date:** 2025-12-20
+**Active Release Target:** 0.133.0-Beta
 
 ---
 
-## Phase 1: Core Analytics Engine (Completed)
-* [x] **Log Ingest:** Cabrillo parser with contest-specific definitions (`.json`).
-* [x] **Heuristics:** Run/S&P/Unknown classification (`run_s_p.py`).
-* [x] **Aggregation:** Data Abstraction Layer (DAL) for TimeSeries, Matrix, and Multipliers.
-* [x] **Scoring:** Modular scoring engines for CQ WW, WAE (QTCs), NAQP, etc.
+## 1. Executive Summary
+**Current Status:** **CRITICAL STABILIZATION REQUIRED.**
+The project is mid-transition in a major "Visualization Standardization" overhaul. Phase 1.5 (Standardization) was partially executed but introduced a regression (`NameError` crash) in the Plotly reporting engine. The immediate priority is applying the **Hotfix** to restore report generation, followed by implementing the **Session Manifest** architecture to decouple the Web Dashboard from filename predictions (fixing 404 errors).
 
-## Phase 2: Visualization Engine (Completed)
-* [x] **Engine Migration:** Replaced Matplotlib with Plotly for interactive charts.
-* [x] **Styling:** Centralized `PlotlyStyleManager`.
-* [x] **Output:** Dual-stack generation (Static PNG + Interactive HTML).
+---
 
-## Phase 3: The Web Dashboard (Active)
-**Goal:** A stateless, containerized web interface ("The Strategy Board") for log analysis.
+## 2. Active Development Tracks
 
-### 3.1. Infrastructure (Completed v0.102)
-* [x] Django Project Setup (Stateless).
-* [x] Docker/Docker-Compose configuration.
-* [x] Shared Template Layer (ADR-007).
+### Track A: Reporting Engine Modernization (Visualization)
+* **Goal:** Eliminate Matplotlib, standardize branding (3-Line Titles), and enforce "Smart Scoping".
+* **Status:**
+    * [x] **Phase 1: Presentation Layer** (Branding/Footers) - *Completed.*
+    * [x] **Phase 1.1: Smart Scoping** (Redundancy Logic) - *Completed.*
+    * [!] **Phase 1.5: Standardization (Plotly)** - *REGRESSED.*
+        * *Issue:* Refactoring removed `is_single_band` variable needed for filename generation.
+        * *Result:* Reports crash on generation. 404s in Dashboard.
+    * [ ] **Phase 2: Stabilization & Manifest** - *IMMEDIATE PRIORITY.*
+        * **Hotfix:** Centralize filename logic in `_report_utils.build_filename`.
+        * **Manifest:** Implement `manifest_manager.py` to index artifacts and prevent 404s.
+    * [ ] **Phase 3: Text Report Standardization** - *Pending.*
+    * [ ] **Phase 4: Chart Migration** (Butterfly/Propagation) - *Pending.*
+    * [ ] **Phase 5: Animation Migration** (WRTC HTML) - *Pending.*
 
-### 3.2. Core Dashboard Features (Completed v0.115)
-* [x] **Session Management:** UUID-based workspaces (`/media/sessions/`).
-* [x] **The Scoreboard:** High-level scalars (Score, QSOs, Mults).
-* [x] **Interactive Animation:** Time-lapse playback of contest progression.
-* [x] **Sub-Dashboards:** Dedicated views for QSO Analysis and Multipliers.
+### Track B: Web Dashboard (Architecture)
+* **Goal:** Robust, stateless file handling.
+* **Status:**
+    * [x] **Identity Agnostic Uploads** - *Completed.*
+    * [x] **Public Log Archive Fetcher** - *Completed.*
+    * [!] **Artifact Discovery** - *FRAGILE.* Currently relies on `os.walk` and filename prediction. Must move to **Session Manifest** (Track A, Phase 2).
 
-### 3.3. Public Data Integration (Completed v0.126.0)
-* [x] **Log Fetcher:** Scraper for CQ WW Public Logs.
-* [x] **Typeahead Search:** AJAX API for competitor lookup.
+---
 
-### 3.4. "The Solo Audit" (Current Sprint - v0.126.x)
-**Goal:** Adapt the dashboard for single-log uploads ("Self-Analysis") vs. multi-log uploads ("Competition").
-* [ ] **Solo Mode Logic:** Detect `log_count == 1` in Views.
-* [ ] **Correlation Analysis:** New Scatter Plot (Run % vs Rate/Mults).
-* [ ] **UI Hardening:**
-    * Suppress "Pairwise Strategy" tab in Solo Mode.
-    * Switch "Missed Multipliers" (Red) to "Multiplier Matrix" (Blue).
-* [ ] **Correlation Tab:** Integrate new report into `qso_dashboard`.
-
-## Phase 4: Future Scalability (Planned)
-### 4.1. Modular Dashboard Architecture (Next Sprint)
-**Goal:** Support non-CQ WW contests (WAE, Field Day) without monolithic templates.
-* [ ] **Widget Pattern:** Refactor `dashboard.html` into `partials/widgets/`.
-* [ ] **Dynamic Layouts:** Drive dashboard composition via `ContestDefinition`.
-
-### 4.2. Advanced Metrics
-* [ ] **Gap Analysis:** Report on off-times > 10 min.
-* [ ] **Propagation Replay:** Map-based visualization of openings (WRTC style).
+## 3. Feature Backlog & Technical Debt
+| ID | Priority | Component | Description | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| **TECH-001** | **Critical** | `plot_*.py` | **Fix `NameError` Crash.** Restore `is_single_band` logic via utility. | **Ready** |
+| **ARCH-002** | **High** | `views.py` | **Session Manifest.** Replace `os.walk` with deterministic JSON manifest. | **Planned** |
+| **DEBT-003** | Medium | `*.py` | **Matplotlib Removal.** Port final static charts to Plotly. | Phase 4 |
+| **FEAT-004** | Low | `animations` | **WRTC HTML Animation.** Replace MP4/FFmpeg dependency. | Phase 5 |

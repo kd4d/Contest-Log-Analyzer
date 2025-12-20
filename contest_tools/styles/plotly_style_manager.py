@@ -5,7 +5,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-20
-# Version: 1.1.0
+# Version: 0.133.4-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,13 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.133.4-Beta] - 2025-12-20
+# - Implemented absolute pixel positioning (yshift) for footer annotations to prevent overlap.
+# - Adjusted bottom margin to 140px.
+# [0.133.3-Beta] - 2025-12-20
+# - Increased bottom margin to 160px and lowered footer to -0.35 to prevent overlap.
+# [0.133.2-Beta] - 2025-12-20
+# - Adjusted bottom margin and footer position to prevent overlap in dashboards.
 # [1.1.0] - 2025-12-20
 # - Added footer_text support to `get_standard_layout` for branding/metadata.
 # [1.0.0] - 2025-12-07
@@ -89,11 +96,11 @@ class PlotlyStyleManager:
     def get_standard_layout(title: str, footer_text: str = None) -> Dict[str, Any]:
         """
         Returns a standard Plotly layout dictionary.
-        
+
         Args:
             title: The main chart title.
             footer_text: Optional text to display as a footer (e.g., Branding/CTY info).
-            
+
         Returns:
             A dictionary suitable for passing to fig.update_layout().
         """
@@ -106,7 +113,7 @@ class PlotlyStyleManager:
             },
             "font": {"family": "Arial, sans-serif"},
             "template": "plotly_white",
-            "margin": {"l": 50, "r": 50, "t": 100, "b": 100}, # Increased t/b for headers/footers
+            "margin": {"l": 50, "r": 50, "t": 100, "b": 140}, # Increased t/b for headers/footers
             "showlegend": True
         }
 
@@ -114,14 +121,16 @@ class PlotlyStyleManager:
             layout["annotations"] = [
                 dict(
                     x=0.5,
-                    y=-0.15, # Position below X-axis
+                    y=0, # Anchor to bottom of plot area
+                    yshift=-85, # Push down by fixed pixels (clears axis labels)
                     xref="paper",
                     yref="paper",
                     text=footer_text.replace('\n', '<br>'), # Convert newlines for Plotly
                     showarrow=False,
                     font=dict(size=12, color="#7f7f7f"),
                     align="center",
-                    valign="top"
+                    valign="top",
+                    yanchor="top" # Ensure shift pushes down from the anchor
                 )
             ]
             

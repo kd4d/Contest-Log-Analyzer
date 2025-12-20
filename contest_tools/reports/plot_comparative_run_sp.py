@@ -4,8 +4,8 @@
 #          the operating style (Run, S&P, or Mixed) of two operators over time.
 #
 # Author: Gemini AI
-# Date: 2025-12-10
-# Version: 1.3.0
+# Date: 2025-12-20
+# Version: 1.3.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,10 @@
 # If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [1.3.1-Beta] - 2025-12-20
+# - Refactored to use `get_standard_title_lines` for standardized 3-line headers.
+# - Implemented explicit "Smart Scoping" for title generation.
+# - Added footer metadata via `get_cty_metadata`.
 # [1.3.0] - 2025-12-15
 # - Injected descriptive filename configuration for interactive HTML plot downloads.
 # [1.2.0] - 2025-12-10
@@ -34,7 +38,6 @@
 # - Refactored to use MatrixAggregator (DAL).
 # [0.90.0-Beta] - 2025-10-01
 # - Set new baseline version for release.
-
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
@@ -47,7 +50,7 @@ from typing import List, Dict, Any
 
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from ._report_utils import get_valid_dataframe, create_output_directory, save_debug_data
+from ._report_utils import get_valid_dataframe, create_output_directory, save_debug_data, get_cty_metadata, get_standard_title_lines
 from ..data_aggregators.matrix_stats import MatrixAggregator
 from ..styles.plotly_style_manager import PlotlyStyleManager
 
@@ -178,18 +181,19 @@ class Report(ContestReport):
             )
 
         # --- Formatting ---
-        year = get_valid_dataframe(self.logs[0])['Date'].dropna().iloc[0].split('-')[0]
-        contest_name = log1_meta.get('ContestName', '')
-        event_id = log1_meta.get('EventID', '')
+        modes_present = set()
+        for log in self.logs:
+            df = get_valid_dataframe(log)
+            if 'Mode' in df.columns:
+                modes_present.update(df['Mode'].dropna().unique())
         
-        mode_title_str = f" ({mode_filter})" if mode_filter else ""
-        callsign_str = f"{call1} vs. {call2}"
-        
-        title_line1 = f"{self.report_name}{mode_title_str}{page_title_suffix}"
-        title_line2 = f"{year} {event_id} {contest_name} - {callsign_str}".strip().replace("  ", " ")
+        title_lines = get_standard_title_lines(f"{self.report_name}{page_title_suffix}", self.logs, "All Bands", mode_filter, modes_present)
+        final_title = f"{title_lines[0]}<br><sub>{title_lines[1]}<br>{title_lines[2]}</sub>"
+
+        footer_text = f"Contest Log Analytics by KD4D\n{get_cty_metadata(self.logs)}"
         
         # Apply standard layout
-        layout_cfg = PlotlyStyleManager.get_standard_layout(f"{title_line1}<br><sub>{title_line2}</sub>")
+        layout_cfg = PlotlyStyleManager.get_standard_layout(final_title, footer_text)
         
         # Customize for this specific report
         fig.update_layout(layout_cfg)
@@ -220,7 +224,6 @@ class Report(ContestReport):
         """Orchestrates the generation of the combined plot and per-mode plots."""
         if len(self.logs) != 2:
             return f"Error: Report '{self.report_name}' requires exactly two logs."
-
         BANDS_PER_PAGE = 8
         log1, log2 = self.logs[0], self.logs[1]
         created_files = []
@@ -252,7 +255,6 @@ class Report(ContestReport):
 
         if not created_files:
             return f"Report '{self.report_name}' did not generate any files."
-
         return f"Report file(s) saved to:\n" + "\n".join([f"  - {fp}" for fp in created_files])
 
     def _run_plot_for_slice(self, matrix_data, log1, log2, output_path, bands_per_page, mode_filter, **kwargs):

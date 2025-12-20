@@ -4,8 +4,8 @@
 #          comparing two logs.
 #
 # Author: Gemini AI
-# Date: 2025-12-15
-# Version: 0.118.0-Beta
+# Date: 2025-12-20
+# Version: 0.133.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,13 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.133.0-Beta] - 2025-12-20
+# - Refactored `_generate_single_plot` to use centralized `build_filename` utility.
+# - Standardized filename format to match other reports.
+# [0.131.0-Beta] - 2025-12-20
+# - Refactored to use `get_standard_title_lines` for standardized 3-line headers.
+# - Implemented explicit "Smart Scoping" for title generation.
+# - Added footer metadata via `get_cty_metadata`.
 # [0.118.0-Beta] - 2025-12-15
 # - Injected descriptive filename configuration for interactive HTML plot downloads.
 # [0.115.0-Beta] - 2025-12-14
@@ -41,7 +48,6 @@
 # - Enabled Run/S&P plots for Points metric via 'run_points' schema.
 # [0.90.0-Beta] - 2025-10-01
 # - Set new baseline version for release.
-
 from typing import List
 import pandas as pd
 import plotly.graph_objects as go
@@ -51,7 +57,7 @@ import logging
 
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from ._report_utils import create_output_directory, get_valid_dataframe, save_debug_data, _sanitize_filename_part
+from ._report_utils import create_output_directory, get_valid_dataframe, save_debug_data, _sanitize_filename_part, get_cty_metadata, get_standard_title_lines, build_filename
 from ..data_aggregators.time_series import TimeSeriesAggregator
 from ..styles.plotly_style_manager import PlotlyStyleManager
 
@@ -191,22 +197,20 @@ class Report(ContestReport):
         fig.add_hline(y=0, line_width=1, line_color="gray")
 
         # --- Metadata & Titles ---
-        metadata = log1.get_metadata()
-        year = get_valid_dataframe(log1)['Date'].dropna().iloc[0].split('-')[0] if not get_valid_dataframe(log1).empty else "----"
-        contest_name = metadata.get('ContestName', '')
-        event_id = metadata.get('EventID', '')
+        # Smart Scoping: Collect unique modes from all logs
+        modes_present = set()
+        for log in self.logs:
+            df = get_valid_dataframe(log)
+            if 'Mode' in df.columns:
+                modes_present.update(df['Mode'].dropna().unique())
         
-        is_single_band = len(log1.contest_definition.valid_bands) == 1
-        band_text = log1.contest_definition.valid_bands[0].replace('M', ' Meters') if is_single_band else band_filter.replace('M', ' Meters')
-        mode_text = f" ({mode_filter})" if mode_filter else ""
-        callsign_str = f"{call1} vs. {call2}"
+        title_lines = get_standard_title_lines(f"{self.report_name} ({metric_name})", self.logs, band_filter, mode_filter, modes_present)
+        final_title = f"{title_lines[0]}<br><sub>{title_lines[1]}<br>{title_lines[2]}</sub>"
 
-        title_line1 = f"{self.report_name} - {metric_name}{mode_text}"
-        title_line2 = f"{year} {event_id} {contest_name} - {callsign_str}".strip().replace("  ", " ")
-        final_title = f"{title_line1}<br>{title_line2}" # Use <br> for Plotly title break
+        footer_text = f"Contest Log Analytics by KD4D\n{get_cty_metadata(self.logs)}"
 
         # --- Layout Standardization ---
-        layout = PlotlyStyleManager.get_standard_layout(final_title)
+        layout = PlotlyStyleManager.get_standard_layout(final_title, footer_text)
         fig.update_layout(layout)
         
         # Base layout properties common to both
@@ -219,18 +223,14 @@ class Report(ContestReport):
         )
 
         # --- Saving Files (Dual Output) ---
-        filename_band = log1.contest_definition.valid_bands[0].lower() if is_single_band else band_filter.lower().replace('m', '')
-        mode_suffix = f"_{mode_filter.lower()}" if mode_filter else ""
+        base_filename = build_filename(f"{self.report_id}_{metric}", self.logs, band_filter, mode_filter)
         
         # Debug Data
-        c1_safe = _sanitize_filename_part(call1)
-        c2_safe = _sanitize_filename_part(call2)
-        debug_filename = f"{self.report_id}_{metric}{mode_suffix}_{filename_band}_{c1_safe}_{c2_safe}.txt"
+        debug_filename = f"{base_filename}.txt"
         save_debug_data(debug_data_flag, output_path, debug_df, custom_filename=debug_filename)
         
         create_output_directory(output_path)
         
-        base_filename = f"{self.report_id}_{metric}{mode_suffix}_{filename_band}_{c1_safe}_{c2_safe}"
         html_filename = f"{base_filename}.html"
         png_filename = f"{base_filename}.png"
         

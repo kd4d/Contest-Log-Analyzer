@@ -4,8 +4,8 @@
 #          point value, presented as a series of pie charts per band for a SINGLE log.
 #
 # Author: Gemini AI
-# Date: 2025-12-08
-# Version: 0.118.0-Beta
+# Date: 2025-12-20
+# Version: 0.131.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.131.0-Beta] - 2025-12-20
+# - Refactored to use `get_standard_title_lines` for standardized 3-line headers.
+# - Implemented explicit "Smart Scoping" for title generation.
+# - Added footer metadata via `get_cty_metadata`.
 # [0.118.0-Beta] - 2025-12-15
 # - Injected descriptive filename configuration for interactive HTML plot downloads.
 # [1.0.1] - 2025-12-08
@@ -30,7 +34,6 @@
 # [0.93.7-Beta] - 2025-12-04
 # - Fixed runtime crash by ensuring the output directory is created before
 #   saving the chart file.
-
 import os
 from typing import List, Dict
 import pandas as pd
@@ -41,7 +44,7 @@ from contest_tools.reports.report_interface import ContestReport
 from contest_tools.contest_log import ContestLog
 from contest_tools.data_aggregators.categorical_stats import CategoricalAggregator
 from contest_tools.styles.plotly_style_manager import PlotlyStyleManager
-from contest_tools.reports._report_utils import get_valid_dataframe, create_output_directory
+from contest_tools.reports._report_utils import get_valid_dataframe, create_output_directory, get_cty_metadata, get_standard_title_lines
 
 class Report(ContestReport):
     """
@@ -149,8 +152,13 @@ class Report(ContestReport):
             fig.add_trace(trace, row=row, col=col)
 
         # 5. Styling and Output
-        title_text = f"Point Contribution Breakdown: {callsign}"
-        layout_config = PlotlyStyleManager.get_standard_layout(title_text)
+        modes_present = set(df['Mode'].dropna().unique())
+        title_lines = get_standard_title_lines(self.report_name, self.logs, "All Bands", None, modes_present)
+        final_title = f"{title_lines[0]}<br><sub>{title_lines[1]}<br>{title_lines[2]}</sub>"
+
+        footer_text = f"Contest Log Analytics by KD4D\n{get_cty_metadata(self.logs)}"
+
+        layout_config = PlotlyStyleManager.get_standard_layout(final_title, footer_text)
         
         # Merge dynamic size into standard layout
         layout_config.update({

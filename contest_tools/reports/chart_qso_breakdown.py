@@ -4,8 +4,8 @@
 #          on common/unique QSOs broken down by Run vs. Search & Pounce (S&P) mode.
 #
 # Author: Gemini AI
-# Date: 2025-12-14
-# Version: 0.118.0-Beta
+# Date: 2025-12-20
+# Version: 0.131.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.131.0-Beta] - 2025-12-20
+# - Refactored to use `get_standard_title_lines` for standardized 3-line headers.
+# - Implemented explicit "Smart Scoping" for title generation.
+# - Added footer metadata via `get_cty_metadata`.
 # [0.118.0-Beta] - 2025-12-15
 # - Injected descriptive filename configuration for interactive HTML plot downloads.
 # [0.115.2-Beta] - 2025-12-15
@@ -41,7 +45,6 @@
 # [0.93.7-Beta] - 2025-12-04
 # - Fixed runtime crash by ensuring the output directory is created before
 #   saving the chart file.
-
 import os
 from typing import List, Dict, Tuple
 import pandas as pd
@@ -51,7 +54,7 @@ from contest_tools.reports.report_interface import ContestReport
 from contest_tools.contest_log import ContestLog
 from contest_tools.data_aggregators.categorical_stats import CategoricalAggregator
 from contest_tools.styles.plotly_style_manager import PlotlyStyleManager
-from contest_tools.reports._report_utils import get_valid_dataframe, create_output_directory, _sanitize_filename_part
+from contest_tools.reports._report_utils import get_valid_dataframe, create_output_directory, _sanitize_filename_part, get_cty_metadata, get_standard_title_lines
 
 class Report(ContestReport):
     """
@@ -108,7 +111,6 @@ class Report(ContestReport):
             ]
         }
          
-    
         return {
             'categories': categories,
             'modes': modes,
@@ -172,18 +174,14 @@ class Report(ContestReport):
                 )
 
         # Standard Layout Application
-        metadata = self.log1.get_metadata()
-        year = df1['Date'].dropna().iloc[0].split('-')[0] if not df1.empty else "----"
-        contest_name = metadata.get('ContestName', '')
-        event_id = metadata.get('EventID', '')
-        call1 = self.log1.get_metadata().get('MyCall')
-        call2 = self.log2.get_metadata().get('MyCall')
+        modes_present = set(df1['Mode'].dropna().unique()) | set(df2['Mode'].dropna().unique())
         
-        title_line1 = self.report_name
-        title_line2 = f"{year} {event_id} {contest_name} - {call1} vs. {call2}".strip().replace("  ", " ")
-        final_title = f"{title_line1}<br>{title_line2}"
+        title_lines = get_standard_title_lines(self.report_name, self.logs, "All Bands", None, modes_present)
+        final_title = f"{title_lines[0]}<br><sub>{title_lines[1]}<br>{title_lines[2]}</sub>"
+
+        footer_text = f"Contest Log Analytics by KD4D\n{get_cty_metadata(self.logs)}"
         
-        layout_config = PlotlyStyleManager.get_standard_layout(final_title)
+        layout_config = PlotlyStyleManager.get_standard_layout(final_title, footer_text)
         fig.update_layout(layout_config)
         
         # Specific Adjustments
@@ -193,6 +191,8 @@ class Report(ContestReport):
         )
 
         create_output_directory(output_path)
+        call1 = self.log1.get_metadata().get('MyCall')
+        call2 = self.log2.get_metadata().get('MyCall')
         c1_safe = _sanitize_filename_part(call1)
         c2_safe = _sanitize_filename_part(call2)
         base_filename = f"{self.report_id}_{c1_safe}_{c2_safe}"

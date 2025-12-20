@@ -1,9 +1,15 @@
 # AIAgentWorkflow.md
 
-**Version: 4.24.0**
+**Version: 4.25.0**
 **Date: 2025-12-20**
 ---
 ### --- Revision History ---
+## [4.25.0] - 2025-12-20
+### Changed
+# - Implemented "Strict State Machine" architecture.
+# - Refactored Protocol 1.6, 2.1, 2.3, 6.10.
+# - Added Protocols 1.6.1, 2.5.2, 2.12, 6.13.
+# - Enforced "The Trinity" requirement for Builder Mode.
 ## [4.24.0] - 2025-12-20
 ### Changed
 # - Redefined Protocol 1.6 ("Act as Builder") as a State Override Command to bypass Analysis/Planning.
@@ -122,7 +128,10 @@ For a narrative, human-focused explanation of this workflow, please see `Docs/Ge
 * [Part I: Core Principles](#part-i-core-principles)
 * [Part II: Standard Operating Protocols](#part-ii-standard-operating-protocols)
     * [1. Session Management](#1-session-management)
+        * [1.6. The Builder Initialization Macro](#16-the-builder-initialization-macro)
+            * [1.6.1. The Manifest Audit](#161-the-manifest-audit)
     * [2. Task Execution Workflow](#2-task-execution-workflow)
+        * [2.12. The Modal Compliance Gate](#212-the-modal-compliance-gate)
         * [2.10. Contest Definition Override Protocol](#210-contest-definition-override-protocol)
     * [3. File and Data Handling](#3-file-and-data-handling)
         * [3.9. JSON Inheritance Protocol](#39-json-inheritance-protocol)
@@ -131,6 +140,8 @@ For a narrative, human-focused explanation of this workflow, please see `Docs/Ge
 * [Part III: Project-Specific Implementation Patterns](#part-iii-project-specific-implementation-patterns)
 * [Part IV: Special Case & Recovery Protocols](#part-iv-special-case--recovery-protocols)
     * [6. Debugging and Error Handling](#6-debugging-and-error-handling)
+        * [6.10. Context Lock-In Protocol](#610-context-lock-in-protocol)
+        * [6.13. The Logic Lock](#613-the-logic-lock)
     * [7. Miscellaneous Protocols](#7-miscellaneous-protocols)
 ---
 ## Part I: Core Principles
@@ -265,10 +276,21 @@ Documents that are found to be already synchronized during the review will not h
 
 1.6. **The Builder Initialization Macro.**
     * **Definition:** The phrase **"Act as Builder"** is a System Macro.
-    * **State Override:** This command is a **State Override Instruction**. Upon receiving it, the AI is **STRICTLY FORBIDDEN** from entering **Protocol 2.1 (Analysis)** or **Protocol 2.4 (Plan Generation)**.
-    * **Plan Adoption:** If an `ImplementationPlan.md` is present in the context, the AI **MUST** adopt it as the definitive **Approved Plan** (Protocol 2.7) and execute it exactly as written. Re-generating the plan is a Critical Protocol Violation.
-    * **Mandate:** The AI must **immediately** retrieve, internalize, and enforce the rules defined in **Part III, Section 9: "The Builder Output Standard"**.
-    * **Next Action:** The only valid next step is **Protocol 6.10 (Context Lock-In Protocol)**.
+    * **Prerequisite:** The **Trinity** must be present (Source + Workflow + Builder Execution Kit).
+    * **State Transition:** This command transitions the AI from **Architect Mode** to **Builder Mode**.
+    * **Negative Constraint:** While in Builder Mode, the AI is **STRICTLY FORBIDDEN** from:
+        1. Generating an `ImplementationPlan`, a Summary, or performing "Analysis".
+        2. Modifying the Logic or Design defined in the Plan.
+        3. Answering "Why" questions (See Protocol 2.12).
+    * **Plan Adoption:** The AI **MUST** adopt the provided `ImplementationPlan.md` as the definitive, read-only instruction set.
+    * **Mandate:** The AI must immediately enforce **Protocol 1.6.1 (Manifest Audit)**.
+    * **Next Action:** Upon passing the audit, the only valid next step is **Protocol 6.10 (Context Lock-In Protocol)**.
+1.6.1. **The Manifest Audit.**
+    * **Trigger:** Immediately upon entering Builder Mode.
+    * **Action:** The Builder must cross-reference `manifest.txt` against the currently loaded file context.
+    * **Gate:**
+        * **PASS:** All files listed in the Manifest are present. -> Proceed to Protocol 6.10.
+        * **FAIL:** A file is missing. -> **HALT** and report: *"Critical Context Error: File `X` listed in Manifest is missing from the upload. Cannot proceed."*
 1.7. **Project Structure Onboarding.** After a state initialization, the AI will confirm its understanding of the high-level project architecture.
     * `CONTEST_LOGS_REPORTS/`: A subdirectory containing all input data. The `CONTEST_INPUT_DIR` environment variable must be set to this path (e.g., `CONTEST_LOGS_REPORTS/`).
 It contains the `data/` and `Logs/` subdirectories.
@@ -341,10 +363,10 @@ This phase is exempt from the strict "halt and wait" procedure of the main workf
     4.  **Summary Mandate**: As the final step of this protocol, the AI must provide a concise, numbered list summarizing the final, agreed-upon requirements.
 The user then formally initiates the **Task Execution Workflow (Protocol 2.1)** with the newly defined task.
 
-2.1. **Scope Fence Declaration (Analysis Phase)**:
-    * **Strict Phases:** The Architect session consists of two distinct, non-overlapping phases: **Analysis** and **Planning**.
-    * **Definition:** The User provides a problem or feature request.
-The AI analyzes In-Scope vs Out-of-Scope requirements before moving to any planning activities.
+2.1. **Architect Mode (Default State)**:
+    * **Definition:** I am the **Architect** by default. My goal is to produce a **Builder Execution Kit**.
+    * **Constraint:** I **DO NOT** modify code files directly. I **DO NOT** simulate execution.
+    * **Scope Fence:** The Architect analyzes In-Scope vs Out-of-Scope requirements before moving to any planning activities.
     * **Architecture Compliance Check (2.1.1):** During the Analysis Phase, the Architect MUST verify that the proposed solution aligns with the project's established architectural patterns (e.g., Persistence Strategy, State Management) as defined in the Project Bundle or Roadmap.
 This prevents "Architecture Drift" (e.g., accidentally adding a database to a stateless project, OR accidentally making a stateful project ephemeral).
     * **Session Version Check Mandate**: As the absolute first step of this protocol, before any analysis begins, I must verify that a session version series (e.g., `0.90.x-Beta`) has been established.
@@ -354,11 +376,11 @@ If it has not, my only action will be to halt the task and request that you decl
 2.2. **Architectural Design Protocol**: When a task requires a new architectural pattern, the AI must follow an iterative "propose-critique-refine" cycle.
 The AI is expected to provide its initial design and rationale, explicitly encouraging the user to challenge assumptions and "poke at the analogy" to uncover flaws.
 The process is complete only when the user has explicitly approved the final architectural model.
-2.3. **Analysis Phase Termination (The Discussion State)**:
-    * **Definition:** Upon completing the initial analysis, the Architect enters the **Discussion State**.
-    * **Prohibition:** While in this state, the generation of an Implementation Plan, Builder Execution Kit, or any final code deliverable is **STRICTLY FORBIDDEN**.
-    * **Valid Outputs:** The only valid outputs are analysis, answers to questions, layout proposals, or requests for the trigger.
-    * **Handover:** The Architect must conclude the Analysis phase by requesting the specific trigger: *"To proceed with planning, please provide the exact prompt: **Generate Builder Execution Kit**."*
+2.3. **Discussion Mode (Sub-State)**:
+    * **Entry Trigger:** User prompt: **"Enter Discussion Mode"**.
+    * **Constraint:** While in this mode, the generation of a Builder Execution Kit is **Protocol Violated**. The AI can *only* answer questions, analyze logs, or propose abstract ideas.
+    * **Exit Trigger:** User prompt: **"Generate Builder Execution Kit"** (Moves to Planning) or **"End Discussion"** (Returns to Analysis).
+    * **Handover:** To exit discussion and produce a deliverable, the Architect must request the specific trigger: **"Generate Builder Execution Kit"**.
 2.4. **Implementation Plan Generation (The Builder Execution Kit)**:
     * **Trigger:** The User issues the command **"Generate Builder Execution Kit"**.
 This command is universal (used for the initial Kit and all subsequent iterations/updates).
@@ -397,6 +419,9 @@ This command is universal (used for the initial Kit and all subsequent iteration
     **0. Plan Metadata Header:** Every Implementation Plan must begin with a standardized metadata block containing:
     * **`**Version:**`**: The revision number of the Plan document itself (e.g., `1.0.0`).
     * **`**Target:**`**: The specific version number to be applied to the generated code files (e.g., `0.102.0-Beta`).
+    * **2.5.2. The Amnesia Test:** The Architect must write the Plan assuming the Builder has **zero prior knowledge** of the project history.
+        * **Prohibition:** References like "as discussed," "same as before," or "the other file" are **STRICTLY FORBIDDEN**.
+        * **Requirement:** All logic, constants, and references must be explicitly restated in the Plan or pointed to via specific line numbers.
     **1. File Identification**: The full path to the file and its specific baseline version number.
     **2. Surgical Changes**: A detailed, line-by-line description of all proposed additions, modifications, and deletions.
     **3. Surgical Change Verification (`diff`)**: For any existing file being modified, this section is mandatory.
@@ -489,7 +514,7 @@ This pattern does not include Markdown backticks.
     6.  **Post-Delivery Protocol Verification.** Immediately following any file delivery, the AI must explicitly state which sub-protocol from Section 3.2 it followed and confirm that its last output was fully compliant.
     7.  **Python Header Standard Mandate.** All Python files (`.py`) generated or modified by the AI must begin with the following standard header block.
 The AI must populate the `{placeholders}` with the correct module-specific data.
-        ``` python
+        __CODE_BLOCK__ python
         # {filename}.py
         #
         # Purpose: {A concise, one-sentence description of the module's primary responsibility.}
@@ -512,7 +537,7 @@ The AI must populate the `{placeholders}` with the correct module-specific data.
         # --- Revision History ---
         # [{version}] - {YYYY-MM-DD}
         # - {Description of changes}
-        ```
+        __CODE_BLOCK__
 3.3. **Context Audit (Mandatory)**: Builder cross-references the Plan's requirements against `builder_bundle.txt`.
     * **Pass:** Proceed to Pre-Flight.
     * **Fail:** Execute Protocol 8.8 (Hard Stop).
@@ -602,9 +627,9 @@ For example: *"Acknowledgment received for file 1 of 3. Proceeding to the next f
 For example: *"Acknowledgment received. All 3 of 3 files in the implementation plan have been delivered and acknowledged. Proceeding to propose the verification command as required by Protocol 2.9."*
     10. **Loop**: I will repeat this protocol starting from Step 1 for the next file in the implementation plan until all files have been delivered and acknowledged.
 4.5. **Standardized Keyword Prompts.** To ensure all prompts for user action are clear and unambiguous, they must follow the exact format below:
-    ```
+    __CODE_BLOCK__
     Please <ACTION> by providing the prompt <PROMPT>.
-    ```
+    __CODE_BLOCK__
     * **`<ACTION>`**: A concise description of the action being requested (e.g., "approve the plan", "confirm the delivery").
     * **`<PROMPT>`**: The exact, literal, case-sensitive keyword required (e.g., `Approved`, `Acknowledged`, `Confirmed`, `Ready`, `Proceed`).
     * **Mandatory Post-Prompt Self-Correction and User Enforcement**:
@@ -620,9 +645,9 @@ Instead, your response should be to point out the violation. This will trigger a
     1.  **Trigger**: This protocol is triggered at the end of any response that completes a major step in the **Task Execution Workflow (Section 2)**, such as delivering an analysis or an implementation plan.
     2.  **Action**: As the final component of my response, I must append a standardized, bolded statement declaring my immediate next action.
     3.  **Format**:
-        ```
+        __CODE_BLOCK__
         **Next Action:** I will issue the standardized prompt for <NEXT_ACTION_DESCRIPTION>.
-        ```
+        __CODE_BLOCK__
     4.  **Verification**: If my subsequent response does not match this declared action, it constitutes an immediate and unambiguous protocol violation.
 ---
 ## Part III: Project-Specific Implementation Patterns
@@ -736,10 +761,14 @@ Examples include `git ls-files` to check tracking status or `attrib` (on Windows
     2.  **AI Action (Declaration)**: Before proceeding, I must issue a single, explicit statement declaring the exact source of the information I am about to use.
         * For a new initialization: *"I am establishing a new definitive state based ONLY on the bundle files you have provided in the immediately preceding turn. I will not reference any prior chat history for file content. Please confirm to proceed."*
         * For executing a plan: *"I am about to generate `path/to/file.ext` based on the Implementation Plan you approved. I have locked in the baseline version `<X.Y.Z-Beta>` as specified in that plan. Please confirm to proceed."*
-    3.  **User Action (The Forcing Function)**: You must validate this statement.
-        * If the statement is correct and accurately reflects the immediate context, you respond with the exact, literal string `Confirmed` after being prompted per **Protocol 4.5**.
-        * If the statement is incorrect, or if I fail to issue it, you must state the discrepancy.
-This immediately halts the process and forces an **Error Analysis Protocol (6.3)**.
+    3.  **User Action (The Forcing Function)**: You must validate this statement by providing the exact command: **EXECUTE**.
+    4.  **Transition Mandate:** Upon receiving `EXECUTE`, the AI **MUST** immediately initiate **Protocol 4.4 (Confirmed File Delivery)** for the first file in the plan. Any intermediate text or summary is a Protocol Violation.
+
+6.13. **The Logic Lock.**
+    * **Rule:** The Builder is **STRICTLY FORBIDDEN** from modifying the *logic* or *design* defined in the Plan.
+    * **Allowed Fixes:** Syntax errors, indentation, import errors (Surgical Repairs only).
+    * **Response:** If a logic error is found, the Builder **MUST** Halt and state: "Verification Failed: This is a Logic/Design error. I cannot fix this without deviating from the Approved Plan. **Please return to the Architect Instance** to revise the Plan."
+
 6.11. **Failure Spiral Circuit Breaker Protocol.** This protocol automatically triggers to prevent a cascade of errors resulting from a degraded or corrupted context.
     1.  **Trigger**: This protocol is triggered if two of the following conditions occur within the same development task:
         * An implementation plan is rejected by the user for a second time for the same logical reason (e.g., a flawed `diff`).

@@ -4,8 +4,8 @@
 #          point value, comparing multiple logs side-by-side.
 #
 # Author: Gemini AI
-# Date: 2025-12-07
-# Version: 0.118.0-Beta
+# Date: 2025-12-20
+# Version: 0.131.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.131.0-Beta] - 2025-12-20
+# - Refactored to use `get_standard_title_lines` for standardized 3-line headers.
+# - Implemented explicit "Smart Scoping" for title generation.
+# - Added footer metadata via `get_cty_metadata`.
 # [0.118.0-Beta] - 2025-12-15
 # - Injected descriptive filename configuration for interactive HTML plot downloads.
 # [1.0.0] - 2025-12-07
@@ -28,7 +32,6 @@
 # [0.93.7-Beta] - 2025-12-04
 # - Fixed runtime crash by ensuring the output directory is created before
 #   saving the chart file.
-
 import os
 from typing import List, Dict, Any, Optional
 import pandas as pd
@@ -39,7 +42,7 @@ from contest_tools.reports.report_interface import ContestReport
 from contest_tools.contest_log import ContestLog
 from contest_tools.data_aggregators.categorical_stats import CategoricalAggregator
 from contest_tools.styles.plotly_style_manager import PlotlyStyleManager
-from contest_tools.reports._report_utils import create_output_directory
+from contest_tools.reports._report_utils import create_output_directory, get_cty_metadata, get_standard_title_lines, get_valid_dataframe
 
 class Report(ContestReport):
     """
@@ -51,7 +54,7 @@ class Report(ContestReport):
     report_type = 'chart'
     supports_multi = True
     supports_pairwise = True
-
+    
     def __init__(self, logs: List[ContestLog]):
         super().__init__(logs)
         self.aggregator = CategoricalAggregator()
@@ -124,21 +127,26 @@ class Report(ContestReport):
                     fig.add_trace(trace, row=1, col=i+1)
 
         # Standard Title Construction
-        first_log = self.logs[0]
-        year = first_log.get_processed_data()['Date'].iloc[0].split('-')[0]
-        contest_name = first_log.get_metadata().get('ContestName', 'Unknown')
-        all_calls = sorted([l.get_metadata().get('MyCall') for l in self.logs])
+        modes_present = set()
+        for log in self.logs:
+            df = get_valid_dataframe(log)
+            if 'Mode' in df.columns:
+                modes_present.update(df['Mode'].dropna().unique())
         
-        chart_title = f"Comparative Point Contribution: {year} {contest_name} - {', '.join(all_calls)}"
+        title_lines = get_standard_title_lines(self.report_name, self.logs, "All Bands", None, modes_present)
+        final_title = f"{title_lines[0]}<br><sub>{title_lines[1]}<br>{title_lines[2]}</sub>"
+        
+        footer_text = f"Contest Log Analytics by KD4D\n{get_cty_metadata(self.logs)}"
         
         # Apply standard layout
-        layout_config = PlotlyStyleManager.get_standard_layout(chart_title)
+        layout_config = PlotlyStyleManager.get_standard_layout(final_title, footer_text)
         fig.update_layout(**layout_config)
 
         # Ensure output directory exists
         create_output_directory(output_path)
         
         # Define Filenames
+        all_calls = sorted([l.get_metadata().get('MyCall') for l in self.logs])
         base_filename = f"{self.report_id}_{'_vs_'.join(all_calls)}"
         png_file = os.path.join(output_path, f"{base_filename}.png")
         html_file = os.path.join(output_path, f"{base_filename}.html")

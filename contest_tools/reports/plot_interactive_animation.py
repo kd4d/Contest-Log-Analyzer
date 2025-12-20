@@ -1,5 +1,5 @@
 # contest_tools/reports/plot_interactive_animation.py
-# Version: 0.115.1-Beta
+# Version: 0.131.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -13,6 +13,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.131.0-Beta] - 2025-12-20
+# - Refactored to use `get_standard_title_lines` for standardized 3-line headers.
+# - Implemented explicit "Smart Scoping" for title generation.
+# - Added footer metadata via `get_cty_metadata` (custom layout injection).
 # [0.115.1-Beta] - 2025-12-15
 # - Implemented "Representative Legend" strategy:
 #   1. Renamed station legend entries to show only the Callsign (Station=Hue).
@@ -31,7 +35,6 @@
 # - Implemented "Monochromatic Intensity" color strategy for animation bars.
 # [0.107.0-Beta] - 2025-12-13
 # - Changed report_type from 'html' to 'animation'.
-
 import os
 import logging
 import numpy as np
@@ -42,7 +45,7 @@ from typing import List, Dict, Any, Tuple
 from pathlib import Path
 
 from .report_interface import ContestReport
-from ._report_utils import create_output_directory, _sanitize_filename_part
+from ._report_utils import create_output_directory, _sanitize_filename_part, get_cty_metadata, get_standard_title_lines, get_valid_dataframe
 from ..data_aggregators.time_series import TimeSeriesAggregator
 from ..data_aggregators.matrix_stats import MatrixAggregator
 from ..styles.plotly_style_manager import PlotlyStyleManager
@@ -238,21 +241,23 @@ class Report(ContestReport):
         fig.update_xaxes(title_text="Band", row=2, col=2)
 
         # Construct Standard Title
-        log1_meta = self.logs[0].get_metadata()
-        year = kwargs.get('year', '2024') # Fallback
-        if not kwargs.get('year'):
-             year = "2024"
-
-        contest = log1_meta.get('ContestName', 'Contest')
-        title_line1 = self.report_name
-        title_line2 = f"{year} {contest} - {', '.join(callsigns)}"
+        modes_present = set()
+        for log in self.logs:
+            df = get_valid_dataframe(log)
+            if 'Mode' in df.columns:
+                modes_present.update(df['Mode'].dropna().unique())
+        
+        title_lines = get_standard_title_lines(self.report_name, self.logs, "All Bands", None, modes_present)
+        
+        # For animation, we can add help text to the title
+        final_title = f"{title_lines[0]}<br><sub>{title_lines[1]}<br>{title_lines[2]}</sub>"
 
         # Animation Settings
         fig.update_layout(
             template="plotly_white",
             height=900,
             # Initial placeholder title, will be updated below
-            title_text=f"{title_line1}",
+            title_text=final_title,
             barmode='stack', # Enables stacking within offsetgroups
             updatemenus=[{
                 "type": "buttons",
@@ -297,8 +302,21 @@ class Report(ContestReport):
             }]
         )
 
-        # Update Title with Standard Formatting
-        fig.update_layout(title_text=f"{title_line1}<br><sub>{title_line2}</sub>")
+        # Update Title with Standard Formatting and Footer
+        footer_text = f"Contest Log Analytics by KD4D\n{get_cty_metadata(self.logs)}"
+        
+        # Merge with existing layout properties (since animation has complex layout)
+        # We inject footer as annotation manually because we aren't using get_standard_layout here
+        fig.update_layout(title_text=final_title)
+        fig.add_annotation(
+            x=0.5, y=-0.25, # Push footer way down below controls
+            xref="paper", yref="paper",
+            text=footer_text.replace('\n', '<br>'),
+            showarrow=False,
+            font=dict(size=12, color="#7f7f7f"),
+            align="center",
+            valign="top"
+        )
 
         # 6. Save
         sanitized_calls = "_".join([_sanitize_filename_part(c) for c in callsigns])
