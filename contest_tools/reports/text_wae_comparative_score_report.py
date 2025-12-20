@@ -5,7 +5,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-11-24
-# Version: 0.113.0-Beta
+# Version: 0.134.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.134.1-Beta] - 2025-12-20
+# - Added standard report header generation using `format_text_header`.
 # [0.113.0-Beta] - 2025-12-13
 # - Standardized filename generation: removed '_vs_' separator and applied strict sanitization to callsigns.
 # [0.91.5-Beta] - 2025-11-24
@@ -34,7 +36,6 @@
 #   correct logic in `wae_calculator.py`.
 # [0.90.0-Beta] - 2025-10-01
 # - Set new baseline version for release.
-
 from typing import List, Set, Dict, Tuple
 import pandas as pd
 import os
@@ -42,7 +43,7 @@ from prettytable import PrettyTable
 from ..contest_log import ContestLog
 from ..contest_definitions import ContestDefinition
 from .report_interface import ContestReport
-from ._report_utils import get_valid_dataframe, create_output_directory, _sanitize_filename_part
+from ._report_utils import get_valid_dataframe, create_output_directory, _sanitize_filename_part, format_text_header, get_cty_metadata, get_standard_title_lines
 from ..data_aggregators.wae_stats import WaeStatsAggregator
 
 class Report(ContestReport):
@@ -55,6 +56,7 @@ class Report(ContestReport):
     is_specialized = True
     supports_multi = True
     supports_pairwise = True
+    
     
     def generate(self, output_path: str, **kwargs) -> str:
         """Generates the report content."""
@@ -140,14 +142,19 @@ class Report(ContestReport):
             final_score_lines.append(f"{label:<{max_label_width}} : {score_str}")
         report_lines.extend(final_score_lines)
 
-        # --- Prepend Titles ---
-        first_log = self.logs[0]
-        year = first_log.get_processed_data()['Date'].iloc[0].split('-')[0]
-        contest_name = first_log.get_metadata().get('ContestName')
-        title1 = f"--- {self.report_name} ---"
-        title2 = f"{year} {contest_name} - {', '.join(all_calls)}"
+        # --- Generate Standard Header ---
+        modes_present = set()
+        for log in self.logs:
+            df = log.get_processed_data()
+            if 'Mode' in df.columns:
+                modes_present.update(df['Mode'].dropna().unique())
+
+        title_lines = get_standard_title_lines(self.report_name, self.logs, "All Bands", None, modes_present)
+        meta_lines = ["Contest Log Analytics by KD4D", get_cty_metadata(self.logs)]
+        # Calculate roughly width from one of the tables or default
+        header_block = format_text_header(80, title_lines, meta_lines)
         
-        final_report_str = "\n".join([title1, title2] + report_lines) + "\n"
+        final_report_str = "\n".join(header_block + report_lines) + "\n"
         
         # --- Save to File ---
         create_output_directory(output_path)

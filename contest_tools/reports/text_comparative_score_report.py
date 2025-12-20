@@ -1,13 +1,12 @@
 # contest_tools/reports/text_comparative_score_report.py
 #
 # Purpose: A text report that generates an interleaved, comparative score
-#          summary, broken down by band, for multiple logs.
-#          This version
+#          summary, broken down by band, for multiple logs. This version
 #          serves as a proof-of-concept for using the tabulate library.
 #
 # Author: Gemini AI
 # Date: 2025-10-09
-# Version: 0.113.0-Beta
+# Version: 0.134.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -21,6 +20,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.134.1-Beta] - 2025-12-20
+# - Added standard report header generation using `format_text_header`.
 # [0.113.0-Beta] - 2025-12-13
 # - Standardized filename generation: removed '_vs_' separator and applied strict sanitization to callsigns.
 # [0.91.0-Beta] - 2025-10-09
@@ -32,7 +33,6 @@
 #   correct logic in `wae_calculator.py`.
 # [0.90.0-Beta] - 2025-10-01
 # - Set new baseline version for release.
-
 from typing import List, Set, Dict, Tuple
 import pandas as pd
 import os
@@ -40,7 +40,7 @@ from tabulate import tabulate
 from ..contest_log import ContestLog
 from ..contest_definitions import ContestDefinition
 from .report_interface import ContestReport
-from ._report_utils import _sanitize_filename_part
+from ._report_utils import _sanitize_filename_part, format_text_header, get_cty_metadata, get_standard_title_lines
 
 class Report(ContestReport):
     """
@@ -146,20 +146,18 @@ class Report(ContestReport):
             final_line = " " * padding + line
             report_lines.append(final_line)
 
-        # --- Prepend Centered Titles ---
-        contest_name = first_log.get_metadata().get('ContestName', 'UnknownContest')
-        year = first_log.get_processed_data()['Date'].iloc[0].split('-')[0] if not first_log.get_processed_data().empty else "----"
+        # --- Generate Standard Header ---
+        modes_present = set()
+        for log in self.logs:
+            df = log.get_processed_data()
+            if 'Mode' in df.columns:
+                modes_present.update(df['Mode'].dropna().unique())
+
+        title_lines = get_standard_title_lines(self.report_name, self.logs, "All Bands", None, modes_present)
+        meta_lines = ["Contest Log Analytics by KD4D", get_cty_metadata(self.logs)]
         
-        title1 = f"--- {self.report_name} ---"
-        title2 = f"{year} {contest_name} - {', '.join(all_calls)}"
-        
-        header_width = max(table_width, len(title1), len(title2))
-        final_header = [
-            title1.center(header_width),
-            title2.center(header_width),
-            ""
-        ]
-        report_lines = final_header + report_lines
+        header_block = format_text_header(table_width, title_lines, meta_lines)
+        report_lines = header_block + report_lines
 
         # --- Save to File ---
         report_content = "\n".join(report_lines) + "\n"
@@ -170,7 +168,7 @@ class Report(ContestReport):
         
         with open(filepath, 'w', encoding='utf-8') as f:
             f.write(report_content)
-        
+         
         return f"Text report saved to: {filepath}"
 
     def _calculate_band_mode_summary(self, df_band_mode: pd.DataFrame, callsign: str, multiplier_rules: List, log: ContestLog) -> dict:

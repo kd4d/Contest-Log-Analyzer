@@ -5,7 +5,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-14
-# Version: 0.113.0-Beta
+# Version: 0.134.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,20 +19,21 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.134.1-Beta] - 2025-12-20
+# - Added standard report header generation using `format_text_header`.
 # [0.113.0-Beta] - 2025-12-13
 # - Standardized filename generation: removed '_vs_' separator to match Web Dashboard conventions.
 # [0.90.1-Beta] - 2025-12-14
 # - Updated file generation to use `_sanitize_filename_part` for strict lowercase naming.
 # [0.90.0-Beta] - 2025-10-01
-# Set new baseline version for release.
-
+# - Set new baseline version for release.
 from typing import List
 import pandas as pd
 import os
 from ..contest_log import ContestLog
 from ..contest_definitions import ContestDefinition
 from .report_interface import ContestReport
-from ._report_utils import _sanitize_filename_part
+from ._report_utils import _sanitize_filename_part, format_text_header, get_cty_metadata, get_standard_title_lines
 
 class Report(ContestReport):
     """
@@ -62,8 +63,8 @@ class Report(ContestReport):
             all_dfs.append(df)
 
         if not all_dfs:
-            return "No data available to generate report."
-
+             return "No data available to generate report."
+        
         combined_df = pd.concat(all_dfs, ignore_index=True)
         
         if combined_df.empty:
@@ -106,29 +107,18 @@ class Report(ContestReport):
         table_width = len(table_header)
         separator = "-" * table_width
         
-        contest_name = first_log.get_metadata().get('ContestName', 'UnknownContest')
-        year = first_log.get_processed_data()['Date'].iloc[0].split('-')[0] if not first_log.get_processed_data().empty else "----"
-        
-        title1 = f"--- {self.report_name} ---"
-        title2 = f"{year} {contest_name} - {', '.join(all_calls)}"
-        
-        title1_width = len(title1)
-        title2_width = len(title2)
+        # --- Standard Header ---
+        modes_present = set()
+        for log in self.logs:
+            df = log.get_processed_data()
+            if 'Mode' in df.columns:
+                modes_present.update(df['Mode'].dropna().unique())
 
-        if title1_width > table_width or title2_width > table_width:
-            header_width = max(title1_width, title2_width)
-            report_lines = [
-                f"{title1.ljust(header_width)}",
-                f"{title2.center(header_width)}",
-                ""
-            ]
-        else:
-            header_width = table_width
-            report_lines = [
-                title1.center(header_width),
-                title2.center(header_width),
-                ""
-            ]
+        title_lines = get_standard_title_lines(self.report_name, self.logs, "All Bands", None, modes_present)
+        meta_lines = ["Contest Log Analytics by KD4D", get_cty_metadata(self.logs)]
+        
+        header_block = format_text_header(table_width, title_lines, meta_lines)
+        report_lines = header_block + [""]
 
         report_lines.append(table_header)
         report_lines.append(separator)
@@ -158,7 +148,7 @@ class Report(ContestReport):
         total_pivot = total_pivot[bands]
         
         if not is_single_band:
-            total_pivot['Total'] = total_pivot.sum(axis=1)
+             total_pivot['Total'] = total_pivot.sum(axis=1)
 
         for call in all_calls:
                 if call in total_pivot.index:
