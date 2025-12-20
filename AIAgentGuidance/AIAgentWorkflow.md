@@ -1,9 +1,13 @@
 # AIAgentWorkflow.md
 
-**Version: 4.23.0**
+**Version: 4.24.0**
 **Date: 2025-12-20**
 ---
 ### --- Revision History ---
+## [4.24.0] - 2025-12-20
+### Changed
+# - Redefined Protocol 1.6 ("Act as Builder") as a State Override Command to bypass Analysis/Planning.
+# - Added Protocol 2.0.1 ("The Trinity Ingress Protocol") to formalize cold-start execution.
 ## [4.23.0] - 2025-12-20
 ### Changed
 # - Refactored Protocol 2.3 to explicitly define "The Discussion State" and forbid preemptive generation.
@@ -261,9 +265,10 @@ Documents that are found to be already synchronized during the review will not h
 
 1.6. **The Builder Initialization Macro.**
     * **Definition:** The phrase **"Act as Builder"** is a System Macro.
-    * **Mandate:** Upon receiving this trigger, the AI must **immediately** retrieve, internalize, and enforce the rules defined in **Part III, Section 9: "The Builder Output Standard"** of this document.
-It must also adhere to **Protocol 4.1 (The Exact Prompt Protocol)** when requesting confirmation.
-    * **Constraint:** Failure to apply the "Builder Output Standard" (especially the Markdown Sanitization rules) is a critical protocol violation.
+    * **State Override:** This command is a **State Override Instruction**. Upon receiving it, the AI is **STRICTLY FORBIDDEN** from entering **Protocol 2.1 (Analysis)** or **Protocol 2.4 (Plan Generation)**.
+    * **Plan Adoption:** If an `ImplementationPlan.md` is present in the context, the AI **MUST** adopt it as the definitive **Approved Plan** (Protocol 2.7) and execute it exactly as written. Re-generating the plan is a Critical Protocol Violation.
+    * **Mandate:** The AI must **immediately** retrieve, internalize, and enforce the rules defined in **Part III, Section 9: "The Builder Output Standard"**.
+    * **Next Action:** The only valid next step is **Protocol 6.10 (Context Lock-In Protocol)**.
 1.7. **Project Structure Onboarding.** After a state initialization, the AI will confirm its understanding of the high-level project architecture.
     * `CONTEST_LOGS_REPORTS/`: A subdirectory containing all input data. The `CONTEST_INPUT_DIR` environment variable must be set to this path (e.g., `CONTEST_LOGS_REPORTS/`).
 It contains the `data/` and `Logs/` subdirectories.
@@ -316,6 +321,15 @@ The sequence for every task involving file delivery is as follows:
 > This sequence is the standard operating procedure for all tasks. This workflow is a strict, user-gated state machine.
 I will perform my analysis and then **halt**, awaiting your explicit command to proceed to the next stage (e.g., creating an implementation plan).
 I will never assume your intent or advance the workflow proactively.
+
+2.0.1. **The Trinity Ingress Protocol.**
+    * **Definition:** "The Trinity" is defined as the simultaneous upload of:
+        1. Source Code (via Manifest or Project Bundle).
+        2. `ImplementationPlan.md`.
+        3. `AIAgentWorkflow.md`.
+    * **Trigger:** When The Trinity is detected in conjunction with the **"Act as Builder"** macro (Protocol 1.6).
+    * **Action:** The Workflow **SKIPS** all start-up sequences (Analysis, Planning, Approval). It assumes these occurred in the Architect session.
+    * **Next Step:** The AI proceeds directly to **Protocol 6.10 (Context Lock-In)** followed by **Protocol 4.4 (Confirmed File Delivery)**.
 
 2.0. **Exploratory Analysis Protocol (Optional)**
     This protocol provides a less formal mechanism for brainstorming and scoping new or complex features where the requirements are not yet well-defined.
