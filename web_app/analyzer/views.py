@@ -6,7 +6,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-18
-# Version: 0.126.0-Beta
+# Version: 0.126.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -15,10 +15,15 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.126.1-Beta] - 2025-12-18
+# - Updated `analyze_logs` to register `plot_correlation_analysis` report.
+# - Updated `qso_dashboard` to detect solo mode and suppress pairwise matchups.
+# - Updated `multiplier_dashboard` to map 'summary' matrix to 'missed' slot in solo mode.
 # [0.126.0-Beta] - 2025-12-18
 # - Implemented `get_log_index_view` to expose log fetcher API.
 # - Refactored `analyze_logs` to support both manual uploads and public archive fetching.
@@ -290,6 +295,7 @@ def _run_analysis_pipeline(request_id, log_paths, session_path, session_key):
     # CRITICAL: Filenames on disk are lowercased by ReportGenerator. We must match that.
     animation_filename = f"interactive_animation_{combo_id.lower()}.html"
     plot_filename = f"qso_rate_{combo_id.lower()}.html"
+    correlation_filename = f"plot_correlation_analysis_{combo_id.lower()}.html"
     
     # Note: Multiplier filename removed here. It is now dynamically resolved in multiplier_dashboard view.
 
@@ -298,6 +304,7 @@ def _run_analysis_pipeline(request_id, log_paths, session_path, session_key):
         'report_url_path': report_url_path,
         'animation_file': animation_filename,
         'plot_file': plot_filename,
+        'correlation_file': correlation_filename,
         'logs': [],
         'mult_headers': [],
         'full_contest_title': full_contest_title,
@@ -481,7 +488,8 @@ def multiplier_dashboard(request, session_id):
             persisted_logs = d_ctx.get('logs', [])
 
     # Calculate optimal column width for scoreboard
-    col_width = 12 // len(persisted_logs) if persisted_logs else 12
+    log_count = len(persisted_logs) if persisted_logs else 0
+    col_width = 12 // log_count if log_count > 0 else 12
 
     # 2. Scan and Group Reports
     # Expected format: missed_multipliers_{TYPE}_{COMBO_ID}.txt
@@ -489,15 +497,19 @@ def multiplier_dashboard(request, session_id):
     suffix = f"_{combo_id}.txt"
     multipliers = {}
 
+    # In Solo Mode, we show 'multiplier_summary' (The Matrix) instead of 'missed_multipliers'
+    # We map it to the 'missed' key so the template renders it in the card slot.
+    target_prefix = 'multiplier_summary_' if log_count == 1 else 'missed_multipliers_'
+
     for filename in os.listdir(text_dir):
         if not filename.endswith(suffix):
             continue
         
         mult_type = None
-        if filename.startswith('missed_multipliers_'):
-            mult_type = filename.replace('missed_multipliers_', '').replace(suffix, '').replace('_', ' ').title()
-            report_key = 'missed'
-        elif filename.startswith('multiplier_summary_'):
+        if filename.startswith(target_prefix):
+            mult_type = filename.replace(target_prefix, '').replace(suffix, '').replace('_', ' ').title()
+            report_key = 'missed' # Hijack 'missed' slot for display
+        elif filename.startswith('multiplier_summary_') and log_count > 1:
             mult_type = filename.replace('multiplier_summary_', '').replace(suffix, '').replace('_', ' ').title()
             report_key = 'summary'
         
@@ -521,6 +533,7 @@ def multiplier_dashboard(request, session_id):
         'high_bands_data': high_bands_data,
         'all_calls': sorted([l['callsign'] for l in persisted_logs]),
         'multipliers': sorted_mults,
+        'is_solo': (log_count == 1),
     }
     return render(request, 'analyzer/multiplier_dashboard.html', context)
 
@@ -550,25 +563,27 @@ def qso_dashboard(request, session_id):
     # 2. Re-construct Callsigns from the combo_id
     callsigns_safe = combo_id.split('_')
     callsigns_display = [c.upper() for c in callsigns_safe]
+    is_solo = (len(callsigns_safe) == 1)
     
     # 3. Identify Pairs for Strategy Tab
-    import itertools
-    pairs = list(itertools.combinations(callsigns_safe, 2))
-    
     matchups = []
-    for p in pairs:
-        c1, c2 = sorted(p)
-        label = f"{c1.upper()} vs {c2.upper()}"
-        base_path = report_rel_path
+    if not is_solo:
+        import itertools
+        pairs = list(itertools.combinations(callsigns_safe, 2))
         
-        matchups.append({
-            'label': label,
-            'id': f"{c1}_{c2}",
-            'qso_breakdown_file': os.path.join(base_path, f"charts/qso_breakdown_chart_{c1}_{c2}.html"),
-            'diff_plot_file': os.path.join(base_path, f"plots/cumulative_difference_plots_qsos_all_{c1}_{c2}.html"),
-            'band_activity_file': os.path.join(base_path, f"plots/comparative_band_activity_{c1}_{c2}.html"),
-            'continent_file': os.path.join(base_path, f"text/comparative_continent_summary_{c1}_{c2}.txt")
-        })
+        for p in pairs:
+            c1, c2 = sorted(p)
+            label = f"{c1.upper()} vs {c2.upper()}"
+            base_path = report_rel_path
+            
+            matchups.append({
+                'label': label,
+                'id': f"{c1}_{c2}",
+                'qso_breakdown_file': os.path.join(base_path, f"charts/qso_breakdown_chart_{c1}_{c2}.html"),
+                'diff_plot_file': os.path.join(base_path, f"plots/cumulative_difference_plots_qsos_all_{c1}_{c2}.html"),
+                'band_activity_file': os.path.join(base_path, f"plots/comparative_band_activity_{c1}_{c2}.html"),
+                'continent_file': os.path.join(base_path, f"text/comparative_continent_summary_{c1}_{c2}.txt")
+            })
 
     context = {
         'session_id': session_id,
@@ -578,7 +593,9 @@ def qso_dashboard(request, session_id):
         'global_qso_rate_file': os.path.join(report_rel_path, f"plots/qso_rate_plots_all_{combo_id}.html"),
         'global_point_rate_file': os.path.join(report_rel_path, f"plots/point_rate_plots_all_{combo_id}.html"),
         'rate_sheet_comparison': os.path.join(report_rel_path, f"text/rate_sheet_comparison_{'_'.join(sorted(callsigns_safe))}.txt"),
-        'report_base': os.path.join(report_rel_path) # Pass base path for template filters
+        'correlation_file': os.path.join(report_rel_path, f"plots/plot_correlation_analysis_{combo_id}.html"),
+        'report_base': os.path.join(report_rel_path), # Pass base path for template filters
+        'is_solo': is_solo
     }
     
     return render(request, 'analyzer/qso_dashboard.html', context)

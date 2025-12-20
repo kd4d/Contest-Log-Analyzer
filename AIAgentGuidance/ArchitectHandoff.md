@@ -1,108 +1,67 @@
-# --- METADATA: FILE_COUNT=2 ---
---- FILE: ArchitectureRoadmap.md ---
-# ArchitectureRoadmap.md
+# Architect Handoff: The "Solo Audit" Sprint
 
-**Version:** 2.4.0
-**Date:** 2025-12-15
-**Status:** Phase 4 (Analytics Refactor) - Step 4 (Public Log Fetcher) Ready
+**Target Version:** 0.126.x-Beta
+**Date:** 2025-12-18
+**Context:** Mid-Sprint. Design complete; Implementation pending.
 
 ---
 
-## 1. The Strategic Vision
-**Goal:** Create a single analysis engine that powers both a Command-Line Interface (CLI) and a Web Interface (Django).
-**Core Constraint:** "Write Once, Render Everywhere." Logic must not be duplicated.
-**Deployment Model:** **Stateless & Portable.**
-* No User Accounts. No User Database. Atomic Sessions.
-* Containerized (Docker) to ensure "Laptop == Server".
+## 1. Executive Summary
+We are refining the Web Dashboard to support **Single Log Uploads** ("Solo Mode"). The previous architecture implicitly assumed a competitive scenario (2+ logs), resulting in broken features (empty comparison tabs) and misleading labels ("Missed Multipliers") when a user uploaded only their own log.
 
-## 2. The "Golden Path" Workflow
-This defines the specific user experience and data flow for the Web Interface.
+**Immediate Goal:** Implement logic to detect `is_solo` state and adapt the UI to show **Descriptive Analytics** (what happened) rather than **Comparative Analytics** (who won).
 
-1.  **The Three-Slot Model:** The analyzer presents **three generic input slots** (Log A, Log B, Log C).
-2.  **Identity Agnostic:** There is no concept of "My Log" vs. "Competitor."
-3.  **Source Agnostic:** Each slot can be filled by either:
-    * **Direct Upload:** User uploads a local `.log` file.
-    * **Public Fetch:** User selects a contest/year/callsign (Phase 4.2).
-4.  **Session Persistence:**
-    * Files exist in `media/sessions/<session_key>/` for the duration of the analysis session.
-    * Lazy Cleanup ensures old sessions are purged automatically.
-    * **Dashboard Context:** Session state is persisted to `dashboard_context.json` to allow stateless navigation.
+## 2. Critical Design Decisions (Do Not Revisit)
 
-## 3. Architectural Decision Records (ADRs)
+### A. Rejection of "Efficiency Metrics"
+We explicitly **rejected** adding "Run vs. S&P Efficiency" scores or "Band Change Efficiency" metrics.
+* **Reasoning:** Serious operators often use **SO2R** (Single Op 2 Radio) or **2BSIQ**.
+* **The Trap:** In an SO2R environment, S&P QSOs are often made "in the gaps" of a Run on a second radio. Calculating an "S&P Rate" based on wall-clock time would falsely flag this high-skill activity as "inefficient."
+* **Mandate:** We do not have enough telemetry (Focus Time, Radio ID) to judge efficiency. Stick to **Descriptive** plots.
 
-### ADR-001: Data Abstraction Layer (DAL)
-* **Decision:** All business logic exists in `data_aggregators/`. Returns **Pure Python Primitives**.
+### B. Adoption of "Correlation Plots"
+Instead of judging efficiency, we will visualize it via **Correlation Analysis**.
+* **Report:** `plot_correlation_analysis.py` (Scatter Plot).
+* **Axes:** X=`Run %`, Y=`Hourly Rate` (Left) and `New Mults` (Right).
+* **Granularity:** **Hourly dots** (up to 48 points for CQ WW).
+* **Filtering:** **None.** We explicitly decided to **keep the "noise" at the origin** (low rate/low run %) because it accurately represents off-times or messy M/M in-band activity. The user is smart enough to interpret the cluster at (0,0).
 
-### ADR-002: Unified Visualization (Client-Side Rendering)
-* **Decision:** Replace Matplotlib with **Plotly**.
-* **Animation:** Replace server-side MP4 generation with **Plotly HTML Animations**.
+### C. Phasing of Modularity
+We acknowledged that the dashboard templates need refactoring to support other contests (WAE QTCs, Field Day). However, we decided to **defer** this "Widget/Modular" refactor to **Phase 2**.
+* **Constraint:** Do not attempt to refactor `dashboard.html` into widgets in this sprint. Focus only on the `if is_solo` conditionals.
 
-### ADR-007: Shared Presentation Layer
-* **Decision:** The Web App (Django) must point to the existing `contest_tools/templates`.
-* **Reason:** Ensures CLI HTML reports and Web Views are bit-for-bit identical.
+## 3. Implementation Specifications
 
-### ADR-009: Session-Scoped Persistence
-* **Decision:** Replace "Ephemeral I/O" (tempfile) with Session-Scoped Storage (`media/sessions/`).
-* **Reason:** Required to support drill-down navigation and static asset serving (images/HTML) in the browser.
+### A. New Report Module
+**File:** `contest_tools/reports/plot_correlation_analysis.py`
+* **Type:** Plotly (Interactive + Static PNG).
+* **Data Source:** `TimeSeriesAggregator` (Cumulative streams -> `.diff()` -> Hourly Deltas).
+* **Logic:**
+    * `Run %` = `Run_Delta` / `Total_Delta`.
+    * `New Mults` = `Total_Mults_Delta`.
+* **Visualization:** Two subplots (side-by-side). Scatter markers.
 
----
+### B. View Logic (`views.py`)
+* **`qso_dashboard`**:
+    * Calculate `is_solo = (len(callsigns) == 1)`.
+    * If `is_solo`, force `matchups = []` to suppress the pairwise selector logic.
+    * Register the new `correlation_file` in the context.
+* **`multiplier_dashboard`**:
+    * If `is_solo`, do **not** scan for `missed_multipliers_*.txt` (they won't exist).
+    * Instead, scan for `multiplier_summary_*.txt` and map them to the display slot.
 
-## 4. Master Transition Timeline
+### C. Template Logic
+* **`qso_dashboard.html`**:
+    * Add **"Correlations"** tab.
+    * If `is_solo`: Hide "Pairwise Strategy" tab. Make "Correlations" the active default.
+* **`multiplier_dashboard.html`**:
+    * If `is_solo`: Change card header from "Missed Multipliers" (Red) to "Multiplier Matrix" (Blue/Info).
 
-### **Phase 1: Data Decoupling (COMPLETE)**
-* **Status:** Complete. DAL is operational.
-
-### **Phase 2: Visualization Standardization (COMPLETE)**
-* **Status:** Complete. Static charts migrated to Plotly.
-
-### **Phase 2.5: Animation Modernization (COMPLETE)**
-* **Status:** Complete. `plot_interactive_animation.py` implemented.
-
-### **Phase 3: The Web Pathfinder (COMPLETE)**
-* **Status:** Complete. Containerization, Django Bootstrap, and Validation successful.
-
-### **Phase 4: The Strategy Board & Analytics Refactor (ACTIVE)**
-* **Status:** In Progress.
-* **Goal:** Implement the "Top-Down" UI strategy ("The Arena", "The War Room").
-* **Tasks:**
-    * [x] **Step 1: The Strategy Board:** Upgrade Dashboard table with "Run %" metrics.
-    * [x] **Step 2: The Drill-Down UI:** Implement the "Triptych" (Animation/Plots/Mults).
-    * [x] **Step 3: Sub-Page Views:** Create Django views to wrap raw report files.
-        * [x] **Dashboard Hardening:** Implemented `dashboard_view` persistence to fix navigation loops.
-        * [x] **Semantic Routing:** Enforced strict lowercase paths in `views.py` for Linux compatibility.
-        * [x] **Visualization Upgrade:** Consolidated Cumulative Difference plots into single-chart superimposed layout.
-    * [ ] **Step 4: Public Log Fetcher:** (Phase 4.2) Implement scraper for public contest logs to fill slots 2 & 3.
-
---- FILE: ArchitectHandoff.md ---
-# Architect Handoff Notes
-
-**Date:** 2025-12-15
-**To:** Incoming Architect
-**Focus:** Phase 4, Step 4 (Public Log Fetcher)
-
-## Context & Status
-The **Web Dashboard (Phase 4, Steps 1-3)** is now **Complete and Hardened**. 
-We have just concluded an extensive Ad-Hoc debugging session that resolved critical usability and compatibility issues.
-
-### Key Architectural Updates (Session Persistence)
-* **The "Back Button" Loop:** We resolved a navigation loop where the "Back to Dashboard" button sent users to the Upload form.
-* **Solution:** We implemented **Session Context Persistence**. The `analyze_logs` view now dumps the dashboard context to `dashboard_context.json` within the session directory. A new view, `dashboard_view`, reloads this context.
-* **Impact:** Future views MUST link to `dashboard_view` (passing `session_id`) rather than the generic `analyze` endpoint.
-
-### Visualization Enhancements
-* **Cumulative Difference Plots:** We refactored `plot_cumulative_difference.py` from a 3-subplot layout to a **Single Superimposed Chart** (Total, Run, S&P, Unknown).
-* **DAL Update:** `time_series.py` was updated (v1.7.0) to provide granular `sp_qsos` and `unknown_qsos` streams.
-
-### Platform Compatibility
-* **Linux/Docker Paths:** We enforced `.lower()` on all URL path components in `views.py` to match the lowercase directories created by `ReportGenerator`. **Strict case matching is now a hard requirement.**
-
-## Immediate Priorities
-The foundation is solid. The next logical step is to populate the "Competitor" slots with real data without requiring manual uploads.
-
-* **Target:** **Phase 4, Step 4 (Public Log Fetcher)**.
-* **Goal:** Allow users to enter a Callsign/Contest/Year and automatically fetch the public log (if available) into Slot 2 or 3.
-* **Mechanism:** Likely scraping 3830scores or public log archives (rules permitting).
-
-## Recommended Next Action
-1.  **Definitive State Initialization:** Upload the full bundle + this Kit to reset the token window.
-2.  **Begin Phase 4.2:** Analyze requirements for the Public Log Fetcher.
+## 4. Next Actions for Architect
+1.  **Ingest:** Read `AIAgentWorkflow.md` and the Project Bundle.
+2.  **Verify:** Check `TimeSeriesAggregator.py` to confirm `run_qso_count` and `total_mults` streams are available for the new report.
+3.  **Execute:** Generate the **Builder Execution Kit** containing:
+    * `contest_tools/reports/plot_correlation_analysis.py`
+    * `web_app/analyzer/views.py` (Refactored)
+    * `web_app/analyzer/templates/analyzer/qso_dashboard.html` (Tabs updated)
+    * `web_app/analyzer/templates/analyzer/multiplier_dashboard.html` (Cards updated)
