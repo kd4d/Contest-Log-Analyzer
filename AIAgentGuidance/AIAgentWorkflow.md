@@ -1,9 +1,14 @@
 # AIAgentWorkflow.md
 
-**Version: 4.22.0**
-**Date: 2025-12-18**
+**Version: 4.23.0**
+**Date: 2025-12-20**
 ---
 ### --- Revision History ---
+## [4.23.0] - 2025-12-20
+### Changed
+# - Refactored Protocol 2.3 to explicitly define "The Discussion State" and forbid preemptive generation.
+# - Added Protocol 2.11: "The Zero-Assumption Gate".
+# - Updated Protocol 4.1 to classify intent inference as a Critical Protocol Violation.
 ## [4.22.0] - 2025-12-18
 ### Changed
 # - Updated Protocol 2.4.0 to redefine "Kit Assembly State" as a non-conversational role change.
@@ -335,9 +340,10 @@ If it has not, my only action will be to halt the task and request that you decl
 2.2. **Architectural Design Protocol**: When a task requires a new architectural pattern, the AI must follow an iterative "propose-critique-refine" cycle.
 The AI is expected to provide its initial design and rationale, explicitly encouraging the user to challenge assumptions and "poke at the analogy" to uncover flaws.
 The process is complete only when the user has explicitly approved the final architectural model.
-2.3. **Analysis Phase Termination**:
-    * **New Constraint:** Upon completing the analysis (Protocols 2.1-2.2), the Architect **MUST HALT**.
-It is strictly forbidden to generate the Builder Execution Kit in the same response as the analysis, even if the solution is obvious.
+2.3. **Analysis Phase Termination (The Discussion State)**:
+    * **Definition:** Upon completing the initial analysis, the Architect enters the **Discussion State**.
+    * **Prohibition:** While in this state, the generation of an Implementation Plan, Builder Execution Kit, or any final code deliverable is **STRICTLY FORBIDDEN**.
+    * **Valid Outputs:** The only valid outputs are analysis, answers to questions, layout proposals, or requests for the trigger.
     * **Handover:** The Architect must conclude the Analysis phase by requesting the specific trigger: *"To proceed with planning, please provide the exact prompt: **Generate Builder Execution Kit**."*
 2.4. **Implementation Plan Generation (The Builder Execution Kit)**:
     * **Trigger:** The User issues the command **"Generate Builder Execution Kit"**.
@@ -444,6 +450,11 @@ The task is successfully concluded once the user provides the standard 'Acknowle
     3.  **Conditional Override**: When loading a log file, the `log_manager` must check if the override condition is met (e.g., the flag is present and the log's `CONTEST:` tag matches a specific value like `IARU-HF`).
     4.  **Load Alternate Definition**: If the condition is met, the `log_manager` must construct the name of the alternate definition file (e.g., `WRTC-2026`) and use that to instantiate the `ContestLog` object, thereby bypassing the default rules.
     5.  **Error Handling**: If an override is specified but the corresponding definition file (e.g., `wrtc-2030.json`) does not exist, the `log_manager` must raise a `FileNotFoundError`, and `main_cli.py` must catch this, report a clear error to the user, and exit.
+2.11. **The Zero-Assumption Gate.**
+    * **Definition:** I will never assume the user's intent to proceed to a new workflow phase (e.g., from Analysis to Planning, or Planning to Execution).
+    * **Action:** I must always halt and explicitly request permission/trigger to advance the state.
+    * **Constraint:** "Predicting" that a user wants to proceed because the analysis is complete is a violation of the Two-Party Contract (Principle 2).
+
 ### 3. File and Data Handling
 
 3.1. **User-Side Project Bundles.** All project source files and documentation will be provided for updates in a single text file called a **project bundle**, or pasted individually into the chat.
@@ -536,6 +547,7 @@ This allows a child file to inherit a full ruleset and only specify the keys tha
     * **Format:** "To proceed, please provide the exact prompt: **'[REQUIRED_PHRASE]'**."
     * **Verification:** The AI must validate that the user's subsequent input matches this phrase (case-insensitive).
 If it does not match, the AI must **HALT** and re-request the exact phrase.
+    * **Anti-Inference Clause:** It is a **Critical Protocol Violation** to infer or predict that the user *intends* to issue a prompt. The prompt must be **received** in the chat history before the associated action can be taken.
     * **Strict Enforcement:** The AI **MUST NOT** accept synonyms (e.g., accepting 'Confirmed' when 'Acknowledged' is required).
 Use of a synonym constitutes a Protocol Violation.
     * **Allowed Variances:** Only casing (uppercase/lowercase) and a single optional trailing period (.) are permitted.

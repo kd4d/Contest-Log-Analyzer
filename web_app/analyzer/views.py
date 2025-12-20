@@ -631,10 +631,8 @@ def qso_dashboard(request, session_id):
     BAND_SORT_ORDER = {'ALL': 0, '160M': 1, '80M': 2, '40M': 3, '20M': 4, '15M': 5, '10M': 6, '6M': 7, '2M': 8}
 
     if os.path.exists(plots_dir):
-        print(f"### DIAGNOSTIC: Scanning plots_dir: {plots_dir}")
         # Recursive scan to find plots nested in subdirectories (e.g. plots/20M/)
         for root, dirs, files in os.walk(plots_dir):
-            print(f"### DIAGNOSTIC: Walking root: {root} | Files: {files}")
             for f in files:
                 if f.startswith('point_rate_plots_') and f.endswith('.html'):
                     # Filename format: point_rate_plots_{band}_{calls}.html
@@ -665,7 +663,6 @@ def qso_dashboard(request, session_id):
     
     # Sort by band order
     point_plots.sort(key=lambda x: x['sort_val'])
-    print(f"### DIAGNOSTIC: Final point_plots list: {point_plots}")
     
     # Default active to 20M, fallback to first available
     active_set = False

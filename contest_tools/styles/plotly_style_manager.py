@@ -4,8 +4,8 @@
 #          to ensure consistency across all interactive visual reports.
 #
 # Author: Gemini AI
-# Date: 2025-12-07
-# Version: 1.0.0
+# Date: 2025-12-20
+# Version: 1.1.0
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [1.1.0] - 2025-12-20
+# - Added footer_text support to `get_standard_layout` for branding/metadata.
 # [1.0.0] - 2025-12-07
 # - Initial creation to support Phase 2 Visualization Standardization.
 # - Implemented color map generators and standard layout factories.
@@ -84,17 +86,18 @@ class PlotlyStyleManager:
         }
 
     @staticmethod
-    def get_standard_layout(title: str) -> Dict[str, Any]:
+    def get_standard_layout(title: str, footer_text: str = None) -> Dict[str, Any]:
         """
         Returns a standard Plotly layout dictionary.
         
         Args:
             title: The main chart title.
+            footer_text: Optional text to display as a footer (e.g., Branding/CTY info).
             
         Returns:
             A dictionary suitable for passing to fig.update_layout().
         """
-        return {
+        layout = {
             "title": {
                 "text": title,
                 "x": 0.5,
@@ -103,6 +106,23 @@ class PlotlyStyleManager:
             },
             "font": {"family": "Arial, sans-serif"},
             "template": "plotly_white",
-            "margin": {"l": 50, "r": 50, "t": 80, "b": 50},
+            "margin": {"l": 50, "r": 50, "t": 100, "b": 100}, # Increased t/b for headers/footers
             "showlegend": True
         }
+
+        if footer_text:
+            layout["annotations"] = [
+                dict(
+                    x=0.5,
+                    y=-0.15, # Position below X-axis
+                    xref="paper",
+                    yref="paper",
+                    text=footer_text.replace('\n', '<br>'), # Convert newlines for Plotly
+                    showarrow=False,
+                    font=dict(size=12, color="#7f7f7f"),
+                    align="center",
+                    valign="top"
+                )
+            ]
+            
+        return layout

@@ -4,8 +4,8 @@
 #          and for each individual band.
 #
 # Author: Gemini AI
-# Date: 2025-12-15
-# Version: 0.118.0-Beta
+# Date: 2025-12-20
+# Version: 0.130.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,15 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.130.2-Beta] - 2025-12-20
+# - Implemented "Smart Scoping": "(All Modes)" label is now suppressed if the
+#   underlying data contains only a single mode.
+# [0.130.1-Beta] - 2025-12-20
+# - Refined scope labeling logic to explicitly display "All Bands" and "(All Modes)"
+#   instead of relying on implicit defaults.
+# [0.130.0-Beta] - 2025-12-20
+# - Implemented 3-Line Title standard (Name / Context / Scope).
+# - Added footer metadata via `get_cty_metadata`.
 # [0.118.0-Beta] - 2025-12-15
 # - Injected descriptive filename configuration for interactive HTML plot downloads.
 # [0.117.0-Beta] - 2025-12-15
@@ -46,13 +55,13 @@ from plotly.subplots import make_subplots
 
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from ._report_utils import create_output_directory, get_valid_dataframe, save_debug_data, _sanitize_filename_part
+from ._report_utils import create_output_directory, get_valid_dataframe, save_debug_data, _sanitize_filename_part, get_cty_metadata
 from ..data_aggregators.time_series import TimeSeriesAggregator
 from ..styles.plotly_style_manager import PlotlyStyleManager
 
 class Report(ContestReport):
     """
-    Generates a series of plots comparing QSO rates: one for all bands
+    Generates a series of plots comparing QSO rate: one for all bands
     combined, and for each individual contest band.
     """
     report_id: str = "qso_rate_plots"
@@ -233,16 +242,46 @@ class Report(ContestReport):
         contest_name = metadata.get('ContestName', '')
         event_id = metadata.get('EventID', '')
         
-        mode_text = f" ({mode_filter})" if mode_filter else ""
+        is_single_band = len(self.logs[0].contest_definition.valid_bands) == 1
+        
+        # Determine Band Text
+        if band_filter == 'All':
+            if is_single_band:
+                # ARRL 10M Case: "All" really means the one valid band
+                band_text = self.logs[0].contest_definition.valid_bands[0].replace('M', ' Meters')
+            else:
+                band_text = "All Bands"
+        else:
+            band_text = band_filter.replace('M', ' Meters')
+
+        # Determine Mode Text
+        if mode_filter:
+            mode_text = f" ({mode_filter})"
+        else:
+            # Smart Scoping: Only show (All Modes) if there actually ARE multiple modes
+            modes_present = set()
+            for df in dfs:
+                if 'Mode' in df.columns:
+                    modes_present.update(df['Mode'].dropna().unique())
+            
+            mode_text = " (All Modes)" if len(modes_present) > 1 else ""
+        
+        # Line 3 Scope construction
+        scope_line = f"{band_text}{mode_text}"
+
         callsign_str = ", ".join(all_calls)
 
-        title_line1 = f"{self.report_name}{mode_text}"
+        title_line1 = f"{self.report_name}"
         title_line2 = f"{year} {event_id} {contest_name} - {callsign_str}".strip().replace("  ", " ")
-        final_title = f"{title_line1}<br>{title_line2}" # Use <br> for HTML/Plotly newline
+        final_title = f"{title_line1}<br><sub>{title_line2}<br>{scope_line}</sub>"
+
+        footer_text = f"Contest Log Analytics by KD4D\n{get_cty_metadata(self.logs)}"
 
         # Apply Standard Layout
-        layout_cfg = PlotlyStyleManager.get_standard_layout(final_title)
+        layout_cfg = PlotlyStyleManager.get_standard_layout(final_title, footer_text)
         fig.update_layout(**layout_cfg)
+        
+        # Additional specific layout overrides
         fig.update_layout(
             width=1200,
             height=900,
@@ -253,8 +292,6 @@ class Report(ContestReport):
 
         create_output_directory(output_path)
         
-        # Construct Filenames
-        is_single_band = len(self.logs[0].contest_definition.valid_bands) == 1
         filename_band = self.logs[0].contest_definition.valid_bands[0].lower() if is_single_band else band_filter.lower().replace('m', '')
         filename_calls = '_'.join([_sanitize_filename_part(c) for c in sorted(all_calls)])
         mode_suffix = f"_{mode_filter.lower()}" if mode_filter else ""
@@ -293,3 +330,5 @@ class Report(ContestReport):
         except Exception as e:
             logging.warning(f"Static image generation failed (Kaleido missing?): {e}")
             return html_path # Fallback to HTML if PNG fails
+
+        return png_path

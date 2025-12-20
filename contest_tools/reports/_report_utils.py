@@ -4,8 +4,8 @@
 #          reporting engine.
 #
 # Author: Gemini AI
-# Date: 2025-12-17
-# Version: 0.125.0-Beta
+# Date: 2025-12-20
+# Version: 0.130.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.130.0-Beta] - 2025-12-20
+# - Added `get_cty_metadata` to extract CTY version/date.
+# - Added `format_text_header` to standardize text report branding.
 # [0.125.0-Beta] - 2025-12-17
 # - Removed calculate_multiplier_pivot (moved to contest_tools.utils.pivot_utils).
 # [0.116.0-Beta] - 2025-12-15
@@ -53,6 +56,8 @@ from pathlib import Path
 from typing import Optional, Dict, Any
 from ..contest_log import ContestLog
 from ..utils.json_encoders import NpEncoder
+from ..core_annotations.get_cty import CtyLookup
+import datetime
 
 def get_valid_dataframe(log: ContestLog, include_dupes: bool = False) -> pd.DataFrame:
     """Returns a safe copy of the log's DataFrame, excluding dupes unless specified."""
@@ -67,6 +72,57 @@ def create_output_directory(path: str):
 def _sanitize_filename_part(part: str) -> str:
     """Sanitizes a string to be used as part of a filename."""
     return re.sub(r'[\s/\\:]+', '_', str(part)).lower()
+
+def get_cty_metadata(logs: list) -> str:
+    """
+    Extracts CTY version info from the first log's CTY path.
+    Returns string format: "YYYY-MM-DD CTY-XXXX"
+    """
+    if not logs: return "CTY File: Unknown"
+    
+    path = getattr(logs[0], 'cty_dat_path', '')
+    if not path or not os.path.exists(path):
+        return "CTY File: Unknown"
+
+    # Try to extract version from filename (cty_wt_mod_3504.dat)
+    version_match = re.search(r'(\d{4})', os.path.basename(path))
+    version_str = f"CTY-{version_match.group(1)}" if version_match else "CTY-Unknown"
+
+    # Try to extract date
+    date_obj = CtyLookup.extract_version_date(path)
+    date_str = date_obj.strftime('%Y-%m-%d') if date_obj else "Unknown Date"
+
+    return f"CTY File: {date_str} {version_str}"
+
+def format_text_header(width: int, title_lines: list, metadata_lines: list = None) -> list:
+    """
+    Generates a text report header with Left-Aligned Titles and Right-Aligned Metadata.
+    
+    Args:
+        width: Total width of the report content.
+        title_lines: List of title strings (Lines 1-3).
+        metadata_lines: Optional list of metadata strings (Branding, CTY).
+                        Defaults to standard CLA branding if None.
+    """
+    if metadata_lines is None:
+        # Default placeholder, caller should usually pass get_cty_metadata result
+        metadata_lines = ["Contest Log Analytics by KD4D", "CTY File: Unknown"]
+
+    header_output = []
+    
+    # Determine max height required
+    max_lines = max(len(title_lines), len(metadata_lines))
+    
+    for i in range(max_lines):
+        left = title_lines[i] if i < len(title_lines) else ""
+        right = metadata_lines[i] if i < len(metadata_lines) else ""
+        
+        # Calculate padding
+        padding = width - len(left) - len(right)
+        padding = max(padding, 2) # Minimum 2 spaces separation
+        header_output.append(f"{left}{' ' * padding}{right}")
+        
+    return header_output
 
 def _prepare_time_series_data(log1: ContestLog, log2: Optional[ContestLog], metric: str) -> tuple:
     """Prepares time-series data for one or two logs."""
