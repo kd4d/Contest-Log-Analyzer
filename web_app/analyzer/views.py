@@ -6,7 +6,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-20
-# Version: 0.135.2-Beta
+# Version: 0.136.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -20,6 +20,11 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.136.1-Beta] - 2025-12-20
+# - Updated `qso_dashboard` to recursively search for `session_manifest.json` and prepend relative paths to artifacts.
+# [0.136.0-Beta] - 2025-12-20
+# - Integrated ManifestManager into `qso_dashboard` to replace fragile filesystem walking.
+# - Updated report discovery logic to rely on the session manifest for reliability.
 # [0.135.2-Beta] - 2025-12-20
 # - Fixed Dashboard Band Sorting: Normalized numeric band names (e.g., '160') to match sort keys (e.g., '160M') in plot discovery loops.
 # [0.135.1-Beta] - 2025-12-20
@@ -143,6 +148,7 @@ from contest_tools.report_generator import ReportGenerator
 from contest_tools.core_annotations import CtyLookup
 from contest_tools.reports._report_utils import _sanitize_filename_part
 from contest_tools.utils.log_fetcher import fetch_log_index, download_logs
+from contest_tools.manifest_manager import ManifestManager
 
 logger = logging.getLogger(__name__)
 
@@ -538,7 +544,8 @@ def multiplier_dashboard(request, session_id):
 
     # 2. Scan and Group Reports
     # Expected format: missed_multipliers_{TYPE}_{COMBO_ID}.txt
-    # We strip prefix and suffix to find {TYPE}. Suffix = f"_{combo_id}.txt"
+    # We strip prefix and suffix to find {TYPE}.
+    suffix = f"_{combo_id}.txt"
     multipliers = {}
 
     # In Solo Mode, we show 'multiplier_summary' (The Matrix) instead of 'missed_multipliers'
@@ -587,22 +594,33 @@ def qso_dashboard(request, session_id):
     if not os.path.exists(session_path):
         raise Http404("Session not found")
 
-    # 1. Discover the "Deep Path"
-    report_rel_path = ""
-    combo_id = ""
+    # 1. Discover Manifest (Deep Search)
+    manifest_dir = None
+    for root, dirs, files in os.walk(session_path):
+        if 'session_manifest.json' in files:
+            manifest_dir = root
+            break
     
-    for root, dirs, filenames in os.walk(session_path):
-        for f in filenames:
-            if f.startswith('interactive_animation_') and f.endswith('.html'):
-                combo_id = f.replace('interactive_animation_', '').replace('.html', '')
-                full_dir = os.path.dirname(os.path.join(root, f)) # .../animations
-                parent_dir = os.path.dirname(full_dir) # .../
-                report_rel_path = os.path.relpath(parent_dir, session_path)
-                break
-        if combo_id: break
+    if not manifest_dir:
+        raise Http404("Analysis manifest not found")
+
+    # 2. Load Manifest & Calculate Relative Path
+    manifest_mgr = ManifestManager(manifest_dir)
+    artifacts = manifest_mgr.load()
+    
+    combo_id = ""
+    # Find combo_id from animation file in manifest
+    for art in artifacts:
+        if art['report_id'] == 'interactive_animation' and art['path'].endswith('.html'):
+            filename = os.path.basename(art['path'])
+            combo_id = filename.replace('interactive_animation_', '').replace('.html', '')
+            break
     
     if not combo_id:
         raise Http404("Analysis data not found")
+
+    # Calculate relative path segment (e.g., "reports/2024/...") to prepend to artifact paths
+    report_rel_path = os.path.relpath(manifest_dir, session_path).replace("\\", "/")
 
     # 2. Re-construct Callsigns from the combo_id
     callsigns_safe = combo_id.split('_')
@@ -622,72 +640,60 @@ def qso_dashboard(request, session_id):
         for p in pairs:
             c1, c2 = sorted(p)
             label = f"{c1.upper()} vs {c2.upper()}"
-            base_path = report_rel_path
             
-            # Discover available band variants for the diff plot
+            # Discover available band variants for the diff plot via Manifest
             diff_paths = {}
-            for band in DIFF_BANDS:
-                band_slug = band.lower().replace('m', '') if band != 'ALL' else 'all'
-                filename = f"cumulative_difference_plots_qsos_{band_slug}_{c1}_{c2}.html"
             
-                # Check plots/BAND/filename AND plots/filename (legacy)
-                # Simpler: Construct expected relative path and trust ReportGenerator structure
-                # The view helper usually puts band files in subdirs unless it's ALL
-                if band != 'ALL':
-                    file_rel = os.path.join(base_path, f"plots/{band}/{filename}")
-                else:
-                    file_rel = os.path.join(base_path, f"plots/{filename}")
-                
-                # Verify existence (relative to session root)
-                if os.path.exists(os.path.join(session_path, file_rel)):
-                    diff_paths[band_slug] = file_rel
+            # Filter artifacts for this pair's difference plots
+            target_prefix = f"cumulative_difference_plots_qsos_"
+            target_suffix = f"_{c1}_{c2}.html"
+            
+            for art in artifacts:
+                if art['report_id'] == 'cumulative_difference_plots' and art['path'].endswith(target_suffix):
+                    # Extract band from filename: cumulative_difference_plots_qsos_{BAND}_{c1}_{c2}.html
+                    fname = os.path.basename(art['path'])
+                    # Remove prefix and suffix to isolate band
+                    band_part = fname.replace(target_prefix, '').replace(target_suffix, '')
+                    # band_part is roughly {band_slug}
+                    # Prepend report_rel_path to ensure view_report can find it
+                    diff_paths[band_part] = f"{report_rel_path}/{art['path']}"
+            
+            # Find breakdown chart
+            bk_path = next((f"{report_rel_path}/{a['path']}" for a in artifacts if a['report_id'] == 'qso_breakdown_chart' and f"_{c1}_{c2}" in a['path']), "")
+            ba_path = next((f"{report_rel_path}/{a['path']}" for a in artifacts if a['report_id'] == 'comparative_band_activity' and f"_{c1}_{c2}" in a['path']), "")
+            cont_path = next((f"{report_rel_path}/{a['path']}" for a in artifacts if a['report_id'] == 'comparative_continent_summary' and f"_{c1}_{c2}" in a['path']), "")
 
             matchups.append({
                 'label': label,
                 'id': f"{c1}_{c2}",
                 'diff_paths': diff_paths,
-                'qso_breakdown_file': os.path.join(base_path, f"charts/qso_breakdown_chart_{c1}_{c2}.html"),
-                'band_activity_file': os.path.join(base_path, f"plots/comparative_band_activity_{c1}_{c2}.html"),
-                'continent_file': os.path.join(base_path, f"text/comparative_continent_summary_{c1}_{c2}.txt")
+                'qso_breakdown_file': bk_path,
+                'band_activity_file': ba_path,
+                'continent_file': cont_path
             })
 
-    # 4. Discover Point Rate Plots (Band Drill-Down)
-    plots_dir = os.path.join(session_path, report_rel_path, 'plots')
+    # 4. Discover Point Rate Plots (Manifest Scan)
     point_plots = []
 
-    if os.path.exists(plots_dir):
-        # Recursive scan to find plots nested in subdirectories (e.g., plots/20M/)
-        for root, dirs, files in os.walk(plots_dir):
-            for f in files:
-                if f.startswith('point_rate_plots_') and f.endswith('.html'):
-                    # Filename format: point_rate_plots_{band}_{calls}.html
-                    remainder = f.replace('point_rate_plots_', '')
-                    parts = remainder.split('_')
-                    
-                    if parts:
-                        band_key = parts[0].upper()
-                        # Normalize numeric bands to match sort keys (160 -> 160M)
-                        if band_key.isdigit():
-                            band_key += 'M'
-
-                        label = "All Bands" if band_key == 'ALL' else band_key
-                        
-                        sort_val = BAND_SORT_ORDER.get(band_key, 99)
-                        
-                        # Calculate relative path including subdirectory (e.g., plots/20M/file.html)
-                        rel_subdir = os.path.relpath(root, plots_dir)
-                        if rel_subdir == '.':
-                            file_rel = os.path.join(report_rel_path, 'plots', f)
-                        else:
-                            file_rel = os.path.join(report_rel_path, 'plots', rel_subdir, f)
-
-                        point_plots.append({
-                            'label': label,
-                            'file': file_rel,
-                            'sort_val': sort_val
-                        })
-                    else:
-                        print(f"### DIAGNOSTIC: Failed to parse parts from {f}")
+    for art in artifacts:
+        if art['report_id'] == 'point_rate_plots' and art['path'].endswith('.html'):
+            fname = os.path.basename(art['path'])
+            # point_rate_plots_{band}_{calls}.html
+            # Remove prefix
+            remainder = fname.replace('point_rate_plots_', '')
+            parts = remainder.split('_')
+            if parts:
+                band_key = parts[0].upper()
+                if band_key.isdigit(): band_key += 'M'
+                
+                label = "All Bands" if band_key == 'ALL' else band_key
+                sort_val = BAND_SORT_ORDER.get(band_key, 99)
+                
+                point_plots.append({
+                    'label': label,
+                    'file': f"{report_rel_path}/{art['path']}",
+                    'sort_val': sort_val
+                })
     
     # Sort by band order
     point_plots.sort(key=lambda x: x['sort_val'])
@@ -703,41 +709,26 @@ def qso_dashboard(request, session_id):
         if not active_set:
             point_plots[0]['active'] = True
 
-    # 5. Discover QSO Rate Plots (Band Drill-Down) - New Tab
+    # 5. Discover QSO Rate Plots (Manifest Scan)
     qso_band_plots = []
-    if os.path.exists(plots_dir):
-        for root, dirs, files in os.walk(plots_dir):
-            for f in files:
-                if f.startswith('qso_rate_plots_') and f.endswith('.html'):
-                    # Filename: qso_rate_plots_{band}_{calls}.html
-                    remainder = f.replace('qso_rate_plots_', '')
-                    parts = remainder.split('_')
-                    
-                    if parts:
-                        band_key = parts[0].upper()
-                        # Normalize numeric bands to match sort keys (160 -> 160M)
-                        if band_key.isdigit():
-                            band_key += 'M'
-                        
-                        # Skip "ALL" bands since it is in the top pane
-                        if band_key == 'ALL':
-                            continue
-                            
-                        label = band_key
-                        sort_val = BAND_SORT_ORDER.get(band_key, 99)
-                        
-                        # Relative path logic
-                        rel_subdir = os.path.relpath(root, plots_dir)
-                        if rel_subdir == '.':
-                            file_rel = os.path.join(report_rel_path, 'plots', f)
-                        else:
-                            file_rel = os.path.join(report_rel_path, 'plots', rel_subdir, f)
-                        
-                        qso_band_plots.append({
-                            'label': label,
-                            'file': file_rel,
-                            'sort_val': sort_val
-                        })
+    for art in artifacts:
+        if art['report_id'] == 'qso_rate_plots' and art['path'].endswith('.html'):
+            fname = os.path.basename(art['path'])
+            remainder = fname.replace('qso_rate_plots_', '')
+            parts = remainder.split('_')
+            if parts:
+                band_key = parts[0].upper()
+                if band_key.isdigit(): band_key += 'M'
+                if band_key == 'ALL': continue
+                
+                label = band_key
+                sort_val = BAND_SORT_ORDER.get(band_key, 99)
+                
+                qso_band_plots.append({
+                    'label': label,
+                    'file': f"{report_rel_path}/{art['path']}",
+                    'sort_val': sort_val
+                })
 
     qso_band_plots.sort(key=lambda x: x['sort_val'])
     
@@ -752,6 +743,12 @@ def qso_dashboard(request, session_id):
         if not active_set:
             qso_band_plots[0]['active'] = True
 
+    # Global files via manifest lookup
+    global_qso = next((f"{report_rel_path}/{a['path']}" for a in artifacts if a['report_id'] == 'qso_rate_plots' and '_all_' in a['path']), "")
+    rate_sheet_comp = next((f"{report_rel_path}/{a['path']}" for a in artifacts if a['report_id'] == 'rate_sheet_comparison'), "")
+    
+    report_base = os.path.dirname(os.path.dirname(global_qso)) if global_qso else ""
+
     context = {
         'session_id': session_id,
         'callsigns': callsigns_display,
@@ -759,10 +756,9 @@ def qso_dashboard(request, session_id):
         'point_plots': point_plots,
         'qso_band_plots': qso_band_plots,
         # Global Files
-        'global_qso_rate_file': os.path.join(report_rel_path, f"plots/qso_rate_plots_all_{combo_id}.html"),
-        'rate_sheet_comparison': os.path.join(report_rel_path, f"text/rate_sheet_comparison_{'_'.join(sorted(callsigns_safe))}.txt"),
-        'correlation_file': os.path.join(report_rel_path, f"plots/plot_correlation_analysis_{combo_id}.html"),
-        'report_base': os.path.join(report_rel_path), # Pass base path for template filters
+        'global_qso_rate_file': global_qso,
+        'rate_sheet_comparison': rate_sheet_comp,
+        'report_base': report_base,
         'is_solo': is_solo
     }
     

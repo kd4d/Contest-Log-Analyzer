@@ -6,7 +6,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-20
-# Version: 0.134.0-Beta
+# Version: 0.134.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -20,6 +20,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.134.1-Beta] - 2025-12-20
+# - Fixed logic error: ensured 'add_row' is called for every multiplier in the loop.
 # [0.134.0-Beta] - 2025-12-20
 # - Standardized report header to use `_report_utils`.
 # [0.113.0-Beta] - 2025-12-13
@@ -78,7 +80,7 @@ class Report(ContestReport):
                         qso_count = stats.get('QSO_Count', 0)
                         run_sp = stats.get('Run_SP_Status', '')
                         cell_content = f"({run_sp}) {qso_count}"
-                
+                        
                         max_call_len = max(max_call_len, len(cell_content))
             col_widths[call] = max_call_len
             
@@ -138,8 +140,8 @@ class Report(ContestReport):
                             cell_content = f"({run_sp}) {qso_count}"
                     
                     row.append(cell_content)
-            
-            main_table.add_row(row)
+                
+                main_table.add_row(row)
         
         # --- Summary Table Generation ---
         summary_table = self._create_table(headers, col_widths, first_col_align='r')
@@ -167,7 +169,7 @@ class Report(ContestReport):
         mult_name = kwargs.get('mult_name')
         mode_filter = kwargs.get('mode_filter')
         if not mult_name: return f"Error: 'mult_name' argument is required for '{self.report_name}' report."
-        
+
         # --- Use Aggregator for Data Calculation ---
         aggregator = MultiplierStatsAggregator(self.logs)
         agg_results = aggregator.get_missed_data(mult_name, mode_filter)
