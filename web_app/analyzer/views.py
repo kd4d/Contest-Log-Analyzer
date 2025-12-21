@@ -6,7 +6,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-20
-# Version: 0.133.1-Beta
+# Version: 0.135.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -20,6 +20,12 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.135.2-Beta] - 2025-12-20
+# - Fixed Dashboard Band Sorting: Normalized numeric band names (e.g., '160') to match sort keys (e.g., '160M') in plot discovery loops.
+# [0.135.1-Beta] - 2025-12-20
+# - Refactored `qso_dashboard` to hoist `BAND_SORT_ORDER` to function scope for consistency.
+# [0.135.0-Beta] - 2025-12-20
+# - Updated `qso_dashboard` to discover 'Cumulative Rates' plots (qso_rate_plots_*) for the new dashboard tab.
 # [0.133.1-Beta] - 2025-12-20
 # - Restored "All Bands" button in QSO Dashboard by removing suppression logic.
 # [0.132.0-Beta] - 2025-12-20
@@ -210,7 +216,6 @@ def analyze_logs(request):
         # Handle Manual Upload
         if 'log1' in request.FILES:
             form = UploadLogForm(request.POST, request.FILES)
-        
             if form.is_valid():
                 # 1. Create Session Context
                 session_key = str(uuid.uuid4())
@@ -218,7 +223,6 @@ def analyze_logs(request):
                 os.makedirs(session_path, exist_ok=True)
 
                 try:
-    
                     # 2. Save Uploads
                     log_paths = []
                     # Ensure data directory exists for CTY lookups if not mapped (Docker handles this though)
@@ -534,8 +538,7 @@ def multiplier_dashboard(request, session_id):
 
     # 2. Scan and Group Reports
     # Expected format: missed_multipliers_{TYPE}_{COMBO_ID}.txt
-    # We strip prefix and suffix to find {TYPE}.
-    suffix = f"_{combo_id}.txt"
+    # We strip prefix and suffix to find {TYPE}. Suffix = f"_{combo_id}.txt"
     multipliers = {}
 
     # In Solo Mode, we show 'multiplier_summary' (The Matrix) instead of 'missed_multipliers'
@@ -605,6 +608,7 @@ def qso_dashboard(request, session_id):
     callsigns_safe = combo_id.split('_')
     callsigns_display = [c.upper() for c in callsigns_safe]
     is_solo = (len(callsigns_safe) == 1)
+    BAND_SORT_ORDER = {'ALL': 0, '160M': 1, '80M': 2, '40M': 3, '20M': 4, '15M': 5, '10M': 6, '6M': 7, '2M': 8}
     
     # 3. Identify Pairs for Strategy Tab
     matchups = []
@@ -650,10 +654,9 @@ def qso_dashboard(request, session_id):
     # 4. Discover Point Rate Plots (Band Drill-Down)
     plots_dir = os.path.join(session_path, report_rel_path, 'plots')
     point_plots = []
-    BAND_SORT_ORDER = {'ALL': 0, '160M': 1, '80M': 2, '40M': 3, '20M': 4, '15M': 5, '10M': 6, '6M': 7, '2M': 8}
 
     if os.path.exists(plots_dir):
-        # Recursive scan to find plots nested in subdirectories (e.g. plots/20M/)
+        # Recursive scan to find plots nested in subdirectories (e.g., plots/20M/)
         for root, dirs, files in os.walk(plots_dir):
             for f in files:
                 if f.startswith('point_rate_plots_') and f.endswith('.html'):
@@ -663,6 +666,10 @@ def qso_dashboard(request, session_id):
                     
                     if parts:
                         band_key = parts[0].upper()
+                        # Normalize numeric bands to match sort keys (160 -> 160M)
+                        if band_key.isdigit():
+                            band_key += 'M'
+
                         label = "All Bands" if band_key == 'ALL' else band_key
                         
                         sort_val = BAND_SORT_ORDER.get(band_key, 99)
@@ -696,11 +703,61 @@ def qso_dashboard(request, session_id):
         if not active_set:
             point_plots[0]['active'] = True
 
+    # 5. Discover QSO Rate Plots (Band Drill-Down) - New Tab
+    qso_band_plots = []
+    if os.path.exists(plots_dir):
+        for root, dirs, files in os.walk(plots_dir):
+            for f in files:
+                if f.startswith('qso_rate_plots_') and f.endswith('.html'):
+                    # Filename: qso_rate_plots_{band}_{calls}.html
+                    remainder = f.replace('qso_rate_plots_', '')
+                    parts = remainder.split('_')
+                    
+                    if parts:
+                        band_key = parts[0].upper()
+                        # Normalize numeric bands to match sort keys (160 -> 160M)
+                        if band_key.isdigit():
+                            band_key += 'M'
+                        
+                        # Skip "ALL" bands since it is in the top pane
+                        if band_key == 'ALL':
+                            continue
+                            
+                        label = band_key
+                        sort_val = BAND_SORT_ORDER.get(band_key, 99)
+                        
+                        # Relative path logic
+                        rel_subdir = os.path.relpath(root, plots_dir)
+                        if rel_subdir == '.':
+                            file_rel = os.path.join(report_rel_path, 'plots', f)
+                        else:
+                            file_rel = os.path.join(report_rel_path, 'plots', rel_subdir, f)
+                        
+                        qso_band_plots.append({
+                            'label': label,
+                            'file': file_rel,
+                            'sort_val': sort_val
+                        })
+
+    qso_band_plots.sort(key=lambda x: x['sort_val'])
+    
+    # Default active to 20M for consistency
+    active_set = False
+    if qso_band_plots:
+        for p in qso_band_plots:
+            if p['label'] == '20M':
+                p['active'] = True
+                active_set = True
+                break
+        if not active_set:
+            qso_band_plots[0]['active'] = True
+
     context = {
         'session_id': session_id,
         'callsigns': callsigns_display,
         'matchups': matchups,
         'point_plots': point_plots,
+        'qso_band_plots': qso_band_plots,
         # Global Files
         'global_qso_rate_file': os.path.join(report_rel_path, f"plots/qso_rate_plots_all_{combo_id}.html"),
         'rate_sheet_comparison': os.path.join(report_rel_path, f"text/rate_sheet_comparison_{'_'.join(sorted(callsigns_safe))}.txt"),
