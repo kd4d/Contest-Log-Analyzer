@@ -85,7 +85,7 @@ class Report(ContestReport):
 
         os.makedirs(output_path, exist_ok=True)
         filepath = os.path.join(output_path, filename)
-        
+
         with open(filepath, 'w') as f:
             f.write(html_content)
 

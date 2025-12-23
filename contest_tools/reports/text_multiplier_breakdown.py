@@ -4,7 +4,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-22
-# Version: 0.136.4-Beta
+# Version: 0.137.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.137.0-Beta] - 2025-12-22
+# - Updated `format_row` helper to display delta values for negative counts.
+# - Increased column width to accommodate delta display.
 # [0.136.4-Beta] - 2025-12-22
 # - Updated `format_row` helper to display delta values for negative counts.
 # - Increased column width to accommodate delta display.
@@ -82,7 +85,7 @@ class Report(ContestReport):
         lines.append("")
         
         # Helper to format a row
-        # Layout: Scope (25), Total (8), Common (8), Call1 (10), Call2 (10)...
+        # Layout: Scope (25), Total (8), Common (8), Call1 (15), Call2 (15)...
         def format_row(label, total, common, station_dict, indent=0):
             prefix = " " * (indent * 2)
             lbl = f"{prefix}{label}"

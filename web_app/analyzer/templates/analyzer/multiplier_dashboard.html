@@ -23,7 +23,7 @@
                     <div class="d-flex justify-content-around text-muted small">
                         <span>QSOs: <strong>{{ log.qsos }}</strong></span>
                         {% for k, v in log.mults.items %}
-                          <span>{{ k }}: <strong>{{ v }}</strong></span>
+                        <span>{{ k }}: <strong>{{ v }}</strong></span>
                         {% endfor %}
                     </div>
                 </div>
@@ -37,12 +37,12 @@
             <span class="fw-bold text-secondary"><i class="bi bi-grid-3x3-gap me-2"></i>Multiplier Breakdown (Group Par)</span>
             <div>
                 {% if breakdown_txt_url %}
-                <a href="{% url 'view_report' session_id breakdown_txt_url %}" target="_blank" class="btn btn-sm btn-link text-muted p-0 me-2" title="View Text Report">
+                <a href="{% url 'view_report' session_id breakdown_txt_url %}?source=mult" target="_blank" class="btn btn-sm btn-link text-muted p-0 me-2" title="View Text Report">
                     <i class="bi bi-file-text"></i>
                 </a>
                 {% endif %}
                 {% if breakdown_html_url %}
-                <a href="{% url 'view_report' session_id breakdown_html_url %}" target="_blank" class="btn btn-sm btn-link text-secondary p-0" title="Full Screen (HTML)">
+                <a href="{% url 'view_report' session_id breakdown_html_url %}?source=mult" target="_blank" class="btn btn-sm btn-link text-secondary p-0" title="Full Screen (HTML)">
                     <i class="bi bi-box-arrow-up-right"></i>
                 </a>
                 {% endif %}
