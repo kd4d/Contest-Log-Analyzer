@@ -16,12 +16,23 @@
             <div class="card shadow-sm">
                 <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="bi bi-speedometer2 me-2"></i>Global Context</h5>
+                    {% if global_qso_rate_file %}
                     <a href="{% url 'view_report' session_id global_qso_rate_file %}?source=qso" target="_blank" class="btn btn-sm btn-light">
                         <i class="bi bi-box-arrow-up-right"></i>
                     </a>
+                    {% endif %}
                 </div>
                 <div class="card-body p-0" style="height: 900px;">
+                    {% if global_qso_rate_file %}
                     <iframe src="{% url 'view_report' session_id global_qso_rate_file %}?chromeless=1" style="width: 100%; height: 100%; border: none;"></iframe>
+                    {% else %}
+                    <div class="d-flex align-items-center justify-content-center h-100 bg-light text-muted">
+                        <div class="text-center">
+                            <i class="bi bi-exclamation-circle display-4 mb-3"></i>
+                            <p>Global Rate Plot Not Available</p>
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -133,11 +144,13 @@
 
         <div class="tab-pane fade {% if is_solo %}show active{% endif %}" id="rates" role="tabpanel">
             <div class="btn-group mb-3" role="group">
+                {% if rate_sheet_comparison %}
                 <button type="button" class="btn btn-outline-secondary rate-btn active" 
                         data-src="{% url 'view_report' session_id rate_sheet_comparison %}?chromeless=1"
                         data-full-src="{% url 'view_report' session_id rate_sheet_comparison %}?source=qso">Comparison</button>
+                {% endif %}
                 {% for call in callsigns %}
-                <button type="button" class="btn btn-outline-secondary rate-btn" 
+                <button type="button" class="btn btn-outline-secondary rate-btn {% if is_solo and forloop.first %}active{% endif %}" 
                         data-src="{% url 'view_report' session_id report_base|add:'/text/rate_sheet_'|add:call|add:'.txt' %}?chromeless=1"
                         data-full-src="{% url 'view_report' session_id report_base|add:'/text/rate_sheet_'|add:call|add:'.txt' %}?source=qso">{{ call }}</button>
                 {% endfor %}
@@ -192,6 +205,7 @@
         let currentStratBtn = null;
 
         function updateStrategy(btn) {
+            if(!btn) return;
             currentStratBtn = btn;
             stratBtns.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
@@ -240,6 +254,7 @@
         const linkRates = document.getElementById('link-rates');
 
         function updateRates(btn) {
+            if(!btn) return;
             rateBtns.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             frameRates.src = btn.dataset.src;
@@ -257,6 +272,7 @@
         const linkQsoRates = document.getElementById('link-qso-rates');
 
         function updateQsoRates(btn) {
+            if(!btn) return;
             qsoRateBtns.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             frameQsoRates.src = btn.dataset.src;
@@ -274,6 +290,7 @@
         const linkPoints = document.getElementById('link-points');
 
         function updatePoints(btn) {
+            if(!btn) return;
             pointsBtns.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             framePoints.src = btn.dataset.src;

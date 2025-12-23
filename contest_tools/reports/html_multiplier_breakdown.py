@@ -3,8 +3,8 @@
 # Purpose: Specialized HTML report for multiplier breakdown (Group Par).
 #
 # Author: Gemini AI
-# Date: 2025-12-22
-# Version: 0.137.0-Beta
+# Date: 2025-12-23
+# Version: 0.131.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,9 +18,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.131.1-Beta] - 2025-12-23
+# - Enable single-log support.
 # [0.137.0-Beta] - 2025-12-22
 # - Initial creation.
-
 import os
 from django.template.loader import render_to_string
 from .report_interface import ContestReport
@@ -32,6 +33,7 @@ class Report(ContestReport):
     report_name = "Multiplier Breakdown (HTML)"
     is_specialized = False
     supports_multi = True
+    supports_single = True
 
     def generate(self, output_path: str, **kwargs) -> str:
         # 1. Aggregate Data

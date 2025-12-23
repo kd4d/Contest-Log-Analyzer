@@ -13,3 +13,4 @@ AIAgentGuidance/Archive/
 web_app/media/
 *.sqlite3
 Archives/
+*_bundle.txt

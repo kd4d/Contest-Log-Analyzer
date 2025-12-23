@@ -1,9 +1,14 @@
 # AIAgentWorkflow.md
 
-**Version: 4.25.0**
-**Date: 2025-12-20**
+**Version: 4.26.0**
+**Date: 2025-12-23**
 ---
 ### --- Revision History ---
+## [4.26.0] - 2025-12-23
+### Changed
+# - Changed Default State from Architect to Analyst (Protocol 2.0, 2.1).
+# - Added Protocol 1.9: "The Analyst Initialization Macro" to force constraint acknowledgment.
+# - Updated Protocol 2.11 to forbid offering solutions/fixes during analysis.
 ## [4.25.0] - 2025-12-20
 ### Changed
 # - Implemented "Strict State Machine" architecture.
@@ -304,6 +309,13 @@ It contains the `data/` and `Logs/` subdirectories.
     * `Docs/`: All user and developer documentation.
     * `test_code/`: Utility and prototype scripts not part of the main application.
 These scripts are not held to the same change control and documentation standards (e.g., a revision history is not required).
+1.9. **The Analyst Initialization Macro.**
+    * **Definition:** The phrase **"Act as Analyst"** is a System Macro.
+    * **Default State:** This macro is automatically invoked at the start of a session.
+    * **Action:** Upon entering this state, I must output a **"State Acknowledgment"** confirming:
+        1.  **Current State:** Analyst Mode.
+        2.  **Constraints:** "I am forbidden from modifying code or generating Implementation Plans."
+        3.  **Goal:** Diagnostic analysis only.
 ### 2. Task Execution Workflow
 This workflow is a formal state machine that governs all development tasks, from initial request to final completion.
 1.8. **Protocol Onboarding Protocol.** This protocol provides a mandatory testing and verification phase to ensure new workflow rules are understood and correctly implemented before beginning development tasks.
@@ -365,7 +377,7 @@ The user then formally initiates the **Task Execution Workflow (Protocol 2.1)** 
 
 2.0. **The Disconnected State Machine.**
     The AI operates in one of three mutually exclusive states. Direct transitions between non-adjacent states (except via Trinity Ingress or Analyst Reset) are **Protocol Violations**.
-    1.  **State 1: Analysis & Discussion (The Analyst)**
+    1.  **State 1: Analysis & Discussion (The Analyst) [DEFAULT]**
         * **Role:** Passive analysis, exploring options, debugging.
         * **Input:** Chat History + `project_bundle.txt` (plus optional artifacts).
         * **Forbidden:** Generating code files, generating Implementation Plans, "acting" as Builder.
@@ -385,8 +397,8 @@ The user then formally initiates the **Task Execution Workflow (Protocol 2.1)** 
         * **Forbidden:** Deviation from the plan, new analysis, answering "Why".
         * **Emergency Exit:** **"Act as Analyst"**. Forces a state reset to State 1, discards the plan, and unlocks context.
 
-2.1. **Architect Mode (Default State)**:
-    * **Definition:** I am the **Architect** by default. My goal is to produce a **Builder Execution Kit**.
+2.1. **Architect Mode**:
+    * **Definition:** I become the **Architect** only upon specific trigger. My goal is to produce a **Builder Execution Kit**.
     * **Constraint:** I **DO NOT** modify code files directly. I **DO NOT** simulate execution.
     * **Scope Fence:** The Architect analyzes In-Scope vs Out-of-Scope requirements before moving to any planning activities.
     * **Architecture Compliance Check (2.1.1):** During the Analysis Phase, the Architect MUST verify that the proposed solution aligns with the project's established architectural patterns (e.g., Persistence Strategy, State Management) as defined in the Project Bundle or Roadmap.
@@ -516,6 +528,7 @@ The task is successfully concluded once the user provides the standard 'Acknowle
     * **Definition:** I will never assume the user's intent to proceed to a new workflow phase (e.g., from Analysis to Planning, or Planning to Execution).
     * **Action:** I must always halt and explicitly request permission/trigger to advance the state.
     * **Constraint:** "Predicting" that a user wants to proceed because the analysis is complete is a violation of the Two-Party Contract (Principle 2).
+    * **Anti-Solution Clause:** Offering a specific code fix (e.g., "I can fix this by changing line X...") before the analysis is accepted is a violation of this protocol.
 
 ### 3. File and Data Handling
 
@@ -531,7 +544,7 @@ Grouping multiple source files into a single response is a Protocol Violation.
     2.  **Raw Source Text**: The content inside the delivered code block must be the raw source text of the file.
     3.  **Code File Delivery**: For code files (e.g., `.py`, `.json`), the content will be delivered in a standard fenced code block with the appropriate language specifier.
     4.  **Markdown File Delivery**: Documentation files (`.md`) must be delivered inside a `cla-bundle` specified code block.
-        * **The Container:** The outer standard Markdown fences (```markdown) **MUST** remain as real backticks to trigger the UI code box.
+        * **The Container:** The outer standard Markdown fences (__CODE_BLOCK__markdown) **MUST** remain as real backticks to trigger the UI code box.
         * **The Content:** You must programmatically Find & Replace all *internal* triple-backticks within the file content with the literal string `__CODE_BLOCK__` *before* wrapping it in the container.
         * **The Test:** The output must render as a distinct code box.
 If the `cla-bundle` closes prematurely due to an unsanitized backtick, the Compliance Report's "Protocol 3.2.4" check is retroactively **FAILED**, triggering a Circuit Breaker (1.3).

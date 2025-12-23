@@ -1,5 +1,10 @@
 # contest_tools/reports/plot_interactive_animation.py
-# Version: 0.131.0-Beta
+#
+# Purpose: Generates an interactive HTML animation dashboard.
+#
+# Author: Gemini AI
+# Date: 2025-12-23
+# Version: 0.131.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -13,6 +18,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.131.1-Beta] - 2025-12-23
+# - Enable single-log support.
 # [0.131.0-Beta] - 2025-12-20
 # - Refactored to use `get_standard_title_lines` for standardized 3-line headers.
 # - Implemented explicit "Smart Scoping" for title generation.
@@ -65,6 +72,7 @@ class Report(ContestReport):
     report_type: str = "animation"
     is_specialized: bool = False
     supports_multi: bool = True
+    supports_single: bool = True
 
     def _get_mode_color(self, base_hex: str, mode: str) -> str:
         """Calculates color based on mode: Run=Solid, S&P=50% Opacity, Unknown=Light Gray."""
