@@ -1,10 +1,14 @@
 # Contest Log Analytics - Programmer's Guide
 
-**Version: 0.126.0-Beta**
-**Date: 2025-12-18**
+**Version: 0.127.0-Beta**
+**Date: 2025-12-23**
 
 ---
 ### --- Revision History ---
+## [0.127.0-Beta] - 2025-12-23
+### Added
+# - Added "The Manifest & WORM Strategy" section to Phase 3.
+# - Documented `contest_tools/manifest_manager.py`.
 ## [0.126.0-Beta] - 2025-12-18
 ### Added
 # - Added "Phase 3: Web Architecture" section detailing the Django stateless design.
@@ -171,6 +175,7 @@
 ## [1.0.0-Beta] - 2025-08-10
 ### Added
 # - Initial release of the Programmer's Guide.
+
 ---
 
 ## Introduction
@@ -190,7 +195,7 @@ New reports and contest-specific logic modules can be dropped into the appropria
 All Python (`.py`) files in the project must begin with the following standard header block.
 This ensures consistency and proper version tracking.
 
-__CODE_BLOCK__
+```
 # {filename}.py
 #
 # Purpose: {A concise, one-sentence description of the module's primary responsibility.}
@@ -213,7 +218,7 @@ __CODE_BLOCK__
 # --- Revision History ---
 # [{version}] - {YYYY-MM-DD}
 # - {Description of changes}
-__CODE_BLOCK__
+```
 
 ---
 ## Core Components
@@ -223,15 +228,15 @@ This script is the main entry point for running the analyzer.
 * **Argument Parsing:** It uses Python's `argparse` to handle command-line arguments.
 Key arguments include:
     * `log_files`: A list of one or more log files to process.
-    * `--report`: Specifies which reports to run. This can be a single `report_id`, a comma-separated list of IDs, the keyword `all`, or a category keyword (`chart`, `text`, `plot`, `animation`, `html`).
-    * `--verbose`: Enables `INFO`-level debug logging.
+* `--report`: Specifies which reports to run. This can be a single `report_id`, a comma-separated list of IDs, the keyword `all`, or a category keyword (`chart`, `text`, `plot`, `animation`, `html`).
+* `--verbose`: Enables `INFO`-level debug logging.
     * `--include-dupes`: An optional flag to include duplicate QSOs in report calculations.
-    * `--mult-name`: An optional argument to specify which multiplier to use for multiplier-specific reports (e.g., 'Countries').
-    * `--metric`: An optional argument for difference plots, specifying whether to compare `qsos` or `points`. Defaults to `qsos`.
-    * `--debug-data`: An optional flag to save the source data for visual reports to a text file.
-    * `--cty <specifier>`: An optional argument to specify the CTY file: 'before', 'after' (default), or a specific filename (e.g., 'cty-3401.dat').
-    * `--wrtc <year>`: An optional argument to score IARU-HF logs using the rules for a specific WRTC year.
-    * `--debug-mults`: An optional flag to save intermediate multiplier lists from text reports for debugging.
+* `--mult-name`: An optional argument to specify which multiplier to use for multiplier-specific reports (e.g., 'Countries').
+* `--metric`: An optional argument for difference plots, specifying whether to compare `qsos` or `points`. Defaults to `qsos`.
+* `--debug-data`: An optional flag to save the source data for visual reports to a text file.
+* `--cty <specifier>`: An optional argument to specify the CTY file: 'before', 'after' (default), or a specific filename (e.g., 'cty-3401.dat').
+* `--wrtc <year>`: An optional argument to score IARU-HF logs using the rules for a specific WRTC year.
+* `--debug-mults`: An optional flag to save intermediate multiplier lists from text reports for debugging.
 * **Report Discovery:** The script dynamically discovers all available reports by inspecting the `contest_tools.reports` package.
 Any valid report class in this package is automatically made available as a command-line option.
 ### Logging System (`Utils/logger_config.py`)
@@ -244,10 +249,10 @@ These are always displayed.
 The project includes an automated regression test script to ensure that new changes do not break existing functionality.
 * **Workflow**: The script follows a three-step process:
     1.  **Archive**: It archives the last known-good set of reports by renaming the existing `reports/` directory with a timestamp.
-    2.  **Execute**: It runs a series of pre-defined test cases from a `regressiontest.bat` file.
-    Each command in this file generates a new set of reports.
-    3.  **Compare**: It performs a `diff` comparison between the newly generated text reports and the archived baseline reports.
-    Any differences are flagged as a regression.
+2.  **Execute**: It runs a series of pre-defined test cases from a `regressiontest.bat` file.
+Each command in this file generates a new set of reports.
+3.  **Compare**: It performs a `diff` comparison between the newly generated text reports and the archived baseline reports.
+Any differences are flagged as a regression.
 * **Methodology**: This approach focuses on **data integrity**.
 Instead of comparing images or videos, which can be brittle, the regression test compares the raw text output and the debug data dumps from visual reports.
 This provides a robust and reliable way to verify that the underlying data processing and calculations remain correct after code changes.
@@ -256,17 +261,26 @@ This provides a robust and reliable way to verify that the underlying data proce
 ## Phase 3: Web Architecture
 
 The project now includes a stateless, containerized web dashboard (`web_app`) built on Django.
-
 ### Core Principles (ADR-007)
-* **Stateless Operation**: The Django app does not use a database for domain logic. It relies on the file system (session directories) for data persistence.
-* **Shared Presentation Layer**: The `web_app/config/settings.py` is configured to map the `TEMPLATES` setting to `contest_tools/templates`. This ensures that the CLI (which uses Jinja2) and the Web App (which uses Django Templates) share the exact same HTML report templates.
-
+* **Stateless Operation**: The Django app does not use a database for domain logic.
+It relies on the file system (session directories) for data persistence.
+* **Shared Presentation Layer**: The `web_app/config/settings.py` is configured to map the `TEMPLATES` setting to `contest_tools/templates`.
+This ensures that the CLI (which uses Jinja2) and the Web App (which uses Django Templates) share the exact same HTML report templates.
 ### Key Components
 * **`web_app/analyzer/views.py`**: Contains the view logic.
-    * **`analyze_logs`**: Orchestrates the upload, parsing (via `LogManager`), and reporting (via `ReportGenerator`) pipeline. It serializes the dashboard context to `dashboard_context.json`.
+    * **`analyze_logs`**: Orchestrates the upload, parsing (via `LogManager`), and reporting (via `ReportGenerator`) pipeline.
+It serializes the dashboard context to `dashboard_context.json`.
     * **`dashboard_view`**: Loads the serialized context to render the "Strategy Board".
-    * **`get_progress`**: Provides a JSON endpoint for the client-side progress bar.
+* **`get_progress`**: Provides a JSON endpoint for the client-side progress bar.
 * **`contest_tools/utils/log_fetcher.py`**: A utility class used by the web view to scrape public contest log archives (e.g., CQ WW) and download logs on-demand.
+* **`contest_tools/manifest_manager.py`**: Manages the `session_manifest.json`, providing a decoupled way for the UI to discover generated artifacts without hardcoding paths.
+
+### The Manifest & WORM Strategy
+To ensure the dashboard remains responsive even with large datasets, the application employs a **"Write Once, Read Many" (WORM)** strategy for expensive aggregations.
+
+1.  **Generation Phase:** During the initial analysis (`analyze_logs`), specific "Artifact Reports" (e.g., `json_multiplier_breakdown.py`) are executed. These reports do not produce human-readable text but instead serialize processed aggregation trees into JSON files.
+2.  **Hydration Phase:** When the user loads a dashboard view (e.g., `multiplier_dashboard`), the view uses the `ManifestManager` to locate the JSON artifact.
+3.  **Rendering:** The view hydrates its context directly from this pre-computed JSON, avoiding the need to re-parse Cabrillo logs or re-run aggregators on every page load.
 
 ---
 
@@ -279,11 +293,11 @@ They **must not** return Pandas DataFrames or NumPy arrays.
 
 * **Primary Aggregators:**
     * **`CategoricalAggregator`**: Handles set operations (Unique/Common QSOs), point breakdowns, and generic categorical grouping.
-    * **`ComparativeEngine`**: Implements pure Set Theory logic to calculate Universe, Common, Differential, and Missed counts for any set of items.
-    * **`MatrixAggregator`**: Generates 2D grids (Band x Time) for heatmaps and activity status tracking.
-    * **`MultiplierStatsAggregator`**: Handles all multiplier summarization logic, including unique counts and "Missed Multiplier" analysis.
-    * **`TimeSeriesAggregator`**: Generates the standard TimeSeries Data Schema (v1.4.0), including cumulative rates, scores, and scalar metrics.
-    * **`WaeStatsAggregator`**: Specialized logic for WAE contests, handling QTCs and weighted multiplier calculations.
+* **`ComparativeEngine`**: Implements pure Set Theory logic to calculate Universe, Common, Differential, and Missed counts for any set of items.
+* **`MatrixAggregator`**: Generates 2D grids (Band x Time) for heatmaps and activity status tracking.
+* **`MultiplierStatsAggregator`**: Handles all multiplier summarization logic, including unique counts and "Missed Multiplier" analysis.
+* **`TimeSeriesAggregator`**: Generates the standard TimeSeries Data Schema (v1.4.0), including cumulative rates, scores, and scalar metrics.
+* **`WaeStatsAggregator`**: Specialized logic for WAE contests, handling QTCs and weighted multiplier calculations.
 ---
 
 ## Shared Utilities & Styles
@@ -294,7 +308,6 @@ It provides methods like `get_point_color_map()` and `get_qso_mode_colors()` to 
 * **`contest_tools.utils.json_encoders.NpEncoder`**: A custom JSON encoder class used to serialize NumPy data types (like `int64` or `float64`) and Pandas Timestamps into standard JSON formats.
 * **`contest_tools.utils.pivot_utils`**: Contains shared DataFrame pivoting logic to prevent circular imports between reports.
 * **`contest_tools.utils.log_fetcher`**: Provides the `fetch_log_index` and `download_logs` functions for interacting with public log archives.
-
 ---
 ## How to Add a New Contest: A Step-by-Step Guide
 
@@ -306,11 +319,11 @@ The filename (minus the extension) is the ID used to find the contest's rules.
 ### Step 2: Define Basic Metadata
 Open `my_contest.json` and add the basic information.
 The `contest_name` must exactly match the `CONTEST:` tag in the Cabrillo log files for this contest.
-__CODE_BLOCK__
+```
 {
   "contest_name": "MY-CONTEST",
   "dupe_check_scope": "per_band",
   "score_formula": "points_times_mults",
   "valid_bands": ["80M", "40M", "20M", "15M", "10M"]
 }
-__CODE_BLOCK__
+```
