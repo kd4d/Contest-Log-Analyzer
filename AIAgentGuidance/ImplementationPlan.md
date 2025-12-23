@@ -1,45 +1,53 @@
-# ImplementationPlan.md
+markdown
+**Version:** 1.0.8
+**Target:** 0.138.8-Beta
 
-**Version:** 1.6.0
-**Target:** 0.137.1-Beta
+# Implementation Plan - Remove Diagnostic Noise
 
-## 1. File Identification: web_app/analyzer/templates/analyzer/multiplier_dashboard.html
-**Version:** 0.137.0-Beta
+Now that the "Fast Load" strategy is confirmed working (dashboard loads quickly), the temporary `print("!!! DEBUG !!! ...")` statements injected into the production view are no longer needed. This plan removes them to clean up the application logs.
 
-### Surgical Changes
-1.  **Update "View Text Report" Link**: Append `?source=mult` to the `href` attribute in the "Multiplier Breakdown (Group Par)" card header.
-2.  **Update "Full Screen (HTML)" Link**: Append `?source=mult` to the `href` attribute in the "Multiplier Breakdown (Group Par)" card header.
+## User Story
+As a developer, I want the application logs to be free of debugging spam now that the root cause has been identified and resolved.
 
-### Surgical Change Verification (diff)
-__CODE_BLOCK__ html
---- BEGIN DIFF ---
-@@ -18,10 +18,10 @@
-             <span class="fw-bold text-secondary"><i class="bi bi-grid-3x3-gap me-2"></i>Multiplier Breakdown (Group Par)</span>
-             <div>
-                 {% if breakdown_txt_url %}
--                <a href="{% url 'view_report' session_id breakdown_txt_url %}" target="_blank" class="btn btn-sm btn-link text-muted p-0 me-2" title="View Text Report">
-+                <a href="{% url 'view_report' session_id breakdown_txt_url %}?source=mult" target="_blank" class="btn btn-sm btn-link text-muted p-0 me-2" title="View Text Report">
-                     <i class="bi bi-file-text"></i>
-                 </a>
-                 {% endif %}
-                 {% if breakdown_html_url %}
--                <a href="{% url 'view_report' session_id breakdown_html_url %}" target="_blank" class="btn btn-sm btn-link text-secondary p-0" title="Full Screen (HTML)">
-+                <a href="{% url 'view_report' session_id breakdown_html_url %}?source=mult" target="_blank" class="btn btn-sm btn-link text-secondary p-0" title="Full Screen (HTML)">
-                     <i class="bi bi-box-arrow-up-right"></i>
-                 </a>
-                 {% endif %}
---- END DIFF ---
-__CODE_BLOCK__
+## Technical Architecture
+* **Cleanup:** Remove the `print` statements from `web_app/analyzer/views.py`.
 
-## 2. Pre-Flight Check
-* **Inputs**: `manifest_bundle.txt`.
-* **Expected Outcome**:
-    * Clicking the Text or HTML icon in the top card of the Multiplier Dashboard will pass `source=mult` to the report viewer.
-    * The "Back" button on the report viewer will correctly return to the Multiplier Dashboard instead of the Main Dashboard.
-* **Mental Walkthrough**:
-    1.  User navigates to Multiplier Dashboard.
-    2.  User clicks the Text Report icon in the top header.
-    3.  Report Viewer loads.
-    4.  User clicks "Back to Multiplier Dashboard".
-    5.  User is returned to the correct screen.
-* **State Confirmation**: I will request `Confirmed` before delivery.
+---
+
+### 1. Modify File: `web_app/analyzer/views.py`
+
+**Purpose:** Remove temporary diagnostic printing.
+
+**Baseline:** Version 0.138.6-Beta (Source 1598 + Plan 1.0.6 modifications)
+
+**Surgical Changes:**
+1.  **Remove:** The `print` statement logging the scan path.
+2.  **Remove:** The `print` statement logging the file list.
+3.  **Remove:** The `print` statement confirming the JSON load.
+4.  **Restore:** The clean iteration loop.
+
+**Verification (`diff`):**
+```text
+--- a/web_app/analyzer/views.py
++++ b/web_app/analyzer/views.py
+@@ -1666,18 +1666,12 @@
+     
+     # Strategy A: Fast Load (JSON Artifact)
+     json_prefix = "json_multiplier_breakdown_"
+-    
+-    # DIAGNOSTIC INJECTION
+-    print(f"!!! DEBUG !!! Scanning for JSON in: {text_dir}")
+     
+     if os.path.exists(text_dir):
+-        files_found = os.listdir(text_dir)
+-        print(f"!!! DEBUG !!! Files found: {files_found}")
+-        for f in files_found:
++        for f in os.listdir(text_dir):
+             if f.startswith(json_prefix) and f.endswith(".json"):
+                 try:
+                     with open(os.path.join(text_dir, f), 'r') as json_file:
+                         breakdown_data = json.load(json_file)
+-                        print(f"!!! DEBUG !!! Successfully loaded JSON artifact: {f}")
+                     break 
+                 except Exception as e:
+                     logger.error(f"Failed to load JSON artifact {f}: {e}")
