@@ -1,53 +1,71 @@
-markdown
-**Version:** 1.0.8
-**Target:** 0.138.8-Beta
+# ImplementationPlan.md
 
-# Implementation Plan - Remove Diagnostic Noise
+**Version:** 1.2.0
+**Target:** 0.139.2-Beta
 
-Now that the "Fast Load" strategy is confirmed working (dashboard loads quickly), the temporary `print("!!! DEBUG !!! ...")` statements injected into the production view are no longer needed. This plan removes them to clean up the application logs.
+## 1. File Identification
+* **File:** `web_app/analyzer/views.py`
+* **Baseline Version:** 0.139.1-Beta
 
-## User Story
-As a developer, I want the application logs to be free of debugging spam now that the root cause has been identified and resolved.
+## 2. Surgical Changes
+The objective is to fix a logic ordering error in `multiplier_dashboard` where the parsed `mult_type` variable is overwritten with `None` immediately after being extracted, causing all reports to be grouped under a single "None" key.
 
-## Technical Architecture
-* **Cleanup:** Remove the `print` statements from `web_app/analyzer/views.py`.
+### A. Variable Scope Correction (Lines ~1660-1675)
+* **Action:** Move the initialization of `mult_type` and `report_key` to the *start* of the loop iteration, ensuring they are reset before processing the next artifact but *not* overwriting the result of the parsing logic.
+* **Logic:**
+    1.  Initialize `mult_type = None` and `report_key = None` immediately after checking `target_ids`.
+    2.  Parse the filename to extract `mult_type`.
+    3.  Proceed to mapping logic.
 
----
+## 3. Surgical Change Verification (`diff`)
 
-### 1. Modify File: `web_app/analyzer/views.py`
+--- BEGIN DIFF ---
+--- web_app/analyzer/views.py
++++ web_app/analyzer/views.py
+@@ -1662,18 +1662,18 @@
+         if rid not in target_ids: continue
+         
++        mult_type = None
++        report_key = None
++        
+         # Extract Mult Type from Filename: {report_id}_{MULT_TYPE}_{combo_id}.txt
+         fname = os.path.basename(art['path'])
+         # Strip extension
+         base = os.path.splitext(fname)[0]
+         # Strip suffix
+         if base.endswith(suffix):
+             base = base[:-len(suffix)]
+         # Strip prefix
+         if base.startswith(rid + '_'):
+             mult_type_slug = base[len(rid)+1:]
+             mult_type = mult_type_slug.replace('_', ' ').title()
+         else:
+             continue
+ 
+-        mult_type = None
+-        report_key = None
+-
+         # Solo Mode Mapping Logic
+         if log_count == 1:
+--- END DIFF ---
 
-**Purpose:** Remove temporary diagnostic printing.
+## 3.a. Ground Truth Declaration
+I declare that the `diff` above is generated against the definitive baseline version of `web_app/analyzer/views.py` (Version 0.139.1-Beta).
 
-**Baseline:** Version 0.138.6-Beta (Source 1598 + Plan 1.0.6 modifications)
+## 4. Affected Modules Checklist
+* `web_app/analyzer/views.py`: **Target** (Fixing `multiplier_dashboard`).
 
-**Surgical Changes:**
-1.  **Remove:** The `print` statement logging the scan path.
-2.  **Remove:** The `print` statement logging the file list.
-3.  **Remove:** The `print` statement confirming the JSON load.
-4.  **Restore:** The clean iteration loop.
+## 5. Pre-Flight Check
+* **Inputs:** `session_id`.
+* **Expected Outcome:** The Multiplier Dashboard will display separate cards for "Countries", "Zones", etc., instead of a single card titled "None".
+* **Mental Walkthrough:**
+    1.  Loop starts for artifact (e.g., `missed_multipliers_countries...`).
+    2.  Variables initialized to None.
+    3.  Parsing logic runs -> `mult_type` becomes "Countries".
+    4.  The erroneous overwrite lines are GONE.
+    5.  Mapping logic runs using `mult_type="Countries"`.
+    6.  Report registered correctly.
+* **Safety:** The change is purely structural (moving lines up) and corrects a blatant shadowing bug.
 
-**Verification (`diff`):**
-```text
---- a/web_app/analyzer/views.py
-+++ b/web_app/analyzer/views.py
-@@ -1666,18 +1666,12 @@
-     
-     # Strategy A: Fast Load (JSON Artifact)
-     json_prefix = "json_multiplier_breakdown_"
--    
--    # DIAGNOSTIC INJECTION
--    print(f"!!! DEBUG !!! Scanning for JSON in: {text_dir}")
-     
-     if os.path.exists(text_dir):
--        files_found = os.listdir(text_dir)
--        print(f"!!! DEBUG !!! Files found: {files_found}")
--        for f in files_found:
-+        for f in os.listdir(text_dir):
-             if f.startswith(json_prefix) and f.endswith(".json"):
-                 try:
-                     with open(os.path.join(text_dir, f), 'r') as json_file:
-                         breakdown_data = json.load(json_file)
--                        print(f"!!! DEBUG !!! Successfully loaded JSON artifact: {f}")
-                     break 
-                 except Exception as e:
-                     logger.error(f"Failed to load JSON artifact {f}: {e}")
+## 6. Post-Generation Verification
+I confirm that this plan contains the Metadata Header, Surgical Changes, `diff` verification, and Pre-Flight Check required by Protocol 2.5.
