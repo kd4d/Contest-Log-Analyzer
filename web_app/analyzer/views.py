@@ -5,8 +5,8 @@
 #          aggregates data using DAL components, and renders the dashboard.
 #
 # Author: Gemini AI
-# Date: 2025-12-20
-# Version: 0.136.1-Beta
+# Date: 2025-12-22
+# Version: 0.137.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -20,6 +20,13 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.137.0-Beta] - 2025-12-22
+# - Updated `multiplier_dashboard` to discover and serve the new HTML breakdown report.
+# - Updated `multiplier_dashboard` to retrieve and pass `full_contest_title` to the context.
+# [0.136.4-Beta] - 2025-12-20
+# - Fixed UnboundLocalError in multiplier_dashboard by hoisting suffix definition.
+# [0.136.2-Beta] - 2025-12-20
+# - Updated `multiplier_dashboard` to discover and link `text_multiplier_breakdown` report.
 # [0.136.1-Beta] - 2025-12-20
 # - Updated `qso_dashboard` to recursively search for `session_manifest.json` and prepend relative paths to artifacts.
 # [0.136.0-Beta] - 2025-12-20
@@ -533,19 +540,43 @@ def multiplier_dashboard(request, session_id):
     # Re-fetch persisted context for accurate scores (since LM reload is raw)
     context_path = os.path.join(session_path, 'dashboard_context.json')
     persisted_logs = []
+    full_contest_title = ""
     if os.path.exists(context_path):
         with open(context_path, 'r') as f:
             d_ctx = json.load(f)
             persisted_logs = d_ctx.get('logs', [])
+            full_contest_title = d_ctx.get('full_contest_title', '')
 
     # Calculate optimal column width for scoreboard
     log_count = len(persisted_logs) if persisted_logs else 0
     col_width = 12 // log_count if log_count > 0 else 12
 
+    # Common suffix for text reports
+    suffix = f"_{combo_id}.txt"
+
+    # 4. Discover Text Version of Breakdown
+    breakdown_txt_rel_path = None
+    txt_breakdown_prefix = "text_multiplier_breakdown_"
+    for filename in os.listdir(text_dir):
+        if filename.startswith(txt_breakdown_prefix) and filename.endswith(suffix):
+            breakdown_txt_rel_path = os.path.join(report_rel_path, 'text', filename)
+            break
+
+    # 5. Discover HTML Version of Breakdown
+    breakdown_html_rel_path = None
+    html_breakdown_prefix = "html_multiplier_breakdown_"
+    html_suffix = f"_{combo_id}.html"
+    # HTML reports are in the root report dir, not text/
+    report_abs_path = os.path.join(session_path, report_rel_path)
+    if os.path.exists(report_abs_path):
+        for filename in os.listdir(report_abs_path):
+            if filename.startswith(html_breakdown_prefix) and filename.endswith(html_suffix):
+                breakdown_html_rel_path = os.path.join(report_rel_path, filename)
+                break
+
     # 2. Scan and Group Reports
     # Expected format: missed_multipliers_{TYPE}_{COMBO_ID}.txt
     # We strip prefix and suffix to find {TYPE}.
-    suffix = f"_{combo_id}.txt"
     multipliers = {}
 
     # In Solo Mode, we show 'multiplier_summary' (The Matrix) instead of 'missed_multipliers'
@@ -583,6 +614,9 @@ def multiplier_dashboard(request, session_id):
         'low_bands_data': low_bands_data,
         'high_bands_data': high_bands_data,
         'all_calls': sorted([l['callsign'] for l in persisted_logs]),
+        'breakdown_txt_url': breakdown_txt_rel_path,
+        'breakdown_html_url': breakdown_html_rel_path,
+        'full_contest_title': full_contest_title,
         'multipliers': sorted_mults,
         'is_solo': (log_count == 1),
     }

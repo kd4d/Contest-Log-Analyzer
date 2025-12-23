@@ -1,14 +1,14 @@
 # Architecture Roadmap
 
-**Version:** 1.4.0
+**Version:** 1.5.0
 **Date:** 2025-12-20
-**Active Release Target:** 0.133.0-Beta
+**Active Release Target:** 0.136.1-Beta
 
 ---
 
 ## 1. Executive Summary
-**Current Status:** **CRITICAL STABILIZATION REQUIRED.**
-The project is mid-transition in a major "Visualization Standardization" overhaul. Phase 1.5 (Standardization) was partially executed but introduced a regression (`NameError` crash) in the Plotly reporting engine. The immediate priority is applying the **Hotfix** to restore report generation, followed by implementing the **Session Manifest** architecture to decouple the Web Dashboard from filename predictions (fixing 404 errors).
+**Current Status:** **HYBRID ARCHITECTURE (Stabilization In Progress).**
+The project has successfully deployed the **Hotfix** (TECH-001) and restored report generation. The **Session Manifest** (ARCH-002) architecture has been partially deployed: the QSO Dashboard (`qso_dashboard`) is fully modernized and reading from `manifest.json`, but the Multiplier Dashboard (`multiplier_dashboard`) currently relies on legacy filesystem scanning. Immediate priority is completing the migration of the Multiplier Dashboard to the Manifest architecture.
 
 ---
 
@@ -19,12 +19,12 @@ The project is mid-transition in a major "Visualization Standardization" overhau
 * **Status:**
     * [x] **Phase 1: Presentation Layer** (Branding/Footers) - *Completed.*
     * [x] **Phase 1.1: Smart Scoping** (Redundancy Logic) - *Completed.*
-    * [!] **Phase 1.5: Standardization (Plotly)** - *REGRESSED.*
-        * *Issue:* Refactoring removed `is_single_band` variable needed for filename generation.
-        * *Result:* Reports crash on generation. 404s in Dashboard.
-    * [ ] **Phase 2: Stabilization & Manifest** - *IMMEDIATE PRIORITY.*
-        * **Hotfix:** Centralize filename logic in `_report_utils.build_filename`.
-        * **Manifest:** Implement `manifest_manager.py` to index artifacts and prevent 404s.
+    * [x] **Phase 1.5: Standardization (Plotly)** - *Completed.* (Hotfix Applied).
+    * [ ] **Phase 2: Stabilization & Manifest** - *IN PROGRESS.*
+        * **Hotfix:** Centralize filename logic. *Completed.*
+        * **Manifest (Infrastructure):** `manifest_manager.py` implemented. *Completed.*
+        * **Manifest (QSO Dash):** Migrated to Manifest. *Completed.*
+        * **Manifest (Mult Dash):** Migration Pending. *IMMEDIATE PRIORITY.*
     * [ ] **Phase 3: Text Report Standardization** - *Pending.*
     * [ ] **Phase 4: Chart Migration** (Butterfly/Propagation) - *Pending.*
     * [ ] **Phase 5: Animation Migration** (WRTC HTML) - *Pending.*
@@ -34,14 +34,16 @@ The project is mid-transition in a major "Visualization Standardization" overhau
 * **Status:**
     * [x] **Identity Agnostic Uploads** - *Completed.*
     * [x] **Public Log Archive Fetcher** - *Completed.*
-    * [!] **Artifact Discovery** - *FRAGILE.* Currently relies on `os.walk` and filename prediction. Must move to **Session Manifest** (Track A, Phase 2).
+    * [!] **Artifact Discovery** - *HYBRID.*
+        * QSO Dashboard: Robust (Manifest-based).
+        * Multiplier Dashboard: Fragile (Legacy `os.listdir`).
 
 ---
 
 ## 3. Feature Backlog & Technical Debt
 | ID | Priority | Component | Description | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| **TECH-001** | **Critical** | `plot_*.py` | **Fix `NameError` Crash.** Restore `is_single_band` logic via utility. | **Ready** |
-| **ARCH-002** | **High** | `views.py` | **Session Manifest.** Replace `os.walk` with deterministic JSON manifest. | **Planned** |
+| **TECH-001** | **Critical** | `plot_*.py` | **Fix `NameError` Crash.** Restore `is_single_band` logic via utility. | **Completed** |
+| **ARCH-002** | **High** | `views.py` | **Session Manifest.** Replace `os.walk` with deterministic JSON manifest. | **In Progress** |
 | **DEBT-003** | Medium | `*.py` | **Matplotlib Removal.** Port final static charts to Plotly. | Phase 4 |
 | **FEAT-004** | Low | `animations` | **WRTC HTML Animation.** Replace MP4/FFmpeg dependency. | Phase 5 |

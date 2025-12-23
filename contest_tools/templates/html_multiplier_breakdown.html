@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multiplier Breakdown</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-100 text-slate-800 p-8">
+    <div class="max-w-7xl mx-auto bg-white shadow-lg rounded-lg overflow-hidden">
+        
+        <div class="bg-slate-800 text-white p-6 border-b-4 border-blue-500">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h1 class="text-2xl font-bold">{{ report_title_lines.0 }}</h1>
+                    <h2 class="text-lg text-blue-300 mt-1">{{ report_title_lines.1 }}</h2>
+                    <p class="text-sm text-slate-400 mt-2 font-mono">{{ report_title_lines.2 }}</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-xs text-slate-400">Generated: {{ creation_date }}</p>
+                    <p class="text-xs text-slate-500 mt-1">Contest Log Analytics</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="p-6">
+            
+            <div class="mb-8">
+                <h3 class="text-lg font-bold text-slate-700 mb-3 border-b pb-2">Summary</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left border-collapse">
+                        <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b">
+                            <tr>
+                                <th class="px-4 py-3 font-bold">Scope</th>
+                                <th class="px-4 py-3 text-center">Total Worked</th>
+                                <th class="px-4 py-3 text-center">Common</th>
+                                {% for call in all_calls %}
+                                <th class="px-4 py-3 text-center text-blue-600">{{ call }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            {% for row in breakdown_totals %}
+                            <tr class="hover:bg-slate-50 transition-colors">
+                                <td class="px-4 py-2 font-medium text-slate-700" style="padding-left: {{ row.indent|default:0|add:1 }}rem;">
+                                    {{ row.label }}
+                                </td>
+                                <td class="px-4 py-2 text-center font-bold">{{ row.total_worked }}</td>
+                                <td class="px-4 py-2 text-center text-slate-500">{{ row.common }}</td>
+                                {% for station in row.stations %}
+                                <td class="px-4 py-2 text-center border-l border-slate-100">
+                                    <span class="font-mono">{{ station.count }}</span>
+                                    {% if station.delta < 0 %}
+                                    <span class="text-red-600 font-bold ml-1 text-xs">({{ station.delta }})</span>
+                                    {% endif %}
+                                </td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                
+                <div>
+                    <h3 class="text-lg font-bold text-slate-700 mb-3 border-b pb-2">Low Bands (160M - 40M)</h3>
+                    {% for block in low_bands_data %}
+                    <div class="mb-6 border rounded-lg overflow-hidden">
+                        <div class="bg-slate-100 px-4 py-2 font-bold text-slate-700 text-sm border-b">
+                            {{ block.label }}
+                        </div>
+                        <table class="w-full text-sm text-left">
+                            <thead class="text-xs text-slate-500 bg-white border-b">
+                                <tr>
+                                    <th class="px-3 py-2 w-1/4">Entity</th>
+                                    <th class="px-2 py-2 text-center">Wkd</th>
+                                    <th class="px-2 py-2 text-center">Cmn</th>
+                                    {% for call in all_calls %}
+                                    <th class="px-2 py-2 text-center">{{ call }}</th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 bg-white">
+                                {% for row in block.rows %}
+                                <tr class="hover:bg-blue-50">
+                                    <td class="px-3 py-1 truncate max-w-[150px]" title="{{ row.label }}">
+                                        {{ row.label }}
+                                    </td>
+                                    <td class="px-2 py-1 text-center font-bold">{{ row.total_worked }}</td>
+                                    <td class="px-2 py-1 text-center text-slate-400">{{ row.common }}</td>
+                                    {% for station in row.stations %}
+                                    <td class="px-2 py-1 text-center border-l border-slate-100">
+                                        {{ station.count }}
+                                        {% if station.delta < 0 %}
+                                        <span class="text-red-500 font-bold text-xs block leading-none">({{ station.delta }})</span>
+                                        {% endif %}
+                                    </td>
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div>
+                    <h3 class="text-lg font-bold text-slate-700 mb-3 border-b pb-2">High Bands (20M - 10M)</h3>
+                    {% for block in high_bands_data %}
+                    <div class="mb-6 border rounded-lg overflow-hidden">
+                        <div class="bg-slate-100 px-4 py-2 font-bold text-slate-700 text-sm border-b">
+                            {{ block.label }}
+                        </div>
+                        <table class="w-full text-sm text-left">
+                            <thead class="text-xs text-slate-500 bg-white border-b">
+                                <tr>
+                                    <th class="px-3 py-2 w-1/4">Entity</th>
+                                    <th class="px-2 py-2 text-center">Wkd</th>
+                                    <th class="px-2 py-2 text-center">Cmn</th>
+                                    {% for call in all_calls %}
+                                    <th class="px-2 py-2 text-center">{{ call }}</th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 bg-white">
+                                {% for row in block.rows %}
+                                <tr class="hover:bg-amber-50">
+                                    <td class="px-3 py-1 truncate max-w-[150px]" title="{{ row.label }}">
+                                        {{ row.label }}
+                                    </td>
+                                    <td class="px-2 py-1 text-center font-bold">{{ row.total_worked }}</td>
+                                    <td class="px-2 py-1 text-center text-slate-400">{{ row.common }}</td>
+                                    {% for station in row.stations %}
+                                    <td class="px-2 py-1 text-center border-l border-slate-100">
+                                        {{ station.count }}
+                                        {% if station.delta < 0 %}
+                                        <span class="text-red-500 font-bold text-xs block leading-none">({{ station.delta }})</span>
+                                        {% endif %}
+                                    </td>
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% endfor %}
+                </div>
+
+            </div>
+        </div>
+        
+        <div class="bg-slate-50 p-4 border-t text-center text-xs text-slate-400">
+            End of Report &bull; Contest Log Analytics
+        </div>
+    </div>
+</body>
+</html>
