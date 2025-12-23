@@ -268,7 +268,7 @@ This serves as a final, user-gated checkpoint before the state is altered.
         * **Step C (Changes Needed): Propose Plan.** If discrepancies are found, ask if the user wants an implementation plan to update the document.
         * **Step D: Provide Plan.** Upon approval, provide a detailed, surgical implementation plan for the necessary changes.
         * **Step E: Request to Proceed.** Ask for explicit permission to generate the updated document.
-        * **Step F: Deliver Update.** Upon approval, perform a **Pre-Flight Check**, explicitly state that the check is complete, and then deliver the updated document.
+        * **Step F: Deliver Update.** (Refactored): Updates to documentation must follow the standard **Architect -> Builder** flow. The Analyst cannot deliver the file directly.
         * **Step G (No Changes Needed):** If the analysis in Step B finds no discrepancies, the AI will state that the document is already synchronized and ask for the user's confirmation to proceed to the next document.
     3.  **Completion:** After the final document has been processed, the AI will state that the protocol is complete.
     4.  **Version Update on Modification Only Clarification**: A file's version number and revision history will only be updated if its content requires changes to be synchronized with the project baseline.
@@ -346,7 +346,7 @@ I will never assume your intent or advance the workflow proactively.
 
 2.0.1. **The Trinity Ingress Protocol.**
     * **Definition:** "The Trinity" is defined as the simultaneous upload of:
-        1. Source Code (via Manifest or Project Bundle).
+        1. Source Code (via `builder_bundle.txt` or `project_bundle.txt`).
         2. `ImplementationPlan.md`.
         3. `AIAgentWorkflow.md`.
     * **Trigger:** When The Trinity is detected in conjunction with the **"Act as Builder"** macro (Protocol 1.6).
@@ -362,6 +362,28 @@ This phase is exempt from the strict "halt and wait" procedure of the main workf
     3. **Conclusion**: The protocol concludes when the user and AI agree on a well-defined set of requirements.
     4.  **Summary Mandate**: As the final step of this protocol, the AI must provide a concise, numbered list summarizing the final, agreed-upon requirements.
 The user then formally initiates the **Task Execution Workflow (Protocol 2.1)** with the newly defined task.
+
+2.0. **The Disconnected State Machine.**
+    The AI operates in one of three mutually exclusive states. Direct transitions between non-adjacent states (except via Trinity Ingress or Analyst Reset) are **Protocol Violations**.
+    1.  **State 1: Analysis & Discussion (The Analyst)**
+        * **Role:** Passive analysis, exploring options, debugging.
+        * **Input:** Chat History + `project_bundle.txt` (plus optional artifacts).
+        * **Forbidden:** Generating code files, generating Implementation Plans, "acting" as Builder.
+        * **Valid Exit A:** **"Generate Builder Execution Kit"** -> Transitions to State 2 (Architect).
+        * **Valid Exit B:** **"Initiate Architect Handoff"** -> Transitions to State 2 (Architect).
+        * **Valid Exit C:** **"Act as Builder"** -> Transitions to State 3 (Builder). *Condition: The Trinity must be present.*
+    2.  **State 2: Planning & Assembly (The Architect)**
+        * **Role:** Generating the `ImplementationPlan.md` and `manifest.txt`.
+        * **Input:** Chat History + `project_bundle.txt`.
+        * **Trigger:** Entered ONLY via "Generate Builder Execution Kit" or "Initiate Architect Handoff".
+        * **Forbidden:** Executing the plan, modifying code, generating documentation directly.
+        * **Mandatory Exit:** **HALT**. The Architect must stop after delivering the Kit. It cannot transition directly to Builder.
+    3.  **State 3: Execution (The Builder)**
+        * **Role:** Generating code files based *strictly* on the approved Plan.
+        * **Input:** **The Trinity** (Source + Plan + Workflow). *Clean Context Required.*
+        * **Trigger:** Entered ONLY via "Act as Builder" with The Trinity present.
+        * **Forbidden:** Deviation from the plan, new analysis, answering "Why".
+        * **Emergency Exit:** **"Act as Analyst"**. Forces a state reset to State 1, discards the plan, and unlocks context.
 
 2.1. **Architect Mode (Default State)**:
     * **Definition:** I am the **Architect** by default. My goal is to produce a **Builder Execution Kit**.
@@ -404,7 +426,8 @@ This command is universal (used for the initial Kit and all subsequent iteration
         * **Protocol 3.3 (Context Audit):** PASS/FAIL
         * **Protocol 3.2.4 (Sanitization):** **PASS (Internal fences sanitized to `__CODE_BLOCK__`)**
         * **Protocol 2.4.5 (Manifest Isolation):** **PENDING (Manifest block confirmed as final artifact)**
-    * **2.4.5 The Manifest Isolation:** The `manifest.txt` list MUST be provided in its own distinct code block, separate from the `cla-bundle` block, to facilitate easy extraction by the user.
+    * **2.4.5 The Manifest Isolation:** The `manifest.txt` list MUST be provided in its own distinct code block, separate from 
+the `cla-bundle` block, to facilitate easy extraction by the user.
     * **2.4.6. The Structural Gate (The "Meta-Pre-Flight").**
         * **Trigger:** Immediately before generating the final response containing a Builder Execution Kit.
         * **The Check:** The Architect must perform an explicit internal verification of the output structure.
@@ -499,15 +522,19 @@ The task is successfully concluded once the user provides the standard 'Acknowle
 3.1. **User-Side Project Bundles.** All project source files and documentation will be provided for updates in a single text file called a **project bundle**, or pasted individually into the chat.
 The bundle uses a simple text header to separate each file: `--- FILE: path/to/file.ext ---`.
     * **User-Only Ingress Tool:** The Project Bundle format is strictly a **User-Only** mechanism for delivering context to the AI.
-    * **Negative Constraint:** It is **strictly forbidden** for the AI to generate output using the Project Bundle format or the `--- FILE: ... ---` separator. The AI must never concatenate multiple files into a single response block.
+    * **Negative Constraint:** It is **strictly forbidden** for the AI to generate output using the Project Bundle format or the `--- FILE: ... ---` separator.
+The AI must never concatenate multiple files into a single response block.
 3.2. **AI Output Format.** When the AI provides updated files, it must follow these rules to ensure data integrity.
-    1.  **Single File Per Response**: Only one file will be delivered in a single response. I will **never** use the `--- FILE:` delimiter to concatenate files. Grouping multiple source files into a single response is a Protocol Violation.
+    1.  **Single File Per Response**: Only one file will be delivered in a single response.
+I will **never** use the `--- FILE:` delimiter to concatenate files.
+Grouping multiple source files into a single response is a Protocol Violation.
     2.  **Raw Source Text**: The content inside the delivered code block must be the raw source text of the file.
     3.  **Code File Delivery**: For code files (e.g., `.py`, `.json`), the content will be delivered in a standard fenced code block with the appropriate language specifier.
     4.  **Markdown File Delivery**: Documentation files (`.md`) must be delivered inside a `cla-bundle` specified code block.
         * **The Container:** The outer standard Markdown fences (```markdown) **MUST** remain as real backticks to trigger the UI code box.
         * **The Content:** You must programmatically Find & Replace all *internal* triple-backticks within the file content with the literal string `__CODE_BLOCK__` *before* wrapping it in the container.
-        * **The Test:** The output must render as a distinct code box. If the `cla-bundle` closes prematurely due to an unsanitized backtick, the Compliance Report's "Protocol 3.2.4" check is retroactively **FAILED**, triggering a Circuit Breaker (1.3).
+        * **The Test:** The output must render as a distinct code box.
+If the `cla-bundle` closes prematurely due to an unsanitized backtick, the Compliance Report's "Protocol 3.2.4" check is retroactively **FAILED**, triggering a Circuit Breaker (1.3).
     5.  **Remove Citation Tags**: All internal AI development citation tags must be removed from the content before the file is delivered.
 The tag is a literal text sequence: an open square bracket, the string "cite: ", one or more digits, and a close square bracket (e.g.,).
 This pattern does not include Markdown backticks.
@@ -583,10 +610,12 @@ This allows a child file to inherit a full ruleset and only specify the keys tha
 
 4.1. **The Exact Prompt Protocol.**
     * **Mandate:** Whenever the AI requires user input to proceed (e.g., 'Approved', 'Proceed', 'Act as Builder', 'Generate Builder Execution Kit'), it must explicitly provide the exact text required.
-    * **Format:** "To proceed, please provide the exact prompt: **'[REQUIRED_PHRASE]'**."
+    * **Format:** The prompt request must be the **final line** of the response. It must be generated using the exact string literal below, with zero variation or conversational prefixes (optional trailing period allowed):
+        `"To proceed, please provide the exact prompt: '[REQUIRED_PHRASE]'."`
     * **Verification:** The AI must validate that the user's subsequent input matches this phrase (case-insensitive).
-If it does not match, the AI must **HALT** and re-request the exact phrase.
-    * **Anti-Inference Clause:** It is a **Critical Protocol Violation** to infer or predict that the user *intends* to issue a prompt. The prompt must be **received** in the chat history before the associated action can be taken.
+        If it does not match, the AI must **HALT** and re-request the exact phrase.
+    * **Anti-Inference Clause:** It is a **Critical Protocol Violation** to infer or predict that the user *intends* to issue a prompt.
+The prompt must be **received** in the chat history before the associated action can be taken.
     * **Strict Enforcement:** The AI **MUST NOT** accept synonyms (e.g., accepting 'Confirmed' when 'Acknowledged' is required).
 Use of a synonym constitutes a Protocol Violation.
     * **Allowed Variances:** Only casing (uppercase/lowercase) and a single optional trailing period (.) are permitted.
@@ -664,7 +693,8 @@ These protocols describe specific, named patterns for implementing features in t
     3.  **Report Logic**: The specialist reports must accept a `mode_filter` argument.
 
 5.3. **Data-Driven Scoring Protocol.** To accommodate different scoring methods, the `score_formula` key is available in the contest's `.json` definition.
-If set to `"qsos_times_mults"`, the final score will be `Total QSOs x Total Multipliers`.
+    1.  **Activation**: The contest's `.json` file must contain `"score_formula": "qsos_times_mults"`.
+    2.  **Implementation**: The score calculator must implement this formula.
 If omitted, it defaults to `Total QSO Points x Total Multipliers`.
 
 5.4. **Text Table Generation Protocol.** This protocol governs the creation of text-based tables in reports, recommending the appropriate tool for the job.
@@ -762,12 +792,13 @@ Examples include `git ls-files` to check tracking status or `attrib` (on Windows
         * For a new initialization: *"I am establishing a new definitive state based ONLY on the bundle files you have provided in the immediately preceding turn. I will not reference any prior chat history for file content. Please confirm to proceed."*
         * For executing a plan: *"I am about to generate `path/to/file.ext` based on the Implementation Plan you approved. I have locked in the baseline version `<X.Y.Z-Beta>` as specified in that plan. Please confirm to proceed."*
     3.  **User Action (The Forcing Function)**: You must validate this statement by providing the exact command: **EXECUTE**.
-    4.  **Transition Mandate:** Upon receiving `EXECUTE`, the AI **MUST** immediately initiate **Protocol 4.4 (Confirmed File Delivery)** for the first file in the plan. Any intermediate text or summary is a Protocol Violation.
+    4.  **Transition Mandate:** Upon receiving `EXECUTE`, the AI **MUST** immediately initiate **Protocol 4.4 (Confirmed File Delivery)** for the first file in the plan.
+Any intermediate text or summary is a Protocol Violation.
 
 6.13. **The Logic Lock.**
     * **Rule:** The Builder is **STRICTLY FORBIDDEN** from modifying the *logic* or *design* defined in the Plan.
     * **Allowed Fixes:** Syntax errors, indentation, import errors (Surgical Repairs only).
-    * **Response:** If a logic error is found, the Builder **MUST** Halt and state: "Verification Failed: This is a Logic/Design error. I cannot fix this without deviating from the Approved Plan. **Please return to the Architect Instance** to revise the Plan."
+    * **Response:** If a logic error is found, the Builder **MUST** Halt and state: "Verification Failed: This is a Logic/Design error. I cannot fix this without deviating from the Approved Plan. To discuss this change, please provide the exact prompt: **'Act as Analyst'**."
 
 6.11. **Failure Spiral Circuit Breaker Protocol.** This protocol automatically triggers to prevent a cascade of errors resulting from a degraded or corrupted context.
     1.  **Trigger**: This protocol is triggered if two of the following conditions occur within the same development task:
@@ -839,4 +870,5 @@ To ensure completeness, the AI **must explicitly state the exact search method u
         * **Internal Content (Sanitize):** Only triple backticks inside the file content itself (e.g., a Python docstring or a Markdown file being delivered) must be sanitized (replaced with `__CODE_BLOCK__`) to prevent breaking the outer container.
         * **Visual Check:** The final output must look like a rendered code box in the chat window, not plain text starting with `__CODE_BLOCK__...`.
         * **Example:** "Wrap the file content in standard markdown fences (`python` ... ). Do not replace these outer fences with placeholders. Only sanitize triple backticks that appear within the code itself."
-        * **Recursion Mandate:** When delivering a Markdown file (like `ImplementationPlan.md`) inside a wrapper, the "internal content" rule applies. The Agent must simulate a text processor: `content.replace("```", "__CODE_BLOCK__")`.
+        * **Recursion Mandate:** When delivering a Markdown file (like `ImplementationPlan.md`) inside a wrapper, the "internal content" rule applies.
+The Agent must simulate a text processor: `content.replace("```", "__CODE_BLOCK__")`.
