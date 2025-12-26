@@ -13,7 +13,8 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
       <div class="container-fluid">
         <button class="btn btn-primary me-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMenu" aria-controls="offcanvasMenu" title="Menu & Documentation">
-            <span class="navbar-toggler-icon"></span>
+            
+<span class="navbar-toggler-icon"></span>
       </button>
         <a class="navbar-brand fw-bold" href="{% url 'home' %}">
             <i class="bi bi-broadcast me-2"></i>Contest Log Analytics by KD4D
@@ -24,7 +25,8 @@
     <div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvasMenu" aria-labelledby="offcanvasMenuLabel">
       <div class="offcanvas-header bg-light border-bottom">
         <h5 class="offcanvas-title fw-bold text-primary" id="offcanvasMenuLabel">Menu</h5>
-        <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        <button type="button" class="btn-close text-reset" 
+data-bs-dismiss="offcanvas" aria-label="Close"></button>
       </div>
       <div class="offcanvas-body">
         <ul class="nav flex-column">
@@ -33,12 +35,17 @@
           </li>
           <li class="nav-item mt-3">
             <span class="text-muted small text-uppercase fw-bold px-3">Help & Documentation</span>
+ 
             <a class="nav-link text-dark" href="{% url 'help_about' %}"><i class="bi bi-info-circle me-2"></i>About</a>
             <a class="nav-link text-dark" href="{% url 'help_dashboard' %}"><i class="bi bi-layout-text-window-reverse me-2"></i>Dashboard Guide</a>
             <a class="nav-link text-dark" href="{% url 'help_reports' %}"><i class="bi bi-book me-2"></i>Report Guide</a>
+            <a class="nav-link text-dark" href="#" data-bs-toggle="modal" data-bs-target="#feedbackModal">
+                <i class="bi bi-chat-left-text me-2"></i>Feedback
+            </a>
           </li>
           <li class="nav-item mt-3">
-            <span class="text-muted small text-uppercase fw-bold px-3">Recent Sessions</span>
+            <span class="text-muted 
+small text-uppercase fw-bold px-3">Recent Sessions</span>
             <p class="text-muted small px-3 mt-2">No history available.</p>
           </li>
         </ul>
@@ -46,6 +53,42 @@
     </div>
 
     {% block content %}{% endblock %}
+
+    <div class="modal fade" id="feedbackModal" tabindex="-1" aria-labelledby="feedbackModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header bg-light">
+            <h5 class="modal-title fw-bold text-secondary" id="feedbackModalLabel"><i class="bi bi-chat-dots me-2"></i>Feedback & Support</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <h6 class="fw-bold text-primary">1. Where to Send</h6>
+            <p class="small text-muted mb-1">Public discussion, feature requests, and general bugs:</p>
+            <div class="alert alert-secondary py-2 px-3 mb-3 font-monospace small user-select-all">
+                Contest-Log-Analyzer-Beta@groups.io
+            </div>
+
+
+            <h6 class="fw-bold text-success">2. What to Attach</h6>
+            <ul class="small text-muted mb-3">
+                <li><i class="bi bi-check-circle-fill text-success me-2"></i><strong>Description:</strong> What were you trying to do?</li>
+                <li><i class="bi bi-check-circle-fill text-success me-2"></i><strong>Evidence:</strong> Attach Screenshots or specific Report Files (e.g., <code>rate_sheet.txt</code>).</li>
+            </ul>
+
+            <div class="alert alert-warning border-0 shadow-sm d-flex align-items-start">
+                <i class="bi bi-exclamation-triangle-fill flex-shrink-0 me-3 mt-1 text-warning"></i>
+                <div class="small">
+                    <strong>File Size Warning:</strong><br>
+                    Do <strong>NOT</strong> attach the full "Download All" ZIP file. These archives can be extremely large (10GB+) and will be rejected by email servers.
+                </div>
+            </div>
+          </div>
+          <div class="modal-footer border-0">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   </body>

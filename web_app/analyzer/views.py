@@ -5,21 +5,24 @@
 #          aggregates data using DAL components, and renders the dashboard.
 #
 # Author: Gemini AI
-# Date: 2025-12-23
-# Version: 0.139.8-Beta
+# Date: 2025-12-25
+# Version: 0.140.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
-#          ([https://www.mozilla.org/MPL/2.0/](https://www.mozilla.org/MPL/2.0/))
+#          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0.
 # If a copy of the MPL was not distributed with this
-# file, You can obtain one at [http://mozilla.org/MPL/2.0/](http://mozilla.org/MPL/2.0/).
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.140.0-Beta] - 2025-12-25
+# - Updated `_update_progress` to use atomic file writes (write to .tmp -> os.replace)
+#   to prevent `JSONDecodeError` race conditions on the frontend.
 # [0.139.8-Beta] - 2025-12-23
 # - Fixed artifact discovery bug in `multiplier_dashboard` where `next()` would return single-log
 #   artifacts instead of the combined session artifact. Implemented strict suffix matching
@@ -227,8 +230,14 @@ def _update_progress(request_id, step):
     os.makedirs(progress_dir, exist_ok=True)
     
     file_path = os.path.join(progress_dir, f"{request_id}.json")
-    with open(file_path, 'w') as f:
+    temp_path = f"{file_path}.tmp"
+
+    # Write to a temporary file first
+    with open(temp_path, 'w') as f:
         json.dump({'step': step}, f)
+    
+    # Atomic replace to avoid JSONDecodeError on read
+    os.replace(temp_path, file_path)
 
 def get_log_index_view(request):
     """API Endpoint: Returns list of available callsigns for Year/Mode."""
@@ -743,7 +752,7 @@ def qso_dashboard(request, session_id):
                     # Remove prefix and suffix to isolate band
                     band_part = fname.replace(target_prefix, '').replace(target_suffix, '')
                     # band_part is roughly {band_slug}
-        
+                    
                     # Prepend report_rel_path to ensure view_report can find it
                     diff_paths[band_part] = f"{report_rel_path}/{art['path']}"
         

@@ -4,8 +4,8 @@
 #          on common/unique QSOs broken down by Run vs. Search & Pounce (S&P) mode.
 #
 # Author: Gemini AI
-# Date: 2025-12-20
-# Version: 0.131.0-Beta
+# Date: 2025-12-25
+# Version: 0.141.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,36 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.141.0-Beta] - 2025-12-25
+# - Removed floating subplot titles to eliminate overlap.
+# - Added x-axis titles to subplots for clearer band identification.
+# - Reduced vertical spacing to 0.05 and adjusted margins (t=100, b=40).
+# [0.140.0-Beta] - 2025-12-25
+# - Optimized layout margins (t=90, b=70) to balance title clearance vs footer visibility.
+# - Increased subplot vertical spacing to 0.08 to prevent title collision.
+# [0.137.0-Beta] - 2025-12-25
+# - Implemented "Safe Zone" layout strategy with increased margins (t=120, b=50, l=50, r=50)
+#   for dashboard integration to prevent overlap.
+# [0.136.0-Beta] - 2025-12-25
+# - Optimized layout for dashboard integration ("Fill the Viewport"):
+#   - Migrated band labels to subplot titles for better association.
+#   - Reduced vertical spacing between subplots to 0.05.
+#   - Tightened HTML layout margins (t=60, b=30, l=10, r=10).
+# [0.135.0-Beta] - 2025-12-25
+# - Forced removal of fixed dimensions for HTML output using direct attribute assignment.
+# - Optimized margins (t=100, b=40) for dashboard integration.
+# [0.134.0-Beta] - 2025-12-25
+# - Reverted vertical spacing to 0.12 to accommodate X-axis labels.
+# - Restored standard X-axis labels (Band Name) and removed in-chart badges.
+# [0.133.0-Beta] - 2025-12-25
+# - Replaced external subplot titles with in-chart badges to save vertical space.
+# - Reduced subplot vertical spacing.
+# [0.132.0-Beta] - 2025-12-25
+# - Increased subplot vertical spacing to 0.15.
+# - Added explicit X-axis labels (Band Name) to each subplot.
+# - Enabled responsive resizing for HTML dashboard integration.
+# [0.131.1-Beta] - 2025-12-25
+# - Updated band sorting logic to use canonical frequency order via ContestLog._HAM_BANDS.
 # [0.131.0-Beta] - 2025-12-20
 # - Refactored to use `get_standard_title_lines` for standardized 3-line headers.
 # - Implemented explicit "Smart Scoping" for title generation.
@@ -59,12 +89,11 @@ from contest_tools.reports._report_utils import get_valid_dataframe, create_outp
 class Report(ContestReport):
     """
     Generates a stacked bar chart comparing two logs on common/unique QSOs
-    broken down by Run vs. Search & Pounce (S&P) mode for each band.
+    broken down by Run vs. Search & Pounce (S&P) mode.
     """
     report_id = 'qso_breakdown_chart' # Aligned with Interpretation Guide
     report_name = 'QSO Breakdown Chart'
     report_type = 'chart'
-    
     supports_pairwise = True
 
     def __init__(self, logs: List[ContestLog]):
@@ -110,7 +139,7 @@ class Report(ContestReport):
                 comparison_data['log2_unique']['unk']
             ]
         }
-         
+        
         return {
             'categories': categories,
             'modes': modes,
@@ -126,7 +155,9 @@ class Report(ContestReport):
         df1 = get_valid_dataframe(self.log1)
         df2 = get_valid_dataframe(self.log2)
 
-        bands = sorted(set(df1['Band'].unique()) | set(df2['Band'].unique()))
+        raw_bands = set(df1['Band'].unique()) | set(df2['Band'].unique())
+        canonical_band_order = [b[1] for b in ContestLog._HAM_BANDS]
+        bands = sorted(raw_bands, key=lambda b: canonical_band_order.index(b) if b in canonical_band_order else -1)
 
         if not bands:
             return []
@@ -135,14 +166,12 @@ class Report(ContestReport):
         num_bands = len(bands)
         cols = min(3, num_bands)
         rows = (num_bands + cols - 1) // cols
-        
-        subplot_titles = [f"{band} Band Breakdown" for band in bands]
 
         fig = make_subplots(
             rows=rows, 
             cols=cols, 
-            subplot_titles=subplot_titles, 
-            shared_yaxes=True
+            shared_yaxes=True,
+            vertical_spacing=0.05
         )
 
         colors = PlotlyStyleManager.get_qso_mode_colors()
@@ -172,6 +201,7 @@ class Report(ContestReport):
                     ),
                     row=row, col=col
                 )
+            fig.update_xaxes(title_text=band, row=row, col=col)
 
         # Standard Layout Application
         modes_present = set(df1['Mode'].dropna().unique()) | set(df2['Mode'].dropna().unique())
@@ -216,14 +246,17 @@ class Report(ContestReport):
         # 2. Save Interactive HTML
         html_file = os.path.join(output_path, f"{base_filename}.html")
         
-        # Responsive sizing for HTML
-        fig.update_layout(
-            autosize=True,
-            width=None,
-            height=None
-        )
+        # Force removal of fixed dimensions to enable responsive sizing
+        fig.layout.height = None
+        fig.layout.width = None
         
-        config = {'toImageButtonOptions': {'filename': base_filename, 'format': 'png'}}
+        # Optimize margins for dashboard display
+        fig.update_layout(margin=dict(t=100, b=40, l=50, r=50))
+        
+        config = {
+            'toImageButtonOptions': {'filename': base_filename, 'format': 'png'},
+            'responsive': True
+        }
         fig.write_html(html_file, include_plotlyjs='cdn', config=config)
 
         # Return list of successfully created files (checking existence)
