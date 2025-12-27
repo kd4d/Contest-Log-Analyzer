@@ -4,8 +4,8 @@
 #          on common/unique QSOs broken down by Run vs. Search & Pounce (S&P) mode.
 #
 # Author: Gemini AI
-# Date: 2025-12-25
-# Version: 0.141.0-Beta
+# Date: 2025-12-27
+# Version: 0.142.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.142.0-Beta] - 2025-12-27
+# - Increased subplot vertical_spacing to 0.15 to prevent label overlap.
+# - Reduced X-axis title_standoff to 5 to tighten Band Label placement.
+# - Increased bottom margin to 60px to accommodate labels.
 # [0.141.0-Beta] - 2025-12-25
 # - Removed floating subplot titles to eliminate overlap.
 # - Added x-axis titles to subplots for clearer band identification.
@@ -171,7 +175,7 @@ class Report(ContestReport):
             rows=rows, 
             cols=cols, 
             shared_yaxes=True,
-            vertical_spacing=0.05
+            vertical_spacing=0.15
         )
 
         colors = PlotlyStyleManager.get_qso_mode_colors()
@@ -201,7 +205,7 @@ class Report(ContestReport):
                     ),
                     row=row, col=col
                 )
-            fig.update_xaxes(title_text=band, row=row, col=col)
+            fig.update_xaxes(title_text=band, title_standoff=5, row=row, col=col)
 
         # Standard Layout Application
         modes_present = set(df1['Mode'].dropna().unique()) | set(df2['Mode'].dropna().unique())
@@ -217,7 +221,7 @@ class Report(ContestReport):
         # Specific Adjustments
         fig.update_layout(
             barmode='stack',
-            margin=dict(t=140) # Increased top margin to prevent title overlap
+            margin=dict(t=140, b=60) # Increased top margin to prevent title overlap
         )
 
         create_output_directory(output_path)
@@ -251,7 +255,7 @@ class Report(ContestReport):
         fig.layout.width = None
         
         # Optimize margins for dashboard display
-        fig.update_layout(margin=dict(t=100, b=40, l=50, r=50))
+        fig.update_layout(margin=dict(t=100, b=60, l=50, r=50))
         
         config = {
             'toImageButtonOptions': {'filename': base_filename, 'format': 'png'},
