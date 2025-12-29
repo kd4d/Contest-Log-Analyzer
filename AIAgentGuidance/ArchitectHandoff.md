@@ -1,24 +1,34 @@
-# ArchitectHandoff.md
+# Architect Handoff: The JSON Pivot
 
-**Version:** 1.0.0
-**Date:** 2025-12-23
+**From:** Architect (Session 2.1)
+**To:** Incoming Architect
+**Date:** 2025-12-29
 
-## 1. Session Summary
-We have successfully completed a major "Metacognitive Refactor" of the AI Agent's operating protocols.
-* **Accomplished:** We rewrote `AIAgentWorkflow.md` to enforce a "Disconnected State Machine," separating the Analyst, Architect, and Builder roles to prevent context pollution. We also created a new `AIAgentUsersGuide.md` to explain this "Air Gap" workflow to the user.
-* **Stopped:** We deliberately halted before beginning **Phase 3 (Text Report Standardization)** to avoid polluting the context window with the workflow discussions.
+## The "Why" (Context Bridge)
 
-## 2. Immediate Priorities (The "Next Action")
-The immediate goal for the next session is to execute **Phase 3**.
-* **Target Files:** `contest_tools/reports/text_rate_sheet.py` and `contest_tools/reports/text_summary.py`.
-* **Objective:** Refactor these reports to use the `prettytable` library (replacing manual string formatting) and align them with the `CLAReportsStyleGuide.md`.
+We are in the middle of a critical architectural pivot for the Web Dashboard. The previous "Iframe-based" approach caused unresolvable layout issues (double scrollbars, clipping).
 
-## 3. Recommended Start-Up Procedure
-1.  **Save** this Handoff Kit (`ArchitectureRoadmap.md`, `ArchitectHandoff.md`) and the new `AIAgentUsersGuide.md`.
-2.  **Start a New Chat** (Analyst Mode).
-3.  **Upload:**
-    * `project_bundle.txt` (Your standard source).
-    * `AIAgentWorkflow.md` (The new v4.25.0+ version).
-    * `ArchitectureRoadmap.md` (From this kit).
-    * `ArchitectHandoff.md` (From this kit).
-4.  **Prompt:** "Review the Handoff Kit. Let's begin Phase 3: Text Report Standardization."
+**The New Standard:**
+We have established a **Component-Based Architecture**.
+1.  **Python** generates pure data (`.json`) using the DAL.
+2.  **Django/JS** fetches that data and renders it into a `<div>` using `Plotly.newPlot()`.
+
+## Immediate Priorities (The Queue)
+
+You are receiving the project in a **mixed state**. The `Strategy` tab of the QSO Dashboard is modernized (JSON), but the other tabs (`Rates`, `Points`) are still legacy (Iframes).
+
+**Your Mission:** Complete **Phase 2 (The Rollout)**.
+1.  **Target Reports:**
+    * `plot_qso_rate.py` (Used in "QSOs by Band" tab and Global Context).
+    * `plot_point_rate.py` (Used in "Points & Bands" tab).
+    * `chart_point_contribution.py` (Used in "Points & Bands" tab).
+2.  **Required Action:**
+    * Update these generators to output `.json` artifacts (enforcing `.tolist()` for data arrays).
+    * Update `views.py` to discover these JSON files.
+    * Update `qso_dashboard.html` to render them via `renderChart()`.
+
+## Critical Warnings (Do Not Ignore)
+
+1.  **The "Straight Line" Bug:** When serializing data for JSON, you **MUST** convert Pandas Series to Lists (`series.tolist()`) before passing them to Plotly. Failing to do so causes the JSON serializer to dump the *Index* instead of the *Values*, resulting in a garbage straight-line plot.
+2.  **Layout Authority:** Do **NOT** override chart margins in the Javascript/HTML. The Python backend (`PlotlyStyleManager`) calculates precise margins for titles and footers. Overriding them in the frontend causes clipping.
+3.  **The Three-Artifact Rule:** For now, continue generating `.html` and `.png` files alongside the `.json`. The `.html` is required to keep the "Full Screen" buttons working until we refactor the viewer in Phase 3.

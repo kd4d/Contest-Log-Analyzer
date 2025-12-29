@@ -5,7 +5,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-29
-# Version: 0.147.0-Beta
+# Version: Phase 1 (Pathfinder)
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [Phase 1 (Pathfinder)] - 2025-12-29
+# - Added JSON export functionality for web component integration.
 # [0.147.0-Beta] - 2025-12-29
 # - Swapped generation order: HTML (Fluid) is now generated before PNG (Fixed) to prevent state leakage.
 # [0.145.0-Beta] - 2025-12-29
@@ -96,6 +98,7 @@
 # [0.93.7-Beta] - 2025-12-04
 # - Fixed runtime crash by ensuring the output directory is created before
 #   saving the chart file.
+
 import os
 from typing import List, Dict, Tuple
 import pandas as pd
@@ -255,6 +258,7 @@ class Report(ContestReport):
         
         filepath_png = os.path.join(output_path, f"{filename_base}.png")
         filepath_html = os.path.join(output_path, f"{filename_base}.html")
+        filepath_json = os.path.join(output_path, f"{filename_base}.json")
         
         results = []
         try:
@@ -281,6 +285,10 @@ class Report(ContestReport):
             fig.write_image(filepath_png, width=1600)
             results.append(f"Plot saved: {filepath_png}")
             
+            # 3. Save JSON (Component Data)
+            fig.write_json(filepath_json)
+            results.append(f"JSON data saved: {filepath_json}")
+            
         except Exception as e:
             # Fallback/Error logging if one fails, but try to continue
             # For now, just pass as per original structure, or log if logger available.
@@ -292,5 +300,7 @@ class Report(ContestReport):
             outputs.append(filepath_png)
         if os.path.exists(filepath_html):
             outputs.append(filepath_html)
+        if os.path.exists(filepath_json):
+            outputs.append(filepath_json)
 
         return outputs

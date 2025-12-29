@@ -6,7 +6,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-25
-# Version: 0.140.0-Beta
+# Version: Phase 1 (Pathfinder)
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -20,6 +20,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [Phase 1 (Pathfinder)] - 2025-12-29
+# - Updated `qso_dashboard` view to discover and pass JSON artifacts for interactive web components.
 # [0.140.0-Beta] - 2025-12-25
 # - Updated `_update_progress` to use atomic file writes (write to .tmp -> os.replace)
 #   to prevent `JSONDecodeError` race conditions on the frontend.
@@ -309,12 +311,12 @@ def analyze_logs(request):
                 callsigns_raw = request.POST.get('fetch_callsigns') # JSON string
                 year = request.POST.get('fetch_year')
                 mode = request.POST.get('fetch_mode')
-                
+                 
                 callsigns = json.loads(callsigns_raw)
                 
                 _update_progress(request_id, 1) # Step 1: Fetching
                 log_paths = download_logs(callsigns, year, mode, session_path)
-                
+                 
                 return _run_analysis_pipeline(request_id, log_paths, session_path, session_key)
             
             except ValueError as e:
@@ -740,25 +742,35 @@ def qso_dashboard(request, session_id):
             
             # Discover available band variants for the diff plot via Manifest
             diff_paths = {}
+            diff_json_paths = {}
             
             # Filter artifacts for this pair's difference plots
             target_prefix = f"cumulative_difference_plots_qsos_"
-            target_suffix = f"_{c1}_{c2}.html"
+            target_html_suffix = f"_{c1}_{c2}.html"
+            target_json_suffix = f"_{c1}_{c2}.json"
             
             for art in artifacts:
-                if art['report_id'] == 'cumulative_difference_plots' and art['path'].endswith(target_suffix):
+                if art['report_id'] == 'cumulative_difference_plots' and art['path'].endswith(target_html_suffix):
                     # Extract band from filename: cumulative_difference_plots_qsos_{BAND}_{c1}_{c2}.html
                     fname = os.path.basename(art['path'])
                     # Remove prefix and suffix to isolate band
-                    band_part = fname.replace(target_prefix, '').replace(target_suffix, '')
+                    band_part = fname.replace(target_prefix, '').replace(target_html_suffix, '')
                     # band_part is roughly {band_slug}
                     
                     # Prepend report_rel_path to ensure view_report can find it
                     diff_paths[band_part] = f"{report_rel_path}/{art['path']}"
+                
+                elif art['report_id'] == 'cumulative_difference_plots' and art['path'].endswith(target_json_suffix):
+                    # JSON Path Logic (Direct URL access via media)
+                    fname = os.path.basename(art['path'])
+                    band_part = fname.replace(target_prefix, '').replace(target_json_suffix, '')
+                    # Construct direct media URL for fetch()
+                    diff_json_paths[band_part] = f"{settings.MEDIA_URL}sessions/{session_id}/{report_rel_path}/{art['path']}"
         
-            
             # Find breakdown chart
-            bk_path = next((f"{report_rel_path}/{a['path']}" for a in artifacts if a['report_id'] == 'qso_breakdown_chart' and f"_{c1}_{c2}" in a['path']), "")
+            bk_path = next((f"{report_rel_path}/{a['path']}" for a in artifacts if a['report_id'] == 'qso_breakdown_chart' and f"_{c1}_{c2}" in a['path'] and a['path'].endswith('.html')), "")
+            bk_json = next((f"{settings.MEDIA_URL}sessions/{session_id}/{report_rel_path}/{a['path']}" for a in artifacts if a['report_id'] == 'qso_breakdown_chart' and f"_{c1}_{c2}" in a['path'] and a['path'].endswith('.json')), "")
+            
             ba_path = next((f"{report_rel_path}/{a['path']}" for a in artifacts if a['report_id'] == 'comparative_band_activity' and f"_{c1}_{c2}" in a['path']), "")
             cont_path = next((f"{report_rel_path}/{a['path']}" for a in artifacts if a['report_id'] == 'comparative_continent_summary' and f"_{c1}_{c2}" in a['path']), "")
 
@@ -766,7 +778,9 @@ def qso_dashboard(request, session_id):
                 'label': label,
                 'id': f"{c1}_{c2}",
                 'diff_paths': diff_paths,
+                'diff_json_paths': diff_json_paths,
                 'qso_breakdown_file': bk_path,
+                'qso_breakdown_json': bk_json,
                 'band_activity_file': ba_path,
                 'continent_file': cont_path
             })

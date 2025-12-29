@@ -1,8 +1,10 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load analyzer_extras %}
 
 {% block content %}
 <div class="container-fluid py-4">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <div class="row mb-3">
         <div class="col-12 d-flex justify-content-end">
             <a href="{% url 'dashboard_view' session_id %}" class="btn btn-outline-secondary">
@@ -89,7 +91,8 @@
             </button>
         </li>
         <li class="nav-item" role="presentation">
-            <button class="nav-link" id="points-tab" data-bs-toggle="tab" data-bs-target="#points" type="button" role="tab">
+            <button class="nav-link" id="points-tab" 
+            data-bs-toggle="tab" data-bs-target="#points" type="button" role="tab">
                 <i class="bi bi-geo-alt me-2"></i>Points & Bands
             </button>
         </li>
@@ -99,16 +102,19 @@
         
         {% if not is_solo %}
         <div class="tab-pane fade show active" id="strategy" role="tabpanel">
+            
             <div class="input-group mb-3 w-auto">
                 <label class="input-group-text" for="strategySelect"><i class="bi bi-people me-2"></i>Select Matchup:</label>
                 <select class="form-select" id="strategySelect">
                 {% for m in matchups %}
                     <option value="{{ forloop.counter }}"
-                            data-breakdown="{% url 'view_report' session_id m.qso_breakdown_file %}?chromeless=1"
-                        {% for band, path in m.diff_paths.items %}
-                        data-diff-{{ band }}="{% url 'view_report' session_id path %}?chromeless=1"
+                            data-breakdown-json="{{ m.qso_breakdown_json }}"
+                            data-breakdown-full="{% url 'view_report' session_id m.qso_breakdown_file %}?source=qso"
+                           {% for band, path in m.diff_paths.items %}
+                                data-diff-json-{{ band }}="{{ m.diff_json_paths|get_item:band }}"
+                        data-diff-full-{{ band }}="{% url 'view_report' session_id path %}?source=qso"
                         {% endfor %}
-                            data-full-breakdown="{% url 'view_report' session_id m.qso_breakdown_file %}?source=qso">{{ m.label }}</option>
+                    >{{ m.label }}</option>
                 {% endfor %}
                 </select>
             </div>
@@ -121,7 +127,7 @@
                             <a id="link-breakdown" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
                         </div>
                         <div class="card-body p-0">
-                            <iframe id="frame-breakdown" src="" class="viewport-frame"></iframe>
+                            <div id="chart-breakdown" class="viewport-frame" style="overflow: hidden;"></div>
                         </div>
                     </div>
                 </div>
@@ -130,6 +136,7 @@
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <div class="d-flex align-items-center">
                                 <span class="me-2">Rate Differential</span>
+                                
                                 <div class="btn-group btn-group-sm" role="group">
                                     <button type="button" class="btn btn-outline-secondary diff-band-btn" data-band="160">160</button>
                                     <button type="button" class="btn btn-outline-secondary diff-band-btn" data-band="80">80</button>
@@ -143,7 +150,7 @@
                             <a id="link-diff" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
                         </div>
                         <div class="card-body p-0">
-                            <iframe id="frame-diff" src="" class="viewport-frame"></iframe>
+                            <div id="chart-diff" class="viewport-frame" style="overflow: hidden;"></div>
                         </div>
                     </div>
                 </div>
@@ -211,7 +218,7 @@
                 <label class="input-group-text" for="pointsSelect"><i class="bi bi-filter me-2"></i>Select Band:</label>
                 <select class="form-select" id="pointsSelect">
                 {% for p in point_plots %}
-                    <option value="{{ p.label }}"
+                     <option value="{{ p.label }}"
                             data-src="{% url 'view_report' session_id p.file %}?chromeless=1"
                             data-full-src="{% url 'view_report' session_id p.file %}?source=qso"
                             {% if p.active %}selected{% endif %}>{{ p.label }}</option>
@@ -226,7 +233,7 @@
                             <a id="link-points" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
                         </div>
                         <div class="card-body p-0">
-                            <iframe id="frame-points" src="" class="viewport-frame"></iframe>
+                             <iframe id="frame-points" src="" class="viewport-frame"></iframe>
                         </div>
                     </div>
                 </div>
@@ -239,19 +246,49 @@
     document.addEventListener('DOMContentLoaded', function() {
         // --- Strategy Tab Logic ---
         const strategySelect = document.getElementById('strategySelect');
-        const frameBreakdown = document.getElementById('frame-breakdown');
-        const frameDiff = document.getElementById('frame-diff');
+        const chartBreakdownId = 'chart-breakdown';
+        const chartDiffId = 'chart-diff';
         const linkBreakdown = document.getElementById('link-breakdown');
         const linkDiff = document.getElementById('link-diff');
         const diffBandBtns = document.querySelectorAll('.diff-band-btn');
         let currentDiffBand = 'all';
 
+        // Generic Chart Renderer
+        function renderChart(containerId, jsonUrl) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            // Clear previous if no URL
+            if (!jsonUrl) {
+                container.innerHTML = '<div class="d-flex align-items-center justify-content-center h-100 text-muted">No Data</div>';
+                return;
+            }
+
+            // Fetch and Render
+            fetch(jsonUrl)
+                .then(response => response.json())
+                .then(data => {
+                    // Force responsive layout settings
+                    const layout = data.layout || {};
+                    layout.autosize = true;
+                    layout.width = null;
+                    layout.height = null; // Let CSS control height
+
+                    Plotly.newPlot(containerId, data.data, layout, {responsive: true, displayModeBar: false});
+                })
+                .catch(err => {
+                    console.error("Chart render error:", err);
+                    container.innerHTML = '<div class="alert alert-danger m-3">Error loading chart</div>';
+                });
+        }
+
         function updateStrategy() {
             if(!strategySelect) return;
             const selectedOption = strategySelect.options[strategySelect.selectedIndex];
             
-            frameBreakdown.src = selectedOption.dataset.breakdown;
-            linkBreakdown.href = selectedOption.dataset.fullBreakdown;
+            // Render Breakdown Chart
+            renderChart(chartBreakdownId, selectedOption.dataset.breakdownJson);
+            linkBreakdown.href = selectedOption.dataset.breakdownFull;
             
             updateDiffContent();
         }
@@ -260,12 +297,16 @@
             if (!strategySelect) return;
             const selectedOption = strategySelect.options[strategySelect.selectedIndex];
             
-            let diffSrc = selectedOption.getAttribute('data-diff-' + currentDiffBand);
-            if (!diffSrc) diffSrc = selectedOption.getAttribute('data-diff-all');
-            if (diffSrc) {
-                frameDiff.src = diffSrc;
-                linkDiff.href = diffSrc.replace('?chromeless=1', '?source=qso');
-            }
+            // Get JSON URL
+            let diffJson = selectedOption.getAttribute('data-diff-json-' + currentDiffBand);
+            if (!diffJson) diffJson = selectedOption.getAttribute('data-diff-json-all');
+            
+            // Get Full Link
+            let diffFull = selectedOption.getAttribute('data-diff-full-' + currentDiffBand);
+            if (!diffFull) diffFull = selectedOption.getAttribute('data-diff-full-all');
+
+            renderChart(chartDiffId, diffJson);
+            if(linkDiff && diffFull) linkDiff.href = diffFull;
         }
 
         if(strategySelect) {
@@ -279,6 +320,7 @@
                 diffBandBtns.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 currentDiffBand = btn.dataset.band;
+                
                 updateDiffContent();
             });
         });

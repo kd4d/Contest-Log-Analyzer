@@ -5,7 +5,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-29
-# Version: 0.145.0-Beta
+# Version: Phase 1 (Layout & Data Fix)
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [Phase 1 (Layout & Data Fix)] - 2025-12-29
+# - Converted Pandas Series to lists in Plotly traces to fix serialization bug.
+# [Phase 1 (Pathfinder)] - 2025-12-29
+# - Added JSON export functionality for web component integration.
 # [0.145.0-Beta] - 2025-12-29
 # - Removed manual layout overrides (margins) to allow PlotlyStyleManager authoritative control.
 # [0.144.1-Beta] - 2025-12-29
@@ -172,7 +176,7 @@ class Report(ContestReport):
         # --- Trace 1: Overall Difference (Black) ---
         fig.add_trace(
             go.Scatter(
-                x=overall_diff.index, y=overall_diff,
+                x=overall_diff.index, y=overall_diff.tolist(),
                 mode='lines+markers',
                 name='Overall',
                 line=dict(color='black', width=3),
@@ -183,7 +187,7 @@ class Report(ContestReport):
         # --- Trace 2: Run Difference (Green) ---
         fig.add_trace(
             go.Scatter(
-                x=run_diff.index, y=run_diff,
+                x=run_diff.index, y=run_diff.tolist(),
                 mode='lines+markers',
                 name='Run',
                 line=dict(color=mode_colors['Run'], width=2),
@@ -194,7 +198,7 @@ class Report(ContestReport):
         # --- Trace 3: S&P Difference (Blue) ---
         fig.add_trace(
             go.Scatter(
-                x=sp_diff.index, y=sp_diff,
+                x=sp_diff.index, y=sp_diff.tolist(),
                 mode='lines+markers',
                 name='S&P',
                 line=dict(color=mode_colors['S&P'], width=2),
@@ -205,7 +209,7 @@ class Report(ContestReport):
         # --- Trace 4: Unknown Difference (Gray) ---
         fig.add_trace(
             go.Scatter(
-                x=unk_diff.index, y=unk_diff,
+                x=unk_diff.index, y=unk_diff.tolist(),
                 mode='lines+markers',
                 name='Unknown',
                 line=dict(color=mode_colors['Mixed/Unk'], width=2, dash='dot'),
@@ -255,6 +259,7 @@ class Report(ContestReport):
         
         html_filename = f"{base_filename}.html"
         png_filename = f"{base_filename}.png"
+        json_filename = f"{base_filename}.json"
         
         html_path = os.path.join(output_path, html_filename)
         png_path = os.path.join(output_path, png_filename)
@@ -275,6 +280,14 @@ class Report(ContestReport):
         
         except Exception as e:
             logging.error(f"Failed to save HTML report: {e}")
+
+        # Save JSON (Web Component)
+        json_path = os.path.join(output_path, json_filename)
+        try:
+            fig.write_json(json_path)
+            generated_files.append(json_path)
+        except Exception as e:
+            logging.error(f"Failed to save JSON data: {e}")
 
         # Save PNG (Requires Kaleido)
         try:
