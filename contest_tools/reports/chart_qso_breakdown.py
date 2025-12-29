@@ -4,8 +4,8 @@
 #          on common/unique QSOs broken down by Run vs. Search & Pounce (S&P) mode.
 #
 # Author: Gemini AI
-# Date: 2025-12-28
-# Version: 0.143.0-Beta
+# Date: 2025-12-29
+# Version: 0.145.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,17 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.145.0-Beta] - 2025-12-29
+# - Removed manual layout overrides (margins) to allow PlotlyStyleManager authoritative control.
+# [0.144.1-Beta] - 2025-12-29
+# - Implemented "Hard Deck" strategy: Fixed height (800px), autosize=True, disabled 'responsive' config.
+# [0.143.3-Beta] - 2025-12-28
+# - Implemented "Safety Gap" strategy: Reduced HTML height to 800px to prevent scrollbars.
+# [0.143.2-Beta] - 2025-12-28
+# - Fixed HTML viewport issue by enforcing fixed height (850px).
+# [0.143.1-Beta] - 2025-12-28
+# - Updated layout configuration to use the "Legend Belt" strategy (Protocol 1.2.0).
+# - Migrated title generation to pass List[str] for Annotation Stack rendering.
 # [0.143.0-Beta] - 2025-12-28
 # - Migrated title generation to PlotlyStyleManager annotation stack ("Pixel-Locked Margins").
 # - Relocated legend to inside the plot area to reclaim vertical space.
@@ -219,7 +230,7 @@ class Report(ContestReport):
 
         footer_text = f"Contest Log Analytics by KD4D\n{get_cty_metadata(self.logs)}"
         
-        # Use Annotation Stack for precise title spacing control
+        # Use Annotation Stack (List) for precise title spacing control
         layout_config = PlotlyStyleManager.get_standard_layout(title_lines, footer_text)
         fig.update_layout(layout_config)
         
@@ -227,7 +238,8 @@ class Report(ContestReport):
         fig.update_layout(
             barmode='stack',
             showlegend=True,
-            legend=dict(x=0.02, y=0.98, bgcolor="rgba(255,255,255,0.8)", bordercolor="Black", borderwidth=1)
+            # Legend Belt: Horizontal, Centered, Just above grid (y=1.02)
+            legend=dict(orientation="h", x=0.5, y=1.02, xanchor="center", yanchor="bottom", bgcolor="rgba(255,255,255,0.8)", bordercolor="Black", borderwidth=1)
         )
 
         create_output_directory(output_path)
@@ -256,16 +268,11 @@ class Report(ContestReport):
         # 2. Save Interactive HTML
         html_file = os.path.join(output_path, f"{base_filename}.html")
         
-        # Force removal of fixed dimensions to enable responsive sizing
-        fig.layout.height = None
-        fig.layout.width = None
-        
-        # Optimize margins for dashboard display
-        fig.update_layout(margin=dict(t=100, b=60, l=50, r=50))
+        # Force fixed height with responsive width (Hard Deck Strategy)
+        fig.update_layout(autosize=True, height=800)
         
         config = {
             'toImageButtonOptions': {'filename': base_filename, 'format': 'png'},
-            'responsive': True
         }
         fig.write_html(html_file, include_plotlyjs='cdn', config=config)
 

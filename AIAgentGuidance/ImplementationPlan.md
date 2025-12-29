@@ -1,169 +1,347 @@
-# ImplementationPlan.md
+# Implementation Plan - Dashboard Stabilization (Hotfix)
+**Version:** 1.1.0
+**Target:** 0.146.0-Beta
 
-**Version:** 2.0.0
-**Target:** 0.143.0-Beta
+## Task: Dashboard Template Reset (Golden Master)
+This plan performs a **Full File Overwrite** of the `qso_dashboard.html` template. This is necessary because the file is currently in a corrupted state (TemplateSyntaxError due to unbalanced tags) and has drifted from the expected baseline, preventing surgical patches. This reset will also enforce the removal of the hardcoded `min-height` style on the Rate Detail iframe, resolving the scrollbar/resizing issues.
 
-## 1. File Identification
-1.  `contest_tools/styles/plotly_style_manager.py` (Baseline: 0.133.4-Beta)
-2.  `contest_tools/reports/chart_qso_breakdown.py` (Baseline: 0.142.0-Beta)
-3.  `contest_tools/reports/plot_cumulative_difference.py` (Baseline: 0.142.2-Beta)
+**Note:** The Python report generators (`chart_qso_breakdown.py`, `plot_cumulative_difference.py`) were confirmed by the Builder to already be in the correct state (manual margins removed), so they are excluded from this plan.
 
-## 2. Surgical Changes
-This plan implements the **"Legend Belt"** strategy to optimize dashboard real estate. We will lift the title stack higher into the margin and place a horizontal legend between the title and the chart.
+## 1. File: web_app/analyzer/templates/analyzer/qso_dashboard.html
+**Action:** Full File Overwrite.
+**Reason:** 1.  **Syntax Repair:** Re-establishes a known-good structure with balanced `{% if %}` and `{% endif %}` tags.
+2.  **Style Cleanup:** Removes `style="min-height: 600px;"` from `#frame-rates`.
+3.  **Layout Logic:** Ensures the `is_solo` logic is correctly applied to tabs and content panes.
 
-### A. Style Manager Upgrade (`plotly_style_manager.py`)
-We will adjust the "Annotation Stack" coordinates to lift the titles, clearing space for the legend belt.
-* **Logic:** Update `get_standard_layout` for List inputs.
-    * **Anchor Point:** Lifted from `yshift=35` to `yshift=65`.
-    * **Main Title:** `y=1`, `yanchor='bottom'`, `yshift=65`.
-    * **Subtitle:** `y=1`, `yanchor='top'`, `yshift=65`. (Hangs down ~40px, ending ~25px above grid).
-    * **Margin:** Maintain `t=110`.
+### Full Content
+__CODE_BLOCK__ html
+{% extends 'base.html' %}
+{% load static %}
 
-### B. Report Updates (The "Belt" Configuration)
-We will update both "Batch 1" reports to use the new horizontal legend configuration.
-* **Configuration:** `orientation="h", x=0.5, y=1.02, xanchor="center", yanchor="bottom"`.
-* **Files:** `chart_qso_breakdown.py` and `plot_cumulative_difference.py`.
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-3">
+        <div class="col-12 d-flex justify-content-end">
+            <a href="{% url 'dashboard_view' session_id %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>Back to Main Dashboard
+            </a>
+        </div>
+    </div>
+    <style>
+        .nav-tabs .nav-link {
+            color: #495057;
+        }
+        .nav-tabs .nav-link.active {
+            font-weight: bold;
+            color: #0d6efd;
+        }
+        .stat-card-value {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+        .chart-container {
+            position: relative;
+            margin: auto;
+            height: 300px;
+        }
+        .empty-state {
+            padding: 4rem 2rem;
+            background-color: #f8f9fa;
+            border-radius: 0.5rem;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .viewport-frame {
+            width: 100%;
+            min-height: 850px;
+            border: none;
+            background-color: #fff;
+        }
+    </style>
 
-## 3. Surgical Change Verification (`diff`)
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-speedometer2 me-2"></i>Global Context</h5>
+                    {% if global_qso_rate_file %}
+                    <a href="{% url 'view_report' session_id global_qso_rate_file %}?source=qso" target="_blank" class="btn btn-sm btn-light">
+                        <i class="bi bi-box-arrow-up-right"></i>
+                    </a>
+                    {% endif %}
+                </div>
+                <div class="card-body p-0">
+                    {% if global_qso_rate_file %}
+                    <iframe src="{% url 'view_report' session_id global_qso_rate_file %}?chromeless=1" class="viewport-frame"></iframe>
+                    {% else %}
+                    <div class="d-flex align-items-center justify-content-center h-100 bg-light text-muted">
+                        <div class="text-center">
+                            <i class="bi bi-exclamation-circle display-4 mb-3"></i>
+                            <p>Global Rate Plot Not Available</p>
+                        </div>
+                    </div>
+                {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
 
-### File 1: `contest_tools/styles/plotly_style_manager.py`
-__CODE_BLOCK__ diff
---- contest_tools/styles/plotly_style_manager.py
-+++ contest_tools/styles/plotly_style_manager.py
-@@ -17,7 +17,7 @@
- # - Implemented color map generators and standard layout factories.
- 
--from typing import Dict, List, Any
-+from typing import Dict, List, Any, Union
- import plotly.graph_objects as go
- 
- class PlotlyStyleManager:
-@@ -53,12 +53,12 @@
-         }
- 
-     @staticmethod
--    def get_standard_layout(title: str, footer_text: str = None) -> Dict[str, Any]:
-+    def get_standard_layout(title: Union[str, List[str]], footer_text: str = None) -> Dict[str, Any]:
-         """
-         Returns a standard Plotly layout dictionary.
- 
-         Args:
--            title: The main chart title.
-+            title: The chart title. Can be a string (Legacy) or List[str] (Annotation Stack).
-             footer_text: Optional text to display as a footer (e.g., Branding/CTY info).
- 
-         Returns:
-@@ -66,16 +66,35 @@
-         """
-         layout = {
--            "title": {
--                "text": title,
--                "x": 0.5,
--                "xanchor": "center",
--                "font": {"size": 20, "family": "Arial, sans-serif", "weight": "bold"}
--            },
-             "font": {"family": "Arial, sans-serif"},
-             "template": "plotly_white",
--            "margin": {"l": 50, "r": 50, "t": 100, "b": 140}, # Increased t/b for headers/footers
-+            "margin": {"l": 50, "r": 50, "t": 110, "b": 140}, # Increased t/b for headers/footers
-             "showlegend": True
-         }
-+
-+        if isinstance(title, list) and len(title) > 0:
-+            # Annotation Stack Strategy (Pixel-Locked)
-+            layout["title"] = {"text": ""} # Disable standard title
-+            
-+            annotations = [
-+                # Line 1: Main Header (Bold, Anchored High in Margin)
-+                # y=1 is top of GRID. yshift=65 pushes it UP to create room for Legend Belt.
-+                dict(x=0.5, y=1, xref='paper', yref='paper', text=f"<b>{title[0]}</b>", 
-+                     showarrow=False, font=dict(size=24, family="Arial, sans-serif"), 
-+                     xanchor='center', yanchor='bottom', yshift=65),
-+                # Lines 2+: Subheader (Normal, Hanging from Header)
-+                dict(x=0.5, y=1, xref='paper', yref='paper', text="<br>".join(title[1:]),
-+                     showarrow=False, font=dict(size=16, family="Arial, sans-serif"),
-+                     xanchor='center', yanchor='top', yshift=65)
-+            ]
-+            layout["annotations"] = annotations
-+        else:
-+            # Legacy String Behavior
-+            layout["title"] = {
-+                "text": str(title),
-+                "x": 0.5,
-+                "xanchor": "center",
-+                "font": {"size": 20, "family": "Arial, sans-serif", "weight": "bold"}
-+            }
- 
-         if footer_text:
-             # Refined Footer Merge Logic
-@@ -87,7 +106,10 @@
-                 font=dict(size=12, color="#7f7f7f"), align="center", valign="top", yanchor="top"
-             )
-             if "annotations" in layout:
--                layout["annotations"].append(footer_ann)
-+                layout["annotations"].append(footer_ann) # Safe append
-             else:
-                 layout["annotations"] = [footer_ann]
-             
-         return layout
+    <ul class="nav nav-tabs mb-3" id="qsoTabs" role="tablist">
+        {% if not is_solo %}
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="strategy-tab" data-bs-toggle="tab" data-bs-target="#strategy" type="button" role="tab">
+                <i class="bi bi-chess me-2"></i>Pairwise Strategy
+            </button>
+        </li>
+        {% endif %}
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="cumul-tab" data-bs-toggle="tab" data-bs-target="#cumul" type="button" role="tab">
+                <i class="bi bi-graph-up-arrow me-2"></i>QSOs by Band
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link {% if is_solo %}active{% endif %}" id="rates-tab" data-bs-toggle="tab" data-bs-target="#rates" type="button" role="tab">
+                <i class="bi bi-table me-2"></i>Rate Detail
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="points-tab" data-bs-toggle="tab" data-bs-target="#points" type="button" role="tab">
+                <i class="bi bi-geo-alt me-2"></i>Points & Bands
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="qsoTabsContent">
+        
+        {% if not is_solo %}
+        <div class="tab-pane fade show active" id="strategy" role="tabpanel">
+            <div class="input-group mb-3 w-auto">
+                <label class="input-group-text" for="strategySelect"><i class="bi bi-people me-2"></i>Select Matchup:</label>
+                <select class="form-select" id="strategySelect">
+                {% for m in matchups %}
+                    <option value="{{ forloop.counter }}"
+                            data-breakdown="{% url 'view_report' session_id m.qso_breakdown_file %}?chromeless=1"
+                        {% for band, path in m.diff_paths.items %}
+                        data-diff-{{ band }}="{% url 'view_report' session_id path %}?chromeless=1"
+                        {% endfor %}
+                            data-full-breakdown="{% url 'view_report' session_id m.qso_breakdown_file %}?source=qso">{{ m.label }}</option>
+                {% endfor %}
+                </select>
+            </div>
+
+            <div class="row">
+                <div class="col-lg-6 mb-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span>Strategy Breakdown (Uniques)</span>
+                            <a id="link-breakdown" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
+                        </div>
+                        <div class="card-body p-0">
+                            <iframe id="frame-breakdown" src="" class="viewport-frame"></iframe>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6 mb-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center">
+                                <span class="me-2">Rate Differential</span>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button type="button" class="btn btn-outline-secondary diff-band-btn" data-band="160">160</button>
+                                    <button type="button" class="btn btn-outline-secondary diff-band-btn" data-band="80">80</button>
+                                    <button type="button" class="btn btn-outline-secondary diff-band-btn" data-band="40">40</button>
+                                    <button type="button" class="btn btn-outline-secondary diff-band-btn" data-band="20">20</button>
+                                    <button type="button" class="btn btn-outline-secondary diff-band-btn" data-band="15">15</button>
+                                    <button type="button" class="btn btn-outline-secondary diff-band-btn" data-band="10">10</button>
+                                    <button type="button" class="btn btn-outline-secondary diff-band-btn active" data-band="all">All</button>
+                                </div>
+                            </div>
+                            <a id="link-diff" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
+                        </div>
+                        <div class="card-body p-0">
+                            <iframe id="frame-diff" src="" class="viewport-frame"></iframe>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="tab-pane fade" id="cumul" role="tabpanel">
+            <div class="input-group mb-3 w-auto">
+                <label class="input-group-text" for="cumulSelect"><i class="bi bi-filter me-2"></i>Select Band:</label>
+                <select class="form-select" id="cumulSelect">
+                {% for p in qso_band_plots %}
+                    <option value="{{ p.label }}"
+                            data-src="{% url 'view_report' session_id p.file %}?chromeless=1"
+                            data-full-src="{% url 'view_report' session_id p.file %}?source=qso"
+                            {% if p.active %}selected{% endif %}>{{ p.label }}</option>
+                {% endfor %}
+                </select>
+            </div>
+            <div class="row">
+                <div class="col-12 mb-4">
+                    <div class="card shadow-sm">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span>Cumulative QSO Rates (By Band)</span>
+                            <a id="link-qso-rates" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
+                        </div>
+                        <div class="card-body p-0">
+                             <iframe id="frame-qso-rates" src="" class="viewport-frame"></iframe>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade {% if is_solo %}show active{% endif %}" id="rates" role="tabpanel">
+            <div class="input-group mb-3 w-auto">
+                <label class="input-group-text" for="ratesSelect"><i class="bi bi-journal-text me-2"></i>Select Log:</label>
+                <select class="form-select" id="ratesSelect">
+                {% if rate_sheet_comparison %}
+                    <option value="comparison" selected
+                            data-src="{% url 'view_report' session_id rate_sheet_comparison %}?chromeless=1"
+                            data-full-src="{% url 'view_report' session_id rate_sheet_comparison %}?source=qso">Comparison (All Logs)</option>
+                {% endif %}
+                {% for call in callsigns %}
+                    <option value="{{ call }}"
+                            data-src="{% url 'view_report' session_id report_base|add:'/text/rate_sheet_'|add:call|add:'.txt' %}?chromeless=1"
+                            data-full-src="{% url 'view_report' session_id report_base|add:'/text/rate_sheet_'|add:call|add:'.txt' %}?source=qso"
+                            {% if is_solo and forloop.first %}selected{% endif %}>{{ call }}</option>
+                {% endfor %}
+                </select>
+            </div>
+            <div class="card shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>Rate Detail</span>
+                    <a id="link-rates" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
+                </div>
+                <div class="card-body p-0">
+                    <iframe id="frame-rates" src="" class="viewport-frame"></iframe>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="points" role="tabpanel">
+            <div class="input-group mb-3 w-auto">
+                <label class="input-group-text" for="pointsSelect"><i class="bi bi-filter me-2"></i>Select Band:</label>
+                <select class="form-select" id="pointsSelect">
+                {% for p in point_plots %}
+                    <option value="{{ p.label }}"
+                            data-src="{% url 'view_report' session_id p.file %}?chromeless=1"
+                            data-full-src="{% url 'view_report' session_id p.file %}?source=qso"
+                            {% if p.active %}selected{% endif %}>{{ p.label }}</option>
+                {% endfor %}
+                </select>
+            </div>
+            <div class="row">
+                <div class="col-12 mb-4">
+                    <div class="card shadow-sm">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span>Cumulative Points</span>
+                            <a id="link-points" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
+                        </div>
+                        <div class="card-body p-0">
+                            <iframe id="frame-points" src="" class="viewport-frame"></iframe>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // --- Strategy Tab Logic ---
+        const strategySelect = document.getElementById('strategySelect');
+        const frameBreakdown = document.getElementById('frame-breakdown');
+        const frameDiff = document.getElementById('frame-diff');
+        const linkBreakdown = document.getElementById('link-breakdown');
+        const linkDiff = document.getElementById('link-diff');
+        const diffBandBtns = document.querySelectorAll('.diff-band-btn');
+        let currentDiffBand = 'all';
+
+        function updateStrategy() {
+            if(!strategySelect) return;
+            const selectedOption = strategySelect.options[strategySelect.selectedIndex];
+            
+            frameBreakdown.src = selectedOption.dataset.breakdown;
+            linkBreakdown.href = selectedOption.dataset.fullBreakdown;
+            
+            updateDiffContent();
+        }
+        
+        function updateDiffContent() {
+            if (!strategySelect) return;
+            const selectedOption = strategySelect.options[strategySelect.selectedIndex];
+            
+            let diffSrc = selectedOption.getAttribute('data-diff-' + currentDiffBand);
+            if (!diffSrc) diffSrc = selectedOption.getAttribute('data-diff-all');
+            if (diffSrc) {
+                frameDiff.src = diffSrc;
+                linkDiff.href = diffSrc.replace('?chromeless=1', '?source=qso');
+            }
+        }
+
+        if(strategySelect) {
+            updateStrategy();
+            // Init
+            strategySelect.addEventListener('change', updateStrategy);
+        }
+        
+        diffBandBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                diffBandBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentDiffBand = btn.dataset.band;
+                updateDiffContent();
+            });
+        });
+        // --- Generic Dropdown Logic for other tabs ---
+        function setupDropdown(selectId, frameId, linkId) {
+            const select = document.getElementById(selectId);
+            const frame = document.getElementById(frameId);
+            const link = document.getElementById(linkId);
+            
+            if (!select || !frame) return;
+            function update() {
+                const opt = select.options[select.selectedIndex];
+                frame.src = opt.dataset.src;
+                if(link) link.href = opt.dataset.fullSrc;
+            }
+            
+            update();
+            // Init
+            select.addEventListener('change', update);
+        }
+
+        setupDropdown('cumulSelect', 'frame-qso-rates', 'link-qso-rates');
+        setupDropdown('ratesSelect', 'frame-rates', 'link-rates');
+        setupDropdown('pointsSelect', 'frame-points', 'link-points');
+        // --- Auto-Resize Iframes ---
+        // Helper to prevent scrollbars in single viewport mode
+        document.querySelectorAll('iframe.viewport-frame').forEach(iframe => {
+            iframe.addEventListener('load', function() {
+                try {
+                    // Try to resize based on content (same-origin policy applies)
+                    // Add a small buffer to prevent edge-case scrollbars
+                    const newHeight = this.contentWindow.document.body.scrollHeight + 50;
+                    if (newHeight > 850) {
+                        this.style.height = newHeight + 'px';
+                    }
+                } catch(e) {
+                    // Ignore cross-origin errors if any
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}
 __CODE_BLOCK__
 
-### File 2: `contest_tools/reports/chart_qso_breakdown.py`
-__CODE_BLOCK__ diff
---- contest_tools/reports/chart_qso_breakdown.py
-+++ contest_tools/reports/chart_qso_breakdown.py
-@@ -213,20 +213,18 @@
-         modes_present = set(df1['Mode'].dropna().unique()) | set(df2['Mode'].dropna().unique())
-         
-         title_lines = get_standard_title_lines(self.report_name, self.logs, "All Bands", None, modes_present)
--        final_title = f"{title_lines[0]}<br><sub>{title_lines[1]}<br>{title_lines[2]}</sub>"
- 
-         footer_text = f"Contest Log Analytics by KD4D\n{get_cty_metadata(self.logs)}"
-         
--        layout_config = PlotlyStyleManager.get_standard_layout(final_title, footer_text)
-+        # Use Annotation Stack for precise title spacing control
-+        layout_config = PlotlyStyleManager.get_standard_layout(title_lines, footer_text)
-         fig.update_layout(layout_config)
-         
-         # Specific Adjustments
-         fig.update_layout(
-             barmode='stack',
--            margin=dict(t=140, b=60) # Increased top margin to prevent title overlap
-+            showlegend=True,
-+            # Legend Belt: Horizontal, Centered, Just above grid (y=1.02)
-+            legend=dict(orientation="h", x=0.5, y=1.02, xanchor="center", yanchor="bottom", bgcolor="rgba(255,255,255,0.8)", bordercolor="Black", borderwidth=1)
-         )
- 
-         create_output_directory(output_path)
-__CODE_BLOCK__
-
-### File 3: `contest_tools/reports/plot_cumulative_difference.py`
-__CODE_BLOCK__ diff
---- contest_tools/reports/plot_cumulative_difference.py
-+++ contest_tools/reports/plot_cumulative_difference.py
-@@ -226,7 +226,8 @@
-             showlegend=True,
-             xaxis_title="Contest Time",
-             yaxis_title=f"Cumulative Diff ({metric_name})",
--            legend=dict(x=0.02, y=0.98, bgcolor="rgba(255,255,255,0.8)", bordercolor="Black", borderwidth=1)
-+            # Legend Belt: Horizontal, Centered, Just above grid
-+            legend=dict(orientation="h", x=0.5, y=1.02, xanchor="center", yanchor="bottom", bgcolor="rgba(255,255,255,0.8)", bordercolor="Black", borderwidth=1)
-         )
- 
-         # --- Saving Files (Dual Output) ---
-__CODE_BLOCK__
-
-## 4. Affected Modules Checklist
-* **`contest_tools/styles/plotly_style_manager.py`**: Updated API (polymorphic title) and logic (Pixel-Locked/Lifted Stack).
-* **`contest_tools/reports/chart_qso_breakdown.py`**: Updated to use List title and Legend Belt.
-* **`contest_tools/reports/plot_cumulative_difference.py`**: Updated to use Legend Belt.
-* **Other Reports:** Unaffected (Legacy String Behavior).
-
-## 5. Pre-Flight Check
-* **Inputs:** `plotly_style_manager.py`, `chart_qso_breakdown.py`, `plot_cumulative_difference.py`.
-* **Expected Outcome:** 1. Titles rendered with `yshift=65` (High). 2. Legend rendered horizontally at `y=1.02` (Belt). 3. Scrollbars eliminated in dashboard. 4. Whitespace above title reduced (filled by lifted title).
-* **Mental Walkthrough:** Verified coordinates. Title Stack (65px up) + Subtitle Hang (~40px) leaves ~25px gap to grid. Legend (approx 20px high) fits at y=1.02.
-* **Backward Compatibility:** Confirmed.
-
-## 6. Post-Generation Verification
-**Next Action:** I will issue the standardized prompt for **plan approval**.
+## 4. Pre-Flight Check
+* **Verification:** Confirmed `#frame-rates` does not have `style="min-height: 600px;"`.
+* **Verification:** Confirmed all `{% if %}` blocks are properly closed.
+* **Verification:** Confirmed the `is_solo` logic for `rates-tab` activation is preserved.
+* **Impact:** This plan forces a definitive state for the dashboard, resolving the syntax error and style issues.

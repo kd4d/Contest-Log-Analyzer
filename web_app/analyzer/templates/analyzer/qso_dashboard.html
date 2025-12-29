@@ -120,12 +120,12 @@
                             <a id="link-breakdown" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
                         </div>
                         <div class="card-body p-0">
-                            <iframe id="frame-breakdown" src="" class="viewport-frame" style="min-height: 600px;"></iframe>
+                            <iframe id="frame-breakdown" src="" class="viewport-frame"></iframe>
                         </div>
                     </div>
                 </div>
                 <div class="col-lg-6 mb-4">
-                    <div class="card h-100 shadow-sm" style="min-height: 600px;">
+                    <div class="card h-100 shadow-sm">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <div class="d-flex align-items-center">
                                 <span class="me-2">Rate Differential</span>
@@ -142,7 +142,7 @@
                             <a id="link-diff" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
                         </div>
                         <div class="card-body p-0">
-                            <iframe id="frame-diff" src="" class="viewport-frame" style="min-height: 600px;"></iframe>
+                            <iframe id="frame-diff" src="" class="viewport-frame"></iframe>
                         </div>
                     </div>
                 </div>
@@ -200,7 +200,7 @@
                     <a id="link-rates" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
                 </div>
                 <div class="card-body p-0">
-                    <iframe id="frame-rates" src="" class="viewport-frame" style="min-height: 600px;"></iframe>
+                    <iframe id="frame-rates" src="" class="viewport-frame"></iframe>
                 </div>
             </div>
         </div>
@@ -225,7 +225,7 @@
                             <a id="link-points" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
                         </div>
                         <div class="card-body p-0">
-                             <iframe id="frame-points" src="" class="viewport-frame"></iframe>
+                            <iframe id="frame-points" src="" class="viewport-frame"></iframe>
                         </div>
                     </div>
                 </div>
@@ -243,7 +243,6 @@
         const linkBreakdown = document.getElementById('link-breakdown');
         const linkDiff = document.getElementById('link-diff');
         const diffBandBtns = document.querySelectorAll('.diff-band-btn');
-        
         let currentDiffBand = 'all';
 
         function updateStrategy() {
@@ -262,7 +261,6 @@
             
             let diffSrc = selectedOption.getAttribute('data-diff-' + currentDiffBand);
             if (!diffSrc) diffSrc = selectedOption.getAttribute('data-diff-all');
-            
             if (diffSrc) {
                 frameDiff.src = diffSrc;
                 linkDiff.href = diffSrc.replace('?chromeless=1', '?source=qso');
@@ -270,7 +268,8 @@
         }
 
         if(strategySelect) {
-            updateStrategy(); // Init
+            updateStrategy();
+            // Init
             strategySelect.addEventListener('change', updateStrategy);
         }
         
@@ -282,7 +281,6 @@
                 updateDiffContent();
             });
         });
-
         // --- Generic Dropdown Logic for other tabs ---
         function setupDropdown(selectId, frameId, linkId) {
             const select = document.getElementById(selectId);
@@ -290,21 +288,20 @@
             const link = document.getElementById(linkId);
             
             if (!select || !frame) return;
-
             function update() {
                 const opt = select.options[select.selectedIndex];
                 frame.src = opt.dataset.src;
                 if(link) link.href = opt.dataset.fullSrc;
             }
             
-            update(); // Init
+            update();
+            // Init
             select.addEventListener('change', update);
         }
 
         setupDropdown('cumulSelect', 'frame-qso-rates', 'link-qso-rates');
         setupDropdown('ratesSelect', 'frame-rates', 'link-rates');
         setupDropdown('pointsSelect', 'frame-points', 'link-points');
-
         // --- Auto-Resize Iframes ---
         // Helper to prevent scrollbars in single viewport mode
         document.querySelectorAll('iframe.viewport-frame').forEach(iframe => {

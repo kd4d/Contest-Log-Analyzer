@@ -1,11 +1,11 @@
 # contest_tools/reports/plot_cumulative_difference.py
 #
 # Purpose: A plot report that generates a cumulative difference graph,
-#          comparing two logs.
+#          comparing two logs, with superimposed lines for Total, Run, S&P, and Unknown.
 #
 # Author: Gemini AI
-# Date: 2025-12-28
-# Version: 0.143.0-Beta
+# Date: 2025-12-29
+# Version: 0.145.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,16 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.145.0-Beta] - 2025-12-29
+# - Removed manual layout overrides (margins) to allow PlotlyStyleManager authoritative control.
+# [0.144.1-Beta] - 2025-12-29
+# - Implemented "Hard Deck" strategy: Fixed height (800px), autosize=True, disabled 'responsive' config.
+# [0.143.3-Beta] - 2025-12-28
+# - Implemented "Safety Gap" strategy: Reduced HTML height to 800px to prevent scrollbars.
+# [0.143.2-Beta] - 2025-12-28
+# - Fixed HTML viewport issue by enforcing fixed height (850px).
+# [0.143.1-Beta] - 2025-12-28
+# - Updated layout configuration to use the "Legend Belt" strategy (Protocol 1.2.0).
 # [0.143.0-Beta] - 2025-12-28
 # - Updated to use PlotlyStyleManager Annotation Stack for title rendering.
 # - Moved legend to top-left inside plot area to prevent overlap.
@@ -230,7 +240,8 @@ class Report(ContestReport):
             showlegend=True,
             xaxis_title="Contest Time",
             yaxis_title=f"Cumulative Diff ({metric_name})",
-            legend=dict(x=0.02, y=0.98, bgcolor="rgba(255,255,255,0.8)", bordercolor="Black", borderwidth=1)
+            # Legend Belt: Horizontal, Centered, Just above grid
+            legend=dict(orientation="h", x=0.5, y=1.02, xanchor="center", yanchor="bottom", bgcolor="rgba(255,255,255,0.8)", bordercolor="Black", borderwidth=1)
         )
 
         # --- Saving Files (Dual Output) ---
@@ -252,11 +263,10 @@ class Report(ContestReport):
         
         # Save HTML
         try:
-            # Responsive Layout for HTML
+            # Fixed Height with responsive width (Hard Deck Strategy)
             fig.update_layout(
                 autosize=True,
-                width=None,
-                height=None
+                height=800
             )
             
             config = {'toImageButtonOptions': {'filename': base_filename, 'format': 'png'}}
