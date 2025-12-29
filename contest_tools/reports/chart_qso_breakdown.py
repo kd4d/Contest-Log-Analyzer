@@ -4,8 +4,8 @@
 #          on common/unique QSOs broken down by Run vs. Search & Pounce (S&P) mode.
 #
 # Author: Gemini AI
-# Date: 2025-12-27
-# Version: 0.142.0-Beta
+# Date: 2025-12-28
+# Version: 0.143.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.143.0-Beta] - 2025-12-28
+# - Migrated title generation to PlotlyStyleManager annotation stack ("Pixel-Locked Margins").
+# - Relocated legend to inside the plot area to reclaim vertical space.
+# - Removed manual top margin override to fix scrollbar overflow regression.
 # [0.142.0-Beta] - 2025-12-27
 # - Increased subplot vertical_spacing to 0.15 to prevent label overlap.
 # - Reduced X-axis title_standoff to 5 to tighten Band Label placement.
@@ -79,6 +83,7 @@
 # [0.93.7-Beta] - 2025-12-04
 # - Fixed runtime crash by ensuring the output directory is created before
 #   saving the chart file.
+
 import os
 from typing import List, Dict, Tuple
 import pandas as pd
@@ -211,17 +216,18 @@ class Report(ContestReport):
         modes_present = set(df1['Mode'].dropna().unique()) | set(df2['Mode'].dropna().unique())
         
         title_lines = get_standard_title_lines(self.report_name, self.logs, "All Bands", None, modes_present)
-        final_title = f"{title_lines[0]}<br><sub>{title_lines[1]}<br>{title_lines[2]}</sub>"
 
         footer_text = f"Contest Log Analytics by KD4D\n{get_cty_metadata(self.logs)}"
         
-        layout_config = PlotlyStyleManager.get_standard_layout(final_title, footer_text)
+        # Use Annotation Stack for precise title spacing control
+        layout_config = PlotlyStyleManager.get_standard_layout(title_lines, footer_text)
         fig.update_layout(layout_config)
         
         # Specific Adjustments
         fig.update_layout(
             barmode='stack',
-            margin=dict(t=140, b=60) # Increased top margin to prevent title overlap
+            showlegend=True,
+            legend=dict(x=0.02, y=0.98, bgcolor="rgba(255,255,255,0.8)", bordercolor="Black", borderwidth=1)
         )
 
         create_output_directory(output_path)

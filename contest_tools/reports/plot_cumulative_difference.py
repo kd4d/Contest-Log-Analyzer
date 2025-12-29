@@ -4,8 +4,8 @@
 #          comparing two logs.
 #
 # Author: Gemini AI
-# Date: 2025-12-20
-# Version: 0.133.0-Beta
+# Date: 2025-12-28
+# Version: 0.143.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,16 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.143.0-Beta] - 2025-12-28
+# - Updated to use PlotlyStyleManager Annotation Stack for title rendering.
+# - Moved legend to top-left inside plot area to prevent overlap.
+# - Restored truncated methods (_orchestrate_plot_generation, generate).
+# [0.142.2-Beta] - 2025-12-28
+# - Implemented Annotation Stack for precise title spacing control (Protocol 1.2.0).
+# - Replaced Plotly standard title with manual layout annotations.
+# [0.142.1-Beta] - 2025-12-28
+# - Updated title formatting to use span tags with inline styles for better spacing control.
+# - Relocated legend to top-left corner inside the plot area to prevent title overlap.
 # [0.133.0-Beta] - 2025-12-20
 # - Refactored `_generate_single_plot` to use centralized `build_filename` utility.
 # - Standardized filename format to match other reports.
@@ -48,6 +58,7 @@
 # - Enabled Run/S&P plots for Points metric via 'run_points' schema.
 # [0.90.0-Beta] - 2025-10-01
 # - Set new baseline version for release.
+
 from typing import List
 import pandas as pd
 import plotly.graph_objects as go
@@ -205,21 +216,21 @@ class Report(ContestReport):
                 modes_present.update(df['Mode'].dropna().unique())
         
         title_lines = get_standard_title_lines(f"{self.report_name} ({metric_name})", self.logs, band_filter, mode_filter, modes_present)
-        final_title = f"{title_lines[0]}<br><sub>{title_lines[1]}<br>{title_lines[2]}</sub>"
 
         footer_text = f"Contest Log Analytics by KD4D\n{get_cty_metadata(self.logs)}"
 
         # --- Layout Standardization ---
-        layout = PlotlyStyleManager.get_standard_layout(final_title, footer_text)
+        # Pass list directly to Manager for Annotation Stack generation
+        layout = PlotlyStyleManager.get_standard_layout(title_lines, footer_text)
+        
         fig.update_layout(layout)
         
         # Base layout properties common to both
         fig.update_layout(
             showlegend=True,
-            margin=dict(t=140),
             xaxis_title="Contest Time",
             yaxis_title=f"Cumulative Diff ({metric_name})",
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+            legend=dict(x=0.02, y=0.98, bgcolor="rgba(255,255,255,0.8)", bordercolor="Black", borderwidth=1)
         )
 
         # --- Saving Files (Dual Output) ---
@@ -285,7 +296,6 @@ class Report(ContestReport):
             try:
                 save_path = output_path
                 if not is_single_band and band != 'All':
-                    # For per-mode plots, create a subdirectory for the mode
                     if mode_filter:
                         save_path = os.path.join(output_path, mode_filter.lower(), band)
                     else:
