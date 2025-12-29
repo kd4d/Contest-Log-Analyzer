@@ -1,17 +1,17 @@
-# Implementation Plan - Dashboard Stabilization (Hotfix)
-**Version:** 1.1.0
-**Target:** 0.146.0-Beta
+# Implementation Plan - Dashboard Stabilization (Golden Master)
+**Version:** 2.0.1
+**Target:** 0.148.0-Beta
 
-## Task: Dashboard Template Reset (Golden Master)
-This plan performs a **Full File Overwrite** of the `qso_dashboard.html` template. This is necessary because the file is currently in a corrupted state (TemplateSyntaxError due to unbalanced tags) and has drifted from the expected baseline, preventing surgical patches. This reset will also enforce the removal of the hardcoded `min-height` style on the Rate Detail iframe, resolving the scrollbar/resizing issues.
+## Task: Dashboard Template Reset
+This plan performs a **Full File Overwrite** of `qso_dashboard.html`. This action addresses two critical issues identified in the analysis:
+1.  **Template Syntax Error:** Resolves the "missing endif" crash by providing a verified, balanced template structure.
+2.  **Layout Instability:** Implements "Strategy B" (Hard Deck) by hardcoding the iframe height to `900px` via CSS and **deleting the conflicting Javascript auto-resizer**. This eliminates the race condition causing vertical scrollbars.
 
-**Note:** The Python report generators (`chart_qso_breakdown.py`, `plot_cumulative_difference.py`) were confirmed by the Builder to already be in the correct state (manual margins removed), so they are excluded from this plan.
+**Note:** The Builder verified that `chart_qso_breakdown.py` was successfully updated to `0.147.0-Beta` in the previous cycle (generation order swapped). Therefore, no further changes are required for the Python reports; the fix depends entirely on the Dashboard container behaving correctly.
 
 ## 1. File: web_app/analyzer/templates/analyzer/qso_dashboard.html
 **Action:** Full File Overwrite.
-**Reason:** 1.  **Syntax Repair:** Re-establishes a known-good structure with balanced `{% if %}` and `{% endif %}` tags.
-2.  **Style Cleanup:** Removes `style="min-height: 600px;"` from `#frame-rates`.
-3.  **Layout Logic:** Ensures the `is_solo` logic is correctly applied to tabs and content panes.
+**Reason:** To restore valid syntax, enforce the "Hard Deck" layout strategy (Fixed Height), and retain the necessary dropdown navigation logic while removing the unstable resize logic.
 
 ### Full Content
 __CODE_BLOCK__ html
@@ -51,9 +51,10 @@ __CODE_BLOCK__ html
             text-align: center;
             margin-bottom: 2rem;
         }
+        /* Hard Deck Strategy: Fixed height to prevent async thrashing */
         .viewport-frame {
             width: 100%;
-            min-height: 850px;
+            height: 900px;
             border: none;
             background-color: #fff;
         }
@@ -74,7 +75,7 @@ __CODE_BLOCK__ html
                     {% if global_qso_rate_file %}
                     <iframe src="{% url 'view_report' session_id global_qso_rate_file %}?chromeless=1" class="viewport-frame"></iframe>
                     {% else %}
-                    <div class="d-flex align-items-center justify-content-center h-100 bg-light text-muted">
+                    <div class="d-flex align-items-center justify-content-center h-100 bg-light text-muted" style="min-height: 200px;">
                         <div class="text-center">
                             <i class="bi bi-exclamation-circle display-4 mb-3"></i>
                             <p>Global Rate Plot Not Available</p>
@@ -319,29 +320,12 @@ __CODE_BLOCK__ html
         setupDropdown('cumulSelect', 'frame-qso-rates', 'link-qso-rates');
         setupDropdown('ratesSelect', 'frame-rates', 'link-rates');
         setupDropdown('pointsSelect', 'frame-points', 'link-points');
-        // --- Auto-Resize Iframes ---
-        // Helper to prevent scrollbars in single viewport mode
-        document.querySelectorAll('iframe.viewport-frame').forEach(iframe => {
-            iframe.addEventListener('load', function() {
-                try {
-                    // Try to resize based on content (same-origin policy applies)
-                    // Add a small buffer to prevent edge-case scrollbars
-                    const newHeight = this.contentWindow.document.body.scrollHeight + 50;
-                    if (newHeight > 850) {
-                        this.style.height = newHeight + 'px';
-                    }
-                } catch(e) {
-                    // Ignore cross-origin errors if any
-                }
-            });
-        });
     });
 </script>
 {% endblock %}
 __CODE_BLOCK__
 
 ## 4. Pre-Flight Check
-* **Verification:** Confirmed `#frame-rates` does not have `style="min-height: 600px;"`.
-* **Verification:** Confirmed all `{% if %}` blocks are properly closed.
-* **Verification:** Confirmed the `is_solo` logic for `rates-tab` activation is preserved.
-* **Impact:** This plan forces a definitive state for the dashboard, resolving the syntax error and style issues.
+* **Verification:** `qso_dashboard.html` has CSS `.viewport-frame { height: 900px; ... }` and NO javascript auto-resizing logic.
+* **Verification:** Confirmed valid Django syntax (all blocks closed).
+* **Impact:** This definitively resolves the "thrashing" by enforcing a stable container for the (already fixed) Plotly charts.

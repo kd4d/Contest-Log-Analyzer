@@ -5,7 +5,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-29
-# Version: 0.145.0-Beta
+# Version: 0.147.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.147.0-Beta] - 2025-12-29
+# - Swapped generation order: HTML (Fluid) is now generated before PNG (Fixed) to prevent state leakage.
 # [0.145.0-Beta] - 2025-12-29
 # - Removed manual layout overrides (margins) to allow PlotlyStyleManager authoritative control.
 # [0.144.1-Beta] - 2025-12-29
@@ -94,7 +96,6 @@
 # [0.93.7-Beta] - 2025-12-04
 # - Fixed runtime crash by ensuring the output directory is created before
 #   saving the chart file.
-
 import os
 from typing import List, Dict, Tuple
 import pandas as pd
@@ -249,38 +250,47 @@ class Report(ContestReport):
         c2_safe = _sanitize_filename_part(call2)
         base_filename = f"{self.report_id}_{c1_safe}_{c2_safe}"
         
-        # 1. Save Static Image (PNG)
-        # Use specific width=1600 to enforce landscape orientation for standard reports
-        png_file = os.path.join(output_path, f"{base_filename}.png")
+        # --- Save Files ---
+        filename_base = base_filename # Re-using calculated base
+        
+        filepath_png = os.path.join(output_path, f"{filename_base}.png")
+        filepath_html = os.path.join(output_path, f"{filename_base}.html")
+        
+        results = []
         try:
-            # Fixed sizing for PNG
+            # 1. Save HTML (Interactive - Fluid)
+            # Ensure fluid layout state before locking dimensions for PNG
+            fig.update_layout(
+                autosize=True,
+                height=None,
+                width=None
+            )
+            config = {'toImageButtonOptions': {'filename': filename_base, 'format': 'png'}}
+            fig.write_html(filepath_html, include_plotlyjs='cdn', config=config)
+            results.append(f"Interactive plot saved: {filepath_html}")
+
+            # 2. Save PNG (Static - Fixed)
+            # Lock dimensions strictly for the static export
+            # Use specific width=1600 to enforce landscape orientation for standard reports
+            plot_height = 400 * rows
             fig.update_layout(
                 autosize=False,
-                width=1600,
-                height=400 * rows
+                height=plot_height,
+                width=1600
             )
-            fig.write_image(png_file, width=1600)
-        except Exception:
-            # If static image generation fails (e.g. missing kaleido), logging would go here.
-            # We proceed to save HTML.
+            fig.write_image(filepath_png, width=1600)
+            results.append(f"Plot saved: {filepath_png}")
+            
+        except Exception as e:
+            # Fallback/Error logging if one fails, but try to continue
+            # For now, just pass as per original structure, or log if logger available.
             pass
-
-        # 2. Save Interactive HTML
-        html_file = os.path.join(output_path, f"{base_filename}.html")
-        
-        # Force fixed height with responsive width (Hard Deck Strategy)
-        fig.update_layout(autosize=True, height=800)
-        
-        config = {
-            'toImageButtonOptions': {'filename': base_filename, 'format': 'png'},
-        }
-        fig.write_html(html_file, include_plotlyjs='cdn', config=config)
 
         # Return list of successfully created files (checking existence)
         outputs = []
-        if os.path.exists(png_file):
-            outputs.append(png_file)
-        if os.path.exists(html_file):
-            outputs.append(html_file)
+        if os.path.exists(filepath_png):
+            outputs.append(filepath_png)
+        if os.path.exists(filepath_html):
+            outputs.append(filepath_html)
 
         return outputs

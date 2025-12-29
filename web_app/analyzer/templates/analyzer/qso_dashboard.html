@@ -34,9 +34,10 @@
             text-align: center;
             margin-bottom: 2rem;
         }
+        /* Hard Deck Strategy: Fixed height to prevent async thrashing */
         .viewport-frame {
             width: 100%;
-            min-height: 850px;
+            height: 900px;
             border: none;
             background-color: #fff;
         }
@@ -57,7 +58,7 @@
                     {% if global_qso_rate_file %}
                     <iframe src="{% url 'view_report' session_id global_qso_rate_file %}?chromeless=1" class="viewport-frame"></iframe>
                     {% else %}
-                    <div class="d-flex align-items-center justify-content-center h-100 bg-light text-muted">
+                    <div class="d-flex align-items-center justify-content-center h-100 bg-light text-muted" style="min-height: 200px;">
                         <div class="text-center">
                             <i class="bi bi-exclamation-circle display-4 mb-3"></i>
                             <p>Global Rate Plot Not Available</p>
@@ -302,22 +303,6 @@
         setupDropdown('cumulSelect', 'frame-qso-rates', 'link-qso-rates');
         setupDropdown('ratesSelect', 'frame-rates', 'link-rates');
         setupDropdown('pointsSelect', 'frame-points', 'link-points');
-        // --- Auto-Resize Iframes ---
-        // Helper to prevent scrollbars in single viewport mode
-        document.querySelectorAll('iframe.viewport-frame').forEach(iframe => {
-            iframe.addEventListener('load', function() {
-                try {
-                    // Try to resize based on content (same-origin policy applies)
-                    // Add a small buffer to prevent edge-case scrollbars
-                    const newHeight = this.contentWindow.document.body.scrollHeight + 50;
-                    if (newHeight > 850) {
-                        this.style.height = newHeight + 'px';
-                    }
-                } catch(e) {
-                    // Ignore cross-origin errors if any
-                }
-            });
-        });
     });
 </script>
 {% endblock %}
