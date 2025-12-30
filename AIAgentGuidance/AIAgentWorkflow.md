@@ -1,9 +1,13 @@
 # AIAgentWorkflow.md
 
-**Version: 4.26.0**
-**Date: 2025-12-23**
+**Version: 4.27.0**
+**Date: 2025-12-29**
 ---
 ### --- Revision History ---
+## [4.27.0] - 2025-12-29
+### Changed
+# - Replaced Protocol 9.0 with "The Dual-Layer Output Protocol" to eliminate code fence hallucinations.
+# - Updated Protocol 3.2.4 to reference the "Payload vs. Envelope" model.
 ## [4.26.0] - 2025-12-23
 ### Changed
 # - Changed Default State from Architect to Analyst (Protocol 2.0, 2.1).
@@ -543,11 +547,12 @@ I will **never** use the `--- FILE:` delimiter to concatenate files.
 Grouping multiple source files into a single response is a Protocol Violation.
     2.  **Raw Source Text**: The content inside the delivered code block must be the raw source text of the file.
     3.  **Code File Delivery**: For code files (e.g., `.py`, `.json`), the content will be delivered in a standard fenced code block with the appropriate language specifier.
-    4.  **Markdown File Delivery**: Documentation files (`.md`) must be delivered inside a `cla-bundle` specified code block.
-        * **The Container:** The outer standard Markdown fences (__CODE_BLOCK__markdown) **MUST** remain as real backticks to trigger the UI code box.
-        * **The Content:** You must programmatically Find & Replace all *internal* triple-backticks within the file content with the literal string `__CODE_BLOCK__` *before* wrapping it in the container.
-        * **The Test:** The output must render as a distinct code box.
-If the `cla-bundle` closes prematurely due to an unsanitized backtick, the Compliance Report's "Protocol 3.2.4" check is retroactively **FAILED**, triggering a Circuit Breaker (1.3).
+    4.  **Markdown File Delivery (`.md`)**: Documentation files must be delivered inside a `cla-bundle` specified code block.
+        * **The Constraint:** Markdown files often contain code blocks. If delivered raw, they will break the chat display.
+        * **The Action:** You must execute **Protocol 9.0**:
+            1.  **Sanitize the Payload:** (Internal backticks -> `__CODE_BLOCK__`).
+            2.  **Construct the Envelope:** Wrap the result in a standard `cla-bundle` code block using real backticks.
+        * **The Visual Check:** The result must appear as a rendered code box in the chat. If it appears as plain text starting with `__CODE_BLOCK__`, the delivery is **CORRUPT**.
     5.  **Remove Citation Tags**: All internal AI development citation tags must be removed from the content before the file is delivered.
 The tag is a literal text sequence: an open square bracket, the string "cite: ", one or more digits, and a close square bracket (e.g.,).
 This pattern does not include Markdown backticks.
@@ -875,13 +880,16 @@ To ensure completeness, the AI **must explicitly state the exact search method u
 
 7.8. **(Deprecated)** Merged into Section 9.
 
-9.0. **The Standard Markdown Fence Protocol.**
-    * **Definition:** All file content must be delivered inside a standard Markdown code block using triple backticks (__CODE_BLOCK__).
-    * **Language Specifier:** The opening fence must include the correct language identifier (e.g., `python`, `html`, `json`) to enable syntax highlighting in the chat interface.
-    * **Sanitization Scope:**
-        * **External Container (Touch Not):** The outer triple backticks that create the block are the **"Display Container."** These **MUST NOT** be sanitized or altered.
-        * **Internal Content (Sanitize):** Only triple backticks inside the file content itself (e.g., a Python docstring or a Markdown file being delivered) must be sanitized (replaced with `__CODE_BLOCK__`) to prevent breaking the outer container.
-        * **Visual Check:** The final output must look like a rendered code box in the chat window, not plain text starting with `__CODE_BLOCK__...`.
-        * **Example:** "Wrap the file content in standard markdown fences (`python` ... ). Do not replace these outer fences with placeholders. Only sanitize triple backticks that appear within the code itself."
-        * **Recursion Mandate:** When delivering a Markdown file (like `ImplementationPlan.md`) inside a wrapper, the "internal content" rule applies.
-The Agent must simulate a text processor: `content.replace("```", "__CODE_BLOCK__")`.
+9.0. **The Dual-Layer Output Protocol (The "Envelope" Method)**
+    * **Goal:** Distinguish between the **Envelope** (Display) and the **Payload** (File Content) to prevent rendering breaks.
+    * **Step 1: Prepare the Payload (In-Memory)**
+        * Take the raw text of the file you intend to deliver.
+        * Perform a **Global Find & Replace** on this text string:
+            * **Find:** The literal triple-backtick sequence (ASCII 96).
+            * **Replace:** The literal string `__CODE_BLOCK__`.
+        * **Result:** This is your `Sanitized_Payload`.
+    * **Step 2: Construct the Envelope (Delivery)**
+        * The Envelope **ALWAYS** consists of real, live triple-backticks (ASCII 96).
+        * You must output the final string using this exact concatenation formula:
+            `Output = "\n" + (Triple-Backticks) + Language_ID + "\n" + Sanitized_Payload + "\n" + (Triple-Backticks)`
+    * **Failure Condition:** If the final output starts with `__CODE_BLOCK__`, you have failed Step 2. You stripped the Envelope.

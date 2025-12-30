@@ -231,7 +231,7 @@
                             <a id="link-points" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
                         </div>
                         <div class="card-body p-0">
-                             <div id="chart-points" class="viewport-frame" style="overflow: hidden;"></div>
+                            <div id="chart-points" class="viewport-frame" style="overflow: hidden;"></div>
                         </div>
                     </div>
                 </div>
@@ -322,7 +322,6 @@
                 updateDiffContent();
             });
         });
-
         // --- Generic Dropdown Logic for other tabs ---
         // Enhanced: Supports both iframe (src) and Div/Plotly (json-src)
         function setupDropdown(selectId, targetId, linkId) {
@@ -331,10 +330,8 @@
             const link = document.getElementById(linkId);
             
             if (!select || !target) return;
-
             function update() {
                 const opt = select.options[select.selectedIndex];
-                
                 if (target.tagName === 'IFRAME') {
                     // Iframe Mode (Legacy text reports)
                     target.src = opt.dataset.src;
@@ -351,9 +348,27 @@
             select.addEventListener('change', update);
         }
 
-        setupDropdown('cumulSelect', 'chart-qso-rates', 'link-qso-rates'); // Changed to chart ID
-        setupDropdown('ratesSelect', 'frame-rates', 'link-rates');         // Remains Iframe
-        setupDropdown('pointsSelect', 'chart-points', 'link-points');      // Changed to chart ID
+        setupDropdown('cumulSelect', 'chart-qso-rates', 'link-qso-rates');
+        // Changed to chart ID
+        setupDropdown('ratesSelect', 'frame-rates', 'link-rates');
+        // Remains Iframe
+        setupDropdown('pointsSelect', 'chart-points', 'link-points');
+        // Changed to chart ID
+
+        // --- Tab Resize Fix ---
+        // Force Plotly to recalculate width when a tab becomes visible
+        var tabEls = document.querySelectorAll('button[data-bs-toggle="tab"]');
+        tabEls.forEach(function(tabEl) {
+            tabEl.addEventListener('shown.bs.tab', function (event) {
+                var targetId = event.target.getAttribute('data-bs-target');
+                var targetPane = document.querySelector(targetId);
+                // Find all Plotly charts in this pane
+                var charts = targetPane.querySelectorAll('.js-plotly-plot');
+                charts.forEach(function(chart) {
+                    Plotly.Plots.resize(chart);
+                });
+            });
+        });
     });
 </script>
 {% endblock %}
