@@ -6,7 +6,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-25
-# Version: Phase 1 (Pathfinder)
+# Version: 0.152.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -20,6 +20,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.152.0-Beta] - 2025-12-30
+# - Updated `multiplier_dashboard` to calculate `global_max` scaling factors for normalized charting.
 # [Phase 1 (Pathfinder)] - 2025-12-29
 # - Updated `qso_dashboard` to pass JSON artifact URLs for Point and QSO rate plots
 #   to support JS-based rendering (Chart.js/Plotly) instead of iframes.
@@ -314,12 +316,12 @@ def analyze_logs(request):
                 callsigns_raw = request.POST.get('fetch_callsigns') # JSON string
                 year = request.POST.get('fetch_year')
                 mode = request.POST.get('fetch_mode')
-                  
+                
                 callsigns = json.loads(callsigns_raw)
                 
                 _update_progress(request_id, 1) # Step 1: Fetching
                 log_paths = download_logs(callsigns, year, mode, session_path)
-                  
+                
                 return _run_analysis_pipeline(request_id, log_paths, session_path, session_key)
             
             except ValueError as e:
@@ -620,6 +622,23 @@ def multiplier_dashboard(request, session_id):
     # Common suffix for text reports
     suffix = f"_{combo_id}"
 
+    # 6. Calculate Global Maxima for Consistent Scaling (Normalization)
+    global_max = {'total': 1, 'countries': 1, 'zones': 1} # Default 1 to avoid div/0
+    if breakdown_data and 'bands' in breakdown_data:
+        for block in breakdown_data['bands']:
+            for row in block['rows']:
+                row_max = 0
+                for stat in row['stations']:
+                    val = stat.get('unique_run', 0) + stat.get('unique_sp', 0) + stat.get('unique_unk', 0)
+                    if val > row_max: row_max = val
+                
+                if row['label'] == 'TOTAL' or row['label'] == block['label']:
+                    if row_max > global_max['total']: global_max['total'] = row_max
+                elif 'Countries' in row['label']:
+                    if row_max > global_max['countries']: global_max['countries'] = row_max
+                elif 'Zones' in row['label']:
+                    if row_max > global_max['zones']: global_max['zones'] = row_max
+
     # 4. Discover Text Version of Breakdown
     breakdown_txt_rel_path = None
     txt_suffix = f"_{combo_id}.txt"
@@ -695,6 +714,7 @@ def multiplier_dashboard(request, session_id):
         'full_contest_title': full_contest_title,
         'multipliers': sorted_mults,
         'is_solo': (log_count == 1),
+        'global_max': global_max,
     }
     return render(request, 'analyzer/multiplier_dashboard.html', context)
 

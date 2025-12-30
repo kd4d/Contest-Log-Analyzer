@@ -1,34 +1,37 @@
-# Architect Handoff: The JSON Pivot
+# Architect Handoff: Context Bridge
 
-**From:** Architect (Session 2.1)
-**To:** Incoming Architect
-**Date:** 2025-12-29
+**From:** Architect (Session A - Legacy)
+**To:** Architect (Session A - Successor)
+**Date:** 2025-12-30
 
-## The "Why" (Context Bridge)
+## 1. The Strategic Context
+We are mid-transition in two major areas:
+1.  **Workflow Architecture:** We just deployed **Workflow v5.0.1**, which enforces a strict "V-Model" (Session A for Analysis, Session B for Building). *Do not deviate from this.* The "Anti-Simulation" clause (Protocol 4.4) is a hotfix to prevent the Builder from auto-completing tasks.
+2.  **Visual Language:** We have established "Concept 7" (The Integrated Data Grid) as the new standard for the Multiplier Dashboard. This replaces simple tables with hybrid Bar/Number rows.
 
-We are in the middle of a critical architectural pivot for the Web Dashboard. The previous "Iframe-based" approach caused unresolvable layout issues (double scrollbars, clipping).
+## 2. Recent Decisions (The "Why")
+* **Run/S&P Logic:** We mapped "Both" (worked on both Run and S&P) to "Run" in `multiplier_stats.py`. *Rationale:* If you can hold a frequency (Run), that is the dominant skill/mode we want to track, even if you also picked it up S&P.
+* **Text Report Verbosity:** We explicitly widened the text report columns to ~37 chars to support `[Run:60 S&P:25 Unk:5]`. *Rationale:* "Auditability" is paramount. The dashboard visuals must be verifiable against a text file.
+* **CSS Inline Styles:** The `multiplier_dashboard.html` currently contains inline CSS classes (`.bar-track`, `.bg-run`, etc.). *Rationale:* Rapid prototyping of Concept 7. This is recognized technical debt.
 
-**The New Standard:**
-We have established a **Component-Based Architecture**.
-1.  **Python** generates pure data (`.json`) using the DAL.
-2.  **Django/JS** fetches that data and renders it into a `<div>` using `Plotly.newPlot()`.
+## 3. Immediate Technical Debt (The "Incomplete Transition")
+The User has flagged an "incomplete transition to the new HTML report architecture." Here is the breakdown:
 
-## Immediate Priorities (The Queue)
+### A. The CSS Fragmentation
+* **Current State:** New dashboard styles exist in `<style>` blocks within `multiplier_dashboard.html`.
+* **Target State:** These must be extracted to the global `static/css/styles.css` (or `base.css`) to ensure reusability across other reports.
+* **Risk:** If we create a second dashboard (e.g., "Rate Analysis"), we will duplicate these styles, creating maintenance drift.
 
-You are receiving the project in a **mixed state**. The `Strategy` tab of the QSO Dashboard is modernized (JSON), but the other tabs (`Rates`, `Points`) are still legacy (Iframes).
+### B. The Legacy Report Gap
+* **Current State:** `multiplier_dashboard.html` uses the new "Card/Grid" layout. Older reports (e.g., `view_report.html` wrappers) might still use legacy Bootstrap tables.
+* **Target State:** Audit all "Summary" cards in the system. They should all eventually adopt the "Integrated Data Grid" pattern where applicable.
 
-**Your Mission:** Complete **Phase 2 (The Rollout)**.
-1.  **Target Reports:**
-    * `plot_qso_rate.py` (Used in "QSOs by Band" tab and Global Context).
-    * `plot_point_rate.py` (Used in "Points & Bands" tab).
-    * `chart_point_contribution.py` (Used in "Points & Bands" tab).
-2.  **Required Action:**
-    * Update these generators to output `.json` artifacts (enforcing `.tolist()` for data arrays).
-    * Update `views.py` to discover these JSON files.
-    * Update `qso_dashboard.html` to render them via `renderChart()`.
+### C. The "Unique" Metric Scope
+* **Current State:** We calculate `unique_run` and `unique_sp` *only* in `multiplier_stats.py`.
+* **Gap:** Other aggregators (e.g., `rate_stats.py`, `zone_stats.py`) do not yet expose this "Mode of Acquisition" breakdown.
+* **Action:** Evaluate if the `_get_run_sp_status` logic should be moved to a central utility mixin (e.g., in `ComparativeEngine`) so all reports can use it.
 
-## Critical Warnings (Do Not Ignore)
-
-1.  **The "Straight Line" Bug:** When serializing data for JSON, you **MUST** convert Pandas Series to Lists (`series.tolist()`) before passing them to Plotly. Failing to do so causes the JSON serializer to dump the *Index* instead of the *Values*, resulting in a garbage straight-line plot.
-2.  **Layout Authority:** Do **NOT** override chart margins in the Javascript/HTML. The Python backend (`PlotlyStyleManager`) calculates precise margins for titles and footers. Overriding them in the frontend causes clipping.
-3.  **The Three-Artifact Rule:** For now, continue generating `.html` and `.png` files alongside the `.json`. The `.html` is required to keep the "Full Screen" buttons working until we refactor the viewer in Phase 3.
+## 4. Priority Tasks for Next Session
+1.  **Refactor CSS:** Extract the Concept 7 styles from `multiplier_dashboard.html`.
+2.  **Audit `base.html`:** Ensure the new layout grid doesn't break mobile responsiveness on smaller screens (the 3-column layout is dense).
+3.  **Verify Workflow:** Run a "Protocol Onboarding" drill (Protocol 1.8) to confirm you understand the new v5.0.1 rules (specifically the Session A/B split).

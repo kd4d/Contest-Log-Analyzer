@@ -3,8 +3,8 @@
 # Purpose: Specialized text report for multiplier breakdown (Group Par).
 #
 # Author: Gemini AI
-# Date: 2025-12-29
-# Version: 0.142.0-Beta
+# Date: 2025-12-30
+# Version: 0.144.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.144.0-Beta] - 2025-12-30
+# - Updated `format_row` to display verbose unique breakdown [Run:X S&P:Y Unk:Z].
+# - Increased column width to ~37 chars to accommodate new metrics.
 # [0.142.0-Beta] - 2025-12-29
 # - Implemented dynamic table width calculation for correct header alignment.
 # - Updated column header alignment to center-justified (15 chars) to match data rows.
@@ -88,7 +91,7 @@ class Report(ContestReport):
         meta_lines = ["Contest Log Analytics by KD4D", get_cty_metadata(self.logs)]
         
         # Helper to format a row
-        # Layout: Scope (25), Total (8), Common (8), Call1 (15), Call2 (15)...
+        # Layout: Scope (25), Total (8), Common (8), Call1 (30), Call2 (30)...
         def format_row(label, total, common, station_dict, indent=0):
             prefix = " " * (indent * 2)
             lbl = f"{prefix}{label}"
@@ -102,19 +105,33 @@ class Report(ContestReport):
             for i, call in enumerate(all_calls):
                 stats = station_dict[i] # station_dict is actually a list here
                 
-                # Fixed-width formatting: Count(6) + Spacer(1) + Delta(7) = 14 chars
-                count_part = f"{stats['count']:>6}"
-                delta = stats.get('delta', 0)
-                delta_part = f"({delta})" if delta < 0 else ""
+                # Verbose Breakdown: "972 [Run:60 S&P:25 Unk:5] -39"
+                count_part = f"{stats['count']}"
                 
-                row_str += f" {count_part} {delta_part:<7}"
+                u_run = stats.get('unique_run', 0)
+                u_sp = stats.get('unique_sp', 0)
+                u_unk = stats.get('unique_unk', 0)
+                
+                # Only show breakdown if there are uniques
+                total_unique = u_run + u_sp + u_unk
+                if total_unique > 0:
+                    breakdown = f"[Run:{u_run} S&P:{u_sp} Unk:{u_unk}]"
+                else:
+                    breakdown = "[Par]"
+                
+                delta = stats.get('delta', 0)
+                delta_part = f"({delta})" if delta < 0 else "0"
+                
+                # Align: Count (5) + Breakdown (24) + Delta (6) ~= 35 chars
+                col_text = f"{count_part:>5} {breakdown:<24} {delta_part:>6}"
+                row_str += f" {col_text}"
             return row_str
 
         # Header Row
         header = f"{'Scope':<25} {'Total':>8} {'Common':>8}"
         for call in all_calls:
-            # Center alignment (14 chars) + 1 leading space = 15 chars total per column
-            header += f" {call:^14}"
+            # Center alignment (~37 chars to fit data block)
+            header += f" {call:^37}"
         
         table_width = len(header)
         
@@ -144,7 +161,6 @@ class Report(ContestReport):
         # Process Bands
         for block in data['bands']:
             # Band Header
-            # lines.append(block['label']) # Removed duplicate header
             for row in block['rows']:
                 lines.append(format_row(
                     row['label'], 

@@ -4,8 +4,8 @@
 #          serving both the 'Multiplier Summary' and 'Missed Multipliers' reports.
 #
 # Author: Gemini AI
-# Date: 2025-12-17
-# Version: 0.125.3-Beta
+# Date: 2025-12-30
+# Version: 0.148.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -14,10 +14,18 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.148.0-Beta] - 2025-12-30
+# - Fixed relative import for ComparativeEngine.
+# [0.146.0-Beta] - 2025-12-30
+# - Updated get_multiplier_breakdown_data to inject max_unique scaling factor into row data.
+# [0.144.0-Beta] - 2025-12-30
+# - Updated get_multiplier_breakdown_data to track Run/S&P status of unique multipliers.
+# - Updated build_row to return unique_run, unique_sp, unique_unk counts.
 # [0.125.3-Beta] - 2025-12-17
 # - Refactored build_row to return list of station stats instead of dict,
 #   ensuring ordered iteration in Django templates.
@@ -258,6 +266,9 @@ class MultiplierStatsAggregator:
         # subset_keys: 'TOTAL', 'TOTAL_{Rule}', '{Band}', '{Band}_{Rule}'
         subsets = {call: {} for call in all_calls}
         
+        # Map to store Run/S&P status for each unique multiplier instance: map[call][composite_key] = status
+        mult_status_map = {call: {} for call in all_calls}
+        
         valid_bands = self.contest_def.valid_bands
         
         for rule in self.contest_def.multiplier_rules:
@@ -274,6 +285,10 @@ class MultiplierStatsAggregator:
                 # Filter valid
                 valid = df[df[mult_column].notna() & (df[mult_column] != 'Unknown')]
                 
+                # Pre-calculate status for all multipliers in this scope
+                # Status logic: If worked on Run, it's Run. If Mixed, it's Mixed.
+                status_series = valid.groupby(mult_column)['Run'].apply(self._get_run_sp_status)
+
                 if method == 'once_per_log':
                     # Scope: Global. Key: (Rule, Value)
                     # Just grab unique values
@@ -281,6 +296,8 @@ class MultiplierStatsAggregator:
                     for val in uniques:
                         composite_key = (mult_name, 'All', val)
                         raw_sets[call].add(composite_key)
+                        # Store status
+                        mult_status_map[call][composite_key] = status_series.get(val, 'Unk')
                         
                         # Populate Subsets
                         # 1. Total
@@ -296,6 +313,8 @@ class MultiplierStatsAggregator:
                         for val in values:
                             composite_key = (mult_name, band, val)
                             raw_sets[call].add(composite_key)
+                            # Lookup status for this band/val
+                            mult_status_map[call][composite_key] = status_series.get(val, 'Unk')
                             
                             # Populate Subsets
                             # 1. Total (Global Score Sum)
@@ -316,16 +335,40 @@ class MultiplierStatsAggregator:
             
             comp = ComparativeEngine.compare_logs(sets_to_compare)
             
+            # Re-derive common set locally to calculate unique composition
+            # Common is intersection of all logs involved
+            common_items = set.intersection(*sets_to_compare.values()) if sets_to_compare else set()
+            
             stations_list = []
             for call in all_calls:
                 metrics = comp.station_metrics.get(call)
                 if metrics:
+                    # Unique = Log Set - Common Set
+                    log_set = sets_to_compare[call]
+                    unique_items = log_set - common_items
+                    
+                    u_run = 0
+                    u_sp = 0
+                    u_unk = 0
+                    
+                    for item in unique_items:
+                        status = mult_status_map[call].get(item, 'Unk')
+                        # Map 'Both' to 'Run' or 'S&P'? Usually 'Run' is dominant/preferred, 
+                        # but 'Both' implies it was worked multiple times.
+                        # Let's map 'Both' to 'Run' as it indicates ability to hold frequency.
+                        if status in ['Run', 'Both']: u_run += 1
+                        elif status == 'S&P': u_sp += 1
+                        else: u_unk += 1
+
                     stations_list.append({
                         'count': metrics.count,
-                        'delta': metrics.count - comp.universe_count # Delta from Par (Total Worked)
+                        'delta': metrics.count - comp.universe_count, # Delta from Par (Total Worked)
+                        'unique_run': u_run,
+                        'unique_sp': u_sp,
+                        'unique_unk': u_unk
                     })
                 else:
-                    stations_list.append({'count': 0, 'delta': -comp.universe_count})
+                    stations_list.append({'count': 0, 'delta': -comp.universe_count, 'unique_run': 0, 'unique_sp': 0, 'unique_unk': 0})
 
             return {
                 'label': label,
@@ -336,18 +379,25 @@ class MultiplierStatsAggregator:
                 'stations': stations_list
             }
 
+        # Helper to inject max_unique for scaling
+        def inject_max_unique(row_data):
+            # Calculate max unique count across all stations in this row
+            max_unique = max((s['unique_run'] + s['unique_sp'] + s['unique_unk']) for s in row_data['stations']) if row_data['stations'] else 1
+            row_data['max_unique'] = max_unique if max_unique > 0 else 1 # Avoid division by zero
+            return row_data
+
         # Structured Output
         totals_rows = []
         band_blocks = []
         
         # 3. Build Table Rows
         # A. Grand Total
-        totals_rows.append(build_row("TOTAL", "TOTAL", indent=0, is_bold=True))
+        totals_rows.append(inject_max_unique(build_row("TOTAL", "TOTAL", indent=0, is_bold=True)))
         
         # B. Global Rule Breakdowns
         for rule in self.contest_def.multiplier_rules:
             r_name = rule['name']
-            totals_rows.append(build_row(r_name, f"TOTAL_{r_name}", indent=1, is_bold=False))
+            totals_rows.append(inject_max_unique(build_row(r_name, f"TOTAL_{r_name}", indent=1, is_bold=False)))
 
         # C. Per Band Breakdowns (only if not once_per_log heavy)
         # Only show bands if there is data
@@ -361,12 +411,12 @@ class MultiplierStatsAggregator:
                 
                 # Create block for this band
                 band_rows = []
-                band_rows.append(build_row(band, band, indent=0, is_bold=True))
+                band_rows.append(inject_max_unique(build_row(band, band, indent=0, is_bold=True)))
                 
                 for rule in self.contest_def.multiplier_rules:
                     if rule.get('totaling_method') == 'once_per_log': continue
                     r_name = rule['name']
-                    band_rows.append(build_row(r_name, f"{band}_{r_name}", indent=1, is_bold=False))
+                    band_rows.append(inject_max_unique(build_row(r_name, f"{band}_{r_name}", indent=1, is_bold=False)))
                 
                 band_blocks.append({
                     'label': band,

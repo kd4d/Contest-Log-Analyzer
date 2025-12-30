@@ -1,7 +1,191 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load analyzer_extras %}
 
 {% block content %}
+<style>
+    /* --- Global Spacing & Typography Overrides --- */
+    h4 { font-size: 1.25rem; }
+    .mb-5 { margin-bottom: 1.5rem !important; } /* Tighten sections */
+    
+    :root {
+        --color-run: #22c55e;
+        --color-sp: #3b82f6;
+        --color-unk: #9ca3af;
+        --bg-common: #f3f4f6;
+        --border-common: #e5e7eb;
+    }
+    
+    /* Shared Components */
+    .mult-card {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        overflow: hidden;
+        margin-bottom: 0.75rem;
+    }
+    .mult-header {
+        background: #f8fafc;
+        padding: 0.5rem 1rem;
+        border-bottom: 1px solid var(--border-common);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    /* Horizontal Layout (Executive Summary) */
+    .horiz-grid {
+        display: grid;
+        grid-template-columns: 140px 1fr;
+        min-height: 140px;
+    }
+    .horiz-common {
+        background-color: var(--bg-common);
+        border-right: 2px solid #d1d5db;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        position: relative;
+    }
+    .horiz-common::after {
+        content: ''; position: absolute; right: -6px;
+        top: 15%; bottom: 15%; width: 10px;
+        border: 2px solid #d1d5db; border-left: none;
+        border-radius: 0 8px 8px 0;
+    }
+    .horiz-strategy { padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; position: relative; }
+    .h-bar-row { display: grid; grid-template-columns: 80px 1fr 60px 60px; align-items: center; gap: 0.5rem; z-index: 2; }
+    .h-bar-track { height: 28px; background: transparent; width: 100%; display: flex; align-items: center; }
+    .h-bar-fill { height: 100%; display: flex; border-radius: 4px; overflow: hidden; }
+    
+    .bg-run { background-color: var(--color-run); height: 100%; }
+    .bg-sp { background-color: var(--color-sp); height: 100%; }
+    .bg-unk { background-color: var(--color-unk); height: 100%; }
+    
+    /* Axis Scales */
+    .x-axis-row {
+        display: grid;
+        grid-template-columns: 80px 1fr 60px 60px; 
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+        font-size: 0.7rem;
+        font-weight: 700;
+        color: #6b7280; /* Darker Gray */
+    }
+    .x-axis-scale {
+        position: relative;
+        height: 15px;
+        border-top: 1px solid #9ca3af; /* Darker Line */
+    }
+    .tick-label { position: absolute; top: 4px; transform: translateX(-50%); }
+    
+    /* Vertical Grid Lines */
+    .grid-lines-container {
+        position: absolute;
+        top: 0; bottom: 25px; left: 88px; right: 128px;
+        pointer-events: none; z-index: 1;
+    }
+    .v-grid-line {
+        position: absolute; top: 0; bottom: 0;
+        border-left: 1px dashed #9ca3af; opacity: 0.4;
+    }
+
+    /* Vertical Spectrum (Band Detail) */
+    .vert-spectrum {
+        display: grid;
+        grid-template-columns: 60px repeat(6, 1fr); /* Y-Axis + 6 Bands */
+        gap: 1px;
+        background: #e5e7eb;
+        border: 1px solid #9ca3af;
+        margin-top: 0.5rem;
+        position: relative;
+    }
+    /* Horizontal Grid Lines (Background for Vert Spectrum) */
+    .h-grid-lines-container {
+        position: absolute; top: 30px; bottom: 85px; left: 60px; right: 0; /* Header=30px, Fdn+Ftr=85px */
+        z-index: 1; pointer-events: none;
+    }
+    .h-grid-line {
+        position: absolute; left: 0; right: 0;
+        border-top: 1px dashed #6b7280; opacity: 0.5; /* Darker, more visible */
+    }
+    
+    .vert-col {
+        background: white;
+        height: 400px;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        padding: 0 2px;
+        position: relative;
+        z-index: 2;
+    }
+    .vert-header { height: 30px; line-height: 30px; overflow: hidden; } /* Fixed Height */
+    
+    /* Y-Axis Column */
+    .y-axis-col {
+        background: white;
+        height: 400px;
+        display: flex; flex-direction: column; justify-content: flex-end;
+        padding: 0; /* Remove padding, use internal spacers */
+        font-size: 0.7rem; color: #6b7280;
+        font-weight: bold;
+        text-align: right; padding-right: 4px;
+        position: relative;
+    }
+    /* Spacers to match data columns */
+    .y-axis-spacer-header { height: 30px; }
+    .y-axis-spacer-foundation { height: 60px; }
+    .y-axis-spacer-footer { height: 25px; }
+    .y-axis-scale-area { flex-grow: 1; position: relative; border-right: 1px solid #d1d5db; }
+    
+    .y-tick { position: absolute; right: 4px; transform: translateY(50%); }
+    
+    .vert-foundation {
+        background-color: var(--bg-common);
+        border-top: 2px solid #d1d5db;
+        width: 100%;
+        text-align: center;
+        padding: 0.5rem 0;
+        margin-top: 0;
+        height: 60px;
+        display: flex; flex-direction: column;
+        justify-content: center;
+    }
+    .vert-spikes-container {
+        flex-grow: 1;
+        display: flex;
+        justify-content: space-around;
+        align-items: flex-end;
+        padding-bottom: 0;
+        border-bottom: 1px solid #d1d5db;
+    }
+    .vert-bar-wrapper {
+        width: 30%;
+        display: flex; flex-direction: column;
+        align-items: center;
+        height: 100%; justify-content: flex-end;
+    }
+    .vert-bar {
+        width: 100%;
+        background: #f1f5f9;
+        border-radius: 4px 4px 0 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        position: relative;
+    }
+    .vert-footer {
+        height: 25px;
+        display: flex; justify-content: center;
+        align-items: center;
+        font-size: 0.85rem; font-weight: 800; color: #000000;
+        background: #f8fafc; border-top: 1px solid #e5e7eb;
+        white-space: nowrap; overflow: hidden;
+    }
+</style>
+
 <div class="container-fluid py-4">
     <div class="row mb-3">
         <div class="col-12 d-flex justify-content-end">
@@ -11,119 +195,356 @@
         </div>
     </div>
 
-    <div class="row mb-4">
+    <div class="row mb-2">
         {% for log in scoreboard %}
         <div class="col-md-{{ col_width }}">
             <div class="card h-100 border-primary">
-                <div class="card-header bg-primary text-white fw-bold">
+                <div class="card-header bg-primary text-white fw-bold py-1 px-3 small">
                     {{ log.callsign }}
                 </div>
-                <div class="card-body text-center">
-                    <h3 class="display-6">{{ log.score|default:"--" }}</h3>
-                    <div class="d-flex justify-content-around text-muted small">
+          
+                <div class="card-body text-center py-2">
+                    <h4 class="mb-1">{{ log.score|default:"--" }}</h4>
+                    <div class="d-flex justify-content-around text-muted" style="font-size: 0.75rem;">
                         <span>QSOs: <strong>{{ log.qsos }}</strong></span>
+      
                         {% for k, v in log.mults.items %}
                         <span>{{ k }}: <strong>{{ v }}</strong></span>
                         {% endfor %}
-                    </div>
+    
+                 </div>
+           
                 </div>
             </div>
         </div>
         {% endfor %}
     </div>
 
-    <div class="card mb-5 border shadow-sm">
-        <div class="card-header bg-light d-flex justify-content-between align-items-center">
-            <span class="fw-bold text-secondary"><i class="bi bi-grid-3x3-gap me-2"></i>Multiplier Breakdown (Group Par)</span>
-            <div>
-                {% if breakdown_txt_url %}
-                <a href="{% url 'view_report' session_id breakdown_txt_url %}?source=mult" target="_blank" class="btn btn-sm btn-link text-muted p-0 me-2" title="View Text Report">
-                    <i class="bi bi-file-text"></i>
-                </a>
-                {% endif %}
-                {% if breakdown_html_url %}
-                <a href="{% url 'view_report' session_id breakdown_html_url %}?source=mult" target="_blank" class="btn btn-sm btn-link text-secondary p-0" title="Full Screen (HTML)">
-                    <i class="bi bi-box-arrow-up-right"></i>
-                </a>
-                {% endif %}
+    {% for row in breakdown_totals %}
+    <div class="mult-card">
+        <div class="mult-header">
+           <div>
+                <div class="d-flex align-items-baseline gap-2">
+                    <h5 class="mb-0 fw-bold">{{ row.label }}</h5>
+                    <span class="text-muted small" style="font-size: 0.75rem;">(Total Worked: {{ row.total_worked }})</span>
+                </div>
+ 
+           </div>
+            <div class="d-flex gap-3 text-muted small">
+                <div class="d-flex align-items-center"><div style="width:8px;height:8px;background:var(--color-run);border-radius:50%;margin-right:4px;"></div>Run</div>
+                <div class="d-flex align-items-center"><div style="width:8px;height:8px;background:var(--color-sp);border-radius:50%;margin-right:4px;"></div>S&P</div>
             </div>
         </div>
-        <div class="card-body p-4">
-            <div class="text-center mb-4">
-                <h4 class="fw-bold text-dark">{{ full_contest_title }}</h4>
-                <p class="text-muted small">Multiplier Analysis &bull; {{ all_calls|join:", " }}</p>
+        
+        <div class="horiz-grid">
+        
+            <div class="horiz-common">
+                <div class="display-4 fw-bold text-secondary">{{ row.common }}</div>
+                <div class="small fw-bold text-muted text-uppercase ls-1">Common</div>
             </div>
             
-            <div class="table-responsive mb-4">
-                <table class="table table-sm table-hover mb-0 text-center align-middle border">
-                    <thead class="table-dark">
-                        <tr>
-                            <th class="text-start ps-3" style="width: 20%;">Scope</th>
-                            <th>Total Worked</th>
-                            <th>Common</th>
-                            {% for call in all_calls %}
-                                <th>{{ call }}</th>
-                            {% endfor %}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% include "analyzer/partials/breakdown_rows.html" with rows=breakdown_totals %}
-                    </tbody>
-                </table>
+            <div class="horiz-strategy">
+     
+                 <div class="grid-lines-container">
+                    <div class="v-grid-line" style="left: 0%"></div>
+                    <div class="v-grid-line" style="left: 25%"></div>
+                    <div class="v-grid-line" style="left: 50%"></div>
+                   
+                     <div class="v-grid-line" style="left: 75%"></div>
+                    <div class="v-grid-line" style="left: 100%"></div>
+                </div>
+
+                {% for stat in row.stations %}
+                {% with total_unique=stat.unique_run|add:stat.unique_sp|add:stat.unique_unk %}
+    
+                <div class="h-bar-row">
+                     <div class="fw-bold">{{ all_calls|get_item:forloop.counter0 }}</div>
+                    <div class="h-bar-track">
+                        <div class="h-bar-fill" style="width: {% widthratio total_unique row.max_unique 100 %}%;">
+          
+                            <div class="bg-run" style="width: {% widthratio stat.unique_run total_unique 100 %}%;"></div>
+                            <div class="bg-sp" style="width: {% widthratio stat.unique_sp total_unique 100 %}%;"></div>
+               
+                             <div class="bg-unk" style="width: {% widthratio stat.unique_unk total_unique 100 %}%;"></div>
+              
+                        </div>
+                    </div>
+                    <div class="fw-bold text-end">{{ stat.count }}</div>
+                    <div class="fw-bold text-end text-danger">{{ stat.delta }}</div>
+                </div>
+    
+                {% endwith %}
+                {% endfor %}
+                
+                <div class="x-axis-row">
+                    <div></div>
+               
+                    <div class="x-axis-scale">
+                        <span class="tick-label" style="left: 0%">0</span>
+                        <span class="tick-label" style="left: 25%">{% widthratio row.max_unique 4 1 %}</span>
+                        <span class="tick-label" style="left: 50%">{% widthratio row.max_unique 2 1 %}</span>
+   
+                        <span class="tick-label" style="left: 75%">{% widthratio row.max_unique 4 3 %}</span>
+ 
+                       <span class="tick-label" style="left: 100%">{{ row.max_unique }}</span>
+                    </div>
+                    <div></div><div></div>
+  
+                </div>
             </div>
+  
+       </div>
+    </div>
+    {% endfor %}
 
-            <div class="row g-4">
-                <div class="col-lg-6">
-                    <h6 class="fw-bold text-secondary mb-2 border-bottom pb-2">Low Bands (160-40M)</h6>
-                    {% for block in low_bands_data %}
-                        <div class="table-responsive mb-3 border rounded">
-                            <table class="table table-sm table-hover mb-0 text-center align-middle">
-                                <thead class="table-light text-muted small">
-                                    <tr>
-                                        <th class="text-start ps-2" style="width: 20%;">{{ block.label }}</th>
-                                        <th>Worked</th>
-                                        <th>Common</th>
-                                        {% for call in all_calls %}<th>{{ call }}</th>{% endfor %}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% include "analyzer/partials/breakdown_rows.html" with rows=block.rows %}
-                                </tbody>
-                            </table>
-                        </div>
-                    {% endfor %}
+    <h4 class="mb-3 text-secondary border-bottom pb-2 mt-5">Band Spectrum (Unique Multipliers)</h4>
+    
+    <ul class="nav nav-pills mb-3" id="pills-tab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="pills-all-tab" data-bs-toggle="pill" data-bs-target="#pills-all" type="button" role="tab">All Multipliers</button>
+ 
+        </li>
+        <li class="nav-item" role="presentation">
+             <button class="nav-link" id="pills-countries-tab" data-bs-toggle="pill" data-bs-target="#pills-countries" type="button" role="tab">Countries</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="pills-zones-tab" data-bs-toggle="pill" data-bs-target="#pills-zones" type="button" role="tab">Zones</button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="pills-tabContent">
+        
+  
+        <div class="tab-pane fade show active" id="pills-all" role="tabpanel">
+            <div class="vert-spectrum">
+                <div class="y-axis-col">
+                    <div class="y-axis-spacer-header"></div>
+                    <div class="y-axis-scale-area">
+                        <div class="y-tick" style="bottom: 0%">0</div>
+                        <div class="y-tick" style="bottom: 25%">{% widthratio global_max.total 4 1 %}</div>
+                        <div class="y-tick" style="bottom: 50%">{% widthratio global_max.total 2 1 %}</div>
+                        <div class="y-tick" style="bottom: 75%">{% widthratio global_max.total 4 3 %}</div>
+                        <div class="y-tick" style="bottom: 100%">{{ global_max.total }}</div>
+                    </div>
+                    <div class="y-axis-spacer-foundation"></div>
+                    <div class="y-axis-spacer-footer"></div>
+                </div>
+                
+                <div class="h-grid-lines-container">
+                    <div class="h-grid-line" style="bottom: 25%"></div>
+                    <div class="h-grid-line" style="bottom: 50%"></div>
+                    <div class="h-grid-line" style="bottom: 75%"></div>
+                    <div class="h-grid-line" style="bottom: 100%"></div>
                 </div>
 
-                <div class="col-lg-6">
-                    <h6 class="fw-bold text-secondary mb-2 border-bottom pb-2">High Bands (20-10M)</h6>
-                    {% for block in high_bands_data %}
-                        <div class="table-responsive mb-3 border rounded">
-                            <table class="table table-sm table-hover mb-0 text-center align-middle">
-                                <thead class="table-light text-muted small">
-                                    <tr>
-                                        <th class="text-start ps-2" style="width: 20%;">{{ block.label }}</th>
-                                        <th>Worked</th>
-                                        <th>Common</th>
-                                        {% for call in all_calls %}<th>{{ call }}</th>{% endfor %}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% include "analyzer/partials/breakdown_rows.html" with rows=block.rows %}
-                                </tbody>
-                            </table>
+                {% for block in low_bands_data|add:high_bands_data %}
+                <div class="vert-col">
+                    <div class="vert-header">{{ block.label }}</div>
+                    {% for row in block.rows %}
+   
+                       {% if row.label == "TOTAL" or row.label == block.label %}
+                        <div class="vert-spikes-container">
+                            {% for stat in row.stations %}
+       
+                            {% with total_unique=stat.unique_run|add:stat.unique_sp|add:stat.unique_unk %}
+                            <div class="vert-bar-wrapper">
+                                <div class="vert-bar" style="height: {% widthratio total_unique global_max.total 100 %}%;" data-bs-toggle="tooltip" title="{{ all_calls|get_item:forloop.counter0 }}: {{ total_unique }} Unique">
+                                    <div class="bg-unk" style="height: {% widthratio stat.unique_unk total_unique 100 %}%;"></div>
+                                    <div class="bg-sp" style="height: {% widthratio stat.unique_sp total_unique 100 %}%;"></div>
+                                    <div class="bg-run" style="height: {% widthratio stat.unique_run total_unique 100 %}%;"></div>
+                                </div>
+                        
+                            </div>
+ 
+                            {% endwith %}
+                            {% endfor %}
                         </div>
+           
+                      
+                        <div class="vert-foundation">
+                            <div class="h4 fw-bold text-secondary m-0">{{ row.common }}</div>
+                            <div class="small fw-bold text-muted text-uppercase" style="font-size:0.6rem;">Common</div>
+  
+                       </div>
+ 
+                        <div class="d-flex" style="background:#f8fafc;">
+                            {% for call in all_calls %}
+                  
+                           <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>
+         
+                            {% endfor %}
+                        </div>
+                      
+                       {% endif %}
                     {% endfor %}
+       
                 </div>
+                {% endfor %}
             </div>
         </div>
+
+        <div class="tab-pane fade" id="pills-countries" role="tabpanel">
+            <div class="vert-spectrum">
+                <div class="y-axis-col">
+                    <div class="y-axis-spacer-header"></div>
+                    <div class="y-axis-scale-area">
+                        <div class="y-tick" style="bottom: 0%">0</div>
+                        <div class="y-tick" style="bottom: 25%">{% widthratio global_max.countries 4 1 %}</div>
+                        <div class="y-tick" style="bottom: 50%">{% widthratio global_max.countries 2 1 %}</div>
+                        <div class="y-tick" style="bottom: 75%">{% widthratio global_max.countries 4 3 %}</div>
+                        <div class="y-tick" style="bottom: 100%">{{ global_max.countries }}</div>
+                    </div>
+                    <div class="y-axis-spacer-foundation"></div>
+                    <div class="y-axis-spacer-footer"></div>
+                </div>
+                
+                <div class="h-grid-lines-container">
+                    <div class="h-grid-line" style="bottom: 25%"></div>
+                    <div class="h-grid-line" style="bottom: 50%"></div>
+                    <div class="h-grid-line" style="bottom: 75%"></div>
+                    <div class="h-grid-line" style="bottom: 100%"></div>
+                </div>
+
+                {% for block in low_bands_data|add:high_bands_data %}
+                <div class="vert-col">
+                
+                    <div class="vert-header">{{ block.label }}</div>
+                    {% for row in block.rows %}
+                        {% if "Countries" in row.label %}
+                        <div class="vert-spikes-container">
+              
+ 
+                            {% for stat in row.stations %}
+                            {% with total_unique=stat.unique_run|add:stat.unique_sp|add:stat.unique_unk %}
+                            <div class="vert-bar-wrapper">
+        
+                                <div class="vert-bar" style="height: {% widthratio total_unique global_max.countries 100 %}%;" data-bs-toggle="tooltip" title="{{ all_calls|get_item:forloop.counter0 }}: {{ total_unique }} Unique">
+                                    <div class="bg-unk" style="height: {% widthratio stat.unique_unk total_unique 100 %}%;"></div>
+                                    <div class="bg-sp" style="height: {% widthratio stat.unique_sp total_unique 100 %}%;"></div>
+                                    <div class="bg-run" style="height: {% widthratio stat.unique_run total_unique 100 %}%;"></div>
+                                </div>
+                        
+                            </div>
+ 
+                            {% endwith %}
+                            {% endfor %}
+                        </div>
+           
+                      
+                        <div class="vert-foundation">
+                            <div class="h4 fw-bold text-secondary m-0">{{ row.common }}</div>
+                            <div class="small fw-bold text-muted text-uppercase" style="font-size:0.6rem;">Common</div>
+  
+                       </div>
+ 
+                        <div class="d-flex" style="background:#f8fafc;">
+                            {% for call in all_calls %}
+                  
+                           <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>
+         
+                            {% endfor %}
+                        </div>
+                      
+                       {% endif %}
+                    {% endfor %}
+       
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="pills-zones" role="tabpanel">
+             <div class="vert-spectrum">
+                <div class="y-axis-col">
+                    <div class="y-axis-spacer-header"></div>
+                    <div class="y-axis-scale-area">
+                        <div class="y-tick" style="bottom: 0%">0</div>
+                        <div class="y-tick" style="bottom: 25%">{% widthratio global_max.zones 4 1 %}</div>
+                        <div class="y-tick" style="bottom: 50%">{% widthratio global_max.zones 2 1 %}</div>
+                        <div class="y-tick" style="bottom: 75%">{% widthratio global_max.zones 4 3 %}</div>
+                        <div class="y-tick" style="bottom: 100%">{{ global_max.zones }}</div>
+                    </div>
+                    <div class="y-axis-spacer-foundation"></div>
+                    <div class="y-axis-spacer-footer"></div>
+                </div>
+                
+                <div class="h-grid-lines-container">
+                    <div class="h-grid-line" style="bottom: 25%"></div>
+                    <div class="h-grid-line" style="bottom: 50%"></div>
+                    <div class="h-grid-line" style="bottom: 75%"></div>
+                    <div class="h-grid-line" style="bottom: 100%"></div>
+                </div>
+
+                {% for block in low_bands_data|add:high_bands_data %}
+                <div class="vert-col">
+             
+                    <div class="vert-header">{{ block.label }}</div>
+  
+                   {% for row in block.rows %}
+                        {% if "Zones" in row.label %}
+                        <div class="vert-spikes-container">
+           
+            
+                            {% for stat in row.stations %}
+                            {% with total_unique=stat.unique_run|add:stat.unique_sp|add:stat.unique_unk %}
+                            <div class="vert-bar-wrapper">
+                 
+                                <div class="vert-bar" style="height: {% widthratio total_unique global_max.zones 100 %}%;" data-bs-toggle="tooltip" title="{{ all_calls|get_item:forloop.counter0 }}: {{ total_unique }} Unique">
+                                    <div class="bg-unk" style="height: {% widthratio stat.unique_unk total_unique 100 %}%;"></div>
+                                    <div class="bg-sp" style="height: {% widthratio stat.unique_sp total_unique 100 %}%;"></div>
+                                    <div class="bg-run" style="height: {% widthratio stat.unique_run total_unique 100 %}%;"></div>
+                                </div>
+                        
+                            </div>
+ 
+                            {% endwith %}
+                            {% endfor %}
+                        </div>
+           
+                      
+                        <div class="vert-foundation">
+                            <div class="h4 fw-bold text-secondary m-0">{{ row.common }}</div>
+                            <div class="small fw-bold text-muted text-uppercase" style="font-size:0.6rem;">Common</div>
+  
+                       </div>
+ 
+                        <div class="d-flex" style="background:#f8fafc;">
+                            {% for call in all_calls %}
+                  
+                           <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>
+         
+                            {% endfor %}
+                        </div>
+                      
+                       {% endif %}
+                    {% endfor %}
+       
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
     </div>
 
     {% if is_solo %}
     <h5 class="fw-bold text-secondary mb-3"><i class="bi bi-file-text me-2"></i>Multiplier Matrix Reports</h5>
     {% else %}
-    <h5 class="fw-bold text-secondary mb-3"><i class="bi bi-file-text me-2"></i>Missed Multiplier Reports</h5>
+    <h5 class="fw-bold text-secondary mb-3 mt-5 pt-4"><i class="bi bi-file-text me-2"></i>Analysis Reports</h5>
     {% endif %}
+    
     <div class="row row-cols-1 row-cols-md-2 row-cols-xl-4 g-4">
+        <div class="col">
+            <div class="card h-100 shadow-sm border-0">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                     <span class="fw-bold text-primary">Summary Breakdown</span>
+                    <a href="{% url 'view_report' session_id breakdown_txt_url %}" target="_blank" class="btn btn-sm btn-link text-muted p-0" title="Full Screen"><i class="bi bi-box-arrow-up-right"></i></a>
+                </div>
+                <div class="card-body p-0" style="height: 500px;">
+                    <iframe src="{% url 'view_report' session_id breakdown_txt_url %}?chromeless=1" style="width: 100%; height: 100%; border: none;"></iframe>
+                </div>
+            </div>
+        </div>
+
         {% for mult in multipliers %}
             {% if mult.missed %}
             <div class="col">
@@ -147,12 +568,11 @@
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         // Initialize Bootstrap tooltips
+    
         var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
         var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
             return new bootstrap.Tooltip(tooltipTriggerEl)
         });
     });
-</script>
-<script type="text/template" id="breakdown-rows-template">
 </script>
 {% endblock %}
