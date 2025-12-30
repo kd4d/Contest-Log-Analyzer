@@ -4,7 +4,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-29
-# Version: 0.141.1-Beta
+# Version: 0.142.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.142.0-Beta] - 2025-12-29
+# - Implemented dynamic table width calculation for correct header alignment.
+# - Updated column header alignment to center-justified (15 chars) to match data rows.
 # [0.141.1-Beta] - 2025-12-29
 # - Fixed duplicate band header bug.
 # - Refactored column formatting to use fixed-width composite alignment (Count: 6, Spacer: 1, Delta: 7).
@@ -50,6 +53,7 @@ class Report(ContestReport):
         mult_agg = MultiplierStatsAggregator(self.logs)
         data = mult_agg.get_multiplier_breakdown_data()
         
+    
         # 2. Setup Headers
         # Identify callsigns from logs to ensure alignment
         all_calls = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])
@@ -59,7 +63,7 @@ class Report(ContestReport):
         metadata = first_log.get_metadata()
         contest_name = metadata.get('ContestName', 'Unknown')
         event_id = metadata.get('EventID', '')
-        
+    
         df = first_log.get_processed_data()
         year = df['Date'].dropna().iloc[0].split('-')[0] if not df.empty else "----"
             
@@ -82,11 +86,6 @@ class Report(ContestReport):
             modes_present
         )
         meta_lines = ["Contest Log Analytics by KD4D", get_cty_metadata(self.logs)]
-        
-        # Use arbitrary width for now or calc max width
-        header_block = format_text_header(80, title_lines, meta_lines)
-        lines.extend(header_block)
-        lines.append("")
         
         # Helper to format a row
         # Layout: Scope (25), Total (8), Common (8), Call1 (15), Call2 (15)...
@@ -114,7 +113,15 @@ class Report(ContestReport):
         # Header Row
         header = f"{'Scope':<25} {'Total':>8} {'Common':>8}"
         for call in all_calls:
-            header += f" {call:>15}"
+            # Center alignment (14 chars) + 1 leading space = 15 chars total per column
+            header += f" {call:^14}"
+        
+        table_width = len(header)
+        
+        # Generate header with dynamic width
+        header_block = format_text_header(table_width, title_lines, meta_lines)
+        lines.extend(header_block)
+        lines.append("")
         
         lines.append(header)
         lines.append("-" * len(header))
