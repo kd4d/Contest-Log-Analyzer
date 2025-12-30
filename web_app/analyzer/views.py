@@ -21,6 +21,9 @@
 #
 # --- Revision History ---
 # [Phase 1 (Pathfinder)] - 2025-12-29
+# - Updated `qso_dashboard` to pass JSON artifact URLs for Point and QSO rate plots
+#   to support JS-based rendering (Chart.js/Plotly) instead of iframes.
+# [Phase 1 (Pathfinder)] - 2025-12-29
 # - Updated `qso_dashboard` view to discover and pass JSON artifacts for interactive web components.
 # [0.140.0-Beta] - 2025-12-25
 # - Updated `_update_progress` to use atomic file writes (write to .tmp -> os.replace)
@@ -311,12 +314,12 @@ def analyze_logs(request):
                 callsigns_raw = request.POST.get('fetch_callsigns') # JSON string
                 year = request.POST.get('fetch_year')
                 mode = request.POST.get('fetch_mode')
-                 
+                  
                 callsigns = json.loads(callsigns_raw)
                 
                 _update_progress(request_id, 1) # Step 1: Fetching
                 log_paths = download_logs(callsigns, year, mode, session_path)
-                 
+                  
                 return _run_analysis_pipeline(request_id, log_paths, session_path, session_key)
             
             except ValueError as e:
@@ -804,7 +807,8 @@ def qso_dashboard(request, session_id):
                 
                 point_plots.append({
                     'label': label,
-                    'file': f"{report_rel_path}/{art['path']}",
+                    'file_html': f"{report_rel_path}/{art['path']}",
+                    'file_json': f"{settings.MEDIA_URL}sessions/{session_id}/{report_rel_path}/{art['path'].replace('.html', '.json')}",
                     'sort_val': sort_val
                 })
     
@@ -833,13 +837,14 @@ def qso_dashboard(request, session_id):
                 band_key = parts[0].upper()
                 if band_key.isdigit(): band_key += 'M'
                 if band_key == 'ALL': continue
-                
+
                 label = band_key
                 sort_val = BAND_SORT_ORDER.get(band_key, 99)
                 
                 qso_band_plots.append({
                     'label': label,
-                    'file': f"{report_rel_path}/{art['path']}",
+                    'file_html': f"{report_rel_path}/{art['path']}",
+                    'file_json': f"{settings.MEDIA_URL}sessions/{session_id}/{report_rel_path}/{art['path'].replace('.html', '.json')}",
                     'sort_val': sort_val
                 })
 

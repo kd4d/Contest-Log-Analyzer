@@ -91,8 +91,7 @@
             </button>
         </li>
         <li class="nav-item" role="presentation">
-            <button class="nav-link" id="points-tab" 
-            data-bs-toggle="tab" data-bs-target="#points" type="button" role="tab">
+            <button class="nav-link" id="points-tab" data-bs-toggle="tab" data-bs-target="#points" type="button" role="tab">
                 <i class="bi bi-geo-alt me-2"></i>Points & Bands
             </button>
         </li>
@@ -110,10 +109,10 @@
                     <option value="{{ forloop.counter }}"
                             data-breakdown-json="{{ m.qso_breakdown_json }}"
                             data-breakdown-full="{% url 'view_report' session_id m.qso_breakdown_file %}?source=qso"
-                           {% for band, path in m.diff_paths.items %}
+                            {% for band, path in m.diff_paths.items %}
                                 data-diff-json-{{ band }}="{{ m.diff_json_paths|get_item:band }}"
-                        data-diff-full-{{ band }}="{% url 'view_report' session_id path %}?source=qso"
-                        {% endfor %}
+                                data-diff-full-{{ band }}="{% url 'view_report' session_id path %}?source=qso"
+                            {% endfor %}
                     >{{ m.label }}</option>
                 {% endfor %}
                 </select>
@@ -136,7 +135,6 @@
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <div class="d-flex align-items-center">
                                 <span class="me-2">Rate Differential</span>
-                                
                                 <div class="btn-group btn-group-sm" role="group">
                                     <button type="button" class="btn btn-outline-secondary diff-band-btn" data-band="160">160</button>
                                     <button type="button" class="btn btn-outline-secondary diff-band-btn" data-band="80">80</button>
@@ -164,8 +162,8 @@
                 <select class="form-select" id="cumulSelect">
                 {% for p in qso_band_plots %}
                     <option value="{{ p.label }}"
-                            data-src="{% url 'view_report' session_id p.file %}?chromeless=1"
-                            data-full-src="{% url 'view_report' session_id p.file %}?source=qso"
+                            data-json-src="{{ p.file_json }}"
+                            data-full-src="{% url 'view_report' session_id p.file_html %}?source=qso"
                             {% if p.active %}selected{% endif %}>{{ p.label }}</option>
                 {% endfor %}
                 </select>
@@ -178,7 +176,7 @@
                             <a id="link-qso-rates" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
                         </div>
                         <div class="card-body p-0">
-                             <iframe id="frame-qso-rates" src="" class="viewport-frame"></iframe>
+                            <div id="chart-qso-rates" class="viewport-frame" style="overflow: hidden;"></div>
                         </div>
                     </div>
                 </div>
@@ -219,8 +217,8 @@
                 <select class="form-select" id="pointsSelect">
                 {% for p in point_plots %}
                      <option value="{{ p.label }}"
-                            data-src="{% url 'view_report' session_id p.file %}?chromeless=1"
-                            data-full-src="{% url 'view_report' session_id p.file %}?source=qso"
+                            data-json-src="{{ p.file_json }}"
+                            data-full-src="{% url 'view_report' session_id p.file_html %}?source=qso"
                             {% if p.active %}selected{% endif %}>{{ p.label }}</option>
                 {% endfor %}
                 </select>
@@ -233,7 +231,7 @@
                             <a id="link-points" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
                         </div>
                         <div class="card-body p-0">
-                             <iframe id="frame-points" src="" class="viewport-frame"></iframe>
+                             <div id="chart-points" class="viewport-frame" style="overflow: hidden;"></div>
                         </div>
                     </div>
                 </div>
@@ -324,16 +322,27 @@
                 updateDiffContent();
             });
         });
+
         // --- Generic Dropdown Logic for other tabs ---
-        function setupDropdown(selectId, frameId, linkId) {
+        // Enhanced: Supports both iframe (src) and Div/Plotly (json-src)
+        function setupDropdown(selectId, targetId, linkId) {
             const select = document.getElementById(selectId);
-            const frame = document.getElementById(frameId);
+            const target = document.getElementById(targetId);
             const link = document.getElementById(linkId);
             
-            if (!select || !frame) return;
+            if (!select || !target) return;
+
             function update() {
                 const opt = select.options[select.selectedIndex];
-                frame.src = opt.dataset.src;
+                
+                if (target.tagName === 'IFRAME') {
+                    // Iframe Mode (Legacy text reports)
+                    target.src = opt.dataset.src;
+                } else {
+                    // Div Mode (New JSON Charts)
+                    renderChart(targetId, opt.dataset.jsonSrc);
+                }
+                
                 if(link) link.href = opt.dataset.fullSrc;
             }
             
@@ -342,9 +351,9 @@
             select.addEventListener('change', update);
         }
 
-        setupDropdown('cumulSelect', 'frame-qso-rates', 'link-qso-rates');
-        setupDropdown('ratesSelect', 'frame-rates', 'link-rates');
-        setupDropdown('pointsSelect', 'frame-points', 'link-points');
+        setupDropdown('cumulSelect', 'chart-qso-rates', 'link-qso-rates'); // Changed to chart ID
+        setupDropdown('ratesSelect', 'frame-rates', 'link-rates');         // Remains Iframe
+        setupDropdown('pointsSelect', 'chart-points', 'link-points');      // Changed to chart ID
     });
 </script>
 {% endblock %}
