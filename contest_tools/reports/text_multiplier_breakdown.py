@@ -3,8 +3,8 @@
 # Purpose: Specialized text report for multiplier breakdown (Group Par).
 #
 # Author: Gemini AI
-# Date: 2025-12-22
-# Version: 0.137.0-Beta
+# Date: 2025-12-29
+# Version: 0.141.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.141.1-Beta] - 2025-12-29
+# - Fixed duplicate band header bug.
+# - Refactored column formatting to use fixed-width composite alignment (Count: 6, Spacer: 1, Delta: 7).
 # [0.137.0-Beta] - 2025-12-22
 # - Updated `format_row` helper to display delta values for negative counts.
 # - Increased column width to accommodate delta display.
@@ -56,6 +59,7 @@ class Report(ContestReport):
         metadata = first_log.get_metadata()
         contest_name = metadata.get('ContestName', 'Unknown')
         event_id = metadata.get('EventID', '')
+        
         df = first_log.get_processed_data()
         year = df['Date'].dropna().iloc[0].split('-')[0] if not df.empty else "----"
             
@@ -98,11 +102,13 @@ class Report(ContestReport):
             # The previous code assumed station_dict was a dict.
             for i, call in enumerate(all_calls):
                 stats = station_dict[i] # station_dict is actually a list here
-                val = str(stats['count'])
+                
+                # Fixed-width formatting: Count(6) + Spacer(1) + Delta(7) = 14 chars
+                count_part = f"{stats['count']:>6}"
                 delta = stats.get('delta', 0)
-                if delta < 0:
-                    val += f" ({delta})"
-                row_str += f" {val:>15}"
+                delta_part = f"({delta})" if delta < 0 else ""
+                
+                row_str += f" {count_part} {delta_part:<7}"
             return row_str
 
         # Header Row
@@ -131,7 +137,7 @@ class Report(ContestReport):
         # Process Bands
         for block in data['bands']:
             # Band Header
-            lines.append(block['label'])
+            # lines.append(block['label']) # Removed duplicate header
             for row in block['rows']:
                 lines.append(format_row(
                     row['label'], 

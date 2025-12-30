@@ -13,16 +13,20 @@
     }
     /* High Saturation Palette */
     .step-done {
-        background-color: #00e676 !important; /* High-Vis Green */
+        background-color: #00e676 !important;
+        /* High-Vis Green */
         color: white !important;
     }
     .step-active {
-        background-color: #2979ff !important; /* Electric Blue */
+        background-color: #2979ff !important;
+        /* Electric Blue */
         color: white !important;
     }
     .step-pending {
-        background-color: #dee2e6 !important; /* Contrast Grey */
-        color: #6c757d !important; /* Muted text */
+        background-color: #dee2e6 !important;
+        /* Contrast Grey */
+        color: #6c757d !important;
+        /* Muted text */
     }
 </style>
 <div class="container mt-5">
@@ -314,7 +318,7 @@
                             
                             // Populate Datalists
                             ['callsignList1', 'callsignList2', 'callsignList3'].forEach(id => {
-                                const dl = document.getElementById(id);
+                                 const dl = document.getElementById(id);
                                 dl.innerHTML = '';
                                 availableCallsigns.forEach(call => {
                                     const opt = document.createElement('option');
@@ -368,6 +372,10 @@
                  document.getElementById('fetchModeInput').value = modeSelect.value;
                  
                  // Trigger Progress UI
+                 const errorAlert = document.querySelector('.alert-danger');
+                 if (errorAlert) {
+                     errorAlert.style.display = 'none';
+                 }
                  progressContainer.classList.remove('d-none');
                  requestIdInput.value = 'req_' + Math.random().toString(36).substr(2, 9);
                  document.querySelector('.fetch-request-id').value = requestIdInput.value;
@@ -400,6 +408,10 @@
 
             form.addEventListener('submit', function() {
                 // Show progress bar
+                const errorAlert = document.querySelector('.alert-danger');
+                if (errorAlert) {
+                    errorAlert.style.display = 'none';
+                }
                 progressContainer.classList.remove('d-none');
                 
                 // Start polling
