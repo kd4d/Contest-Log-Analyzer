@@ -105,8 +105,10 @@
     }
     /* Horizontal Grid Lines (Background for Vert Spectrum) */
     .h-grid-lines-container {
-        position: absolute; top: 30px; bottom: 85px; left: 60px; right: 0; /* Header=30px, Fdn+Ftr=85px */
-        z-index: 1; pointer-events: none;
+        position: absolute;
+        top: 30px; bottom: 85px; left: 60px; right: 0; /* Header=30px, Fdn+Ftr=85px */
+        z-index: 1;
+        pointer-events: none;
     }
     .h-grid-line {
         position: absolute; left: 0; right: 0;
@@ -189,12 +191,14 @@
 </style>
 
 <div class="container-fluid py-4">
-    <div class="row mb-3">
-        <div class="col-12 d-flex justify-content-end">
-            <a href="{% url 'dashboard_view' session_id %}" class="btn btn-outline-secondary">
-                <i class="bi bi-arrow-left me-1"></i>Back to Main Dashboard
-            </a>
+    <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-2">
+        <div>
+            <h2 class="fw-bold text-dark mb-0">{{ report_metadata.context_line }}</h2>
+            <div class="text-secondary small">{{ report_metadata.scope_line }} &bull; Multiplier Breakdown</div>
         </div>
+        <a href="{% url 'dashboard_view' session_id %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>Back to Main Dashboard
+        </a>
     </div>
 
     <div class="row mb-2">
@@ -204,12 +208,10 @@
                 <div class="card-header bg-primary text-white fw-bold py-1 px-3 small">
                     {{ log.callsign }}
                 </div>
-          
                 <div class="card-body text-center py-2">
                     <h4 class="mb-1">{{ log.score|default:"--" }}</h4>
                     <div class="d-flex justify-content-around text-muted" style="font-size: 0.75rem;">
                         <span>QSOs: <strong>{{ log.qsos }}</strong></span>
-      
                         {% for k, v in log.mults.items %}
                         <span>{{ k }}: <strong>{{ v }}</strong></span>
                         {% endfor %}
@@ -221,7 +223,10 @@
     </div>
 
     {% for row in breakdown_totals %}
-    <div class="mult-card" id="mult-summary-{{ forloop.counter }}">
+    <div class="mult-card" id="mult-summary-{{ forloop.counter }}"
+         data-export-title="{{ row.label }}"
+         data-export-context="{{ report_metadata.context_line }}"
+         data-export-footer="{{ report_metadata.footer }}">
         <div class="mult-header">
            <div>
                 <div class="d-flex align-items-baseline gap-2">
@@ -297,7 +302,10 @@
        </button>
     </div>
 
-    <div id="band-spectrum-container" class="bg-white p-2 rounded">
+    <div id="band-spectrum-container" class="bg-white p-2 rounded"
+         data-export-title="Band Spectrum (Unique Multipliers)"
+         data-export-context="{{ report_metadata.context_line }}"
+         data-export-footer="{{ report_metadata.footer }}">
         
         <ul class="nav nav-pills mb-3" id="pills-tab" role="tablist">
             <li class="nav-item" role="presentation">
@@ -395,7 +403,6 @@
 
                     {% for block in low_bands_data|add:high_bands_data %}
                     <div class="vert-col">
-                    
                         <div class="vert-header">{{ block.label }}</div>
                         {% for row in block.rows %}
                             {% if "Countries" in row.label %}
@@ -532,33 +539,74 @@
 
 <script>
     function captureWidget(elementId, filenameBase) {
-        const element = document.getElementById(elementId);
-        if (!element) {
-            console.error('Element not found:', elementId);
-            return;
-        }
+        const sourceElement = document.getElementById(elementId);
+        if (!sourceElement) return;
 
-        // Visual feedback
-        const originalBorder = element.style.border;
-        element.style.border = '2px solid #3b82f6';
+        // 1. Get Metadata from attributes
+        const exportTitle = sourceElement.getAttribute('data-export-title') || 'Snapshot';
+        const exportContext = sourceElement.getAttribute('data-export-context') || '';
+        const exportFooter = sourceElement.getAttribute('data-export-footer') || '';
 
-        html2canvas(element, {
-            scale: 2, // High resolution (Retina)
-            backgroundColor: '#ffffff', // Ensure white background
-            useCORS: true // Handle cross-origin images if any
+        // 2. Create Ghost Clone Container
+        const ghost = document.createElement('div');
+        ghost.style.position = 'absolute';
+        ghost.style.left = '-9999px';
+        ghost.style.top = '0';
+        ghost.style.width = sourceElement.offsetWidth + 'px'; // Maintain width
+        ghost.style.backgroundColor = '#ffffff';
+        ghost.style.padding = '20px';
+        
+        // 3. Inject Header
+        const headerDiv = document.createElement('div');
+        headerDiv.style.borderBottom = '2px solid #3b82f6'; // Blue accent
+        headerDiv.style.marginBottom = '15px';
+        headerDiv.style.paddingBottom = '10px';
+        headerDiv.innerHTML = `
+            <h1 style="font-size: 24px; font-weight: bold; margin: 0; color: #000;">${exportTitle}</h1>
+            <h3 style="font-size: 16px; margin: 5px 0 0 0; color: #666;">${exportContext}</h3>
+        `;
+        ghost.appendChild(headerDiv);
+
+        // 4. Clone Content (Strip Controls)
+        const clone = sourceElement.cloneNode(true);
+        const buttons = clone.querySelectorAll('button');
+        buttons.forEach(btn => btn.remove());
+        
+        // Clean styling
+        clone.style.boxShadow = 'none';
+        clone.style.margin = '0';
+        clone.classList.remove('mult-card'); // Remove card borders if ghost wrapper handles it
+        
+        ghost.appendChild(clone);
+
+        // 5. Inject Footer
+        const footerDiv = document.createElement('div');
+        footerDiv.style.borderTop = '1px solid #e5e7eb';
+        footerDiv.style.marginTop = '15px';
+        footerDiv.style.paddingTop = '10px';
+        footerDiv.style.textAlign = 'center';
+        footerDiv.style.fontSize = '12px';
+        footerDiv.style.color = '#9ca3af';
+        footerDiv.innerText = exportFooter;
+        ghost.appendChild(footerDiv);
+
+        document.body.appendChild(ghost);
+
+        // 6. Capture
+        html2canvas(ghost, {
+            scale: 2,
+            backgroundColor: '#ffffff',
+            useCORS: true
         }).then(canvas => {
-            // Restore style
-            element.style.border = originalBorder;
+            document.body.removeChild(ghost);
             
-            // Trigger Download
             const link = document.createElement('a');
             link.download = `${filenameBase}.png`;
             link.href = canvas.toDataURL("image/png");
             link.click();
         }).catch(err => {
-            console.error('Capture failed:', err);
-            element.style.border = '2px solid red';
-            setTimeout(() => element.style.border = originalBorder, 1000);
+            console.error("Capture failed", err);
+            document.body.removeChild(ghost);
         });
     }
 

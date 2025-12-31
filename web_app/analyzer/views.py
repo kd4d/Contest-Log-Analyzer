@@ -5,8 +5,8 @@
 #          aggregates data using DAL components, and renders the dashboard.
 #
 # Author: Gemini AI
-# Date: 2025-12-25
-# Version: 0.152.0-Beta
+# Date: 2025-12-31
+# Version: 0.156.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -20,6 +20,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.156.0-Beta] - 2025-12-31
+# - Updated `multiplier_dashboard` to use `get_standard_title_lines` and `get_cty_metadata` for
+#   standardized report headers/footers (Ghost Injection support).
+# - Implemented `report_metadata` dictionary in context, replacing `full_contest_title`.
 # [0.152.0-Beta] - 2025-12-30
 # - Updated `multiplier_dashboard` to calculate `global_max` scaling factors for normalized charting.
 # [Phase 1 (Pathfinder)] - 2025-12-29
@@ -32,8 +36,8 @@
 #   to prevent `JSONDecodeError` race conditions on the frontend.
 # [0.139.8-Beta] - 2025-12-23
 # - Fixed artifact discovery bug in `multiplier_dashboard` where `next()` would return single-log
-#   artifacts instead of the combined session artifact. Implemented strict suffix matching
-#   using `combo_id`.
+#   artifacts instead of the combined session artifact.
+#   Implemented strict suffix matching using `combo_id`.
 # [0.139.7-Beta] - 2025-12-23
 # - Refactored `multiplier_dashboard` and `qso_dashboard` to derive `combo_id` directly from
 #   the authoritative `session_manifest.json` directory name, removing fragile filename parsing.
@@ -193,7 +197,7 @@ from contest_tools.data_aggregators.time_series import TimeSeriesAggregator
 from contest_tools.data_aggregators.multiplier_stats import MultiplierStatsAggregator
 from contest_tools.report_generator import ReportGenerator
 from contest_tools.core_annotations import CtyLookup
-from contest_tools.reports._report_utils import _sanitize_filename_part
+from contest_tools.reports._report_utils import _sanitize_filename_part, get_standard_title_lines, get_cty_metadata
 from contest_tools.utils.log_fetcher import fetch_log_index, download_logs
 from contest_tools.manifest_manager import ManifestManager
 
@@ -327,6 +331,7 @@ def analyze_logs(request):
             except ValueError as e:
                 logger.warning(f"Validation error during public log fetch: {e}")
                 return render(request, 'analyzer/home.html', {'form': UploadLogForm(), 'error': str(e)})
+            
             except Exception as e:
                 logger.exception("Public log fetch failed")
                 return render(request, 'analyzer/home.html', {'form': UploadLogForm(), 'error': str(e)})
@@ -562,6 +567,7 @@ def multiplier_dashboard(request, session_id):
 
     # Strategy B: Slow Fallback (Live Hydration)
     # Only runs if JSON artifact is missing
+    lm = None
     if not breakdown_data:
         # We must reload logs to perform live aggregation
         # Note: We rely on the session directory containing the source logs
@@ -580,40 +586,26 @@ def multiplier_dashboard(request, session_id):
         # Aggregate Matrix
         mult_agg = MultiplierStatsAggregator(lm.logs)
         breakdown_data = mult_agg.get_multiplier_breakdown_data()
-
-        # Aggregate Scoreboard (Simple scalars)
-        # Note: This is dead code when using JSON path, but required for fallback context
-        scoreboard = []
-        for log in lm.logs:
-            meta = log.get_metadata()
-            df = log.get_processed_data()
-            scoreboard.append({
-                'call': meta.get('MyCall', 'Unknown'),
-                'qsos': len(df),
-                'zones': len(df['Zone'].unique()) if 'Zone' in df.columns else 0, # Approx
-                'countries': len(df['Country'].unique()) if 'Country' in df.columns else 0 # Approx
-            })
     
     # Split Bands for Layout
     low_bands = ['160M', '80M', '40M']
     low_bands_data = []
     high_bands_data = []
     
-    for block in breakdown_data['bands']:
-        if block['label'] in low_bands:
-            low_bands_data.append(block)
-        else:
-            high_bands_data.append(block)
+    if breakdown_data and 'bands' in breakdown_data:
+        for block in breakdown_data['bands']:
+            if block['label'] in low_bands:
+                low_bands_data.append(block)
+            else:
+                high_bands_data.append(block)
     
     # Re-fetch persisted context for accurate scores (since LM reload is raw)
     context_path = os.path.join(session_path, 'dashboard_context.json')
     persisted_logs = []
-    full_contest_title = ""
     if os.path.exists(context_path):
         with open(context_path, 'r') as f:
             d_ctx = json.load(f)
             persisted_logs = d_ctx.get('logs', [])
-            full_contest_title = d_ctx.get('full_contest_title', '')
 
     # Calculate optimal column width for scoreboard
     log_count = len(persisted_logs) if persisted_logs else 0
@@ -652,6 +644,37 @@ def multiplier_dashboard(request, session_id):
     html_bd_art = next((a for a in artifacts if a['report_id'] == 'html_multiplier_breakdown' and a['path'].endswith(html_suffix)), None)
     if html_bd_art:
         breakdown_html_rel_path = f"{report_rel_path}/{html_bd_art['path']}"
+
+    # Re-instantiate LogManager if not already done (for metadata utils)
+    if not lm:
+        lm = LogManager()
+        log_candidates = []
+        for f in os.listdir(session_path):
+            f_path = os.path.join(session_path, f)
+            if os.path.isfile(f_path) and not f.startswith('dashboard_context') and not f.endswith('.zip'):
+                log_candidates.append(f_path)
+        root_input = os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
+        lm.load_log_batch(log_candidates, root_input, 'after')
+
+    # --- Standard Metadata Generation ---
+    modes_present = set()
+    for log in lm.logs:
+        df = log.get_processed_data()
+        if 'Mode' in df.columns:
+            modes_present.update(df['Mode'].dropna().unique())
+
+    # Line 1: Report Name (Generic)
+    # Line 2: Context (Contest Year Calls)
+    # Line 3: Scope (All Bands)
+    title_lines = get_standard_title_lines("Multiplier Breakdown", lm.logs, "All Bands", None, modes_present)
+
+    footer_text = f"Contest Log Analytics by KD4D • {get_cty_metadata(lm.logs)}"
+
+    report_metadata = {
+        'context_line': title_lines[1], # "CQ WW CW 2024 - KD4D"
+        'scope_line': title_lines[2],   # "All Bands"
+        'footer': footer_text
+    }
 
     # 2. Scan and Group Reports
     # Use Manifest to find Missed/Summary reports
@@ -711,7 +734,7 @@ def multiplier_dashboard(request, session_id):
         'all_calls': sorted([l['callsign'] for l in persisted_logs]),
         'breakdown_txt_url': breakdown_txt_rel_path,
         'breakdown_html_url': breakdown_html_rel_path,
-        'full_contest_title': full_contest_title,
+        'report_metadata': report_metadata,
         'multipliers': sorted_mults,
         'is_solo': (log_count == 1),
         'global_max': global_max,
