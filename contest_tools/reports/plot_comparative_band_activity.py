@@ -1,8 +1,11 @@
 # contest_tools/reports/plot_comparative_band_activity.py
 #
+# Purpose: A plot report that generates a comparative "butterfly" chart to
+#          visualize the band activity of two logs side-by-side using Plotly.
+#
 # Author: Gemini AI
-# Date: 2025-12-20
-# Version: 0.133.0-Beta
+# Date: 2025-12-31
+# Version: 0.133.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -15,10 +18,9 @@
 # If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# Purpose: A plot report that generates a comparative "butterfly" chart to
-#          visualize the band activity of two logs side-by-side using Plotly.
-#
 # --- Revision History ---
+# [0.133.1-Beta] - 2025-12-31
+# - Applied surgical butterfly alignment fix: injected barmode='overlay' into Plotly layout.
 # [0.133.0-Beta] - 2025-12-20
 # - Refactored `_generate_plot_for_slice` to use centralized `build_filename` utility.
 # - Standardized filename format to match other reports.
@@ -45,6 +47,7 @@
 # - Refactored to use MatrixAggregator (DAL).
 # [0.91.0-Beta] - 2025-10-11
 # - Initial creation of the correct "butterfly chart" implementation.
+
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
@@ -191,6 +194,7 @@ class Report(ContestReport):
         
         fig.update_layout(
             margin=dict(t=150), # Increased top margin for 2-line title
+            barmode='overlay', # Fix: Force bars to align on centerline
             bargap=0, # Histogram look
             showlegend=True,
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
@@ -236,7 +240,6 @@ class Report(ContestReport):
         """Orchestrates the generation of the combined plot and per-mode plots."""
         if len(self.logs) != 2:
             return f"Error: Report '{self.report_name}' requires exactly two logs."
-
         log1, log2 = self.logs[0], self.logs[1]
         created_files = []
 

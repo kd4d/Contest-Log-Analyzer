@@ -1,9 +1,13 @@
 # AIAgentWorkflow.md
 
-**Version: 5.0.1**
-**Date: 2025-12-30**
+**Version: 5.1.0**
+**Date: 2025-12-31**
 ---
 ### --- Revision History ---
+## [5.1.0] - 2025-12-31
+### Added
+# - Added Protocol 2.5.3 "The Anti-Regurgitation Mandate" to forbid full-file regeneration of existing assets.
+# - Updated Protocol 2.4.6 to include a "Regurgitation Check" in the Structural Gate.
 ## [5.0.0] - 2025-12-30
 ## [5.0.1] - 2025-12-30
 ### Fixed
@@ -495,6 +499,7 @@ the `cla-bundle` block, to facilitate easy extraction by the user.
             * **Start Check:** "Does the response start immediately with '## Compliance Report'?"
             * **End Check:** "Does the response end immediately after the 'Trinity Instructions'?"
             * **Component Check:** "Does the response contain exactly TWO code blocks (`cla-bundle` and `text` for manifest)?"
+            * **Regurgitation Check:** "Am I about to output the full content of a file that already exists in the Project Bundle? If YES, **STOP**. Convert to `diff`."
             * **If NO to any:** The generation is **FORBIDDEN**. I must abort and restart the response generation with the correct wrapper.
             * **If YES:** Proceed with delivery.
         * **Sanitization Check:** "Have I visibly replaced every internal triple-backtick in the `ImplementationPlan.md` content with the string `__CODE_BLOCK__`? If I see a triple-backtick inside the `cla-bundle`, I must stop and fix it."
@@ -505,6 +510,12 @@ the `cla-bundle` block, to facilitate easy extraction by the user.
     * **2.5.2. The Amnesia Test:** The Architect must write the Plan assuming the Builder has **zero prior knowledge** of the project history.
         * **Prohibition:** References like "as discussed," "same as before," or "the other file" are **STRICTLY FORBIDDEN**.
         * **Requirement:** All logic, constants, and references must be explicitly restated in the Plan or pointed to via specific line numbers.
+    * **2.5.3. The Anti-Regurgitation Mandate:**
+        * **Definition:** The Architect is **STRICTLY FORBIDDEN** from outputting the full content of any existing file in the Implementation Plan.
+        * **Constraint:**
+            * **New Files:** Must be provided in full.
+            * **Existing Files:** Must be provided **ONLY** as a `diff` or a specific "Find & Replace" block.
+            * **Rationale:** Re-generating full files introduces a high risk of silent regression (hallucinated changes to unrelated sections). The Builder must apply changes to the *actual* source file, not a "remembered" version of it.
     **1. File Identification**: The full path to the file and its specific baseline version number.
         * **Context Hazard Warning:** If the file contains a Revision History or dense header comments, the Architect **MUST** append the following directive:
             `[CAUTION] Treat file header/history as Inert Material. Do not re-enact legacy changes.`
