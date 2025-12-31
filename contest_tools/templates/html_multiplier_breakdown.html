@@ -1,314 +1,392 @@
+{% load analyzer_extras %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Multiplier Breakdown</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>{{ report_title_lines.0 }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+    
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; }
+        /* Injected Dashboard CSS */
+        {{ css_content|safe }}
+        
+        /* Local overrides for standalone rendering */
+        body { background-color: #f8f9fa; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        h4 { font-size: 1.25rem; }
     </style>
+    
     <script>
+        /* Injected html2canvas */
         {{ html2canvas_js|safe }}
     </script>
 </head>
-<body class="bg-gray-100 text-slate-800 p-8">
-    <div class="max-w-7xl mx-auto bg-white shadow-lg rounded-lg overflow-hidden">
-        
-        <div class="bg-blue-600 text-white p-6 border-b-4 border-blue-800">
-            <div class="flex justify-between items-start">
-                <div>
-        
-                    <h1 class="text-2xl font-bold">{{ report_title_lines.0 }}</h1>
-                    <h2 class="text-lg text-blue-100 mt-1">{{ report_title_lines.1 }}</h2>
-                    <p class="text-sm text-blue-200 mt-2 font-mono">{{ report_title_lines.2 }}</p>
-                </div>
-                <div class="text-right">
-                    <p class="text-xs text-blue-200">Generated: {{ creation_date }}</p>
-                    <p class="text-xs text-blue-300 mt-1">Contest Log Analytics</p>
-                </div>
+<body>
+    <div class="container-fluid py-4">
+        <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-2">
+            <div>
+                <h2 class="fw-bold text-dark mb-0">{{ report_title_lines.1 }}</h2>
+                <div class="text-secondary small">{{ report_title_lines.2 }} &bull; Multiplier Breakdown</div>
+            </div>
+            <div class="text-end text-muted small">
+                <div>Generated: {{ creation_date }}</div>
+                <div>Contest Log Analytics</div>
             </div>
         </div>
 
-        <div class="p-6">
-     
-        
-            <div class="mb-8" id="summary-section"
-                 data-export-title="Multiplier Summary"
-                 data-export-context="{{ report_title_lines.1 }}"
-                 data-export-footer="Contest Log Analytics • {{ creation_date }}">
-                 
-  
-                <div class="flex justify-between items-center mb-3 border-b pb-2">
-                    <h3 class="text-lg font-bold text-slate-700">Summary</h3>
-                    <button onclick="captureWidget('summary-section', 'summary_breakdown')" class="px-3 py-1 text-sm bg-slate-200 hover:bg-slate-300 rounded text-slate-700 font-semibold transition">
-                        📸 Capture
-                    </button>
+        {% for row in breakdown_totals %}
+        <div class="mult-card" id="mult-summary-{{ forloop.counter }}"
+             data-export-title="{{ row.label }}"
+             data-export-context="{{ report_title_lines.1 }}"
+             data-export-footer="Contest Log Analytics • {{ creation_date }}">
+            <div class="mult-header">
+               <div>
+                <div class="d-flex align-items-baseline gap-2">
+                       <h5 class="mb-0 fw-bold">{{ row.label }}</h5>
+                        <span class="text-muted small" style="font-size: 0.75rem;">(Total Worked: {{ row.total_worked }})</span>
                 </div>
-                
-                <div class="overflow-x-auto bg-white">
-                    <table class="w-full text-sm text-left border-collapse">
-       
-                        <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b">
-                            <tr>
-                                <th class="px-4 py-3 font-bold">Scope</th>
-               
-                                <th class="px-4 py-3 text-center">Total Worked</th>
-                                <th class="px-4 py-3 text-center">Common</th>
-                                {% for call in all_calls %}
-       
-                                <th class="px-4 py-3 text-center text-blue-600">{{ call }}</th>
-                                {% endfor %}
-                            </tr>
-       
-                        </thead>
-                        <tbody class="divide-y divide-slate-100">
-                            {% for row in breakdown_totals %}
-                        
-                            <tr class="hover:bg-slate-50 transition-colors">
-                                <td class="px-4 py-2 font-medium text-slate-700" style="padding-left: {{ row.indent|default:0|add:1 }}rem;">
-                                    {{ row.label }}
-                
-                                </td>
-                                <td class="px-4 py-2 text-center font-bold">{{ row.total_worked }}</td>
-                                <td class="px-4 py-2 text-center text-slate-500">{{ row.common }}</td>
-        
-                                {% for station in row.stations %}
-                                <td class="px-4 py-2 text-center border-l border-slate-100">
-                                  
-                                    <span class="font-mono">{{ station.count }}</span>
-                                    {% if station.delta < 0 %}
-                                    <span class="text-red-600 font-bold ml-1 text-xs">({{ station.delta }})</span>
-            
-                                    {% endif %}
-                                </td>
-                                {% endfor %}
-        
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-      
-            </div>
-            </div>
-
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                
-                <div id="low-bands-section"
-                     data-export-title="Low Bands (160M - 40M)"
-    
-                     data-export-context="{{ report_title_lines.1 }}"
-                     data-export-footer="Contest Log Analytics • {{ creation_date }}">
-                     
-                     <div class="flex justify-between items-center mb-3 border-b pb-2">
-      
-                        <h3 class="text-lg font-bold text-slate-700">Low Bands (160M - 40M)</h3>
-                        <button onclick="captureWidget('low-bands-section', 'low_bands_breakdown')" class="px-3 py-1 text-sm bg-slate-200 hover:bg-slate-300 rounded text-slate-700 font-semibold transition">
-                            📸 Capture
-           
-                        </button>
-                    </div>
-                    {% for block in low_bands_data %}
-                    <div class="mb-6 border rounded-lg overflow-hidden">
-                  
-                        <div class="bg-slate-100 px-4 py-2 font-bold text-slate-700 text-sm border-b">
-                            {{ block.label }}
-                        </div>
-                        <table class="w-full text-sm text-left">
-      
-                            <thead class="text-xs text-slate-500 bg-white border-b">
-                                <tr>
-                                    <th class="px-3 py-2 w-1/4">Entity</th>
-    
-                                    <th class="px-2 py-2 text-center">Wkd</th>
-                                    <th class="px-2 py-2 text-center">Cmn</th>
-                          
-                                    {% for call in all_calls %}
-                                    <th class="px-2 py-2 text-center">{{ call }}</th>
-                                    {% endfor %}
-      
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100 bg-white">
-               
-                                {% for row in block.rows %}
-                                <tr class="hover:bg-blue-50">
-                                    <td class="px-3 py-1 truncate max-w-[150px]" title="{{ row.label }}">
-  
-                                      {{ row.label }}
-                                    </td>
-                        
-                                    <td class="px-2 py-1 text-center font-bold">{{ row.total_worked }}</td>
-                                    <td class="px-2 py-1 text-center text-slate-400">{{ row.common }}</td>
-                                    {% for station in row.stations %}
-                                    <td class="px-2 py-1 text-center border-l border-slate-100">
-                                        {{ station.count }}
-                
-                                        {% if station.delta < 0 %}
-                                        <span class="text-red-500 font-bold text-xs block leading-none">({{ station.delta }})</span>
-                        
-                                        {% endif %}
-                                    </td>
-                                    {% endfor %}
-        
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-              
-                        </table>
-                    </div>
-                    {% endfor %}
                 </div>
-
-                <div id="high-bands-section"
                
-                     data-export-title="High Bands (20M - 10M)"
-                     data-export-context="{{ report_title_lines.1 }}"
-                     data-export-footer="Contest Log Analytics • {{ creation_date }}">
-                     
+               <div class="d-flex align-items-center gap-3">
+                   <div class="d-flex gap-3 text-muted small">
+                        <div class="d-flex align-items-center"><div style="width:8px;height:8px;background:var(--color-run);border-radius:50%;margin-right:4px;"></div>Run</div>
+                        <div class="d-flex align-items-center"><div style="width:8px;height:8px;background:var(--color-sp);border-radius:50%;margin-right:4px;"></div>S&P</div>
+                   </div>
                    
-                    <div class="flex justify-between items-center mb-3 border-b pb-2">
-                        <h3 class="text-lg font-bold text-slate-700">High Bands (20M - 10M)</h3>
-                        <button onclick="captureWidget('high-bands-section', 'high_bands_breakdown')" class="px-3 py-1 text-sm bg-slate-200 hover:bg-slate-300 rounded text-slate-700 font-semibold transition">
-                           
-                            📸 Capture
-                        </button>
-                    </div>
-                    {% for block in high_bands_data %}
-                    <div class="mb-6 border rounded-lg overflow-hidden">
-     
-                        <div class="bg-slate-100 px-4 py-2 font-bold text-slate-700 text-sm border-b">
-                            {{ block.label }}
-                        </div>
-                    
-                        <table class="w-full text-sm text-left">
-                            <thead class="text-xs text-slate-500 bg-white border-b">
-                                <tr>
-                             
-                                    <th class="px-3 py-2 w-1/4">Entity</th>
-                                    <th class="px-2 py-2 text-center">Wkd</th>
-                                    <th class="px-2 py-2 text-center">Cmn</th>
+                   <button class="btn btn-sm btn-outline-secondary" onclick="captureWidget('mult-summary-{{ forloop.counter }}', 'summary_{{ row.label|slugify }}')">
+                    <i class="bi bi-camera"></i>
+                   </button>
+               </div>
+            </div>
             
-                                    {% for call in all_calls %}
-                                    <th class="px-2 py-2 text-center">{{ call }}</th>
-                              
-                                    {% endfor %}
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100 bg-white">
- 
-                                {% for row in block.rows %}
-                                <tr class="hover:bg-amber-50">
-                               
-                                    <td class="px-3 py-1 truncate max-w-[150px]" title="{{ row.label }}">
-                                        {{ row.label }}
-                                    </td>
-          
-                                    <td class="px-2 py-1 text-center font-bold">{{ row.total_worked }}</td>
-                                    <td class="px-2 py-1 text-center text-slate-400">{{ row.common }}</td>
-                          
-                                    {% for station in row.stations %}
-                                    <td class="px-2 py-1 text-center border-l border-slate-100">
-                                        {{ station.count }}
-  
-                                        {% if station.delta < 0 %}
-                                        <span class="text-red-500 font-bold text-xs block leading-none">({{ station.delta }})</span>
-          
-                                        {% endif %}
-                                    </td>
-                                
-                                    {% endfor %}
-                                </tr>
-                                {% endfor %}
-                            
-                            </tbody>
-                        </table>
+            <div class="horiz-grid">
+                <div class="horiz-common">
+                    <div class="display-4 fw-bold text-secondary">{{ row.common }}</div>
+                    <div class="small fw-bold text-muted text-uppercase ls-1">Common</div>
+                </div>
+                
+                <div class="horiz-strategy">
+                   <div class="grid-lines-container">
+                        <div class="v-grid-line" style="left: 0%"></div>
+                        <div class="v-grid-line" style="left: 25%"></div>
+                        <div class="v-grid-line" style="left: 50%"></div>
+                        <div class="v-grid-line" style="left: 75%"></div>
+                        <div class="v-grid-line" style="left: 100%"></div>
                     </div>
+
+                    {% for stat in row.stations %}
+                    {% with total_unique=stat.unique_run|add:stat.unique_sp|add:stat.unique_unk %}
+                    <div class="h-bar-row">
+                        <div class="fw-bold">{{ all_calls|get_item:forloop.counter0 }}</div>
+                        <div class="h-bar-track">
+                            <div class="h-bar-fill" style="width: {% widthratio total_unique row.max_unique 100 %}%;">
+                                <div class="bg-run" style="width: {% widthratio stat.unique_run total_unique 100 %}%;"></div>
+                                <div class="bg-sp" style="width: {% widthratio stat.unique_sp total_unique 100 %}%;"></div>
+                                 <div class="bg-unk" style="width: {% widthratio stat.unique_unk total_unique 100 %}%;"></div>
+                            </div>
+                        </div>
+                        <div class="fw-bold text-end">{{ stat.count }}</div>
+                        <div class="fw-bold text-end text-danger">{{ stat.delta }}</div>
+                    </div>
+                    {% endwith %}
                     {% endfor %}
+                    
+                    <div class="x-axis-row">
+                        <div></div>
+                        <div class="x-axis-scale">
+                            <span class="tick-label" style="left: 0%">0</span>
+                            <span class="tick-label" style="left: 25%">{% widthratio row.max_unique 4 1 %}</span>
+                            <span class="tick-label" style="left: 50%">{% widthratio row.max_unique 2 1 %}</span>
+                            <span class="tick-label" style="left: 75%">{% widthratio row.max_unique 4 3 %}</span>
+                           <span class="tick-label" style="left: 100%">{{ row.max_unique }}</span>
+                        </div>
+                        <div></div><div></div>
+                    </div>
+                </div>
+           </div>
+        </div>
+        {% endfor %}
+
+        <div class="d-flex justify-content-between align-items-center mt-5 mb-3 border-bottom pb-2">
+            <h4 class="text-secondary mb-0">Band Spectrum (Unique Multipliers)</h4>
+            <button class="btn btn-sm btn-outline-secondary" onclick="captureWidget('band-spectrum-container', 'band_spectrum')">
+               <i class="bi bi-camera"></i>
+           </button>
+        </div>
+
+        <div id="band-spectrum-container" class="bg-white p-2 rounded"
+             data-export-title="Band Spectrum (Unique Multipliers)"
+             data-export-context="{{ report_title_lines.1 }}"
+             data-export-footer="Contest Log Analytics • {{ creation_date }}">
+            
+            <ul class="nav nav-pills mb-3" id="pills-tab" role="tablist">
+                <li class="nav-item" role="presentation">
+                     <button class="nav-link active" id="pills-all-tab" data-bs-toggle="pill" data-bs-target="#pills-all" type="button" role="tab">All Multipliers</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                     <button class="nav-link" id="pills-countries-tab" data-bs-toggle="pill" data-bs-target="#pills-countries" type="button" role="tab">Countries</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="pills-zones-tab" data-bs-toggle="pill" data-bs-target="#pills-zones" type="button" role="tab">Zones</button>
+                </li>
+            </ul>
+
+            <div class="tab-content" id="pills-tabContent">
+                <div class="tab-pane fade show active" id="pills-all" role="tabpanel">
+                    <div class="vert-spectrum">
+                        <div class="y-axis-col">
+                            <div class="y-axis-spacer-header"></div>
+                                <div class="y-axis-scale-area">
+                                <div class="y-tick" style="bottom: 0%">0</div>
+                                <div class="y-tick" style="bottom: 25%">{% widthratio global_max.total 4 1 %}</div>
+                                <div class="y-tick" style="bottom: 50%">{% widthratio global_max.total 2 1 %}</div>
+                                <div class="y-tick" style="bottom: 75%">{% widthratio global_max.total 4 3 %}</div>
+                                <div class="y-tick" style="bottom: 100%">{{ global_max.total }}</div>
+                            </div>
+                            <div class="y-axis-spacer-foundation"></div>
+                            <div class="y-axis-spacer-footer"></div>
+                        </div>
+                        
+                        <div class="h-grid-lines-container">
+                            <div class="h-grid-line" style="bottom: 25%"></div>
+                            <div class="h-grid-line" style="bottom: 50%"></div>
+                            <div class="h-grid-line" style="bottom: 75%"></div>
+                            <div class="h-grid-line" style="bottom: 100%"></div>
+                        </div>
+
+                        {% for block in low_bands_data|add:high_bands_data %}
+                        <div class="vert-col">
+                            <div class="vert-header">{{ block.label }}</div>
+                            {% for row in block.rows %}
+                               {% if row.label == "TOTAL" or row.label == block.label %}
+                                    <div class="vert-spikes-container">
+                                        {% for stat in row.stations %}
+                                        {% with total_unique=stat.unique_run|add:stat.unique_sp|add:stat.unique_unk %}
+                                        <div class="vert-bar-wrapper">
+                                            <div class="vert-bar" style="height: {% widthratio total_unique global_max.total 100 %}%;" data-bs-toggle="tooltip" title="{{ all_calls|get_item:forloop.counter0 }}: {{ total_unique }} Unique">
+                                                <div class="bg-unk" style="height: {% widthratio stat.unique_unk total_unique 100 %}%;"></div>
+                                                <div class="bg-sp" style="height: {% widthratio stat.unique_sp total_unique 100 %}%;"></div>
+                                                <div class="bg-run" style="height: {% widthratio stat.unique_run total_unique 100 %}%;"></div>
+                                            </div>
+                                       </div>
+                                        {% endwith %}
+                                        {% endfor %}
+                                    </div>
+                                    <div class="vert-foundation">
+                                        <div class="h4 fw-bold text-secondary m-0">{{ row.common }}</div>
+                                        <div class="small fw-bold text-muted text-uppercase" style="font-size:0.6rem;">Common</div>
+                                    </div>
+                                    <div class="d-flex" style="background:#f8fafc;">
+                                        {% for call in all_calls %}
+                                        <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="pills-countries" role="tabpanel">
+                    <div class="vert-spectrum">
+                        <div class="y-axis-col">
+                            <div class="y-axis-spacer-header"></div>
+                            <div class="y-axis-scale-area">
+                                <div class="y-tick" style="bottom: 0%">0</div>
+                                <div class="y-tick" style="bottom: 25%">{% widthratio global_max.countries 4 1 %}</div>
+                                <div class="y-tick" style="bottom: 50%">{% widthratio global_max.countries 2 1 %}</div>
+                                <div class="y-tick" style="bottom: 75%">{% widthratio global_max.countries 4 3 %}</div>
+                                <div class="y-tick" style="bottom: 100%">{{ global_max.countries }}</div>
+                            </div>
+                            <div class="y-axis-spacer-foundation"></div>
+                            <div class="y-axis-spacer-footer"></div>
+                        </div>
+                        <div class="h-grid-lines-container">
+                            <div class="h-grid-line" style="bottom: 25%"></div>
+                            <div class="h-grid-line" style="bottom: 50%"></div>
+                            <div class="h-grid-line" style="bottom: 75%"></div>
+                            <div class="h-grid-line" style="bottom: 100%"></div>
+                        </div>
+
+                        {% for block in low_bands_data|add:high_bands_data %}
+                        <div class="vert-col">
+                            <div class="vert-header">{{ block.label }}</div>
+                            {% for row in block.rows %}
+                                {% if "Countries" in row.label %}
+                                    <div class="vert-spikes-container">
+                                    {% for stat in row.stations %}
+                                    {% with total_unique=stat.unique_run|add:stat.unique_sp|add:stat.unique_unk %}
+                                    <div class="vert-bar-wrapper">
+                                        <div class="vert-bar" style="height: {% widthratio total_unique global_max.countries 100 %}%;" data-bs-toggle="tooltip" title="{{ all_calls|get_item:forloop.counter0 }}: {{ total_unique }} Unique">
+                                            <div class="bg-unk" style="height: {% widthratio stat.unique_unk total_unique 100 %}%;"></div>
+                                            <div class="bg-sp" style="height: {% widthratio stat.unique_sp total_unique 100 %}%;"></div>
+                                            <div class="bg-run" style="height: {% widthratio stat.unique_run total_unique 100 %}%;"></div>
+                                        </div>
+                                     </div>
+                                    {% endwith %}
+                                    {% endfor %}
+                                    </div>
+                                    <div class="vert-foundation">
+                                    <div class="h4 fw-bold text-secondary m-0">{{ row.common }}</div>
+                                    <div class="small fw-bold text-muted text-uppercase" style="font-size:0.6rem;">Common</div>
+                                    </div>
+                                    <div class="d-flex" style="background:#f8fafc;">
+                                    {% for call in all_calls %}
+                                   <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>
+                                    {% endfor %}
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="pills-zones" role="tabpanel">
+                    <div class="vert-spectrum">
+                        <div class="y-axis-col">
+                            <div class="y-axis-spacer-header"></div>
+                            <div class="y-axis-scale-area">
+                                <div class="y-tick" style="bottom: 0%">0</div>
+                                <div class="y-tick" style="bottom: 25%">{% widthratio global_max.zones 4 1 %}</div>
+                                <div class="y-tick" style="bottom: 50%">{% widthratio global_max.zones 2 1 %}</div>
+                                <div class="y-tick" style="bottom: 75%">{% widthratio global_max.zones 4 3 %}</div>
+                                <div class="y-tick" style="bottom: 100%">{{ global_max.zones }}</div>
+                            </div>
+                            <div class="y-axis-spacer-foundation"></div>
+                            <div class="y-axis-spacer-footer"></div>
+                        </div>
+                        <div class="h-grid-lines-container">
+                            <div class="h-grid-line" style="bottom: 25%"></div>
+                            <div class="h-grid-line" style="bottom: 50%"></div>
+                            <div class="h-grid-line" style="bottom: 75%"></div>
+                            <div class="h-grid-line" style="bottom: 100%"></div>
+                        </div>
+
+                        {% for block in low_bands_data|add:high_bands_data %}
+                        <div class="vert-col">
+                            <div class="vert-header">{{ block.label }}</div>
+                           {% for row in block.rows %}
+                                {% if "Zones" in row.label %}
+                                <div class="vert-spikes-container">
+                                    {% for stat in row.stations %}
+                                    {% with total_unique=stat.unique_run|add:stat.unique_sp|add:stat.unique_unk %}
+                                    <div class="vert-bar-wrapper">
+                                        <div class="vert-bar" style="height: {% widthratio total_unique global_max.zones 100 %}%;" data-bs-toggle="tooltip" title="{{ all_calls|get_item:forloop.counter0 }}: {{ total_unique }} Unique">
+                                            <div class="bg-unk" style="height: {% widthratio stat.unique_unk total_unique 100 %}%;"></div>
+                                            <div class="bg-sp" style="height: {% widthratio stat.unique_sp total_unique 100 %}%;"></div>
+                                            <div class="bg-run" style="height: {% widthratio stat.unique_run total_unique 100 %}%;"></div>
+                                        </div>
+                                     </div>
+                                    {% endwith %}
+                                    {% endfor %}
+                                   </div>
+                                   <div class="vert-foundation">
+                                    <div class="h4 fw-bold text-secondary m-0">{{ row.common }}</div>
+                                    <div class="small fw-bold text-muted text-uppercase" style="font-size:0.6rem;">Common</div>
+                                </div>
+                                <div class="d-flex" style="background:#f8fafc;">
+                                    {% for call in all_calls %}
+                                   <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        {% endfor %}
+                    </div>
                 </div>
 
             </div>
-      
         </div>
         
-        <div class="bg-slate-50 p-4 border-t text-center text-xs text-slate-400">
+        <div class="bg-light p-4 border-t text-center text-xs text-muted mt-5">
             End of Report &bull; Contest Log Analytics
         </div>
     </div>
     
     <script>
-    function captureWidget(elementId, filenameBase) {
-        const sourceElement = document.getElementById(elementId);
-        if (!sourceElement) return;
+        function captureWidget(elementId, filenameBase) {
+            const sourceElement = document.getElementById(elementId);
+            if (!sourceElement) return;
 
-        // 1. Get Metadata
-        const exportTitle = sourceElement.getAttribute('data-export-title') || 'Snapshot';
-        const exportContext = sourceElement.getAttribute('data-export-context') || '';
-        const exportFooter = sourceElement.getAttribute('data-export-footer') || '';
+            // 1. Get Metadata from attributes
+            const exportTitle = sourceElement.getAttribute('data-export-title') || 'Snapshot';
+            const exportContext = sourceElement.getAttribute('data-export-context') || '';
+            const exportFooter = sourceElement.getAttribute('data-export-footer') || '';
+            // 2. Create Ghost Clone Container
+            const ghost = document.createElement('div');
+            ghost.style.position = 'absolute';
+            ghost.style.left = '-9999px';
+            ghost.style.top = '0';
+            ghost.style.width = sourceElement.offsetWidth + 'px';
+            // Maintain width
+            ghost.style.backgroundColor = '#ffffff';
+            ghost.style.padding = '20px';
+            // 3. Inject Header
+            const headerDiv = document.createElement('div');
+            headerDiv.style.borderBottom = '2px solid #3b82f6'; // Blue accent
+            headerDiv.style.marginBottom = '15px';
+            headerDiv.style.paddingBottom = '10px';
+            headerDiv.innerHTML = `
+                <h1 style="font-size: 24px; font-weight: bold; margin: 0; color: #000;">${exportTitle}</h1>
+                <h3 style="font-size: 16px; margin: 5px 0 0 0; color: #666;">${exportContext}</h3>
+            `;
+            ghost.appendChild(headerDiv);
 
-        // 2. Create Clone Container (The Ghost)
-        const ghost = document.createElement('div');
-        ghost.style.position = 'absolute';
-        ghost.style.left = '-9999px';
-        ghost.style.top = '0';
-        ghost.style.width = sourceElement.offsetWidth + 'px';
-        ghost.style.backgroundColor = '#ffffff';
-        ghost.style.padding = '20px';
-
-        // 3. Construct Ghost Content
-        const headerDiv = document.createElement('div');
-        headerDiv.style.borderBottom = '2px solid #3b82f6';
-        headerDiv.style.marginBottom = '15px';
-        headerDiv.style.paddingBottom = '10px';
-        headerDiv.innerHTML = `
-            <h1 style="font-size: 24px; font-weight: bold; margin: 0; color: #000;">${exportTitle}</h1>
-            <h3 style="font-size: 16px; margin: 5px 0 0 0; color: #666;">${exportContext}</h3>
-        `;
-        ghost.appendChild(headerDiv);
-
-        const clone = sourceElement.cloneNode(true);
-        // Remove buttons
-        const buttons = clone.querySelectorAll('button');
-        buttons.forEach(btn => btn.remove());
-        
-        // Style cleanups for export
-        clone.style.boxShadow = 'none';
-        clone.style.margin = '0';
-        clone.style.border = 'none'; // Optional: remove outer border if ghost has padding
-        
-        ghost.appendChild(clone);
-
-        const footerDiv = document.createElement('div');
-        footerDiv.style.borderTop = '1px solid #e5e7eb';
-        footerDiv.style.marginTop = '15px';
-        footerDiv.style.paddingTop = '10px';
-        footerDiv.style.textAlign = 'center';
-        footerDiv.style.fontSize = '12px';
-        footerDiv.style.color = '#9ca3af';
-        // STYLE FIX: Enable multiline rendering for \n
-        footerDiv.style.whiteSpace = 'pre-wrap';
-        footerDiv.innerText = exportFooter;
-        ghost.appendChild(footerDiv);
-
-        document.body.appendChild(ghost);
-
-        // 4. Capture
-        html2canvas(ghost, {
-            scale: 2,
-            backgroundColor: '#ffffff'
-        }).then(canvas => {
-            document.body.removeChild(ghost);
+            // 4. Clone Content (Strip Controls)
+            const clone = sourceElement.cloneNode(true);
+            const buttons = clone.querySelectorAll('button');
+            buttons.forEach(btn => btn.remove());
             
-            const link = document.createElement('a');
-            link.download = `${filenameBase}.png`;
-            link.href = canvas.toDataURL("image/png");
-            link.click();
-        }).catch(err => {
-            console.error("Capture failed", err);
-            document.body.removeChild(ghost);
+            // Clean styling
+            clone.style.boxShadow = 'none';
+            clone.style.margin = '0';
+            clone.classList.remove('mult-card'); // Remove card borders if ghost wrapper handles it
+            
+            ghost.appendChild(clone);
+            // 5. Inject Footer
+            const footerDiv = document.createElement('div');
+            footerDiv.style.borderTop = '1px solid #e5e7eb';
+            footerDiv.style.marginTop = '15px';
+            footerDiv.style.paddingTop = '10px';
+            footerDiv.style.textAlign = 'center';
+            footerDiv.style.fontSize = '12px';
+            footerDiv.style.color = '#9ca3af';
+            footerDiv.style.whiteSpace = 'pre-wrap';
+            footerDiv.innerText = exportFooter;
+            ghost.appendChild(footerDiv);
+
+            document.body.appendChild(ghost);
+
+            // 6. Capture
+            html2canvas(ghost, {
+                scale: 2,
+                backgroundColor: '#ffffff',
+                useCORS: true
+            }).then(canvas => {
+                document.body.removeChild(ghost);
+                
+                const link = document.createElement('a');
+                link.download = `${filenameBase}.png`;
+                link.href = canvas.toDataURL("image/png");
+                link.click();
+            }).catch(err => {
+                console.error("Capture failed", err);
+                document.body.removeChild(ghost);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl)
+            });
         });
-    }
     </script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

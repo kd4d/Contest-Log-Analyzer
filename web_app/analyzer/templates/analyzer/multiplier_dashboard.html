@@ -4,190 +4,12 @@
 
 {% block content %}
 <script src="{% static 'js/html2canvas.min.js' %}"></script>
+<link href="{% static 'css/dashboard.css' %}" rel="stylesheet">
 
 <style>
     /* --- Global Spacing & Typography Overrides --- */
     h4 { font-size: 1.25rem; }
     .mb-5 { margin-bottom: 1.5rem !important; } /* Tighten sections */
-    
-    :root {
-        --color-run: #22c55e;
-        --color-sp: #3b82f6;
-        --color-unk: #9ca3af;
-        --bg-common: #f3f4f6;
-        --border-common: #e5e7eb;
-    }
-    
-    /* Shared Components */
-    .mult-card {
-        background: white;
-        border-radius: 8px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        overflow: hidden;
-        margin-bottom: 0.75rem;
-    }
-    .mult-header {
-        background: #f8fafc;
-        padding: 0.5rem 1rem;
-        border-bottom: 1px solid var(--border-common);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-    
-    /* Horizontal Layout (Executive Summary) */
-    .horiz-grid {
-        display: grid;
-        grid-template-columns: 140px 1fr;
-        min-height: 140px;
-    }
-    .horiz-common {
-        background-color: var(--bg-common);
-        border-right: 2px solid #d1d5db;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        position: relative;
-    }
-    .horiz-common::after {
-        content: ''; position: absolute; right: -6px;
-        top: 15%; bottom: 15%; width: 10px;
-        border: 2px solid #d1d5db; border-left: none;
-        border-radius: 0 8px 8px 0;
-    }
-    .horiz-strategy { padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; position: relative; }
-    .h-bar-row { display: grid; grid-template-columns: 80px 1fr 60px 60px; align-items: center; gap: 0.5rem; z-index: 2; }
-    .h-bar-track { height: 28px; background: transparent; width: 100%; display: flex; align-items: center; }
-    .h-bar-fill { height: 100%; display: flex; border-radius: 4px; overflow: hidden; }
-    
-    .bg-run { background-color: var(--color-run); height: 100%; }
-    .bg-sp { background-color: var(--color-sp); height: 100%; }
-    .bg-unk { background-color: var(--color-unk); height: 100%; }
-    
-    /* Axis Scales */
-    .x-axis-row {
-        display: grid;
-        grid-template-columns: 80px 1fr 60px 60px; 
-        gap: 0.5rem;
-        margin-top: 0.5rem;
-        font-size: 0.7rem;
-        font-weight: 700;
-        color: #6b7280; /* Darker Gray */
-    }
-    .x-axis-scale {
-        position: relative;
-        height: 15px;
-        border-top: 1px solid #9ca3af; /* Darker Line */
-    }
-    .tick-label { position: absolute; top: 4px; transform: translateX(-50%); }
-    
-    /* Vertical Grid Lines */
-    .grid-lines-container {
-        position: absolute;
-        top: 0; bottom: 25px; left: 88px; right: 128px;
-        pointer-events: none; z-index: 1;
-    }
-    .v-grid-line {
-        position: absolute; top: 0; bottom: 0;
-        border-left: 1px dashed #9ca3af; opacity: 0.4;
-    }
-
-    /* Vertical Spectrum (Band Detail) */
-    .vert-spectrum {
-        display: grid;
-        grid-template-columns: 60px repeat(6, 1fr); /* Y-Axis + 6 Bands */
-        gap: 1px;
-        background: #e5e7eb;
-        border: 1px solid #9ca3af;
-        margin-top: 0.5rem;
-        position: relative;
-    }
-    /* Horizontal Grid Lines (Background for Vert Spectrum) */
-    .h-grid-lines-container {
-        position: absolute;
-        top: 30px; bottom: 85px; left: 60px; right: 0; /* Header=30px, Fdn+Ftr=85px */
-        z-index: 1;
-        pointer-events: none;
-    }
-    .h-grid-line {
-        position: absolute; left: 0; right: 0;
-        border-top: 1px dashed #6b7280; opacity: 0.5; /* Darker, more visible */
-    }
-    
-    .vert-col {
-        background: white;
-        height: 400px;
-        display: flex;
-        flex-direction: column;
-        justify-content: flex-end;
-        padding: 0 2px;
-        position: relative;
-        z-index: 2;
-    }
-    .vert-header { height: 30px; line-height: 30px; overflow: hidden; } /* Fixed Height */
-    
-    /* Y-Axis Column */
-    .y-axis-col {
-        background: white;
-        height: 400px;
-        display: flex; flex-direction: column; justify-content: flex-end;
-        padding: 0; /* Remove padding, use internal spacers */
-        font-size: 0.7rem; color: #6b7280;
-        font-weight: bold;
-        text-align: right; padding-right: 4px;
-        position: relative;
-    }
-    /* Spacers to match data columns */
-    .y-axis-spacer-header { height: 30px; }
-    .y-axis-spacer-foundation { height: 60px; }
-    .y-axis-spacer-footer { height: 25px; }
-    .y-axis-scale-area { flex-grow: 1; position: relative; border-right: 1px solid #d1d5db; }
-    
-    .y-tick { position: absolute; right: 4px; transform: translateY(50%); }
-    
-    .vert-foundation {
-        background-color: var(--bg-common);
-        border-top: 2px solid #d1d5db;
-        width: 100%;
-        text-align: center;
-        padding: 0.5rem 0;
-        margin-top: 0;
-        height: 60px;
-        display: flex; flex-direction: column;
-        justify-content: center;
-    }
-    .vert-spikes-container {
-        flex-grow: 1;
-        display: flex;
-        justify-content: space-around;
-        align-items: flex-end;
-        padding-bottom: 0;
-        border-bottom: 1px solid #d1d5db;
-    }
-    .vert-bar-wrapper {
-        width: 30%;
-        display: flex; flex-direction: column;
-        align-items: center;
-        height: 100%; justify-content: flex-end;
-    }
-    .vert-bar {
-        width: 100%;
-        background: #f1f5f9;
-        border-radius: 4px 4px 0 0;
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-        position: relative;
-    }
-    .vert-footer {
-        height: 25px;
-        display: flex; justify-content: center;
-        align-items: center;
-        font-size: 0.85rem; font-weight: 800; color: #000000;
-        background: #f8fafc; border-top: 1px solid #e5e7eb;
-        white-space: nowrap; overflow: hidden;
-    }
 </style>
 
 <div class="container-fluid py-4">
@@ -230,7 +52,7 @@
         <div class="mult-header">
            <div>
                 <div class="d-flex align-items-baseline gap-2">
-                    <h5 class="mb-0 fw-bold">{{ row.label }}</h5>
+                   <h5 class="mb-0 fw-bold">{{ row.label }}</h5>
                     <span class="text-muted small" style="font-size: 0.75rem;">(Total Worked: {{ row.total_worked }})</span>
                 </div>
            </div>
@@ -365,7 +187,7 @@
                                 <div class="vert-foundation">
                                     <div class="h4 fw-bold text-secondary m-0">{{ row.common }}</div>
                                     <div class="small fw-bold text-muted text-uppercase" style="font-size:0.6rem;">Common</div>
-                               </div>
+                                </div>
      
                                 <div class="d-flex" style="background:#f8fafc;">
                                     {% for call in all_calls %}
@@ -406,11 +228,12 @@
                         <div class="vert-header">{{ block.label }}</div>
                         {% for row in block.rows %}
                             {% if "Countries" in row.label %}
-                               <div class="vert-spikes-container">
+                                <div class="vert-spikes-container">
                                 {% for stat in row.stations %}
                                 {% with total_unique=stat.unique_run|add:stat.unique_sp|add:stat.unique_unk %}
                                 <div class="vert-bar-wrapper">
-                                    <div class="vert-bar" style="height: {% widthratio total_unique global_max.countries 100 %}%;" data-bs-toggle="tooltip" title="{{ all_calls|get_item:forloop.counter0 }}: {{ total_unique }} Unique">
+                                    <div class="vert-bar" style="height: {% widthratio total_unique global_max.countries 100 %}%;"
+data-bs-toggle="tooltip" title="{{ all_calls|get_item:forloop.counter0 }}: {{ total_unique }} Unique">
                                         <div class="bg-unk" style="height: {% widthratio stat.unique_unk total_unique 100 %}%;"></div>
                                         <div class="bg-sp" style="height: {% widthratio stat.unique_sp total_unique 100 %}%;"></div>
                                         <div class="bg-run" style="height: {% widthratio stat.unique_run total_unique 100 %}%;"></div>
@@ -418,7 +241,7 @@
                                 </div>
                                 {% endwith %}
                                 {% endfor %}
-                               </div>
+                                </div>
                
                             <div class="vert-foundation">
                                 <div class="h4 fw-bold text-secondary m-0">{{ row.common }}</div>
@@ -468,7 +291,8 @@
                                 {% for stat in row.stations %}
                                 {% with total_unique=stat.unique_run|add:stat.unique_sp|add:stat.unique_unk %}
                                 <div class="vert-bar-wrapper">
-                                    <div class="vert-bar" style="height: {% widthratio total_unique global_max.zones 100 %}%;" data-bs-toggle="tooltip" title="{{ all_calls|get_item:forloop.counter0 }}: {{ total_unique }} Unique">
+                                    <div class="vert-bar" style="height: {% widthratio total_unique global_max.zones 100 %}%;"
+data-bs-toggle="tooltip" title="{{ all_calls|get_item:forloop.counter0 }}: {{ total_unique }} Unique">
                                         <div class="bg-unk" style="height: {% widthratio stat.unique_unk total_unique 100 %}%;"></div>
                                         <div class="bg-sp" style="height: {% widthratio stat.unique_sp total_unique 100 %}%;"></div>
                                         <div class="bg-run" style="height: {% widthratio stat.unique_run total_unique 100 %}%;"></div>
@@ -476,7 +300,7 @@
                                 </div>
                                 {% endwith %}
                                 {% endfor %}
-                            </div>
+                               </div>
                
                             <div class="vert-foundation">
                                 <div class="h4 fw-bold text-secondary m-0">{{ row.common }}</div>
@@ -555,10 +379,10 @@
         ghost.style.width = sourceElement.offsetWidth + 'px'; // Maintain width
         ghost.style.backgroundColor = '#ffffff';
         ghost.style.padding = '20px';
-
         // 3. Inject Header
         const headerDiv = document.createElement('div');
-        headerDiv.style.borderBottom = '2px solid #3b82f6'; // Blue accent
+        headerDiv.style.borderBottom = '2px solid #3b82f6';
+        // Blue accent
         headerDiv.style.marginBottom = '15px';
         headerDiv.style.paddingBottom = '10px';
         headerDiv.innerHTML = `
@@ -578,7 +402,6 @@
         clone.classList.remove('mult-card'); // Remove card borders if ghost wrapper handles it
         
         ghost.appendChild(clone);
-
         // 5. Inject Footer
         const footerDiv = document.createElement('div');
         footerDiv.style.borderTop = '1px solid #e5e7eb';
