@@ -19,6 +19,7 @@
         <div class="bg-blue-600 text-white p-6 border-b-4 border-blue-800">
             <div class="flex justify-between items-start">
                 <div>
+        
                     <h1 class="text-2xl font-bold">{{ report_title_lines.0 }}</h1>
                     <h2 class="text-lg text-blue-100 mt-1">{{ report_title_lines.1 }}</h2>
                     <p class="text-sm text-blue-200 mt-2 font-mono">{{ report_title_lines.2 }}</p>
@@ -31,12 +32,14 @@
         </div>
 
         <div class="p-6">
-            
+     
+        
             <div class="mb-8" id="summary-section"
                  data-export-title="Multiplier Summary"
                  data-export-context="{{ report_title_lines.1 }}"
                  data-export-footer="Contest Log Analytics • {{ creation_date }}">
                  
+  
                 <div class="flex justify-between items-center mb-3 border-b pb-2">
                     <h3 class="text-lg font-bold text-slate-700">Summary</h3>
                     <button onclick="captureWidget('summary-section', 'summary_breakdown')" class="px-3 py-1 text-sm bg-slate-200 hover:bg-slate-300 rounded text-slate-700 font-semibold transition">
@@ -46,137 +49,179 @@
                 
                 <div class="overflow-x-auto bg-white">
                     <table class="w-full text-sm text-left border-collapse">
+       
                         <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b">
                             <tr>
                                 <th class="px-4 py-3 font-bold">Scope</th>
+               
                                 <th class="px-4 py-3 text-center">Total Worked</th>
                                 <th class="px-4 py-3 text-center">Common</th>
                                 {% for call in all_calls %}
+       
                                 <th class="px-4 py-3 text-center text-blue-600">{{ call }}</th>
                                 {% endfor %}
                             </tr>
+       
                         </thead>
                         <tbody class="divide-y divide-slate-100">
                             {% for row in breakdown_totals %}
+                        
                             <tr class="hover:bg-slate-50 transition-colors">
                                 <td class="px-4 py-2 font-medium text-slate-700" style="padding-left: {{ row.indent|default:0|add:1 }}rem;">
                                     {{ row.label }}
+                
                                 </td>
                                 <td class="px-4 py-2 text-center font-bold">{{ row.total_worked }}</td>
                                 <td class="px-4 py-2 text-center text-slate-500">{{ row.common }}</td>
+        
                                 {% for station in row.stations %}
                                 <td class="px-4 py-2 text-center border-l border-slate-100">
+                                  
                                     <span class="font-mono">{{ station.count }}</span>
                                     {% if station.delta < 0 %}
                                     <span class="text-red-600 font-bold ml-1 text-xs">({{ station.delta }})</span>
+            
                                     {% endif %}
                                 </td>
                                 {% endfor %}
+        
                             </tr>
                             {% endfor %}
                         </tbody>
                     </table>
-                </div>
+      
+            </div>
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 
                 <div id="low-bands-section"
                      data-export-title="Low Bands (160M - 40M)"
+    
                      data-export-context="{{ report_title_lines.1 }}"
                      data-export-footer="Contest Log Analytics • {{ creation_date }}">
                      
                      <div class="flex justify-between items-center mb-3 border-b pb-2">
+      
                         <h3 class="text-lg font-bold text-slate-700">Low Bands (160M - 40M)</h3>
                         <button onclick="captureWidget('low-bands-section', 'low_bands_breakdown')" class="px-3 py-1 text-sm bg-slate-200 hover:bg-slate-300 rounded text-slate-700 font-semibold transition">
                             📸 Capture
+           
                         </button>
                     </div>
                     {% for block in low_bands_data %}
                     <div class="mb-6 border rounded-lg overflow-hidden">
+                  
                         <div class="bg-slate-100 px-4 py-2 font-bold text-slate-700 text-sm border-b">
                             {{ block.label }}
                         </div>
                         <table class="w-full text-sm text-left">
-                           <thead class="text-xs text-slate-500 bg-white border-b">
+      
+                            <thead class="text-xs text-slate-500 bg-white border-b">
                                 <tr>
                                     <th class="px-3 py-2 w-1/4">Entity</th>
+    
                                     <th class="px-2 py-2 text-center">Wkd</th>
                                     <th class="px-2 py-2 text-center">Cmn</th>
+                          
                                     {% for call in all_calls %}
                                     <th class="px-2 py-2 text-center">{{ call }}</th>
                                     {% endfor %}
+      
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100 bg-white">
+               
                                 {% for row in block.rows %}
                                 <tr class="hover:bg-blue-50">
                                     <td class="px-3 py-1 truncate max-w-[150px]" title="{{ row.label }}">
-                                        {{ row.label }}
+  
+                                      {{ row.label }}
                                     </td>
+                        
                                     <td class="px-2 py-1 text-center font-bold">{{ row.total_worked }}</td>
                                     <td class="px-2 py-1 text-center text-slate-400">{{ row.common }}</td>
                                     {% for station in row.stations %}
                                     <td class="px-2 py-1 text-center border-l border-slate-100">
                                         {{ station.count }}
+                
                                         {% if station.delta < 0 %}
                                         <span class="text-red-500 font-bold text-xs block leading-none">({{ station.delta }})</span>
+                        
                                         {% endif %}
                                     </td>
                                     {% endfor %}
+        
                                 </tr>
                                 {% endfor %}
                             </tbody>
+              
                         </table>
                     </div>
                     {% endfor %}
                 </div>
 
                 <div id="high-bands-section"
+               
                      data-export-title="High Bands (20M - 10M)"
                      data-export-context="{{ report_title_lines.1 }}"
                      data-export-footer="Contest Log Analytics • {{ creation_date }}">
                      
+                   
                     <div class="flex justify-between items-center mb-3 border-b pb-2">
                         <h3 class="text-lg font-bold text-slate-700">High Bands (20M - 10M)</h3>
                         <button onclick="captureWidget('high-bands-section', 'high_bands_breakdown')" class="px-3 py-1 text-sm bg-slate-200 hover:bg-slate-300 rounded text-slate-700 font-semibold transition">
+                           
                             📸 Capture
                         </button>
                     </div>
                     {% for block in high_bands_data %}
                     <div class="mb-6 border rounded-lg overflow-hidden">
+     
                         <div class="bg-slate-100 px-4 py-2 font-bold text-slate-700 text-sm border-b">
                             {{ block.label }}
                         </div>
+                    
                         <table class="w-full text-sm text-left">
                             <thead class="text-xs text-slate-500 bg-white border-b">
                                 <tr>
+                             
                                     <th class="px-3 py-2 w-1/4">Entity</th>
                                     <th class="px-2 py-2 text-center">Wkd</th>
                                     <th class="px-2 py-2 text-center">Cmn</th>
+            
                                     {% for call in all_calls %}
                                     <th class="px-2 py-2 text-center">{{ call }}</th>
+                              
                                     {% endfor %}
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100 bg-white">
+ 
                                 {% for row in block.rows %}
                                 <tr class="hover:bg-amber-50">
+                               
                                     <td class="px-3 py-1 truncate max-w-[150px]" title="{{ row.label }}">
                                         {{ row.label }}
                                     </td>
+          
                                     <td class="px-2 py-1 text-center font-bold">{{ row.total_worked }}</td>
                                     <td class="px-2 py-1 text-center text-slate-400">{{ row.common }}</td>
+                          
                                     {% for station in row.stations %}
                                     <td class="px-2 py-1 text-center border-l border-slate-100">
                                         {{ station.count }}
+  
                                         {% if station.delta < 0 %}
                                         <span class="text-red-500 font-bold text-xs block leading-none">({{ station.delta }})</span>
+          
                                         {% endif %}
                                     </td>
+                                
                                     {% endfor %}
                                 </tr>
                                 {% endfor %}
+                            
                             </tbody>
                         </table>
                     </div>
@@ -184,6 +229,7 @@
                 </div>
 
             </div>
+      
         </div>
         
         <div class="bg-slate-50 p-4 border-t text-center text-xs text-slate-400">
@@ -209,7 +255,7 @@
         ghost.style.width = sourceElement.offsetWidth + 'px';
         ghost.style.backgroundColor = '#ffffff';
         ghost.style.padding = '20px';
-        
+
         // 3. Construct Ghost Content
         const headerDiv = document.createElement('div');
         headerDiv.style.borderBottom = '2px solid #3b82f6';
@@ -240,6 +286,8 @@
         footerDiv.style.textAlign = 'center';
         footerDiv.style.fontSize = '12px';
         footerDiv.style.color = '#9ca3af';
+        // STYLE FIX: Enable multiline rendering for \n
+        footerDiv.style.whiteSpace = 'pre-wrap';
         footerDiv.innerText = exportFooter;
         ghost.appendChild(footerDiv);
 

@@ -6,7 +6,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-31
-# Version: 0.156.0-Beta
+# Version: 0.156.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -20,6 +20,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.156.1-Beta] - 2025-12-31
+# - Implemented "Fast Path" hydration for Multiplier Dashboard to bypass LogManager reload.
+# - Updated footer generation to support multi-line text (Branding + CTY).
 # [0.156.0-Beta] - 2025-12-31
 # - Updated `multiplier_dashboard` to use `get_standard_title_lines` and `get_cty_metadata` for
 #   standardized report headers/footers (Ghost Injection support).
@@ -539,14 +542,10 @@ def multiplier_dashboard(request, session_id):
     if not manifest_dir:
         raise Http404("Analysis manifest not found")
 
-    # Load Manifest
+    # 2. Load Manifest & Context
     manifest_mgr = ManifestManager(manifest_dir)
     artifacts = manifest_mgr.load()
-    
-    # Derive Context from Manifest Artifacts
     report_rel_path = os.path.relpath(manifest_dir, session_path).replace("\\", "/")
-    
-    # Derive combo_id from the directory name (Authoritative source from ReportGenerator)
     combo_id = os.path.basename(manifest_dir)
 
     # 3. Data Hydration Strategy
@@ -565,29 +564,83 @@ def multiplier_dashboard(request, session_id):
         except Exception as e:
             logger.error(f"Failed to load JSON artifact: {e}")
 
-    # Strategy B: Slow Fallback (Live Hydration)
-    # Only runs if JSON artifact is missing
+    # 4. Fetch Persisted Dashboard Context (EARLY LOAD)
+    context_path = os.path.join(session_path, 'dashboard_context.json')
+    dashboard_ctx = {}
+    persisted_logs = []
+    
+    if os.path.exists(context_path):
+        try:
+            with open(context_path, 'r') as f:
+                dashboard_ctx = json.load(f)
+                persisted_logs = dashboard_ctx.get('logs', [])
+        except Exception as e:
+             logger.error(f"Failed to load dashboard context: {e}")
+
+    # 5. Metadata Strategy (Fast Path vs Slow Path)
     lm = None
-    if not breakdown_data:
-        # We must reload logs to perform live aggregation
-        # Note: We rely on the session directory containing the source logs
+    report_metadata = {}
+
+    if breakdown_data and dashboard_ctx:
+        # --- FAST PATH: Hydrate from Cache ---
+        # No LogManager, No Parsing. Instant load.
+        
+        full_title = dashboard_ctx.get('full_contest_title', '')
+        cty_info = dashboard_ctx.get('cty_version_info', 'Unknown CTY')
+        
+        # Reconstruct calls from persisted logs to match combo_id logic
+        calls = sorted([l['callsign'] for l in persisted_logs])
+        call_str = ", ".join(calls)
+        
+        # Line 2: Context
+        context_line = f"{full_title} - {call_str}"
+        
+        # Footer: Two lines (Branding + CTY)
+        footer_text = f"Contest Log Analytics by KD4D\nCTY File: {cty_info}"
+        
+        report_metadata = {
+            'context_line': context_line,
+            'scope_line': "All Bands", # Matrix is always global scope initially
+            'footer': footer_text
+        }
+        
+    else:
+        # --- SLOW PATH: Fallback to Log Parsing ---
+        # Required if JSON artifact is missing or context is corrupted
         lm = LogManager()
-        # Find log files in session root (excluding directories and known generated files)
         log_candidates = []
         for f in os.listdir(session_path):
             f_path = os.path.join(session_path, f)
             if os.path.isfile(f_path) and not f.startswith('dashboard_context') and not f.endswith('.zip'):
                 log_candidates.append(f_path)
         
-        # Load without progress tracking (fast for reload)
         root_input = os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
         lm.load_log_batch(log_candidates, root_input, 'after')
         
-        # Aggregate Matrix
-        mult_agg = MultiplierStatsAggregator(lm.logs)
-        breakdown_data = mult_agg.get_multiplier_breakdown_data()
+        # Generate Aggregation if missing
+        if not breakdown_data:
+            mult_agg = MultiplierStatsAggregator(lm.logs)
+            breakdown_data = mult_agg.get_multiplier_breakdown_data()
+            
+        # Generate Metadata using Utilities
+        modes_present = set()
+        for log in lm.logs:
+            df = log.get_processed_data()
+            if 'Mode' in df.columns:
+                modes_present.update(df['Mode'].dropna().unique())
+
+        title_lines = get_standard_title_lines("Multiplier Breakdown", lm.logs, "All Bands", None, modes_present)
+        
+        # Footer with Newline
+        footer_text = f"Contest Log Analytics by KD4D\n{get_cty_metadata(lm.logs)}"
+        
+        report_metadata = {
+            'context_line': title_lines[1],
+            'scope_line': title_lines[2],
+            'footer': footer_text
+        }
     
-    # Split Bands for Layout
+    # Split Bands (Layout Logic)
     low_bands = ['160M', '80M', '40M']
     low_bands_data = []
     high_bands_data = []
@@ -599,14 +652,6 @@ def multiplier_dashboard(request, session_id):
             else:
                 high_bands_data.append(block)
     
-    # Re-fetch persisted context for accurate scores (since LM reload is raw)
-    context_path = os.path.join(session_path, 'dashboard_context.json')
-    persisted_logs = []
-    if os.path.exists(context_path):
-        with open(context_path, 'r') as f:
-            d_ctx = json.load(f)
-            persisted_logs = d_ctx.get('logs', [])
-
     # Calculate optimal column width for scoreboard
     log_count = len(persisted_logs) if persisted_logs else 0
     col_width = 12 // log_count if log_count > 0 else 12
@@ -644,37 +689,6 @@ def multiplier_dashboard(request, session_id):
     html_bd_art = next((a for a in artifacts if a['report_id'] == 'html_multiplier_breakdown' and a['path'].endswith(html_suffix)), None)
     if html_bd_art:
         breakdown_html_rel_path = f"{report_rel_path}/{html_bd_art['path']}"
-
-    # Re-instantiate LogManager if not already done (for metadata utils)
-    if not lm:
-        lm = LogManager()
-        log_candidates = []
-        for f in os.listdir(session_path):
-            f_path = os.path.join(session_path, f)
-            if os.path.isfile(f_path) and not f.startswith('dashboard_context') and not f.endswith('.zip'):
-                log_candidates.append(f_path)
-        root_input = os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
-        lm.load_log_batch(log_candidates, root_input, 'after')
-
-    # --- Standard Metadata Generation ---
-    modes_present = set()
-    for log in lm.logs:
-        df = log.get_processed_data()
-        if 'Mode' in df.columns:
-            modes_present.update(df['Mode'].dropna().unique())
-
-    # Line 1: Report Name (Generic)
-    # Line 2: Context (Contest Year Calls)
-    # Line 3: Scope (All Bands)
-    title_lines = get_standard_title_lines("Multiplier Breakdown", lm.logs, "All Bands", None, modes_present)
-
-    footer_text = f"Contest Log Analytics by KD4D • {get_cty_metadata(lm.logs)}"
-
-    report_metadata = {
-        'context_line': title_lines[1], # "CQ WW CW 2024 - KD4D"
-        'scope_line': title_lines[2],   # "All Bands"
-        'footer': footer_text
-    }
 
     # 2. Scan and Group Reports
     # Use Manifest to find Missed/Summary reports
@@ -728,7 +742,7 @@ def multiplier_dashboard(request, session_id):
         'session_id': session_id,
         'scoreboard': persisted_logs, # Use persisted logs for accurate scores
         'col_width': col_width,
-        'breakdown_totals': breakdown_data['totals'],
+        'breakdown_totals': breakdown_data['totals'] if breakdown_data else [],
         'low_bands_data': low_bands_data,
         'high_bands_data': high_bands_data,
         'all_calls': sorted([l['callsign'] for l in persisted_logs]),

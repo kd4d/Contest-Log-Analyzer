@@ -254,7 +254,7 @@
             </div>
             
             <div class="horiz-strategy">
-                 <div class="grid-lines-container">
+                <div class="grid-lines-container">
                     <div class="v-grid-line" style="left: 0%"></div>
                     <div class="v-grid-line" style="left: 25%"></div>
                     <div class="v-grid-line" style="left: 50%"></div>
@@ -265,7 +265,7 @@
                 {% for stat in row.stations %}
                 {% with total_unique=stat.unique_run|add:stat.unique_sp|add:stat.unique_unk %}
                 <div class="h-bar-row">
-                     <div class="fw-bold">{{ all_calls|get_item:forloop.counter0 }}</div>
+                    <div class="fw-bold">{{ all_calls|get_item:forloop.counter0 }}</div>
                     <div class="h-bar-track">
                         <div class="h-bar-fill" style="width: {% widthratio total_unique row.max_unique 100 %}%;">
                             <div class="bg-run" style="width: {% widthratio stat.unique_run total_unique 100 %}%;"></div>
@@ -369,7 +369,7 @@
      
                                 <div class="d-flex" style="background:#f8fafc;">
                                     {% for call in all_calls %}
-                                   <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>
+                                    <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>
                                     {% endfor %}
                                 </div>
                            {% endif %}
@@ -406,7 +406,7 @@
                         <div class="vert-header">{{ block.label }}</div>
                         {% for row in block.rows %}
                             {% if "Countries" in row.label %}
-                             <div class="vert-spikes-container">
+                               <div class="vert-spikes-container">
                                 {% for stat in row.stations %}
                                 {% with total_unique=stat.unique_run|add:stat.unique_sp|add:stat.unique_unk %}
                                 <div class="vert-bar-wrapper">
@@ -418,7 +418,7 @@
                                 </div>
                                 {% endwith %}
                                 {% endfor %}
-                            </div>
+                               </div>
                
                             <div class="vert-foundation">
                                 <div class="h4 fw-bold text-secondary m-0">{{ row.common }}</div>
@@ -428,7 +428,7 @@
                             <div class="d-flex" style="background:#f8fafc;">
                                 {% for call in all_calls %}
                                <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>
-                                {% endfor %}
+                               {% endfor %}
                             </div>
                            {% endif %}
                         {% endfor %}
@@ -486,7 +486,7 @@
                             <div class="d-flex" style="background:#f8fafc;">
                                 {% for call in all_calls %}
                                <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>
-                                {% endfor %}
+                               {% endfor %}
                             </div>
                            {% endif %}
                         {% endfor %}
@@ -528,7 +528,7 @@
                         </a>
                     </div>
                     <div class="card-body p-0" style="height: 500px;">
-                         <iframe src="{% url 'view_report' session_id mult.missed %}?chromeless=1" style="width: 100%; height: 100%; border: none;"></iframe>
+                        <iframe src="{% url 'view_report' session_id mult.missed %}?chromeless=1" style="width: 100%; height: 100%; border: none;"></iframe>
                     </div>
                 </div>
             </div>
@@ -555,7 +555,7 @@
         ghost.style.width = sourceElement.offsetWidth + 'px'; // Maintain width
         ghost.style.backgroundColor = '#ffffff';
         ghost.style.padding = '20px';
-        
+
         // 3. Inject Header
         const headerDiv = document.createElement('div');
         headerDiv.style.borderBottom = '2px solid #3b82f6'; // Blue accent
@@ -587,6 +587,7 @@
         footerDiv.style.textAlign = 'center';
         footerDiv.style.fontSize = '12px';
         footerDiv.style.color = '#9ca3af';
+        footerDiv.style.whiteSpace = 'pre-wrap';
         footerDiv.innerText = exportFooter;
         ghost.appendChild(footerDiv);
 
