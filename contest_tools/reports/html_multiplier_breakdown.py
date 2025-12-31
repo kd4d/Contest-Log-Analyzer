@@ -3,8 +3,8 @@
 # Purpose: Specialized HTML report for multiplier breakdown (Group Par).
 #
 # Author: Gemini AI
-# Date: 2025-12-23
-# Version: 0.131.1-Beta
+# Date: 2025-12-30
+# Version: 0.155.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,12 +18,18 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.155.3-Beta] - 2025-12-31
+# - Corrected static path construction for offline report generator.
+# [0.155.2-Beta] - 2025-12-30
+# - Added JS Inlining Logic for `html2canvas` to support offline "Camera" feature.
 # [0.131.1-Beta] - 2025-12-23
 # - Enable single-log support.
 # [0.137.0-Beta] - 2025-12-22
 # - Initial creation.
+
 import os
 from django.template.loader import render_to_string
+from django.conf import settings
 from .report_interface import ContestReport
 from ..data_aggregators.multiplier_stats import MultiplierStatsAggregator
 from ._report_utils import _sanitize_filename_part, get_cty_metadata, get_standard_title_lines
@@ -69,6 +75,24 @@ class Report(ContestReport):
             else:
                 high_bands_data.append(block)
 
+        # --- Load html2canvas for Inlining ---
+        # The file is expected to be in web_app/analyzer/static/js/html2canvas.min.js
+        
+        js_content = ""
+        try:
+            # Construct path to static file
+            # settings.BASE_DIR points to /app/web_app
+            # We append 'analyzer/static/js/...' relative to that base.
+            static_path = os.path.join(settings.BASE_DIR, 'analyzer', 'static', 'js', 'html2canvas.min.js')
+            
+            if os.path.exists(static_path):
+                with open(static_path, 'r', encoding='utf-8') as f:
+                    js_content = f.read()
+            else:
+                print(f"Warning: html2canvas.min.js not found at {static_path}. Capture feature disabled.")
+        except Exception as e:
+             print(f"Error reading html2canvas: {e}")
+
         context = {
             'report_title_lines': title_lines,
             'creation_date': get_cty_metadata(self.logs),
@@ -76,6 +100,7 @@ class Report(ContestReport):
             'breakdown_totals': data['totals'],
             'low_bands_data': low_bands_data,
             'high_bands_data': high_bands_data,
+            'html2canvas_js': js_content, # Pass full JS string
         }
 
         # 3. Render Template
@@ -88,7 +113,7 @@ class Report(ContestReport):
         os.makedirs(output_path, exist_ok=True)
         filepath = os.path.join(output_path, filename)
 
-        with open(filepath, 'w') as f:
+        with open(filepath, 'w', encoding='utf-8') as f:
             f.write(html_content)
 
         return f"Report saved to {filepath}"
