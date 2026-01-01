@@ -5,7 +5,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-20
-# Version: 0.134.0-Beta
+# Version: 0.134.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.134.1-Beta] - 2026-01-01
+# - Added deterministic sorting to `save()` method to ensure consistent
+#   manifest output order.
 # [0.134.0-Beta] - 2025-12-20
 # - Initial creation.
 
@@ -39,7 +42,8 @@ class ManifestManager:
         Initialize the manager.
         
         Args:
-            root_dir (str): The root directory where the manifest file will be stored.
+            root_dir (str): The root directory where 
+            the manifest file will be stored.
         """
         self.root_dir = root_dir
         self.manifest_path = os.path.join(self.root_dir, self.MANIFEST_FILENAME)
@@ -73,6 +77,8 @@ class ManifestManager:
 
     def save(self):
         """Writes the artifact list to the JSON file."""
+        # Enforce deterministic order by sorting by path to prevent regression noise
+        self.artifacts.sort(key=lambda x: x['path'])
         try:
             with open(self.manifest_path, 'w') as f:
                 json.dump(self.artifacts, f, indent=4)

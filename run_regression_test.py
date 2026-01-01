@@ -8,7 +8,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-10-01
-# Version: 0.94.2-Beta
+# Version: 0.94.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -20,7 +20,10 @@
 # License, v. 2.0.
 # If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
 # --- Revision History ---
+# [0.94.3-Beta] - 2025-12-31
+# - Added content sanitization to ignore dynamic UUIDs and timestamps in HTML/JSON.
 # [0.94.2-Beta] - 2025-12-11
 # - Updated to support text-based diff comparison for .html files (Plotly reports).
 # - Removed obsolete regression checks for animation frames (_frame_NNN).
@@ -29,6 +32,7 @@
 #   (e.g., animation frames), showing a count and only the first/last diffs.
 # [0.90.0-Beta] - 2025-10-01
 # Set new baseline version for release.
+
 import os
 import sys
 import argparse
@@ -169,6 +173,18 @@ def archive_baseline_reports(reports_dir: str) -> str:
     
     return archive_dir_final
 
+def _sanitize_content(content: str, filename: str) -> str:
+    """Sanitizes dynamic content (UUIDs, timestamps) to reduce regression noise."""
+    # 1. Sanitize Plotly UUIDs in HTML (8-4-4-4-12 hex digits)
+    if filename.endswith('.html'):
+        content = re.sub(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', '__UUID__', content)
+        
+    # 2. Sanitize Timestamps in Manifests
+    elif filename.endswith('session_manifest.json'):
+        # Matches "timestamp": "2025-..."
+        content = re.sub(r'"timestamp":\s*"[^"]+"', '"timestamp": "__TIMESTAMP__"', content)
+    
+    return content
 
 def compare_outputs(new_items: set, reports_dir: str, archive_dir: str, ignore_whitespace: bool) -> list:
     """Compares new files against the baseline and returns a list of failures."""
@@ -205,10 +221,15 @@ def compare_outputs(new_items: set, reports_dir: str, archive_dir: str, ignore_w
         
         elif item_path.endswith('.json'):
             try:
-                with open(item_path, 'r', encoding='utf-8') as f_new:
-                    data_new = json.load(f_new)
-                with open(baseline_path, 'r', encoding='utf-8') as f_base:
-                    data_base = json.load(f_base)
+                # Read raw first to sanitize
+                with open(item_path, 'r', encoding='utf-8') as f:
+                    raw_new = _sanitize_content(f.read(), item_path)
+                with open(baseline_path, 'r', encoding='utf-8') as f:
+                    raw_base = _sanitize_content(f.read(), baseline_path)
+                
+                # Load sanitized content as JSON
+                data_new = json.loads(raw_new)
+                data_base = json.loads(raw_base)
             
                 # Serialize to a canonical string format (sorted keys, indented)
                 str_new = json.dumps(data_new, sort_keys=True, indent=2).splitlines(keepends=True)
@@ -306,10 +327,10 @@ def compare_outputs(new_items: set, reports_dir: str, archive_dir: str, ignore_w
 
         elif item_path.endswith(('.txt', '.html')):
             try:
-                with open(item_path, 'r', encoding='utf-8') as f_new:
-                    lines_new = f_new.readlines()
-                with open(baseline_path, 'r', encoding='utf-8') as f_base:
-                    lines_base = f_base.readlines()
+                with open(item_path, 'r', encoding='utf-8') as f:
+                    lines_new = _sanitize_content(f.read(), item_path).splitlines(keepends=True)
+                with open(baseline_path, 'r', encoding='utf-8') as f:
+                    lines_base = _sanitize_content(f.read(), baseline_path).splitlines(keepends=True)
 
                 if ignore_whitespace:
                     lines_new = [" ".join(line.split()) + '\n' for line in lines_new]
