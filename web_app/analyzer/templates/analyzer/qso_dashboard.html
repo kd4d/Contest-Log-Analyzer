@@ -1,32 +1,92 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load analyzer_extras %}
 
 {% block content %}
 <div class="container-fluid py-4">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <div class="row mb-3">
+        <div class="col-12 d-flex justify-content-end">
+            <a href="{% url 'dashboard_view' session_id %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>Back to Main Dashboard
+            </a>
+        </div>
+    </div>
+    <style>
+        .nav-tabs .nav-link {
+            color: #495057;
+        }
+        .nav-tabs .nav-link.active {
+            font-weight: bold;
+            color: #0d6efd;
+        }
+        .stat-card-value {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+        .chart-container {
+            position: relative;
+            margin: auto;
+            height: 300px;
+        }
+        .empty-state {
+            padding: 4rem 2rem;
+            background-color: #f8f9fa;
+            border-radius: 0.5rem;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        /* Hard Deck Strategy: Fixed height to prevent async thrashing */
+        .viewport-frame {
+            width: 100%;
+            height: 900px;
+            border: none;
+            background-color: #fff;
+        }
+    </style>
+
     <div class="row mb-4">
         <div class="col-12">
             <div class="card shadow-sm">
                 <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="bi bi-speedometer2 me-2"></i>Global Context</h5>
-                    <a href="{% url 'view_report' session_id global_qso_rate_file %}" target="_blank" class="btn btn-sm btn-light">
+                    {% if global_qso_rate_file %}
+                    <a href="{% url 'view_report' session_id global_qso_rate_file %}?source=qso" target="_blank" class="btn btn-sm btn-light">
                         <i class="bi bi-box-arrow-up-right"></i>
                     </a>
+                    {% endif %}
                 </div>
-                <div class="card-body p-0" style="height: 500px;">
-                    <iframe src="{% url 'view_report' session_id global_qso_rate_file %}" style="width: 100%; height: 100%; border: none;"></iframe>
+                <div class="card-body p-0">
+                    {% if global_qso_rate_file %}
+                    <iframe src="{% url 'view_report' session_id global_qso_rate_file %}?chromeless=1" class="viewport-frame"></iframe>
+                    {% else %}
+                    <div class="d-flex align-items-center justify-content-center h-100 bg-light text-muted" style="min-height: 200px;">
+                        <div class="text-center">
+                            <i class="bi bi-exclamation-circle display-4 mb-3"></i>
+                            <p>Global Rate Plot Not Available</p>
+                        </div>
+                    </div>
+                {% endif %}
                 </div>
             </div>
         </div>
     </div>
 
     <ul class="nav nav-tabs mb-3" id="qsoTabs" role="tablist">
+        {% if not is_solo %}
         <li class="nav-item" role="presentation">
             <button class="nav-link active" id="strategy-tab" data-bs-toggle="tab" data-bs-target="#strategy" type="button" role="tab">
                 <i class="bi bi-chess me-2"></i>Pairwise Strategy
             </button>
         </li>
+        {% endif %}
         <li class="nav-item" role="presentation">
-            <button class="nav-link" id="rates-tab" data-bs-toggle="tab" data-bs-target="#rates" type="button" role="tab">
+            <button class="nav-link" id="cumul-tab" data-bs-toggle="tab" data-bs-target="#cumul" type="button" role="tab">
+                <i class="bi bi-graph-up-arrow me-2"></i>QSOs by Band
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link {% if is_solo %}active{% endif %}" id="rates-tab" data-bs-toggle="tab" data-bs-target="#rates" type="button" role="tab">
                 <i class="bi bi-table me-2"></i>Rate Detail
             </button>
         </li>
@@ -39,15 +99,23 @@
 
     <div class="tab-content" id="qsoTabsContent">
         
+        {% if not is_solo %}
         <div class="tab-pane fade show active" id="strategy" role="tabpanel">
-            <div class="btn-group mb-3" role="group">
+            
+            <div class="input-group mb-3 w-auto">
+                <label class="input-group-text" for="strategySelect"><i class="bi bi-people me-2"></i>Select Matchup:</label>
+                <select class="form-select" id="strategySelect">
                 {% for m in matchups %}
-                <button type="button" class="btn btn-outline-primary strategy-btn {% if forloop.first %}active{% endif %}" 
-                        data-breakdown="{% url 'view_report' session_id m.qso_breakdown_file %}"
-                        data-diff="{% url 'view_report' session_id m.diff_plot_file %}">
-                    {{ m.label }}
-                </button>
+                    <option value="{{ forloop.counter }}"
+                            data-breakdown-json="{{ m.qso_breakdown_json }}"
+                            data-breakdown-full="{% url 'view_report' session_id m.qso_breakdown_file %}?source=qso"
+                            {% for band, path in m.diff_paths.items %}
+                                data-diff-json-{{ band }}="{{ m.diff_json_paths|get_item:band }}"
+                                data-diff-full-{{ band }}="{% url 'view_report' session_id path %}?source=qso"
+                            {% endfor %}
+                    >{{ m.label }}</option>
                 {% endfor %}
+                </select>
             </div>
 
             <div class="row">
@@ -57,55 +125,113 @@
                             <span>Strategy Breakdown (Uniques)</span>
                             <a id="link-breakdown" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
                         </div>
-                        <div class="card-body p-0" style="height: 600px;">
-                            <iframe id="frame-breakdown" src="" style="width: 100%; height: 100%; border: none;"></iframe>
+                        <div class="card-body p-0">
+                            <div id="chart-breakdown" class="viewport-frame" style="overflow: hidden;"></div>
                         </div>
                     </div>
                 </div>
                 <div class="col-lg-6 mb-4">
                     <div class="card h-100 shadow-sm">
                         <div class="card-header d-flex justify-content-between align-items-center">
-                            <span>Rate Differential (Momentum)</span>
+                            <div class="d-flex align-items-center">
+                                <span class="me-2">Rate Differential</span>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button type="button" class="btn btn-outline-secondary diff-band-btn" data-band="160">160</button>
+                                    <button type="button" class="btn btn-outline-secondary diff-band-btn" data-band="80">80</button>
+                                    <button type="button" class="btn btn-outline-secondary diff-band-btn" data-band="40">40</button>
+                                    <button type="button" class="btn btn-outline-secondary diff-band-btn" data-band="20">20</button>
+                                    <button type="button" class="btn btn-outline-secondary diff-band-btn" data-band="15">15</button>
+                                    <button type="button" class="btn btn-outline-secondary diff-band-btn" data-band="10">10</button>
+                                    <button type="button" class="btn btn-outline-secondary diff-band-btn active" data-band="all">All</button>
+                                </div>
+                            </div>
                             <a id="link-diff" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
                         </div>
-                        <div class="card-body p-0" style="height: 600px;">
-                            <iframe id="frame-diff" src="" style="width: 100%; height: 100%; border: none;"></iframe>
+                        <div class="card-body p-0">
+                            <div id="chart-diff" class="viewport-frame" style="overflow: hidden;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="tab-pane fade" id="cumul" role="tabpanel">
+            <div class="input-group mb-3 w-auto">
+                <label class="input-group-text" for="cumulSelect"><i class="bi bi-filter me-2"></i>Select Band:</label>
+                <select class="form-select" id="cumulSelect">
+                {% for p in qso_band_plots %}
+                    <option value="{{ p.label }}"
+                            data-json-src="{{ p.file_json }}"
+                            data-full-src="{% url 'view_report' session_id p.file_html %}?source=qso"
+                            {% if p.active %}selected{% endif %}>{{ p.label }}</option>
+                {% endfor %}
+                </select>
+            </div>
+            <div class="row">
+                <div class="col-12 mb-4">
+                    <div class="card shadow-sm">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span>Cumulative QSO Rates (By Band)</span>
+                            <a id="link-qso-rates" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
+                        </div>
+                        <div class="card-body p-0">
+                            <div id="chart-qso-rates" class="viewport-frame" style="overflow: hidden;"></div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="tab-pane fade" id="rates" role="tabpanel">
-            <div class="btn-group mb-3" role="group">
-                <button type="button" class="btn btn-outline-secondary rate-btn active" 
-                        data-src="{% url 'view_report' session_id rate_sheet_comparison %}">Comparison</button>
+        <div class="tab-pane fade {% if is_solo %}show active{% endif %}" id="rates" role="tabpanel">
+            <div class="input-group mb-3 w-auto">
+                <label class="input-group-text" for="ratesSelect"><i class="bi bi-journal-text me-2"></i>Select Log:</label>
+                <select class="form-select" id="ratesSelect">
+                {% if rate_sheet_comparison %}
+                    <option value="comparison" selected
+                            data-src="{% url 'view_report' session_id rate_sheet_comparison %}?chromeless=1"
+                            data-full-src="{% url 'view_report' session_id rate_sheet_comparison %}?source=qso">Comparison (All Logs)</option>
+                {% endif %}
                 {% for call in callsigns %}
-                <button type="button" class="btn btn-outline-secondary rate-btn" 
-                        data-src="{% url 'view_report' session_id report_base|add:'/text/rate_sheet_'|add:call|add:'.txt' %}">{{ call }}</button>
+                    <option value="{{ call }}"
+                            data-src="{% url 'view_report' session_id report_base|add:'/text/rate_sheet_'|add:call|add:'.txt' %}?chromeless=1"
+                            data-full-src="{% url 'view_report' session_id report_base|add:'/text/rate_sheet_'|add:call|add:'.txt' %}?source=qso"
+                            {% if is_solo and forloop.first %}selected{% endif %}>{{ call }}</option>
                 {% endfor %}
+                </select>
             </div>
             <div class="card shadow-sm">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <span>Rate Detail</span>
                     <a id="link-rates" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
                 </div>
-                <div class="card-body p-0" style="height: 600px;">
-                    <iframe id="frame-rates" src="" style="width: 100%; height: 100%; border: none;"></iframe>
+                <div class="card-body p-0">
+                    <iframe id="frame-rates" src="" class="viewport-frame"></iframe>
                 </div>
             </div>
         </div>
 
         <div class="tab-pane fade" id="points" role="tabpanel">
-             <div class="row">
+            <div class="input-group mb-3 w-auto">
+                <label class="input-group-text" for="pointsSelect"><i class="bi bi-filter me-2"></i>Select Band:</label>
+                <select class="form-select" id="pointsSelect">
+                {% for p in point_plots %}
+                     <option value="{{ p.label }}"
+                            data-json-src="{{ p.file_json }}"
+                            data-full-src="{% url 'view_report' session_id p.file_html %}?source=qso"
+                            {% if p.active %}selected{% endif %}>{{ p.label }}</option>
+                {% endfor %}
+                </select>
+            </div>
+            <div class="row">
                 <div class="col-12 mb-4">
                     <div class="card shadow-sm">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <span>Cumulative Points</span>
-                            <a href="{% url 'view_report' session_id global_point_rate_file %}" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
+                            <a id="link-points" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
                         </div>
-                        <div class="card-body p-0" style="height: 500px;">
-                             <iframe src="{% url 'view_report' session_id global_point_rate_file %}" style="width: 100%; height: 100%; border: none;"></iframe>
+                        <div class="card-body p-0">
+                            <div id="chart-points" class="viewport-frame" style="overflow: hidden;"></div>
                         </div>
                     </div>
                 </div>
@@ -116,43 +242,132 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Strategy Tab Logic
-        const stratBtns = document.querySelectorAll('.strategy-btn');
-        const frameBreakdown = document.getElementById('frame-breakdown');
-        const frameDiff = document.getElementById('frame-diff');
+        // --- Strategy Tab Logic ---
+        const strategySelect = document.getElementById('strategySelect');
+        const chartBreakdownId = 'chart-breakdown';
+        const chartDiffId = 'chart-diff';
         const linkBreakdown = document.getElementById('link-breakdown');
         const linkDiff = document.getElementById('link-diff');
+        const diffBandBtns = document.querySelectorAll('.diff-band-btn');
+        let currentDiffBand = 'all';
 
-        function updateStrategy(btn) {
-            stratBtns.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            frameBreakdown.src = btn.dataset.breakdown;
-            frameDiff.src = btn.dataset.diff;
-            linkBreakdown.href = btn.dataset.breakdown;
-            linkDiff.href = btn.dataset.diff;
+        // Generic Chart Renderer
+        function renderChart(containerId, jsonUrl) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            // Clear previous if no URL
+            if (!jsonUrl) {
+                container.innerHTML = '<div class="d-flex align-items-center justify-content-center h-100 text-muted">No Data</div>';
+                return;
+            }
+
+            // Fetch and Render
+            fetch(jsonUrl)
+                .then(response => response.json())
+                .then(data => {
+                    // Force responsive layout settings
+                    const layout = data.layout || {};
+                    layout.autosize = true;
+                    layout.width = null;
+                    layout.height = null; // Let CSS control height
+
+                    Plotly.newPlot(containerId, data.data, layout, {responsive: true, displayModeBar: false});
+                })
+                .catch(err => {
+                    console.error("Chart render error:", err);
+                    container.innerHTML = '<div class="alert alert-danger m-3">Error loading chart</div>';
+                });
         }
 
-        if(stratBtns.length > 0) updateStrategy(stratBtns[0]);
+        function updateStrategy() {
+            if(!strategySelect) return;
+            const selectedOption = strategySelect.options[strategySelect.selectedIndex];
+            
+            // Render Breakdown Chart
+            renderChart(chartBreakdownId, selectedOption.dataset.breakdownJson);
+            linkBreakdown.href = selectedOption.dataset.breakdownFull;
+            
+            updateDiffContent();
+        }
+        
+        function updateDiffContent() {
+            if (!strategySelect) return;
+            const selectedOption = strategySelect.options[strategySelect.selectedIndex];
+            
+            // Get JSON URL
+            let diffJson = selectedOption.getAttribute('data-diff-json-' + currentDiffBand);
+            if (!diffJson) diffJson = selectedOption.getAttribute('data-diff-json-all');
+            
+            // Get Full Link
+            let diffFull = selectedOption.getAttribute('data-diff-full-' + currentDiffBand);
+            if (!diffFull) diffFull = selectedOption.getAttribute('data-diff-full-all');
 
-        stratBtns.forEach(btn => {
-            btn.addEventListener('click', () => updateStrategy(btn));
+            renderChart(chartDiffId, diffJson);
+            if(linkDiff && diffFull) linkDiff.href = diffFull;
+        }
+
+        if(strategySelect) {
+            updateStrategy();
+            // Init
+            strategySelect.addEventListener('change', updateStrategy);
+        }
+        
+        diffBandBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                diffBandBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentDiffBand = btn.dataset.band;
+                
+                updateDiffContent();
+            });
         });
-
-        // Rate Tab Logic
-        const rateBtns = document.querySelectorAll('.rate-btn');
-        const frameRates = document.getElementById('frame-rates');
-        const linkRates = document.getElementById('link-rates');
-
-        function updateRates(btn) {
-            rateBtns.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            frameRates.src = btn.dataset.src;
-            linkRates.href = btn.dataset.src;
+        // --- Generic Dropdown Logic for other tabs ---
+        // Enhanced: Supports both iframe (src) and Div/Plotly (json-src)
+        function setupDropdown(selectId, targetId, linkId) {
+            const select = document.getElementById(selectId);
+            const target = document.getElementById(targetId);
+            const link = document.getElementById(linkId);
+            
+            if (!select || !target) return;
+            function update() {
+                const opt = select.options[select.selectedIndex];
+                if (target.tagName === 'IFRAME') {
+                    // Iframe Mode (Legacy text reports)
+                    target.src = opt.dataset.src;
+                } else {
+                    // Div Mode (New JSON Charts)
+                    renderChart(targetId, opt.dataset.jsonSrc);
+                }
+                
+                if(link) link.href = opt.dataset.fullSrc;
+            }
+            
+            update();
+            // Init
+            select.addEventListener('change', update);
         }
 
-        if(rateBtns.length > 0) updateRates(rateBtns[0]);
-        rateBtns.forEach(btn => {
-            btn.addEventListener('click', () => updateRates(btn));
+        setupDropdown('cumulSelect', 'chart-qso-rates', 'link-qso-rates');
+        // Changed to chart ID
+        setupDropdown('ratesSelect', 'frame-rates', 'link-rates');
+        // Remains Iframe
+        setupDropdown('pointsSelect', 'chart-points', 'link-points');
+        // Changed to chart ID
+
+        // --- Tab Resize Fix ---
+        // Force Plotly to recalculate width when a tab becomes visible
+        var tabEls = document.querySelectorAll('button[data-bs-toggle="tab"]');
+        tabEls.forEach(function(tabEl) {
+            tabEl.addEventListener('shown.bs.tab', function (event) {
+                var targetId = event.target.getAttribute('data-bs-target');
+                var targetPane = document.querySelector(targetId);
+                // Find all Plotly charts in this pane
+                var charts = targetPane.querySelectorAll('.js-plotly-plot');
+                charts.forEach(function(chart) {
+                    Plotly.Plots.resize(chart);
+                });
+            });
         });
     });
 </script>

@@ -4,8 +4,8 @@
 #          serving both the 'Multiplier Summary' and 'Missed Multipliers' reports.
 #
 # Author: Gemini AI
-# Date: 2025-11-24
-# Version: 0.93.0
+# Date: 2025-12-30
+# Version: 0.148.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,34 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.148.0-Beta] - 2025-12-30
+# - Fixed relative import for ComparativeEngine.
+# [0.146.0-Beta] - 2025-12-30
+# - Updated get_multiplier_breakdown_data to inject max_unique scaling factor into row data.
+# [0.144.0-Beta] - 2025-12-30
+# - Updated get_multiplier_breakdown_data to track Run/S&P status of unique multipliers.
+# - Updated build_row to return unique_run, unique_sp, unique_unk counts.
+# [0.125.3-Beta] - 2025-12-17
+# - Refactored build_row to return list of station stats instead of dict,
+#   ensuring ordered iteration in Django templates.
+# [0.127.1-Beta] - 2025-12-17
+# - Refactored get_multiplier_breakdown_data to return structured dictionary
+#   (totals/bands) instead of flat list, enabling responsive dashboard layout.
+# [0.127.0-Beta] - 2025-12-17
+# - Refactored get_dashboard_matrix_data to get_multiplier_breakdown_data.
+# - Implemented hierarchical aggregation (Total -> Band -> Rule) for dashboard.
+# [0.126.0-Beta] - 2025-12-17
+# - Updated get_dashboard_matrix_data to return raw lists of missed multipliers
+#   instead of just counts, enabling detailed tooltips in the dashboard.
+# [0.125.0-Beta] - 2025-12-17
+# - Updated import to use contest_tools.utils.pivot_utils for calculate_multiplier_pivot.
+# [0.124.1-Beta] - 2025-12-17
+# - Fixed AttributeError in get_dashboard_matrix_data by accessing correct
+#   ComparisonResult attributes (common_count, universe_count).
+# [0.124.0-Beta] - 2025-12-17
+# - Added get_dashboard_matrix_data for high-level Opportunity Matrix metrics.
+# [0.123.0-Beta] - 2025-12-17
+# - Refactored get_missed_data to use the centralized ComparativeEngine for set logic.
 # [0.93.0] - 2025-11-24
 # - Refactored to return JSON-serializable types (Dicts/Lists) instead of
 #   Pandas objects, enabling the Data Abstraction Layer.
@@ -29,7 +57,8 @@
 from typing import List, Dict, Any, Set
 import pandas as pd
 from ..contest_log import ContestLog
-from ..reports._report_utils import calculate_multiplier_pivot
+from .comparative_engine import ComparativeEngine
+from ..utils.pivot_utils import calculate_multiplier_pivot
 from ..utils.json_encoders import NpEncoder
 
 class MultiplierStatsAggregator:
@@ -179,6 +208,7 @@ class MultiplierStatsAggregator:
                 
                 df_scope = df_scope[df_scope[mult_column] != 'Unknown']
                 df_scope = df_scope[df_scope[mult_column].notna()]
+                
                 if df_scope.empty: continue
                 
                 if name_column and name_column in df_scope.columns:
@@ -193,11 +223,21 @@ class MultiplierStatsAggregator:
                 band_data_map[callsign] = agg_data.to_dict(orient='index')
                 mult_sets[callsign].update(agg_data.index)
 
-            union_of_all_mults = set.union(*mult_sets.values()) if mult_sets.values() else set()
+            # Delegate Set Theory math to the ComparativeEngine
+            comparison = ComparativeEngine.compare_logs(mult_sets)
             
+            # Reconstruct aggregates from Engine results
+            # Universe = Station_Log U Station_Missed (valid for any station)
+            union_of_all_mults = set()
+            if comparison.station_metrics:
+                # Pick any station to reconstruct the universe set
+                first_call = next(iter(comparison.station_metrics))
+                first_metrics = comparison.station_metrics[first_call]
+                union_of_all_mults = mult_sets[first_call].union(first_metrics.missed_items)
+
             missed_mults_on_band = set()
-            for call in all_calls:
-                missed_mults_on_band.update(union_of_all_mults.difference(mult_sets[call]))
+            for metrics in comparison.station_metrics.values():
+                missed_mults_on_band.update(metrics.missed_items)
 
             full_results['band_data'][band] = {
                 "band_data": band_data_map, 
@@ -208,3 +248,182 @@ class MultiplierStatsAggregator:
             }
 
         return full_results
+
+    def get_multiplier_breakdown_data(self) -> Dict[str, Any]:
+        """
+        Generates hierarchical metrics for the Multiplier Breakdown table.
+        Returns a dictionary with 'totals' and 'bands' for structured rendering.
+        """
+        all_calls = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])
+        
+        # 1. Collect all raw multiplier sets
+        # Structure: sets[log_call] = set of items
+        # Items are composite keys: (rule_name, band, value) to ensure uniqueness logic matches scoring
+        
+        raw_sets = {call: set() for call in all_calls}
+        
+        # We also need subsets for aggregations
+        # subset_keys: 'TOTAL', 'TOTAL_{Rule}', '{Band}', '{Band}_{Rule}'
+        subsets = {call: {} for call in all_calls}
+        
+        # Map to store Run/S&P status for each unique multiplier instance: map[call][composite_key] = status
+        mult_status_map = {call: {} for call in all_calls}
+        
+        valid_bands = self.contest_def.valid_bands
+        
+        for rule in self.contest_def.multiplier_rules:
+            mult_name = rule['name']
+            mult_column = rule['value_column']
+            method = rule.get('totaling_method', 'sum_by_band')
+            
+            for log in self.logs:
+                call = log.get_metadata().get('MyCall', 'Unknown')
+                df = log.get_processed_data()
+                
+                if df.empty or mult_column not in df.columns: continue
+                
+                # Filter valid
+                valid = df[df[mult_column].notna() & (df[mult_column] != 'Unknown')]
+                
+                # Pre-calculate status for all multipliers in this scope
+                # Status logic: If worked on Run, it's Run. If Mixed, it's Mixed.
+                status_series = valid.groupby(mult_column)['Run'].apply(self._get_run_sp_status)
+
+                if method == 'once_per_log':
+                    # Scope: Global. Key: (Rule, Value)
+                    # Just grab unique values
+                    uniques = valid[mult_column].unique()
+                    for val in uniques:
+                        composite_key = (mult_name, 'All', val)
+                        raw_sets[call].add(composite_key)
+                        # Store status
+                        mult_status_map[call][composite_key] = status_series.get(val, 'Unk')
+                        
+                        # Populate Subsets
+                        # 1. Total
+                        subsets[call].setdefault('TOTAL', set()).add(composite_key)
+                        # 2. Total_Rule
+                        subsets[call].setdefault(f'TOTAL_{mult_name}', set()).add(composite_key)
+                        # No band breakdown for once_per_log in this table
+                        
+                else:
+                    # Scope: Per Band. Key: (Rule, Band, Value)
+                    grouped = valid.groupby('Band')[mult_column].unique()
+                    for band, values in grouped.items():
+                        for val in values:
+                            composite_key = (mult_name, band, val)
+                            raw_sets[call].add(composite_key)
+                            # Lookup status for this band/val
+                            mult_status_map[call][composite_key] = status_series.get(val, 'Unk')
+                            
+                            # Populate Subsets
+                            # 1. Total (Global Score Sum)
+                            subsets[call].setdefault('TOTAL', set()).add(composite_key)
+                            # 2. Total_Rule (Global Rule Sum)
+                            subsets[call].setdefault(f'TOTAL_{mult_name}', set()).add(composite_key)
+                            # 3. Band Total (Sum of all rules on this band)
+                            subsets[call].setdefault(band, set()).add(composite_key)
+                            # 4. Band_Rule (Specific)
+                            subsets[call].setdefault(f'{band}_{mult_name}', set()).add(composite_key)
+
+        # 2. Helper to run comparison and build row
+        def build_row(label, set_key, indent=0, is_bold=False):
+            # Build dictionary of sets for this specific key across all logs
+            sets_to_compare = {}
+            for call in all_calls:
+                sets_to_compare[call] = subsets[call].get(set_key, set())
+            
+            comp = ComparativeEngine.compare_logs(sets_to_compare)
+            
+            # Re-derive common set locally to calculate unique composition
+            # Common is intersection of all logs involved
+            common_items = set.intersection(*sets_to_compare.values()) if sets_to_compare else set()
+            
+            stations_list = []
+            for call in all_calls:
+                metrics = comp.station_metrics.get(call)
+                if metrics:
+                    # Unique = Log Set - Common Set
+                    log_set = sets_to_compare[call]
+                    unique_items = log_set - common_items
+                    
+                    u_run = 0
+                    u_sp = 0
+                    u_unk = 0
+                    
+                    for item in unique_items:
+                        status = mult_status_map[call].get(item, 'Unk')
+                        # Map 'Both' to 'Run' or 'S&P'? Usually 'Run' is dominant/preferred, 
+                        # but 'Both' implies it was worked multiple times.
+                        # Let's map 'Both' to 'Run' as it indicates ability to hold frequency.
+                        if status in ['Run', 'Both']: u_run += 1
+                        elif status == 'S&P': u_sp += 1
+                        else: u_unk += 1
+
+                    stations_list.append({
+                        'count': metrics.count,
+                        'delta': metrics.count - comp.universe_count, # Delta from Par (Total Worked)
+                        'unique_run': u_run,
+                        'unique_sp': u_sp,
+                        'unique_unk': u_unk
+                    })
+                else:
+                    stations_list.append({'count': 0, 'delta': -comp.universe_count, 'unique_run': 0, 'unique_sp': 0, 'unique_unk': 0})
+
+            return {
+                'label': label,
+                'indent': indent,
+                'is_bold': is_bold,
+                'total_worked': comp.universe_count,
+                'common': comp.common_count,
+                'stations': stations_list
+            }
+
+        # Helper to inject max_unique for scaling
+        def inject_max_unique(row_data):
+            # Calculate max unique count across all stations in this row
+            max_unique = max((s['unique_run'] + s['unique_sp'] + s['unique_unk']) for s in row_data['stations']) if row_data['stations'] else 1
+            row_data['max_unique'] = max_unique if max_unique > 0 else 1 # Avoid division by zero
+            return row_data
+
+        # Structured Output
+        totals_rows = []
+        band_blocks = []
+        
+        # 3. Build Table Rows
+        # A. Grand Total
+        totals_rows.append(inject_max_unique(build_row("TOTAL", "TOTAL", indent=0, is_bold=True)))
+        
+        # B. Global Rule Breakdowns
+        for rule in self.contest_def.multiplier_rules:
+            r_name = rule['name']
+            totals_rows.append(inject_max_unique(build_row(r_name, f"TOTAL_{r_name}", indent=1, is_bold=False)))
+
+        # C. Per Band Breakdowns (only if not once_per_log heavy)
+        # Only show bands if there is data
+        has_band_data = any(len(subsets[c].get(b, set())) > 0 for c in all_calls for b in valid_bands)
+        
+        if has_band_data:
+            for band in valid_bands:
+                # Check if band has activity
+                if not any(len(subsets[c].get(band, set())) > 0 for c in all_calls):
+                    continue
+                
+                # Create block for this band
+                band_rows = []
+                band_rows.append(inject_max_unique(build_row(band, band, indent=0, is_bold=True)))
+                
+                for rule in self.contest_def.multiplier_rules:
+                    if rule.get('totaling_method') == 'once_per_log': continue
+                    r_name = rule['name']
+                    band_rows.append(inject_max_unique(build_row(r_name, f"{band}_{r_name}", indent=1, is_bold=False)))
+                
+                band_blocks.append({
+                    'label': band,
+                    'rows': band_rows
+                })
+
+        return {
+            'totals': totals_rows,
+            'bands': band_blocks
+        }

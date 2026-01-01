@@ -5,7 +5,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-10-01
-# Version: 0.90.0-Beta
+# Version: 0.134.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -14,17 +14,21 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
 # --- Revision History ---
+# [0.134.1-Beta] - 2025-12-20
+# - Added standard report header generation using `format_text_header`.
 # [0.90.0-Beta] - 2025-10-01
-# Set new baseline version for release.
-
+# - Set new baseline version for release.
 from typing import List
 import pandas as pd
 import os
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
+from ._report_utils import format_text_header, get_cty_metadata, get_standard_title_lines
 
 class Report(ContestReport):
     """
@@ -105,7 +109,7 @@ class Report(ContestReport):
                         continent_lines.append(f"    {'Total':<9}: {total_qsos_for_continent:>8}")
 
                     formatted_data[cont_name] = continent_lines
-                
+                 
                 # Dynamically build the grid layout
                 grid_layout = []
                 max_cols = 3
@@ -116,19 +120,17 @@ class Report(ContestReport):
                 if grid_layout:
                     table_width = col_width * len(grid_layout[0])
                 
-                # --- THIS BLOCK MOVED TO AFTER WIDTH CALCULATION ---
-                title1 = f"--- {self.report_name} ---"
-                title2 = f"{year} {contest_name} - {callsign}"
-                header_width = max(table_width, len(title1), len(title2))
+                # --- Standard Header ---
+                modes_present = set(df['Mode'].dropna().unique())
+                title_lines = get_standard_title_lines(self.report_name, [log], "All Bands", None, modes_present)
+                meta_lines = ["Contest Log Analytics by KD4D", get_cty_metadata([log])]
                 
-                if len(title1) > table_width or len(title2) > table_width:
-                    report_lines.insert(0, f"{title2.center(header_width)}")
-                    report_lines.insert(0, f"{title1.ljust(header_width)}")
-                else:
-                    report_lines.insert(0, f"{title2.center(header_width)}")
-                    report_lines.insert(0, title1.center(header_width))
-                report_lines.insert(2, "")
-                # --- END MOVED BLOCK ---
+                header_block = format_text_header(table_width, title_lines, meta_lines)
+                
+                # Insert header at the top
+                for line in reversed(header_block):
+                    report_lines.insert(0, line)
+                report_lines.insert(len(header_block), "")
 
                 for grid_row in grid_layout:
                     row_continent_data = [formatted_data.get(c, []) for c in grid_row]

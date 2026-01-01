@@ -1,100 +1,62 @@
-# **AI Agent User's Guide (Split-Role Workflow)**
+# AI Agent User's Guide: The Disconnected State Machine
 
-Version: 4.0.0
-Date: 2025-12-07
+## 1. Philosophy
+The "Disconnected State Machine" workflow is designed to ensure high-reliability code generation by strictly enforcing context hygiene. It relies on three core concepts:
 
-### **--- Revision History ---**
-## **[4.0.0] - 2025-12-07**
-# - Major rewrite to align with `AIAgentWorkflow.md` v4.5.0.
-# - Defined the "Two-Step" Architect workflow (Analysis -> Halt -> Planning).
-# - Documented new triggers: "Generate Builder Execution Kit" and "Initiate Architect Handoff".
-# - Added "Operational Disciplines" section covering Macros, Overrides, and Exact Prompts.
-## **[3.2.0] - 2025-12-06**
-# - Updated Phase 1 Output: Added "Reconciliation Updates" to Roadmap expectations.
-# - Added "Troubleshooting State Drift" section.
+* **State Discipline:** The AI operates in distinct, mutually exclusive modes (Analyst, Architect, Builder). Attempting to perform "Builder" tasks (coding) while in "Analyst" mode (discussing) is the primary cause of regression loops.
+* **Context Pollution:** Long chat sessions accumulate token noise, leading to "amnesia" and hallucination. We solve this by enforcing frequent, hard resets of the chat session.
+* **The "Clean Room" Concept:** The Builder works in a fresh, independent session with *only* the specific files it needs to do the job (The Trinity). It has zero knowledge of the "messy" discussion that led to the plan, preventing it from making assumptions based on discarded ideas.
 
-## **1. The Workflow Concept**
+## 2. The Three Roles
 
-The workflow is a strict **State Machine** designed to prevent hallucinations and ensure code integrity. It operates on a **"Funnel Architecture"**:
+### The Analyst (State 1)
+* **Role:** The Thinker.
+* **Input:** Full Project Bundle + Workflow.
+* **Output:** Diagnosis, Strategy, and Requirements.
+* **Constraint:** The Analyst **CANNOT** write implementation plans or code. Its job is to ensure we are solving the right problem.
 
-* **The Architect (Maximum Context):** Sees the **Full World Truth** (Code, Docs, Data). Analyzes the problem, defines the solution, and generates the *instructions* for the Builder.
-* **The Builder (Minimum Viable Context):** Sees **Only** the files listed in the Manifest. Operates in a "Safe Mode" to execute the plan without inventing non-existent dependencies.
-* **You (The User):** The "Message Bus" and "FileSystem." You act as the bridge, moving files and authorizing state transitions.
+### The Architect (State 2)
+* **Role:** The Planner.
+* **Input:** Refined Context from the Analyst.
+* **Output:** The Builder Execution Kit (`ImplementationPlan.md` + `manifest.txt`).
+* **Constraint:** **HALT**. The Architect must stop strictly after generating the Kit. It cannot transition directly to the Builder role.
 
-## **2. Phase 1: The Architect Session**
+### The Builder (State 3)
+* **Role:** The Worker.
+* **Input:** **The Trinity** (Source + Plan + Workflow).
+* **Output:** Production-ready code files.
+* **Constraint:** Blind execution. The Builder follows the Plan verbatim. It is forbidden from asking "Why" or performing new analysis.
 
-**Goal:** Analyze the problem and generate the blueprints (`ImplementationPlan.md`).
+## 3. The Standard Workflow Loop
 
-1.  **Start:** Open a new session.
-2.  **Bootstrap (The World Truth):** Upload the **FULL** project context:
-    * `AIAgentWorkflow.md` (The Rules)
-    * **`project_bundle.txt`** (The Source Code)
-    * **`documentation_bundle.txt`** (The Docs)
-    * **`data_bundle.txt`** (The Data Schemas)
-    * **`ArchitectureRoadmap.md`** (The Long-Term Memory)
-3.  **Prompt:** "Act as Architect. [Describe task]."
-4.  **Analysis Phase:** The Architect will analyze the request, identify scope, and check files.
-    * **CRITICAL:** The Architect will **HALT** here. It will *not* generate the plan yet.
-5.  **Triggering the Plan:** The Architect will ask you to proceed.
-    * **Command:** **"Generate Builder Execution Kit"**
-    * *Note:* This command is universal for creating or updating the plan.
-6.  **Output:** The Architect produces the **Builder Execution Kit**:
-    * **Implementation Plan:** The specific blueprints.
-    * **Manifest:** A precise list of files required.
-    * **Technical Debt Register:** (Passive) Cleanup opportunities.
+1.  **Analysis:** You discuss the bug or feature with the Analyst to define the scope.
+2.  **The Trigger:** When ready, you issue the command: `Generate Builder Execution Kit`.
+3.  **The Air Gap:**
+    * The Architect generates the Kit.
+    * You save the files locally.
+    * You start a **New Chat**.
+4.  **Execution:**
+    * You upload **The Trinity** (The relevant source files, the Plan, and the Workflow).
+    * You issue the command: `Act as Builder`.
+    * The Builder generates the code based *only* on the Plan.
+5.  **The Reset:** If the Builder encounters a logic error, you issue `Act as Analyst`. This unlocks the state, allowing you to debug the issue, fix the Plan, and restart the loop.
 
-### **Phase 1.5: The Architectural Relay**
+## 4. Artifact Reference
 
-**Goal:** Save state before ending the session to prevent "Context Amnesia."
+### The Trinity (Builder's Input)
+To start a reliable Builder session, you must upload exactly three components:
+1.  **Source Code:** `builder_bundle.txt` (Created by you, containing only the files listed in `manifest.txt`).
+2.  **Instructions:** `ImplementationPlan.md` (The read-only instruction set).
+3.  **Rules:** `AIAgentWorkflow.md` (The operating system).
 
-1.  **Trigger:** When you are ready to stop or switch sessions.
-    * **Command:** **"Initiate Architect Handoff"**
-2.  **Output:** The Architect generates the **Initialization Kit**:
-    * **`ArchitectureRoadmap.md`:** Updated status of all phases.
-    * **`ArchitectHandoff.md`:** Narrative context and ephemeral constraints.
-3.  **Action:** Save these files immediately. They are required to start the next Architect session.
+### The Handoff Kit (Analyst's Memory)
+To preserve high-level context between Analyst sessions without keeping the full chat history:
+1.  `ArchitectureRoadmap.md`: The status of all project features.
+2.  `ArchitectHandoff.md`: The narrative context ("Where we left off").
 
-## **3. Phase 2: The Bridge (The Trinity)**
+## 5. Command Line Interface
+Use these exact string literals to drive the State Machine. Synonyms are ignored.
 
-To move from Planning to Execution, you must assemble **"The Trinity"**:
-
-1.  **Workflow:** `AIAgentWorkflow.md`
-2.  **Plan:** `ImplementationPlan.md` (Generated by Architect)
-3.  **Bundle:** `builder_bundle.txt`
-    * *Action:* Create this file containing **ONLY** the files listed in the `manifest.txt`.
-
-## **4. Phase 3: The Builder Session**
-
-**Goal:** Execute the plan with rigorous verification.
-
-1.  **Start:** Open a **FRESH** session.
-2.  **Upload:** Upload **The Trinity**.
-3.  **Trigger:** **"Act as Builder"**
-    * *Note:* This is a **System Macro**. It automatically loads strict formatting rules (Anti-Nesting, Headers).
-4.  **Confirm Context:** The Builder will list the files it is locking to.
-    * **Command:** **"Confirmed"**
-5.  **Execute:** Follow the delivery loop.
-    * **Pre-Flight Checklist:** The Builder MUST output a checklist of files to change.
-    * **Proceed:** Type `Proceed` to authorize file generation.
-6.  **Sanitize (CRITICAL):**
-    * The Builder will replace internal triple-backticks (in docstrings/markdown) with `__CODE_BLOCK__`.
-    * **Action:** **Find & Replace** `__CODE_BLOCK__` with real triple-backticks (` ``` `) in your editor after saving.
-7.  **Verify:**
-    * **Code:** Run the provided CLI command (e.g., `python main_cli.py ...`).
-    * **Docs:** "Verification: Visual Inspection of the output above."
-
-## **5. Operational Disciplines**
-
-### **The Exact Prompt Protocol**
-If the Agent asks you to provide a specific phrase (e.g., *"To proceed, please type: 'Generate Builder Execution Kit'"*), you **MUST** type it exactly. Synonyms or "Okay, do it" will be rejected to ensure safety.
-
-### **The Doctrine of Conversational Override**
-* **Rule:** Your verbal instructions in the chat **supersede** any written plan or file.
-* **Warning:** If you give an instruction that conflicts with the protocols, the Agent will output:
-  `[OVERRIDE WARNING] Your verbal instruction X conflicts with Protocol Y...`
-  This confirms the Agent heard you and is consciously disobeying the protocol to serve your request.
-
-## **6. Troubleshooting**
-
-* **"Missing Context" Error:** The Builder only sees `builder_bundle.txt`. If it needs a file not in the bundle, you must go back to the Architect and update the Manifest.
-* **Agent Stalls/Refuses:** Check if you used the **Exact Prompt**. Did you say "Make the plan" instead of "Generate Builder Execution Kit"?
+* **To End Analysis / Start Planning:** `Generate Builder Execution Kit`
+* **To Start Building (In a New Session):** `Act as Builder`
+* **To Abort Building / Debug:** `Act as Analyst`

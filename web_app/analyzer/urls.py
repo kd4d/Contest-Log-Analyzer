@@ -4,8 +4,8 @@
 #          Maps the home page and analysis endpoint to views.
 #
 # Author: Gemini AI
-# Date: 2025-12-14
-# Version: 0.111.2-Beta
+# Date: 2025-12-18
+# Version: 0.126.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -14,11 +14,20 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0.
-# If a copy of the MPL was not distributed with this
+# License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.126.0-Beta] - 2025-12-18
+# - Added 'get_log_index' API route for AJAX callsign lookups.
+# [0.120.0-Beta] - 2025-12-15
+# - Added 'multiplier_dashboard' route for the Multiplier Reports Sub-Dashboard.
+# [0.119.2-Beta] - 2025-12-15
+# - Added routes for 'help_about', 'help_dashboard', and 'help_reports'.
+# [0.119.0-Beta] - 2025-12-15
+# - Added 'download_all_reports' pattern to support ZIP archive downloads.
+# [0.114.0-Beta] - 2025-12-14
+# - Added 'dashboard_view' pattern to support persisted dashboard states.
 # [0.111.2-Beta] - 2025-12-14
 # - Fixed routing conflict by moving 'qso_dashboard' pattern above the greedy
 #   'view_report' pattern to prevent 404 errors.
@@ -39,6 +48,13 @@ urlpatterns = [
     path('', views.home, name='home'),
     path('analyze/', views.analyze_logs, name='analyze'),
     path('analyze/progress/<str:request_id>/', views.get_progress, name='get_progress'),
+    path('analyze/api/get_log_index/', views.get_log_index_view, name='get_log_index'),
+    path('report/<str:session_id>/dashboard/', views.dashboard_view, name='dashboard_view'),
     path('report/<str:session_id>/dashboard/qso/', views.qso_dashboard, name='qso_dashboard'),
+    path('report/<str:session_id>/dashboard/multipliers/', views.multiplier_dashboard, name='multiplier_dashboard'),
+    path('report/<str:session_id>/download_all/', views.download_all_reports, name='download_all_reports'),
     path('report/<str:session_id>/<path:file_path>', views.view_report, name='view_report'),
+    path('help/about/', views.help_about, name='help_about'),
+    path('help/dashboard/', views.help_dashboard, name='help_dashboard'),
+    path('help/reports/', views.help_reports, name='help_reports'),
 ]

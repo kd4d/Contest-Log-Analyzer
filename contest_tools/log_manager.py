@@ -2,12 +2,13 @@
 #
 # Purpose: Defines the LogManager class, which is responsible for orchestrating
 #          the loading, processing, and management of one or more ContestLog
-#          instances. It serves as the primary entry point for the core
+#          instances.
+#          It serves as the primary entry point for the core
 #          analysis engine.
 #
 # Author: Gemini AI
-# Date: 2025-12-10
-# Version: 0.113.1-Beta
+# Date: 2025-12-29
+# Version: 0.141.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -16,41 +17,64 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
 # --- Revision History ---
+# [0.141.0-Beta] - 2025-12-29
+# - Implemented strict, case-insensitive alphabetical sorting of logs in
+#   load_log_batch to ensure deterministic processing order.
+#
+# [0.131.1-Beta] - 2025-12-23
+# - Refactored pre-flight validation to check every log for duplicate callsigns
+#   and missing QSO data.
+# - Updated consistency checks to enforce matching Contest, Year, and Event ID.
+# - Updated `_get_first_qso_date_from_log` to return None on failure/empty,
+#   allowing for safer CTY date resolution.
+#
 # [0.113.1-Beta] - 2025-12-14
 # - Enforced strict lowercase standards for report directory creation to ensure
 #   cross-platform compatibility (Linux/Windows).
+#
 # [0.91.6-Beta] - 2025-12-10
 # - Removed the "Hourly ADIF Debug File Generation" block from finalize_loading
 #   to disable the creation of partial ADIF files in the Debug/ directory.
+#
 # [0.91.5-Beta] - 2025-10-09
 # - Removed obsolete warning suppression logic for hourly ADIF files and
 #   updated the `export_to_adif` call to pass a new context parameter.
+#
 # [0.91.3-Beta] - 2025-10-09
 # - No functional changes. Synchronizing version number with `__init__.py`
 #   for a consolidated bugfix release.
+#
 # [0.91.2-Beta] - 2025-10-09
 # - Fixed latent bug in _create_master_time_index by changing ceil('h')
 #   to floor('h') to prevent creation of an extra, empty hour.
+#
 # [0.91.1-Beta] - 2025-10-09
 # - Fixed regression by restoring the implicit generic/specific file loading
 #   logic as a fallback for definitions that do not use "inherits_from".
+#
 # [0.91.0-Beta] - 2025-10-09
 # - Added logic to `load_log_batch` to handle the `--wrtc` flag, allowing
 #   IARU-HF logs to be scored with a specific WRTC ruleset.
+#
 # [0.90.8-Beta] - 2025-10-06
 # - Added Excel-compatible text formatting to the `QTC_GRP` column in the WAE QTC CSV export.
+#
 # [0.90.7-Beta] - 2025-10-06
 # - Added logic to `finalize_loading` to export a `_qtcs.csv` file for WAE logs.
+#
 # [0.90.6-Beta] - 2025-10-05
 # - Added logic to `finalize_loading` to generate hourly ADIF debug files when `--debug-data` is enabled.
-# --- Revision History ---
+#
 # [0.90.0-Beta] - 2025-10-01
 # Set new baseline version for release.
+
 import pandas as pd
-from typing import List
+from typing import List, Optional, Set
 from .contest_log import ContestLog
 from .utils.cty_manager import CtyManager
 import os
@@ -69,17 +93,23 @@ class LogManager:
 
     def load_log_batch(self, log_filepaths: List[str], root_input_dir: str, cty_specifier: str, wrtc_year: int = None):
         """
-        Performs pre-flight validation on a batch of log files, selects a single
+        Performs validation on log files (duplicates, consistency, empty checks), selects a single
         CTY file, and then loads and processes all logs.
         """
         # --- 1. Pre-flight Validation Phase ---
-        if len(log_filepaths) > 1:
-            logging.info("Performing pre-flight validation on log batch...")
+        if log_filepaths:
+            logging.info("Performing pre-flight validation on logs...")
             header_data = []
-            
+            seen_calls: Set[str] = set()
+
             for path in log_filepaths:
                 call = self._get_callsign_from_header(path)
                 
+                # Check for duplicate callsigns
+                if call in seen_calls:
+                    raise ValueError(f"Duplicate log callsign '{call}' detected in cabrillo header of '{os.path.basename(path)}'. Each log must be from a unique station.")
+                seen_calls.add(call)
+
                 base_contest = self._get_contest_name_from_header(path)
                 if wrtc_year and base_contest == 'IARU-HF':
                     effective_contest = f"WRTC-{wrtc_year}"
@@ -87,25 +117,34 @@ class LogManager:
                     effective_contest = base_contest
 
                 date = self._get_first_qso_date_from_log(path)
-                
-                temp_log = ContestLog(contest_name=effective_contest, cabrillo_filepath=None, root_input_dir=root_input_dir, cty_dat_path=None)
-                temp_log.get_processed_data()['Datetime'] = pd.Series([date]) # Minimal data for resolver
-                event_id = self._get_event_id(temp_log)
-                header_data.append({'call': call, 'contest': effective_contest, 'date': date, 'event_id': event_id})
+                if date is None:
+                    raise ValueError(f"Log file '{os.path.basename(path)}' contains no valid QSO records.")
 
-            first_log_info = header_data[0]
-            mismatches = []
-            for other_log_info in header_data[1:]:
-                if other_log_info['contest'] != first_log_info['contest'] or other_log_info['event_id'] != first_log_info['event_id']:
-                    mismatches = header_data
-                    break
-            
-            if mismatches:
-                error_lines = ["Log file validation failed: Mismatched contest or event found."]
-                for info in mismatches:
-                    error_lines.append(f"  - Callsign: {info['call']}, Contest: {info['contest']}, End Date: {info['date'].date()}")
-                raise ValueError("\n".join(error_lines))
-            
+                # Minimal setup to resolve event ID
+                temp_log = ContestLog(contest_name=effective_contest, cabrillo_filepath=None, root_input_dir=root_input_dir, cty_dat_path=None)
+                temp_log.get_processed_data()['Datetime'] = pd.Series([date]) 
+                event_id = self._get_event_id(temp_log)
+                
+                header_data.append({'call': call, 'contest': effective_contest, 'date': date, 'event_id': event_id, 'filename': os.path.basename(path)})
+
+            # Consistency Checks
+            if len(header_data) > 1:
+                first = header_data[0]
+                first_year = first['date'].year
+
+                for other in header_data[1:]:
+                    # Contest Name (Includes Mode for single-mode contests)
+                    if other['contest'] != first['contest']:
+                        raise ValueError(f"Contest Mismatch: '{other['filename']}' is '{other['contest']}', but '{first['filename']}' is '{first['contest']}'.")
+                    
+                    # Year
+                    if other['date'].year != first_year:
+                        raise ValueError(f"Year Mismatch: '{other['filename']}' is from {other['date'].year}, but '{first['filename']}' is from {first_year}.")
+
+                    # Event ID (e.g. NAQP Jan vs Aug)
+                    if other['event_id'] != first['event_id']:
+                        raise ValueError(f"Event Mismatch: '{other['filename']}' is event '{other['event_id']}', but '{first['filename']}' is '{first['event_id']}'.")
+
             logging.info("Validation successful.")
 
         # --- 2. Single CTY File Selection ---
@@ -114,11 +153,17 @@ class LogManager:
         
         if cty_specifier in ['before', 'after']:
             all_dates = [self._get_first_qso_date_from_log(path) for path in log_filepaths]
-            target_date = min(all_dates) if cty_specifier == 'before' else max(all_dates)
+            # Filter None to be safe (though validation guarantees validity)
+            valid_dates = [d for d in all_dates if d is not None]
+            
+            if not valid_dates:
+                target_date = pd.Timestamp.now(tz='UTC')
+            else:
+                target_date = min(valid_dates) if cty_specifier == 'before' else max(valid_dates)
         else:
             # If a specific filename is given, we need a date for the sync check.
             # We'll just use the first log's date as it's a reasonable proxy.
-            target_date = self._get_first_qso_date_from_log(log_filepaths[0])
+            target_date = self._get_first_qso_date_from_log(log_filepaths[0]) or pd.Timestamp.now(tz='UTC')
 
         # Conditionally update the index based on the determined target date
         cty_manager.sync_index(contest_date=target_date)
@@ -156,6 +201,10 @@ class LogManager:
 
             except Exception as e:
                 logging.error(f"Error loading log {path}: {e}")
+
+        # --- 4. Enforce Deterministic Order (Alphabetical by Callsign) ---
+        # This ensures that Log 1, Log 2, etc. are consistent regardless of upload order.
+        self.logs.sort(key=lambda x: str(x.get_metadata().get('MyCall', 'Unknown')).upper())
 
     def finalize_loading(self, root_reports_dir: str, debug_data: bool = False):
         """
@@ -277,7 +326,7 @@ class LogManager:
         logging.info("Master time index created.")
 
 
-    def _get_first_qso_date_from_log(self, filepath: str) -> pd.Timestamp:
+    def _get_first_qso_date_from_log(self, filepath: str) -> Optional[pd.Timestamp]:
         """Reads the first QSO line to determine the contest date."""
         try:
             with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
@@ -287,8 +336,8 @@ class LogManager:
                         date_str = parts[3]
                         return pd.to_datetime(date_str).tz_localize('UTC')
         except Exception:
-            return pd.Timestamp.now(tz='UTC')
-        return pd.Timestamp.now(tz='UTC')
+            return None
+        return None
 
     def _get_contest_name_from_header(self, filepath: str) -> str:
         """

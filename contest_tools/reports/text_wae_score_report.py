@@ -5,7 +5,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-11-24
-# Version: 0.91.4-Beta
+# Version: 0.134.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -14,10 +14,13 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
+#
 # --- Revision History ---
+# [0.134.1-Beta] - 2025-12-20
+# - Added standard report header generation using `format_text_header`.
 # [0.91.4-Beta] - 2025-11-24
 # - Refactored to use WaeStatsAggregator (DAL) for scoring logic.
 # [0.91.3-Beta] - 2025-10-10
@@ -28,7 +31,6 @@
 #   correct logic in `wae_calculator.py`.
 # [0.90.0-Beta] - 2025-10-01
 # - Set new baseline version for release.
-
 from typing import List, Dict, Any
 import pandas as pd
 import os
@@ -36,7 +38,7 @@ from prettytable import PrettyTable
 
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from ._report_utils import get_valid_dataframe, create_output_directory, save_debug_data
+from ._report_utils import get_valid_dataframe, create_output_directory, save_debug_data, format_text_header, get_cty_metadata, get_standard_title_lines
 from ..data_aggregators.wae_stats import WaeStatsAggregator
 
 class Report(ContestReport):
@@ -56,7 +58,7 @@ class Report(ContestReport):
         callsign = metadata.get('MyCall', 'UnknownCall')
         
         # We still need raw DF for debug data dump if requested, 
-        # or we could trust the aggregator. 
+        # or we could trust the aggregator.
         # For legacy compatibility with the "Debug Data" block below, we pull it briefly.
         qsos_df = get_valid_dataframe(log, include_dupes=False)
         qtcs_df = getattr(log, 'qtcs_df', pd.DataFrame())
@@ -106,20 +108,16 @@ class Report(ContestReport):
         ])
         
         # --- Build Final Report String ---
-        # Note: We use qsos_df['Date'] for year to preserve exact logic, 
-        # but technically we could parse it from headers. Sticking to dataframe for metadata safety.
-        year = qsos_df['Date'].iloc[0].split('-')[0]
-        contest_name = metadata.get('ContestName', 'UnknownContest')
-        title1 = f"--- {self.report_name} ---"
-        title2 = f"{year} {contest_name} - {callsign}"
-        
         table_str = table.get_string()
         table_width = len(table_str.split('\n')[0])
-        header_width = max(table_width, len(title1), len(title2))
+        
+        # Standard Header
+        modes_present = set(qsos_df['Mode'].dropna().unique())
+        title_lines = get_standard_title_lines(self.report_name, [log], "All Bands", None, modes_present)
+        meta_lines = ["Contest Log Analytics by KD4D", get_cty_metadata([log])]
+        header_block = format_text_header(table_width, title_lines, meta_lines)
 
-        report_lines = [
-            title1.center(header_width),
-            title2.center(header_width),
+        report_lines = header_block + [
             "",
             f"Operating Time: {metadata.get('OperatingTime', 'N/A')}",
             "",

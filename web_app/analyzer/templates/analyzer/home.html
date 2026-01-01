@@ -1,6 +1,34 @@
 {% extends 'base.html' %}
 
 {% block content %}
+<style>
+    .progress-connector-wrapper {
+        height: 10px;
+        margin-top: 15px; /* Precise offset: 20px (circle center) - 5px (bar center) */
+    }
+    .progress-seg-l, .progress-seg-r {
+        height: 100%;
+        width: 50%;
+        transition: background-color 0.4s ease;
+    }
+    /* High Saturation Palette */
+    .step-done {
+        background-color: #00e676 !important;
+        /* High-Vis Green */
+        color: white !important;
+    }
+    .step-active {
+        background-color: #2979ff !important;
+        /* Electric Blue */
+        color: white !important;
+    }
+    .step-pending {
+        background-color: #dee2e6 !important;
+        /* Contrast Grey */
+        color: #6c757d !important;
+        /* Muted text */
+    }
+</style>
 <div class="container mt-5">
     <div class="text-center mb-5">
         <h1 class="display-4 fw-bold text-primary">Contest Log Analytics</h1>
@@ -9,8 +37,25 @@
 
     <div class="row justify-content-center">
         <div class="col-lg-10">
-            <div class="card shadow-lg border-0">
-                <div class="card-body p-5">
+            
+            {% if error %}
+            <div class="alert alert-danger alert-dismissible fade show shadow border-start border-5 border-danger mb-4" role="alert">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-exclamation-triangle-fill flex-shrink-0 me-3 fs-3 text-danger"></i>
+                    <div>
+                        <h5 class="alert-heading fw-bold"><i class="bi bi-x-circle me-2"></i>Analysis Failed</h5>
+                        <div class="fs-6 text-dark">{{ error|linebreaksbr }}</div>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endif %}
+            
+            <div class="card shadow-lg border-0 mb-4" id="manualCard">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0 fw-bold text-secondary"><i class="bi bi-upload me-2"></i>Manual Log Upload</h5>
+                </div>
+                <div class="card-body p-4">
                     <form method="post" action="{% url 'analyze' %}" enctype="multipart/form-data">
                         {% csrf_token %}
                         <input type="hidden" id="request_id" name="request_id" value="">
@@ -21,7 +66,7 @@
                                 <div class="card h-100 shadow-sm border-0">
                                     <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
                                         <h5 class="card-title text-primary fw-bold mb-0">
-                                            <i class="bi bi-file-earmark-text me-2"></i>{{ field.label }}
+                                            <i class="bi bi-file-earmark-text me-2"></i>Log Slot {{ forloop.counter }}
                                         </h5>
                                     </div>
                                     <div class="card-body">
@@ -38,76 +83,318 @@
                             {% endfor %}
                         </div>
 
-                        <div class="d-grid gap-2 col-md-6 mx-auto mt-4">
+                        <div class="d-grid gap-2 col-md-4 mx-auto mt-4">
                             <button type="submit" class="btn btn-primary btn-lg shadow-sm">
                                 <i class="bi bi-bar-chart-fill me-2"></i>Analyze Logs
                             </button>
                         </div>
                     </form>
-                    
+
                     <div id="progress-container" class="d-none mt-5 w-100">
-                        <div class="position-relative d-flex align-items-center justify-content-between">
-                            <div class="position-absolute start-0 top-50 translate-middle-y h-1 bg-light w-100" style="height: 3px; z-index: 0;"></div>
-                            
+                        <div class="d-flex align-items-start justify-content-between">
                             <div class="d-flex flex-column align-items-center step-item" style="z-index: 1;" data-step="1">
-                                <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center fw-bold transition-all circle" style="width: 40px; height: 40px;">1</div>
+                                <div class="rounded-circle step-pending d-flex align-items-center justify-content-center fw-bold transition-all circle" style="width: 40px; height: 40px;">1</div>
                                 <div class="mt-2 small fw-bold text-muted text-uppercase">Uploading</div>
                             </div>
 
+                            <div class="progress-connector-wrapper flex-grow-1 d-flex mx-2">
+                                <div class="progress-seg-l step-pending"></div>
+                                <div class="progress-seg-r step-pending"></div>
+                            </div>
+
                             <div class="d-flex flex-column align-items-center step-item" style="z-index: 1;" data-step="2">
-                                <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center fw-bold transition-all circle" style="width: 40px; height: 40px;">2</div>
+                                <div class="rounded-circle step-pending d-flex align-items-center justify-content-center fw-bold transition-all circle" style="width: 40px; height: 40px;">2</div>
                                 <div class="mt-2 small fw-bold text-muted text-uppercase">Parsing</div>
                             </div>
 
+                            <div class="progress-connector-wrapper flex-grow-1 d-flex mx-2">
+                                <div class="progress-seg-l step-pending"></div>
+                                <div class="progress-seg-r step-pending"></div>
+                            </div>
+
                             <div class="d-flex flex-column align-items-center step-item" style="z-index: 1;" data-step="3">
-                                <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center fw-bold transition-all circle" style="width: 40px; height: 40px;">3</div>
+                                <div class="rounded-circle step-pending d-flex align-items-center justify-content-center fw-bold transition-all circle" style="width: 40px; height: 40px;">3</div>
                                 <div class="mt-2 small fw-bold text-muted text-uppercase">Aggregating</div>
                             </div>
 
+                            <div class="progress-connector-wrapper flex-grow-1 d-flex mx-2">
+                                <div class="progress-seg-l step-pending"></div>
+                                <div class="progress-seg-r step-pending"></div>
+                            </div>
+
                             <div class="d-flex flex-column align-items-center step-item" style="z-index: 1;" data-step="4">
-                                <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center fw-bold transition-all circle" style="width: 40px; height: 40px;">4</div>
+                                <div class="rounded-circle step-pending d-flex align-items-center justify-content-center fw-bold transition-all circle" style="width: 40px; height: 40px;">4</div>
                                 <div class="mt-2 small fw-bold text-muted text-uppercase">Generating</div>
                             </div>
 
+                            <div class="progress-connector-wrapper flex-grow-1 d-flex mx-2">
+                                <div class="progress-seg-l step-pending"></div>
+                                <div class="progress-seg-r step-pending"></div>
+                            </div>
+
                             <div class="d-flex flex-column align-items-center step-item" style="z-index: 1;" data-step="5">
-                                <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center fw-bold transition-all circle" style="width: 40px; height: 40px;">5</div>
+                                <div class="rounded-circle step-pending d-flex align-items-center justify-content-center fw-bold transition-all circle" style="width: 40px; height: 40px;">5</div>
                                 <div class="mt-2 small fw-bold text-muted text-uppercase">Ready</div>
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
 
+            <div class="card shadow-sm border-0 mb-5" id="archiveCard">
+                <div class="card-header bg-light py-3 d-flex justify-content-between align-items-center" style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#archiveCollapse">
+                    <h5 class="mb-0 fw-bold text-secondary"><i class="bi bi-cloud-download me-2"></i>Public Log Archive</h5>
+                    <i class="bi bi-chevron-down"></i>
+                </div>
+                <div id="archiveCollapse" class="collapse show">
+                    <div class="card-body p-4">
+                        <div class="alert alert-info border-0 shadow-sm mb-4">
+                            <i class="bi bi-info-circle-fill me-2"></i><strong>CQ WW Exclusive:</strong> Currently, only public logs for the CQ World Wide DX Contest are supported.
+                        </div>
+                        
+                        <form id="fetchForm" method="post" action="{% url 'analyze' %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="request_id" class="fetch-request-id">
+                            <input type="hidden" name="fetch_callsigns" id="fetchCallsignsInput">
+                            <input type="hidden" name="fetch_year" id="fetchYearInput">
+                            <input type="hidden" name="fetch_mode" id="fetchModeInput">
+                        </form>
+
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold text-secondary">Contest</label>
+                                <select class="form-select" id="archiveContest">
+                                    <option value="" selected>Select Contest...</option>
+                                    <option value="CQ-WW">CQ World Wide DX</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold text-secondary">Year</label>
+                                <select class="form-select" id="archiveYear" disabled>
+                                    <option value="" selected>Select Year...</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold text-secondary">Mode</label>
+                                <select class="form-select" id="archiveMode" disabled>
+                                    <option value="" selected>Select Mode...</option>
+                                    <option value="SSB">SSB</option>
+                                    <option value="CW">CW</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div id="archiveSlots" class="d-none border-top pt-4">
+                            <h6 class="fw-bold text-primary mb-3">Select Logs to Analyze</h6>
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label small text-muted">Log Slot 1</label>
+                                    <input type="text" class="form-control typeahead" placeholder="Search Callsign (e.g. K3LR)..." list="callsignList1">
+                                    <datalist id="callsignList1"></datalist>
+                                    <div class="valid-feedback">Log Found!</div>
+                                    <div class="invalid-feedback">Log not found in archive.</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small text-muted">Log Slot 2</label>
+                                    <input type="text" class="form-control typeahead" placeholder="Search Callsign..." list="callsignList2">
+                                    <datalist id="callsignList2"></datalist>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small text-muted">Log Slot 3</label>
+                                    <input type="text" class="form-control typeahead" placeholder="Search Callsign..." list="callsignList3">
+                                    <datalist id="callsignList3"></datalist>
+                                </div>
+                            </div>
+                            <div class="d-grid gap-2 col-md-4 mx-auto mt-4">
+                                <button type="button" class="btn btn-success btn-lg shadow-sm" id="btnFetchAnalyze" disabled>
+                                    <i class="bi bi-cloud-download-fill me-2"></i>Fetch & Analyze
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-    
-    {% if error %}
-    <div class="row justify-content-center mt-3">
-        <div class="col-lg-10">
-            <div class="alert alert-danger shadow-sm">
-                {{ error }}
-            </div>
-        </div>
-    </div>
-    {% endif %}
 
+    <div class="modal fade" id="betaGatekeeperModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="betaLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content shadow-lg border-0">
+          <div class="modal-header bg-dark text-white">
+            <h5 class="modal-title fw-bold" id="betaLabel">
+              <i class="bi bi-cone-striped text-warning me-2"></i>Welcome to Contest Log Analytics
+            </h5>
+          </div>
+          <div class="modal-body p-4">
+             <h5 class="fw-bold text-primary mb-2"><i class="bi bi-graph-up-arrow me-2"></i>"Analytics" for Radiosport</h5>
+            <p class="text-muted mb-4">
+                Contest Log Analytics (CLA) is a post-mortem analysis engine designed to uncover the hidden story of your contest. By analyzing your logs against your competitors, it reveals <em>how</em> the battle was won&mdash;isolating strategic differences in Run vs. S&P rates, band changes, and multiplier hunting.
+            </p>
+
+            <div class="alert alert-warning border-0 shadow-sm d-flex align-items-start mb-4">
+                <i class="bi bi-exclamation-triangle-fill flex-shrink-0 me-3 mt-1 text-warning"></i>
+                <div>
+                    <strong>Beta Test Environment: Verification Required</strong><br>
+                    You are accessing a pre-release version. While calculations are rigorous, the system is under active development. <strong>Please verify all insights against your raw logs before relying on them for strategic decisions.</strong>
+                </div>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="p-3 bg-light rounded border h-100">
+                        <h6 class="fw-bold text-success"><i class="bi bi-speedometer2 me-2"></i>CQ WW Contests</h6>
+                        <p class="small text-muted mb-0">Full interactive support enabled, including the <strong>Strategy Dashboard</strong>.</p>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="p-3 bg-light rounded border h-100">
+                        <h6 class="fw-bold text-secondary"><i class="bi bi-file-earmark-zip me-2"></i>Other Contests</h6>
+                        <p class="small text-muted mb-0">Support limited to <strong>Downloadable Report Packages</strong> (ZIP) only.</p>
+                    </div>
+                </div>
+            </div>
+          </div>
+          <div class="modal-footer bg-light border-0 justify-content-center">
+            <button type="button" class="btn btn-primary px-5 py-2 fw-bold" id="acceptBetaBtn">
+                I Understand - Enter Beta
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Gatekeeper Logic
+            if (!sessionStorage.getItem('betaAccepted')) {
+                var betaModal = new bootstrap.Modal(document.getElementById('betaGatekeeperModal'));
+                betaModal.show();
+                document.getElementById('acceptBetaBtn').addEventListener('click', function() {
+                    sessionStorage.setItem('betaAccepted', 'true');
+                    betaModal.hide();
+                });
+            }
+
+            // Archive UI Logic (Placeholder for CQ WW)
+            const contestSelect = document.getElementById('archiveContest');
+            const yearSelect = document.getElementById('archiveYear');
+            const modeSelect = document.getElementById('archiveMode');
+            const slotsDiv = document.getElementById('archiveSlots');
+            // Populate years (2025 down to 2005)
+            const currentYear = 2025;
+            yearSelect.innerHTML = '<option value="" selected>Select Year...</option>';
+            for (let y = currentYear; y >= 2005; y--) {
+                yearSelect.innerHTML += `<option value="${y}">${y}</option>`;
+            }
+
+            // Global list of available callsigns for the selected context
+            let availableCallsigns = [];
+            contestSelect.addEventListener('change', function() {
+                if (this.value === 'CQ-WW') {
+                    yearSelect.disabled = false;
+                } else {
+                    yearSelect.disabled = true;
+                    modeSelect.disabled = true;
+                    slotsDiv.classList.add('d-none');
+                }
+            });
+            yearSelect.addEventListener('change', function() {
+                if (this.value) modeSelect.disabled = false;
+            });
+            modeSelect.addEventListener('change', function() {
+                if (this.value) {
+                    // 1. Fetch Index via AJAX
+                    const contest = contestSelect.value;
+                    const year = yearSelect.value;
+                    const mode = modeSelect.value;
+                    
+                    // Disable inputs while loading
+                    modeSelect.disabled = true;
+                    
+                    fetch(`/analyze/api/get_log_index/?contest=${contest}&year=${year}&mode=${mode}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            availableCallsigns = data.callsigns || [];
+                            
+                            // Populate Datalists
+                            ['callsignList1', 'callsignList2', 'callsignList3'].forEach(id => {
+                                 const dl = document.getElementById(id);
+                                dl.innerHTML = '';
+                                availableCallsigns.forEach(call => {
+                                    const opt = document.createElement('option');
+                                    opt.value = call;
+                                    dl.appendChild(opt);
+                                });
+                            });
+                            
+                            slotsDiv.classList.remove('d-none');
+                            modeSelect.disabled = false;
+                        })
+                        .catch(err => {
+                            console.error(err);
+                            alert("Failed to fetch log index.");
+                            modeSelect.disabled = false;
+                        });
+                }
+            });
+            // Slot Validation Logic
+            const inputs = document.querySelectorAll('.typeahead');
+            const btnFetch = document.getElementById('btnFetchAnalyze');
+            
+            inputs.forEach(input => {
+                input.addEventListener('input', function() {
+                    const val = this.value.toUpperCase();
+                    this.value = val; // Force uppercase
+                    
+                    if (val && availableCallsigns.includes(val)) {
+                        this.classList.add('is-valid');
+                        this.classList.remove('is-invalid');
+                    } else if (val) {
+                        this.classList.add('is-invalid');
+                        this.classList.remove('is-valid');
+                    } else {
+                        this.classList.remove('is-valid', 'is-invalid');
+                    }
+                    
+                    // Enable button if at least one valid log is selected
+                    const hasValid = Array.from(inputs).some(i => i.classList.contains('is-valid'));
+                    btnFetch.disabled = !hasValid;
+                });
+            });
+            // Handle Fetch Submission
+            btnFetch.addEventListener('click', function() {
+                 const validCalls = Array.from(inputs)
+                    .filter(i => i.classList.contains('is-valid'))
+                    .map(i => i.value);
+
+                 document.getElementById('fetchCallsignsInput').value = JSON.stringify(validCalls);
+                 document.getElementById('fetchYearInput').value = yearSelect.value;
+                 document.getElementById('fetchModeInput').value = modeSelect.value;
+                 
+                 // Trigger Progress UI
+                 const errorAlert = document.querySelector('.alert-danger');
+                 if (errorAlert) {
+                     errorAlert.style.display = 'none';
+                 }
+                 progressContainer.classList.remove('d-none');
+                 requestIdInput.value = 'req_' + Math.random().toString(36).substr(2, 9);
+                 document.querySelector('.fetch-request-id').value = requestIdInput.value;
+                 
+                 // Start Polling (reuse existing logic)
+                 startPolling(requestIdInput.value);
+                 document.getElementById('fetchForm').submit();
+            });
+
             const form = document.querySelector('form');
             const progressContainer = document.getElementById('progress-container');
             const requestIdInput = document.getElementById('request_id');
-            
             // Generate UUID-like ID for this request
             const requestId = 'req_' + Math.random().toString(36).substr(2, 9);
             requestIdInput.value = requestId;
-
-            form.addEventListener('submit', function() {
-                // Show progress bar
-                progressContainer.classList.remove('d-none');
-                
-                // Start polling
+            
+            function startPolling(id) {
                 const pollInterval = setInterval(() => {
-                    fetch(`/analyze/progress/${requestId}/`)
+                    fetch(`/analyze/progress/${id}/`)
                         .then(response => response.json())
                         .then(data => {
                             updateProgress(data.step);
@@ -117,33 +404,77 @@
                         })
                         .catch(err => console.error('Polling error:', err));
                 }, 500);
-            });
+            }
 
+            form.addEventListener('submit', function() {
+                // Show progress bar
+                const errorAlert = document.querySelector('.alert-danger');
+                if (errorAlert) {
+                    errorAlert.style.display = 'none';
+                }
+                progressContainer.classList.remove('d-none');
+                
+                // Start polling
+                startPolling(requestId);
+            });
             function updateProgress(currentStep) {
                 const steps = document.querySelectorAll('.step-item');
+                const wrappers = document.querySelectorAll('.progress-connector-wrapper');
+
                 steps.forEach(item => {
                     const stepNum = parseInt(item.getAttribute('data-step'));
                     const circle = item.querySelector('.circle');
                     const label = item.querySelector('div:last-child');
 
                     // Reset classes
-                    circle.classList.remove('bg-secondary', 'bg-primary', 'bg-success', 'pulse-animation');
+                    circle.classList.remove('step-pending', 'step-active', 'step-done', 'pulse-animation');
                     label.classList.remove('text-primary', 'text-success');
 
                     if (stepNum < currentStep) {
                         // Completed
-                        circle.classList.add('bg-success');
+                        circle.classList.add('step-done');
                         circle.innerHTML = '<i class="bi bi-check"></i>';
                         label.classList.add('text-success');
                     } else if (stepNum === currentStep) {
                         // Active
-                        circle.classList.add('bg-primary');
+                        circle.classList.add('step-active');
                         circle.innerHTML = stepNum;
                         label.classList.add('text-primary');
                     } else {
                         // Pending
-                        circle.classList.add('bg-secondary');
+                        circle.classList.add('step-pending');
                         circle.innerHTML = stepNum;
+                    }
+                });
+                // Update Connectors
+                // Wrappers index 0 connects Step 1 and 2
+                wrappers.forEach((wrapper, index) => {
+                    const leftStepNum = index + 1;  // The step to the left
+                    const rightStepNum = index + 2; // The step to the right
+
+                    const segL = wrapper.querySelector('.progress-seg-l');
+                    const segR = wrapper.querySelector('.progress-seg-r');
+
+                    // Reset
+                    segL.className = 'progress-seg-l step-pending';
+                    segR.className = 'progress-seg-r step-pending';
+
+                    // Logic:
+                    // Left Segment: Green if left step is done (currentStep > leftStepNum)
+                    if (currentStep > leftStepNum) {
+                        segL.classList.remove('step-pending');
+                        segL.classList.add('step-done');
+                    }
+
+                    // Right Segment:
+                    // Blue if right step is active (currentStep == rightStepNum)
+                    // Green if right step is done (currentStep > rightStepNum)
+                    if (currentStep > rightStepNum) {
+                        segR.classList.remove('step-pending');
+                        segR.classList.add('step-done');
+                    } else if (currentStep === rightStepNum) {
+                        segR.classList.remove('step-pending');
+                        segR.classList.add('step-active');
                     }
                 });
             }

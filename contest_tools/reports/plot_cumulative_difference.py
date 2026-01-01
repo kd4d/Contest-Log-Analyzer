@@ -1,11 +1,11 @@
 # contest_tools/reports/plot_cumulative_difference.py
 #
 # Purpose: A plot report that generates a cumulative difference graph,
-#          comparing two logs.
+#          comparing two logs, with superimposed lines for Total, Run, S&P, and Unknown.
 #
 # Author: Gemini AI
-# Date: 2025-12-14
-# Version: 0.114.0-Beta
+# Date: 2025-12-29
+# Version: Phase 1 (Layout & Data Fix)
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,42 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [Phase 1 (Layout & Data Fix)] - 2025-12-29
+# - Converted Pandas Series to lists in Plotly traces to fix serialization bug.
+# [Phase 1 (Pathfinder)] - 2025-12-29
+# - Added JSON export functionality for web component integration.
+# [0.145.0-Beta] - 2025-12-29
+# - Removed manual layout overrides (margins) to allow PlotlyStyleManager authoritative control.
+# [0.144.1-Beta] - 2025-12-29
+# - Implemented "Hard Deck" strategy: Fixed height (800px), autosize=True, disabled 'responsive' config.
+# [0.143.3-Beta] - 2025-12-28
+# - Implemented "Safety Gap" strategy: Reduced HTML height to 800px to prevent scrollbars.
+# [0.143.2-Beta] - 2025-12-28
+# - Fixed HTML viewport issue by enforcing fixed height (850px).
+# [0.143.1-Beta] - 2025-12-28
+# - Updated layout configuration to use the "Legend Belt" strategy (Protocol 1.2.0).
+# [0.143.0-Beta] - 2025-12-28
+# - Updated to use PlotlyStyleManager Annotation Stack for title rendering.
+# - Moved legend to top-left inside plot area to prevent overlap.
+# - Restored truncated methods (_orchestrate_plot_generation, generate).
+# [0.142.2-Beta] - 2025-12-28
+# - Implemented Annotation Stack for precise title spacing control (Protocol 1.2.0).
+# - Replaced Plotly standard title with manual layout annotations.
+# [0.142.1-Beta] - 2025-12-28
+# - Updated title formatting to use span tags with inline styles for better spacing control.
+# - Relocated legend to top-left corner inside the plot area to prevent title overlap.
+# [0.133.0-Beta] - 2025-12-20
+# - Refactored `_generate_single_plot` to use centralized `build_filename` utility.
+# - Standardized filename format to match other reports.
+# [0.131.0-Beta] - 2025-12-20
+# - Refactored to use `get_standard_title_lines` for standardized 3-line headers.
+# - Implemented explicit "Smart Scoping" for title generation.
+# - Added footer metadata via `get_cty_metadata`.
+# [0.118.0-Beta] - 2025-12-15
+# - Injected descriptive filename configuration for interactive HTML plot downloads.
+# [0.115.0-Beta] - 2025-12-14
+# - Consolidated 3-subplot layout into a single chart with superimposed lines
+#   (Total, Run, S&P, Unknown) for better readability and vertical resolution.
 # [0.114.0-Beta] - 2025-12-14
 # - Updated HTML export to use responsive sizing (autosize=True) for dashboard integration.
 # - Maintained fixed 1600x900 resolution for PNG exports.
@@ -46,14 +82,14 @@ import logging
 
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from ._report_utils import create_output_directory, get_valid_dataframe, save_debug_data, _sanitize_filename_part
+from ._report_utils import create_output_directory, get_valid_dataframe, save_debug_data, _sanitize_filename_part, get_cty_metadata, get_standard_title_lines, build_filename
 from ..data_aggregators.time_series import TimeSeriesAggregator
 from ..styles.plotly_style_manager import PlotlyStyleManager
 
 class Report(ContestReport):
     """
-    Generates a three-subplot plot showing the cumulative difference in
-    QSOs or Points between two logs.
+    Generates a single plot showing the cumulative difference in QSOs or Points
+    between two logs, with superimposed lines for Total, Run, S&P, and Unknown.
     """
     report_id: str = "cumulative_difference_plots"
     report_name: str = "Cumulative Difference Plots"
@@ -74,7 +110,7 @@ class Report(ContestReport):
         # --- DAL Integration (v1.3.1) ---
         agg = TimeSeriesAggregator([log1, log2])
         ts_data = agg.get_time_series_data(band_filter=band_filter, mode_filter=mode_filter)
- 
+        
         time_bins = [pd.Timestamp(t) for t in ts_data['time_bins']]
 
         # Helper to extract series
@@ -84,142 +120,146 @@ class Report(ContestReport):
 
         if metric == 'points':
             metric_name = log1.contest_definition.points_header_label or "Points"
-             
+            
             run1 = get_series(call1, 'run_points')
-            sp1 = get_series(call1, 'sp_unk_points')
+            sp1 = get_series(call1, 'sp_points')
+            unk1 = get_series(call1, 'unknown_points')
             run2 = get_series(call2, 'run_points')
-            sp2 = get_series(call2, 'sp_unk_points')
+            sp2 = get_series(call2, 'sp_points')
+            unk2 = get_series(call2, 'unknown_points')
             
             run_diff = run1 - run2
-            sp_unk_diff = sp1 - sp2
-            overall_diff = (run1 + sp1) - (run2 + sp2)
+            sp_diff = sp1 - sp2
+            unk_diff = unk1 - unk2
+            overall_diff = (run1 + sp1 + unk1) - (run2 + sp2 + unk2)
 
             debug_df = pd.DataFrame({
-                f'run_pts_{call1}': run1, f'sp_pts_{call1}': sp1,
-                f'run_pts_{call2}': run2, f'sp_pts_{call2}': sp2,
-                'run_diff': run_diff, 'sp_unk_diff': sp_unk_diff, 'overall_diff': overall_diff
+                f'run_{call1}': run1, f'sp_{call1}': sp1, f'unk_{call1}': unk1,
+                f'run_{call2}': run2, f'sp_{call2}': sp2, f'unk_{call2}': unk2,
+                'run_diff': run_diff, 'sp_diff': sp_diff, 'unk_diff': unk_diff,
+                'overall_diff': overall_diff
             })
             
         else: # metric == 'qsos'
             metric_name = "QSOs"
             
             run1 = get_series(call1, 'run_qsos')
-            sp1 = get_series(call1, 'sp_unk_qsos')
+            sp1 = get_series(call1, 'sp_qsos')
+            unk1 = get_series(call1, 'unknown_qsos')
             run2 = get_series(call2, 'run_qsos')
-            sp2 = get_series(call2, 'sp_unk_qsos')
+            sp2 = get_series(call2, 'sp_qsos')
+            unk2 = get_series(call2, 'unknown_qsos')
             
             run_diff = run1 - run2
-            sp_unk_diff = sp1 - sp2
-            overall_diff = (run1 + sp1) - (run2 + sp2)
+            sp_diff = sp1 - sp2
+            unk_diff = unk1 - unk2
+            overall_diff = (run1 + sp1 + unk1) - (run2 + sp2 + unk2)
             
             debug_df = pd.DataFrame({
-                f'run_qso_{call1}': run1, f'sp_qso_{call1}': sp1,
-                f'run_qso_{call2}': run2, f'sp_qso_{call2}': sp2,
-                'run_diff': run_diff, 'sp_unk_diff': sp_unk_diff, 'overall_diff': overall_diff
+                f'run_{call1}': run1, f'sp_{call1}': sp1, f'unk_{call1}': unk1,
+                f'run_{call2}': run2, f'sp_{call2}': sp2, f'unk_{call2}': unk2,
+                'run_diff': run_diff, 'sp_diff': sp_diff, 'unk_diff': unk_diff,
+                'overall_diff': overall_diff
             })
         
         # --- Plotting Preparation ---
-        if overall_diff.abs().sum() == 0 and run_diff.abs().sum() == 0 and sp_unk_diff.abs().sum() == 0:
+        if overall_diff.abs().sum() == 0:
             logging.info(f"Skipping {band_filter} difference plot: no data available for this band.")
             return []
 
         # Get Standard Colors
         mode_colors = PlotlyStyleManager.get_qso_mode_colors()
         
-        # Create Subplots
-        fig = make_subplots(
-            rows=3, cols=1,
-            shared_xaxes=True,
-            vertical_spacing=0.08,
-            subplot_titles=(f"Overall Diff ({metric_name})", "Run Diff", "S&P+Unk Diff")
-        )
+        # Single Plot
+        fig = go.Figure()
 
-        # --- Row 1: Overall Difference (Black) ---
+        # --- Trace 1: Overall Difference (Black) ---
         fig.add_trace(
             go.Scatter(
-                x=overall_diff.index, y=overall_diff,
+                x=overall_diff.index, y=overall_diff.tolist(),
                 mode='lines+markers',
                 name='Overall',
-                line=dict(color='black', width=2),
-                marker=dict(size=4)
-            ),
-            row=1, col=1
+                line=dict(color='black', width=3),
+                marker=dict(size=3)
+            )
         )
 
-        # --- Row 2: Run Difference (Green) ---
+        # --- Trace 2: Run Difference (Green) ---
         fig.add_trace(
             go.Scatter(
-                x=run_diff.index, y=run_diff,
+                x=run_diff.index, y=run_diff.tolist(),
                 mode='lines+markers',
                 name='Run',
                 line=dict(color=mode_colors['Run'], width=2),
-                marker=dict(size=4)
-            ),
-            row=2, col=1
+                marker=dict(size=3)
+            )
         )
 
-        # --- Row 3: S&P Difference (Blue) ---
+        # --- Trace 3: S&P Difference (Blue) ---
         fig.add_trace(
             go.Scatter(
-                x=sp_unk_diff.index, y=sp_unk_diff,
+                x=sp_diff.index, y=sp_diff.tolist(),
                 mode='lines+markers',
                 name='S&P',
                 line=dict(color=mode_colors['S&P'], width=2),
-                marker=dict(size=4)
-            ),
-            row=3, col=1
+                marker=dict(size=3)
+            )
+        )
+        
+        # --- Trace 4: Unknown Difference (Gray) ---
+        fig.add_trace(
+            go.Scatter(
+                x=unk_diff.index, y=unk_diff.tolist(),
+                mode='lines+markers',
+                name='Unknown',
+                line=dict(color=mode_colors['Mixed/Unk'], width=2, dash='dot'),
+                marker=dict(size=3),
+                visible='legendonly' if unk_diff.abs().sum() == 0 else True
+            )
         )
 
         # --- Zero Reference Lines ---
-        for i in range(1, 4):
-            fig.add_hline(y=0, line_width=1, line_color="black", row=i, col=1)
+        fig.add_hline(y=0, line_width=1, line_color="gray")
 
         # --- Metadata & Titles ---
-        metadata = log1.get_metadata()
-        year = get_valid_dataframe(log1)['Date'].dropna().iloc[0].split('-')[0] if not get_valid_dataframe(log1).empty else "----"
-        contest_name = metadata.get('ContestName', '')
-        event_id = metadata.get('EventID', '')
+        # Smart Scoping: Collect unique modes from all logs
+        modes_present = set()
+        for log in self.logs:
+            df = get_valid_dataframe(log)
+            if 'Mode' in df.columns:
+                modes_present.update(df['Mode'].dropna().unique())
         
-        is_single_band = len(log1.contest_definition.valid_bands) == 1
-        band_text = log1.contest_definition.valid_bands[0].replace('M', ' Meters') if is_single_band else band_filter.replace('M', ' Meters')
-        mode_text = f" ({mode_filter})" if mode_filter else ""
-        callsign_str = f"{call1} vs. {call2}"
+        title_lines = get_standard_title_lines(f"{self.report_name} ({metric_name})", self.logs, band_filter, mode_filter, modes_present)
 
-        title_line1 = f"{self.report_name} - {metric_name}{mode_text}"
-        title_line2 = f"{year} {event_id} {contest_name} - {callsign_str}".strip().replace("  ", " ")
-        final_title = f"{title_line1}<br>{title_line2}" # Use <br> for Plotly title break
+        footer_text = f"Contest Log Analytics by KD4D\n{get_cty_metadata(self.logs)}"
 
         # --- Layout Standardization ---
-        layout = PlotlyStyleManager.get_standard_layout(final_title)
+        # Pass list directly to Manager for Annotation Stack generation
+        layout = PlotlyStyleManager.get_standard_layout(title_lines, footer_text)
+        
         fig.update_layout(layout)
         
         # Base layout properties common to both
         fig.update_layout(
-            showlegend=False,
-            margin=dict(t=140)
+            showlegend=True,
+            xaxis_title="Contest Time",
+            yaxis_title=f"Cumulative Diff ({metric_name})",
+            # Legend Belt: Horizontal, Centered, Just above grid
+            legend=dict(orientation="h", x=0.5, y=1.02, xanchor="center", yanchor="bottom", bgcolor="rgba(255,255,255,0.8)", bordercolor="Black", borderwidth=1)
         )
 
-        # Update Axis Labels
-        fig.update_yaxes(title_text="Diff", row=1, col=1)
-        fig.update_yaxes(title_text="Diff", row=2, col=1)
-        fig.update_yaxes(title_text="Diff", row=3, col=1)
-        fig.update_xaxes(title_text="Contest Time", row=3, col=1)
-
         # --- Saving Files (Dual Output) ---
-        filename_band = log1.contest_definition.valid_bands[0].lower() if is_single_band else band_filter.lower().replace('m', '')
-        mode_suffix = f"_{mode_filter.lower()}" if mode_filter else ""
+        base_filename = build_filename(f"{self.report_id}_{metric}", self.logs, band_filter, mode_filter)
         
         # Debug Data
-        c1_safe = _sanitize_filename_part(call1)
-        c2_safe = _sanitize_filename_part(call2)
-        debug_filename = f"{self.report_id}_{metric}{mode_suffix}_{filename_band}_{c1_safe}_{c2_safe}.txt"
+        debug_filename = f"{base_filename}.txt"
         save_debug_data(debug_data_flag, output_path, debug_df, custom_filename=debug_filename)
         
         create_output_directory(output_path)
         
-        base_filename = f"{self.report_id}_{metric}{mode_suffix}_{filename_band}_{c1_safe}_{c2_safe}"
         html_filename = f"{base_filename}.html"
         png_filename = f"{base_filename}.png"
+        json_filename = f"{base_filename}.json"
         
         html_path = os.path.join(output_path, html_filename)
         png_path = os.path.join(output_path, png_filename)
@@ -228,16 +268,26 @@ class Report(ContestReport):
         
         # Save HTML
         try:
-            # Responsive Layout for HTML
+            # Fixed Height with responsive width (Hard Deck Strategy)
             fig.update_layout(
                 autosize=True,
-                width=None,
-                height=None
+                height=800
             )
-            fig.write_html(html_path, include_plotlyjs='cdn')
+            
+            config = {'toImageButtonOptions': {'filename': base_filename, 'format': 'png'}}
+            fig.write_html(html_path, include_plotlyjs='cdn', config=config)
             generated_files.append(html_path)
+        
         except Exception as e:
             logging.error(f"Failed to save HTML report: {e}")
+
+        # Save JSON (Web Component)
+        json_path = os.path.join(output_path, json_filename)
+        try:
+            fig.write_json(json_path)
+            generated_files.append(json_path)
+        except Exception as e:
+            logging.error(f"Failed to save JSON data: {e}")
 
         # Save PNG (Requires Kaleido)
         try:
@@ -269,7 +319,6 @@ class Report(ContestReport):
             try:
                 save_path = output_path
                 if not is_single_band and band != 'All':
-                    # For per-mode plots, create a subdirectory for the mode
                     if mode_filter:
                         save_path = os.path.join(output_path, mode_filter.lower(), band)
                     else:

@@ -5,8 +5,8 @@
 #          This version uses the `prettytable` library for formatting.
 #
 # Author: Gemini AI
-# Date: 2025-11-24
-# Version: 0.113.0-Beta
+# Date: 2025-12-20
+# Version: 0.134.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -20,6 +20,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.134.1-Beta] - 2025-12-20
+# - Fixed logic error: ensured 'add_row' is called for every multiplier in the loop.
+# [0.134.0-Beta] - 2025-12-20
+# - Standardized report header to use `_report_utils`.
 # [0.113.0-Beta] - 2025-12-13
 # - Standardized filename generation: removed '_vs_' separator and applied strict sanitization to callsigns.
 # [0.93.1] - 2025-11-24
@@ -39,7 +43,7 @@ from prettytable import PrettyTable
 from ..contest_log import ContestLog
 from ..data_aggregators.multiplier_stats import MultiplierStatsAggregator
 from .report_interface import ContestReport
-from ._report_utils import _sanitize_filename_part
+from ._report_utils import _sanitize_filename_part, format_text_header, get_cty_metadata, get_standard_title_lines
 
 class Report(ContestReport):
     """
@@ -76,6 +80,7 @@ class Report(ContestReport):
                         qso_count = stats.get('QSO_Count', 0)
                         run_sp = stats.get('Run_SP_Status', '')
                         cell_content = f"({run_sp}) {qso_count}"
+                        
                         max_call_len = max(max_call_len, len(cell_content))
             col_widths[call] = max_call_len
             
@@ -135,6 +140,7 @@ class Report(ContestReport):
                             cell_content = f"({run_sp}) {qso_count}"
                     
                     row.append(cell_content)
+                
                 main_table.add_row(row)
         
         # --- Summary Table Generation ---
@@ -206,11 +212,12 @@ class Report(ContestReport):
         dummy_table.add_row(['' for _ in [first_col_header] + all_calls])
         max_line_width = len(str(dummy_table).split('\n')[0])
         
-        mode_title_str = f" ({mode_filter})" if mode_filter else ""
+        # --- Standard Header ---
+        modes_present = {mode_filter} if mode_filter else set() # Approximate, or pass empty to let utility handle None
+        title_lines = get_standard_title_lines(f"{self.report_name}: {mult_name}", self.logs, agg_results['bands_to_process'][0] if len(bands_to_process)==1 else "All Bands", mode_filter, modes_present)
+        meta_lines = ["Contest Log Analytics by KD4D", get_cty_metadata(self.logs)]
         
-        title1 = f"--- {self.report_name}: {mult_name}{mode_title_str} ---"
-        title2 = f"{year} {contest_name} - {', '.join(all_calls)}"
-        report_lines = [title1.center(max_line_width), title2.center(max_line_width)]
+        report_lines = format_text_header(max_line_width, title_lines, meta_lines)
 
         for band in bands_to_process:
             band_header_text = f"\n{band.replace('M', '')} Meters Missed Multipliers" if band != "All Bands" else f"\nOverall Missed Multipliers"

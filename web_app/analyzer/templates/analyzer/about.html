@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="text-center mb-5">
+                <h1 class="display-4 fw-bold text-primary">The "Game Tape" for Radio</h1>
+                <p class="lead text-muted">A post-mortem analysis engine for amateur radio contesting.</p>
+            </div>
+
+            <div class="card shadow-sm border-0 mb-5">
+                <div class="card-body p-5">
+                    <h4 class="card-title fw-bold text-secondary mb-3"><i class="bi bi-graph-up-arrow me-2"></i>Sports Analytics for Contesting</h4>
+                    <p>
+                        Professional sports teams don't just play the game; they watch the "game tape" afterwards to understand <em>why</em> a play failed or succeeded.
+                        Most logging software is designed for the heat of battle—getting the QSO in the log efficiently.
+                        <strong>Contest Log Analytics</strong> is designed for the day after.
+                    </p>
+                    <p>
+                        By analyzing your logs against your competitors, this tool uncovers the hidden story of the contest: 
+                        who owned the band at 0200Z, who found the multipliers you missed, and exactly how your operating strategy differed from the winner's.
+                    </p>
+                </div>
+            </div>
+
+            <div class="row g-4 mb-5">
+                <div class="col-md-6">
+                    <div class="card h-100 border-0 shadow-sm">
+                        <div class="card-body p-4">
+                            <h5 class="fw-bold text-primary"><i class="bi bi-cpu me-2"></i>Heuristic Analysis</h5>
+                            <p class="text-muted">
+                                Cabrillo logs don't record whether you were "Running" (Calling CQ) or "Search & Pouncing" (Hunting).
+                                This tool uses a sophisticated algorithm to infer your operating mode based on time and frequency deltas, 
+                                creating data that doesn't exist in the raw file.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card h-100 border-0 shadow-sm">
+                        <div class="card-body p-4">
+                            <h5 class="fw-bold text-success"><i class="bi bi-pie-chart me-2"></i>Unique vs. Common</h5>
+                            <p class="text-muted">
+                                "Common" QSOs are the price of admission—everyone works them.
+                                Contests are won in the margins. Our reports isolate "Unique Run" and "Unique S&P" QSOs to show exactly 
+                                where you gained (or lost) your advantage relative to the competition.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-12">
+                    <div class="card h-100 border-0 shadow-sm">
+                        <div class="card-body p-4">
+                            <h5 class="fw-bold text-secondary"><i class="bi bi-cloud-download me-2"></i>Public Log Archive Integration</h5>
+                            <p class="text-muted mb-0">
+                                Forget manually downloading competitor logs. The analyzer now connects directly to public contest archives (starting with CQ WW). Simply select the year and mode, search for your competitors by callsign, and fetch the data instantly for head-to-head analysis.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card bg-light border-0 mb-5">
+                <div class="card-body p-4">
+                    <h5 class="fw-bold text-secondary mb-3">Supported Contests</h5>
+                    <p class="mb-0">
+                        This analyzer supports major events including <strong>CQ WW, CQ WPX, ARRL DX, ARRL Sweepstakes, IARU HF</strong>, and the <strong>WRTC</strong>.
+                        It utilizes external data files (CTY.DAT, Section files) to ensure accurate scoring and multiplier calculations.
+                    </p>
+                </div>
+            </div>
+
+            <div class="text-center mb-5">
+                <p class="text-muted">New to the sport?</p>
+                <a href="https://www.arrl.org/contest-basics" target="_blank" class="btn btn-outline-secondary">
+                    <i class="bi bi-book me-2"></i>Read the ARRL Contest Basics Guide
+                </a>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

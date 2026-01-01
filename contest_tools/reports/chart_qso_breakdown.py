@@ -4,8 +4,8 @@
 #          on common/unique QSOs broken down by Run vs. Search & Pounce (S&P) mode.
 #
 # Author: Gemini AI
-# Date: 2025-12-14
-# Version: 1.0.3
+# Date: 2025-12-29
+# Version: Phase 1 (Pathfinder)
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,71 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [Phase 1 (Pathfinder)] - 2025-12-29
+# - Added JSON export functionality for web component integration.
+# [0.147.0-Beta] - 2025-12-29
+# - Swapped generation order: HTML (Fluid) is now generated before PNG (Fixed) to prevent state leakage.
+# [0.145.0-Beta] - 2025-12-29
+# - Removed manual layout overrides (margins) to allow PlotlyStyleManager authoritative control.
+# [0.144.1-Beta] - 2025-12-29
+# - Implemented "Hard Deck" strategy: Fixed height (800px), autosize=True, disabled 'responsive' config.
+# [0.143.3-Beta] - 2025-12-28
+# - Implemented "Safety Gap" strategy: Reduced HTML height to 800px to prevent scrollbars.
+# [0.143.2-Beta] - 2025-12-28
+# - Fixed HTML viewport issue by enforcing fixed height (850px).
+# [0.143.1-Beta] - 2025-12-28
+# - Updated layout configuration to use the "Legend Belt" strategy (Protocol 1.2.0).
+# - Migrated title generation to pass List[str] for Annotation Stack rendering.
+# [0.143.0-Beta] - 2025-12-28
+# - Migrated title generation to PlotlyStyleManager annotation stack ("Pixel-Locked Margins").
+# - Relocated legend to inside the plot area to reclaim vertical space.
+# - Removed manual top margin override to fix scrollbar overflow regression.
+# [0.142.0-Beta] - 2025-12-27
+# - Increased subplot vertical_spacing to 0.15 to prevent label overlap.
+# - Reduced X-axis title_standoff to 5 to tighten Band Label placement.
+# - Increased bottom margin to 60px to accommodate labels.
+# [0.141.0-Beta] - 2025-12-25
+# - Removed floating subplot titles to eliminate overlap.
+# - Added x-axis titles to subplots for clearer band identification.
+# - Reduced vertical spacing to 0.05 and adjusted margins (t=100, b=40).
+# [0.140.0-Beta] - 2025-12-25
+# - Optimized layout margins (t=90, b=70) to balance title clearance vs footer visibility.
+# - Increased subplot vertical spacing to 0.08 to prevent title collision.
+# [0.137.0-Beta] - 2025-12-25
+# - Implemented "Safe Zone" layout strategy with increased margins (t=120, b=50, l=50, r=50)
+#   for dashboard integration to prevent overlap.
+# [0.136.0-Beta] - 2025-12-25
+# - Optimized layout for dashboard integration ("Fill the Viewport"):
+#   - Migrated band labels to subplot titles for better association.
+#   - Reduced vertical spacing between subplots to 0.05.
+#   - Tightened HTML layout margins (t=60, b=30, l=10, r=10).
+# [0.135.0-Beta] - 2025-12-25
+# - Forced removal of fixed dimensions for HTML output using direct attribute assignment.
+# - Optimized margins (t=100, b=40) for dashboard integration.
+# [0.134.0-Beta] - 2025-12-25
+# - Reverted vertical spacing to 0.12 to accommodate X-axis labels.
+# - Restored standard X-axis labels (Band Name) and removed in-chart badges.
+# [0.133.0-Beta] - 2025-12-25
+# - Replaced external subplot titles with in-chart badges to save vertical space.
+# - Reduced subplot vertical spacing.
+# [0.132.0-Beta] - 2025-12-25
+# - Increased subplot vertical spacing to 0.15.
+# - Added explicit X-axis labels (Band Name) to each subplot.
+# - Enabled responsive resizing for HTML dashboard integration.
+# [0.131.1-Beta] - 2025-12-25
+# - Updated band sorting logic to use canonical frequency order via ContestLog._HAM_BANDS.
+# [0.131.0-Beta] - 2025-12-20
+# - Refactored to use `get_standard_title_lines` for standardized 3-line headers.
+# - Implemented explicit "Smart Scoping" for title generation.
+# - Added footer metadata via `get_cty_metadata`.
+# [0.118.0-Beta] - 2025-12-15
+# - Injected descriptive filename configuration for interactive HTML plot downloads.
+# [0.115.2-Beta] - 2025-12-15
+# - Increased top margin to 140px to prevent the two-line header from overlapping subplot titles.
+# [0.115.1-Beta] - 2025-12-15
+# - Standardized chart header to the two-line format (Report Name + Context).
+# - Optimized x-axis labels ("Unique Call" -> "Call", "Common (Both)" -> "Common")
+#   to prevent overlapping text in the 3-column layout.
 # [1.0.3] - 2025-12-14
 # - Updated HTML export to use responsive sizing (autosize=True) for dashboard integration.
 # - Maintained fixed resolution for PNG exports.
@@ -43,12 +108,12 @@ from contest_tools.reports.report_interface import ContestReport
 from contest_tools.contest_log import ContestLog
 from contest_tools.data_aggregators.categorical_stats import CategoricalAggregator
 from contest_tools.styles.plotly_style_manager import PlotlyStyleManager
-from contest_tools.reports._report_utils import get_valid_dataframe, create_output_directory, _sanitize_filename_part
+from contest_tools.reports._report_utils import get_valid_dataframe, create_output_directory, _sanitize_filename_part, get_cty_metadata, get_standard_title_lines
 
 class Report(ContestReport):
     """
     Generates a stacked bar chart comparing two logs on common/unique QSOs
-    broken down by Run vs. Search & Pounce (S&P) mode for each band.
+    broken down by Run vs. Search & Pounce (S&P) mode.
     """
     report_id = 'qso_breakdown_chart' # Aligned with Interpretation Guide
     report_name = 'QSO Breakdown Chart'
@@ -74,9 +139,9 @@ class Report(ContestReport):
         )
         
         categories = [
-            f"Unique {self.log1.get_metadata().get('MyCall')}",
-            "Common (Both Logs)",
-            f"Unique {self.log2.get_metadata().get('MyCall')}"
+            f"{self.log1.get_metadata().get('MyCall')}",
+            "Common",
+            f"{self.log2.get_metadata().get('MyCall')}"
         ]
         
         modes = ['Run', 'S&P', 'Mixed/Unk']
@@ -98,7 +163,7 @@ class Report(ContestReport):
                 comparison_data['log2_unique']['unk']
             ]
         }
-         
+        
         return {
             'categories': categories,
             'modes': modes,
@@ -114,7 +179,9 @@ class Report(ContestReport):
         df1 = get_valid_dataframe(self.log1)
         df2 = get_valid_dataframe(self.log2)
 
-        bands = sorted(set(df1['Band'].unique()) | set(df2['Band'].unique()))
+        raw_bands = set(df1['Band'].unique()) | set(df2['Band'].unique())
+        canonical_band_order = [b[1] for b in ContestLog._HAM_BANDS]
+        bands = sorted(raw_bands, key=lambda b: canonical_band_order.index(b) if b in canonical_band_order else -1)
 
         if not bands:
             return []
@@ -123,14 +190,12 @@ class Report(ContestReport):
         num_bands = len(bands)
         cols = min(3, num_bands)
         rows = (num_bands + cols - 1) // cols
-        
-        subplot_titles = [f"{band} Band Breakdown" for band in bands]
 
         fig = make_subplots(
             rows=rows, 
             cols=cols, 
-            subplot_titles=subplot_titles, 
-            shared_yaxes=True
+            shared_yaxes=True,
+            vertical_spacing=0.15
         )
 
         colors = PlotlyStyleManager.get_qso_mode_colors()
@@ -160,57 +225,82 @@ class Report(ContestReport):
                     ),
                     row=row, col=col
                 )
+            fig.update_xaxes(title_text=band, title_standoff=5, row=row, col=col)
 
         # Standard Layout Application
-        call1 = self.log1.get_metadata().get('MyCall')
-        call2 = self.log2.get_metadata().get('MyCall')
-        title_text = f"QSO Set Comparison: {call1} vs. {call2}"
+        modes_present = set(df1['Mode'].dropna().unique()) | set(df2['Mode'].dropna().unique())
         
-        layout_config = PlotlyStyleManager.get_standard_layout(title_text)
+        title_lines = get_standard_title_lines(self.report_name, self.logs, "All Bands", None, modes_present)
+
+        footer_text = f"Contest Log Analytics by KD4D\n{get_cty_metadata(self.logs)}"
+        
+        # Use Annotation Stack (List) for precise title spacing control
+        layout_config = PlotlyStyleManager.get_standard_layout(title_lines, footer_text)
         fig.update_layout(layout_config)
         
         # Specific Adjustments
         fig.update_layout(
-            barmode='stack'
+            barmode='stack',
+            showlegend=True,
+            # Legend Belt: Horizontal, Centered, Just above grid (y=1.02)
+            legend=dict(orientation="h", x=0.5, y=1.02, xanchor="center", yanchor="bottom", bgcolor="rgba(255,255,255,0.8)", bordercolor="Black", borderwidth=1)
         )
 
         create_output_directory(output_path)
+        call1 = self.log1.get_metadata().get('MyCall')
+        call2 = self.log2.get_metadata().get('MyCall')
         c1_safe = _sanitize_filename_part(call1)
         c2_safe = _sanitize_filename_part(call2)
         base_filename = f"{self.report_id}_{c1_safe}_{c2_safe}"
         
-        # 1. Save Static Image (PNG)
-        # Use specific width=1600 to enforce landscape orientation for standard reports
-        png_file = os.path.join(output_path, f"{base_filename}.png")
+        # --- Save Files ---
+        filename_base = base_filename # Re-using calculated base
+        
+        filepath_png = os.path.join(output_path, f"{filename_base}.png")
+        filepath_html = os.path.join(output_path, f"{filename_base}.html")
+        filepath_json = os.path.join(output_path, f"{filename_base}.json")
+        
+        results = []
         try:
-            # Fixed sizing for PNG
+            # 1. Save HTML (Interactive - Fluid)
+            # Ensure fluid layout state before locking dimensions for PNG
+            fig.update_layout(
+                autosize=True,
+                height=None,
+                width=None
+            )
+            config = {'toImageButtonOptions': {'filename': filename_base, 'format': 'png'}}
+            fig.write_html(filepath_html, include_plotlyjs='cdn', config=config)
+            results.append(f"Interactive plot saved: {filepath_html}")
+
+            # 2. Save PNG (Static - Fixed)
+            # Lock dimensions strictly for the static export
+            # Use specific width=1600 to enforce landscape orientation for standard reports
+            plot_height = 400 * rows
             fig.update_layout(
                 autosize=False,
-                width=1600,
-                height=400 * rows
+                height=plot_height,
+                width=1600
             )
-            fig.write_image(png_file, width=1600)
-        except Exception:
-            # If static image generation fails (e.g. missing kaleido), logging would go here.
-            # We proceed to save HTML.
+            fig.write_image(filepath_png, width=1600)
+            results.append(f"Plot saved: {filepath_png}")
+            
+            # 3. Save JSON (Component Data)
+            fig.write_json(filepath_json)
+            results.append(f"JSON data saved: {filepath_json}")
+            
+        except Exception as e:
+            # Fallback/Error logging if one fails, but try to continue
+            # For now, just pass as per original structure, or log if logger available.
             pass
-
-        # 2. Save Interactive HTML
-        html_file = os.path.join(output_path, f"{base_filename}.html")
-        
-        # Responsive sizing for HTML
-        fig.update_layout(
-            autosize=True,
-            width=None,
-            height=None
-        )
-        fig.write_html(html_file, include_plotlyjs='cdn')
 
         # Return list of successfully created files (checking existence)
         outputs = []
-        if os.path.exists(png_file):
-            outputs.append(png_file)
-        if os.path.exists(html_file):
-            outputs.append(html_file)
+        if os.path.exists(filepath_png):
+            outputs.append(filepath_png)
+        if os.path.exists(filepath_html):
+            outputs.append(filepath_html)
+        if os.path.exists(filepath_json):
+            outputs.append(filepath_json)
 
         return outputs

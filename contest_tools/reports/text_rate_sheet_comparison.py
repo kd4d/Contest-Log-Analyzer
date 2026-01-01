@@ -3,8 +3,8 @@
 # Purpose: A text report that generates a comparative hourly rate sheet for two or more logs.
 #
 # Author: Gemini AI
-# Date: 2025-12-14
-# Version: 0.113.0-Beta
+# Date: 2025-12-20
+# Version: 0.134.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,12 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.134.0-Beta] - 2025-12-20
+# - Standardized report header to use `_report_utils`.
+# [0.116.0-Beta] - 2025-12-15
+# - Removed usage of get_copyright_footer.
+# [0.115.3-Beta] - 2025-12-15
+# - Added standardized copyright footer.
 # [0.113.0-Beta] - 2025-12-13
 # - Standardized filename generation: removed '_vs_' separator to match Web Dashboard conventions.
 # [2.1.1] - 2025-12-14
@@ -42,7 +48,7 @@ import os
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
 from ..data_aggregators.time_series import TimeSeriesAggregator
-from ._report_utils import _sanitize_filename_part
+from ._report_utils import _sanitize_filename_part, format_text_header, get_cty_metadata, get_standard_title_lines
 
 class Report(ContestReport):
     """
@@ -105,10 +111,12 @@ class Report(ContestReport):
 
         contest_name = first_log.get_metadata().get('ContestName', 'UnknownContest')
         year = first_log.get_processed_data()['Date'].dropna().iloc[0].split('-')[0] if not first_log.get_processed_data().empty else "----"
-        title_main = f"{year} {contest_name} - Comparison (All Bands)"
+        
+        # Calculate modes present for smart scoping
+        modes_present = set(available_modes)
 
         block1 = self._build_comparison_block(
-            title=title_main,
+            title="Overall Summary",
             col_defs=col_defs,
             time_bins=time_bins,
             ts_data=ts_data,
@@ -116,6 +124,19 @@ class Report(ContestReport):
             force_band_context=None
         )
         report_blocks.append(block1)
+        
+        # --- Generate Standard Header ---
+        # Measure width from the first block (separator line is index 3: Title, Blank, Header, Separator)
+        block1_lines = block1.split('\n')
+        table_width = len(block1_lines[3]) if len(block1_lines) > 3 else 80
+        
+        title_lines = get_standard_title_lines(self.report_name, self.logs, "All Bands", None, modes_present)
+        meta_lines = ["Contest Log Analytics by KD4D", get_cty_metadata(self.logs)]
+        
+        header_block = format_text_header(table_width, title_lines, meta_lines)
+        
+        # Prepend header to blocks
+        full_content = "\n".join(header_block) + "\n\n" + "\n\n".join(report_blocks) + "\n"
 
         # --- BLOCKS 2+: Band Details ---
         if not is_single_band:
@@ -166,7 +187,6 @@ class Report(ContestReport):
                 report_blocks.append(block_detail)
 
         # --- Output ---
-        full_content = "\n\n".join(report_blocks) + "\n"
         
         os.makedirs(output_path, exist_ok=True)
         filename_calls = '_'.join([_sanitize_filename_part(c) for c in sorted(all_calls)])
@@ -299,6 +319,7 @@ class Report(ContestReport):
                     line_parts.append(f"{val:>{w}}")
                     
                 lines.append(" ".join(line_parts))
+                
                 first_call_line = False
             
             # Optional spacer between hours?

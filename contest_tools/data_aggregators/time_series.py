@@ -4,8 +4,8 @@
 #          JSON-compatible structure (Pure Python Primitives).
 #
 # Author: Gemini AI
-# Date: 2025-12-12
-# Version: 1.6.0
+# Date: 2025-12-14
+# Version: 1.7.0
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [1.7.0] - 2025-12-14
+# - Added `sp_qsos`, `unknown_qsos`, `sp_points`, `unknown_points` streams
+#   to support granular difference plotting.
 # [1.6.0] - 2025-12-13
 # - Added `run_qsos` and `run_percent` to scalar output for Strategy Board dashboard.
 # [1.5.0] - 2025-12-12
@@ -148,7 +151,8 @@ class TimeSeriesAggregator:
                 "cumulative": {
                     "qsos": [], "points": [], "mults": [], 
                     "score": [], "run_qsos": [], "sp_unk_qsos": [],
-                    "run_points": [], "sp_unk_points": []
+                    "run_points": [], "sp_unk_points": [],
+                    "sp_qsos": [], "unknown_qsos": [], "sp_points": [], "unknown_points": []
                 },
                 "hourly": { 
                     "qsos": [], 
@@ -173,7 +177,7 @@ class TimeSeriesAggregator:
                 if not df_valid.empty:
                     # Resample Setup
                     hourly_grp = df_valid.set_index('Datetime').resample('h')
-                
+                    
                     # 1. Total QSOs
                     s_qsos = hourly_grp.size()
                     log_entry["cumulative"]["qsos"] = process_series(s_qsos)
@@ -184,10 +188,14 @@ class TimeSeriesAggregator:
 
                     # 3. Run/S&P Splits
                     run_mask = df_valid['Run'] == 'Run'
+                    sp_mask = df_valid['Run'] == 'S&P'
+                    unk_mask = df_valid['Run'] == 'Unknown'
                     
                     # Split Dataframes
                     df_run = df_valid[run_mask]
-                    df_sp = df_valid[~run_mask]
+                    df_sp_unk = df_valid[~run_mask]
+                    df_sp_only = df_valid[sp_mask]
+                    df_unk_only = df_valid[unk_mask]
 
                     # Run QSOs / Points
                     if not df_run.empty:
@@ -198,20 +206,39 @@ class TimeSeriesAggregator:
                         log_entry["cumulative"]["run_qsos"] = zeros
                         log_entry["cumulative"]["run_points"] = zeros
                     
-                    # S&P QSOs / Points
-                    if not df_sp.empty:
-                        sp_grp = df_sp.set_index('Datetime').resample('h')
+                    # S&P+Unknown QSOs / Points (Legacy Support)
+                    if not df_sp_unk.empty:
+                        sp_grp = df_sp_unk.set_index('Datetime').resample('h')
                         log_entry["cumulative"]["sp_unk_qsos"] = process_series(sp_grp.size())
                         log_entry["cumulative"]["sp_unk_points"] = process_series(sp_grp['QSOPoints'].sum())
                     else:
                         log_entry["cumulative"]["sp_unk_qsos"] = zeros
                         log_entry["cumulative"]["sp_unk_points"] = zeros
+
+                    # Strict S&P QSOs / Points (New)
+                    if not df_sp_only.empty:
+                        sp_only_grp = df_sp_only.set_index('Datetime').resample('h')
+                        log_entry["cumulative"]["sp_qsos"] = process_series(sp_only_grp.size())
+                        log_entry["cumulative"]["sp_points"] = process_series(sp_only_grp['QSOPoints'].sum())
+                    else:
+                        log_entry["cumulative"]["sp_qsos"] = zeros
+                        log_entry["cumulative"]["sp_points"] = zeros
+
+                    # Unknown QSOs / Points (New)
+                    if not df_unk_only.empty:
+                        unk_grp = df_unk_only.set_index('Datetime').resample('h')
+                        log_entry["cumulative"]["unknown_qsos"] = process_series(unk_grp.size())
+                        log_entry["cumulative"]["unknown_points"] = process_series(unk_grp['QSOPoints'].sum())
+                    else:
+                        log_entry["cumulative"]["unknown_qsos"] = zeros
+                        log_entry["cumulative"]["unknown_points"] = zeros
+
                 else:
                     # Log exists but only dupes?
-                    for k in ["qsos", "points", "run_qsos", "sp_unk_qsos", "run_points", "sp_unk_points"]:
+                    for k in ["qsos", "points", "run_qsos", "sp_unk_qsos", "run_points", "sp_unk_points", "sp_qsos", "unknown_qsos", "sp_points", "unknown_points"]:
                         log_entry["cumulative"][k] = zeros
             else:
-                for k in ["qsos", "points", "run_qsos", "sp_unk_qsos", "run_points", "sp_unk_points"]:
+                for k in ["qsos", "points", "run_qsos", "sp_unk_qsos", "run_points", "sp_unk_points", "sp_qsos", "unknown_qsos", "sp_points", "unknown_points"]:
                     log_entry["cumulative"][k] = zeros
 
             # --- Score & Mults (Global Only) ---

@@ -4,8 +4,8 @@
 #          reporting engine.
 #
 # Author: Gemini AI
-# Date: 2025-12-14
-# Version: 0.107.0-Beta
+# Date: 2025-12-20
+# Version: 0.133.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,21 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.133.0-Beta] - 2025-12-20
+# - Added `build_filename` utility to centralize and stabilize report filename generation.
+# - Re-implemented single-band detection logic within the utility to fix NameError regressions.
+# [0.131.0-Beta] - 2025-12-20
+# - Added `get_standard_title_lines` to centralize "3-Line Title" generation.
+# - Implemented "Smart Scoping" logic for title modes.
+# [0.130.0-Beta] - 2025-12-20
+# - Added `get_cty_metadata` to extract CTY version/date.
+# - Added `format_text_header` to standardize text report branding.
+# [0.125.0-Beta] - 2025-12-17
+# - Removed calculate_multiplier_pivot (moved to contest_tools.utils.pivot_utils).
+# [0.116.0-Beta] - 2025-12-15
+# - Removed get_copyright_footer helper function.
+# [0.115.3-Beta] - 2025-12-15
+# - Added `get_copyright_footer` to standardize text report footers.
 # [0.107.0-Beta] - 2025-12-14
 # - Updated `_sanitize_filename_part` to enforce strict lowercase conversion.
 # [0.106.0-Beta] - 2025-12-13
@@ -48,6 +63,8 @@ from pathlib import Path
 from typing import Optional, Dict, Any
 from ..contest_log import ContestLog
 from ..utils.json_encoders import NpEncoder
+from ..core_annotations.get_cty import CtyLookup
+import datetime
 
 def get_valid_dataframe(log: ContestLog, include_dupes: bool = False) -> pd.DataFrame:
     """Returns a safe copy of the log's DataFrame, excluding dupes unless specified."""
@@ -63,19 +80,115 @@ def _sanitize_filename_part(part: str) -> str:
     """Sanitizes a string to be used as part of a filename."""
     return re.sub(r'[\s/\\:]+', '_', str(part)).lower()
 
-def calculate_multiplier_pivot(df: pd.DataFrame, mult_col: str, group_by_call: bool = False) -> pd.DataFrame:
+def get_cty_metadata(logs: list) -> str:
     """
-    Creates an authoritative pivot table for a given multiplier column.
-    This is the single source of truth for multiplier counting.
+    Extracts CTY version info from the first log's CTY path.
+    Returns string format: "YYYY-MM-DD CTY-XXXX"
     """
-    if df.empty or mult_col not in df.columns:
-        return pd.DataFrame()
+    if not logs: return "CTY File: Unknown"
     
-    index_cols = [mult_col]
-    if group_by_call and 'MyCall' in df.columns:
-        index_cols.append('MyCall')
+    path = getattr(logs[0], 'cty_dat_path', '')
+    if not path or not os.path.exists(path):
+        return "CTY File: Unknown"
+
+    # Try to extract version from filename (cty_wt_mod_3504.dat)
+    version_match = re.search(r'(\d{4})', os.path.basename(path))
+    version_str = f"CTY-{version_match.group(1)}" if version_match else "CTY-Unknown"
+
+    # Try to extract date
+    date_obj = CtyLookup.extract_version_date(path)
+    date_str = date_obj.strftime('%Y-%m-%d') if date_obj else "Unknown Date"
+
+    return f"CTY File: {date_str} {version_str}"
+
+def get_standard_title_lines(report_name: str, logs: list, band_filter: str = None, mode_filter: str = None, modes_present_set: set = None) -> list:
+    """
+    Generates the standard 3-Line Title components (Name, Context, Scope).
+    Applies Smart Scoping logic for modes.
+    """
+    if not logs: return [report_name, "", ""]
     
-    return df.pivot_table(index=index_cols, columns='Band', aggfunc='size', fill_value=0)
+    # --- Line 2: Context ---
+    metadata = logs[0].get_metadata()
+    df = get_valid_dataframe(logs[0])
+    year = df['Date'].dropna().iloc[0].split('-')[0] if not df.empty else "----"
+    contest_name = metadata.get('ContestName', '')
+    event_id = metadata.get('EventID', '')
+    all_calls = sorted([l.get_metadata().get('MyCall', 'Unknown') for l in logs])
+    callsign_str = ", ".join(all_calls)
+    
+    line2 = f"{year} {event_id} {contest_name} - {callsign_str}".strip().replace("   ", " ")
+
+    # --- Line 3: Scope ---
+    # Band Logic
+    is_single_band = len(logs[0].contest_definition.valid_bands) == 1
+    if band_filter == 'All' or band_filter is None:
+        band_text = logs[0].contest_definition.valid_bands[0].replace('M', ' Meters') if is_single_band else "All Bands"
+    else:
+        band_text = band_filter.replace('M', ' Meters')
+
+    # Mode Logic (Smart Scoping)
+    if mode_filter:
+        mode_text = f" ({mode_filter})"
+    else:
+        # Only show (All Modes) if multiple modes actually exist in the data
+        if modes_present_set and len(modes_present_set) > 1:
+            mode_text = " (All Modes)"
+        else:
+            mode_text = ""
+            
+    line3 = f"{band_text}{mode_text}"
+    
+    return [report_name, line2, line3]
+
+def build_filename(report_id: str, logs: list, band_filter: str = None, mode_filter: str = None) -> str:
+    """
+    Constructs a standardized, sanitized filename for reports.
+    Format: {report_id}_{band}_{mode}_{callsigns}
+    Example: qso_rate_plots_20_cw_k1lz_k3lr
+    """
+    # Band Part
+    is_single_band = len(logs[0].contest_definition.valid_bands) == 1
+    raw_band = logs[0].contest_definition.valid_bands[0] if is_single_band else (band_filter or 'All')
+    filename_band = raw_band.lower().replace('m', '')
+    
+    # Mode Part
+    mode_suffix = f"_{mode_filter.lower()}" if mode_filter else ""
+    
+    # Callsigns Part
+    all_calls = sorted([l.get_metadata().get('MyCall', 'Unknown') for l in logs])
+    filename_calls = '_'.join([_sanitize_filename_part(c) for c in all_calls])
+    
+    return f"{report_id}_{filename_band}{mode_suffix}_{filename_calls}"
+
+def format_text_header(width: int, title_lines: list, metadata_lines: list = None) -> list:
+    """
+    Generates a text report header with Left-Aligned Titles and Right-Aligned Metadata.
+    Args:
+        width: Total width of the report content.
+        title_lines: List of title strings (Lines 1-3).
+        metadata_lines: Optional list of metadata strings (Branding, CTY).
+        Defaults to standard CLA branding if None.
+    """
+    if metadata_lines is None:
+        # Default placeholder, caller should usually pass get_cty_metadata result
+        metadata_lines = ["Contest Log Analytics by KD4D", "CTY File: Unknown"]
+
+    header_output = []
+    
+    # Determine max height required
+    max_lines = max(len(title_lines), len(metadata_lines))
+    
+    for i in range(max_lines):
+        left = title_lines[i] if i < len(title_lines) else ""
+        right = metadata_lines[i] if i < len(metadata_lines) else ""
+        
+        # Calculate padding
+        padding = width - len(left) - len(right)
+        padding = max(padding, 2) # Minimum 2 spaces separation
+        header_output.append(f"{left}{' ' * padding}{right}")
+        
+    return header_output
 
 def _prepare_time_series_data(log1: ContestLog, log2: Optional[ContestLog], metric: str) -> tuple:
     """Prepares time-series data for one or two logs."""
@@ -189,8 +302,7 @@ class DonutChartComponent:
 
 def save_debug_data(debug_flag: bool, output_path: str, data, custom_filename: str = None):
     """
-    Saves the source data for a report to a .txt file if the 
-    debug flag is set.
+    Saves the source data for a report to a .txt file if the debug flag is set.
     """
     if not debug_flag:
         return

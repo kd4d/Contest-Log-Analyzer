@@ -5,8 +5,8 @@
 #          broken down by band and Run/S&P status.
 #
 # Author: Gemini AI
-# Date: 2025-10-01
-# Version: 0.90.1-Beta
+# Date: 2025-12-20
+# Version: 0.134.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -20,6 +20,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.134.0-Beta] - 2025-12-20
+# - Standardized report header to use `_report_utils`.
 # [0.90.1-Beta] - 2025-12-06
 # Refactored report to show Run/S&P/Unknown breakdown for Common QSOs.
 # Updated table layout with scoped super-headers.
@@ -28,7 +30,7 @@
 # Set new baseline version for release.
 
 from .report_interface import ContestReport
-from ._report_utils import get_valid_dataframe, create_output_directory
+from ._report_utils import get_valid_dataframe, create_output_directory, format_text_header, get_cty_metadata, get_standard_title_lines
 import pandas as pd
 import os
 from ..contest_log import ContestLog
@@ -62,8 +64,15 @@ class Report(ContestReport):
         all_bands_in_logs = pd.concat([df1['Band'], df2['Band']]).unique()
         bands = sorted(all_bands_in_logs, key=lambda b: canonical_band_order.index(b) if b in canonical_band_order else -1)
         
+        # --- Header Generation ---
+        table_width = 86
+        modes_present = set(pd.concat([df1['Mode'], df2['Mode']]).dropna().unique())
+        title_lines = get_standard_title_lines(self.report_name, self.logs, "All Bands", None, modes_present)
+        meta_lines = ["Contest Log Analytics by KD4D", get_cty_metadata(self.logs)]
+        
         report_lines = []
-        report_lines.append(f"QSO Comparison: {call1} vs {call2}\n" + "="*86)
+        report_lines.extend(format_text_header(table_width, title_lines, meta_lines))
+        report_lines.append("="*86)
         
         # Initialize accumulators for the grand totals
         # Structure: [Total_QSO, Unique_Total, Common_Total]

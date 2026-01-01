@@ -4,8 +4,8 @@
 #          log, broken down by band.
 #
 # Author: Gemini AI
-# Date: 2025-12-06
-# Version: 0.92.0-Beta
+# Date: 2025-12-20
+# Version: 0.130.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -14,10 +14,19 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0.
-# If a copy of the MPL was not distributed with this
+# License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
 # --- Revision History ---
+# [0.130.0-Beta] - 2025-12-20
+# - Refactored to use `format_text_header` for standardized 3-line titles.
+# - Integrated `get_cty_metadata` for provenance tracking.
+# [0.125.0-Beta] - 2025-12-17
+# - Updated import to use contest_tools.utils.pivot_utils for calculate_multiplier_pivot.
+# [0.116.0-Beta] - 2025-12-15
+# - Removed usage of get_copyright_footer.
+# [0.115.3-Beta] - 2025-12-15
+# - Added standardized copyright footer.
 # [0.92.0-Beta] - 2025-12-06
 # - Refactored score summary to use a hierarchical layout (Band -> Mode).
 # - Implemented strict multiplier counts per mode row, with an 'ALL' summary row
@@ -41,7 +50,8 @@ import hashlib
 from ..contest_log import ContestLog
 from ..contest_definitions import ContestDefinition
 from .report_interface import ContestReport
-from ._report_utils import calculate_multiplier_pivot
+from ..utils.pivot_utils import calculate_multiplier_pivot
+from ._report_utils import format_text_header, get_cty_metadata
 
 class Report(ContestReport):
     """
@@ -89,6 +99,7 @@ class Report(ContestReport):
                         val_len = len(f"{value:,.0f}") if isinstance(value, (int, float)) and key not in ['AVG'] else len(str(value))
                         if isinstance(value, float) and key == 'AVG':
                             val_len = len(f"{value:.2f}")
+                        
                         col_widths[key] = max(col_widths.get(key, 0), val_len)
 
             year = df_full['Date'].iloc[0].split('-')[0] if not df_full.empty and not df_full['Date'].dropna().empty else "----"
@@ -98,14 +109,24 @@ class Report(ContestReport):
             table_width = len(header)
             separator = "-" * table_width
             
-            title1 = f"--- {self.report_name} ---"
-            title2 = f"{year} {contest_name} - {callsign}"
+            # --- New 3-Line Header ---
+            title_lines = [
+                f"--- {self.report_name} ---",
+                f"{year} {contest_name} - {callsign}",
+                "All Bands" # Score report is always a summary of all bands
+            ]
+            
+            meta_lines = [
+                "Contest Log Analytics by KD4D",
+                get_cty_metadata([log])
+            ]
             
             report_lines = []
-            header_width = max(table_width, len(title1), len(title2))
+            # Ensure table is at least wide enough for header
+            min_header_width = max(len(l) for l in title_lines) + max(len(l) for l in meta_lines) + 5
+            final_width = max(table_width, min_header_width)
             
-            report_lines.append(title1.center(header_width))
-            report_lines.append(title2.center(header_width))
+            report_lines.extend(format_text_header(final_width, title_lines, meta_lines))
             
             report_lines.append("")
             on_time_str = metadata.get('OperatingTime')
@@ -171,7 +192,7 @@ class Report(ContestReport):
         contest_def = log.contest_definition
         if getattr(contest_def, 'suppress_blank_mult_warnings', False):
             return
-            
+        
         log_location_type = getattr(log, '_my_location_type', None)
         exclusive_groups = contest_def.mutually_exclusive_mults
 

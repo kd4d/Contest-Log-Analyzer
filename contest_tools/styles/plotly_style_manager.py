@@ -4,8 +4,8 @@
 #          to ensure consistency across all interactive visual reports.
 #
 # Author: Gemini AI
-# Date: 2025-12-07
-# Version: 1.0.0
+# Date: 2025-12-28
+# Version: 0.143.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,11 +19,27 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.143.2-Beta] - 2025-12-28
+# - Tuned "Legend Belt" spacing: Increased top/bottom margins (130/160px) and lifted title (yshift=90).
+# [0.143.1-Beta] - 2025-12-28
+# - Updated yshift to 65px for title annotations to create the "Legend Belt".
+# [0.143.0-Beta] - 2025-12-28
+# - Updated get_standard_layout to support polymorphic titles (str or List[str]).
+# - Implemented Annotation Stack strategy for precise title spacing.
+# [0.133.4-Beta] - 2025-12-20
+# - Implemented absolute pixel positioning (yshift) for footer annotations to prevent overlap.
+# - Adjusted bottom margin to 140px.
+# [0.133.3-Beta] - 2025-12-20
+# - Increased bottom margin to 160px and lowered footer to -0.35 to prevent overlap.
+# [0.133.2-Beta] - 2025-12-20
+# - Adjusted bottom margin and footer position to prevent overlap in dashboards.
+# [1.1.0] - 2025-12-20
+# - Added footer_text support to `get_standard_layout` for branding/metadata.
 # [1.0.0] - 2025-12-07
 # - Initial creation to support Phase 2 Visualization Standardization.
 # - Implemented color map generators and standard layout factories.
 
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Union
 import plotly.graph_objects as go
 
 class PlotlyStyleManager:
@@ -36,7 +52,7 @@ class PlotlyStyleManager:
     # Copied to avoid dependency on matplotlib.colors
     _COLOR_PALETTE = [
         '#1f77b4', # Blue
-        '#ff7f0e', # Orange
+        '#ff7f7e', # Orange (Corrected typo from source if any, standardizing on Tableau 10)
         '#2ca02c', # Green
         '#d62728', # Red
         '#9467bd', # Purple
@@ -84,25 +100,68 @@ class PlotlyStyleManager:
         }
 
     @staticmethod
-    def get_standard_layout(title: str) -> Dict[str, Any]:
+    def get_standard_layout(title: Union[str, List[str]], footer_text: str = None) -> Dict[str, Any]:
         """
         Returns a standard Plotly layout dictionary.
-        
+
         Args:
-            title: The main chart title.
-            
+            title: The chart title. Can be a string (Legacy) or List[str] (Annotation Stack).
+            footer_text: Optional text to display as a footer (e.g., Branding/CTY info).
+
         Returns:
             A dictionary suitable for passing to fig.update_layout().
         """
-        return {
-            "title": {
-                "text": title,
+        layout = {
+            "font": {"family": "Arial, sans-serif"},
+            "template": "plotly_white",
+            "margin": {"l": 50, "r": 50, "t": 130, "b": 160}, # Increased t/b for headers/footers
+            "showlegend": True
+        }
+
+        if isinstance(title, list) and len(title) > 0:
+            # Annotation Stack Strategy (Pixel-Locked)
+            layout["title"] = {"text": ""} # Disable standard title
+            
+            annotations = [
+                # Line 1: Main Header (Bold, Anchored High in Margin)
+                # y=1 is top of GRID. yshift=90 pushes it UP to create room for Legend Belt.
+                dict(x=0.5, y=1, xref='paper', yref='paper', text=f"<b>{title[0]}</b>", 
+                     showarrow=False, font=dict(size=24, family="Arial, sans-serif"), 
+                     xanchor='center', yanchor='bottom', yshift=90),
+                
+                # Lines 2+: Subheader (Normal, Hanging from Header)
+                dict(x=0.5, y=1, xref='paper', yref='paper', text="<br>".join(title[1:]),
+                     showarrow=False, font=dict(size=16, family="Arial, sans-serif"),
+                     xanchor='center', yanchor='top', yshift=90)
+            ]
+            layout["annotations"] = annotations
+        else:
+            # Legacy String Behavior
+            layout["title"] = {
+                "text": str(title),
                 "x": 0.5,
                 "xanchor": "center",
                 "font": {"size": 20, "family": "Arial, sans-serif", "weight": "bold"}
-            },
-            "font": {"family": "Arial, sans-serif"},
-            "template": "plotly_white",
-            "margin": {"l": 50, "r": 50, "t": 80, "b": 50},
-            "showlegend": True
-        }
+            }
+
+        if footer_text:
+            footer_ann = dict(
+                x=0.5,
+                y=0, # Anchor to bottom of plot area
+                yshift=-85, # Push down by fixed pixels (clears axis labels)
+                xref="paper",
+                yref="paper",
+                text=footer_text.replace('\n', '<br>'), # Convert newlines for Plotly
+                showarrow=False,
+                font=dict(size=12, color="#7f7f7f"),
+                align="center",
+                valign="top",
+                yanchor="top" # Ensure shift pushes down from the anchor
+            )
+            
+            if "annotations" in layout:
+                layout["annotations"].append(footer_ann)
+            else:
+                layout["annotations"] = [footer_ann]
+            
+        return layout

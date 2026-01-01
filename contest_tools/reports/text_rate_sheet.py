@@ -4,7 +4,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-06
-# Version: 2.0.1
+# Version: 0.134.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,12 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.134.1-Beta] - 2025-12-20
+# - Added standard report header generation using `format_text_header`.
+# [0.116.0-Beta] - 2025-12-15
+# - Removed usage of get_copyright_footer.
+# [0.115.3-Beta] - 2025-12-15
+# - Added standardized copyright footer.
 # [2.0.1] - 2025-12-06
 # - Fixed IndexError in lookup logic for missing bands/modes.
 # [2.0.0] - 2025-12-06
@@ -31,6 +37,7 @@ import pandas as pd
 import os
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
+from ._report_utils import format_text_header, get_cty_metadata, get_standard_title_lines
 from ..data_aggregators.time_series import TimeSeriesAggregator
 
 class Report(ContestReport):
@@ -78,7 +85,10 @@ class Report(ContestReport):
             hourly_data = log_data['hourly']
             available_modes = sorted(list(hourly_data.get('by_mode', {}).keys()))
             if not available_modes:
-                 available_modes = ["QSO"] # Fallback
+                available_modes = ["QSO"] # Fallback
+
+            # Calculate modes present for smart scoping
+            modes_present = set(available_modes)
 
             report_blocks = []
 
@@ -147,8 +157,17 @@ class Report(ContestReport):
             display_net = gross_qsos if include_dupes else net_qsos
             footer = f"Gross QSOs={gross_qsos}     Dupes={dupes}     Net QSOs={display_net}"
 
+            # --- Generate Standard Header ---
+            # Measure width from the first block
+            block1_lines = block1.split('\n')
+            table_width = len(block1_lines[3]) if len(block1_lines) > 3 else 80
+
+            title_lines = get_standard_title_lines(self.report_name, [log], "All Bands", None, modes_present)
+            meta_lines = ["Contest Log Analytics by KD4D", get_cty_metadata([log])]
+            header_block = format_text_header(table_width, title_lines, meta_lines)
+
             # --- Assembly ---
-            full_content = "\n\n".join(report_blocks) + "\n\n" + footer + "\n"
+            full_content = "\n".join(header_block) + "\n\n" + "\n\n".join(report_blocks) + "\n\n" + footer + "\n"
             
             os.makedirs(output_path, exist_ok=True)
             filename = f"{self.report_id}_{callsign}.txt"
@@ -220,10 +239,11 @@ class Report(ContestReport):
                     m = key.replace('mode_', '')
                     data_list = data_source['by_mode'].get(m, [])
                     val = data_list[i] if data_list else 0
-                    if force_band_context: 
+            
+                if force_band_context: 
                         # This should theoretically not happen in Summary block, 
                         # but if mode column used in detail block, it maps to band_mode
-                        pass
+                    pass
                 elif ctype == 'band_mode':
                     # key = bm_10M_CW
                     # lookup in by_band_mode

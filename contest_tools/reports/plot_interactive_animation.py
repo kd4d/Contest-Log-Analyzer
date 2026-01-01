@@ -1,5 +1,10 @@
 # contest_tools/reports/plot_interactive_animation.py
-# Version: 0.109.7-Beta
+#
+# Purpose: Generates an interactive HTML animation dashboard.
+#
+# Author: Gemini AI
+# Date: 2025-12-23
+# Version: 0.131.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -8,10 +13,22 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.131.1-Beta] - 2025-12-23
+# - Enable single-log support.
+# [0.131.0-Beta] - 2025-12-20
+# - Refactored to use `get_standard_title_lines` for standardized 3-line headers.
+# - Implemented explicit "Smart Scoping" for title generation.
+# - Added footer metadata via `get_cty_metadata` (custom layout injection).
+# [0.115.1-Beta] - 2025-12-15
+# - Implemented "Representative Legend" strategy:
+#   1. Renamed station legend entries to show only the Callsign (Station=Hue).
+#   2. Added dummy legend entries using the first palette color (Blue) to explain
+#      the Mode encoding (Run=Solid, S&P=Translucent, Unknown=Gray).
 # [0.109.7-Beta] - 2025-12-13
 # - Removed 'save_debug_data' call to clean up production code.
 # [0.109.6-Beta] - 2025-12-13
@@ -25,7 +42,6 @@
 # - Implemented "Monochromatic Intensity" color strategy for animation bars.
 # [0.107.0-Beta] - 2025-12-13
 # - Changed report_type from 'html' to 'animation'.
-
 import os
 import logging
 import numpy as np
@@ -36,7 +52,7 @@ from typing import List, Dict, Any, Tuple
 from pathlib import Path
 
 from .report_interface import ContestReport
-from ._report_utils import create_output_directory, _sanitize_filename_part
+from ._report_utils import create_output_directory, _sanitize_filename_part, get_cty_metadata, get_standard_title_lines, get_valid_dataframe
 from ..data_aggregators.time_series import TimeSeriesAggregator
 from ..data_aggregators.matrix_stats import MatrixAggregator
 from ..styles.plotly_style_manager import PlotlyStyleManager
@@ -56,6 +72,7 @@ class Report(ContestReport):
     report_type: str = "animation"
     is_specialized: bool = False
     supports_multi: bool = True
+    supports_single: bool = True
 
     def _get_mode_color(self, base_hex: str, mode: str) -> str:
         """Calculates color based on mode: Run=Solid, S&P=50% Opacity, Unknown=Light Gray."""
@@ -139,7 +156,7 @@ class Report(ContestReport):
                 # Bottom Left: Hourly
                 fig.add_trace(
                     go.Bar(
-                        name=f"{call} {mode}",
+                        name=call,
                         x=bands,
                         y=[0] * len(bands),
                         marker_color=color,
@@ -154,7 +171,7 @@ class Report(ContestReport):
                 # Bottom Right: Cumulative
                 fig.add_trace(
                     go.Bar(
-                        name=f"{call} {mode}",
+                        name=call,
                         x=bands,
                         y=[0] * len(bands),
                         marker_color=color,
@@ -165,6 +182,28 @@ class Report(ContestReport):
                     ),
                     row=2, col=2
                 )
+
+        # --- Legend Decoder (Representative Keys) ---
+        # Add dummy traces to explain the Color Intensity/Gray logic.
+        # We use the first color in the palette (Blue) as the example.
+        example_blue = base_palette[0]
+        
+        decoder_items = [
+            ("Mode: Run", self._get_mode_color(example_blue, 'Run')),
+            ("Mode: S&P", self._get_mode_color(example_blue, 'S&P')),
+            ("Mode: Unknown", self._get_mode_color(example_blue, 'Unknown'))
+        ]
+
+        for label, color in decoder_items:
+            fig.add_trace(
+                go.Bar(
+                    x=[None], y=[None],
+                    name=label,
+                    marker_color=color,
+                    showlegend=True,
+                ),
+                row=1, col=1 # Assign to any subplot, it won't render data
+            )
 
         # 4. Generate Frames
         frames = []
@@ -210,21 +249,23 @@ class Report(ContestReport):
         fig.update_xaxes(title_text="Band", row=2, col=2)
 
         # Construct Standard Title
-        log1_meta = self.logs[0].get_metadata()
-        year = kwargs.get('year', '2024') # Fallback
-        if not kwargs.get('year'):
-             year = "2024"
-
-        contest = log1_meta.get('ContestName', 'Contest')
-        title_line1 = self.report_name
-        title_line2 = f"{year} {contest} - {', '.join(callsigns)}"
+        modes_present = set()
+        for log in self.logs:
+            df = get_valid_dataframe(log)
+            if 'Mode' in df.columns:
+                modes_present.update(df['Mode'].dropna().unique())
+        
+        title_lines = get_standard_title_lines(self.report_name, self.logs, "All Bands", None, modes_present)
+        
+        # For animation, we can add help text to the title
+        final_title = f"{title_lines[0]}<br><sub>{title_lines[1]}<br>{title_lines[2]}</sub>"
 
         # Animation Settings
         fig.update_layout(
             template="plotly_white",
             height=900,
             # Initial placeholder title, will be updated below
-            title_text=f"{title_line1}",
+            title_text=final_title,
             barmode='stack', # Enables stacking within offsetgroups
             updatemenus=[{
                 "type": "buttons",
@@ -269,8 +310,21 @@ class Report(ContestReport):
             }]
         )
 
-        # Update Title with Standard Formatting
-        fig.update_layout(title_text=f"{title_line1}<br><sub>{title_line2}</sub>")
+        # Update Title with Standard Formatting and Footer
+        footer_text = f"Contest Log Analytics by KD4D\n{get_cty_metadata(self.logs)}"
+        
+        # Merge with existing layout properties (since animation has complex layout)
+        # We inject footer as annotation manually because we aren't using get_standard_layout here
+        fig.update_layout(title_text=final_title)
+        fig.add_annotation(
+            x=0.5, y=-0.25, # Push footer way down below controls
+            xref="paper", yref="paper",
+            text=footer_text.replace('\n', '<br>'),
+            showarrow=False,
+            font=dict(size=12, color="#7f7f7f"),
+            align="center",
+            valign="top"
+        )
 
         # 6. Save
         sanitized_calls = "_".join([_sanitize_filename_part(c) for c in callsigns])

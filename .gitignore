@@ -10,6 +10,11 @@ CONTEST_LOGS_REPORTS/reports/
 CONTEST_LOGS_REPORTS/reports_*/
 CONTEST_LOGS_REPORTS/data/CTY/
 AIAgentGuidance/Archive/
+AIAgentGuidance/ImplementationPlan.md
+AIAgentGuidance/PlotlyTitles/
+AIAgentGuidance/PlotlyRefactor/
+AIAgentGuidance/Architect*
 web_app/media/
 *.sqlite3
 Archives/
+*_bundle.txt

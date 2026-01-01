@@ -4,8 +4,8 @@
 #          specific multiplier type (e.g., Countries, Zones).
 #
 # Author: Gemini AI
-# Date: 2025-12-04
-# Version: 0.93.2
+# Date: 2025-12-17
+# Version: 0.134.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.134.1-Beta] - 2025-12-20
+# - Added standard report header generation using `format_text_header`.
+# [0.125.0-Beta] - 2025-12-17
+# - Verified compatibility with refactored MultiplierStatsAggregator (Pivot Utils extraction).
 # [0.93.2] - 2025-12-04
 # - Refactored rendering logic to support single-line output for single logs
 #   while preserving indented hierarchy for comparative reports.
@@ -28,8 +32,7 @@
 # [0.93.0-Beta] - 2025-11-23
 # - Added logic to preserve "Prefixes" as a plural header.
 # [0.90.0-Beta] - 2025-10-01
-# Set new baseline version for release.
-
+# - Set new baseline version for release.
 from typing import List
 import os
 import json
@@ -38,6 +41,7 @@ import hashlib
 from ..contest_log import ContestLog
 from ..data_aggregators.multiplier_stats import MultiplierStatsAggregator
 from .report_interface import ContestReport
+from ._report_utils import format_text_header, get_cty_metadata, get_standard_title_lines
 
 class Report(ContestReport):
     """
@@ -78,7 +82,7 @@ class Report(ContestReport):
         if not pivot.get('data') and not combined_df:
              mode_str = f" on mode '{mode_filter}'" if mode_filter else ""
              return f"Report '{self.report_name}' for '{mult_name}'{mode_str} skipped as no data was found."
-
+        
         bands = contest_def.valid_bands
         is_single_band = len(bands) == 1
         is_comparative = len(all_calls) > 1
@@ -108,19 +112,26 @@ class Report(ContestReport):
 
         sorted_mults = sorted(list(unique_mults))
         
-        # --- Report Header Setup ---
-        first_row_date = combined_df[0]['Date'] if combined_df else "----"
-        year = first_row_date.split('-')[0]
-        mode_title_str = f" ({mode_filter})" if mode_filter else ""
-        title1 = f"--- {self.report_name}: {mult_name}{mode_title_str} ---"
-        title2 = f"{year} {contest_def.contest_name} - {', '.join(all_calls)}"
+        # --- Header Preparation ---
+        modes_present = {mode_filter} if mode_filter else set()
+        if not modes_present:
+             # Try to derive from logs if not explicit
+             for log in self.logs:
+                 df = log.get_processed_data()
+                 if 'Mode' in df.columns:
+                     modes_present.update(df['Mode'].dropna().unique())
+
+        title_lines = get_standard_title_lines(f"{self.report_name}: {mult_name}", self.logs, "All Bands", mode_filter, modes_present)
+        meta_lines = ["Contest Log Analytics by KD4D", get_cty_metadata(self.logs)]
+        
         report_lines = []
 
         # --- Gracefully handle cases with no multipliers ---
         if not pivot_data:
-            report_lines.append(title1)
-            report_lines.append(title2)
-            report_lines.append(f"\nNo '{mult_name}' multipliers found to summarize.")
+            # Default width for empty report
+            header_block = format_text_header(80, title_lines, meta_lines)
+            report_lines.extend(header_block)
+            report_lines.append(f"\n\nNo '{mult_name}' multipliers found to summarize.")
             # --- Save the clean (but empty) report and exit ---
             report_content = "\n".join(report_lines) + "\n"
             os.makedirs(output_path, exist_ok=True)
@@ -174,14 +185,11 @@ class Report(ContestReport):
         table_width = len(table_header)
         separator = "-" * table_width
         
-        header_width = max(table_width, len(title1), len(title2))
-        if len(title1) > table_width or len(title2) > table_width:
-            report_lines.append(f"{title1.ljust(header_width)}")
-            report_lines.append(f"{title2.center(header_width)}")
-        else:
-            report_lines.append(title1.center(header_width))
-            report_lines.append(title2.center(header_width))
+        # Generate standard header
+        header_block = format_text_header(table_width, title_lines, meta_lines)
+        report_lines.extend(header_block)
         report_lines.append("")
+
         report_lines.append(table_header)
         report_lines.append(separator)
 
@@ -257,7 +265,7 @@ class Report(ContestReport):
                 line += f"{val:>7}"
                 grand_total += val
              if not is_single_band:
-                line += f"{grand_total:>7}"
+                 line += f"{grand_total:>7}"
              report_lines.append(line)
         else:
             report_lines.append(f"{'Total':<{first_col_width}}")
