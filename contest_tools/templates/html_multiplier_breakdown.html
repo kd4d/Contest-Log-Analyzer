@@ -42,12 +42,12 @@
              data-export-footer="Contest Log Analytics • {{ creation_date }}">
             <div class="mult-header">
                <div>
-                <div class="d-flex align-items-baseline gap-2">
+                   <div class="d-flex align-items-baseline gap-2">
                        <h5 class="mb-0 fw-bold">{{ row.label }}</h5>
                         <span class="text-muted small" style="font-size: 0.75rem;">(Total Worked: {{ row.total_worked }})</span>
                 </div>
                 </div>
-               
+                
                <div class="d-flex align-items-center gap-3">
                    <div class="d-flex gap-3 text-muted small">
                         <div class="d-flex align-items-center"><div style="width:8px;height:8px;background:var(--color-run);border-radius:50%;margin-right:4px;"></div>Run</div>
@@ -67,7 +67,7 @@
                 </div>
                 
                 <div class="horiz-strategy">
-                   <div class="grid-lines-container">
+                    <div class="grid-lines-container">
                         <div class="v-grid-line" style="left: 0%"></div>
                         <div class="v-grid-line" style="left: 25%"></div>
                         <div class="v-grid-line" style="left: 50%"></div>
@@ -80,10 +80,10 @@
                     <div class="h-bar-row">
                         <div class="fw-bold">{{ all_calls|get_item:forloop.counter0 }}</div>
                         <div class="h-bar-track">
-                            <div class="h-bar-fill" style="width: {% widthratio total_unique row.max_unique 100 %}%;">
+                             <div class="h-bar-fill" style="width: {% widthratio total_unique row.max_unique 100 %}%;">
                                 <div class="bg-run" style="width: {% widthratio stat.unique_run total_unique 100 %}%;"></div>
                                 <div class="bg-sp" style="width: {% widthratio stat.unique_sp total_unique 100 %}%;"></div>
-                                 <div class="bg-unk" style="width: {% widthratio stat.unique_unk total_unique 100 %}%;"></div>
+                                <div class="bg-unk" style="width: {% widthratio stat.unique_unk total_unique 100 %}%;"></div>
                             </div>
                         </div>
                         <div class="fw-bold text-end">{{ stat.count }}</div>
@@ -95,7 +95,7 @@
                     <div class="x-axis-row">
                         <div></div>
                         <div class="x-axis-scale">
-                            <span class="tick-label" style="left: 0%">0</span>
+                             <span class="tick-label" style="left: 0%">0</span>
                             <span class="tick-label" style="left: 25%">{% widthratio row.max_unique 4 1 %}</span>
                             <span class="tick-label" style="left: 50%">{% widthratio row.max_unique 2 1 %}</span>
                             <span class="tick-label" style="left: 75%">{% widthratio row.max_unique 4 3 %}</span>
@@ -134,16 +134,16 @@
 
             <div class="tab-content" id="pills-tabContent">
                 <div class="tab-pane fade show active" id="pills-all" role="tabpanel">
-                    <div class="vert-spectrum">
+                     <div class="vert-spectrum">
                         <div class="y-axis-col">
                             <div class="y-axis-spacer-header"></div>
                                 <div class="y-axis-scale-area">
-                                <div class="y-tick" style="bottom: 0%">0</div>
+                                 <div class="y-tick" style="bottom: 0%">0</div>
                                 <div class="y-tick" style="bottom: 25%">{% widthratio global_max.total 4 1 %}</div>
                                 <div class="y-tick" style="bottom: 50%">{% widthratio global_max.total 2 1 %}</div>
                                 <div class="y-tick" style="bottom: 75%">{% widthratio global_max.total 4 3 %}</div>
                                 <div class="y-tick" style="bottom: 100%">{{ global_max.total }}</div>
-                            </div>
+                             </div>
                             <div class="y-axis-spacer-foundation"></div>
                             <div class="y-axis-spacer-footer"></div>
                         </div>
@@ -158,47 +158,47 @@
                         {% for block in low_bands_data|add:high_bands_data %}
                         <div class="vert-col">
                             <div class="vert-header">{{ block.label }}</div>
-                            {% for row in block.rows %}
+                             {% for row in block.rows %}
                                {% if row.label == "TOTAL" or row.label == block.label %}
                                     <div class="vert-spikes-container">
-                                        {% for stat in row.stations %}
+                                         {% for stat in row.stations %}
                                         {% with total_unique=stat.unique_run|add:stat.unique_sp|add:stat.unique_unk %}
-                                        <div class="vert-bar-wrapper">
+                                         <div class="vert-bar-wrapper">
                                             <div class="vert-bar" style="height: {% widthratio total_unique global_max.total 100 %}%;" data-bs-toggle="tooltip" title="{{ all_calls|get_item:forloop.counter0 }}: {{ total_unique }} Unique">
                                                 <div class="bg-unk" style="height: {% widthratio stat.unique_unk total_unique 100 %}%;"></div>
                                                 <div class="bg-sp" style="height: {% widthratio stat.unique_sp total_unique 100 %}%;"></div>
                                                 <div class="bg-run" style="height: {% widthratio stat.unique_run total_unique 100 %}%;"></div>
-                                            </div>
+                                             </div>
                                        </div>
                                         {% endwith %}
                                         {% endfor %}
                                     </div>
-                                    <div class="vert-foundation">
+                                     <div class="vert-foundation">
                                         <div class="h4 fw-bold text-secondary m-0">{{ row.common }}</div>
-                                        <div class="small fw-bold text-muted text-uppercase" style="font-size:0.6rem;">Common</div>
+                                         <div class="small fw-bold text-muted text-uppercase" style="font-size:0.6rem;">Common</div>
                                     </div>
                                     <div class="d-flex" style="background:#f8fafc;">
-                                        {% for call in all_calls %}
+                                         {% for call in all_calls %}
                                         <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>
-                                        {% endfor %}
+                                         {% endfor %}
                                     </div>
                                 {% endif %}
-                            {% endfor %}
+                             {% endfor %}
                         </div>
                         {% endfor %}
                     </div>
                 </div>
 
-                <div class="tab-pane fade" id="pills-countries" role="tabpanel">
+                 <div class="tab-pane fade" id="pills-countries" role="tabpanel">
                     <div class="vert-spectrum">
                         <div class="y-axis-col">
                             <div class="y-axis-spacer-header"></div>
-                            <div class="y-axis-scale-area">
+                             <div class="y-axis-scale-area">
                                 <div class="y-tick" style="bottom: 0%">0</div>
                                 <div class="y-tick" style="bottom: 25%">{% widthratio global_max.countries 4 1 %}</div>
-                                <div class="y-tick" style="bottom: 50%">{% widthratio global_max.countries 2 1 %}</div>
+                                 <div class="y-tick" style="bottom: 50%">{% widthratio global_max.countries 2 1 %}</div>
                                 <div class="y-tick" style="bottom: 75%">{% widthratio global_max.countries 4 3 %}</div>
-                                <div class="y-tick" style="bottom: 100%">{{ global_max.countries }}</div>
+                                 <div class="y-tick" style="bottom: 100%">{{ global_max.countries }}</div>
                             </div>
                             <div class="y-axis-spacer-foundation"></div>
                             <div class="y-axis-spacer-footer"></div>
@@ -213,34 +213,34 @@
                         {% for block in low_bands_data|add:high_bands_data %}
                         <div class="vert-col">
                             <div class="vert-header">{{ block.label }}</div>
-                            {% for row in block.rows %}
+                             {% for row in block.rows %}
                                 {% if "Countries" in row.label %}
                                     <div class="vert-spikes-container">
-                                    {% for stat in row.stations %}
+                                     {% for stat in row.stations %}
                                     {% with total_unique=stat.unique_run|add:stat.unique_sp|add:stat.unique_unk %}
-                                    <div class="vert-bar-wrapper">
+                                     <div class="vert-bar-wrapper">
                                         <div class="vert-bar" style="height: {% widthratio total_unique global_max.countries 100 %}%;" data-bs-toggle="tooltip" title="{{ all_calls|get_item:forloop.counter0 }}: {{ total_unique }} Unique">
                                             <div class="bg-unk" style="height: {% widthratio stat.unique_unk total_unique 100 %}%;"></div>
                                             <div class="bg-sp" style="height: {% widthratio stat.unique_sp total_unique 100 %}%;"></div>
                                             <div class="bg-run" style="height: {% widthratio stat.unique_run total_unique 100 %}%;"></div>
-                                        </div>
+                                         </div>
                                      </div>
                                     {% endwith %}
-                                    {% endfor %}
+                                     {% endfor %}
                                     </div>
                                     <div class="vert-foundation">
-                                    <div class="h4 fw-bold text-secondary m-0">{{ row.common }}</div>
+                                     <div class="h4 fw-bold text-secondary m-0">{{ row.common }}</div>
                                     <div class="small fw-bold text-muted text-uppercase" style="font-size:0.6rem;">Common</div>
-                                    </div>
+                                     </div>
                                     <div class="d-flex" style="background:#f8fafc;">
                                     {% for call in all_calls %}
-                                   <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>
+                                    <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>
                                     {% endfor %}
-                                    </div>
+                                     </div>
                                 {% endif %}
                             {% endfor %}
                         </div>
-                        {% endfor %}
+                         {% endfor %}
                     </div>
                 </div>
 
@@ -249,10 +249,10 @@
                         <div class="y-axis-col">
                             <div class="y-axis-spacer-header"></div>
                             <div class="y-axis-scale-area">
-                                <div class="y-tick" style="bottom: 0%">0</div>
+                                 <div class="y-tick" style="bottom: 0%">0</div>
                                 <div class="y-tick" style="bottom: 25%">{% widthratio global_max.zones 4 1 %}</div>
                                 <div class="y-tick" style="bottom: 50%">{% widthratio global_max.zones 2 1 %}</div>
-                                <div class="y-tick" style="bottom: 75%">{% widthratio global_max.zones 4 3 %}</div>
+                                 <div class="y-tick" style="bottom: 75%">{% widthratio global_max.zones 4 3 %}</div>
                                 <div class="y-tick" style="bottom: 100%">{{ global_max.zones }}</div>
                             </div>
                             <div class="y-axis-spacer-foundation"></div>
@@ -272,30 +272,30 @@
                                 {% if "Zones" in row.label %}
                                 <div class="vert-spikes-container">
                                     {% for stat in row.stations %}
-                                    {% with total_unique=stat.unique_run|add:stat.unique_sp|add:stat.unique_unk %}
+                                     {% with total_unique=stat.unique_run|add:stat.unique_sp|add:stat.unique_unk %}
                                     <div class="vert-bar-wrapper">
                                         <div class="vert-bar" style="height: {% widthratio total_unique global_max.zones 100 %}%;" data-bs-toggle="tooltip" title="{{ all_calls|get_item:forloop.counter0 }}: {{ total_unique }} Unique">
                                             <div class="bg-unk" style="height: {% widthratio stat.unique_unk total_unique 100 %}%;"></div>
                                             <div class="bg-sp" style="height: {% widthratio stat.unique_sp total_unique 100 %}%;"></div>
                                             <div class="bg-run" style="height: {% widthratio stat.unique_run total_unique 100 %}%;"></div>
-                                        </div>
+                                         </div>
                                      </div>
                                     {% endwith %}
-                                    {% endfor %}
+                                     {% endfor %}
                                    </div>
                                    <div class="vert-foundation">
-                                    <div class="h4 fw-bold text-secondary m-0">{{ row.common }}</div>
+                                     <div class="h4 fw-bold text-secondary m-0">{{ row.common }}</div>
                                     <div class="small fw-bold text-muted text-uppercase" style="font-size:0.6rem;">Common</div>
-                                </div>
+                                     </div>
                                 <div class="d-flex" style="background:#f8fafc;">
                                     {% for call in all_calls %}
-                                   <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>
+                                    <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>
                                     {% endfor %}
                                 </div>
-                                {% endif %}
+                                 {% endif %}
                             {% endfor %}
                         </div>
-                        {% endfor %}
+                         {% endfor %}
                     </div>
                 </div>
 
@@ -303,7 +303,8 @@
         </div>
         
         <div class="bg-light p-4 border-t text-center text-xs text-muted mt-5">
-            End of Report &bull; Contest Log Analytics
+            Contest Log Analytics by KD4D<br>
+            {{ creation_date }}
         </div>
     </div>
     
@@ -316,15 +317,16 @@
             const exportTitle = sourceElement.getAttribute('data-export-title') || 'Snapshot';
             const exportContext = sourceElement.getAttribute('data-export-context') || '';
             const exportFooter = sourceElement.getAttribute('data-export-footer') || '';
+            
             // 2. Create Ghost Clone Container
             const ghost = document.createElement('div');
             ghost.style.position = 'absolute';
             ghost.style.left = '-9999px';
             ghost.style.top = '0';
-            ghost.style.width = sourceElement.offsetWidth + 'px';
-            // Maintain width
+            ghost.style.width = sourceElement.offsetWidth + 'px'; // Maintain width
             ghost.style.backgroundColor = '#ffffff';
             ghost.style.padding = '20px';
+            
             // 3. Inject Header
             const headerDiv = document.createElement('div');
             headerDiv.style.borderBottom = '2px solid #3b82f6'; // Blue accent
@@ -347,6 +349,7 @@
             clone.classList.remove('mult-card'); // Remove card borders if ghost wrapper handles it
             
             ghost.appendChild(clone);
+            
             // 5. Inject Footer
             const footerDiv = document.createElement('div');
             footerDiv.style.borderTop = '1px solid #e5e7eb';
@@ -367,12 +370,14 @@
                 backgroundColor: '#ffffff',
                 useCORS: true
             }).then(canvas => {
+            
                 document.body.removeChild(ghost);
                 
                 const link = document.createElement('a');
                 link.download = `${filenameBase}.png`;
                 link.href = canvas.toDataURL("image/png");
                 link.click();
+         
             }).catch(err => {
                 console.error("Capture failed", err);
                 document.body.removeChild(ghost);
