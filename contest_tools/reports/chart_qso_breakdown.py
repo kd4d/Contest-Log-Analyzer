@@ -4,8 +4,8 @@
 #          on common/unique QSOs broken down by Run vs. Search & Pounce (S&P) mode.
 #
 # Author: Gemini AI
-# Date: 2025-12-29
-# Version: Phase 1 (Pathfinder)
+# Date: 2026-01-01
+# Version: 0.151.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.151.1-Beta] - 2026-01-01
+# - Repair import path for report_utils to fix circular dependency.
+# [0.151.0-Beta] - 2026-01-01
+# - Refactored imports to use `contest_tools.utils.report_utils` to break circular dependency.
 # [Phase 1 (Pathfinder)] - 2025-12-29
 # - Added JSON export functionality for web component integration.
 # [0.147.0-Beta] - 2025-12-29
@@ -108,7 +112,7 @@ from contest_tools.reports.report_interface import ContestReport
 from contest_tools.contest_log import ContestLog
 from contest_tools.data_aggregators.categorical_stats import CategoricalAggregator
 from contest_tools.styles.plotly_style_manager import PlotlyStyleManager
-from contest_tools.reports._report_utils import get_valid_dataframe, create_output_directory, _sanitize_filename_part, get_cty_metadata, get_standard_title_lines
+from contest_tools.utils.report_utils import get_valid_dataframe, create_output_directory, _sanitize_filename_part, get_cty_metadata, get_standard_title_lines
 
 class Report(ContestReport):
     """

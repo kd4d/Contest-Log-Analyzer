@@ -4,8 +4,8 @@
 #          visualizing Run vs S&P activity for two stations per band.
 #
 # Author: Gemini AI (Builder)
-# Date: 2025-12-06
-# Version: 1.0.2
+# Date: 2026-01-01
+# Version: 0.151.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -14,9 +14,15 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
 # --- Revision History ---
+# [0.151.1-Beta] - 2026-01-01
+# - Repair import path for report_utils to fix circular dependency.
+# [0.151.0-Beta] - 2026-01-01
+# - Refactored imports to use `contest_tools.utils.report_utils` to break circular dependency.
 # [1.0.2] - 2025-12-06
 # - Fixed output directory pathing issue where charts were saved to a nested
 #   'charts/charts' directory. Now saves directly to the provided output_path.
@@ -38,7 +44,7 @@ from math import ceil
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
 from ..data_aggregators.matrix_stats import MatrixAggregator
-from ._report_utils import create_output_directory, _sanitize_filename_part
+from contest_tools.utils.report_utils import create_output_directory, _sanitize_filename_part
 from ..styles.mpl_style_manager import MPLStyleManager
 
 class Report(ContestReport):
@@ -65,7 +71,7 @@ class Report(ContestReport):
     def generate(self, output_path: str, **kwargs) -> str:
         if len(self.logs) != 2:
             return "Skipping: Butterfly chart requires exactly 2 logs."
-
+        
         call1 = self.logs[0].get_metadata().get('MyCall', 'LOG1')
         call2 = self.logs[1].get_metadata().get('MyCall', 'LOG2')
 
@@ -125,6 +131,7 @@ class Report(ContestReport):
         # Super Title
         title_line1 = f"Comparative Activity Breakdown (Hrly)"
         title_line2 = f"{year} {contest} - {call1} (Top) vs {call2} (Bottom)"
+        
         if total_pages > 1:
             title_line2 += f" - Page {page_num} of {total_pages}"
         
@@ -133,6 +140,7 @@ class Report(ContestReport):
         # Iterate Bands
         for ax, band in zip(axes, bands):
             # --- Extract Data for this Band ---
+            
             # Log 1 (Positive)
             l1_run = np.array(data['logs'][call1][band]['Run'])
             l1_sp = np.array(data['logs'][call1][band]['S&P'])
@@ -152,6 +160,7 @@ class Report(ContestReport):
             ax.bar(time_bins, l1_unk, bottom=l1_run + l1_sp, width=width, color=self.COLORS['Unknown'], label='Unknown', align='edge')
 
             # --- Plot Log 2 (Bottom - Negative) ---
+            
             # To stack downwards:
             # First bar starts at 0, goes to -val
             # Second bar starts at -val1, goes to -(val1+val2)

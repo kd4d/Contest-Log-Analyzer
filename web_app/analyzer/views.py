@@ -5,8 +5,8 @@
 #          aggregates data using DAL components, and renders the dashboard.
 #
 # Author: Gemini AI
-# Date: 2025-12-31
-# Version: 0.156.1-Beta
+# Date: 2026-01-01
+# Version: 0.156.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -20,6 +20,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.156.2-Beta] - 2026-01-01
+# - Updated import path for report utilities to `contest_tools.utils.report_utils`
+#   to resolve circular dependency.
 # [0.156.1-Beta] - 2025-12-31
 # - Implemented "Fast Path" hydration for Multiplier Dashboard to bypass LogManager reload.
 # - Updated footer generation to support multi-line text (Branding + CTY).
@@ -200,7 +203,7 @@ from contest_tools.data_aggregators.time_series import TimeSeriesAggregator
 from contest_tools.data_aggregators.multiplier_stats import MultiplierStatsAggregator
 from contest_tools.report_generator import ReportGenerator
 from contest_tools.core_annotations import CtyLookup
-from contest_tools.reports._report_utils import _sanitize_filename_part, get_standard_title_lines, get_cty_metadata
+from contest_tools.utils.report_utils import _sanitize_filename_part, get_standard_title_lines, get_cty_metadata
 from contest_tools.utils.log_fetcher import fetch_log_index, download_logs
 from contest_tools.manifest_manager import ManifestManager
 
@@ -885,6 +888,7 @@ def qso_dashboard(request, session_id):
 
     # 5. Discover QSO Rate Plots (Manifest Scan)
     qso_band_plots = []
+    
     for art in artifacts:
         if art['report_id'] == 'qso_rate_plots' and art['path'].endswith('.html'):
             fname = os.path.basename(art['path'])

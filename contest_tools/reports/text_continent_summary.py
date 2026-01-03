@@ -4,7 +4,7 @@
 #          broken down by band for multiple logs.
 #
 # Author: Gemini AI
-# Date: 2025-10-01
+# Date: 2026-01-01
 # Version: 0.134.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
@@ -28,7 +28,7 @@ import pandas as pd
 import os
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from ._report_utils import format_text_header, get_cty_metadata, get_standard_title_lines
+from contest_tools.utils.report_utils import format_text_header, get_cty_metadata, get_standard_title_lines
 
 class Report(ContestReport):
     """

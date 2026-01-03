@@ -4,8 +4,8 @@
 #          the operating style (Run, S&P, or Mixed) of two operators over time.
 #
 # Author: Gemini AI
-# Date: 2025-12-20
-# Version: 1.3.1-Beta
+# Date: 2026-01-01
+# Version: 0.151.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -17,7 +17,12 @@
 # License, v. 2.0.
 # If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
 # --- Revision History ---
+# [0.151.1-Beta] - 2026-01-01
+# - Repair import path for report_utils to fix circular dependency.
+# [0.151.0-Beta] - 2026-01-01
+# - Refactored imports to use `contest_tools.utils.report_utils` to break circular dependency.
 # [1.3.1-Beta] - 2025-12-20
 # - Refactored to use `get_standard_title_lines` for standardized 3-line headers.
 # - Implemented explicit "Smart Scoping" for title generation.
@@ -38,6 +43,7 @@
 # - Refactored to use MatrixAggregator (DAL).
 # [0.90.0-Beta] - 2025-10-01
 # - Set new baseline version for release.
+
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
@@ -50,7 +56,7 @@ from typing import List, Dict, Any
 
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from ._report_utils import get_valid_dataframe, create_output_directory, save_debug_data, get_cty_metadata, get_standard_title_lines
+from contest_tools.utils.report_utils import get_valid_dataframe, create_output_directory, save_debug_data, get_cty_metadata, get_standard_title_lines
 from ..data_aggregators.matrix_stats import MatrixAggregator
 from ..styles.plotly_style_manager import PlotlyStyleManager
 
@@ -197,6 +203,7 @@ class Report(ContestReport):
         
         # Customize for this specific report
         fig.update_layout(layout_cfg)
+        
         fig.update_layout(
             height=max(600, 200 * len(bands_on_page)),
             width=1600,
@@ -224,6 +231,7 @@ class Report(ContestReport):
         """Orchestrates the generation of the combined plot and per-mode plots."""
         if len(self.logs) != 2:
             return f"Error: Report '{self.report_name}' requires exactly two logs."
+        
         BANDS_PER_PAGE = 8
         log1, log2 = self.logs[0], self.logs[1]
         created_files = []

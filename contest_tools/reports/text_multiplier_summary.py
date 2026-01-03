@@ -41,7 +41,7 @@ import hashlib
 from ..contest_log import ContestLog
 from ..data_aggregators.multiplier_stats import MultiplierStatsAggregator
 from .report_interface import ContestReport
-from ._report_utils import format_text_header, get_cty_metadata, get_standard_title_lines
+from contest_tools.utils.report_utils import format_text_header, get_cty_metadata, get_standard_title_lines
 
 class Report(ContestReport):
     """

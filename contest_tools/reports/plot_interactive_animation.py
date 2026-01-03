@@ -3,8 +3,8 @@
 # Purpose: Generates an interactive HTML animation dashboard.
 #
 # Author: Gemini AI
-# Date: 2025-12-23
-# Version: 0.131.1-Beta
+# Date: 2026-01-01
+# Version: 0.151.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.151.1-Beta] - 2026-01-01
+# - Repair import path for report_utils to fix circular dependency.
+# [0.151.0-Beta] - 2026-01-01
+# - Refactored imports to use `contest_tools.utils.report_utils` to break circular dependency.
 # [0.131.1-Beta] - 2025-12-23
 # - Enable single-log support.
 # [0.131.0-Beta] - 2025-12-20
@@ -42,6 +46,7 @@
 # - Implemented "Monochromatic Intensity" color strategy for animation bars.
 # [0.107.0-Beta] - 2025-12-13
 # - Changed report_type from 'html' to 'animation'.
+
 import os
 import logging
 import numpy as np
@@ -52,7 +57,7 @@ from typing import List, Dict, Any, Tuple
 from pathlib import Path
 
 from .report_interface import ContestReport
-from ._report_utils import create_output_directory, _sanitize_filename_part, get_cty_metadata, get_standard_title_lines, get_valid_dataframe
+from contest_tools.utils.report_utils import create_output_directory, _sanitize_filename_part, get_cty_metadata, get_standard_title_lines, get_valid_dataframe
 from ..data_aggregators.time_series import TimeSeriesAggregator
 from ..data_aggregators.matrix_stats import MatrixAggregator
 from ..styles.plotly_style_manager import PlotlyStyleManager
@@ -404,6 +409,7 @@ class Report(ContestReport):
                 for mode in ['Run', 'S&P', 'Unknown']:
                     # Get hourly list (ensure alignment/length matching if necessary, 
                     # but aggregators should share master index logic)
+                    
                     raw_list = matrix_raw['logs'][call].get(band, {}).get(mode, [0]*len(time_bins))
                     
                     # Convert to numpy for cumsum

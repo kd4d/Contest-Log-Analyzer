@@ -4,8 +4,8 @@
 #          log, broken down by band.
 #
 # Author: Gemini AI
-# Date: 2025-12-20
-# Version: 0.130.0-Beta
+# Date: 2026-01-03
+# Version: 0.151.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -14,10 +14,13 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.151.2-Beta] - 2026-01-03
+# - Refactored imports to use absolute path `contest_tools.utils.report_utils` to resolve circular dependencies.
 # [0.130.0-Beta] - 2025-12-20
 # - Refactored to use `format_text_header` for standardized 3-line titles.
 # - Integrated `get_cty_metadata` for provenance tracking.
@@ -40,6 +43,7 @@
 #   correct logic in `wae_calculator.py`.
 # [0.90.0-Beta] - 2025-10-01
 # - Set new baseline version for release.
+
 from typing import List, Dict, Set, Tuple
 import pandas as pd
 import os
@@ -51,7 +55,7 @@ from ..contest_log import ContestLog
 from ..contest_definitions import ContestDefinition
 from .report_interface import ContestReport
 from ..utils.pivot_utils import calculate_multiplier_pivot
-from ._report_utils import format_text_header, get_cty_metadata
+from contest_tools.utils.report_utils import format_text_header, get_cty_metadata
 
 class Report(ContestReport):
     """

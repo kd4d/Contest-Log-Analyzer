@@ -3,8 +3,8 @@
 # Purpose: A text report that generates a comparative hourly rate sheet for two or more logs.
 #
 # Author: Gemini AI
-# Date: 2025-12-20
-# Version: 0.134.0-Beta
+# Date: 2026-01-03
+# Version: 0.151.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.151.2-Beta] - 2026-01-03
+# - Refactored imports to use absolute path `contest_tools.utils.report_utils` to resolve circular dependencies.
 # [0.134.0-Beta] - 2025-12-20
 # - Standardized report header to use `_report_utils`.
 # [0.116.0-Beta] - 2025-12-15
@@ -48,7 +50,7 @@ import os
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
 from ..data_aggregators.time_series import TimeSeriesAggregator
-from ._report_utils import _sanitize_filename_part, format_text_header, get_cty_metadata, get_standard_title_lines
+from contest_tools.utils.report_utils import _sanitize_filename_part, format_text_header, get_cty_metadata, get_standard_title_lines
 
 class Report(ContestReport):
     """
@@ -66,7 +68,7 @@ class Report(ContestReport):
         """
         if len(self.logs) < 2:
             return "Error: The Comparative Rate Sheet report requires at least two logs."
-
+        
         all_calls = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])
         first_log = self.logs[0]
         contest_def = first_log.contest_definition
@@ -319,7 +321,7 @@ class Report(ContestReport):
                     line_parts.append(f"{val:>{w}}")
                     
                 lines.append(" ".join(line_parts))
-                
+
                 first_call_line = False
             
             # Optional spacer between hours?

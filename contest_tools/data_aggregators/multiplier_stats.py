@@ -4,8 +4,8 @@
 #          serving both the 'Multiplier Summary' and 'Missed Multipliers' reports.
 #
 # Author: Gemini AI
-# Date: 2025-12-30
-# Version: 0.148.0-Beta
+# Date: 2026-01-01
+# Version: 0.149.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,12 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.149.1-Beta] - 2026-01-01
+# - Updated import path for `determine_activity_status` to use new `utils` location
+#   to resolve circular dependency.
+# [0.149.0-Beta] - 2026-01-01
+# - Refactored to use centralized `determine_activity_status` utility.
+# - Standardized status label 'Both' to 'Mixed'.
 # [0.148.0-Beta] - 2025-12-30
 # - Fixed relative import for ComparativeEngine.
 # [0.146.0-Beta] - 2025-12-30
@@ -53,13 +59,13 @@
 # [0.93.0] - 2025-11-23
 # - Initial creation. Extracted logic from text_multiplier_summary.py and
 #   text_missed_multipliers.py.
-
 from typing import List, Dict, Any, Set
 import pandas as pd
 from ..contest_log import ContestLog
 from .comparative_engine import ComparativeEngine
 from ..utils.pivot_utils import calculate_multiplier_pivot
 from ..utils.json_encoders import NpEncoder
+from ..utils.report_utils import determine_activity_status
 
 class MultiplierStatsAggregator:
     def __init__(self, logs: List[ContestLog]):
@@ -68,17 +74,6 @@ class MultiplierStatsAggregator:
         self.logs = logs
         # Assume all logs share the same definition
         self.contest_def = logs[0].contest_definition
-
-    def _get_run_sp_status(self, series: pd.Series) -> str:
-        """Determines if a multiplier was worked via Run, S&P, Unknown, or a combination."""
-        modes = set(series.unique())
-        has_run = "Run" in modes
-        has_sp = "S&P" in modes
-        if has_run and has_sp: return "Both"
-        elif has_run: return "Run"
-        elif has_sp: return "S&P"
-        elif "Unknown" in modes: return "Unk"
-        return ""
 
     def get_summary_data(self, mult_name: str, mode_filter: str = None) -> Dict[str, Any]:
         """
@@ -217,7 +212,7 @@ class MultiplierStatsAggregator:
                         prefix_to_name_map[row[mult_column]] = row[name_column]
 
                 agg_data = df_scope.groupby(mult_column).agg(
-                    QSO_Count=('Call', 'size'), Run_SP_Status=('Run', self._get_run_sp_status))
+                    QSO_Count=('Call', 'size'), Run_SP_Status=('Run', determine_activity_status))
                 
                 # Convert DataFrame to Dict (orient='index')
                 band_data_map[callsign] = agg_data.to_dict(orient='index')
@@ -287,7 +282,7 @@ class MultiplierStatsAggregator:
                 
                 # Pre-calculate status for all multipliers in this scope
                 # Status logic: If worked on Run, it's Run. If Mixed, it's Mixed.
-                status_series = valid.groupby(mult_column)['Run'].apply(self._get_run_sp_status)
+                status_series = valid.groupby(mult_column)['Run'].apply(determine_activity_status)
 
                 if method == 'once_per_log':
                     # Scope: Global. Key: (Rule, Value)
@@ -356,7 +351,7 @@ class MultiplierStatsAggregator:
                         # Map 'Both' to 'Run' or 'S&P'? Usually 'Run' is dominant/preferred, 
                         # but 'Both' implies it was worked multiple times.
                         # Let's map 'Both' to 'Run' as it indicates ability to hold frequency.
-                        if status in ['Run', 'Both']: u_run += 1
+                        if status in ['Run', 'Mixed']: u_run += 1
                         elif status == 'S&P': u_sp += 1
                         else: u_unk += 1
 

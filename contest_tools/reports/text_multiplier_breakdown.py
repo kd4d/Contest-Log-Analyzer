@@ -43,7 +43,7 @@
 import os
 from .report_interface import ContestReport
 from ..data_aggregators.multiplier_stats import MultiplierStatsAggregator
-from ._report_utils import _sanitize_filename_part, format_text_header, get_cty_metadata, get_standard_title_lines
+from contest_tools.utils.report_utils import _sanitize_filename_part, format_text_header, get_cty_metadata, get_standard_title_lines
 
 class Report(ContestReport):
     report_id = "text_multiplier_breakdown"

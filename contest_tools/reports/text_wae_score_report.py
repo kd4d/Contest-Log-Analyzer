@@ -4,8 +4,8 @@
 #          contest, including QTC points and weighted multipliers.
 #
 # Author: Gemini AI
-# Date: 2025-11-24
-# Version: 0.134.1-Beta
+# Date: 2026-01-03
+# Version: 0.151.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.151.2-Beta] - 2026-01-03
+# - Refactored imports to use absolute path `contest_tools.utils.report_utils` to resolve circular dependencies.
 # [0.134.1-Beta] - 2025-12-20
 # - Added standard report header generation using `format_text_header`.
 # [0.91.4-Beta] - 2025-11-24
@@ -31,6 +33,7 @@
 #   correct logic in `wae_calculator.py`.
 # [0.90.0-Beta] - 2025-10-01
 # - Set new baseline version for release.
+
 from typing import List, Dict, Any
 import pandas as pd
 import os
@@ -38,7 +41,7 @@ from prettytable import PrettyTable
 
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from ._report_utils import get_valid_dataframe, create_output_directory, save_debug_data, format_text_header, get_cty_metadata, get_standard_title_lines
+from contest_tools.utils.report_utils import get_valid_dataframe, create_output_directory, save_debug_data, format_text_header, get_cty_metadata, get_standard_title_lines
 from ..data_aggregators.wae_stats import WaeStatsAggregator
 
 class Report(ContestReport):
@@ -65,7 +68,7 @@ class Report(ContestReport):
 
         if qsos_df.empty:
             return f"Skipping report for {callsign}: No valid QSOs to report."
-
+        
         # --- Save Debug Data ---
         debug_data_flag = kwargs.get("debug_data", False)
         if debug_data_flag:
@@ -85,7 +88,7 @@ class Report(ContestReport):
         
         if not log_data:
              return f"Skipping report for {callsign}: No data returned from aggregator."
-
+        
         # --- Formatting ---
         table = PrettyTable()
         table.field_names = ["Band", "Mode", "QSO Pts", "Weighted Mults"]

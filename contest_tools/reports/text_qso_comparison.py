@@ -30,7 +30,7 @@
 # Set new baseline version for release.
 
 from .report_interface import ContestReport
-from ._report_utils import get_valid_dataframe, create_output_directory, format_text_header, get_cty_metadata, get_standard_title_lines
+from contest_tools.utils.report_utils import get_valid_dataframe, create_output_directory, format_text_header, get_cty_metadata, get_standard_title_lines
 import pandas as pd
 import os
 from ..contest_log import ContestLog

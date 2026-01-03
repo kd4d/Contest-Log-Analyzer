@@ -5,8 +5,8 @@
 #          serves as a proof-of-concept for using the tabulate library.
 #
 # Author: Gemini AI
-# Date: 2025-10-09
-# Version: 0.134.1-Beta
+# Date: 2026-01-01
+# Version: 0.151.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -20,6 +20,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.151.1-Beta] - 2026-01-01
+# - Repair import path for report_utils to fix circular dependency.
 # [0.134.1-Beta] - 2025-12-20
 # - Added standard report header generation using `format_text_header`.
 # [0.113.0-Beta] - 2025-12-13
@@ -33,6 +35,7 @@
 #   correct logic in `wae_calculator.py`.
 # [0.90.0-Beta] - 2025-10-01
 # - Set new baseline version for release.
+
 from typing import List, Set, Dict, Tuple
 import pandas as pd
 import os
@@ -40,7 +43,7 @@ from tabulate import tabulate
 from ..contest_log import ContestLog
 from ..contest_definitions import ContestDefinition
 from .report_interface import ContestReport
-from ._report_utils import _sanitize_filename_part, format_text_header, get_cty_metadata, get_standard_title_lines
+from contest_tools.utils.report_utils import _sanitize_filename_part, format_text_header, get_cty_metadata, get_standard_title_lines
 
 class Report(ContestReport):
     """

@@ -3,8 +3,8 @@
 # Purpose: Specialized HTML report for multiplier breakdown (Group Par) with offline visual support.
 #
 # Author: Gemini AI
-# Date: 2025-12-31
-# Version: 0.157.3-Beta
+# Date: 2026-01-01
+# Version: 0.151.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.151.1-Beta] - 2026-01-01
+# - Repair import path for report_utils to fix circular dependency.
+# [0.151.0-Beta] - 2026-01-01
+# - Refactored imports to use `contest_tools.utils.report_utils` to break circular dependency.
 # [0.157.3-Beta] - 2025-12-31
 # - Ported `global_max` calculation logic from views.py to fix invisible vertical bars in offline reports.
 # [0.157.0-Beta] - 2025-12-31
@@ -36,7 +40,7 @@ from django.template.loader import render_to_string
 from django.conf import settings
 from .report_interface import ContestReport
 from ..data_aggregators.multiplier_stats import MultiplierStatsAggregator
-from ._report_utils import _sanitize_filename_part, get_cty_metadata, get_standard_title_lines
+from contest_tools.utils.report_utils import _sanitize_filename_part, get_cty_metadata, get_standard_title_lines
 
 class Report(ContestReport):
     report_id = "html_multiplier_breakdown"
