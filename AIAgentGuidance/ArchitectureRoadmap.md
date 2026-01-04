@@ -1,39 +1,29 @@
-# Architecture Roadmap
+# ArchitectHandoff.md
 
-**Version:** 1.5.0
-**Date:** 2025-12-30
-**Status:** Active - Phase 4 (Visual Intelligence)
+**Date:** 2026-01-04
+**From:** Session A (Analyst/Architect)
+**To:** Session B (Architect/Builder)
 
-## Phase 1: Core Analytics Engine [COMPLETED]
-* **Goal:** Establish reliable parsing, scoring, and basic reporting.
-* **Status:** Stable.
-* **Key Components:** `ContestLog`, `CabrilloParser`, `ScoreCalculator`.
+---
 
-## Phase 2: The Data Abstraction Layer (DAL) [COMPLETED]
-* **Goal:** Decouple reporting logic from Pandas DataFrames.
-* **Status:** Implemented (`0.90.x` series).
-* **Outcome:** All reports now consume Dict/List structures via `StationMetrics` objects.
+## 1. The Context Bridge
+We have just stabilized the **Data Abstraction Layer (DAL)**.
+* **The Issue:** We encountered a "Ghost Import" error where DAL modules were trying to import `_report_utils`, a file we had deleted.
+* **The Fix:** We surgically repaired `categorical_stats.py`, `propagation_aggregator.py`, and `wae_stats.py` to point to the correct `contest_tools.utils.report_utils`.
+* **The Follow-up:** We also fixed a logic error in `text_continent_breakdown.py` which was incorrectly using `CategoricalAggregator` as a stateful object.
 
-## Phase 3: Workflow Architecture Hardening [COMPLETED]
-* **Goal:** Eliminate "Context Drift" and "Hallucinations" in AI development.
-* **Status:** Implemented (Workflow v5.0.1).
-* **Key Features:**
-    * **The V-Model:** Strict separation of Analyst (Session A) and Builder (Session B).
-    * **The Trinity:** Workflow + Plan + Source required for execution.
-    * **Semantic Rigidity:** Strict naming conventions.
+## 2. The Current State of the Code
+The code in your `project_bundle.txt` (once you create it from your disk) should now be **stable** for execution, with one exception:
+* **CLI Noise:** When running `main_cli.py`, you will see a full stack dump regarding `html_multiplier_breakdown.py` (Django settings).
+* **The Fix:** I generated a Builder Execution Kit to fix this in `reports/__init__.py`. **Check if you applied it.** If not, the new Architect should immediately propose suppressing that specific error.
 
-## Phase 4: Visual Intelligence & Strategy [ACTIVE]
-* **Goal:** Transform static tables into strategic dashboards (Web UI).
-* **Current Focus:** The "Multiplier Strategy Board" (Concept 7).
-* **Recent Deliverables:**
-    * [x] **Integrated Data Grid:** Hybrid visual/numeric rows for Multiplier Dashboard.
-    * [x] **Run/S&P Metrics:** Backend logic to track unique multiplier acquisition method.
-    * [x] **Verbose Text Reports:** Expanded text report format for auditability.
-* **Backlog:**
-    * [ ] **CSS Consolidation:** Move inline dashboard styles to `base.css`.
-    * [ ] **Report Unification:** Migrate legacy HTML reports to the new "Card/Grid" design language.
-    * [ ] **Rate Analysis:** Implement "QS0 Rate vs. Multiplier Rate" graphs.
+## 3. Strategic Direction
+We are clearing the deck of "Legacy" code to fully embrace the **Phase 3 Web Architecture**.
+* **Constraint:** The Web Container (`web-1`) does **not** support Matplotlib or ffmpeg.
+* **Consequence:** Three reports (`chart_comparative_activity_butterfly`, `wrtc_propagation`, `wrtc_propagation_animation`) currently fail in the web app.
+* **Mission:** Your primary goal is to **modernize** these reports using Plotly. Start with the Butterfly Chart (High Value), then move to the WRTC reports.
 
-## Phase 5: Predictive Analytics [PLANNED]
-* **Goal:** Real-time scoring projections and "Path to Victory" modeling.
-* **Status:** Pending completion of Phase 4.
+## 4. Operational Instructions
+1.  **Start New Chat.**
+2.  **Upload:** Your fresh `project_bundle.txt`, this `ArchitectHandoff.md`, and the `ArchitectureRoadmap.md`.
+3.  **Prompt:** "Act as Analyst. Review the Handoff and verify the CLI error handling status."

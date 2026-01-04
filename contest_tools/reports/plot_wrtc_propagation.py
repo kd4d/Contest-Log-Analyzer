@@ -6,8 +6,8 @@
 #          band, continent, and mode for a single, peak-activity hour.
 #
 # Author: Gemini AI
-# Date: 2026-01-01
-# Version: 0.151.1-Beta
+# Date: 2026-01-03
+# Version: 0.151.4-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -21,10 +21,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
-# [0.151.1-Beta] - 2026-01-01
-# - Repair import path for report_utils to fix circular dependency.
-# [0.151.0-Beta] - 2026-01-01
-# - Refactored imports to use `contest_tools.utils.report_utils` to break circular dependency.
+# [0.151.4-Beta] - 2026-01-03
+# - Refactored imports to use contest_tools.utils.report_utils to break circular dependency.
 # [0.92.7-Beta] - 2025-10-12
 # - Changed figure height to 11.04 inches to produce a 2000x1104 pixel
 #   image, resolving the ffmpeg macro_block_size warning.
@@ -40,7 +38,6 @@
 # - Initial creation of the live-data report based on the
 #   prototype_wrtc_propagation.py script, serving as the proof-of-concept
 #   for the new data aggregation layer.
-
 import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.gridspec as gridspec
@@ -68,7 +65,7 @@ class Report(ContestReport):
         """
         if len(self.logs) != 2:
             return f"Report '{self.report_name}' requires exactly two logs."
-        
+
         log1, log2 = self.logs[0], self.logs[1]
         df1 = get_valid_dataframe(log1, include_dupes=False)
         df2 = get_valid_dataframe(log2, include_dupes=False)
@@ -81,7 +78,7 @@ class Report(ContestReport):
         hourly_counts = combined_df.set_index('Datetime').resample('h').size()
         if hourly_counts.empty:
             return f"Skipping '{self.report_name}': No hourly data to process."
-        
+
         peak_hour_timestamp = hourly_counts.idxmax()
         
         log_manager = getattr(log1, '_log_manager_ref', None)
@@ -116,4 +113,112 @@ class Report(ContestReport):
         else:
             return f"Failed to generate plot for report '{self.report_name}'."
 
-    def _create_propagation_chart(self, propagation_data: Dict, hour_num: int, total_
+    def _create_propagation_chart(self, propagation_data: Dict, hour_num: int, total_hours: int, output_path: str) -> str:
+        """Generates and saves the side-by-side butterfly chart."""
+        
+        # --- Extract data from the aggregator dictionary ---
+        DATA = propagation_data.get('data', {})
+        BANDS = propagation_data.get('bands', [])
+        CONTINENTS = propagation_data.get('continents', [])
+        MODES = propagation_data.get('modes', [])
+        CALLS = propagation_data.get('calls', [])
+        
+        if not all([DATA, BANDS, CONTINENTS, MODES, CALLS]):
+            logging.warning("Propagation data from aggregator is incomplete. Cannot generate plot.")
+            return ""
+
+        # --- Color Mapping for Continents ---
+        COLORS = plt.get_cmap('viridis', len(CONTINENTS))
+        CONTINENT_COLORS = {cont: COLORS(i) for i, cont in enumerate(CONTINENTS)}
+        
+        fig = plt.figure(figsize=(20, 11.04))
+
+        # --- Main 3-Row GridSpec Layout (Title, Plots, Legend) ---
+        gs_main = gridspec.GridSpec(
+            3, 1, figure=fig, height_ratios=[1, 10, 1.5],
+            top=0.93, bottom=0.12, hspace=0.3
+        )
+
+        # --- Create zones for title, plots, and legend ---
+        ax_title = fig.add_subplot(gs_main[0])
+        ax_legend = fig.add_subplot(gs_main[2])
+        ax_title.axis('off')
+        ax_legend.axis('off')
+
+        # --- Nested GridSpec for the two butterfly plots ---
+        gs_plots = gridspec.GridSpecFromSubplotSpec(1, 2, subplot_spec=gs_main[1], wspace=0.1)
+        ax_cw = fig.add_subplot(gs_plots[0, 0])
+        ax_ph = fig.add_subplot(gs_plots[0, 1], sharey=ax_cw)
+        axes = {'CW': ax_cw, 'PH': ax_ph}
+        plt.setp(ax_ph.get_yticklabels(), visible=False)
+
+        max_qso_rate = 0
+        for mode in MODES:
+            for band in BANDS:
+                for call in CALLS:
+                    max_qso_rate = max(max_qso_rate, sum(DATA.get(call, {}).get(mode, {}).get(band, {}).values()))
+        
+        axis_limit = (max_qso_rate // 10 + 1) * 10 if max_qso_rate > 0 else 10
+        bands_for_plotting = list(reversed(self.logs[0].contest_definition.valid_bands))
+
+        for mode in ['CW', 'PH']: # Always plot both axes for consistent layout
+            ax = axes.get(mode)
+            ax.set_title(mode, fontsize=16, fontweight='bold')
+
+            for j, band in enumerate(bands_for_plotting):
+                if mode in MODES and band in BANDS:
+                    left_pos = 0
+                    for continent in CONTINENTS:
+                        qso_count = DATA.get(CALLS[0], {}).get(mode, {}).get(band, {}).get(continent, 0)
+                        if qso_count > 0:
+                            ax.barh(j, qso_count, left=left_pos, color=CONTINENT_COLORS.get(continent, 'gray'), edgecolor='white', height=0.8)
+                            left_pos += qso_count
+
+                    left_neg = 0
+                    for continent in CONTINENTS:
+                        qso_count = DATA.get(CALLS[1], {}).get(mode, {}).get(band, {}).get(continent, 0)
+                        if qso_count > 0:
+                            ax.barh(j, -qso_count, left=left_neg, color=CONTINENT_COLORS.get(continent, 'gray'), edgecolor='white', height=0.8)
+                            left_neg -= qso_count
+            
+            ax.axvline(0, color='black', linewidth=1.5)
+            ax.set_yticks(np.arange(len(bands_for_plotting)))
+            ax.set_yticklabels(bands_for_plotting, fontsize=12)
+            ax.set_xlim(-axis_limit, axis_limit)
+
+            ticks = ax.get_xticks()
+            ax.set_xticks(ticks) # Lock in the ticks to prevent UserWarning
+            ax.set_xticklabels([int(abs(tick)) for tick in ticks])
+
+            ax.grid(axis='x', linestyle='--', alpha=0.6)
+
+            ax.text(0.02, 1.02, CALLS[0], transform=ax.transAxes, ha='left', fontsize=12, fontweight='bold')
+            ax.text(0.98, 1.02, CALLS[1], transform=ax.transAxes, ha='right', fontsize=12, fontweight='bold')
+            ax.set_xlabel("QSO Count for the Hour")
+
+        # --- Overall Figure Title and Legend ---
+        metadata = self.logs[0].get_metadata()
+        year = get_valid_dataframe(self.logs[0])['Date'].dropna().iloc[0].split('-')[0]
+        contest_name = metadata.get('ContestName', '')
+        event_id = metadata.get('EventID', '')
+        
+        title_line1 = f"{self.report_name} (Hour {hour_num}/{total_hours})"
+        title_line2 = f"{year} {event_id} {contest_name} - {CALLS[0]} vs. {CALLS[1]}".strip().replace("  ", " ")
+        ax_title.text(0.5, 0.5, f"{title_line1}\n{title_line2}", ha='center', va='center', fontsize=22, fontweight='bold', wrap=True)
+        
+        legend_patches = [plt.Rectangle((0,0),1,1, color=CONTINENT_COLORS.get(c, 'gray'), label=c) for c in CONTINENTS]
+        ax_legend.legend(handles=legend_patches, loc='center', ncol=len(CONTINENTS), title="Continents", fontsize='large', frameon=False)
+
+        # --- Save Plot ---
+        create_output_directory(output_path)
+        filename = f"{self.report_id}_{'_vs_'.join(sorted(CALLS))}.png"
+        filepath = os.path.join(output_path, filename)
+
+        try:
+            plt.savefig(filepath)
+            return filepath
+        except Exception as e:
+            logging.error(f"Error saving plot: {e}")
+            return ""
+        finally:
+            plt.close(fig)

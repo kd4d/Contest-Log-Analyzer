@@ -4,8 +4,8 @@
 #          such as QSO point breakdowns and set comparisons (unique/common QSOs).
 #
 # Author: Gemini AI
-# Date: 2025-11-25
-# Version: 0.93.1-Beta
+# Date: 2026-01-04
+# Version: 0.151.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -14,12 +14,21 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+# --- Revision History ---
+# [0.151.2-Beta] - 2026-01-04
+# - Added get_category_breakdown method to support text_continent_breakdown report.
+# [0.151.1-Beta] - 2025-12-31
+# - Redirected _report_utils import to contest_tools.utils.report_utils.
+# [0.93.1-Beta] - 2025-11-25
+# - Initial creation.
 
-from typing import List, Dict, Union, Set, Tuple
+from typing import List, Dict, Union, Set, Tuple, Any
 import pandas as pd
-from contest_tools.reports._report_utils import get_valid_dataframe
+from contest_tools.utils.report_utils import get_valid_dataframe
 
 # Placeholder type for type hinting only
 class ContestLog:
@@ -187,3 +196,22 @@ class CategoricalAggregator:
             "common": common_breakdown,
             "metrics": metrics
         }
+
+    def get_category_breakdown(self, log: ContestLog, category_col: str) -> List[Dict[str, Any]]:
+        """
+        Generates a breakdown of counts for a specific category column, grouped by Band.
+        Returns a list of dictionaries suitable for tabulate (Rows=Band, Cols=Category Values).
+        """
+        df = get_valid_dataframe(log, include_dupes=False)
+        if df.empty or category_col not in df.columns:
+            return []
+
+        # Pivot: Index='Band', Columns=category_col, Values=Count
+        # This structure matches the expectation of text_continent_breakdown.py 
+        # (which expects 'Band' as a key in the row)
+        pivot = df.pivot_table(index='Band', columns=category_col, aggfunc='size', fill_value=0)
+        
+        # Reset index to make 'Band' a column in the records
+        pivot = pivot.reset_index()
+        
+        return pivot.to_dict('records')

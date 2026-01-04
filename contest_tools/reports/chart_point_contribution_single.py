@@ -4,8 +4,8 @@
 #          point value, presented as a series of pie charts per band for a SINGLE log.
 #
 # Author: Gemini AI
-# Date: 2026-01-01
-# Version: 0.151.1-Beta
+# Date: 2026-01-03
+# Version: 0.151.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.151.3-Beta] - 2026-01-03
+# - Refactored imports to use contest_tools.utils.report_utils to break circular dependency.
 # [0.151.1-Beta] - 2026-01-01
 # - Repair import path for report_utils to fix circular dependency.
 # [0.151.0-Beta] - 2026-01-01

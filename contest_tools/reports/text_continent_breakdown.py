@@ -4,8 +4,8 @@
 #          for each band, utilizing the CategoricalAggregator.
 #
 # Author: Gemini AI
-# Date: 2026-01-01
-# Version: 0.151.1-Beta
+# Date: 2026-01-04
+# Version: 0.151.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.151.2-Beta] - 2026-01-04
+# - Updated to use stateless CategoricalAggregator and get_category_breakdown method.
+# - Added safety check for empty data.
 # [0.151.1-Beta] - 2026-01-01
 # - Repair import path for report_utils to fix circular dependency.
 # [0.151.0-Beta] - 2026-01-01
@@ -29,6 +32,7 @@
 # - Enable single-log support.
 # [0.134.0-Beta] - 2025-12-20
 # - Initial creation using CategoricalAggregator (DAL).
+
 import os
 from tabulate import tabulate
 from .report_interface import ContestReport
@@ -51,13 +55,17 @@ class Report(ContestReport):
         for log in self.logs:
             callsign = log.get_metadata().get('MyCall', 'Unknown')
             
-            # --- 1. Aggregation (DAL) ---
-            agg = CategoricalAggregator(log, category_column='Continent')
-            data = agg.get_band_breakdown()
+            # --- 1. Aggregation (DAL) [Stateless] ---
+            agg = CategoricalAggregator()
+            data = agg.get_category_breakdown(log, 'Continent')
             
             # --- 2. Formatting ---
             # Data comes as a list of dicts suitable for DataFrame/Tabulate
             # Add TOTAL row if not handled by aggregator (Aggregator does not add totals row currently)
+            
+            if not data:
+                results.append(f"Skipping {callsign}: No valid continent data found.")
+                continue
             
             # Calculate column totals manually for display
             totals = {k: 0 for k in data[0].keys() if k != 'Band'}

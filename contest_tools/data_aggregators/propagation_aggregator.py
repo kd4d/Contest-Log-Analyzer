@@ -4,8 +4,8 @@
 #          Propagation by Continent report.
 #
 # Author: Gemini AI
-# Date: 2025-11-24
-# Version: 0.93.0
+# Date: 2025-12-31
+# Version: 0.151.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.151.1-Beta] - 2025-12-31
+# - Redirected _report_utils import to contest_tools.utils.report_utils.
 # [0.93.0] - 2025-11-24
 # - Added strict JSON sanitization via NpEncoder to satisfy the
 #   Data Abstraction Layer requirements.
@@ -31,7 +33,7 @@ import pandas as pd
 from typing import List, Dict, Any, Optional
 
 from ..contest_log import ContestLog
-from ..reports._report_utils import get_valid_dataframe
+from contest_tools.utils.report_utils import get_valid_dataframe
 from ..utils.json_encoders import NpEncoder
 
 def generate_propagation_data(logs: List[ContestLog], hour_of_contest: int) -> Optional[Dict[str, Any]]:
