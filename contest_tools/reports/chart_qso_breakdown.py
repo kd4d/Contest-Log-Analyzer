@@ -4,8 +4,8 @@
 #          on common/unique QSOs broken down by Run vs. Search & Pounce (S&P) mode.
 #
 # Author: Gemini AI
-# Date: 2026-01-03
-# Version: 0.151.3-Beta
+# Date: 2026-01-05
+# Version: 0.158.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.158.0-Beta] - 2026-01-05
+# - Removed PNG generation (fig.write_image) to resolve Kaleido dependency issues in web container.
 # [0.151.3-Beta] - 2026-01-03
 # - Refactored imports to use contest_tools.utils.report_utils to break circular dependency.
 # [0.151.1-Beta] - 2026-01-01
@@ -262,7 +264,6 @@ class Report(ContestReport):
         # --- Save Files ---
         filename_base = base_filename # Re-using calculated base
         
-        filepath_png = os.path.join(output_path, f"{filename_base}.png")
         filepath_html = os.path.join(output_path, f"{filename_base}.html")
         filepath_json = os.path.join(output_path, f"{filename_base}.json")
         
@@ -279,19 +280,7 @@ class Report(ContestReport):
             fig.write_html(filepath_html, include_plotlyjs='cdn', config=config)
             results.append(f"Interactive plot saved: {filepath_html}")
 
-            # 2. Save PNG (Static - Fixed)
-            # Lock dimensions strictly for the static export
-            # Use specific width=1600 to enforce landscape orientation for standard reports
-            plot_height = 400 * rows
-            fig.update_layout(
-                autosize=False,
-                height=plot_height,
-                width=1600
-            )
-            fig.write_image(filepath_png, width=1600)
-            results.append(f"Plot saved: {filepath_png}")
-            
-            # 3. Save JSON (Component Data)
+            # 2. Save JSON (Component Data)
             fig.write_json(filepath_json)
             results.append(f"JSON data saved: {filepath_json}")
             
@@ -302,8 +291,6 @@ class Report(ContestReport):
 
         # Return list of successfully created files (checking existence)
         outputs = []
-        if os.path.exists(filepath_png):
-            outputs.append(filepath_png)
         if os.path.exists(filepath_html):
             outputs.append(filepath_html)
         if os.path.exists(filepath_json):

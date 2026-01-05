@@ -7,7 +7,7 @@
 #
 # Author: Gemini AI
 # Date: 2026-01-04
-# Version: 0.106.3-Beta
+# Version: 0.157.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -21,6 +21,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.157.0-Beta] - 2026-01-04
+# - ERROR HANDLING: Enhanced suppression for Django AppRegistry errors in CLI.
 # [0.106.3-Beta] - 2026-01-04
 # - ERROR HANDLING: Suppressed stack traces for Django settings errors in CLI mode.
 # [0.106.2-Beta] - 2026-01-04
@@ -39,6 +41,7 @@ import os
 import importlib
 import inspect
 import logging
+from django.core.exceptions import AppRegistryNotReady, ImproperlyConfigured
 
 # Dynamically discover and load all available report classes
 AVAILABLE_REPORTS = {}
@@ -71,7 +74,9 @@ for filename in os.listdir(current_dir):
             else:
                 logging.exception(f"Failed to load report from {filename}: {e}")
         except Exception as e:
-            if "settings are not configured" in str(e):
-                logging.warning(f"DEBUG TRACE: Skipping web-dependent report '{filename}': Django settings not configured.")
+            # Suppress Django-specific errors when running in CLI mode (no settings configured)
+            if "settings are not configured" in str(e) or "Apps aren't loaded yet" in str(e):
+                # Only log as warning, do not dump stack
+                pass 
             else:
                 logging.exception(f"Failed to load report from {filename}: {e}")
