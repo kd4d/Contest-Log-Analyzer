@@ -7,7 +7,7 @@
 #
 # Author: Gemini AI
 # Date: 2026-01-05
-# Version: 0.158.0-Beta
+# Version: 0.159.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -21,6 +21,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.159.1-Beta] - 2026-01-05
+# - Configured Plotly ModeBar 'Camera' button to download PNGs with descriptive filenames.
 # [0.158.0-Beta] - 2026-01-05
 # - Removed PNG generation (fig.write_image) to resolve Kaleido dependency issues in web container.
 # [0.157.0-Beta] - 2026-01-04
@@ -44,7 +46,6 @@
 # - Initial creation of the live-data report based on the
 #   prototype_wrtc_propagation.py script, serving as the proof-of-concept
 #   for the new data aggregation layer.
-
 import os
 import logging
 from typing import List, Dict, Any, Optional
@@ -72,30 +73,25 @@ class Report(ContestReport):
         """
         if len(self.logs) != 2:
             return f"Report '{self.report_name}' requires exactly two logs."
-        
         log1, log2 = self.logs[0], self.logs[1]
         df1 = get_valid_dataframe(log1, include_dupes=False)
         df2 = get_valid_dataframe(log2, include_dupes=False)
 
         if df1.empty or df2.empty:
             return f"Skipping '{self.report_name}': At least one log has no valid QSO data."
-        
         # --- Find the hour with the most combined activity ---
         combined_df = pd.concat([df1, df2])
         if combined_df.empty:
             return f"Skipping '{self.report_name}': No combined data."
-        
         hourly_counts = combined_df.set_index('Datetime').resample('h').size()
         if hourly_counts.empty:
             return f"Skipping '{self.report_name}': No hourly data to process."
-        
         peak_hour_timestamp = hourly_counts.idxmax()
         
         log_manager = getattr(log1, '_log_manager_ref', None)
         master_index = getattr(log_manager, 'master_time_index', None)
         if master_index is None:
             return "Error: Master time index not available. Cannot generate report."
-        
         # Find the 1-based index of the peak hour
         try:
             peak_hour_index = master_index.get_loc(peak_hour_timestamp) + 1
@@ -108,7 +104,6 @@ class Report(ContestReport):
 
         if not propagation_data:
             return f"Skipping '{self.report_name}': No data aggregated for the peak activity hour."
-        
         # --- Save debug data ---
         if kwargs.get("debug_data", False):
             all_calls = sorted([log.get_metadata().get('MyCall') for log in self.logs])
@@ -117,6 +112,7 @@ class Report(ContestReport):
         
         # --- Generate the plot using Plotly ---
         result_msg = self._create_propagation_chart(propagation_data, peak_hour_index, len(master_index), output_path)
+  
         return result_msg
 
     def _create_propagation_chart(self, propagation_data: Dict, hour_num: int, total_hours: int, output_path: str) -> str:
@@ -150,6 +146,7 @@ class Report(ContestReport):
         bands_ordered = list(reversed(self.logs[0].contest_definition.valid_bands))
 
         # We plot horizontal bars. 
+      
         # Log 1 = Positive (Right of axis in standard barh, but here we want butterfly).
         # Standard Butterfly: Log 1 goes Left (Neg?), Log 2 goes Right (Pos?) or vice versa.
         # Original script: Log 1 (Left Pos?), Log 2 (Left Neg?).
@@ -162,6 +159,7 @@ class Report(ContestReport):
             
             # If mode not present, we skip adding traces but keep subplot
             if mode not in MODES:
+                
                 continue
 
             for continent in CONTINENTS:
@@ -169,45 +167,54 @@ class Report(ContestReport):
                 y_vals = []
                 x_vals = []
                 for band in bands_ordered:
+          
                     count = DATA.get(CALLS[0], {}).get(mode, {}).get(band, {}).get(continent, 0)
                     y_vals.append(band)
                     x_vals.append(count)
                 
                 # Add Trace for Log 1
+       
                 fig.add_trace(go.Bar(
                     y=y_vals,
                     x=x_vals,
                     name=continent,
                     orientation='h',
+           
                     marker_color=CONTINENT_COLORS.get(continent, 'grey'),
                     legendgroup=continent,
                     showlegend=(col == 1), # Only show legend once
                     hoverinfo='y+x+name',
                     customdata=[CALLS[0]] * len(x_vals),
+ 
                     hovertemplate='%{y}: %{x} QSOs (%{customdata}, %{layout.annotations[' + str(col_idx) + '].text})<br>Continent: ' + continent
                 ), row=1, col=col)
 
                 # Log 2 Data (Negative)
                 y_vals_2 = []
+              
                 x_vals_2 = []
                 for band in bands_ordered:
                     count = DATA.get(CALLS[1], {}).get(mode, {}).get(band, {}).get(continent, 0)
                     y_vals_2.append(band)
                     x_vals_2.append(-count) # Negate for butterfly effect
-                
+      
+           
                 # Add Trace for Log 2
                 fig.add_trace(go.Bar(
                     y=y_vals_2,
                     x=x_vals_2,
+             
                     name=continent,
                     orientation='h',
                     marker_color=CONTINENT_COLORS.get(continent, 'grey'),
                     legendgroup=continent,
                     showlegend=False,
+            
                     hoverinfo='y+x+name',
                     customdata=[CALLS[1]] * len(x_vals_2),
                     # Show absolute value in hover
                     hovertemplate='%{y}: %{x} QSOs (%{customdata}, %{layout.annotations[' + str(col_idx) + '].text})<br>Continent: ' + continent
+              
                 ), row=1, col=col)
 
         # --- Layout ---
@@ -218,6 +225,7 @@ class Report(ContestReport):
         
         title_text = (
             f"{self.report_name} (Hour {hour_num}/{total_hours})<br>"
+           
             f"{year} {event_id} {contest_name} - {CALLS[0]} (Right/Pos) vs. {CALLS[1]} (Left/Neg)"
         )
 
@@ -227,6 +235,7 @@ class Report(ContestReport):
             height=800,
             width=1200,
             yaxis=dict(title="Band"),
+          
             xaxis=dict(title="QSO Count"),
             xaxis2=dict(title="QSO Count"),
             legend=dict(title="Continents")
@@ -238,13 +247,15 @@ class Report(ContestReport):
         # --- Save ---
         create_output_directory(output_path)
         filename_base = f"{self.report_id}_{_sanitize_filename_part(CALLS[0])}_vs_{_sanitize_filename_part(CALLS[1])}"
-        
+     
+    
         generated_files = []
         
         # HTML
         html_file = f"{filename_base}.html"
         html_path = os.path.join(output_path, html_file)
-        fig.write_html(html_path)
+        config = {'toImageButtonOptions': {'filename': filename_base, 'format': 'png'}}
+        fig.write_html(html_path, config=config)
         generated_files.append(html_file)
 
         # PNG Generation disabled for Web Architecture (Phase 3)

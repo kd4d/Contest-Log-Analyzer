@@ -5,24 +5,21 @@
 **Date:** 2026-01-04
 
 ## 1. The Strategic Context
-We are mid-flight in **Phase 3 (Web Architecture)**. The immediate priority is resolving the "Missing Dependency" errors caused by `matplotlib` and `kaleido` calls in the web container.
+We have successfully completed the **Web Container Stabilization** sprint. The application is now fully "Web-Ready" regarding dependencies. All reliance on `kaleido`, `matplotlib`, and `ffmpeg` for report generation has been stripped.
 
-## 2. Critical Incident: The "Butterfly" Overwrite
-* **Incident:** In a previous session, the Builder accidentally overwrote `chart_comparative_activity_butterfly.py` with the source code for `plot_wrtc_propagation.py`.
-* **Status:** The file on disk is currently corrupt (wrong logic, wrong report ID).
-* **Fix:** A specific implementation plan exists to restore the correct MatrixAggregator-based logic. This must be applied immediately.
+## 2. Recent Accomplishments
+* **Dependency Removal:** `fig.write_image()` calls were surgically removed or commented out in 6 legacy reports (`base_rate`, `point_contribution`, `qso_breakdown`, `band_activity`, `run_sp`, `cumulative_diff`).
+* **Filename Logic Fix:** The "Newplot.png" issue was resolved by injecting `toImageButtonOptions` into the `write_html` configuration for `butterfly`, `wrtc_propagation`, and `wrtc_animation`.
+* **Syntax Repair:** A manual syntax correction was applied to `plot_wrtc_propagation_animation.py` to fix invalid line wraps introduced during the config update.
 
 ## 3. Immediate Priorities (The "To-Do" List)
-1.  **Fix `chart_comparative_activity_butterfly.py`:** Restore correct logic and ensure it uses Plotly.
-2.  **Deprecate PNG Generation:** Systematically strip `fig.write_image()` calls from *all* reports. This will stop the "Kaleido missing" errors and speed up processing.
-3.  **Deploy WRTC Reports:** Apply the already-approved Plotly conversion for `wrtc_propagation` and its animation.
+1.  **Regression Testing:** Run `python run_regression_test.py` to confirm no regressions in HTML output generation.
+2.  **Client-Side Verification:** Manually verify that the "Camera" icon on the dashboard now downloads files with correct names (e.g., `chart_comparative_activity_butterfly_...png`) instead of `newplot.png`.
+3.  **Data Abstraction Layer (DAL):** Resume work on decoupling any remaining reports that strictly rely on `LogManager` instead of hydrated JSON artifacts.
 
-## 4. Technical Constraints for Session B
-* **No Matplotlib:** Do not import `matplotlib.pyplot`. Use `plotly.graph_objects`.
-* **No Kaleido:** Do not call `write_image`. Generate `.html` and `.json` only.
-* **No FFmpeg:** Animations must be HTML/JS (Plotly Frames), not MP4 video.
+## 4. Technical Constraints
+* **Maintain Statelessness:** Do not re-introduce local file writing for temporary artifacts unless strictly managed.
+* **Strict Configuration:** Any new Plotly report MUST include the `toImageButtonOptions` config block in `write_html`.
 
 ## 5. Next Steps
-Review the `project_bundle.txt`. You will see the "Corrupt" Butterfly chart. Your first move is to generate a **Builder Execution Kit** that:
-1.  Restores the Butterfly Chart (Clean Code).
-2.  Updates `base_rate_report.py` and others to stop saving PNGs.
+Review `ArchitectureRoadmap.md`. The path is clear for **Phase 4 (Advanced Analytics)** or further **Dashboard Refinement**.

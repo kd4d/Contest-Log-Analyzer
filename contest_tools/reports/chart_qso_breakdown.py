@@ -5,7 +5,7 @@
 #
 # Author: Gemini AI
 # Date: 2026-01-05
-# Version: 0.158.0-Beta
+# Version: 0.159.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.159.0-Beta] - 2026-01-05
+# - Disabled PNG generation logic (Kaleido dependency removal) for Web Architecture.
 # [0.158.0-Beta] - 2026-01-05
 # - Removed PNG generation (fig.write_image) to resolve Kaleido dependency issues in web container.
 # [0.151.3-Beta] - 2026-01-03
@@ -106,7 +108,6 @@
 # [0.93.7-Beta] - 2025-12-04
 # - Fixed runtime crash by ensuring the output directory is created before
 #   saving the chart file.
-
 import os
 from typing import List, Dict, Tuple
 import pandas as pd
@@ -229,7 +230,8 @@ class Report(ContestReport):
                         y=data[mode],
                         marker_color=colors[mode],
                         showlegend=show_legend,
-                        legendgroup=mode # Groups traces so toggling 'Run' toggles it on all subplots
+                        legendgroup=mode 
+# Groups traces so toggling 'Run' toggles it on all subplots
                     ),
                     row=row, col=col
                 )
@@ -284,9 +286,19 @@ class Report(ContestReport):
             fig.write_json(filepath_json)
             results.append(f"JSON data saved: {filepath_json}")
             
+            # 3. Save PNG (Disabled for Web Architecture)
+            # try:
+            #     # Fixed sizing for PNG
+            #     fig.update_layout(
+            #         autosize=False,
+            #         height=None, # Height was set in layout config
+            #         width=1600
+            #     )
+            #     # fig.write_image(filepath_png)
+            # except Exception:
+            #     pass
+            
         except Exception as e:
-            # Fallback/Error logging if one fails, but try to continue
-            # For now, just pass as per original structure, or log if logger available.
             pass
 
         # Return list of successfully created files (checking existence)

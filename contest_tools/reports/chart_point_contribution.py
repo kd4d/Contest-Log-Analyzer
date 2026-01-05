@@ -4,8 +4,8 @@
 #          point value, presented as a series of pie charts per band for a SINGLE log.
 #
 # Author: Gemini AI
-# Date: 2026-01-03
-# Version: 0.151.3-Beta
+# Date: 2026-01-05
+# Version: 0.159.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.159.0-Beta] - 2026-01-05
+# - Disabled PNG generation logic (Kaleido dependency removal) for Web Architecture.
 # [0.151.3-Beta] - 2026-01-03
 # - Refactored imports to use contest_tools.utils.report_utils to break circular dependency.
 # [0.151.0-Beta] - 2026-01-01
@@ -38,7 +40,6 @@
 # [0.93.7-Beta] - 2025-12-04
 # - Fixed runtime crash by ensuring the output directory is created before
 #   saving the chart file.
-
 import os
 from typing import List, Dict
 import pandas as pd
@@ -183,7 +184,8 @@ class Report(ContestReport):
         html_file = os.path.join(output_path, f"{base_filename}.html")
         
         # Save Dual Outputs
-        fig.write_image(png_file)
+        # PNG Generation disabled for Web Architecture
+        # fig.write_image(png_file)
         
         config = {'toImageButtonOptions': {'filename': base_filename, 'format': 'png'}}
         fig.write_html(html_file, config=config)

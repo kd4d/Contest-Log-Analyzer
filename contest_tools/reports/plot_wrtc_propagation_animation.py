@@ -5,8 +5,8 @@
 #          the contest.
 #
 # Author: Gemini AI
-# Date: 2026-01-04
-# Version: 0.157.0-Beta
+# Date: 2026-01-05
+# Version: 0.159.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -20,6 +20,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.159.1-Beta] - 2026-01-05
+# - Configured Plotly ModeBar 'Camera' button to download PNGs with descriptive filenames.
 # [0.157.0-Beta] - 2026-01-04
 # - Refactored to use Plotly for HTML-based animation, removing ffmpeg/imageio dependency.
 # - Implemented Play/Pause buttons and Time Slider using Plotly Frames.
@@ -41,7 +43,6 @@
 # [0.92.3-Beta] - 2025-10-12
 # - Initial creation of the animation report based on the static
 #   wrtc_propagation plot.
-
 import os
 import logging
 from typing import List, Dict, Any
@@ -64,18 +65,17 @@ class Report(ContestReport):
 
     def generate(self, output_path: str, **kwargs) -> str:
         """
+     
         Generates the animation by creating a Plotly figure with frames for each hour.
         """
         if len(self.logs) != 2:
             return f"Report '{self.report_name}' requires exactly two logs."
-        
         log1, log2 = self.logs[0], self.logs[1]
 
         log_manager = getattr(log1, '_log_manager_ref', None)
         master_index = getattr(log_manager, 'master_time_index', None)
         if master_index is None:
             return "Error: Master time index not available. Cannot generate animation."
-
         # Fetch calls for filenames
         calls = [log.get_metadata().get('MyCall') for log in self.logs]
         
@@ -85,10 +85,12 @@ class Report(ContestReport):
         # 2. Frames (Data for each hour)
         
         frames = []
+       
         max_qso_count = 10 # Default fallback for axis scaling
         
         # Pre-fetch continent colors to keep them consistent
-        # We'll need the union of all continents seen? Or just use a standard map.
+        # We'll need the union of all continents seen?
+        # Or just use a standard map.
         # We'll use a fixed color map based on a standard list to ensure consistency across frames.
         STANDARD_CONTINENTS = ['NA', 'EU', 'AS', 'SA', 'AF', 'OC', 'AN']
         colors_list = pcolors.qualitative.Plotly
@@ -106,6 +108,7 @@ class Report(ContestReport):
             if not prop_data:
                 # Create empty frame
                 frames.append(go.Frame(data=[], name=str(i)))
+      
                 continue
 
             # Extract data
@@ -113,13 +116,13 @@ class Report(ContestReport):
             # BANDS, MODES, CALLS should be consistent, but good to be safe
             MODES = ['CW', 'PH'] # Enforce standard order
             
+       
             # Build Traces for this Frame
             # We need 4 sets of bars: CW-Log1, CW-Log2, PH-Log1, PH-Log2
-            # Plotly animations work best when trace indices match. 
+            # Plotly animations work best when trace indices match.
             # We'll initialize the figure with all continent traces existing but empty, 
-            # and update them in frames. 
+            # and update them in frames.
             # Actually, simplest is to just rebuild the traces for the frame.
-            
             frame_traces = []
             
             for col_idx, mode in enumerate(MODES):
@@ -129,27 +132,30 @@ class Report(ContestReport):
                 # Plotly Frames replace data in existing traces.
                 # To make this robust, we should probably group by Continent trace?
                 # Actually, simpler approach for "Butterfly":
-                # For each Mode, we have One Trace per Continent per Log? 
+                # For each Mode, we have One Trace per Continent per Log?
                 # Or just stack them? 
                 # Let's stick to the "Two Traces per Mode per Continent" pattern used in the static plot.
-                
                 for continent in STANDARD_CONTINENTS:
                     # Log 1 (Positive)
                     y_vals = bands_ordered
                     x_vals_1 = []
                     for band in bands_ordered:
+       
                         val = DATA.get(calls[0], {}).get(mode, {}).get(band, {}).get(continent, 0)
                         x_vals_1.append(val)
                         if val > max_qso_count: max_qso_count = val # Auto-scale tracking
 
+                    
                     frame_traces.append(go.Bar(
                         x=x_vals_1, y=y_vals,
                         orientation='h',
                         name=continent,
                         marker_color=CONTINENT_COLORS.get(continent, 'grey'),
+  
                         legendgroup=continent,
                         showlegend=(i==0 and col==1), # Only show legend on first frame? No, base layout handles legend.
                         xaxis=f'x{col}', yaxis=f'y{col}' 
+              
                     ))
 
                     # Log 2 (Negative)
@@ -160,10 +166,12 @@ class Report(ContestReport):
                         if val > max_qso_count: max_qso_count = val
 
                     frame_traces.append(go.Bar(
+                      
                         x=x_vals_2, y=y_vals,
                         orientation='h',
                         name=continent,
                         marker_color=CONTINENT_COLORS.get(continent, 'grey'),
+                        
                         legendgroup=continent,
                         showlegend=False,
                         xaxis=f'x{col}', yaxis=f'y{col}'
@@ -171,10 +179,10 @@ class Report(ContestReport):
             
             frames.append(go.Frame(data=frame_traces, name=str(i)))
 
+      
         # --- Build Base Figure ---
         # We need to initialize the figure with the data from the FIRST frame (or empty structures)
         # to set up the grid.
-        
         fig = make_subplots(rows=1, cols=2, subplot_titles=["CW", "PH"], shared_yaxes=True, horizontal_spacing=0.05)
         
         # Add initial traces (empty or from frame 0)
@@ -187,18 +195,21 @@ class Report(ContestReport):
             for continent in STANDARD_CONTINENTS:
                 # Trace 1: Log 1
                 fig.add_trace(go.Bar(
-                    x=[0]*len(bands_ordered), y=bands_ordered, orientation='h',
+                    x=[0]*len(bands_ordered), y=bands_ordered, 
+                    orientation='h',
                     name=continent, marker_color=CONTINENT_COLORS.get(continent, 'grey'),
                     legendgroup=continent, showlegend=(col==1)
                 ), row=1, col=col)
                 # Trace 2: Log 2
                 fig.add_trace(go.Bar(
+   
                     x=[0]*len(bands_ordered), y=bands_ordered, orientation='h',
                     name=continent, marker_color=CONTINENT_COLORS.get(continent, 'grey'),
                     legendgroup=continent, showlegend=False
                 ), row=1, col=col)
 
         # --- Layout & Animation Controls ---
+      
         # Round up max count for axis range
         axis_limit = (max_qso_count // 10 + 1) * 10
         
@@ -207,21 +218,25 @@ class Report(ContestReport):
             barmode='relative',
             height=800,
             xaxis=dict(range=[-axis_limit, axis_limit], title="QSOs"),
+    
             xaxis2=dict(range=[-axis_limit, axis_limit], title="QSOs"),
             updatemenus=[dict(
                 type="buttons",
                 buttons=[
                     dict(label="Play",
                          method="animate",
+ 
                          args=[None, dict(frame=dict(duration=500, redraw=True), fromcurrent=True)]),
                     dict(label="Pause",
                          method="animate",
-                         args=[[None], dict(frame=dict(duration=0, redraw=False), mode="immediate", transition=dict(duration=0))])
+                         args=[[None], dict(frame=dict(duration=0, redraw=False), 
+                        mode="immediate", transition=dict(duration=0))])
                 ]
             )],
             sliders=[dict(
                 steps=[dict(method='animate', 
                             args=[[str(k)], dict(mode='immediate', frame=dict(duration=500, redraw=True), transition=dict(duration=0))],
+          
                             label=f"{k+1}h") for k in range(len(master_index))], 
                 currentvalue=dict(prefix='Hour: ')
             )]
@@ -231,12 +246,15 @@ class Report(ContestReport):
 
         # --- Save Output ---
         create_output_directory(output_path)
-        filename = f"{self.report_id}_{_sanitize_filename_part(calls[0])}_vs_{_sanitize_filename_part(calls[1])}.html"
+        filename_base = f"{self.report_id}_{_sanitize_filename_part(calls[0])}_vs_{_sanitize_filename_part(calls[1])}"
+        filename = f"{filename_base}.html"
         filepath = os.path.join(output_path, filename)
         
         try:
-            fig.write_html(filepath, auto_play=False)
+            config = {'toImageButtonOptions': {'filename': filename_base, 'format': 'png'}}
+            fig.write_html(filepath, auto_play=False, config=config)
             return f"Animation saved to: {filepath}"
         except Exception as e:
             logging.error(f"Failed to save animation: {e}")
-            return f"Error generating animation for report '{self.report_name}'."
+         
+        return f"Error generating animation for report '{self.report_name}'."

@@ -4,8 +4,8 @@
 #          visualize the band activity of two logs side-by-side using Plotly.
 #
 # Author: Gemini AI
-# Date: 2026-01-01
-# Version: 0.151.1-Beta
+# Date: 2026-01-05
+# Version: 0.159.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.159.0-Beta] - 2026-01-05
+# - Disabled PNG generation logic (Kaleido dependency removal) for Web Architecture.
 # [0.151.1-Beta] - 2026-01-01
 # - Repair import path for report_utils to fix circular dependency.
 # [0.151.0-Beta] - 2026-01-01
@@ -51,7 +53,6 @@
 # - Refactored to use MatrixAggregator (DAL).
 # [0.91.0-Beta] - 2025-10-11
 # - Initial creation of the correct "butterfly chart" implementation.
-
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
@@ -214,15 +215,15 @@ class Report(ContestReport):
         
         results = []
         try:
-            # Fixed sizing for PNG
-            fig.update_layout(
-                autosize=False,
-                height=plot_height,
-                width=1600
-            )
+            # Fixed sizing for PNG (Disabled for Web Architecture)
+            # fig.update_layout(
+            #     autosize=False,
+            #     height=plot_height,
+            #     width=1600
+            # )
             # Save PNG
-            fig.write_image(filepath_png)
-            results.append(f"Plot saved: {filepath_png}")
+            # fig.write_image(filepath_png)
+            # results.append(f"Plot saved: {filepath_png}")
             
             # Responsive sizing for HTML
             fig.update_layout(
@@ -244,7 +245,6 @@ class Report(ContestReport):
         """Orchestrates the generation of the combined plot and per-mode plots."""
         if len(self.logs) != 2:
             return f"Error: Report '{self.report_name}' requires exactly two logs."
-        
         log1, log2 = self.logs[0], self.logs[1]
         created_files = []
 

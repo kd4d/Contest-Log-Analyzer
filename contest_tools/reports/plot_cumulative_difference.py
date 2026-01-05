@@ -4,8 +4,8 @@
 #          comparing two logs, with superimposed lines for Total, Run, S&P, and Unknown.
 #
 # Author: Gemini AI
-# Date: 2026-01-01
-# Version: 0.151.1-Beta
+# Date: 2026-01-05
+# Version: 0.159.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.159.0-Beta] - 2026-01-05
+# - Disabled PNG generation logic (Kaleido dependency removal) for Web Architecture.
 # [0.151.1-Beta] - 2026-01-01
 # - Repair import path for report_utils to fix circular dependency.
 # [0.151.0-Beta] - 2026-01-01
@@ -76,7 +78,6 @@
 # - Enabled Run/S&P plots for Points metric via 'run_points' schema.
 # [0.90.0-Beta] - 2025-10-01
 # - Set new baseline version for release.
-
 from typing import List
 import pandas as pd
 import plotly.graph_objects as go
@@ -294,17 +295,18 @@ class Report(ContestReport):
             logging.error(f"Failed to save JSON data: {e}")
 
         # Save PNG (Requires Kaleido)
-        try:
-            # Fixed Layout for PNG
-            fig.update_layout(
-                autosize=False,
-                width=1600,
-                height=900
-            )
-            fig.write_image(png_path, width=1600, height=900)
-            generated_files.append(png_path)
-        except Exception as e:
-            logging.warning(f"Failed to generate static PNG (Kaleido missing?): {e}")
+        # Disabled for Web Architecture
+        # try:
+        #     # Fixed Layout for PNG
+        #     fig.update_layout(
+        #         autosize=False,
+        #         width=1600,
+        #         height=900
+        #     )
+        #     fig.write_image(png_path, width=1600, height=900)
+        #     generated_files.append(png_path)
+        # except Exception as e:
+        #     logging.warning(f"Failed to generate static PNG (Kaleido missing?): {e}")
 
         return generated_files
 

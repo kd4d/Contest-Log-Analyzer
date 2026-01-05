@@ -5,7 +5,7 @@
 #
 # Author: Gemini AI
 # Date: 2026-01-05
-# Version: 0.158.0-Beta
+# Version: 0.159.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.159.0-Beta] - 2026-01-05
+# - Disabled PNG generation logic (Kaleido dependency removal) for Web Architecture.
 # [0.158.0-Beta] - 2026-01-05
 # - Removed PNG generation (fig.write_image) to resolve Kaleido dependency issues in web container.
 # [0.151.1-Beta] - 2026-01-01
@@ -65,6 +67,7 @@ class BaseRateReport(ContestReport):
         # Filter for valid logs only
         valid_logs = []
         valid_dfs = []
+    
         for log in self.logs:
             df = get_valid_dataframe(log)
             if not df.empty:
@@ -91,7 +94,6 @@ class BaseRateReport(ContestReport):
         
         if not all_created_files:
             return f"No {self.metric_label} rate plots were generated."
-
         return f"{self.metric_label} rate plots saved to:\n" + "\n".join([f"  - {fp}" for fp in all_created_files])
 
     def _orchestrate_plot_generation(self, dfs: List[pd.DataFrame], logs: List[ContestLog], output_path: str, mode_filter: str, **kwargs) -> List[str]:
@@ -197,7 +199,7 @@ class BaseRateReport(ContestReport):
             elif self.metric_key == 'points':
                 total_val = scalars.get('points_sum', 0)
             else:
-                # Fallback/Generic
+                 # Fallback/Generic
                  total_val = cumulative_values[-1] if cumulative_values else 0
 
             summary_rows.append([
@@ -269,11 +271,11 @@ class BaseRateReport(ContestReport):
         # 1. JSON (New Artifact)
         json_path = os.path.join(output_path, f"{base_filename}.json")
         try:
-            # Ensure responsive layout in JSON for Web App
+             # Ensure responsive layout in JSON for Web App
              fig.update_layout(autosize=True, width=None, height=None)
              fig.write_json(json_path)
-             # Revert for PNG
-             fig.update_layout(autosize=False, width=1200, height=900)
+             # Revert for PNG (Disabled for Web Architecture)
+             # fig.update_layout(autosize=False, width=1200, height=900)
         except Exception as e:
              logging.warning(f"JSON artifact generation failed: {e}")
 
@@ -283,6 +285,7 @@ class BaseRateReport(ContestReport):
         config = {'toImageButtonOptions': {'filename': base_filename, 'format': 'png'}}
         fig.write_html(html_path, include_plotlyjs='cdn', config=config)
         
-        # PNG Generation disabled for Web Architecture (Phase 3)
-
+        # PNG Generation (Kaleido) disabled for Web Architecture
+        # fig.write_image(png_file)
+        
         return html_path
