@@ -1,11 +1,11 @@
 # contest_tools/data_aggregators/categorical_stats.py
 #
-# Purpose: DAL component to handle aggregation logic related to categorical data
+# Purpose: DAL Component to handle aggregation logic related to categorical data
 #          such as QSO point breakdowns and set comparisons (unique/common QSOs).
 #
 # Author: Gemini AI
-# Date: 2026-01-04
-# Version: 0.151.2-Beta
+# Date: 2026-01-05
+# Version: 0.153.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,13 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.153.0-Beta] - 2026-01-05
+# - Added include_dupes parameter to compute_comparison_breakdown.
+# - Added common_detail to comparison return value for independent mode stats.
+# [0.152.0-Beta] - 2026-01-05
+# - Added get_continent_stats to support text_continent_summary report.
+# [0.151.3-Beta] - 2026-01-05
+# - Added get_log_summary_stats method to support text_summary report.
 # [0.151.2-Beta] - 2026-01-04
 # - Added get_category_breakdown method to support text_continent_breakdown report.
 # [0.151.1-Beta] - 2025-12-31
@@ -113,14 +120,14 @@ class CategoricalAggregator:
             'unk': counts.get('unknown', 0)
         }
 
-    def compute_comparison_breakdown(self, log1: ContestLog, log2: ContestLog, band_filter: str = None, mode_filter: str = None) -> Dict:
+    def compute_comparison_breakdown(self, log1: ContestLog, log2: ContestLog, band_filter: str = None, mode_filter: str = None, include_dupes: bool = False) -> Dict:
         """
         Compares two logs for unique and common QSOs based on 'Call',
         and provides a breakdown of results by run/S&P mode.
         """
         # 1. Internal: Get DataFrames
-        df1_raw = get_valid_dataframe(log1)
-        df2_raw = get_valid_dataframe(log2)
+        df1_raw = get_valid_dataframe(log1, include_dupes=include_dupes)
+        df2_raw = get_valid_dataframe(log2, include_dupes=include_dupes)
         
         df1 = self._apply_filters(df1_raw, band_filter, mode_filter)
         df2 = self._apply_filters(df2_raw, band_filter, mode_filter)
@@ -152,6 +159,7 @@ class CategoricalAggregator:
 
         # 4. Categorical Breakdown for Common Set
         common_breakdown: Dict[str, int] = {'run_both': 0, 'sp_both': 0, 'mixed': 0}
+        common_detail = {"log1": {'run': 0, 'sp': 0, 'unk': 0}, "log2": {'run': 0, 'sp': 0, 'unk': 0}}
         
         if common_calls:
             df_common_1 = df1[df1['Call'].isin(common_calls)].copy()
@@ -162,7 +170,7 @@ class CategoricalAggregator:
                 df_common_1[['Call', 'Run']].drop_duplicates(subset=['Call']).rename(columns={'Run': 'Run1'}),
                 df_common_2[['Call', 'Run']].drop_duplicates(subset=['Call']).rename(columns={'Run': 'Run2'}),
                 on='Call',
-                how='inner' 
+                how='inner'
             )
 
             if not df_merged.empty:
@@ -179,6 +187,10 @@ class CategoricalAggregator:
                 
                 # mixed
                 common_breakdown['mixed'] = len(df_merged) - (common_breakdown['run_both'] + common_breakdown['sp_both'])
+            
+            # Calculate independent detail for the common set (required for text_qso_comparison)
+            common_detail["log1"] = self._get_qso_mode_counts(df_common_1)
+            common_detail["log2"] = self._get_qso_mode_counts(df_common_2)
 
         # 5. Metrics
         metrics = {
@@ -194,6 +206,7 @@ class CategoricalAggregator:
             "log1_unique": log1_unique_breakdown,
             "log2_unique": log2_unique_breakdown,
             "common": common_breakdown,
+            "common_detail": common_detail,
             "metrics": metrics
         }
 
@@ -215,3 +228,82 @@ class CategoricalAggregator:
         pivot = pivot.reset_index()
         
         return pivot.to_dict('records')
+
+    def get_log_summary_stats(self, logs: List[ContestLog], include_dupes: bool = False) -> List[Dict[str, Any]]:
+        """
+        Generates summary statistics for a list of logs (Total, Dupes, Mode Breakdown).
+        Returns a list of dictionaries suitable for text_summary.py.
+        """
+        summary_data = []
+
+        for log in logs:
+            metadata = log.get_metadata()
+            callsign = metadata.get('MyCall', 'Unknown')
+            
+            # Get full DF to calculate dupes
+            df_full = get_valid_dataframe(log, include_dupes=True)
+            dupes = df_full['Dupe'].sum() if 'Dupe' in df_full.columns else 0
+            
+            # Filter if required
+            df = df_full if include_dupes else df_full[df_full['Dupe'] == False]
+            
+            mode_counts = self._get_qso_mode_counts(df)
+            
+            summary_data.append({
+                'Callsign': callsign,
+                'On-Time': metadata.get('OperatingTime'),
+                'Total QSOs': len(df),
+                'Dupes': int(dupes),
+                'Run': mode_counts['run'],
+                'S&P': mode_counts['sp'],
+                'Unknown': mode_counts['unk']
+            })
+            
+        return summary_data
+
+    def get_continent_stats(self, logs: List[ContestLog], include_dupes: bool = False) -> List[Dict[str, Any]]:
+        """
+        Generates continent statistics for text_continent_summary.py.
+        Returns pivot data (Continent x Band) and list of unknown callsigns.
+        """
+        results = []
+        for log in logs:
+            metadata = log.get_metadata()
+            callsign = metadata.get('MyCall', 'UnknownCall')
+            
+            df = get_valid_dataframe(log, include_dupes=include_dupes)
+            
+            if df.empty:
+                results.append({'callsign': callsign, 'is_empty': True, 'pivot': {}, 'unknown_calls': []})
+                continue
+                
+            # Identify Unknowns
+            unknown_continent_df = df[df['Continent'].isin(['Unknown', None, ''])]
+            unique_unknown_calls = sorted(unknown_continent_df['Call'].unique())
+            
+            # Pivot
+            bands = log.contest_definition.valid_bands
+            pivot = df.pivot_table(
+                index='Continent',
+                columns='Band',
+                aggfunc='size',
+                fill_value=0
+            )
+            
+            # Ensure all bands exist
+            for band in bands:
+                if band not in pivot.columns:
+                    pivot[band] = 0
+            
+            # Convert to dict {Continent: {Band: Count}}
+            pivot_dict = pivot.to_dict(orient='index')
+            
+            results.append({
+                'callsign': callsign,
+                'is_empty': False,
+                'pivot': pivot_dict,
+                'unknown_calls': unique_unknown_calls,
+                'bands': bands
+            })
+            
+        return results

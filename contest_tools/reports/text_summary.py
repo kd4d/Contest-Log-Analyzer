@@ -3,8 +3,8 @@
 # Purpose: An example text report that generates a simple QSO summary.
 #
 # Author: Gemini AI
-# Date: 2025-10-01
-# Version: 0.90.0-Beta
+# Date: 2026-01-05
+# Version: 0.152.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -13,9 +13,14 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
 # --- Revision History ---
+# [0.152.0-Beta] - 2026-01-05
+# - Refactored to use CategoricalAggregator (DAL) for data retrieval.
+# - Removed direct DataFrame access and calculation logic.
 # [0.90.0-Beta] - 2025-10-01
 # Set new baseline version for release.
 
@@ -23,6 +28,7 @@ from typing import List
 import os
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
+from ..data_aggregators.categorical_stats import CategoricalAggregator
 
 class Report(ContestReport):
     """
@@ -39,29 +45,10 @@ class Report(ContestReport):
         """
         include_dupes = kwargs.get('include_dupes', False)
         
-        report_data = []
-        all_calls = []
-
-        for log in self.logs:
-            callsign = log.get_metadata().get('MyCall', 'Unknown')
-            all_calls.append(callsign)
-            df_full = log.get_processed_data()
-            
-            if not include_dupes and 'Dupe' in df_full.columns:
-                df = df_full[df_full['Dupe'] == False].copy()
-            else:
-                df = df_full.copy()
-            
-            log_summary = {
-                'Callsign': callsign,
-                'On-Time': log.get_metadata().get('OperatingTime'),
-                'Total QSOs': len(df),
-                'Dupes': df_full['Dupe'].sum(),
-                'Run': (df['Run'] == 'Run').sum() if 'Run' in df.columns else 0,
-                'S&P': (df['Run'] == 'S&P').sum() if 'Run' in df.columns else 0,
-                'Unknown': (df['Run'] == 'Unknown').sum() if 'Run' in df.columns else 0,
-            }
-            report_data.append(log_summary)
+        aggregator = CategoricalAggregator()
+        report_data = aggregator.get_log_summary_stats(self.logs, include_dupes=include_dupes)
+        
+        all_calls = [row['Callsign'] for row in report_data]
 
         # --- Formatting ---
         headers = ["Callsign", "On-Time", "Total QSOs", "Dupes", "Run", "S&P", "Unknown"]

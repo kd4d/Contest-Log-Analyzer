@@ -5,8 +5,8 @@
 #          broken down by band and Run/S&P status.
 #
 # Author: Gemini AI
-# Date: 2025-12-20
-# Version: 0.134.0-Beta
+# Date: 2026-01-05
+# Version: 0.153.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -20,6 +20,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.153.0-Beta] - 2026-01-05
+# - Refactored to use CategoricalAggregator (DAL) for data retrieval.
+# - Removed direct DataFrame access and set logic.
 # [0.134.0-Beta] - 2025-12-20
 # - Standardized report header to use `_report_utils`.
 # [0.90.1-Beta] - 2025-12-06
@@ -30,10 +33,11 @@
 # Set new baseline version for release.
 
 from .report_interface import ContestReport
-from contest_tools.utils.report_utils import get_valid_dataframe, create_output_directory, format_text_header, get_cty_metadata, get_standard_title_lines
+from contest_tools.utils.report_utils import create_output_directory, format_text_header, get_cty_metadata, get_standard_title_lines
 import pandas as pd
 import os
 from ..contest_log import ContestLog
+from ..data_aggregators.categorical_stats import CategoricalAggregator
 
 class Report(ContestReport):
     report_id: str = "qso_comparison"
@@ -54,20 +58,24 @@ class Report(ContestReport):
         call1 = log1.get_metadata().get('MyCall', 'Log1')
         call2 = log2.get_metadata().get('MyCall', 'Log2')
 
-        df1 = get_valid_dataframe(log1, include_dupes)
-        df2 = get_valid_dataframe(log2, include_dupes)
-
-        if df1.empty or df2.empty:
+        aggregator = CategoricalAggregator()
+        # Pre-check global data availability
+        global_data = aggregator.compute_comparison_breakdown(log1, log2, include_dupes=include_dupes)
+        if global_data['metrics']['total_1'] == 0 or global_data['metrics']['total_2'] == 0:
             return f"Skipping '{self.report_name}': At least one log has no valid QSOs."
 
         canonical_band_order = [band[1] for band in ContestLog._HAM_BANDS]
-        all_bands_in_logs = pd.concat([df1['Band'], df2['Band']]).unique()
-        bands = sorted(all_bands_in_logs, key=lambda b: canonical_band_order.index(b) if b in canonical_band_order else -1)
+        bands = log1.contest_definition.valid_bands # Iterate all valid contest bands
         
         # --- Header Generation ---
         table_width = 86
-        modes_present = set(pd.concat([df1['Mode'], df2['Mode']]).dropna().unique())
+        modes_present = set(pd.concat([
+            pd.Series(list(global_data['log1_unique'].keys())), 
+            pd.Series(list(global_data['log2_unique'].keys()))
+        ]).unique()) # Simplified mode check based on aggregator keys
+        
         title_lines = get_standard_title_lines(self.report_name, self.logs, "All Bands", None, modes_present)
+        
         meta_lines = ["Contest Log Analytics by KD4D", get_cty_metadata(self.logs)]
         
         report_lines = []
@@ -93,51 +101,40 @@ class Report(ContestReport):
             report_lines.append(f"{'Call':<9} {'QSOs':>8} | {'Tot':>6} {'Run':>6} {'S&P':>6} {'Unk':>6} | {'Tot':>6} {'Run':>6} {'S&P':>6} {'Unk':>6}")
             report_lines.append(f"{'-'*9} {'-'*8} | {'-'*27} | {'-'*27}")
 
-        def get_run_sp_unk_counts(df):
-            run_count = (df['Run'] == 'Run').sum()
-            sp_count = (df['Run'] == 'S&P').sum()
-            unk_count = (df['Run'] == 'Unknown').sum()
-            return run_count, sp_count, unk_count
-
         for band in bands:
+            # Fetch comparison data for this band via DAL
+            data = aggregator.compute_comparison_breakdown(log1, log2, band_filter=band, include_dupes=include_dupes)
+            
+            # Skip empty bands
+            if data['metrics']['total_1'] == 0 and data['metrics']['total_2'] == 0:
+                continue
+
             report_lines.append(f"\n--- {band} ---")
             append_table_header()
             
-            c1_band = df1[df1['Band'] == band]
-            c2_band = df2[df2['Band'] == band]
+            # Unpack Common Data
+            rc1 = data['common_detail']['log1']['run']
+            sc1 = data['common_detail']['log1']['sp']
+            uc1 = data['common_detail']['log1']['unk']
+            common_count_1 = rc1 + sc1 + uc1
 
-            calls1_band = set(c1_band['Call'])
-            calls2_band = set(c2_band['Call'])
+            rc2 = data['common_detail']['log2']['run']
+            sc2 = data['common_detail']['log2']['sp']
+            uc2 = data['common_detail']['log2']['unk']
+            common_count_2 = rc2 + sc2 + uc2
             
-            # --- COMMON CALCULATION ---
-            common_calls_on_band = calls1_band.intersection(calls2_band)
+            # Unpack Unique Data
+            ru1 = data['log1_unique']['run']
+            su1 = data['log1_unique']['sp']
+            uu1 = data['log1_unique']['unk']
+            unique_count_1 = ru1 + su1 + uu1
+            total_count_1 = data['metrics']['total_1']
             
-            # Dataframes for Common QSOs
-            common_df_1 = c1_band[c1_band['Call'].isin(common_calls_on_band)]
-            common_df_2 = c2_band[c2_band['Call'].isin(common_calls_on_band)]
-            
-            common_count_1 = len(common_df_1)
-            common_count_2 = len(common_df_2)
-            
-            rc1, sc1, uc1 = get_run_sp_unk_counts(common_df_1)
-            rc2, sc2, uc2 = get_run_sp_unk_counts(common_df_2)
-
-            # --- UNIQUE CALCULATION ---
-            total_count_1 = len(c1_band)
-            total_count_2 = len(c2_band)
-            
-            unique_count_1 = total_count_1 - common_count_1
-            unique_count_2 = total_count_2 - common_count_2
-
-            unique_calls_for_1 = calls1_band - calls2_band
-            unique_calls_for_2 = calls2_band - calls1_band
-            
-            # Dataframes for Unique QSOs
-            u1_band = c1_band[c1_band['Call'].isin(unique_calls_for_1)]
-            u2_band = c2_band[c2_band['Call'].isin(unique_calls_for_2)]
-
-            ru1, su1, uu1 = get_run_sp_unk_counts(u1_band)
-            ru2, su2, uu2 = get_run_sp_unk_counts(u2_band)
+            ru2 = data['log2_unique']['run']
+            su2 = data['log2_unique']['sp']
+            uu2 = data['log2_unique']['unk']
+            unique_count_2 = ru2 + su2 + uu2
+            total_count_2 = data['metrics']['total_2']
             
             # --- PRINT ROW ---
             # Call | Total | Unique(Tot, Run, SP, Unk) | Common(Tot, Run, SP, Unk)
