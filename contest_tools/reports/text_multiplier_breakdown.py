@@ -4,7 +4,7 @@
 #
 # Author: Gemini AI
 # Date: 2025-12-30
-# Version: 0.144.0-Beta
+# Version: 0.156.4-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.156.4-Beta] - 2025-12-30
+# - Added sub-headers (Wrkd, Uniques, Missed) to station columns.
+# - Changed "Missed" column to show positive integer deficits instead of negative delta.
 # [0.144.0-Beta] - 2025-12-30
 # - Updated `format_row` to display verbose unique breakdown [Run:X S&P:Y Unk:Z].
 # - Increased column width to ~37 chars to accommodate new metrics.
@@ -75,6 +78,7 @@ class Report(ContestReport):
         
         # Title
         # Smart scoping for title
+        
         modes_present = set()
         for log in self.logs:
             df = log.get_processed_data()
@@ -91,6 +95,7 @@ class Report(ContestReport):
         meta_lines = ["Contest Log Analytics by KD4D", get_cty_metadata(self.logs)]
         
         # Helper to format a row
+    
         # Layout: Scope (25), Total (8), Common (8), Call1 (30), Call2 (30)...
         def format_row(label, total, common, station_dict, indent=0):
             prefix = " " * (indent * 2)
@@ -107,7 +112,8 @@ class Report(ContestReport):
                 
                 # Verbose Breakdown: "972 [Run:60 S&P:25 Unk:5] -39"
                 count_part = f"{stats['count']}"
-                
+              
+  
                 u_run = stats.get('unique_run', 0)
                 u_sp = stats.get('unique_sp', 0)
                 u_unk = stats.get('unique_unk', 0)
@@ -120,28 +126,36 @@ class Report(ContestReport):
                     breakdown = "[Par]"
                 
                 delta = stats.get('delta', 0)
-                delta_part = f"({delta})" if delta < 0 else "0"
+                # Display absolute value for "Missed" (Positive Deficit)
+                delta_part = f"{abs(delta)}" if delta != 0 else "0"
                 
-                # Align: Count (5) + Breakdown (24) + Delta (6) ~= 35 chars
+                # Align: Count (5) + Breakdown (24) + Missed (6) ~= 35 chars
                 col_text = f"{count_part:>5} {breakdown:<24} {delta_part:>6}"
                 row_str += f" {col_text}"
             return row_str
 
-        # Header Row
-        header = f"{'Scope':<25} {'Total':>8} {'Common':>8}"
+        # Header Rows
+        # Row 1: Callsigns
+        header_row1 = f"{'Scope':<25} {'Total':>8} {'Common':>8}"
+        # Row 2: Column Labels (Wrkd, Uniques, Missed)
+        header_row2 = f"{'':<25} {'':>8} {'':>8}"
+
         for call in all_calls:
             # Center alignment (~37 chars to fit data block)
-            header += f" {call:^37}"
+            header_row1 += f" {call:^37}"
+            # Sub-headers aligned with data columns: Wrkd(5) Uniques(24) Missed(6)
+            header_row2 += f" {'Wrkd':>5} {'Uniques':<24} {'Missed':>6}"
         
-        table_width = len(header)
+        table_width = len(header_row1)
         
         # Generate header with dynamic width
         header_block = format_text_header(table_width, title_lines, meta_lines)
         lines.extend(header_block)
         lines.append("")
         
-        lines.append(header)
-        lines.append("-" * len(header))
+        lines.append(header_row1)
+        lines.append(header_row2)
+        lines.append("-" * len(header_row1))
         
         # Process Totals
         for row in data['totals']:
@@ -154,9 +168,9 @@ class Report(ContestReport):
             ))
             
         lines.append("")
-        lines.append("-" * len(header))
+        lines.append("-" * len(header_row1))
         lines.append("Band Breakdown")
-        lines.append("-" * len(header))
+        lines.append("-" * len(header_row1))
         
         # Process Bands
         for block in data['bands']:
@@ -169,6 +183,7 @@ class Report(ContestReport):
                     row['stations'], 
                     row.get('indent', 0)
                 ))
+ 
             lines.append("")
 
         content = "\n".join(lines)
@@ -179,6 +194,7 @@ class Report(ContestReport):
         filename = f"text_multiplier_breakdown_{combo_id}.txt"
         
         # Use output_path provided by interface
+    
         os.makedirs(output_path, exist_ok=True)
         
         filepath = os.path.join(output_path, filename)

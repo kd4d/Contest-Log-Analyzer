@@ -87,7 +87,7 @@
                             </div>
                         </div>
                         <div class="fw-bold text-end">{{ stat.count }}</div>
-                        <div class="fw-bold text-end text-danger">{{ stat.delta }}</div>
+                        <div class="fw-bold text-end text-danger">{{ stat.missed }}</div>
                     </div>
                     {% endwith %}
                     {% endfor %}
@@ -122,7 +122,7 @@
             
             <ul class="nav nav-pills mb-3" id="pills-tab" role="tablist">
                 <li class="nav-item" role="presentation">
-                     <button class="nav-link active" id="pills-all-tab" data-bs-toggle="pill" data-bs-target="#pills-all" type="button" role="tab">All Multipliers</button>
+                  <button class="nav-link active" id="pills-all-tab" data-bs-toggle="pill" data-bs-target="#pills-all" type="button" role="tab">All Multipliers</button>
                 </li>
                 <li class="nav-item" role="presentation">
                      <button class="nav-link" id="pills-countries-tab" data-bs-toggle="pill" data-bs-target="#pills-countries" type="button" role="tab">Countries</button>
@@ -134,16 +134,16 @@
 
             <div class="tab-content" id="pills-tabContent">
                 <div class="tab-pane fade show active" id="pills-all" role="tabpanel">
-                     <div class="vert-spectrum">
+                    <div class="vert-spectrum">
                         <div class="y-axis-col">
                             <div class="y-axis-spacer-header"></div>
-                                <div class="y-axis-scale-area">
+                            <div class="y-axis-scale-area">
                                  <div class="y-tick" style="bottom: 0%">0</div>
                                 <div class="y-tick" style="bottom: 25%">{% widthratio global_max.total 4 1 %}</div>
                                 <div class="y-tick" style="bottom: 50%">{% widthratio global_max.total 2 1 %}</div>
                                 <div class="y-tick" style="bottom: 75%">{% widthratio global_max.total 4 3 %}</div>
                                 <div class="y-tick" style="bottom: 100%">{{ global_max.total }}</div>
-                             </div>
+                            </div>
                             <div class="y-axis-spacer-foundation"></div>
                             <div class="y-axis-spacer-footer"></div>
                         </div>
@@ -160,7 +160,7 @@
                             <div class="vert-header">{{ block.label }}</div>
                              {% for row in block.rows %}
                                {% if row.label == "TOTAL" or row.label == block.label %}
-                                    <div class="vert-spikes-container">
+                                   <div class="vert-spikes-container">
                                          {% for stat in row.stations %}
                                         {% with total_unique=stat.unique_run|add:stat.unique_sp|add:stat.unique_unk %}
                                          <div class="vert-bar-wrapper">
@@ -168,19 +168,19 @@
                                                 <div class="bg-unk" style="height: {% widthratio stat.unique_unk total_unique 100 %}%;"></div>
                                                 <div class="bg-sp" style="height: {% widthratio stat.unique_sp total_unique 100 %}%;"></div>
                                                 <div class="bg-run" style="height: {% widthratio stat.unique_run total_unique 100 %}%;"></div>
-                                             </div>
+                                            </div>
                                        </div>
                                         {% endwith %}
                                         {% endfor %}
                                     </div>
-                                     <div class="vert-foundation">
+                                    <div class="vert-foundation">
                                         <div class="h4 fw-bold text-secondary m-0">{{ row.common }}</div>
-                                         <div class="small fw-bold text-muted text-uppercase" style="font-size:0.6rem;">Common</div>
+                                        <div class="small fw-bold text-muted text-uppercase" style="font-size:0.6rem;">Common</div>
                                     </div>
                                     <div class="d-flex" style="background:#f8fafc;">
-                                         {% for call in all_calls %}
+                                        {% for call in all_calls %}
                                         <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>
-                                         {% endfor %}
+                                        {% endfor %}
                                     </div>
                                 {% endif %}
                              {% endfor %}
@@ -198,7 +198,7 @@
                                 <div class="y-tick" style="bottom: 25%">{% widthratio global_max.countries 4 1 %}</div>
                                  <div class="y-tick" style="bottom: 50%">{% widthratio global_max.countries 2 1 %}</div>
                                 <div class="y-tick" style="bottom: 75%">{% widthratio global_max.countries 4 3 %}</div>
-                                 <div class="y-tick" style="bottom: 100%">{{ global_max.countries }}</div>
+                                <div class="y-tick" style="bottom: 100%">{{ global_max.countries }}</div>
                             </div>
                             <div class="y-axis-spacer-foundation"></div>
                             <div class="y-axis-spacer-footer"></div>
@@ -213,7 +213,7 @@
                         {% for block in low_bands_data|add:high_bands_data %}
                         <div class="vert-col">
                             <div class="vert-header">{{ block.label }}</div>
-                             {% for row in block.rows %}
+                              {% for row in block.rows %}
                                 {% if "Countries" in row.label %}
                                     <div class="vert-spikes-container">
                                      {% for stat in row.stations %}
@@ -229,14 +229,14 @@
                                      {% endfor %}
                                     </div>
                                     <div class="vert-foundation">
-                                     <div class="h4 fw-bold text-secondary m-0">{{ row.common }}</div>
+                                         <div class="h4 fw-bold text-secondary m-0">{{ row.common }}</div>
                                     <div class="small fw-bold text-muted text-uppercase" style="font-size:0.6rem;">Common</div>
                                      </div>
                                     <div class="d-flex" style="background:#f8fafc;">
                                     {% for call in all_calls %}
-                                    <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>
+                                     <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>
                                     {% endfor %}
-                                     </div>
+                                      </div>
                                 {% endif %}
                             {% endfor %}
                         </div>
@@ -249,10 +249,10 @@
                         <div class="y-axis-col">
                             <div class="y-axis-spacer-header"></div>
                             <div class="y-axis-scale-area">
-                                 <div class="y-tick" style="bottom: 0%">0</div>
+                                <div class="y-tick" style="bottom: 0%">0</div>
                                 <div class="y-tick" style="bottom: 25%">{% widthratio global_max.zones 4 1 %}</div>
                                 <div class="y-tick" style="bottom: 50%">{% widthratio global_max.zones 2 1 %}</div>
-                                 <div class="y-tick" style="bottom: 75%">{% widthratio global_max.zones 4 3 %}</div>
+                                <div class="y-tick" style="bottom: 75%">{% widthratio global_max.zones 4 3 %}</div>
                                 <div class="y-tick" style="bottom: 100%">{{ global_max.zones }}</div>
                             </div>
                             <div class="y-axis-spacer-foundation"></div>
@@ -284,18 +284,18 @@
                                      {% endfor %}
                                    </div>
                                    <div class="vert-foundation">
-                                     <div class="h4 fw-bold text-secondary m-0">{{ row.common }}</div>
+                                      <div class="h4 fw-bold text-secondary m-0">{{ row.common }}</div>
                                     <div class="small fw-bold text-muted text-uppercase" style="font-size:0.6rem;">Common</div>
                                      </div>
                                 <div class="d-flex" style="background:#f8fafc;">
                                     {% for call in all_calls %}
-                                    <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>
+                                     <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>
                                     {% endfor %}
                                 </div>
-                                 {% endif %}
+                                  {% endif %}
                             {% endfor %}
                         </div>
-                         {% endfor %}
+                          {% endfor %}
                     </div>
                 </div>
 
@@ -317,16 +317,15 @@
             const exportTitle = sourceElement.getAttribute('data-export-title') || 'Snapshot';
             const exportContext = sourceElement.getAttribute('data-export-context') || '';
             const exportFooter = sourceElement.getAttribute('data-export-footer') || '';
-            
             // 2. Create Ghost Clone Container
             const ghost = document.createElement('div');
             ghost.style.position = 'absolute';
             ghost.style.left = '-9999px';
             ghost.style.top = '0';
-            ghost.style.width = sourceElement.offsetWidth + 'px'; // Maintain width
+            ghost.style.width = sourceElement.offsetWidth + 'px';
+            // Maintain width
             ghost.style.backgroundColor = '#ffffff';
             ghost.style.padding = '20px';
-            
             // 3. Inject Header
             const headerDiv = document.createElement('div');
             headerDiv.style.borderBottom = '2px solid #3b82f6'; // Blue accent
@@ -349,7 +348,6 @@
             clone.classList.remove('mult-card'); // Remove card borders if ghost wrapper handles it
             
             ghost.appendChild(clone);
-            
             // 5. Inject Footer
             const footerDiv = document.createElement('div');
             footerDiv.style.borderTop = '1px solid #e5e7eb';

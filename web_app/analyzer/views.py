@@ -5,8 +5,8 @@
 #          aggregates data using DAL components, and renders the dashboard.
 #
 # Author: Gemini AI
-# Date: 2026-01-01
-# Version: 0.156.2-Beta
+# Date: 2026-01-05
+# Version: 0.156.6-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -20,6 +20,13 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.156.6-Beta] - 2026-01-05
+# - Fixed 'qso_dashboard' to target 'chart_comparative_activity_butterfly' for comparative band activity.
+# [0.156.5-Beta] - 2026-01-05
+# - Updated 'qso_dashboard' to strictly target HTML artifacts for comparative band activity.
+# [0.156.3-Beta] - 2026-01-05
+# - Refactored Multiplier Dashboard to separate "Missed" and "Summary" reports into distinct tabs.
+# - Removed legacy Solo Mode logic that re-mapped summary reports to the missed slot.
 # [0.156.2-Beta] - 2026-01-01
 # - Updated import path for report utilities to `contest_tools.utils.report_utils`
 #   to resolve circular dependency.
@@ -578,7 +585,7 @@ def multiplier_dashboard(request, session_id):
                 dashboard_ctx = json.load(f)
                 persisted_logs = dashboard_ctx.get('logs', [])
         except Exception as e:
-             logger.error(f"Failed to load dashboard context: {e}")
+            logger.error(f"Failed to load dashboard context: {e}")
 
     # 5. Metadata Strategy (Fast Path vs Slow Path)
     lm = None
@@ -720,17 +727,10 @@ def multiplier_dashboard(request, session_id):
         else:
             continue
 
-        # Solo Mode Mapping Logic
-        if log_count == 1:
-            # In Solo, map 'multiplier_summary' to 'missed' slot for display
-            if rid == 'multiplier_summary':
-                report_key = 'missed'
-        else:
-            # Multi Mode: Map correctly
-            if rid == 'missed_multipliers':
-                report_key = 'missed'
-            elif rid == 'multiplier_summary':
-                report_key = 'summary'
+        if rid == 'missed_multipliers':
+            report_key = 'missed'
+        elif rid == 'multiplier_summary':
+            report_key = 'summary'
         
         if report_key:
             if mult_type not in multipliers:
@@ -834,7 +834,8 @@ def qso_dashboard(request, session_id):
             bk_path = next((f"{report_rel_path}/{a['path']}" for a in artifacts if a['report_id'] == 'qso_breakdown_chart' and f"_{c1}_{c2}" in a['path'] and a['path'].endswith('.html')), "")
             bk_json = next((f"{settings.MEDIA_URL}sessions/{session_id}/{report_rel_path}/{a['path']}" for a in artifacts if a['report_id'] == 'qso_breakdown_chart' and f"_{c1}_{c2}" in a['path'] and a['path'].endswith('.json')), "")
             
-            ba_path = next((f"{report_rel_path}/{a['path']}" for a in artifacts if a['report_id'] == 'comparative_band_activity' and f"_{c1}_{c2}" in a['path']), "")
+            # Explicitly target HTML for interactive view
+            ba_path = next((f"{report_rel_path}/{a['path']}" for a in artifacts if a['report_id'] == 'chart_comparative_activity_butterfly' and f"_{c1}_{c2}" in a['path'] and a['path'].endswith('.html')), "")
             cont_path = next((f"{report_rel_path}/{a['path']}" for a in artifacts if a['report_id'] == 'comparative_continent_summary' and f"_{c1}_{c2}" in a['path']), "")
 
             matchups.append({
@@ -919,7 +920,7 @@ def qso_dashboard(request, session_id):
                 p['active'] = True
                 active_set = True
                 break
-        if not active_set:
+    if not active_set:
             qso_band_plots[0]['active'] = True
 
     # Global files via manifest lookup

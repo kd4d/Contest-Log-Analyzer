@@ -95,6 +95,13 @@
                 <i class="bi bi-geo-alt me-2"></i>Points & Bands
             </button>
         </li>
+        {% if not is_solo %}
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="band-activity-tab" data-bs-toggle="tab" data-bs-target="#band-activity" type="button" role="tab">
+               <i class="bi bi-bar-chart-steps me-2"></i>Band Activity Comparison
+            </button>
+        </li>
+        {% endif %}
     </ul>
 
     <div class="tab-content" id="qsoTabsContent">
@@ -237,6 +244,37 @@
                 </div>
             </div>
         </div>
+
+        {% if not is_solo %}
+        <div class="tab-pane fade" id="band-activity" role="tabpanel">
+            <div class="input-group mb-3 w-auto">
+                <label class="input-group-text" for="bandActivitySelect"><i class="bi bi-people me-2"></i>Select Matchup:</label>
+                <select class="form-select" id="bandActivitySelect">
+                {% for m in matchups %}
+                    <option value="{{ m.id }}"
+                            {% if m.band_activity_file %}
+                            data-src="{% url 'view_report' session_id m.band_activity_file %}?chromeless=1"
+                            data-full-src="{% url 'view_report' session_id m.band_activity_file %}?source=qso"
+                            {% else %}
+                            disabled
+                            {% endif %}>
+                        {{ m.label }} {% if not m.band_activity_file %}(Not Available){% endif %}
+                    </option>
+                {% endfor %}
+                </select>
+            </div>
+            <div class="card shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                     <span>Band Activity Butterfly Chart</span>
+                     <a id="link-band-activity" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
+                </div>
+                <div class="card-body p-0">
+                    <iframe id="frame-band-activity" src="" class="viewport-frame"></iframe>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
     </div>
 </div>
 
@@ -322,6 +360,7 @@
                 updateDiffContent();
             });
         });
+
         // --- Generic Dropdown Logic for other tabs ---
         // Enhanced: Supports both iframe (src) and Div/Plotly (json-src)
         function setupDropdown(selectId, targetId, linkId) {
@@ -330,6 +369,7 @@
             const link = document.getElementById(linkId);
             
             if (!select || !target) return;
+
             function update() {
                 const opt = select.options[select.selectedIndex];
                 if (target.tagName === 'IFRAME') {
@@ -354,6 +394,7 @@
         // Remains Iframe
         setupDropdown('pointsSelect', 'chart-points', 'link-points');
         // Changed to chart ID
+        setupDropdown('bandActivitySelect', 'frame-band-activity', 'link-band-activity');
 
         // --- Tab Resize Fix ---
         // Force Plotly to recalculate width when a tab becomes visible
