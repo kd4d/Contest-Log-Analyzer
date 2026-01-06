@@ -1,9 +1,12 @@
 # AIAgentWorkflow.md
 
-**Version: 5.2.0**
-**Date: 2026-01-05**
+**Version: 5.2.1**
+**Date: 2026-01-06**
 ---
 ### --- Revision History ---
+## [5.2.1] - 2026-01-06
+### Fixed
+# - Amended Protocol 4.9 to explicitly allow Protocol 4.4 (File Delivery Verification) text in Builder Mode, resolving the "Silence vs. Speak" logic conflict.
 ## [5.2.0] - 2026-01-05
 ### Added
 # - Added Protocol 9.3 "The Smart Envelope" & N+1 Rule.
@@ -739,7 +742,7 @@ To proceed, you must provide the exact prompt: '[REQUIRED_PHRASE]'.`
     * **State 2 (The Architect) & State 3 (The Builder): "The System Interface"**
         * **Goal:** Precision, Integrity, and Execution.
         * **Allowed:** **NONE.** No conversational text is permitted outside of the defined artifacts.
-        * **Exception:** **Protocol 4.8** acknowledgment is the *only* permitted text in State 3.
+        * **Exception:** **Protocol 4.8** (Correction Loop) and **Protocol 4.4** (File Delivery Verification) are the *only* permitted text outputs in State 3.
         * **The Artifact Exemption:** Constraints on "Voice" apply to the **Agent's Response (The Envelope)**. They do **not** apply to the **Content (The Payload)**.
 
 4.4. **Confirmed File Delivery Protocol.** This protocol governs the per-file execution loop for an approved implementation plan.
