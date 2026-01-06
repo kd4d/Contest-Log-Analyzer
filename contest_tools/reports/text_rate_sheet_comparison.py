@@ -3,8 +3,8 @@
 # Purpose: A text report that generates a comparative hourly rate sheet for two or more logs.
 #
 # Author: Gemini AI
-# Date: 2026-01-03
-# Version: 0.151.2-Beta
+# Date: 2026-01-05
+# Version: 0.159.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.159.0-Beta] - 2026-01-05
+# - Updated metadata extraction to use TimeSeriesAggregator scalars (DAL Migration).
 # [0.151.2-Beta] - 2026-01-03
 # - Refactored imports to use absolute path `contest_tools.utils.report_utils` to resolve circular dependencies.
 # [0.134.0-Beta] - 2025-12-20
@@ -105,14 +107,16 @@ class Report(ContestReport):
             for m in available_modes:
                 col_defs.append({'key': f'mode_{m}', 'header': m, 'width': 5, 'type': 'mode'})
 
-        # If it's single band, we skip the "Overall" block usually, but here we can just make the Overall block 
-        # behave like a Detail block.
         # Let's stick to the drill-down: Overall (Band Summary) -> Details (Mode Summary).
         col_defs.append({'key': 'total', 'header': 'Total', 'width': 7, 'type': 'calc'})
         col_defs.append({'key': 'cumul', 'header': 'Cumul', 'width': 8, 'type': 'calc'})
 
-        contest_name = first_log.get_metadata().get('ContestName', 'UnknownContest')
-        year = first_log.get_processed_data()['Date'].dropna().iloc[0].split('-')[0] if not first_log.get_processed_data().empty else "----"
+        # --- Extract Metadata from DAL Scalars (Safe Access) ---
+        first_call = all_calls[0]
+        first_log_scalars = ts_data['logs'].get(first_call, {}).get('scalars', {})
+        
+        contest_name = first_log_scalars.get('contest_name', 'UnknownContest')
+        year = first_log_scalars.get('year', '----')
         
         # Calculate modes present for smart scoping
         modes_present = set(available_modes)

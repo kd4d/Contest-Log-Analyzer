@@ -5,7 +5,7 @@
 #
 # Author: Gemini AI
 # Date: 2026-01-05
-# Version: 0.153.0-Beta
+# Version: 0.159.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.159.0-Beta] - 2026-01-05
+# - Updated get_log_summary_stats to return metadata context (DAL Migration).
 # [0.153.0-Beta] - 2026-01-05
 # - Added include_dupes parameter to compute_comparison_breakdown.
 # - Added common_detail to comparison return value for independent mode stats.
@@ -160,7 +162,7 @@ class CategoricalAggregator:
         # 4. Categorical Breakdown for Common Set
         common_breakdown: Dict[str, int] = {'run_both': 0, 'sp_both': 0, 'mixed': 0}
         common_detail = {"log1": {'run': 0, 'sp': 0, 'unk': 0}, "log2": {'run': 0, 'sp': 0, 'unk': 0}}
-        
+
         if common_calls:
             df_common_1 = df1[df1['Call'].isin(common_calls)].copy()
             df_common_2 = df2[df2['Call'].isin(common_calls)].copy()
@@ -229,12 +231,14 @@ class CategoricalAggregator:
         
         return pivot.to_dict('records')
 
-    def get_log_summary_stats(self, logs: List[ContestLog], include_dupes: bool = False) -> List[Dict[str, Any]]:
+    def get_log_summary_stats(self, logs: List[ContestLog], include_dupes: bool = False) -> Dict[str, Any]:
         """
         Generates summary statistics for a list of logs (Total, Dupes, Mode Breakdown).
-        Returns a list of dictionaries suitable for text_summary.py.
+        Returns a dictionary containing 'rows' (list of dicts) and 'meta' (year, contest_name).
         """
         summary_data = []
+        year = "UnknownYear"
+        contest_name = "UnknownContest"
 
         for log in logs:
             metadata = log.get_metadata()
@@ -243,6 +247,13 @@ class CategoricalAggregator:
             # Get full DF to calculate dupes
             df_full = get_valid_dataframe(log, include_dupes=True)
             dupes = df_full['Dupe'].sum() if 'Dupe' in df_full.columns else 0
+            
+            # Extract global metadata from the first valid log encountered
+            if year == "UnknownYear" and not df_full.empty:
+                date_series = df_full['Date'].dropna()
+                if not date_series.empty:
+                    year = date_series.iloc[0].split('-')[0]
+                contest_name = metadata.get('ContestName', 'UnknownContest')
             
             # Filter if required
             df = df_full if include_dupes else df_full[df_full['Dupe'] == False]
@@ -259,7 +270,13 @@ class CategoricalAggregator:
                 'Unknown': mode_counts['unk']
             })
             
-        return summary_data
+        return {
+            "rows": summary_data,
+            "meta": {
+                "year": year,
+                "contest_name": contest_name
+            }
+        }
 
     def get_continent_stats(self, logs: List[ContestLog], include_dupes: bool = False) -> List[Dict[str, Any]]:
         """

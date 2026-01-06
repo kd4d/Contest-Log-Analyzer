@@ -4,7 +4,7 @@
 #
 # Author: Gemini AI
 # Date: 2026-01-05
-# Version: 0.152.0-Beta
+# Version: 0.159.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,11 +18,13 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.159.0-Beta] - 2026-01-05
+# - Updated generate method to use DAL metadata (removed direct DF access).
 # [0.152.0-Beta] - 2026-01-05
 # - Refactored to use CategoricalAggregator (DAL) for data retrieval.
 # - Removed direct DataFrame access and calculation logic.
 # [0.90.0-Beta] - 2025-10-01
-# Set new baseline version for release.
+# - Set new baseline version for release.
 
 from typing import List
 import os
@@ -46,9 +48,14 @@ class Report(ContestReport):
         include_dupes = kwargs.get('include_dupes', False)
         
         aggregator = CategoricalAggregator()
-        report_data = aggregator.get_log_summary_stats(self.logs, include_dupes=include_dupes)
+        agg_result = aggregator.get_log_summary_stats(self.logs, include_dupes=include_dupes)
         
+        report_data = agg_result['rows']
         all_calls = [row['Callsign'] for row in report_data]
+        
+        # Extract metadata from DAL result
+        year = agg_result['meta'].get('year', '----')
+        contest_name = agg_result['meta'].get('contest_name', 'UnknownContest')
 
         # --- Formatting ---
         headers = ["Callsign", "On-Time", "Total QSOs", "Dupes", "Run", "S&P", "Unknown"]
@@ -66,10 +73,6 @@ class Report(ContestReport):
         table_header = "  ".join([f"{h:<{col_widths[h]}}" for h in headers])
         table_width = len(table_header)
         separator = "-" * table_width
-        
-        first_log = self.logs[0]
-        contest_name = first_log.get_metadata().get('ContestName', 'UnknownContest')
-        year = first_log.get_processed_data()['Date'].iloc[0].split('-')[0] if not first_log.get_processed_data().empty else "----"
         
         title1 = f"--- {self.report_name} ---"
         title2 = f"{year} {contest_name} - {', '.join(all_calls)}"
