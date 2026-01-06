@@ -4,8 +4,8 @@
 #          specific multiplier type (e.g., Countries, Zones).
 #
 # Author: Gemini AI
-# Date: 2025-12-17
-# Version: 0.134.1-Beta
+# Date: 2026-01-05
+# Version: 0.162.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.162.0-Beta] - 2026-01-05
+# - Standardized report filename generation to use `_` separator and sanitized callsigns.
 # [0.134.1-Beta] - 2025-12-20
 # - Added standard report header generation using `format_text_header`.
 # [0.125.0-Beta] - 2025-12-17
@@ -33,6 +35,7 @@
 # - Added logic to preserve "Prefixes" as a plural header.
 # [0.90.0-Beta] - 2025-10-01
 # - Set new baseline version for release.
+
 from typing import List
 import os
 import json
@@ -41,7 +44,7 @@ import hashlib
 from ..contest_log import ContestLog
 from ..data_aggregators.multiplier_stats import MultiplierStatsAggregator
 from .report_interface import ContestReport
-from contest_tools.utils.report_utils import format_text_header, get_cty_metadata, get_standard_title_lines
+from contest_tools.utils.report_utils import format_text_header, get_cty_metadata, get_standard_title_lines, _sanitize_filename_part
 
 class Report(ContestReport):
     """
@@ -74,6 +77,7 @@ class Report(ContestReport):
         mult_rule = result['mult_rule']
         combined_df = result['combined_df']
         main_df = result['main_df']
+        
         contest_def = self.logs[0].contest_definition
         name_column = mult_rule.get('name_column')
 
@@ -135,15 +139,15 @@ class Report(ContestReport):
             # --- Save the clean (but empty) report and exit ---
             report_content = "\n".join(report_lines) + "\n"
             os.makedirs(output_path, exist_ok=True)
-            filename_calls = '_vs_'.join(sorted(all_calls))
-        
+            filename_calls = '_'.join([_sanitize_filename_part(c) for c in sorted(all_calls)])
+            
             mode_suffix = f"_{mode_filter.lower()}" if mode_filter else ""
-            filename = f"{self.report_id}_{mult_name.lower()}{mode_suffix}_{filename_calls}.txt"
+            filename = f"{self.report_id}_{mult_name.lower().replace('/', '_')}{mode_suffix}_{filename_calls}.txt"
             filepath = os.path.join(output_path, filename)
             with open(filepath, 'w', encoding='utf-8') as f:
                 f.write(report_content)
             return f"Text report saved to: {filepath}"
-         
+        
         # Name map logic (list based)
         name_map = {}
         if name_column:
@@ -248,7 +252,7 @@ class Report(ContestReport):
                         line += f"{val:>7}"
                         row_total += val
                         col_totals[call][band] += val 
-                    
+        
                     if not is_single_band:
                         line += f"{row_total:>7}"
                     report_lines.append(line)
@@ -301,9 +305,9 @@ class Report(ContestReport):
         
         os.makedirs(output_path, exist_ok=True)
         
-        filename_calls = '_vs_'.join(sorted(all_calls))
+        filename_calls = '_'.join([_sanitize_filename_part(c) for c in sorted(all_calls)])
         mode_suffix = f"_{mode_filter.lower()}" if mode_filter else ""
-        filename = f"{self.report_id}_{mult_name.lower()}{mode_suffix}_{filename_calls}.txt"
+        filename = f"{self.report_id}_{mult_name.lower().replace('/', '_')}{mode_suffix}_{filename_calls}.txt"
         filepath = os.path.join(output_path, filename)
         
         with open(filepath, 'w', encoding='utf-8') as f:

@@ -6,21 +6,23 @@
 #          execute it (e.g., single-log, pairwise, multi-log).
 #
 # Author: Gemini AI
-# Date: 2025-12-20
-# Version: 0.134.1-Beta
+# Date: 2026-01-05
+# Version: 0.163.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
-#          (https://www.mozilla.org/MPL/2.0/)
+#          ([https://www.mozilla.org/MPL/2.0/](https://www.mozilla.org/MPL/2.0/))
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0.
 # If a copy of the MPL was not distributed with this
-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+# file, You can obtain one at [http://mozilla.org/MPL/2.0/](http://mozilla.org/MPL/2.0/).
 #
 # --- Revision History ---
+# [0.163.0-Beta] - 2026-01-05
+# - Enforced strict filename sanitization for callsign directory components to match report suffix logic.
 # [0.134.1-Beta] - 2025-12-20
 # - Removed redundant local 'import os' to fix NameError in nested helper.
 # [0.134.0-Beta] - 2025-12-20
@@ -39,7 +41,6 @@
 #   specialized, contest-specific reports.
 # [0.90.0-Beta] - 2025-10-01
 # - Set new baseline version for release.
-
 import os
 import itertools
 import importlib
@@ -47,6 +48,7 @@ import logging
 import pandas as pd
 from .reports import AVAILABLE_REPORTS
 from .manifest_manager import ManifestManager
+from .utils.report_utils import _sanitize_filename_part
 
 class ReportGenerator:
     """
@@ -84,8 +86,8 @@ class ReportGenerator:
                 event_id = "UnknownEvent"
 
         # --- Get Callsign Combination ID ---
-        all_calls = sorted([log.get_metadata().get('MyCall', f'Log{i+1}').lower() for i, log in enumerate(self.logs)])
-        callsign_combo_id = '_'.join(all_calls)
+        all_calls = sorted([log.get_metadata().get('MyCall', f'Log{i+1}') for i, log in enumerate(self.logs)])
+        callsign_combo_id = '_'.join([_sanitize_filename_part(c) for c in all_calls])
 
         # --- Construct Final Path ---
         self.base_output_dir = os.path.join(root_output_dir, 'reports', year, contest_name, event_id.lower(), callsign_combo_id)

@@ -6,7 +6,7 @@
 #
 # Author: Gemini AI
 # Date: 2026-01-05
-# Version: 0.156.6-Beta
+# Version: 0.156.8-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -20,6 +20,11 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.156.8-Beta] - 2026-01-05
+# - Fixed SyntaxError in `multiplier_dashboard` by correcting indentation of except block.
+# [0.156.7-Beta] - 2026-01-05
+# - Updated `multiplier_dashboard` to strip individual callsign suffixes from report filenames
+#   when the session suffix check fails (fixes display bug for drill-down reports).
 # [0.156.6-Beta] - 2026-01-05
 # - Fixed 'qso_dashboard' to target 'chart_comparative_activity_butterfly' for comparative band activity.
 # [0.156.5-Beta] - 2026-01-05
@@ -720,6 +725,13 @@ def multiplier_dashboard(request, session_id):
         # Strip suffix
         if base.endswith(suffix):
             base = base[:-len(suffix)]
+        elif persisted_logs:
+            # Fallback: Check for individual callsign suffixes (Single log report in Multi session)
+            for p_log in persisted_logs:
+                c_suffix = f"_{_sanitize_filename_part(p_log['callsign'])}"
+                if base.endswith(c_suffix):
+                    base = base[:-len(c_suffix)]
+                    break
         # Strip prefix
         if base.startswith(rid + '_'):
             mult_type_slug = base[len(rid)+1:]

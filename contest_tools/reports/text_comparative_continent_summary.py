@@ -4,8 +4,8 @@
 #          by continent for two logs.
 #
 # Author: Gemini AI
-# Date: 2026-01-01
-# Version: 0.151.1-Beta
+# Date: 2026-01-05
+# Version: 0.162.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.162.0-Beta] - 2026-01-05
+# - Standardized filename generation to remove `_vs_` separator.
 # [0.151.1-Beta] - 2026-01-01
 # - Repair import path for report_utils to fix circular dependency.
 # [0.151.0-Beta] - 2026-01-01
@@ -60,7 +62,6 @@ class Report(ContestReport):
         # 2. Aggregation
         # We need to manually aggregate because CategoricalAggregator is usually band-specific
         # but here we want totals.
-        
         log1, log2 = self.logs[0], self.logs[1]
         call1 = log1.get_metadata().get('MyCall', 'Log1')
         call2 = log2.get_metadata().get('MyCall', 'Log2')
@@ -104,7 +105,7 @@ class Report(ContestReport):
         
         # 4. Save
         create_output_directory(output_path)
-        base_filename = f"{self.report_id}_{_sanitize_filename_part(call1)}_vs_{_sanitize_filename_part(call2)}.txt"
+        base_filename = f"{self.report_id}_{_sanitize_filename_part(call1)}_{_sanitize_filename_part(call2)}.txt"
         file_path = os.path.join(output_path, base_filename)
         
         with open(file_path, 'w') as f:
