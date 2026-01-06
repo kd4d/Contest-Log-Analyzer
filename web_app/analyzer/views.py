@@ -5,8 +5,8 @@
 #          aggregates data using DAL components, and renders the dashboard.
 #
 # Author: Gemini AI
-# Date: 2026-01-05
-# Version: 0.156.10-Beta
+# Date: 2026-01-06
+# Version: 0.156.11-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -20,6 +20,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.156.11-Beta] - 2026-01-06
+# - Updated 'qso_dashboard' to discover and pass JSON artifacts for the Comparative Activity Butterfly chart.
 # [0.156.10-Beta] - 2026-01-05
 # - Fixed "Order of Operations" bug in Multiplier Dashboard artifact discovery.
 # - Reordered logic to check for Pairwise suffixes (Longest Match) before Single suffixes
@@ -357,7 +359,7 @@ def analyze_logs(request):
             except ValueError as e:
                 logger.warning(f"Validation error during public log fetch: {e}")
                 return render(request, 'analyzer/home.html', {'form': UploadLogForm(), 'error': str(e)})
-            
+             
             except Exception as e:
                 logger.exception("Public log fetch failed")
                 return render(request, 'analyzer/home.html', {'form': UploadLogForm(), 'error': str(e)})
@@ -651,7 +653,7 @@ def multiplier_dashboard(request, session_id):
         for log in lm.logs:
             df = log.get_processed_data()
             if 'Mode' in df.columns:
-                modes_present.update(df['Mode'].dropna().unique())
+                 modes_present.update(df['Mode'].dropna().unique())
 
         title_lines = get_standard_title_lines("Multiplier Breakdown", lm.logs, "All Bands", None, modes_present)
         
@@ -672,7 +674,7 @@ def multiplier_dashboard(request, session_id):
     if breakdown_data and 'bands' in breakdown_data:
         for block in breakdown_data['bands']:
             if block['label'] in low_bands:
-                low_bands_data.append(block)
+                 low_bands_data.append(block)
             else:
                 high_bands_data.append(block)
     
@@ -906,6 +908,7 @@ def qso_dashboard(request, session_id):
             
             # Explicitly target HTML for interactive view
             ba_path = next((f"{report_rel_path}/{a['path']}" for a in artifacts if a['report_id'] == 'chart_comparative_activity_butterfly' and f"_{c1}_{c2}" in a['path'] and a['path'].endswith('.html')), "")
+            ba_json = next((f"{settings.MEDIA_URL}sessions/{session_id}/{report_rel_path}/{a['path']}" for a in artifacts if a['report_id'] == 'chart_comparative_activity_butterfly' and f"_{c1}_{c2}" in a['path'] and a['path'].endswith('.json')), "")
             cont_path = next((f"{report_rel_path}/{a['path']}" for a in artifacts if a['report_id'] == 'comparative_continent_summary' and f"_{c1}_{c2}" in a['path']), "")
 
             matchups.append({
@@ -916,6 +919,7 @@ def qso_dashboard(request, session_id):
                 'qso_breakdown_file': bk_path,
                 'qso_breakdown_json': bk_json,
                 'band_activity_file': ba_path,
+                'band_activity_json': ba_json,
                 'continent_file': cont_path
             })
 

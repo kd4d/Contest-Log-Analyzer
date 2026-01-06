@@ -5,7 +5,7 @@
 #
 # Author: Gemini AI
 # Date: 2026-01-06
-# Version: 0.159.7-Beta
+# Version: 0.159.8-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.159.8-Beta] - 2026-01-06
+# - Surgical Update: Added JSON artifact generation (fig.write_json) to support
+#   web component rendering in dashboard.
 # [0.159.7-Beta] - 2026-01-06
 # - Surgical Update: Implemented N+1 Row "Header Row" Architecture for clean Legend/Title separation.
 # - Refactored layout to use 'relative' barmode for correct stacking.
@@ -95,7 +98,7 @@ class Report(ContestReport):
     def generate(self, output_path: str, **kwargs) -> str:
         if len(self.logs) != 2:
             return "Skipping: Butterfly chart requires exactly 2 logs."
-        
+
         call1 = self.logs[0].get_metadata().get('MyCall', 'LOG1')
         call2 = self.logs[1].get_metadata().get('MyCall', 'LOG2')
 
@@ -121,6 +124,12 @@ class Report(ContestReport):
             fig = self._create_figure(data, time_bins, bands, call1, call2)
             
             generated_files = []
+
+            # 1. Save JSON (Web Component Artifact)
+            json_filename = f"{filename_base}.json"
+            json_path = os.path.join(charts_dir, json_filename)
+            fig.write_json(json_path)
+            generated_files.append(json_filename)
 
             # Save HTML (Interactive)
             html_filename = f"{filename_base}.html"
@@ -242,7 +251,7 @@ class Report(ContestReport):
                 customdata=[abs(v) for v in l2_unk],
                 hovertemplate='%{x}<br>Unk: %{customdata}'
             ), row=row_idx, col=1)
-            
+             
             # Add zero line
             fig.add_hline(y=0, line_width=1, line_color="black", row=row_idx, col=1)
             

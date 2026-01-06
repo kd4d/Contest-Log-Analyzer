@@ -252,13 +252,13 @@
                 <select class="form-select" id="bandActivitySelect">
                 {% for m in matchups %}
                     <option value="{{ m.id }}"
-                            {% if m.band_activity_file %}
-                            data-src="{% url 'view_report' session_id m.band_activity_file %}?chromeless=1"
+                            {% if m.band_activity_json %}
+                            data-json-src="{{ m.band_activity_json }}"
                             data-full-src="{% url 'view_report' session_id m.band_activity_file %}?source=qso"
                             {% else %}
                             disabled
                             {% endif %}>
-                        {{ m.label }} {% if not m.band_activity_file %}(Not Available){% endif %}
+                        {{ m.label }} {% if not m.band_activity_json %}(Not Available){% endif %}
                     </option>
                 {% endfor %}
                 </select>
@@ -269,7 +269,7 @@
                      <a id="link-band-activity" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
                 </div>
                 <div class="card-body p-0">
-                    <iframe id="frame-band-activity" src="" class="viewport-frame"></iframe>
+                    <div id="chart-band-activity" class="viewport-frame" style="overflow-y: auto; overflow-x: hidden;"></div>
                 </div>
             </div>
         </div>
@@ -394,7 +394,7 @@
         // Remains Iframe
         setupDropdown('pointsSelect', 'chart-points', 'link-points');
         // Changed to chart ID
-        setupDropdown('bandActivitySelect', 'frame-band-activity', 'link-band-activity');
+        setupDropdown('bandActivitySelect', 'chart-band-activity', 'link-band-activity');
 
         // --- Tab Resize Fix ---
         // Force Plotly to recalculate width when a tab becomes visible
