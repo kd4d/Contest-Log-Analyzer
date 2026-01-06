@@ -6,7 +6,7 @@
 #
 # Author: Gemini AI
 # Date: 2026-01-05
-# Version: 0.156.8-Beta
+# Version: 0.156.10-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -20,6 +20,13 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.156.10-Beta] - 2026-01-05
+# - Fixed "Order of Operations" bug in Multiplier Dashboard artifact discovery.
+# - Reordered logic to check for Pairwise suffixes (Longest Match) before Single suffixes
+#   to prevent partial collisions (e.g., `_a_b` being claimed by `_b`).
+# [0.156.9-Beta] - 2026-01-05
+# - Implemented 3-Tier Tab Strategy for Multiplier Dashboard (Session, Pairs, Singles).
+# - Refactored artifact discovery to categorize reports by suffix.
 # [0.156.8-Beta] - 2026-01-05
 # - Fixed SyntaxError in `multiplier_dashboard` by correcting indentation of except block.
 # [0.156.7-Beta] - 2026-01-05
@@ -204,6 +211,7 @@ import uuid
 import re
 import json
 import time
+import itertools
 from django.shortcuts import render, redirect, reverse
 from django.http import Http404, JsonResponse, FileResponse
 from django.conf import settings
@@ -589,6 +597,7 @@ def multiplier_dashboard(request, session_id):
             with open(context_path, 'r') as f:
                 dashboard_ctx = json.load(f)
                 persisted_logs = dashboard_ctx.get('logs', [])
+    
         except Exception as e:
             logger.error(f"Failed to load dashboard context: {e}")
 
@@ -709,6 +718,12 @@ def multiplier_dashboard(request, session_id):
     # Use Manifest to find Missed/Summary reports
     multipliers = {}
 
+    # Prepare Suffixes for Categorization
+    all_calls_safe = sorted([_sanitize_filename_part(l['callsign']) for l in persisted_logs])
+    
+    # 1. Session Suffix (All Logs)
+    suffix_session = "_" + "_".join(all_calls_safe)
+
     target_ids = ['missed_multipliers', 'multiplier_summary']
     
     for art in artifacts:
@@ -717,21 +732,44 @@ def multiplier_dashboard(request, session_id):
         
         mult_type = None
         report_key = None
+        category = None # 'session', 'pair', 'single'
+        label_context = None # e.g. "K1LZ vs K3LR" or "K1LZ"
 
         # Extract Mult Type from Filename: {report_id}_{MULT_TYPE}_{combo_id}.txt
         fname = os.path.basename(art['path'])
         # Strip extension
         base = os.path.splitext(fname)[0]
-        # Strip suffix
-        if base.endswith(suffix):
-            base = base[:-len(suffix)]
-        elif persisted_logs:
-            # Fallback: Check for individual callsign suffixes (Single log report in Multi session)
-            for p_log in persisted_logs:
-                c_suffix = f"_{_sanitize_filename_part(p_log['callsign'])}"
-                if base.endswith(c_suffix):
-                    base = base[:-len(c_suffix)]
-                    break
+        
+        # --- Categorization Logic ---
+        if base.endswith(suffix_session):
+            category = 'session'
+            base = base[:-len(suffix_session)]
+        else:
+            # 1. Check Pairs (Longer suffix matches first to prevent partial collision)
+            found_pair = False
+            if len(all_calls_safe) > 2:
+                pairs = list(itertools.combinations(all_calls_safe, 2))
+                for p in pairs:
+                    # Pairs are sorted in filename: _call1_call2
+                    c1, c2 = sorted(p)
+                    p_suff = f"_{c1}_{c2}"
+                    if base.endswith(p_suff):
+                        category = 'pairs'
+                        label_context = f"{c1.upper()} vs {c2.upper()}"
+                        base = base[:-len(p_suff)]
+                        found_pair = True
+                        break
+
+            # 2. Check Singles (if not pair)
+            if not found_pair:
+                for c in all_calls_safe:
+                    s_suff = f"_{c}"
+                    if base.endswith(s_suff):
+                        category = 'singles'
+                        label_context = c.upper()
+                        base = base[:-len(s_suff)]
+                        break
+
         # Strip prefix
         if base.startswith(rid + '_'):
             mult_type_slug = base[len(rid)+1:]
@@ -744,11 +782,31 @@ def multiplier_dashboard(request, session_id):
         elif rid == 'multiplier_summary':
             report_key = 'summary'
         
-        if report_key:
+        if report_key and category:
             if mult_type not in multipliers:
-                multipliers[mult_type] = {'label': mult_type, 'missed': None, 'summary': None}
+                multipliers[mult_type] = {
+                    'label': mult_type, 
+                    'session': {'missed': None, 'summary': None},
+                    'pairs': [],
+                    'singles': []
+                }
             
-            multipliers[mult_type][report_key] = f"{report_rel_path}/{art['path']}"
+            # Construct relative link
+            link = f"{report_rel_path}/{art['path']}"
+            
+            if category == 'session':
+                multipliers[mult_type]['session'][report_key] = link
+            else:
+                # For pairs/singles, we append to a list.
+                # We need to find if an entry for this context already exists to merge 'missed' and 'summary'
+                target_list = multipliers[mult_type][category]
+                existing = next((item for item in target_list if item['label'] == label_context), None)
+                if not existing:
+                    existing = {'label': label_context, 'missed': None, 'summary': None}
+                    target_list.append(existing)
+                existing[report_key] = link
+                # Sort lists for consistency
+                target_list.sort(key=lambda x: x['label'])
 
     # Convert dict to sorted list for template
     sorted_mults = sorted(multipliers.values(), key=lambda x: x['label'])
@@ -932,7 +990,7 @@ def qso_dashboard(request, session_id):
                 p['active'] = True
                 active_set = True
                 break
-    if not active_set:
+        if not active_set:
             qso_band_plots[0]['active'] = True
 
     # Global files via manifest lookup

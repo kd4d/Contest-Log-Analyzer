@@ -112,7 +112,7 @@
                     </div>
                     <div></div><div></div>
                 </div>
-           </div>
+            </div>
        </div>
     </div>
     {% endfor %}
@@ -139,7 +139,7 @@
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="pills-zones-tab" data-bs-toggle="pill" data-bs-target="#pills-zones" type="button" role="tab">Zones</button>
             </li>
-        </ul>
+    </ul>
 
         <div class="tab-content" id="pills-tabContent">
             
@@ -191,7 +191,7 @@
      
                                 <div class="d-flex" style="background:#f8fafc;">
                                     {% for call in all_calls %}
-                                     <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>
+                                      <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>
                                     {% endfor %}
                                 </div>
                            {% endif %}
@@ -231,14 +231,13 @@
                                 <div class="vert-spikes-container">
                                 {% for stat in row.stations %}
                                 {% with total_unique=stat.unique_run|add:stat.unique_sp|add:stat.unique_unk %}
-                                <div class="vert-bar-wrapper">
-                                    <div class="vert-bar" style="height: {% widthratio total_unique global_max.countries 100 %}%;"
-data-bs-toggle="tooltip" title="{{ all_calls|get_item:forloop.counter0 }}: {{ total_unique }} Unique">
+                                    <div class="vert-bar-wrapper">
+                                    <div class="vert-bar" style="height: {% widthratio total_unique global_max.countries 100 %}%;" data-bs-toggle="tooltip" title="{{ all_calls|get_item:forloop.counter0 }}: {{ total_unique }} Unique">
                                         <div class="bg-unk" style="height: {% widthratio stat.unique_unk total_unique 100 %}%;"></div>
                                         <div class="bg-sp" style="height: {% widthratio stat.unique_sp total_unique 100 %}%;"></div>
                                         <div class="bg-run" style="height: {% widthratio stat.unique_run total_unique 100 %}%;"></div>
                                     </div>
-                                </div>
+                                    </div>
                                 {% endwith %}
                                 {% endfor %}
                                 </div>
@@ -262,11 +261,11 @@ data-bs-toggle="tooltip" title="{{ all_calls|get_item:forloop.counter0 }}: {{ to
 
             <div class="tab-pane fade" id="pills-zones" role="tabpanel">
                  <div class="vert-spectrum">
-                     <div class="y-axis-col">
+                      <div class="y-axis-col">
                         <div class="y-axis-spacer-header"></div>
                         <div class="y-axis-scale-area">
                             <div class="y-tick" style="bottom: 0%">0</div>
-                            <div class="y-tick" style="bottom: 25%">{% widthratio global_max.zones 4 1 %}</div>
+                             <div class="y-tick" style="bottom: 25%">{% widthratio global_max.zones 4 1 %}</div>
                             <div class="y-tick" style="bottom: 50%">{% widthratio global_max.zones 2 1 %}</div>
                             <div class="y-tick" style="bottom: 75%">{% widthratio global_max.zones 4 3 %}</div>
                             <div class="y-tick" style="bottom: 100%">{{ global_max.zones }}</div>
@@ -291,13 +290,12 @@ data-bs-toggle="tooltip" title="{{ all_calls|get_item:forloop.counter0 }}: {{ to
                                 {% for stat in row.stations %}
                                 {% with total_unique=stat.unique_run|add:stat.unique_sp|add:stat.unique_unk %}
                                 <div class="vert-bar-wrapper">
-                                    <div class="vert-bar" style="height: {% widthratio total_unique global_max.zones 100 %}%;"
-data-bs-toggle="tooltip" title="{{ all_calls|get_item:forloop.counter0 }}: {{ total_unique }} Unique">
+                                    <div class="vert-bar" style="height: {% widthratio total_unique global_max.zones 100 %}%;" data-bs-toggle="tooltip" title="{{ all_calls|get_item:forloop.counter0 }}: {{ total_unique }} Unique">
                                         <div class="bg-unk" style="height: {% widthratio stat.unique_unk total_unique 100 %}%;"></div>
                                         <div class="bg-sp" style="height: {% widthratio stat.unique_sp total_unique 100 %}%;"></div>
                                         <div class="bg-run" style="height: {% widthratio stat.unique_run total_unique 100 %}%;"></div>
                                     </div>
-                                </div>
+                                    </div>
                                 {% endwith %}
                                 {% endfor %}
                                 </div>
@@ -326,8 +324,20 @@ data-bs-toggle="tooltip" title="{{ all_calls|get_item:forloop.counter0 }}: {{ to
     
     <ul class="nav nav-tabs mb-4" id="analysisTabs" role="tablist">
         <li class="nav-item" role="presentation">
-            <button class="nav-link active" id="missed-tab" data-bs-toggle="tab" data-bs-target="#missed" type="button" role="tab" aria-controls="missed" aria-selected="true">
-                Missed Multipliers
+            <button class="nav-link active" id="session-tab" data-bs-toggle="tab" data-bs-target="#session" type="button" role="tab" aria-controls="session" aria-selected="true">
+                Session Summary
+            </button>
+        </li>
+        {% if not is_solo and all_calls|length > 2 %}
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="pairs-tab" data-bs-toggle="tab" data-bs-target="#pairs" type="button" role="tab" aria-controls="pairs" aria-selected="false">
+                Head-to-Head
+            </button>
+        </li>
+        {% endif %}
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="singles-tab" data-bs-toggle="tab" data-bs-target="#singles" type="button" role="tab" aria-controls="singles" aria-selected="false">
+                Station Detail
             </button>
         </li>
         <li class="nav-item" role="presentation">
@@ -338,7 +348,7 @@ data-bs-toggle="tooltip" title="{{ all_calls|get_item:forloop.counter0 }}: {{ to
     </ul>
 
     <div class="tab-content" id="analysisTabsContent">
-        <div class="tab-pane fade show active" id="missed" role="tabpanel" aria-labelledby="missed-tab">
+        <div class="tab-pane fade show active" id="session" role="tabpanel" aria-labelledby="session-tab">
             {% if is_solo %}
             <div class="alert alert-info border-0 shadow-sm">
                 <i class="bi bi-info-circle-fill me-2"></i><strong>Not Applicable:</strong> Missed Multiplier reports require comparative data (2+ logs).
@@ -346,17 +356,17 @@ data-bs-toggle="tooltip" title="{{ all_calls|get_item:forloop.counter0 }}: {{ to
             {% else %}
             <div class="row row-cols-1 row-cols-md-2 row-cols-xl-4 g-4">
                 {% for mult in multipliers %}
-                    {% if mult.missed %}
+                    {% if mult.session.missed %}
                     <div class="col">
                         <div class="card h-100 shadow-sm border-0">
                             <div class="card-header bg-white d-flex justify-content-between align-items-center">
                                 <span class="fw-bold text-danger">Missed: {{ mult.label }}</span>
-                                <a href="{% url 'view_report' session_id mult.missed %}?source=mult" target="_blank" class="btn btn-sm btn-link text-muted p-0" title="Full Screen">
+                                <a href="{% url 'view_report' session_id mult.session.missed %}?source=mult" target="_blank" class="btn btn-sm btn-link text-muted p-0" title="Full Screen">
                                     <i class="bi bi-box-arrow-up-right"></i>
                                 </a>
                             </div>
                             <div class="card-body p-0" style="height: 500px;">
-                                <iframe src="{% url 'view_report' session_id mult.missed %}?chromeless=1" style="width: 100%; height: 100%; border: none;"></iframe>
+                                <iframe src="{% url 'view_report' session_id mult.session.missed %}?chromeless=1" style="width: 100%; height: 100%; border: none;"></iframe>
                             </div>
                         </div>
                     </div>
@@ -366,6 +376,60 @@ data-bs-toggle="tooltip" title="{{ all_calls|get_item:forloop.counter0 }}: {{ to
                 {% endfor %}
             </div>
             {% endif %}
+        </div>
+
+        <div class="tab-pane fade" id="pairs" role="tabpanel" aria-labelledby="pairs-tab">
+             <div class="row row-cols-1 row-cols-md-2 row-cols-xl-4 g-4">
+                {% for mult in multipliers %}
+                    {% for pair in mult.pairs %}
+                        {% if pair.missed %}
+                        <div class="col">
+                            <div class="card h-100 shadow-sm border-0">
+                                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <span class="d-block fw-bold text-dark small">{{ pair.label }}</span>
+                                        <span class="fw-bold text-danger small">Missed {{ mult.label }}</span>
+                                    </div>
+                                    <a href="{% url 'view_report' session_id pair.missed %}?source=mult" target="_blank" class="btn btn-sm btn-link text-muted p-0" title="Full Screen">
+                                        <i class="bi bi-box-arrow-up-right"></i>
+                                    </a>
+                                </div>
+                                <div class="card-body p-0" style="height: 500px;">
+                                    <iframe src="{% url 'view_report' session_id pair.missed %}?chromeless=1" style="width: 100%; height: 100%; border: none;"></iframe>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                {% endfor %}
+             </div>
+        </div>
+
+        <div class="tab-pane fade" id="singles" role="tabpanel" aria-labelledby="singles-tab">
+             <div class="row row-cols-1 row-cols-md-2 row-cols-xl-4 g-4">
+                {% for mult in multipliers %}
+                    {% for single in mult.singles %}
+                        {% if single.summary %}
+                        <div class="col">
+                            <div class="card h-100 shadow-sm border-0">
+                                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <span class="d-block fw-bold text-dark small">{{ single.label }}</span>
+                                        <span class="fw-bold text-primary small">{{ mult.label }} Checklist</span>
+                                    </div>
+                                    <a href="{% url 'view_report' session_id single.summary %}?source=mult" target="_blank" class="btn btn-sm btn-link text-muted p-0" title="Full Screen">
+                                        <i class="bi bi-box-arrow-up-right"></i>
+                                    </a>
+                                </div>
+                                <div class="card-body p-0" style="height: 500px;">
+                                    <iframe src="{% url 'view_report' session_id single.summary %}?chromeless=1" style="width: 100%; height: 100%; border: none;"></iframe>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                {% endfor %}
+             </div>
         </div>
 
         <div class="tab-pane fade" id="breakdown" role="tabpanel" aria-labelledby="breakdown-tab">
@@ -383,17 +447,17 @@ data-bs-toggle="tooltip" title="{{ all_calls|get_item:forloop.counter0 }}: {{ to
                 </div>
 
                 {% for mult in multipliers %}
-                    {% if mult.summary %}
+                    {% if mult.session.summary %}
                     <div class="col">
                         <div class="card h-100 shadow-sm border-0">
                             <div class="card-header bg-white d-flex justify-content-between align-items-center">
                                 <span class="fw-bold text-info">Breakdown: {{ mult.label }}</span>
-                                <a href="{% url 'view_report' session_id mult.summary %}?source=mult" target="_blank" class="btn btn-sm btn-link text-muted p-0" title="Full Screen">
+                                <a href="{% url 'view_report' session_id mult.session.summary %}?source=mult" target="_blank" class="btn btn-sm btn-link text-muted p-0" title="Full Screen">
                                     <i class="bi bi-box-arrow-up-right"></i>
                                 </a>
                             </div>
                             <div class="card-body p-0" style="height: 500px;">
-                                <iframe src="{% url 'view_report' session_id mult.summary %}?chromeless=1" style="width: 100%; height: 100%; border: none;"></iframe>
+                                <iframe src="{% url 'view_report' session_id mult.session.summary %}?chromeless=1" style="width: 100%; height: 100%; border: none;"></iframe>
                             </div>
                         </div>
                     </div>

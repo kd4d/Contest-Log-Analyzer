@@ -7,7 +7,7 @@
 #
 # Author: Gemini AI
 # Date: 2026-01-05
-# Version: 0.163.0-Beta
+# Version: 0.164.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -21,6 +21,8 @@
 # file, You can obtain one at [http://mozilla.org/MPL/2.0/](http://mozilla.org/MPL/2.0/).
 #
 # --- Revision History ---
+# [0.164.1-Beta] - 2026-01-05
+# - Added pairwise iteration loop for multiplier reports when > 2 logs are present.
 # [0.163.0-Beta] - 2026-01-05
 # - Enforced strict filename sanitization for callsign directory components to match report suffix logic.
 # [0.134.1-Beta] - 2025-12-20
@@ -41,6 +43,7 @@
 #   specialized, contest-specific reports.
 # [0.90.0-Beta] - 2025-10-01
 # - Set new baseline version for release.
+
 import os
 import itertools
 import importlib
@@ -67,6 +70,7 @@ class ReportGenerator:
         self.logs = logs
         
         # --- Define Fully Unique Output Directory Structure ---
+        
         first_log = self.logs[0]
         contest_name = first_log.get_metadata().get('ContestName', 'UnknownContest').replace(' ', '_').lower()
         
@@ -160,8 +164,7 @@ class ReportGenerator:
 
             # --- SYSTEMIC FIX: Scaffold Output Directory ---
             # Ensures the specific report type sub-directory (e.g., /plots) exists
-            # before passing it to the plugin.
-            # Required for dynamic sessions.
+            # before passing it to the plugin. Required for dynamic sessions.
             os.makedirs(output_path, exist_ok=True)
 
             is_multiplier_report = r_id in ['missed_multipliers', 'multiplier_summary', 'multipliers_by_hour']
@@ -212,12 +215,23 @@ class ReportGenerator:
                                     logging.error(f"Error generating '{r_id}': {e}")
                         
                         if (ReportClass.supports_multi or ReportClass.supports_pairwise) and len(self.logs) >= 2:
+                            # 1. Generate Session Summary (All Logs)
                             instance = ReportClass(self.logs)
                             try:
                                 result = instance.generate(output_path=output_path, **current_kwargs)
                                 logging.info(result)
                             except Exception as e:
-                                logging.error(f"Error generating '{r_id}': {e}")
+                                logging.error(f"Error generating '{r_id}' (Session): {e}")
+
+                            # 2. Generate Pairwise Comparisons (if > 2 logs)
+                            if ReportClass.supports_pairwise and len(self.logs) > 2:
+                                for log_pair in itertools.combinations(self.logs, 2):
+                                    instance = ReportClass(list(log_pair))
+                                    try:
+                                        result = instance.generate(output_path=output_path, **current_kwargs)
+                                        logging.info(result)
+                                    except Exception as e:
+                                        logging.error(f"Error generating '{r_id}' (Pair): {e}")
             
             else:
                 # --- Path 2: Non-Multiplier Reports ---
