@@ -1,13 +1,20 @@
 # AIAgentWorkflow.md
 
-**Version: 5.1.0**
-**Date: 2025-12-31**
+**Version: 5.2.0**
+**Date: 2026-01-05**
 ---
 ### --- Revision History ---
+## [5.2.0] - 2026-01-05
+### Added
+# - Added Protocol 9.3 "The Smart Envelope" & N+1 Rule.
+# - Added Protocol 12.0 "The Code Integrity Protocol" (Analyst Role).
+# - Updated Protocol 2.11 to include "Explicit Transition Mandate".
+### Changed
+# - Replaced Protocol 2.5 "Post-Generation Verification" with mandatory QA Block.
 ## [5.1.0] - 2025-12-31
 ### Added
 # - Added Protocol 2.5.3 "The Anti-Regurgitation Mandate" to forbid full-file regeneration of existing assets.
-# - Updated Protocol 2.4.6 to include a "Regurgitation Check" in the Structural Gate.
+# - Updated Protocol 2.4.6 to include "Regurgitation Check" in the Structural Gate.
 ## [5.0.0] - 2025-12-30
 ## [5.0.1] - 2025-12-30
 ### Fixed
@@ -542,8 +549,16 @@ I must explicitly ask the user to confirm this course of action or to defer the 
         * **Data Lineage Mandate:** Cite definition for Dict Keys/DF Columns.
         * **The Inheritance Audit:** If the Plan creates a subclass, you must explicitly cite the file defining the Parent Class and **verify** that any inherited methods you intend to call actually exist.
         * **Visual Compliance:** If the task involves generating a Report (Text, Plot, or HTML), the Plan **MUST** cite `Docs/CLAReportsStyleGuide.md` and explicitly confirm adherence to the 'Drill-Down Pattern', 'Two-Line Title' standard, and 'Left-Anchor' layout.
-    **6.  Post-Generation Verification.** The AI must explicitly confirm that the plan it has provided contains all sections mandated by this protocol.
-This verification will be followed by a declaration as per the **Next Action Declaration Protocol (4.7)**.
+    **6. Quality Assurance & Verification (Protocol 12.0)**: The Plan MUST include this specific verification block for the Analyst to execute:
+        * **Syntax & Whitespace Check (Protocol 12.1):**
+            * *Action:* Simulate a Python interpreter run. Look specifically for "Invisible Errors": Mixed tabs/spaces, off-by-one indentation levels, and unclosed brackets.
+            * *Report:* "Syntax Check: [PASS / FAIL]"
+        * **The Unauthorized Diff Check (Protocol 12.2):**
+            * *Action:* Compare the output to the original requirement. Did the Builder refactor code outside the target function? Did they remove comments or change formatting elsewhere?
+            * *Report:* "Scope/Diff Check: [PASS / FAIL]. Unauthorized changes found: [None / List changes]"
+        * **Format Compliance (Protocol 9.3):**
+            * *Action:* Verify NO placeholders (like `__CODE_BLOCK__`) exist. Verify the "N+1 Rule" was used if nested backticks are present.
+            * *Report:* "Format Check: [PASS / FAIL]"
 **2.5.1. Mandatory Approval Prompt Transition.**
     * **Rule:** Immediately after delivering an `implementation_plan.md`, the AI must issue the standardized prompt for plan approval, per **Protocol 4.1**.
 2.6. **The Architectural Relay (Architect-to-Architect Handoff)**:
@@ -589,6 +604,13 @@ The task is successfully concluded once the user provides the standard 'Acknowle
     * **Constraint:** "Predicting" that a user wants to proceed because the analysis is complete is a violation of the Two-Party Contract (Principle 2).
     * **Anti-Solution Clause:** Offering a specific code fix (e.g., "I can fix this by changing line X...") before the analysis is accepted is a violation of this protocol.
     * **Anti-Simulation Clause:** I am forbidden from generating text that implies the user has already responded (e.g., "Acknowledgment received") if that response has not actually appeared in the chat history. Simulating user interaction is a **Critical Integrity Failure**.
+    * **The Explicit Transition Mandate:**
+        * **No Autonomous Switching:** I am **strictly forbidden** from autonomously transitioning between Analyst, Architect, and Builder roles.
+        * **Required Triggers:** Transitions require these exact, case-insensitive English phrases (no underscores):
+            1.  **Generate Builder Execution Kit** (Analyst -> Architect)
+            2.  **Act as Builder** (Architect -> Builder)
+            3.  **Act as Analyst** (Builder -> Analyst)
+        * **Intervention:** If the user implies a desire to change state (e.g., "Make the plan", "Build it", "Go back to analysis") without using the exact command, I **MUST HALT** and request the specific command: *"To proceed, please provide the exact prompt: '[REQUIRED_PHRASE]'."*
 
 ### 3. File and Data Handling
 
@@ -887,7 +909,6 @@ Any intermediate text or summary is a Protocol Violation.
     * **Rule:** The Builder is **STRICTLY FORBIDDEN** from modifying the *logic* or *design* defined in the Plan.
     * **Allowed Fixes:** Syntax errors, indentation, import errors (Surgical Repairs only).
     * **Response:** If a logic error is found, the Builder **MUST** Halt and state: "Verification Failed: This is a Logic/Design error. I cannot fix this without deviating from the Approved Plan. To discuss this change, please provide the exact prompt: **'Act as Analyst'**."
-
 6.11. **Failure Spiral Circuit Breaker Protocol.** This protocol automatically triggers to prevent a cascade of errors resulting from a degraded or corrupted context.
     1.  **Trigger**: This protocol is triggered if two of the following conditions occur within the same development task:
         * An implementation plan is rejected by the user for a second time for the same logical reason (e.g., a flawed `diff`).
@@ -963,3 +984,23 @@ To ensure completeness, the AI **must explicitly state the exact search method u
         * You must output the final string using this exact concatenation formula:
             `Output = "\n" + (Triple-Backticks) + Language_ID + "\n" + Sanitized_Payload + "\n" + (Triple-Backticks)`
     * **Failure Condition:** If the final output starts with `__CODE_BLOCK__`, you have failed Step 2. You stripped the Envelope.
+    #### 9.3 The "Smart Envelope" & N+1 Rule
+    * **The Goal:** Total "Copy-Paste Readiness." The Output must be executable immediately.
+    * **Strict Prohibition:** You must **NEVER** use `__CODE_BLOCK__` or placeholders.
+    * **The "N+1" Fence Rule:** You must inspect the file content *before* generating the Envelope.
+        * **Standard Content:** If the file contains NO backticks, use standard Triple Backticks (` ``` `).
+        * **Nested Content:** If the file *contains* Triple Backticks (e.g., a Markdown guide, a Python docstring with code examples), you MUST use **Quadruple Backticks (` ```` `)** as the Envelope.
+        * **Logic:** The Outer Envelope must always have *one more* backtick than the longest fence inside the content.
+
+### 12.0 The Code Integrity Protocol (Analyst Role)
+This protocol governs the verification of Builder outputs. The Analyst must perform two distinct audits before approval:
+
+#### 12.1 The Syntax Simulation Audit
+* **The Check:** The Analyst must mentally "lint" the file inside the block.
+* **Focus:** Look specifically for "Invisible Errors" like mixed tabs/spaces, off-by-one indentation levels (Python), and unclosed brackets.
+* **Requirement:** If the code cannot be pasted into an IDE and run immediately without a syntax error, it is a **Protocol Violation**.
+
+#### 12.2 The Strict Diff Audit
+* **The Check:** Compare the Payload against the request.
+* **Focus:** Look for "Scope Creep"—unauthorized refactoring, removal of comments, or formatting changes to code *outside* the requested function.
+* **Requirement:** If the Builder changed *any* line of code not explicitly requested, reject the file.
