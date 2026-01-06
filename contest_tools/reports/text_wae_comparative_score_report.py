@@ -4,8 +4,8 @@
 #          summary for the WAE contest.
 #
 # Author: Gemini AI
-# Date: 2026-01-03
-# Version: 0.151.2-Beta
+# Date: 2026-01-05
+# Version: 0.161.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.161.0-Beta] - 2026-01-05
+# - Removed direct DataFrame access for mode determination; now derived from aggregator data.
 # [0.151.2-Beta] - 2026-01-03
 # - Refactored imports to use absolute path `contest_tools.utils.report_utils` to resolve circular dependencies.
 # [0.134.1-Beta] - 2025-12-20
@@ -46,7 +48,7 @@ from prettytable import PrettyTable
 from ..contest_log import ContestLog
 from ..contest_definitions import ContestDefinition
 from .report_interface import ContestReport
-from contest_tools.utils.report_utils import get_valid_dataframe, create_output_directory, _sanitize_filename_part, format_text_header, get_cty_metadata, get_standard_title_lines
+from contest_tools.utils.report_utils import create_output_directory, _sanitize_filename_part, format_text_header, get_cty_metadata, get_standard_title_lines
 from ..data_aggregators.wae_stats import WaeStatsAggregator
 
 class Report(ContestReport):
@@ -60,7 +62,6 @@ class Report(ContestReport):
     supports_multi = True
     supports_pairwise = True
     
-    
     def generate(self, output_path: str, **kwargs) -> str:
         """Generates the report content."""
         all_calls = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])
@@ -72,12 +73,14 @@ class Report(ContestReport):
         # --- Transform DAL output for View ---
         # Structure needed: band_mode_summaries[(band, mode)] = list of dicts {Callsign, QSO Pts, Weighted Mults}
         band_mode_summaries = {}
+        modes_present = set()
         
         for call, data in wae_data['logs'].items():
             for row in data['breakdown']:
                 key = (row['band'], row['mode'])
                 if key not in band_mode_summaries:
                     band_mode_summaries[key] = []
+                modes_present.add(row['mode'])
                 
                 band_mode_summaries[key].append({
                     'Callsign': call,
@@ -98,6 +101,7 @@ class Report(ContestReport):
         report_lines = []
         table = PrettyTable()
         table.field_names = ["Callsign", "QSO Pts", "Weighted Mults"]
+        
         table.align = 'r'
         table.align['Callsign'] = 'l'
 
@@ -146,12 +150,6 @@ class Report(ContestReport):
         report_lines.extend(final_score_lines)
 
         # --- Generate Standard Header ---
-        modes_present = set()
-        for log in self.logs:
-            df = log.get_processed_data()
-            if 'Mode' in df.columns:
-                modes_present.update(df['Mode'].dropna().unique())
-
         title_lines = get_standard_title_lines(self.report_name, self.logs, "All Bands", None, modes_present)
         meta_lines = ["Contest Log Analytics by KD4D", get_cty_metadata(self.logs)]
         # Calculate roughly width from one of the tables or default

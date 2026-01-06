@@ -5,7 +5,7 @@
 #
 # Author: Gemini AI
 # Date: 2026-01-05
-# Version: 0.158.1-Beta
+# Version: 0.160.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.160.0-Beta] - 2026-01-05
+# - Updated to use `get_diagnostic_stats` from aggregator.
+# - Removed raw DataFrame processing logic from diagnostic sections.
 # [0.158.1-Beta] - 2026-01-05
 # - Fixed IndentationError in generate method body.
 # [0.158.0-Beta] - 2026-01-05
@@ -58,7 +61,7 @@ import logging
 from ..contest_log import ContestLog
 from ..contest_definitions import ContestDefinition
 from .report_interface import ContestReport
-from contest_tools.utils.report_utils import format_text_header, get_cty_metadata
+from contest_tools.utils.report_utils import format_text_header, get_cty_metadata, get_valid_dataframe
 from ..data_aggregators.score_stats import ScoreStatsAggregator
 
 class Report(ContestReport):
@@ -78,11 +81,12 @@ class Report(ContestReport):
 
         for log in self.logs:
             metadata = log.get_metadata()
-            df_full = log.get_processed_data()
 
             callsign = metadata.get('MyCall', 'UnknownCall')
             contest_name = metadata.get('ContestName', 'UnknownContest')
 
+            # Check for valid data via aggregator or metadata, not raw DF
+            df_full = get_valid_dataframe(log, include_dupes=True) # Kept only for Year extraction below
             if df_full.empty:
                 msg = f"Skipping score report for {callsign}: No QSO data available."
                 final_report_messages.append(msg)
@@ -96,6 +100,7 @@ class Report(ContestReport):
             summary_data = log_scores['summary_data']
             total_summary = log_scores['total_summary']
             final_score = log_scores['final_score']
+            diagnostic_stats = aggregator.get_diagnostic_stats(log)
             
             # --- Formatting ---
             if log.contest_definition.score_formula == 'total_points':
@@ -185,7 +190,7 @@ class Report(ContestReport):
             score_text = f"TOTAL SCORE : {final_score:,.0f}"
             report_lines.append(score_text.rjust(table_width))
 
-            self._add_diagnostic_sections(report_lines, df_full, log)
+            self._add_diagnostic_sections(report_lines, diagnostic_stats, log)
 
             report_content = "\n".join(report_lines) + "\n"
             os.makedirs(output_path, exist_ok=True)
@@ -198,32 +203,17 @@ class Report(ContestReport):
 
         return "\n".join(final_report_messages)
 
-    def _add_diagnostic_sections(self, report_lines: List[str], df: pd.DataFrame, log: ContestLog):
+    def _add_diagnostic_sections(self, report_lines: List[str], diagnostics: Dict[str, List[str]], log: ContestLog):
         """Appends sections for 'Unknown' and 'Unassigned' multipliers."""
-        if df.empty:
+        if not diagnostics:
             return
 
         contest_def = log.contest_definition
-        if getattr(contest_def, 'suppress_blank_mult_warnings', False):
-            return
-        
-        log_location_type = getattr(log, '_my_location_type', None)
-        exclusive_groups = contest_def.mutually_exclusive_mults
-
         for rule in contest_def.multiplier_rules:
-            applies_to = rule.get('applies_to')
-            if applies_to and log_location_type and applies_to != log_location_type:
-                continue
-
             mult_name = rule['name']
-            mult_col = rule['value_column']
-
-            if mult_col not in df.columns:
-                continue
-
+            
             # --- Check for "Unknown" Multipliers ---
-            unknown_df = df[df[mult_col] == 'Unknown']
-            unknown_calls = sorted(list(unknown_df['Call'].unique()))
+            unknown_calls = diagnostics.get(f"unknown_{mult_name}", [])
             if unknown_calls:
                 report_lines.append("\n" + "-" * 40)
                 report_lines.append(f"Callsigns with 'Unknown' {mult_name}:")
@@ -233,22 +223,7 @@ class Report(ContestReport):
                     report_lines.append("  ".join([f"{call:<12}" for call in line_calls]))
 
             # --- Check for "Unassigned" (NaN) Multipliers ---
-            df_to_check = df
-            if getattr(contest_def, 'is_naqp_ruleset', False):
-                df_to_check = df[(df['Continent'] == 'NA') | (df['DXCCPfx'] == 'KH6')]
-            
-            unassigned_df = df_to_check[df_to_check[mult_col].isna()]
-            
-            # Filter out intentional blanks for mutually exclusive mults
-            for group in exclusive_groups:
-                if mult_col in group:
-                    partner_cols = [p for p in group if p != mult_col and p in df.columns]
-                    if partner_cols:
-                        indices_to_check = unassigned_df.index
-                        partner_values_exist = df.loc[indices_to_check, partner_cols].notna().any(axis=1)
-                        unassigned_df = unassigned_df.loc[~partner_values_exist]
-            
-            unassigned_calls = sorted(list(unassigned_df['Call'].unique()))
+            unassigned_calls = diagnostics.get(f"unassigned_{mult_name}", [])
             if unassigned_calls:
                 report_lines.append("\n" + "-" * 40)
                 report_lines.append(f"Callsigns with Unassigned {mult_name}:")

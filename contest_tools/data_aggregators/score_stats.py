@@ -6,7 +6,7 @@
 #
 # Author: Gemini AI
 # Date: 2026-01-05
-# Version: 0.158.0-Beta
+# Version: 0.160.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -20,6 +20,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.160.0-Beta] - 2026-01-05
+# - Added get_diagnostic_stats method to report on Unknown/Unassigned multipliers.
 # [0.158.0-Beta] - 2026-01-05
 # - Initial creation. Migrated logic from text_score_report.py.
 
@@ -41,6 +43,7 @@ class ScoreStatsAggregator:
     def get_score_breakdown(self) -> Dict[str, Any]:
         """
         Calculates score details for all logs.
+        
         Returns:
             {
                 "logs": {
@@ -160,8 +163,8 @@ class ScoreStatsAggregator:
                 else: # Default to sum_by_band
                     total_mults_for_rule = per_band_mult_counts.get(mult_col, pd.Series()).sum()
             
-                total_summary[mult_name] = total_mults_for_rule
-                total_multiplier_count += total_mults_for_rule
+            total_summary[mult_name] = total_mults_for_rule
+            total_multiplier_count += total_mults_for_rule
             
         total_summary['AVG'] = (total_summary['Points'] / total_summary['QSOs']) if total_summary['QSOs'] > 0 else 0
         
@@ -199,3 +202,58 @@ class ScoreStatsAggregator:
 
         row_summary['AVG'] = (row_summary['Points'] / row_summary['QSOs']) if row_summary['QSOs'] > 0 else 0
         return row_summary
+
+    def get_diagnostic_stats(self, log: ContestLog) -> Dict[str, Any]:
+        """
+        Generates diagnostic lists for Unknown and Unassigned multipliers.
+        Returns a dictionary keyed by multiplier name containing lists of callsigns.
+        """
+        contest_def = log.contest_definition
+        if getattr(contest_def, 'suppress_blank_mult_warnings', False):
+            return {}
+
+        df = get_valid_dataframe(log, include_dupes=True)
+        if df.empty:
+            return {}
+
+        log_location_type = getattr(log, '_my_location_type', None)
+        exclusive_groups = contest_def.mutually_exclusive_mults
+        diagnostics = {}
+
+        for rule in contest_def.multiplier_rules:
+            applies_to = rule.get('applies_to')
+            if applies_to and log_location_type and applies_to != log_location_type:
+                continue
+
+            mult_name = rule['name']
+            mult_col = rule['value_column']
+
+            if mult_col not in df.columns:
+                continue
+
+            # Check for "Unknown"
+            unknown_calls = sorted(df[df[mult_col] == 'Unknown']['Call'].unique().tolist())
+            if unknown_calls:
+                diagnostics[f"unknown_{mult_name}"] = unknown_calls
+
+            # Check for "Unassigned" (NaN)
+            df_check = df
+            if getattr(contest_def, 'is_naqp_ruleset', False):
+                df_check = df[(df['Continent'] == 'NA') | (df['DXCCPfx'] == 'KH6')]
+            
+            unassigned_df = df_check[df_check[mult_col].isna()]
+            
+            # Filter mutually exclusive logic
+            for group in exclusive_groups:
+                if mult_col in group:
+                    partner_cols = [p for p in group if p != mult_col and p in df.columns]
+                    if partner_cols:
+                        indices = unassigned_df.index
+                        partner_vals = df.loc[indices, partner_cols].notna().any(axis=1)
+                        unassigned_df = unassigned_df.loc[~partner_vals]
+
+            unassigned_calls = sorted(unassigned_df['Call'].unique().tolist())
+            if unassigned_calls:
+                diagnostics[f"unassigned_{mult_name}"] = unassigned_calls
+
+        return diagnostics
