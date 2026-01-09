@@ -42,6 +42,8 @@
             height: 900px;
             border: none;
             background-color: #fff;
+            display: block;
+            text-align: left;
         }
     </style>
 
@@ -50,6 +52,7 @@
             <div class="card shadow-sm">
                 <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="bi bi-speedometer2 me-2"></i>Global Context</h5>
+                    
                     {% if global_qso_rate_file %}
                     <a href="{% url 'view_report' session_id global_qso_rate_file %}?source=qso" target="_blank" class="btn btn-sm btn-light">
                         <i class="bi bi-box-arrow-up-right"></i>
@@ -66,7 +69,7 @@
                             <p>Global Rate Plot Not Available</p>
                         </div>
                     </div>
-                {% endif %}
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -98,28 +101,26 @@
         {% if not is_solo %}
         <li class="nav-item" role="presentation">
             <button class="nav-link" id="band-activity-tab" data-bs-toggle="tab" data-bs-target="#band-activity" type="button" role="tab">
-               <i class="bi bi-bar-chart-steps me-2"></i>Band Activity Comparison
+                <i class="bi bi-bar-chart-steps me-2"></i>Band Activity Comparison
             </button>
         </li>
         {% endif %}
     </ul>
 
     <div class="tab-content" id="qsoTabsContent">
-        
         {% if not is_solo %}
         <div class="tab-pane fade show active" id="strategy" role="tabpanel">
-            
             <div class="input-group mb-3 w-auto">
                 <label class="input-group-text" for="strategySelect"><i class="bi bi-people me-2"></i>Select Matchup:</label>
                 <select class="form-select" id="strategySelect">
                 {% for m in matchups %}
                     <option value="{{ forloop.counter }}"
-                            data-breakdown-json="{{ m.qso_breakdown_json }}"
-                            data-breakdown-full="{% url 'view_report' session_id m.qso_breakdown_file %}?source=qso"
-                            {% for band, path in m.diff_paths.items %}
-                                data-diff-json-{{ band }}="{{ m.diff_json_paths|get_item:band }}"
-                                data-diff-full-{{ band }}="{% url 'view_report' session_id path %}?source=qso"
-                            {% endfor %}
+                        data-breakdown-json="{{ m.qso_breakdown_json }}"
+                        data-breakdown-full="{% url 'view_report' session_id m.qso_breakdown_file %}?source=qso"
+                        {% for band, path in m.diff_paths.items %}
+                        data-diff-json-{{ band }}="{{ m.diff_json_paths|get_item:band }}"
+                        data-diff-full-{{ band }}="{% url 'view_report' session_id path %}?source=qso"
+                        {% endfor %}
                     >{{ m.label }}</option>
                 {% endfor %}
                 </select>
@@ -217,13 +218,13 @@
                 </div>
             </div>
         </div>
-
+        
         <div class="tab-pane fade" id="points" role="tabpanel">
             <div class="input-group mb-3 w-auto">
                 <label class="input-group-text" for="pointsSelect"><i class="bi bi-filter me-2"></i>Select Band:</label>
                 <select class="form-select" id="pointsSelect">
                 {% for p in point_plots %}
-                     <option value="{{ p.label }}"
+                    <option value="{{ p.label }}"
                             data-json-src="{{ p.file_json }}"
                             data-full-src="{% url 'view_report' session_id p.file_html %}?source=qso"
                             {% if p.active %}selected{% endif %}>{{ p.label }}</option>
@@ -251,25 +252,29 @@
                 <label class="input-group-text" for="bandActivitySelect"><i class="bi bi-people me-2"></i>Select Matchup:</label>
                 <select class="form-select" id="bandActivitySelect">
                 {% for m in matchups %}
-                    <option value="{{ m.id }}"
-                            {% if m.band_activity_json %}
-                            data-json-src="{{ m.band_activity_json }}"
-                            data-full-src="{% url 'view_report' session_id m.band_activity_file %}?source=qso"
-                            {% else %}
-                            disabled
-                            {% endif %}>
-                        {{ m.label }} {% if not m.band_activity_json %}(Not Available){% endif %}
-                    </option>
+                    {% if m.band_activity_json %}
+                        <option value="{{ m.id }}"
+                                data-json-src="{{ m.band_activity_json }}"
+                                data-full-src="{% url 'view_report' session_id m.band_activity_file %}?source=qso">
+                            {{ m.label }}
+                        </option>
+                    {% else %}
+                        <option value="{{ m.id }}" disabled>
+                            {{ m.label }} (Not Available)
+                        </option>
+                    {% endif %}
                 {% endfor %}
                 </select>
             </div>
             <div class="card shadow-sm">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                     <span>Band Activity Butterfly Chart</span>
-                     <a id="link-band-activity" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
+                    <span>Band Activity Butterfly Chart</span>
+                    <a id="link-band-activity" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
                 </div>
                 <div class="card-body p-0">
-                    <div id="chart-band-activity" class="viewport-frame" style="overflow-y: auto; overflow-x: hidden;"></div>
+                    <div id="chart-band-activity-wrapper" class="viewport-frame" style="overflow-y: auto; overflow-x: hidden; min-width: 100%; display: block;">
+                        <div id="chart-band-activity" style="height: 100%; width: 100%; min-width: 100%;"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -281,6 +286,7 @@
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         // --- Strategy Tab Logic ---
+        
         const strategySelect = document.getElementById('strategySelect');
         const chartBreakdownId = 'chart-breakdown';
         const chartDiffId = 'chart-diff';
@@ -291,26 +297,147 @@
 
         // Generic Chart Renderer
         function renderChart(containerId, jsonUrl) {
+            
             const container = document.getElementById(containerId);
             if (!container) return;
+
+            // --- DIAGNOSTIC HELPER (FLIGHT RECORDER) ---
+            const logHierarchy = (stage) => {
+                if (containerId !== 'chart-band-activity') return;
+                console.group(`[CLA-DIAG] ${stage} | Timestamp: ${performance.now().toFixed(1)}ms`);
+                
+                let el = container;
+                let depth = 0;
+                while (el && el.tagName !== 'BODY' && depth < 15) {
+                    const rect = el.getBoundingClientRect();
+                    const style = window.getComputedStyle(el);
+                    console.log(
+                        `%c${" ".repeat(depth)}<${el.tagName} id="${el.id}" class="${el.className}">`, 
+                        'color: blue; font-weight: bold;',
+                        `\n    Width: ${rect.width.toFixed(2)}px | CSS Width: ${style.width} | Min-Width: ${style.minWidth} | Display: ${style.display} | Overflow: ${style.overflow}`
+                    );
+                    el = el.parentElement;
+                    depth++;
+                }
+                console.groupEnd();
+            };
+            // -------------------------------------------
+
+            // --- BEACON: SEND LOGS TO DOCKER CONSOLE ---
+            const sendBeacon = (stage, payload) => {
+                if (containerId !== 'chart-band-activity') return;
+                let beaconUrl = '';
+                if (payload) {
+                     // Generic Payload Mode
+                     beaconUrl = `/DIAGNOSTIC_BEACON/${stage}/${payload}`;
+                } else {
+                     // Standard Dimensions Mode
+                     const rect = container.getBoundingClientRect();
+                     const width = Math.round(rect.width);
+                     const styleWidth = window.getComputedStyle(container).width.replace('px','');
+                     beaconUrl = `/DIAGNOSTIC_BEACON/STAGE_${stage}/WIDTH_${width}/STYLE_${styleWidth}`;
+                }
+                
+                // Fire and forget
+                fetch(beaconUrl, {method: 'GET', keepalive: true}).catch(() => {});
+            };
+            // -------------------------------------------
             
+            logHierarchy("ENTRY");
+            sendBeacon("ENTRY");
+
+            // --- LAZY LOADING: Defer render if container is hidden ---
+            if (container.offsetParent === null) {
+                container.dataset.pendingSrc = jsonUrl;
+                logHierarchy("DEFER (Hidden)");
+                sendBeacon("DEFER_HIDDEN");
+                return;
+            }
+            delete container.dataset.pendingSrc;
             // Clear previous if no URL
             if (!jsonUrl) {
                 container.innerHTML = '<div class="d-flex align-items-center justify-content-center h-100 text-muted">No Data</div>';
                 return;
             }
 
-            // Fetch and Render
             fetch(jsonUrl)
                 .then(response => response.json())
                 .then(data => {
-                    // Force responsive layout settings
-                    const layout = data.layout || {};
-                    layout.autosize = true;
-                    layout.width = null;
-                    layout.height = null; // Let CSS control height
+                    requestAnimationFrame(() => {
+                        logHierarchy("PRE-PLOT (Inside RAF)");
+                        sendBeacon("PRE_PLOT");
+                        
+                        Plotly.purge(containerId);
 
-                    Plotly.newPlot(containerId, data.data, layout, {responsive: true, displayModeBar: false});
+                        const layout = data.layout || {};
+
+                        // --- RATIO-PRESERVING SCALER (Plan 1.0.26) ---
+                        // 1. Establish Reference Geometry (From JSON)
+                        // If JSON lacks dimensions, assume a standard 4:3 ratio (1200x900) as fallback.
+                        const refW = layout.width || 1200;
+                        const refH = layout.height || 900;
+                        
+                        // 2. Measure Reality (DOM)
+                        // This is the hard constraint provided by the browser layout.
+                        const rect = container.getBoundingClientRect();
+                        const availW = rect.width > 0 ? rect.width : 1100; // Safety floor
+
+                        // 3. Calculate Scale & Derived Height
+                        // New Height = Reference Height * (Available Width / Reference Width)
+                        const scaleFactor = availW / refW;
+                        const targetH = Math.round(refH * scaleFactor);
+
+                        // 4. Enforce CSS Height
+                        // We must resize the container explicitly to match the plot's new shape.
+                        container.style.height = targetH + 'px';
+
+                        // 5. Overwrite Layout Config (The Command)
+                        layout.width = availW;
+                        layout.height = targetH;
+                        layout.autosize = false; // Disable Plotly's internal guessing
+
+                        // 6. Sanitize Margins
+                        if (!layout.margin) layout.margin = {};
+                        layout.margin.b = 150; 
+                        layout.margin.autoexpand = true;
+
+                        // 7. Log the Scaling Operation
+                        const logMsg = `REF_${refW}x${refH}_TO_${Math.round(availW)}x${targetH}_SCALE_${scaleFactor.toFixed(2)}`;
+                        sendBeacon("SCALING_APPLIED", logMsg);
+
+                        Plotly.newPlot(containerId, data.data, layout, {responsive: false, displayModeBar: false}).then(() => {
+                            logHierarchy("POST-PLOT (Success)");
+                            sendBeacon("POST_PLOT_SUCCESS");
+                            
+                            const observer = new ResizeObserver(entries => {
+                                for (let entry of entries) {
+                                    if (containerId === 'chart-band-activity') {
+                                        const newW = entry.contentRect.width;
+                                        
+                                        // Only relayout if significant change to prevent jitter
+                                        if (Math.abs(newW - layout.width) > 5) {
+                                            // Recalculate Height based on the fixed Aspect Ratio
+                                            const newH = Math.round(refH * (newW / refW));
+                                            
+                                            console.log(`[CLA-DIAG] Scaling from ${layout.width}x${layout.height} to ${newW}x${newH}`);
+                                            
+                                            // Update Container & Plot
+                                            container.style.height = newH + 'px';
+                                            layout.width = newW;
+                                            layout.height = newH;
+                                            
+                                            Plotly.relayout(containerId, { width: newW, height: newH });
+                                            sendBeacon("RESIZE_EVENT", `RESCALED_TO_${Math.round(newW)}x${newH}`);
+                                        }
+                                    } else {
+                                        // Standard behavior for other charts
+                                        Plotly.Plots.resize(containerId);
+                                    }
+                                }
+                            });
+                            observer.observe(container);
+                        });
+                    });
                 })
                 .catch(err => {
                     console.error("Chart render error:", err);
@@ -393,8 +520,61 @@
         setupDropdown('ratesSelect', 'frame-rates', 'link-rates');
         // Remains Iframe
         setupDropdown('pointsSelect', 'chart-points', 'link-points');
-        // Changed to chart ID
-        setupDropdown('bandActivitySelect', 'chart-band-activity', 'link-band-activity');
+
+        // --- Band Activity: Explicit "Lazy Click-to-Load" Architecture ---
+        // This replaces generic setupDropdown to prevent race conditions with Plotly layout.
+        const bandSelect = document.getElementById('bandActivitySelect');
+        const bandContainer = document.getElementById('chart-band-activity');
+        const bandLink = document.getElementById('link-band-activity');
+        let bandChartInitialized = false;
+
+        function updateBandActivity() {
+            if (!bandSelect) return;
+            const opt = bandSelect.options[bandSelect.selectedIndex];
+            const jsonUrl = opt.dataset.jsonSrc;
+            const fullUrl = opt.dataset.fullSrc;
+
+            if (bandLink) bandLink.href = fullUrl;
+
+            // Strategy: Visibility-Gated Proxy
+            // If visible: Render immediately.
+            // If hidden: Stash in 'data-manual-src' (Hidden from generic loader).
+            if (bandContainer.offsetParent !== null) {
+                renderChart('chart-band-activity', jsonUrl);
+                bandChartInitialized = true;
+                delete bandContainer.dataset.manualSrc; 
+            } else {
+                bandContainer.dataset.manualSrc = jsonUrl;
+            }
+        }
+
+        // 1. Bind Dropdown (State Change)
+        if (bandSelect) {
+            bandSelect.addEventListener('change', updateBandActivity);
+            // Initial State: Execute logic to update Link and Stash URL (Safe: Visibility check prevents render)
+            updateBandActivity();
+        }
+
+        // 2. Bind Tab Show (The Trigger)
+        const bandTab = document.getElementById('band-activity-tab');
+        if (bandTab) {
+            bandTab.addEventListener('shown.bs.tab', function(e) {
+                // CRITICAL: RequestAnimationFrame ensures DOM paint is complete before Plotly measures.
+                requestAnimationFrame(() => {
+                    const stashed = bandContainer.dataset.manualSrc;
+                    
+                    if (stashed) {
+                         // Lazy Load: First View or Dirty State
+                         renderChart('chart-band-activity', stashed);
+                         bandChartInitialized = true;
+                         delete bandContainer.dataset.manualSrc;
+                    } else if (bandChartInitialized) {
+                        // Re-Entry: Just resize to fix layout
+                        Plotly.Plots.resize(bandContainer);
+                    }
+                });
+            });
+        }
 
         // --- Tab Resize Fix ---
         // Force Plotly to recalculate width when a tab becomes visible
@@ -403,6 +583,13 @@
             tabEl.addEventListener('shown.bs.tab', function (event) {
                 var targetId = event.target.getAttribute('data-bs-target');
                 var targetPane = document.querySelector(targetId);
+                
+                // 1. Initialize Pending Charts (Lazy Load)
+                var pending = targetPane.querySelectorAll('[data-pending-src]');
+                pending.forEach(function(el) {
+                    renderChart(el.id, el.dataset.pendingSrc);
+                });
+
                 // Find all Plotly charts in this pane
                 var charts = targetPane.querySelectorAll('.js-plotly-plot');
                 charts.forEach(function(chart) {
