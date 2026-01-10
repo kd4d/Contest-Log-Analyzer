@@ -1,10 +1,14 @@
 # Contest Log Analytics - Programmer's Guide
 
-**Version: 0.127.0-Beta**
-**Date: 2025-12-23**
+**Version: 0.128.0-Beta**
+**Date: 2026-01-07**
 
 ---
 ### --- Revision History ---
+## [0.128.0-Beta] - 2026-01-07
+### Changed
+# - Updated "Shared Utilities & Styles" section to document PlotlyStyleManager.
+# - Added documentation for PlotlyStyleManager methods and capabilities.
 ## [0.127.0-Beta] - 2025-12-23
 ### Added
 # - Added "The Manifest & WORM Strategy" section to Phase 3.
@@ -302,8 +306,13 @@ They **must not** return Pandas DataFrames or NumPy arrays.
 
 ## Shared Utilities & Styles
 
-* **`contest_tools.styles.MPLStyleManager`**: A centralized source for Matplotlib styles and color consistency.
+* **`contest_tools.styles.MPLStyleManager`**: A centralized source for Matplotlib styles and color consistency for legacy static plots.
 It provides methods like `get_point_color_map()` and `get_qso_mode_colors()` to ensure visual uniformity across different reports.
+* **`contest_tools.styles.PlotlyStyleManager`**: A centralized source for Plotly styles and color consistency for interactive visualizations.
+It provides methods like:
+    * `get_point_color_map()` - Generates consistent color mapping for QSO point values
+    * `get_qso_mode_colors()` - Returns standard color scheme for Run/S&P/Mixed modes
+    * `get_standard_layout()` - Returns standard Plotly layout dictionary with support for polymorphic titles (string or list of strings for three-line titles) and footer text for branding/CTY metadata
 * **`contest_tools.utils.CtyManager`**: Manages the lifecycle of the `cty.dat` country file, including downloading, version management, and local caching.
 * **`contest_tools.utils.json_encoders.NpEncoder`**: A custom JSON encoder class used to serialize NumPy data types (like `int64` or `float64`) and Pandas Timestamps into standard JSON formats.
 * **`contest_tools.utils.pivot_utils`**: Contains shared DataFrame pivoting logic to prevent circular imports between reports.
