@@ -81,6 +81,18 @@ import os
 import importlib
 from datetime import datetime
 import logging
+import time
+
+def _perf_enabled() -> bool:
+    """Enables lightweight performance timing logs when CLA_PROFILE=1."""
+    return os.environ.get('CLA_PROFILE', '0') == '1'
+
+def _log_perf(label: str, start_time: float) -> None:
+    """Logs a timing line if CLA_PROFILE is enabled."""
+    if not _perf_enabled():
+        return
+    elapsed = time.perf_counter() - start_time
+    logging.info(f"PERF {label}: {elapsed:.3f}s")
 
 class LogManager:
     """
@@ -96,8 +108,11 @@ class LogManager:
         Performs validation on log files (duplicates, consistency, empty checks), selects a single
         CTY file, and then loads and processes all logs.
         """
+        overall_start = time.perf_counter()
+
         # --- 1. Pre-flight Validation Phase ---
         if log_filepaths:
+            t0 = time.perf_counter()
             logging.info("Performing pre-flight validation on logs...")
             header_data = []
             seen_calls: Set[str] = set()
@@ -146,8 +161,10 @@ class LogManager:
                         raise ValueError(f"Event Mismatch: '{other['filename']}' is event '{other['event_id']}', but '{first['filename']}' is '{first['event_id']}'.")
 
             logging.info("Validation successful.")
+            _log_perf("LogManager.load_log_batch preflight_validation", t0)
 
         # --- 2. Single CTY File Selection ---
+        t0 = time.perf_counter()
         logging.info("Resolving CTY file for batch...")
         cty_manager = CtyManager(root_input_dir)
         
@@ -176,8 +193,10 @@ class LogManager:
         if not cty_dat_path:
             raise FileNotFoundError(f"Could not find a suitable CTY.DAT file for specifier '{cty_specifier}'.")
         logging.info(f"Using CTY file for all logs: {os.path.basename(cty_dat_path)} (Date: {cty_file_info.get('date')})")
+        _log_perf("LogManager.load_log_batch cty_selection", t0)
 
         # --- 3. Full Log Loading Phase ---
+        t0 = time.perf_counter()
         for path in log_filepaths:
             try:
                 logging.info(f"Loading log: {path}...")
@@ -201,10 +220,12 @@ class LogManager:
 
             except Exception as e:
                 logging.error(f"Error loading log {path}: {e}")
+        _log_perf("LogManager.load_log_batch full_log_loading", t0)
 
         # --- 4. Enforce Deterministic Order (Alphabetical by Callsign) ---
         # This ensures that Log 1, Log 2, etc. are consistent regardless of upload order.
         self.logs.sort(key=lambda x: str(x.get_metadata().get('MyCall', 'Unknown')).upper())
+        _log_perf("LogManager.load_log_batch TOTAL", overall_start)
 
     def finalize_loading(self, root_reports_dir: str, debug_data: bool = False):
         """
@@ -215,14 +236,20 @@ class LogManager:
         if not self.logs:
             return
 
+        overall_start = time.perf_counter()
+
+        t0 = time.perf_counter()
         self._create_master_time_index()
+        _log_perf("LogManager.finalize_loading create_master_time_index", t0)
 
         # --- Pre-calculate Time-Series Scores ---
         # This must be done after the master time index is created but before
         # any reports are generated.
         logging.info("Pre-calculating time-series scores for all logs...")
+        t0 = time.perf_counter()
         for log in self.logs:
             log._pre_calculate_time_series_score()
+        _log_perf("LogManager.finalize_loading pre_calculate_time_series_score (all logs)", t0)
 
         if not self.logs:
             return
@@ -245,6 +272,7 @@ class LogManager:
         output_dir = os.path.join(root_dir, 'reports', year, contest_name, event_id, callsign_combo_id)
         os.makedirs(output_dir, exist_ok=True)
         
+        t0 = time.perf_counter()
         for log in self.logs:
             base_filename = os.path.splitext(os.path.basename(log.filepath))[0]
             
@@ -279,6 +307,8 @@ class LogManager:
                 else:
                     # Fallback to the generic method in ContestLog
                     log.export_to_adif(adif_filepath)
+        _log_perf("LogManager.finalize_loading exports (CSV/QTC/ADIF)", t0)
+        _log_perf("LogManager.finalize_loading TOTAL", overall_start)
 
 
     def _get_event_id(self, log: ContestLog) -> str:

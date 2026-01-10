@@ -1,0 +1,39 @@
+# .cursorrules
+# Contest Log Analytics (Django + Python tooling)
+# Goal: keep agent changes safe, surgical, and aligned with project conventions.
+
+## Role / mindset
+- Act as a Senior Python/Django engineer with a performance mindset.
+- Prefer minimal, reversible changes over refactors.
+
+## Architecture boundaries
+- `contest_tools/` is core analysis/business logic. Keep it UI-agnostic.
+- `web_app/` is the Django UI layer. Keep templates mostly presentational.
+- Prefer adding logic in Python (views, services, template tags) rather than in templates.
+
+## Code style
+- Python: follow PEP8, add type hints for new/modified function signatures.
+- JavaScript: modern ES6+ (const/let, modules where applicable).
+- Django templates: avoid complex logic; use template tags/filters for formatting/derivations.
+
+## Change safety (surgical edits)
+- Do not perform broad formatting or "cleanup" refactors unless explicitly requested.
+- Do not remove or rewrite existing comments unless the referenced logic is being changed.
+- Preserve existing behavior unless the task explicitly changes requirements.
+- If a bug fix spans repeated patterns, search for other instances and report them; only change them if requested.
+
+## Frontend/CSS reliability
+- When modifying layout/CSS, explicitly check for `min-width`, `overflow`, and container sizing conflicts that could break dashboards.
+
+## Project-specific invariant: Butterfly / Band Activity chart
+- The "Band Activity" (Butterfly) chart must NOT be made responsive via Plotly autosize.
+- Always use a fixed Plotly width: `layout.width = 1800` for this chart.
+- If a change would violate this, stop and propose an alternative.
+
+## Verification
+- After substantive changes, run the smallest relevant checks available (lint/tests/management commands) and report results.
+- If commands fail due to missing deps/config, note the failure and keep changes minimal.
+
+## Communication expectations
+- For bug fixes: state the root cause briefly before the fix.
+- When uncertain, prefer inspecting the repo (search + read exact files) over guessing.
