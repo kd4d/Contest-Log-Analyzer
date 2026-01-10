@@ -45,8 +45,20 @@ import itertools
 import importlib
 import logging
 import pandas as pd
+import time
 from .reports import AVAILABLE_REPORTS
 from .manifest_manager import ManifestManager
+
+def _perf_enabled() -> bool:
+    """Enables lightweight performance timing logs when CLA_PROFILE=1."""
+    return os.environ.get('CLA_PROFILE', '0') == '1'
+
+def _log_perf(label: str, start_time: float) -> None:
+    """Logs a timing line if CLA_PROFILE is enabled."""
+    if not _perf_enabled():
+        return
+    elapsed = time.perf_counter() - start_time
+    logging.info(f"PERF {label}: {elapsed:.3f}s")
 
 class ReportGenerator:
     """
@@ -100,6 +112,17 @@ class ReportGenerator:
         """
         Executes the requested reports based on the report_id and options.
         """
+        overall_start = time.perf_counter()
+        per_report_seconds = {}
+        per_report_calls = {}
+
+        def _track(report_key: str, start_time: float) -> None:
+            if not _perf_enabled():
+                return
+            elapsed = time.perf_counter() - start_time
+            per_report_seconds[report_key] = per_report_seconds.get(report_key, 0.0) + elapsed
+            per_report_calls[report_key] = per_report_calls.get(report_key, 0) + 1
+
         reports_to_run = []
         report_id_lower = report_id.lower()
 
@@ -204,7 +227,9 @@ class ReportGenerator:
                             for log in self.logs:
                                 instance = ReportClass([log])
                                 try:
+                                    t0 = time.perf_counter()
                                     result = instance.generate(output_path=output_path, **current_kwargs)
+                                    _track(r_id, t0)
                                     logging.info(result)
                                 except Exception as e:
                                     logging.error(f"Error generating '{r_id}': {e}")
@@ -212,7 +237,9 @@ class ReportGenerator:
                         if (ReportClass.supports_multi or ReportClass.supports_pairwise) and len(self.logs) >= 2:
                             instance = ReportClass(self.logs)
                             try:
+                                t0 = time.perf_counter()
                                 result = instance.generate(output_path=output_path, **current_kwargs)
+                                _track(r_id, t0)
                                 logging.info(result)
                             except Exception as e:
                                 logging.error(f"Error generating '{r_id}': {e}")
@@ -224,7 +251,9 @@ class ReportGenerator:
                 if ReportClass.supports_multi and len(self.logs) >= 2:
                     instance = ReportClass(self.logs)
                     try:
+                        t0 = time.perf_counter()
                         result = instance.generate(output_path=output_path, **report_kwargs)
+                        _track(r_id, t0)
                         logging.info(result)
                     except Exception as e:
                         logging.error(f"Error generating '{r_id}': {e}")
@@ -233,7 +262,9 @@ class ReportGenerator:
                     for log_pair in itertools.combinations(self.logs, 2):
                         instance = ReportClass(list(log_pair))
                         try:
+                            t0 = time.perf_counter()
                             result = instance.generate(output_path=output_path, **report_kwargs)
+                            _track(r_id, t0)
                             logging.info(result)
                         except Exception as e:
                             logging.error(f"Error generating '{r_id}': {e}")
@@ -242,7 +273,9 @@ class ReportGenerator:
                     for log in self.logs:
                         instance = ReportClass([log])
                         try:
+                            t0 = time.perf_counter()
                             result = instance.generate(output_path=output_path, **report_kwargs)
+                            _track(r_id, t0)
                             logging.info(result)
                         except Exception as e:
                             logging.error(f"Error generating '{r_id}': {e}")
@@ -256,3 +289,12 @@ class ReportGenerator:
             files_before = files_now # Update baseline
             
         self.manifest.save()
+
+        # --- PERF Summary ---
+        _log_perf("ReportGenerator.run_reports TOTAL", overall_start)
+        if _perf_enabled() and per_report_seconds:
+            top = sorted(per_report_seconds.items(), key=lambda kv: kv[1], reverse=True)[:10]
+            logging.info("PERF ReportGenerator.run_reports top report timings (seconds):")
+            for rid, secs in top:
+                calls = per_report_calls.get(rid, 0)
+                logging.info(f"PERF   {rid}: {secs:.3f}s over {calls} generate() call(s)")

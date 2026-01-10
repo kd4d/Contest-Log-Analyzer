@@ -64,6 +64,18 @@ import re
 import json
 import importlib
 import logging
+import time
+
+def _perf_enabled() -> bool:
+    """Enables lightweight performance timing logs when CLA_PROFILE=1."""
+    return os.environ.get('CLA_PROFILE', '0') == '1'
+
+def _log_perf(label: str, start_time: float) -> None:
+    """Logs a timing line if CLA_PROFILE is enabled."""
+    if not _perf_enabled():
+        return
+    elapsed = time.perf_counter() - start_time
+    logging.info(f"PERF {label}: {elapsed:.3f}s")
 
 # Relative imports from within the contest_tools package
 from .cabrillo_parser import parse_cabrillo_file
@@ -225,13 +237,16 @@ class ContestLog:
         return df_filtered
 
     def _ingest_cabrillo_data(self, cabrillo_filepath: str):
+        overall_start = time.perf_counter()
         custom_parser_name = self.contest_definition.custom_parser_module
         if custom_parser_name:
             try:
                 parser_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{custom_parser_name}")
                 
                 # The custom parser's return signature determines how we unpack
+                t0 = time.perf_counter()
                 parser_output = parser_module.parse_log(cabrillo_filepath, self.contest_definition, self.root_input_dir, self.cty_dat_path)
+                _log_perf("ContestLog._ingest_cabrillo_data custom_parser.parse_log", t0)
                 
                 if len(parser_output) == 3:
                     raw_df, self.qtcs_df, metadata = parser_output
@@ -244,7 +259,9 @@ class ContestLog:
                 logging.error(f"Could not run custom parser '{custom_parser_name}': {e}. Halting.")
                 raise
         else:
+            t0 = time.perf_counter()
             raw_df, metadata = parse_cabrillo_file(cabrillo_filepath, self.contest_definition)
+            _log_perf("ContestLog._ingest_cabrillo_data parse_cabrillo_file", t0)
         
         # Preserve the contest_name from the constructor (e.g., from --wrtc flag)
         # by removing the one parsed from the file header before updating metadata.
@@ -257,6 +274,7 @@ class ContestLog:
             return
 
         # --- Perform frequency validation before further processing ---
+        t0 = time.perf_counter()
         validated_qso_records = []
         rejected_qso_count = 0
         raw_df['Frequency'] = pd.to_numeric(raw_df.get('FrequencyRaw'), errors='coerce')
@@ -283,7 +301,9 @@ class ContestLog:
             return
 
         raw_df = pd.DataFrame(validated_qso_records)
+        _log_perf("ContestLog._ingest_cabrillo_data frequency_validation", t0)
         
+        t0 = time.perf_counter()
         raw_df['Datetime'] = pd.to_datetime(
             raw_df.get('DateRaw', '') + ' ' + raw_df.get('TimeRaw', ''),
             format='%Y-%m-%d %H%M',
@@ -303,11 +323,14 @@ class ContestLog:
             raw_df['Band'] = raw_df['Band'].combine_first(derived_bands)
 
         raw_df.dropna(subset=['Datetime'], inplace=True)
+        _log_perf("ContestLog._ingest_cabrillo_data datetime_and_band_derivation", t0)
 
         # --- Apply Contest Period Filter ---
+        t0 = time.perf_counter()
         raw_df = self._filter_by_contest_period(raw_df, is_qso_df=True)
         if not self.qtcs_df.empty:
             self.qtcs_df = self._filter_by_contest_period(self.qtcs_df, is_qso_df=False)
+        _log_perf("ContestLog._ingest_cabrillo_data contest_period_filter", t0)
 
         if raw_df.empty:
             self.qsos_df = pd.DataFrame(columns=self.contest_definition.default_qso_columns)
@@ -334,7 +357,10 @@ class ContestLog:
         raw_df.drop(columns=['FrequencyRaw', 'DateRaw', 'TimeRaw', 'MyCallRaw', 'RawQSO'], inplace=True, errors='ignore')
         self.qsos_df = raw_df.reindex(columns=self.contest_definition.default_qso_columns)
 
+        t0 = time.perf_counter()
         self._check_dupes()
+        _log_perf("ContestLog._ingest_cabrillo_data dupe_check", t0)
+        _log_perf("ContestLog._ingest_cabrillo_data TOTAL", overall_start)
 
     def _check_dupes(self):
         self.qsos_df['Dupe'] = False
@@ -428,6 +454,7 @@ class ContestLog:
         if self.qsos_df.empty:
             logging.warning("No QSOs loaded. Cannot apply annotations.")
             return
+        overall_start = time.perf_counter()
 
         # Pre-cast multiplier columns to 'object' to prevent dtype warnings when
         # string-based multipliers (e.g., from WAE/DXCC) are inserted later.
@@ -437,24 +464,33 @@ class ContestLog:
 
         try:
             logging.info("Applying Run/S&P annotation...")
+            t0 = time.perf_counter()
             self.qsos_df = process_contest_log_for_run_s_p(self.qsos_df)
+            _log_perf("ContestLog.apply_annotations run_s_p", t0)
             logging.info("Run/S&P annotation complete.")
         except Exception as e:
             logging.error(f"Error during Run/S&P annotation: {e}. Skipping.")
 
         try:
             logging.info("Applying Universal DXCC/Zone lookup...")
+            t0 = time.perf_counter()
             self.qsos_df = process_dataframe_for_cty_data(self.qsos_df, self.cty_dat_path)
+            _log_perf("ContestLog.apply_annotations cty_lookup", t0)
             logging.info("Universal DXCC/Zone lookup complete.")
         except Exception as e:
             logging.error(f"Error during Universal DXCC/Zone lookup: {e}. Skipping.")
         
+        t0 = time.perf_counter()
         self.apply_contest_specific_annotations()
+        _log_perf("ContestLog.apply_annotations contest_specific_annotations", t0)
         
         try:
+            t0 = time.perf_counter()
             self.metadata['OperatingTime'] = self._calculate_operating_time()
+            _log_perf("ContestLog.apply_annotations operating_time", t0)
         except Exception as e:
             logging.error(f"Error during on-time calculation: {e}. Skipping.")
+        _log_perf("ContestLog.apply_annotations TOTAL", overall_start)
         
     def _pre_calculate_time_series_score(self):
         """

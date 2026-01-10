@@ -206,6 +206,20 @@ from contest_tools.manifest_manager import ManifestManager
 
 logger = logging.getLogger(__name__)
 
+def _perf_enabled() -> bool:
+    """
+    Enables lightweight performance timing logs when CLA_PROFILE=1.
+    Kept intentionally simple to avoid changing runtime behavior when disabled.
+    """
+    return os.environ.get('CLA_PROFILE', '0') == '1'
+
+def _log_perf(label: str, start_time: float) -> None:
+    """Logs a timing line if CLA_PROFILE is enabled."""
+    if not _perf_enabled():
+        return
+    elapsed = time.perf_counter() - start_time
+    logger.info(f"PERF {label}: {elapsed:.3f}s")
+
 def _cleanup_old_sessions(max_age_seconds=3600):
     """Lazy cleanup: Deletes session directories older than 1 hour."""
     sessions_root = os.path.join(settings.MEDIA_ROOT, 'sessions')
@@ -343,6 +357,8 @@ def analyze_logs(request):
 
 def _run_analysis_pipeline(request_id, log_paths, session_path, session_key):
     """Shared logic for processing logs (Manual or Fetched)."""
+    pipeline_start = time.perf_counter()
+
     # 3. Process with LogManager
     # Note: We rely on docker-compose env vars for CONTEST_INPUT_DIR
     root_input = os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
@@ -350,9 +366,13 @@ def _run_analysis_pipeline(request_id, log_paths, session_path, session_key):
     _update_progress(request_id, 2) # Step 2: Parsing
     lm = LogManager()
     # Load logs (auto-detect contest type)
+    t0 = time.perf_counter()
     lm.load_log_batch(log_paths, root_input, 'after')
+    _log_perf("LogManager.load_log_batch", t0)
 
+    t0 = time.perf_counter()
     lm.finalize_loading(session_path)
+    _log_perf("LogManager.finalize_loading", t0)
 
     # --- DIAGNOSTIC: Validate Handoff ---
     valid_count = 0
@@ -369,8 +389,10 @@ def _run_analysis_pipeline(request_id, log_paths, session_path, session_key):
     # Step 4: Generating
     _update_progress(request_id, 4) 
     
+    t0 = time.perf_counter()
     generator = ReportGenerator(lm.logs, root_output_dir=session_path)
     generator.run_reports('all')
+    _log_perf("ReportGenerator.run_reports(all)", t0)
     
     # --- DIAGNOSTIC: Verify Disk State ---
     generated_files = []
@@ -382,8 +404,10 @@ def _run_analysis_pipeline(request_id, log_paths, session_path, session_key):
     # -------------------------------------
     
     # 5. Aggregate Data (Dashboard Scalars)
+    t0 = time.perf_counter()
     ts_agg = TimeSeriesAggregator(lm.logs)
     ts_data = ts_agg.get_time_series_data()
+    _log_perf("TimeSeriesAggregator.get_time_series_data", t0)
     
     # Extract basic scalars for dashboard
     # Construct relative path components for the template
@@ -451,10 +475,13 @@ def _run_analysis_pipeline(request_id, log_paths, session_path, session_key):
     # --- Session Persistence (Fix Navigation Loop) ---
     # Save the context to disk so it can be reloaded via GET request
     context_path = os.path.join(session_path, 'dashboard_context.json')
+    t0 = time.perf_counter()
     with open(context_path, 'w') as f:
         json.dump(context, f)
+    _log_perf("Persist dashboard_context.json", t0)
 
     _update_progress(request_id, 5) # Step 5: Finalizing/Ready
+    _log_perf("TOTAL _run_analysis_pipeline", pipeline_start)
     return redirect('dashboard_view', session_id=session_key)
 
 def dashboard_view(request, session_id):
