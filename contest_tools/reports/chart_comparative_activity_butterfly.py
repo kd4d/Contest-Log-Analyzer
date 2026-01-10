@@ -161,7 +161,7 @@ class Report(ContestReport):
         fig = make_subplots(
             rows=total_rows, 
             cols=1, 
-            shared_xaxes=True,
+            shared_xaxes=False,  # Don't share - we'll manually link band rows only
             vertical_spacing=0.02,
             row_heights=row_heights,
             subplot_titles=[""] + [f"Band: {b}" for b in bands]
@@ -270,9 +270,15 @@ class Report(ContestReport):
                 row=row_idx, col=1
             )
             
-            # X-Axis for bottom chart only
+            # X-Axis configuration
             if i == num_bands - 1:
-                fig.update_xaxes(title_text="Time (UTC)", title_standoff=25, row=row_idx, col=1)
+                # Bottom chart: show labels and title
+                # Increased standoff to 40px to prevent crowding with footer
+                fig.update_xaxes(title_text="Time (UTC)", title_standoff=40, row=row_idx, col=1)
+            else:
+                # Other band charts: hide labels but link to bottom axis
+                # This synchronizes all band rows (2-7) to share the same x-axis domain
+                fig.update_xaxes(matches=f'x{total_rows}', showticklabels=False, row=row_idx, col=1)
 
         # Layout Updates
         # 3-Line Title Construction
@@ -289,7 +295,7 @@ class Report(ContestReport):
             template="plotly_white",
             barmode='relative', # Fix: Correct stacking for butterfly
             bargap=0, # Histogram look
-            margin=dict(t=50, b=80, l=80, r=50), # Tighter margins (header handles space)
+            margin=dict(t=50, b=180, l=110, r=50), # Increased bottom margin for footer, left for y-axis spacing
             height=max(900, 200 * num_bands + 150),
             width=1200,
             # Legend in Header Row (Top Right)
@@ -312,14 +318,15 @@ class Report(ContestReport):
             font=dict(size=20)
         )
         
-        # Add Footer Annotation (Bottom Center)
+        # Add Footer Annotation (Bottom Center) - Using absolute pixel positioning
         fig.add_annotation(
             text=footer_text.replace('\n', '<br>'),
             xref="paper", yref="paper",
-            x=0.5, y=-0.08,
+            x=0.5, y=0,
             xanchor="center", yanchor="top",
             showarrow=False,
-            font=dict(size=10, color="gray")
+            font=dict(size=10, color="gray"),
+            yshift=-80  # Push 80px below plot area (more space from "Time (UTC)")
         )
 
         return fig
