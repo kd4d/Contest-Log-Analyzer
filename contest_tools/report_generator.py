@@ -6,8 +6,8 @@
 #          execute it (e.g., single-log, pairwise, multi-log).
 #
 # Author: Gemini AI
-# Date: 2026-01-05
-# Version: 0.164.1-Beta
+# Date: 2026-01-07
+# Version: 0.166.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -21,6 +21,12 @@
 # file, You can obtain one at [http://mozilla.org/MPL/2.0/](http://mozilla.org/MPL/2.0/).
 #
 # --- Revision History ---
+# [0.166.0-Beta] - 2026-01-07
+# - Added performance profiling instrumentation when CLA_PROFILE=1.
+# [0.165.0-Beta] - 2026-01-07
+# - Fixed pairwise-only report bug: Changed line 217 condition from
+#   '(supports_multi or supports_pairwise)' to 'supports_multi' only.
+#   This prevents pairwise-only reports from receiving invalid all-logs instances.
 # [0.164.1-Beta] - 2026-01-05
 # - Added pairwise iteration loop for multiplier reports when > 2 logs are present.
 # [0.163.0-Beta] - 2026-01-05
@@ -52,6 +58,7 @@ import pandas as pd
 from .reports import AVAILABLE_REPORTS
 from .manifest_manager import ManifestManager
 from .utils.report_utils import _sanitize_filename_part
+from .utils.profiler import profile_section, ProfileContext
 
 class ReportGenerator:
     """
@@ -102,6 +109,7 @@ class ReportGenerator:
         
         self.manifest = ManifestManager(self.base_output_dir)
 
+    @profile_section("Report Generation (All Reports)")
     def run_reports(self, report_id, **report_kwargs):
         """
         Executes the requested reports based on the report_id and options.
@@ -214,7 +222,7 @@ class ReportGenerator:
                                 except Exception as e:
                                     logging.error(f"Error generating '{r_id}': {e}")
                         
-                        if (ReportClass.supports_multi or ReportClass.supports_pairwise) and len(self.logs) >= 2:
+                        if ReportClass.supports_multi and len(self.logs) >= 2:
                             # 1. Generate Session Summary (All Logs)
                             instance = ReportClass(self.logs)
                             try:
@@ -223,8 +231,8 @@ class ReportGenerator:
                             except Exception as e:
                                 logging.error(f"Error generating '{r_id}' (Session): {e}")
 
-                            # 2. Generate Pairwise Comparisons (if > 2 logs)
-                            if ReportClass.supports_pairwise and len(self.logs) > 2:
+                        # 2. Generate Pairwise Comparisons (if > 2 logs)
+                        if ReportClass.supports_pairwise and len(self.logs) > 2:
                                 for log_pair in itertools.combinations(self.logs, 2):
                                     instance = ReportClass(list(log_pair))
                                     try:

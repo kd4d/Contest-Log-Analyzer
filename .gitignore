@@ -10,6 +10,7 @@ CONTEST_LOGS_REPORTS/reports/
 CONTEST_LOGS_REPORTS/reports_*/
 CONTEST_LOGS_REPORTS/data/CTY/
 AIAgentGuidance/
+Docs/Archive/
 web_app/media/
 *.sqlite3
 Archives/

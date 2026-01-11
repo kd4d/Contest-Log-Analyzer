@@ -5,8 +5,8 @@
 #          data cleaning, and calculation of various contest metrics.
 #
 # Author: Gemini AI
-# Date: 2025-10-10
-# Version: 0.91.12-Beta
+# Date: 2026-01-07
+# Version: 0.160.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # --- Revision History ---
+# [0.160.0-Beta] - 2026-01-07
+# - Added performance profiling instrumentation when CLA_PROFILE=1.
 # [0.91.12-Beta] - 2025-10-10
 # - Fixed bug where the contest name from a file header would overwrite
 #   the authoritative name from a CLI override (e.g., --wrtc).
@@ -69,6 +71,7 @@ import logging
 from .cabrillo_parser import parse_cabrillo_file
 from .contest_definitions import ContestDefinition
 from .core_annotations import CtyLookup, process_dataframe_for_cty_data, process_contest_log_for_run_s_p, BandAllocator
+from .utils.profiler import profile_section, ProfileContext
 
 class ContestLog:
     """
@@ -224,6 +227,7 @@ class ContestLog:
             
         return df_filtered
 
+    @profile_section("Cabrillo Data Ingestion")
     def _ingest_cabrillo_data(self, cabrillo_filepath: str):
         custom_parser_name = self.contest_definition.custom_parser_module
         if custom_parser_name:
