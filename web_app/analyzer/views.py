@@ -1003,7 +1003,19 @@ def qso_dashboard(request, session_id):
             qso_band_plots[0]['active'] = True
 
     # Global files via manifest lookup
-    global_qso = next((f"{report_rel_path}/{a['path']}" for a in artifacts if a['report_id'] == 'qso_rate_plots' and f"_all_{combo_id}.html" in a['path']), "")
+    # For single log: qso_rate_plots_all_{callsign}.html
+    # For multi log: qso_rate_plots_all_{call1}_{call2}...html
+    if is_solo:
+        # Single log: Look for qso_rate_plots_all_{callsign}.html
+        call_safe = callsigns_safe[0] if callsigns_safe else combo_id
+        global_qso = next((f"{report_rel_path}/{a['path']}" for a in artifacts 
+                          if a['report_id'] == 'qso_rate_plots' 
+                          and f"_all_{call_safe}.html" in a['path']), "")
+    else:
+        # Multi log: Look for qso_rate_plots_all_{combo_id}.html
+        global_qso = next((f"{report_rel_path}/{a['path']}" for a in artifacts 
+                          if a['report_id'] == 'qso_rate_plots' 
+                          and f"_all_{combo_id}.html" in a['path']), "")
     
     if not global_qso:
         logger.warning(f"QSO Dashboard: Global QSO Rate Plot not found for combo_id '{combo_id}' in '{report_rel_path}'.")

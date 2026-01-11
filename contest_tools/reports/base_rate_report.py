@@ -48,10 +48,12 @@ from ..styles.plotly_style_manager import PlotlyStyleManager
 class BaseRateReport(ContestReport):
     """
     Base class for generating rate comparison plots.
+    Supports both single-log and multi-log scenarios.
     Subclasses must define metric_key and metric_label.
     """
     report_type: str = "plot"
     supports_multi = True
+    supports_single = True
     
     # Defaults to be overridden
     metric_key: str = "qsos"
