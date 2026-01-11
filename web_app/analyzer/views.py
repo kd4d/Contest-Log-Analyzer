@@ -930,10 +930,35 @@ def qso_dashboard(request, session_id):
 
     # 4. Discover Point Rate Plots (Manifest Scan)
     point_plots = []
+    
+    # For multi-log: Only show comparison plots (ending with combo_id)
+    # For single-log: Show individual station plots (ending with single callsign)
+    target_suffix = f"_{combo_id}.html" if not is_solo else None
+    target_callsigns = callsigns_safe if is_solo else None
 
     for art in artifacts:
         if art['report_id'] == 'point_rate_plots' and art['path'].endswith('.html'):
             fname = os.path.basename(art['path'])
+            
+            # Filter by suffix pattern
+            if not is_solo:
+                # Multi-log: Only include comparison plots (ending with combo_id)
+                if not fname.endswith(target_suffix):
+                    continue
+            else:
+                # Single-log: Only include individual station plots (ending with single callsign)
+                # Exclude comparison plots (those ending with combo_id which is same as single callsign)
+                # For single log, combo_id IS the callsign, so we need to check if it's exactly one callsign
+                # Pattern: point_rate_plots_{band}_{callsign}.html (single callsign suffix)
+                matches_single = False
+                for call in target_callsigns:
+                    single_suffix = f"_{call}.html"
+                    if fname.endswith(single_suffix):
+                        matches_single = True
+                        break
+                if not matches_single:
+                    continue
+            
             # point_rate_plots_{band}_{calls}.html
             # Remove prefix
             remainder = fname.replace('point_rate_plots_', '')
@@ -969,9 +994,34 @@ def qso_dashboard(request, session_id):
     # 5. Discover QSO Rate Plots (Manifest Scan)
     qso_band_plots = []
     
+    # For multi-log: Only show comparison plots (ending with combo_id)
+    # For single-log: Show individual station plots (ending with single callsign)
+    target_suffix = f"_{combo_id}.html" if not is_solo else None
+    target_callsigns = callsigns_safe if is_solo else None
+    
     for art in artifacts:
         if art['report_id'] == 'qso_rate_plots' and art['path'].endswith('.html'):
             fname = os.path.basename(art['path'])
+            
+            # Filter by suffix pattern
+            if not is_solo:
+                # Multi-log: Only include comparison plots (ending with combo_id)
+                if not fname.endswith(target_suffix):
+                    continue
+            else:
+                # Single-log: Only include individual station plots (ending with single callsign)
+                # Exclude comparison plots (those ending with combo_id which is same as single callsign)
+                # For single log, combo_id IS the callsign, so we need to check if it's exactly one callsign
+                # Pattern: qso_rate_plots_{band}_{callsign}.html (single callsign suffix)
+                matches_single = False
+                for call in target_callsigns:
+                    single_suffix = f"_{call}.html"
+                    if fname.endswith(single_suffix):
+                        matches_single = True
+                        break
+                if not matches_single:
+                    continue
+            
             remainder = fname.replace('qso_rate_plots_', '')
             parts = remainder.split('_')
             if parts:
