@@ -79,6 +79,7 @@ import pandas as pd
 from typing import List, Optional, Set
 from .contest_log import ContestLog
 from .utils.cty_manager import CtyManager
+from .core_annotations import CtyLookup, BandAllocator
 from .utils.profiler import profile_section, ProfileContext
 import os
 import importlib
@@ -183,6 +184,11 @@ class LogManager:
                 raise FileNotFoundError(f"Could not find a suitable CTY.DAT file for specifier '{cty_specifier}'.")
             logging.info(f"Using CTY file for all logs: {os.path.basename(cty_dat_path)} (Date: {cty_file_info.get('date')})")
 
+        # --- 2.5. Create Shared Instances (Performance Optimization) ---
+        # Create shared CTY lookup and BandAllocator instances to avoid reloading from disk for each log
+        shared_cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)
+        shared_band_allocator = BandAllocator(root_input_dir)
+
         # --- 3. Full Log Loading Phase ---
         for path in log_filepaths:
             try:
@@ -199,7 +205,9 @@ class LogManager:
                     else:
                         contest_name = base_contest_name
 
-                    log = ContestLog(contest_name=contest_name, cabrillo_filepath=path, root_input_dir=root_input_dir, cty_dat_path=cty_dat_path)
+                    log = ContestLog(contest_name=contest_name, cabrillo_filepath=path, root_input_dir=root_input_dir, 
+                                   cty_dat_path=cty_dat_path, shared_cty_lookup=shared_cty_lookup, 
+                                   shared_band_allocator=shared_band_allocator)
                     setattr(log, '_log_manager_ref', self)
                     log.apply_annotations()
                     
