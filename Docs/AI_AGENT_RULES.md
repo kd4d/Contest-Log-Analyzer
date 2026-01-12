@@ -222,6 +222,46 @@ Before any critical operation, AI should:
 
 ---
 
+## Session Context & Workflow State
+
+### HANDOVER.md Pattern (Optional)
+
+For complex multi-session workflows, a `HANDOVER.md` file may exist at the repository root to maintain workflow state between agent sessions.
+
+**When HANDOVER.md Exists:**
+- AI agent **must** check for `HANDOVER.md` at session start
+- AI agent **must** read and incorporate workflow state from `HANDOVER.md`
+- AI agent **should** update `HANDOVER.md` as work progresses
+- AI agent **should** overwrite `HANDOVER.md` when switching sessions
+
+**When HANDOVER.md Does NOT Exist:**
+- AI agent proceeds with standard context (git history, documentation, code, user request)
+- AI agent does NOT create `HANDOVER.md` unless explicitly requested
+- Standard workflow: User request → Agent analyzes code/docs → Agent performs task
+
+**When to Use HANDOVER.md:**
+- ✅ Complex multi-session workflows (e.g., version cleanup, major refactoring)
+- ✅ Multi-step processes spanning multiple sessions (test → patch → tag → cleanup)
+- ✅ Context that spans multiple sessions (current state, next steps, decisions)
+
+**When NOT to Use HANDOVER.md:**
+- ❌ Simple bug fixes (agent can analyze code directly)
+- ❌ Single-session tasks (new features, quick fixes)
+- ❌ Tasks with sufficient context in code/docs/git history
+
+**Agent Behavior:**
+1. **Session Start:** Check for `HANDOVER.md` (non-blocking)
+2. **If Found:** Read workflow state, incorporate into context
+3. **If Not Found:** Proceed with standard context gathering
+4. **During Work:** Update `HANDOVER.md` if it exists and workflow state changes
+5. **Session End:** Overwrite `HANDOVER.md` with current state if it exists
+
+**File Location:** Repository root (`HANDOVER.md`)
+
+**Git Treatment:** Committed but overwritten (allows backup in git history while maintaining current state)
+
+---
+
 ## Summary
 
 **AI's Role:** Generate, suggest, assist, format

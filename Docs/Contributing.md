@@ -247,6 +247,27 @@ git merge --no-ff feat/branch-name
 # 4. Push tag: git push origin v1.0.0-beta.5
 ```
 
+### Workflow State Management (HANDOVER.md)
+
+For complex multi-session workflows, a `HANDOVER.md` file may exist at the repository root to maintain workflow state between agent sessions.
+
+**When to Use HANDOVER.md:**
+- ✅ Complex multi-session workflows (e.g., version cleanup, major refactoring)
+- ✅ Multi-step processes spanning multiple sessions
+- ✅ Context that spans multiple sessions (current state, next steps, decisions)
+
+**When NOT to Use HANDOVER.md:**
+- ❌ Simple bug fixes (agent can analyze code directly)
+- ❌ Single-session tasks (new features, quick fixes)
+- ❌ Tasks with sufficient context in code/docs/git history
+
+**Agent Behavior:**
+- If `HANDOVER.md` exists: Agent reads workflow state and incorporates it
+- If `HANDOVER.md` does NOT exist: Agent proceeds with standard context (git history, docs, code)
+- Agent does NOT create `HANDOVER.md` unless explicitly requested
+
+For detailed rules on HANDOVER.md usage, see `Docs/AI_AGENT_RULES.md` (Section "Session Context & Workflow State").
+
 ---
 
 ## 7. Setup Instructions
