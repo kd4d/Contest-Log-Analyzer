@@ -13,6 +13,9 @@ REM          (https://www.mozilla.org/MPL/2.0/)
 echo Setting up Git Workflow Tools for Contest Log Analytics...
 echo.
 
+REM Get absolute path to PowerShell script before changing directory
+for %%I in ("%~dp0setup_git_workflow.ps1") do set "PS_SCRIPT=%%~fI"
+
 REM Change to repo root
 cd /d "%~dp0\.."
 
@@ -20,7 +23,9 @@ REM Check if PowerShell is available (preferred method on Windows)
 where powershell.exe >nul 2>&1
 if %errorlevel% equ 0 (
     REM Use PowerShell script (more robust)
-    powershell.exe -ExecutionPolicy Bypass -File "%~dp0setup_git_workflow.ps1"
+    cd /d "%~dp0"
+    powershell.exe -ExecutionPolicy Bypass -NoProfile -File "%PS_SCRIPT%"
+    cd /d "%~dp0\.."
     goto :end
 )
 

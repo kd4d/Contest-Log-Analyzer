@@ -8,7 +8,38 @@ We are modernizing our version control workflow.
 
 ---
 
-## 2. File Header Standard
+## 2. Character Encoding Policy
+
+### 7-bit ASCII Requirement
+**All non-markdown text files must use 7-bit ASCII encoding (characters 0-127 only).**
+
+This includes but is not limited to:
+- Source code files (`.py`, `.js`, `.ts`, `.html`, `.css`, etc.)
+- Script files (`.ps1`, `.bat`, `.sh`, etc.)
+- Configuration files (`.json`, `.yaml`, `.ini`, etc.)
+- Documentation source files (`.rst`, `.txt`, etc.)
+
+**Rationale:** 7-bit ASCII ensures maximum compatibility across all tools and environments:
+- PowerShell and batch files parse correctly without encoding issues
+- Works with any encoding interpretation (ASCII, UTF-8, Windows-1252, etc.)
+- No risk of multi-byte character sequences causing parsing errors
+- Universally supported on all platforms and terminals
+
+**Exceptions:**
+- Markdown files (`.md`) are allowed to contain UTF-8 characters including emoji, as markdown renderers handle UTF-8 encoding correctly.
+
+**Replacement Guidelines for Common Characters:**
+- ✓ (checkmark) → `[OK]`, `OK`, or `PASS`
+- ✗ (cross mark) → `[X]`, `FAIL`, or `ERROR`
+- ⚠ (warning) → `WARNING:` or `WARN:`
+- • (bullet) → `*` or `-`
+- © (copyright) → `(c)`, `Copyright`, or `(C)`
+- ® (registered) → `(R)` or `Registered`
+- Accented characters (é, ñ, ü, etc.) → Use ASCII equivalents (e, n, u) or spell out
+
+---
+
+## 3. File Header Standard
 All Python (`.py`) files must begin with the following standard header block.
 **Note for AI Agents:** When creating new files, you **must** apply this template.
 
@@ -33,7 +64,7 @@ All Python (`.py`) files must begin with the following standard header block.
 
 ---
 
-## 3. Versioning Strategy (SemVer)
+## 4. Versioning Strategy (SemVer)
 We follow **Semantic Versioning 2.0.0**.
 
 ### Version Source of Truth
@@ -57,7 +88,7 @@ We follow **Semantic Versioning 2.0.0**.
 
 ---
 
-## 4. Commit Message Standard (Angular)
+## 5. Commit Message Standard (Angular)
 We use the strict **Angular Convention**. This structure is mandatory for the final commit that lands on `main`.
 
 ### The Structure
@@ -175,7 +206,7 @@ Used for customers stuck on old versions (e.g., v1.0) while we are working on v2
 
 ---
 
-## 6. AI Agent Rules for Git Operations
+## 7. AI Agent Rules for Git Operations
 
 ### Standard Cursor/Console Workflow
 
@@ -270,7 +301,7 @@ For detailed rules on HANDOVER.md usage, see `Docs/AI_AGENT_RULES.md` (Section "
 
 ---
 
-## 7. Setup Instructions
+## 8. Setup Instructions
 
 ### Quick Setup (Recommended)
 
@@ -348,7 +379,7 @@ For more detailed information, tutorials, and troubleshooting, see `tools/README
 
 ---
 
-## 8. AI Agent Prompt Library
+## 9. AI Agent Prompt Library
 
 Copy these prompts to instruct your AI agent on the correct protocols.
 

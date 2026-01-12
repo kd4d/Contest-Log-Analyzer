@@ -81,6 +81,34 @@ This document provides specific rules for AI agents (like Cursor/Console AI) whe
 
 ---
 
+## Character Encoding Rules
+
+### 7-bit ASCII Requirement
+**AI agents MUST use 7-bit ASCII (characters 0-127 only) in all non-markdown files.**
+
+**Critical Rule:** When creating or modifying any code files, scripts, or configuration files, AI agents must:
+- ✅ Use only 7-bit ASCII characters
+- ✅ Replace any non-ASCII characters with ASCII equivalents
+- ❌ Never use emoji, Unicode symbols, or multi-byte characters in code/scripts
+
+**Files Affected:**
+- All source code files (`.py`, `.js`, `.ts`, `.html`, `.css`, etc.)
+- All script files (`.ps1`, `.bat`, `.sh`, etc.)
+- All configuration files (`.json`, `.yaml`, `.ini`, etc.)
+- Documentation source files (`.rst`, `.txt`, etc.)
+
+**Exception:** Markdown files (`.md`) may contain UTF-8 characters including emoji.
+
+**Common Replacements:**
+- ✓ (checkmark) → `[OK]`, `OK`, or `PASS`
+- ✗ (cross mark) → `[X]`, `FAIL`, or `ERROR`
+- ⚠ (warning) → `WARNING:` or `WARN:`
+- • (bullet) → `*` or `-`
+
+**Rationale:** PowerShell, batch files, and many other tools can fail to parse files correctly when multi-byte UTF-8 characters are present, leading to cryptic parsing errors.
+
+---
+
 ## Commit Message Standards
 
 ### For Feature Branch Commits
