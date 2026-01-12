@@ -2,10 +2,6 @@
 #
 # Purpose: Defines the core logic for comparing sets of multipliers.
 #
-# Author: Gemini AI
-# Date: 2025-12-17
-# Version: 0.123.0-Beta
-#
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 #
