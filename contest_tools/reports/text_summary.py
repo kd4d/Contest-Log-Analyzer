@@ -3,8 +3,8 @@
 # Purpose: An example text report that generates a simple QSO summary.
 #
 # Author: Gemini AI
-# Date: 2025-10-01
-# Version: 0.90.0-Beta
+# Date: 2026-01-05
+# Version: 0.159.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -13,16 +13,24 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
 # --- Revision History ---
+# [0.159.0-Beta] - 2026-01-05
+# - Updated generate method to use DAL metadata (removed direct DF access).
+# [0.152.0-Beta] - 2026-01-05
+# - Refactored to use CategoricalAggregator (DAL) for data retrieval.
+# - Removed direct DataFrame access and calculation logic.
 # [0.90.0-Beta] - 2025-10-01
-# Set new baseline version for release.
+# - Set new baseline version for release.
 
 from typing import List
 import os
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
+from ..data_aggregators.categorical_stats import CategoricalAggregator
 
 class Report(ContestReport):
     """
@@ -39,29 +47,15 @@ class Report(ContestReport):
         """
         include_dupes = kwargs.get('include_dupes', False)
         
-        report_data = []
-        all_calls = []
-
-        for log in self.logs:
-            callsign = log.get_metadata().get('MyCall', 'Unknown')
-            all_calls.append(callsign)
-            df_full = log.get_processed_data()
-            
-            if not include_dupes and 'Dupe' in df_full.columns:
-                df = df_full[df_full['Dupe'] == False].copy()
-            else:
-                df = df_full.copy()
-            
-            log_summary = {
-                'Callsign': callsign,
-                'On-Time': log.get_metadata().get('OperatingTime'),
-                'Total QSOs': len(df),
-                'Dupes': df_full['Dupe'].sum(),
-                'Run': (df['Run'] == 'Run').sum() if 'Run' in df.columns else 0,
-                'S&P': (df['Run'] == 'S&P').sum() if 'Run' in df.columns else 0,
-                'Unknown': (df['Run'] == 'Unknown').sum() if 'Run' in df.columns else 0,
-            }
-            report_data.append(log_summary)
+        aggregator = CategoricalAggregator()
+        agg_result = aggregator.get_log_summary_stats(self.logs, include_dupes=include_dupes)
+        
+        report_data = agg_result['rows']
+        all_calls = [row['Callsign'] for row in report_data]
+        
+        # Extract metadata from DAL result
+        year = agg_result['meta'].get('year', '----')
+        contest_name = agg_result['meta'].get('contest_name', 'UnknownContest')
 
         # --- Formatting ---
         headers = ["Callsign", "On-Time", "Total QSOs", "Dupes", "Run", "S&P", "Unknown"]
@@ -79,10 +73,6 @@ class Report(ContestReport):
         table_header = "  ".join([f"{h:<{col_widths[h]}}" for h in headers])
         table_width = len(table_header)
         separator = "-" * table_width
-        
-        first_log = self.logs[0]
-        contest_name = first_log.get_metadata().get('ContestName', 'UnknownContest')
-        year = first_log.get_processed_data()['Date'].iloc[0].split('-')[0] if not first_log.get_processed_data().empty else "----"
         
         title1 = f"--- {self.report_name} ---"
         title2 = f"{year} {contest_name} - {', '.join(all_calls)}"

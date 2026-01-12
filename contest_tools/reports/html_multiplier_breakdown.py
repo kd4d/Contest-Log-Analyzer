@@ -3,8 +3,8 @@
 # Purpose: Specialized HTML report for multiplier breakdown (Group Par) with offline visual support.
 #
 # Author: Gemini AI
-# Date: 2025-12-31
-# Version: 0.157.3-Beta
+# Date: 2025-12-30
+# Version: 0.156.4-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,13 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.156.4-Beta] - 2025-12-30
+# - Injected 'missed' metric (absolute delta) into station data for template consumption.
+# - Refactored global maximum calculation to use a helper function and include 'totals' row.
+# [0.151.1-Beta] - 2026-01-01
+# - Repair import path for report_utils to fix circular dependency.
+# [0.151.0-Beta] - 2026-01-01
+# - Refactored imports to use `contest_tools.utils.report_utils` to break circular dependency.
 # [0.157.3-Beta] - 2025-12-31
 # - Ported `global_max` calculation logic from views.py to fix invisible vertical bars in offline reports.
 # [0.157.0-Beta] - 2025-12-31
@@ -36,7 +43,7 @@ from django.template.loader import render_to_string
 from django.conf import settings
 from .report_interface import ContestReport
 from ..data_aggregators.multiplier_stats import MultiplierStatsAggregator
-from ._report_utils import _sanitize_filename_part, get_cty_metadata, get_standard_title_lines
+from contest_tools.utils.report_utils import _sanitize_filename_part, get_cty_metadata, get_standard_title_lines
 
 class Report(ContestReport):
     report_id = "html_multiplier_breakdown"
@@ -50,6 +57,7 @@ class Report(ContestReport):
         mult_agg = MultiplierStatsAggregator(self.logs)
         data = mult_agg.get_multiplier_breakdown_data()
 
+        
         # 2. Setup Context
         all_calls = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])
         
@@ -90,6 +98,7 @@ class Report(ContestReport):
             js_path = os.path.join(static_base, 'js', 'html2canvas.min.js')
             css_path = os.path.join(static_base, 'css', 'dashboard.css')
             
+            
             if os.path.exists(js_path):
                 with open(js_path, 'r', encoding='utf-8') as f:
                     js_content = f.read()
@@ -105,26 +114,39 @@ class Report(ContestReport):
         except Exception as e:
              print(f"Error reading static assets: {e}")
 
-        # --- Calculate Global Maxima for Scaling (Ported from views.py) ---
+        # --- Pre-process Data for Display (Inject Missed & Global Max) ---
         global_max = {'total': 1, 'countries': 1, 'zones': 1} # Default 1 to avoid div/0
         
-        # Check 'bands' data if available
+        # Function to process a list of rows
+        def process_rows(rows_list):
+            for row in rows_list:
+                row_max = 0
+                if row.get('stations'):
+                    for stat in row['stations']:
+                        # Inject 'missed' as absolute value of delta
+                        stat['missed'] = abs(stat.get('delta', 0))
+
+                        # Calc max unique for scaling
+                        val = stat.get('unique_run', 0) + stat.get('unique_sp', 0) + stat.get('unique_unk', 0)
+                        if val > row_max: row_max = val
+                
+                # Update global maxes based on row label keywords
+                # Note: 'block_label' isn't available here, but we check row.label
+                if row['label'] == 'TOTAL' or (row['label'] in ['160M', '80M', '40M', '20M', '15M', '10M']):
+                    if row_max > global_max['total']: global_max['total'] = row_max
+                elif 'Countries' in row['label']:
+                    if row_max > global_max['countries']: global_max['countries'] = row_max
+                elif 'Zones' in row['label']:
+                    if row_max > global_max['zones']: global_max['zones'] = row_max
+
+        # Process Totals
+        if 'totals' in data:
+            process_rows(data['totals'])
+
+        # Process Bands
         if 'bands' in data:
             for block in data['bands']:
-                for row in block['rows']:
-                    row_max = 0
-                    if row.get('stations'):
-                        for stat in row['stations']:
-                            val = stat.get('unique_run', 0) + stat.get('unique_sp', 0) + stat.get('unique_unk', 0)
-                            if val > row_max: row_max = val
-                    
-                    # Update global maxes based on row label keywords
-                    if row['label'] == 'TOTAL' or row['label'] == block['label']:
-                        if row_max > global_max['total']: global_max['total'] = row_max
-                    elif 'Countries' in row['label']:
-                        if row_max > global_max['countries']: global_max['countries'] = row_max
-                    elif 'Zones' in row['label']:
-                        if row_max > global_max['zones']: global_max['zones'] = row_max
+                process_rows(block['rows'])
 
         context = {
             'report_title_lines': title_lines,

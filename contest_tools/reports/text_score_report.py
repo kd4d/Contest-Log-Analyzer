@@ -4,8 +4,8 @@
 #          log, broken down by band.
 #
 # Author: Gemini AI
-# Date: 2025-12-20
-# Version: 0.130.0-Beta
+# Date: 2026-01-05
+# Version: 0.160.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -14,10 +14,21 @@
 #          (https://www.mozilla.org/MPL/2.0/)
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.160.0-Beta] - 2026-01-05
+# - Updated to use `get_diagnostic_stats` from aggregator.
+# - Removed raw DataFrame processing logic from diagnostic sections.
+# [0.158.1-Beta] - 2026-01-05
+# - Fixed IndentationError in generate method body.
+# [0.158.0-Beta] - 2026-01-05
+# - Refactored to use `ScoreStatsAggregator` DAL for scoring logic.
+# - Removed internal scoring calculations and direct pandas dependencies.
+# [0.151.2-Beta] - 2026-01-03
+# - Refactored imports to use absolute path `contest_tools.utils.report_utils` to resolve circular dependencies.
 # [0.130.0-Beta] - 2025-12-20
 # - Refactored to use `format_text_header` for standardized 3-line titles.
 # - Integrated `get_cty_metadata` for provenance tracking.
@@ -40,18 +51,18 @@
 #   correct logic in `wae_calculator.py`.
 # [0.90.0-Beta] - 2025-10-01
 # - Set new baseline version for release.
+
 from typing import List, Dict, Set, Tuple
 import pandas as pd
 import os
 import re
 import json
 import logging
-import hashlib
 from ..contest_log import ContestLog
 from ..contest_definitions import ContestDefinition
 from .report_interface import ContestReport
-from ..utils.pivot_utils import calculate_multiplier_pivot
-from ._report_utils import format_text_header, get_cty_metadata
+from contest_tools.utils.report_utils import format_text_header, get_cty_metadata, get_valid_dataframe
+from ..data_aggregators.score_stats import ScoreStatsAggregator
 
 class Report(ContestReport):
     """
@@ -70,18 +81,26 @@ class Report(ContestReport):
 
         for log in self.logs:
             metadata = log.get_metadata()
-            df_full = log.get_processed_data()
 
             callsign = metadata.get('MyCall', 'UnknownCall')
             contest_name = metadata.get('ContestName', 'UnknownContest')
 
+            # Check for valid data via aggregator or metadata, not raw DF
+            df_full = get_valid_dataframe(log, include_dupes=True) # Kept only for Year extraction below
             if df_full.empty:
                 msg = f"Skipping score report for {callsign}: No QSO data available."
                 final_report_messages.append(msg)
                 continue
 
-            # --- All calculations are now performed in a single, authoritative function ---
-            summary_data, total_summary, final_score = self._calculate_all_scores(log, output_path, **kwargs)
+            # --- Data Aggregation (DAL) ---
+            aggregator = ScoreStatsAggregator([log])
+            all_scores = aggregator.get_score_breakdown()
+            log_scores = all_scores["logs"].get(callsign)
+            
+            summary_data = log_scores['summary_data']
+            total_summary = log_scores['total_summary']
+            final_score = log_scores['final_score']
+            diagnostic_stats = aggregator.get_diagnostic_stats(log)
             
             # --- Formatting ---
             if log.contest_definition.score_formula == 'total_points':
@@ -171,7 +190,7 @@ class Report(ContestReport):
             score_text = f"TOTAL SCORE : {final_score:,.0f}"
             report_lines.append(score_text.rjust(table_width))
 
-            self._add_diagnostic_sections(report_lines, df_full, log)
+            self._add_diagnostic_sections(report_lines, diagnostic_stats, log)
 
             report_content = "\n".join(report_lines) + "\n"
             os.makedirs(output_path, exist_ok=True)
@@ -184,32 +203,17 @@ class Report(ContestReport):
 
         return "\n".join(final_report_messages)
 
-    def _add_diagnostic_sections(self, report_lines: List[str], df: pd.DataFrame, log: ContestLog):
+    def _add_diagnostic_sections(self, report_lines: List[str], diagnostics: Dict[str, List[str]], log: ContestLog):
         """Appends sections for 'Unknown' and 'Unassigned' multipliers."""
-        if df.empty:
+        if not diagnostics:
             return
 
         contest_def = log.contest_definition
-        if getattr(contest_def, 'suppress_blank_mult_warnings', False):
-            return
-        
-        log_location_type = getattr(log, '_my_location_type', None)
-        exclusive_groups = contest_def.mutually_exclusive_mults
-
         for rule in contest_def.multiplier_rules:
-            applies_to = rule.get('applies_to')
-            if applies_to and log_location_type and applies_to != log_location_type:
-                continue
-
             mult_name = rule['name']
-            mult_col = rule['value_column']
-
-            if mult_col not in df.columns:
-                continue
-
+            
             # --- Check for "Unknown" Multipliers ---
-            unknown_df = df[df[mult_col] == 'Unknown']
-            unknown_calls = sorted(list(unknown_df['Call'].unique()))
+            unknown_calls = diagnostics.get(f"unknown_{mult_name}", [])
             if unknown_calls:
                 report_lines.append("\n" + "-" * 40)
                 report_lines.append(f"Callsigns with 'Unknown' {mult_name}:")
@@ -219,22 +223,7 @@ class Report(ContestReport):
                     report_lines.append("  ".join([f"{call:<12}" for call in line_calls]))
 
             # --- Check for "Unassigned" (NaN) Multipliers ---
-            df_to_check = df
-            if getattr(contest_def, 'is_naqp_ruleset', False):
-                df_to_check = df[(df['Continent'] == 'NA') | (df['DXCCPfx'] == 'KH6')]
-            
-            unassigned_df = df_to_check[df_to_check[mult_col].isna()]
-            
-            # Filter out intentional blanks for mutually exclusive mults
-            for group in exclusive_groups:
-                if mult_col in group:
-                    partner_cols = [p for p in group if p != mult_col and p in df.columns]
-                    if partner_cols:
-                        indices_to_check = unassigned_df.index
-                        partner_values_exist = df.loc[indices_to_check, partner_cols].notna().any(axis=1)
-                        unassigned_df = unassigned_df.loc[~partner_values_exist]
-            
-            unassigned_calls = sorted(list(unassigned_df['Call'].unique()))
+            unassigned_calls = diagnostics.get(f"unassigned_{mult_name}", [])
             if unassigned_calls:
                 report_lines.append("\n" + "-" * 40)
                 report_lines.append(f"Callsigns with Unassigned {mult_name}:")
@@ -242,147 +231,3 @@ class Report(ContestReport):
                 for i in range(0, len(unassigned_calls), 5):
                     line_calls = unassigned_calls[i:i+5]
                     report_lines.append("  ".join([f"{call:<12}" for call in line_calls]))
-
-    def _calculate_all_scores(self, log: ContestLog, output_path: str, **kwargs) -> Tuple[List[Dict], Dict, int]:
-        """
-        Performs all score and multiplier calculations for the report.
-        This function uses a hierarchical approach (Band -> Mode) for the summary rows,
-        calculating strict multiplier counts for each slice, while using standard logic
-        for the final total score.
-        """
-        df_full = log.get_processed_data()
-        contest_def = log.contest_definition
-        multiplier_rules = contest_def.multiplier_rules
-        log_location_type = getattr(log, '_my_location_type', None)
-        
-        # Start with a DataFrame of non-duplicate QSOs
-        df_net = df_full[df_full['Dupe'] == False].copy()
-        
-        # If the contest rules require it, filter out zero-point QSOs for all counts
-        if not contest_def.mults_from_zero_point_qsos:
-            df_net = df_net[df_net['QSOPoints'] > 0].copy()
-        
-        # --- Pre-computation for TOTAL multiplier calculations ---
-        per_band_mult_counts = {}
-        first_worked_mult_counts = {}
-        
-        for rule in multiplier_rules:
-            mult_col = rule['value_column']
-            if mult_col not in df_net.columns: continue
-
-            df_valid_mults = df_net[df_net[mult_col].notna() & (df_net[mult_col] != 'Unknown')]
-            
-            if rule.get('totaling_method') == 'once_per_log':
-                df_sorted = df_valid_mults.sort_values(by='Datetime')
-                overall_seen_mults = set()
-                new_mults_per_band_mode = {}
-                
-                band_mode_groups = df_sorted.groupby(['Band', 'Mode'])
-                for (band, mode), group_df in band_mode_groups:
-                    mults_in_group = set(group_df[mult_col].unique())
-                    new_mults = mults_in_group - overall_seen_mults
-                    new_mults_per_band_mode[(band, mode)] = len(new_mults)
-                    overall_seen_mults.update(new_mults)
-                first_worked_mult_counts[mult_col] = new_mults_per_band_mode
-            else:
-                pivot = calculate_multiplier_pivot(df_valid_mults, mult_col, group_by_call=False)
-                per_band_mult_counts[mult_col] = (pivot > 0).sum(axis=0)
-
-        # --- Hierarchical Band/Mode Summary Calculation ---
-        summary_data = []
-        if not df_net.empty:
-            
-            # Helper to calculate a summary row for a specific data slice
-            def process_slice(slice_df, slice_band, slice_mode):
-                row_summary = {'Band': slice_band, 'Mode': slice_mode}
-                row_summary['QSOs'] = len(slice_df)
-                row_summary['Points'] = slice_df['QSOPoints'].sum()
-
-                for rule in multiplier_rules:
-                    m_name = rule['name']
-                    m_col = rule['value_column']
-                    applies_to = rule.get('applies_to')
-
-                    if applies_to and log_location_type and applies_to != log_location_type:
-                        row_summary[m_name] = 0
-                        continue
-                    
-                    if m_col not in slice_df.columns:
-                        row_summary[m_name] = 0
-                        continue
-                    
-                    df_slice_valid = slice_df[slice_df[m_col].notna() & (slice_df[m_col] != 'Unknown')]
-                    
-                    # Calculate strict unique count for this slice.
-                    # This satisfies "Strict Count for that mode" and "Union... (Band Total)" for ALL row.
-                    row_summary[m_name] = df_slice_valid[m_col].nunique()
-
-                row_summary['AVG'] = (row_summary['Points'] / row_summary['QSOs']) if row_summary['QSOs'] > 0 else 0
-                return row_summary
-
-            # Iterate through canonical bands present in the data
-            canonical_bands = [b[1] for b in ContestLog._HAM_BANDS]
-            present_bands = [b for b in canonical_bands if b in df_net['Band'].unique()]
-
-            for band in present_bands:
-                band_df = df_net[df_net['Band'] == band]
-                # Sort modes alphabetically for consistent output
-                modes_on_band = sorted(band_df['Mode'].unique())
-
-                if len(modes_on_band) > 1:
-                    # Create 'ALL' summary row (Union of mults on band)
-                    summary_data.append(process_slice(band_df, band, 'ALL'))
-                    # Create individual mode rows (Strict count for mode)
-                    for mode in modes_on_band:
-                        mode_df = band_df[band_df['Mode'] == mode]
-                        summary_data.append(process_slice(mode_df, band, mode))
-                elif len(modes_on_band) == 1:
-                     # Single mode: just create that mode row
-                     mode = modes_on_band[0]
-                     summary_data.append(process_slice(band_df, band, mode))
-            
-        # --- TOTAL Summary Calculation ---
-        total_summary = {'Band': 'TOTAL', 'Mode': ''}
-        total_summary['QSOs'] = df_net.shape[0]
-        total_summary['Points'] = df_net['QSOPoints'].sum()
-
-        total_multiplier_count = 0
-        for rule in multiplier_rules:
-            mult_name = rule['name']
-            mult_col = rule['value_column']
-
-            applies_to = rule.get('applies_to')
-            if applies_to and log_location_type and applies_to != log_location_type:
-                total_summary[mult_name] = 0
-                continue
-            
-            if mult_col in df_net.columns:
-                df_valid_mults = df_net[df_net[mult_col].notna() & (df_net[mult_col] != 'Unknown')]
-
-                if rule.get('totaling_method') == 'once_per_log':
-                    total_mults_for_rule = df_valid_mults[mult_col].nunique()
-                elif rule.get('totaling_method') == 'once_per_mode':
-                    mode_mults = df_valid_mults.groupby('Mode')[mult_col].nunique()
-                    total_mults_for_rule = mode_mults.sum()
-                elif rule.get('totaling_method') == 'once_per_band_no_mode':
-                    # New logic for WRTC: Count unique mults per band, ignoring mode.
-                    # Then sum those unique-per-band counts.
-                    band_mults = df_valid_mults.groupby('Band')[mult_col].nunique()
-                    total_mults_for_rule = band_mults.sum()
-                else: # Default to sum_by_band
-                    total_mults_for_rule = per_band_mult_counts.get(mult_col, pd.Series()).sum()
-            
-                total_summary[mult_name] = total_mults_for_rule
-                total_multiplier_count += total_mults_for_rule
-            
-        total_summary['AVG'] = (total_summary['Points'] / total_summary['QSOs']) if total_summary['QSOs'] > 0 else 0
-        
-        # --- Data-driven score calculation ---
-        if contest_def.score_formula == 'qsos_times_mults':
-            final_score = total_summary['QSOs'] * total_multiplier_count
-        elif contest_def.score_formula == 'total_points':
-            final_score = total_summary['Points']
-        else: # Default to points_times_mults
-            final_score = total_summary['Points'] * total_multiplier_count
-        
-        return summary_data, total_summary, final_score

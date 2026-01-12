@@ -4,8 +4,8 @@
 #          contest, including QTC points and weighted multipliers.
 #
 # Author: Gemini AI
-# Date: 2025-11-24
-# Version: 0.134.1-Beta
+# Date: 2026-01-05
+# Version: 0.161.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,11 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.161.0-Beta] - 2026-01-05
+# - Removed direct DataFrame access and Debug Data block to decouple from raw log data.
+# - Refactored `modes_present` derivation to use aggregator output.
+# [0.151.2-Beta] - 2026-01-03
+# - Refactored imports to use absolute path `contest_tools.utils.report_utils` to resolve circular dependencies.
 # [0.134.1-Beta] - 2025-12-20
 # - Added standard report header generation using `format_text_header`.
 # [0.91.4-Beta] - 2025-11-24
@@ -31,6 +36,7 @@
 #   correct logic in `wae_calculator.py`.
 # [0.90.0-Beta] - 2025-10-01
 # - Set new baseline version for release.
+
 from typing import List, Dict, Any
 import pandas as pd
 import os
@@ -38,7 +44,7 @@ from prettytable import PrettyTable
 
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from ._report_utils import get_valid_dataframe, create_output_directory, save_debug_data, format_text_header, get_cty_metadata, get_standard_title_lines
+from contest_tools.utils.report_utils import create_output_directory, save_debug_data, format_text_header, get_cty_metadata, get_standard_title_lines
 from ..data_aggregators.wae_stats import WaeStatsAggregator
 
 class Report(ContestReport):
@@ -57,47 +63,28 @@ class Report(ContestReport):
         metadata = log.get_metadata()
         callsign = metadata.get('MyCall', 'UnknownCall')
         
-        # We still need raw DF for debug data dump if requested, 
-        # or we could trust the aggregator.
-        # For legacy compatibility with the "Debug Data" block below, we pull it briefly.
-        qsos_df = get_valid_dataframe(log, include_dupes=False)
-        qtcs_df = getattr(log, 'qtcs_df', pd.DataFrame())
-
-        if qsos_df.empty:
-            return f"Skipping report for {callsign}: No valid QSOs to report."
-
-        # --- Save Debug Data ---
-        debug_data_flag = kwargs.get("debug_data", False)
-        if debug_data_flag:
-            debug_filename = f"{self.report_id}_{callsign}_debug.txt"
-            debug_content = {
-                "qsos_df_head": qsos_df.head().to_dict(),
-                "qtcs_df_head": qtcs_df.head().to_dict(),
-                "qsos_df_columns": list(qsos_df.columns),
-                "qtcs_df_columns": list(qtcs_df.columns)
-            }
-            save_debug_data(True, output_path, debug_content, custom_filename=debug_filename)
-
         # --- Data Calculation (via DAL) ---
         aggregator = WaeStatsAggregator()
         wae_data = aggregator.get_wae_breakdown([log])
         log_data = wae_data["logs"].get(callsign)
         
-        if not log_data:
-             return f"Skipping report for {callsign}: No data returned from aggregator."
-
+        if not log_data or not log_data.get('breakdown'):
+            return f"Skipping report for {callsign}: No data returned from aggregator."
+        
         # --- Formatting ---
         table = PrettyTable()
         table.field_names = ["Band", "Mode", "QSO Pts", "Weighted Mults"]
         table.align = 'r'
         table.align['Band'] = 'l'
         
+        modes_present = set()
         # Aggregator already sorts by Canonical Band Order then Mode
         for row in log_data['breakdown']:
             table.add_row([
                 row['band'], row['mode'],
                 f"{row['qso_points']:,}", f"{row['weighted_mults']:,}"
             ])
+            modes_present.add(row['mode'])
         
         table.add_row(['-'*b_len for b_len in [4,4,10,14]], divider=True)
 
@@ -112,7 +99,6 @@ class Report(ContestReport):
         table_width = len(table_str.split('\n')[0])
         
         # Standard Header
-        modes_present = set(qsos_df['Mode'].dropna().unique())
         title_lines = get_standard_title_lines(self.report_name, [log], "All Bands", None, modes_present)
         meta_lines = ["Contest Log Analytics by KD4D", get_cty_metadata([log])]
         header_block = format_text_header(table_width, title_lines, meta_lines)

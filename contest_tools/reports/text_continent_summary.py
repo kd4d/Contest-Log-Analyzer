@@ -4,8 +4,8 @@
 #          broken down by band for multiple logs.
 #
 # Author: Gemini AI
-# Date: 2025-10-01
-# Version: 0.134.1-Beta
+# Date: 2026-01-05
+# Version: 0.152.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,16 +19,21 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.152.0-Beta] - 2026-01-05
+# - Refactored to use CategoricalAggregator (DAL) for data retrieval.
+# - Removed direct DataFrame access and pivot logic.
 # [0.134.1-Beta] - 2025-12-20
 # - Added standard report header generation using `format_text_header`.
 # [0.90.0-Beta] - 2025-10-01
 # - Set new baseline version for release.
+
 from typing import List
 import pandas as pd
 import os
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from ._report_utils import format_text_header, get_cty_metadata, get_standard_title_lines
+from contest_tools.utils.report_utils import format_text_header, get_cty_metadata, get_standard_title_lines
+from ..data_aggregators.categorical_stats import CategoricalAggregator
 
 class Report(ContestReport):
     """
@@ -45,20 +50,15 @@ class Report(ContestReport):
         """
         include_dupes = kwargs.get('include_dupes', False)
         final_report_messages = []
+        
+        aggregator = CategoricalAggregator()
+        stats_list = aggregator.get_continent_stats(self.logs, include_dupes=include_dupes)
 
-        for log in self.logs:
+        for log, stats in zip(self.logs, stats_list):
             metadata = log.get_metadata()
-            df_full = log.get_processed_data()
             callsign = metadata.get('MyCall', 'UnknownCall')
-            contest_name = metadata.get('ContestName', 'UnknownContest')
-            year = df_full['Date'].iloc[0].split('-')[0] if not df_full.empty else "----"
-
-            if not include_dupes and 'Dupe' in df_full.columns:
-                df = df_full[df_full['Dupe'] == False].copy()
-            else:
-                df = df_full.copy()
             
-            if df.empty:
+            if stats['is_empty']:
                 msg = f"Skipping report for {callsign}: No valid QSOs to report."
                 print(msg)
                 final_report_messages.append(msg)
@@ -68,28 +68,17 @@ class Report(ContestReport):
                 'NA': 'North America', 'SA': 'South America', 'EU': 'Europe',
                 'AS': 'Asia', 'AF': 'Africa', 'OC': 'Oceania', 'Unknown': 'Unknown'
             }
-            bands = log.contest_definition.valid_bands
+            
+            bands = stats['bands']
             is_single_band = len(bands) == 1
-
-            unknown_continent_df = df[df['Continent'].isin(['Unknown', None, ''])]
-            unique_unknown_calls = sorted(unknown_continent_df['Call'].unique())
-
-            df['ContinentName'] = df['Continent'].map(continent_map).fillna('Unknown')
-
-            pivot = df.pivot_table(
-                index='ContinentName',
-                columns='Band',
-                aggfunc='size',
-                fill_value=0
-            )
-
-            for band in bands:
-                if band not in pivot.columns:
-                    pivot[band] = 0
-            pivot = pivot[bands]
-
-            if not is_single_band:
-                pivot['Total'] = pivot.sum(axis=1)
+            pivot_data = stats['pivot']
+            unique_unknown_calls = stats['unknown_calls']
+            
+            # Remap keys from Code to Name for display
+            display_data = {}
+            for code, row_data in pivot_data.items():
+                name = continent_map.get(code, 'Unknown')
+                display_data[name] = row_data
 
             header_parts = [f"{b.replace('M',''):>7}" for b in bands]
             if not is_single_band:
@@ -101,7 +90,14 @@ class Report(ContestReport):
             report_lines = []
             
             # --- Standard Header ---
-            modes_present = set(df['Mode'].dropna().unique())
+            # For header generation, we can peek at the log since we have it, 
+            # or assume all modes if not empty. Let's use log.get_processed_data just for mode set 
+            # or pass it from aggregator? 
+            # To stay strictly decoupled, we should ideally get modes from aggregator, 
+            # but for metadata header generation, accessing log wrapper properties is acceptable in the View Layer.
+            df_temp = log.get_processed_data()
+            modes_present = set(df_temp['Mode'].dropna().unique()) if not df_temp.empty else set()
+            
             title_lines = get_standard_title_lines(self.report_name, [log], "All Bands", None, modes_present)
             meta_lines = ["Contest Log Analytics by KD4D", get_cty_metadata([log])]
             
@@ -112,23 +108,33 @@ class Report(ContestReport):
             report_lines.append(table_header)
             report_lines.append(separator)
 
-            for cont_name in sorted(pivot.index.get_level_values('ContinentName').unique()):
-                if cont_name in pivot.index:
-                    row = pivot.loc[cont_name]
-                    line = f"{cont_name:<17}"
-                    for band in bands:
-                        line += f"{row.get(band, 0):>7}"
-                    if not is_single_band:
-                        line += f"{row.get('Total', 0):>7}"
-                    report_lines.append(line)
+            # Calculate column totals
+            col_totals = {b: 0 for b in bands}
+            grand_total = 0
+
+            for cont_name in sorted(display_data.keys()):
+                row_data = display_data[cont_name]
+                row_total = 0
+                line = f"{cont_name:<17}"
+                
+                for band in bands:
+                    val = row_data.get(band, 0)
+                    line += f"{val:>7}"
+                    row_total += val
+                    col_totals[band] += val
+                
+                if not is_single_band:
+                    line += f"{row_total:>7}"
+                    grand_total += row_total
+                report_lines.append(line)
 
             report_lines.append(separator)
             
             total_line = f"{'Total':<17}"
             for band in bands:
-                total_line += f"{pivot[band].sum():>7}"
+                total_line += f"{col_totals[band]:>7}"
             if not is_single_band:
-                total_line += f"{pivot['Total'].sum():>7}"
+                total_line += f"{grand_total:>7}"
             report_lines.append(total_line)
             
             if unique_unknown_calls:

@@ -6,8 +6,8 @@
 #          CLI and ReportGenerator to access and run reports.
 #
 # Author: Gemini AI
-# Date: 2025-12-13
-# Version: 0.106.1-Beta
+# Date: 2026-01-04
+# Version: 0.157.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -21,6 +21,12 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.157.0-Beta] - 2026-01-04
+# - ERROR HANDLING: Enhanced suppression for Django AppRegistry errors in CLI.
+# [0.106.3-Beta] - 2026-01-04
+# - ERROR HANDLING: Suppressed stack traces for Django settings errors in CLI mode.
+# [0.106.2-Beta] - 2026-01-04
+# - DIAGNOSTIC: Upgraded logging to 'exception' for full tracebacks on load failures.
 # [0.106.1-Beta] - 2025-12-13
 # - INJECTED DIAGNOSTICS: Elevated skip logs to WARNING for better visibility.
 # [0.106.0-Beta] - 2025-12-13
@@ -30,10 +36,12 @@
 #   dependent on missing libraries (matplotlib, jinja2) in the web container.
 # [0.90.0-Beta] - 2025-10-01
 # - Set new baseline version for release.
+
 import os
 import importlib
 import inspect
 import logging
+from django.core.exceptions import AppRegistryNotReady, ImproperlyConfigured
 
 # Dynamically discover and load all available report classes
 AVAILABLE_REPORTS = {}
@@ -64,6 +72,11 @@ for filename in os.listdir(current_dir):
             if 'matplotlib' in str(e) or 'jinja2' in str(e):
                 logging.warning(f"DEBUG TRACE: Skipping legacy report '{filename}': Missing dependency ({e}).")
             else:
-                logging.error(f"Failed to load report from {filename}: {e}")
+                logging.exception(f"Failed to load report from {filename}: {e}")
         except Exception as e:
-            logging.error(f"Failed to load report from {filename}: {e}")
+            # Suppress Django-specific errors when running in CLI mode (no settings configured)
+            if "settings are not configured" in str(e) or "Apps aren't loaded yet" in str(e):
+                # Only log as warning, do not dump stack
+                pass 
+            else:
+                logging.exception(f"Failed to load report from {filename}: {e}")

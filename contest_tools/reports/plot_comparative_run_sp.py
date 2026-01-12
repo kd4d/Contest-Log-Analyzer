@@ -4,8 +4,8 @@
 #          the operating style (Run, S&P, or Mixed) of two operators over time.
 #
 # Author: Gemini AI
-# Date: 2025-12-20
-# Version: 1.3.1-Beta
+# Date: 2026-01-05
+# Version: 0.159.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -17,7 +17,14 @@
 # License, v. 2.0.
 # If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
 # --- Revision History ---
+# [0.159.0-Beta] - 2026-01-05
+# - Disabled PNG generation logic (Kaleido dependency removal) for Web Architecture.
+# [0.151.1-Beta] - 2026-01-01
+# - Repair import path for report_utils to fix circular dependency.
+# [0.151.0-Beta] - 2026-01-01
+# - Refactored imports to use `contest_tools.utils.report_utils` to break circular dependency.
 # [1.3.1-Beta] - 2025-12-20
 # - Refactored to use `get_standard_title_lines` for standardized 3-line headers.
 # - Implemented explicit "Smart Scoping" for title generation.
@@ -50,7 +57,7 @@ from typing import List, Dict, Any
 
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from ._report_utils import get_valid_dataframe, create_output_directory, save_debug_data, get_cty_metadata, get_standard_title_lines
+from contest_tools.utils.report_utils import get_valid_dataframe, create_output_directory, save_debug_data, get_cty_metadata, get_standard_title_lines
 from ..data_aggregators.matrix_stats import MatrixAggregator
 from ..styles.plotly_style_manager import PlotlyStyleManager
 
@@ -159,7 +166,6 @@ class Report(ContestReport):
             # Note: fig.data[-1].text assignment above might be interpreted as a single list if not careful.
             # Heatmap text argument expects a 2D array if z is 2D.
             # Passing list of lists directly in constructor usually works.
-
             # --- Y-Axis Correction ---
             # Force the Y-axis to display the callsigns as categories, not numbers
             fig.update_yaxes(type='category', categoryorder='array', categoryarray=[call2, call1], row=row_idx, col=1)
@@ -197,6 +203,7 @@ class Report(ContestReport):
         
         # Customize for this specific report
         fig.update_layout(layout_cfg)
+        
         fig.update_layout(
             height=max(600, 200 * len(bands_on_page)),
             width=1600,
@@ -216,7 +223,8 @@ class Report(ContestReport):
         
         config = {'toImageButtonOptions': {'filename': base_filename, 'format': 'png'}}
         fig.write_html(html_path, config=config)
-        fig.write_image(png_path)
+        # PNG Generation disabled for Web Architecture
+        # fig.write_image(png_path)
         
         return html_path # Return HTML as primary interactive artifact
 
@@ -228,10 +236,20 @@ class Report(ContestReport):
         log1, log2 = self.logs[0], self.logs[1]
         created_files = []
 
-        aggregator = MatrixAggregator(self.logs)
+        # --- Phase 1 Performance Optimization: Use Cached Aggregator Data ---
+        get_cached_matrix_data = kwargs.get('_get_cached_matrix_data')
+        if get_cached_matrix_data:
+            # Use cached matrix data (avoids recreating aggregator and recomputing)
+            aggregator = None  # Not needed when using cache
+        else:
+            # Fallback to old behavior for backward compatibility
+            aggregator = MatrixAggregator(self.logs)
 
         # --- 1. Generate the main "All Modes" plot ---
-        matrix_data_all = aggregator.get_matrix_data(bin_size='15min', mode_filter=None)
+        if get_cached_matrix_data:
+            matrix_data_all = get_cached_matrix_data(bin_size='15min', mode_filter=None)
+        else:
+            matrix_data_all = aggregator.get_matrix_data(bin_size='15min', mode_filter=None)
         
         filepath = self._run_plot_for_slice(matrix_data_all, log1, log2, output_path, BANDS_PER_PAGE, mode_filter=None, **kwargs)
         if filepath:
@@ -246,7 +264,10 @@ class Report(ContestReport):
         if len(modes_present) > 1:
             for mode in ['CW', 'PH', 'DG']:
                 if mode in modes_present:
-                    matrix_data_mode = aggregator.get_matrix_data(bin_size='15min', mode_filter=mode)
+                    if get_cached_matrix_data:
+                        matrix_data_mode = get_cached_matrix_data(bin_size='15min', mode_filter=mode)
+                    else:
+                        matrix_data_mode = aggregator.get_matrix_data(bin_size='15min', mode_filter=mode)
                     
                     filepath = self._run_plot_for_slice(matrix_data_mode, log1, log2, output_path, BANDS_PER_PAGE, mode_filter=mode, **kwargs)
                     if filepath:

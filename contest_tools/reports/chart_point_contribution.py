@@ -1,11 +1,11 @@
 # contest_tools/reports/chart_point_contribution.py
 #
 # Purpose: A chart report that generates a breakdown of total points by QSO
-#          point value, comparing multiple logs side-by-side.
+#          point value, presented as a series of pie charts per band for a SINGLE log.
 #
 # Author: Gemini AI
-# Date: 2025-12-20
-# Version: 0.131.0-Beta
+# Date: 2026-01-05
+# Version: 0.159.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,21 +19,29 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.159.0-Beta] - 2026-01-05
+# - Disabled PNG generation logic (Kaleido dependency removal) for Web Architecture.
+# [0.151.3-Beta] - 2026-01-03
+# - Refactored imports to use contest_tools.utils.report_utils to break circular dependency.
+# [0.151.0-Beta] - 2026-01-01
+# - Refactored imports to use `contest_tools.utils.report_utils` to break circular dependency.
 # [0.131.0-Beta] - 2025-12-20
 # - Refactored to use `get_standard_title_lines` for standardized 3-line headers.
 # - Implemented explicit "Smart Scoping" for title generation.
 # - Added footer metadata via `get_cty_metadata`.
 # [0.118.0-Beta] - 2025-12-15
 # - Injected descriptive filename configuration for interactive HTML plot downloads.
-# [1.0.0] - 2025-12-07
-# - Refactored visualization engine from Matplotlib to Plotly.
-# - Added HTML export capability alongside standard PNG export.
+# [1.0.1] - 2025-12-08
+# - Fixed PNG layout issues by implementing dynamic figure sizing and explicit vertical spacing.
+# [1.0.0] - 2025-12-08
+# - Migrated visualization engine from Matplotlib to Plotly.
+# - Implemented dual-stack output (.png and .html).
 # - Integrated PlotlyStyleManager for consistent styling.
 # [0.93.7-Beta] - 2025-12-04
 # - Fixed runtime crash by ensuring the output directory is created before
 #   saving the chart file.
 import os
-from typing import List, Dict, Any, Optional
+from typing import List, Dict
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -42,127 +50,144 @@ from contest_tools.reports.report_interface import ContestReport
 from contest_tools.contest_log import ContestLog
 from contest_tools.data_aggregators.categorical_stats import CategoricalAggregator
 from contest_tools.styles.plotly_style_manager import PlotlyStyleManager
-from contest_tools.reports._report_utils import create_output_directory, get_cty_metadata, get_standard_title_lines, get_valid_dataframe
+from contest_tools.utils.report_utils import get_valid_dataframe, create_output_directory, get_cty_metadata, get_standard_title_lines
 
 class Report(ContestReport):
     """
-    Generates a comparative series of pie charts showing the breakdown of QSO points
-    (1-point, 3-point, etc.) for each log (Totals).
+    Generates a series of pie charts showing the breakdown of QSO points
+    (1-point, 3-point, etc.) for each band in a single log using Plotly.
     """
-    report_id = 'chart_point_contribution'
-    report_name = 'Point Contribution Breakdown'
+    report_id = 'chart_point_contribution_single'
+    report_name = 'Point Contribution Breakdown (Single Log)'
     report_type = 'chart'
-    supports_multi = True
-    supports_pairwise = True
-    
+    supports_single = True
+
     def __init__(self, logs: List[ContestLog]):
         super().__init__(logs)
         self.aggregator = CategoricalAggregator()
 
-    def _create_trace_for_log(self, log_data: Dict, color_map: Dict[Any, str]) -> Optional[go.Pie]:
-        """Creates a single pie chart trace for a specific log's total data."""
-        point_breakdown = log_data['breakdown']
-        
-        if not point_breakdown:
-            return None
-
-        # Sort items by count descending
-        sorted_items = sorted(point_breakdown.items(), key=lambda item: item[1], reverse=True)
-        sizes = [item[1] for item in sorted_items]
-        labels = [f"{item[0]} Point" for item in sorted_items]
-        
-        # Get colors based on the point keys
-        sorted_keys = [item[0] for item in sorted_items]
-        colors = [color_map.get(k, '#7f7f7f') for k in sorted_keys]
-        
-        return go.Pie(
-            labels=labels,
-            values=sizes,
-            marker=dict(colors=colors, line=dict(color='#000000', width=1)),
-            textinfo='label+percent',
-            hoverinfo='label+value+percent',
-            hole=0.0 # Full Pie, set > 0 for Donut
-        )
-
     def generate(self, output_path: str, **kwargs) -> List[str]:
-        # Get data for ALL logs, no filters (Grand Totals)
-        agg_result = self.aggregator.get_points_breakdown(self.logs)
-        
-        num_logs = len(self.logs)
-        cols = num_logs
-        rows = 1
+        # 1. Validation and Setup
+        if not self.logs or get_valid_dataframe(self.logs[0]).empty:
+            return []
 
-        # Calculate subplot titles based on callsigns and total points
+        df = get_valid_dataframe(self.logs[0])
+        bands = sorted(df['Band'].unique())
+
+        if not bands:
+            return []
+
+        callsign = self.logs[0].get_metadata().get('MyCall', 'Unknown')
+
+        # 2. Data Pre-Fetching & Title Generation
+        # We need to fetch data first to generate dynamic titles for the subplots
+        band_data_map = {}
         subplot_titles = []
-        for i, log in enumerate(self.logs):
-            callsign = log.get_metadata().get('MyCall', f'Log{i+1}')
-            if callsign in agg_result['logs']:
-                total = agg_result['logs'][callsign]['total_points']
-                subplot_titles.append(f"{callsign}<br>(Total: {total:.0f})")
-            else:
-                subplot_titles.append(f"{callsign}<br>(No Data)")
 
-        # Create Subplots
+        for band in bands:
+            agg_result = self.aggregator.get_points_breakdown(self.logs, band_filter=band)
+            # Single log report, extract first log result
+            log_data = list(agg_result['logs'].values())[0]
+            band_data_map[band] = log_data
+            
+            total_points = log_data['total_points']
+            subplot_titles.append(f"{band} Band Points (Total: {total_points:.0f})")
+
+        # 3. Layout Configuration
+        num_bands = len(bands)
+        cols = min(4, num_bands)
+        rows = (num_bands + cols - 1) // cols
+
+        # Dynamic Sizing: Calculate strict dimensions to prevent PNG overlap
+        # Plotly default autosizing often fails for multi-row pie charts in static export
+        PIXELS_PER_CHART = 400
+        fig_width = cols * PIXELS_PER_CHART
+        fig_height = rows * PIXELS_PER_CHART
+
+        # Plotly requires 'domain' type for Pie charts
+        specs = [[{'type': 'domain'} for _ in range(cols)] for _ in range(rows)]
+
         fig = make_subplots(
             rows=rows, 
             cols=cols, 
             subplot_titles=subplot_titles,
-            specs=[[{'type': 'domain'}] * cols]
+            specs=specs,
+            vertical_spacing=0.1  # Increased spacing to clear titles
         )
 
-        # Collect all unique point values across all logs for consistent coloring
-        all_point_values = set()
-        for log_data in agg_result['logs'].values():
-            if log_data['breakdown']:
-                all_point_values.update(log_data['breakdown'].keys())
-        
-        color_map = PlotlyStyleManager.get_point_color_map(list(all_point_values))
+        # 4. Trace Generation
+        for i, band in enumerate(bands):
+            row = (i // cols) + 1
+            col = (i % cols) + 1
+            
+            log_data = band_data_map[band]
+            point_breakdown = log_data['breakdown']
 
-        # Add traces
-        for i, log in enumerate(self.logs):
-            callsign = log.get_metadata().get('MyCall', f'Log{i+1}')
-            if callsign in agg_result['logs']:
-                trace = self._create_trace_for_log(agg_result['logs'][callsign], color_map)
-                if trace:
-                    fig.add_trace(trace, row=1, col=i+1)
+            if not point_breakdown:
+                # Add an empty annotation if no data (though aggregation usually handles this)
+                fig.add_annotation(
+                    text="No Data", 
+                    xref=f"x{i+1}", yref=f"y{i+1}",
+                    showarrow=False,
+                    row=row, col=col
+                )
+                continue
 
-        # Standard Title Construction
-        modes_present = set()
-        for log in self.logs:
-            df = get_valid_dataframe(log)
-            if 'Mode' in df.columns:
-                modes_present.update(df['Mode'].dropna().unique())
-        
+            # Sort by point value (descending frequency or value)
+            # Logic: Sort by frequency descending for visual clarity
+            sorted_items = sorted(point_breakdown.items(), key=lambda item: item[1], reverse=True)
+            
+            sizes = [item[1] for item in sorted_items]
+            # Key is the point value (e.g., '1', '3')
+            point_keys = [item[0] for item in sorted_items]
+            labels = [f"{k} Point" for k in point_keys]
+
+            # Consistent Coloring
+            color_map = PlotlyStyleManager.get_point_color_map(point_keys)
+            colors = [color_map[k] for k in point_keys]
+
+            trace = go.Pie(
+                labels=labels,
+                values=sizes,
+                marker=dict(colors=colors, line=dict(color='#000000', width=1)),
+                textinfo='percent+label',
+                hoverinfo='label+value+percent',
+                name=f"{band} Band"
+            )
+            
+            fig.add_trace(trace, row=row, col=col)
+
+        # 5. Styling and Output
+        modes_present = set(df['Mode'].dropna().unique())
         title_lines = get_standard_title_lines(self.report_name, self.logs, "All Bands", None, modes_present)
         final_title = f"{title_lines[0]}<br><sub>{title_lines[1]}<br>{title_lines[2]}</sub>"
-        
-        footer_text = f"Contest Log Analytics by KD4D\n{get_cty_metadata(self.logs)}"
-        
-        # Apply standard layout
-        layout_config = PlotlyStyleManager.get_standard_layout(final_title, footer_text)
-        fig.update_layout(**layout_config)
 
-        # Ensure output directory exists
+        footer_text = f"Contest Log Analytics by KD4D\n{get_cty_metadata(self.logs)}"
+
+        layout_config = PlotlyStyleManager.get_standard_layout(final_title, footer_text)
+        
+        # Merge dynamic size into standard layout
+        layout_config.update({
+            'width': fig_width, 
+            'height': fig_height
+        })
+        
+        fig.update_layout(layout_config)
+        
+        # Ensure titles don't overlap with pies
+        fig.update_annotations(font_size=14, yshift=10)
+
         create_output_directory(output_path)
         
-        # Define Filenames
-        all_calls = sorted([l.get_metadata().get('MyCall') for l in self.logs])
-        base_filename = f"{self.report_id}_{'_vs_'.join(all_calls)}"
+        base_filename = f"{self.report_id}_{callsign}"
         png_file = os.path.join(output_path, f"{base_filename}.png")
         html_file = os.path.join(output_path, f"{base_filename}.html")
         
-        generated_files = []
-
-        # Save PNG (Legacy Requirement)
-        try:
-            fig.write_image(png_file, width=500 * cols, height=500)
-            generated_files.append(png_file)
-        except Exception as e:
-            print(f"Warning: Could not save PNG (kaleido might be missing): {e}")
-
-        # Save HTML (New Interactive Requirement)
+        # Save Dual Outputs
+        # PNG Generation disabled for Web Architecture
+        # fig.write_image(png_file)
+        
         config = {'toImageButtonOptions': {'filename': base_filename, 'format': 'png'}}
-        fig.write_html(html_file, include_plotlyjs='cdn', config=config)
-        generated_files.append(html_file)
+        fig.write_html(html_file, config=config)
 
-        return generated_files
+        return [png_file, html_file]

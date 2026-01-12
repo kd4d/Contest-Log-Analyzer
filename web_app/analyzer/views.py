@@ -5,8 +5,8 @@
 #          aggregates data using DAL components, and renders the dashboard.
 #
 # Author: Gemini AI
-# Date: 2025-12-31
-# Version: 0.156.1-Beta
+# Date: 2026-01-07
+# Version: 0.160.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -20,6 +20,30 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.156.11-Beta] - 2026-01-06
+# - Updated 'qso_dashboard' to discover and pass JSON artifacts for the Comparative Activity Butterfly chart.
+# [0.156.10-Beta] - 2026-01-05
+# - Fixed "Order of Operations" bug in Multiplier Dashboard artifact discovery.
+# - Reordered logic to check for Pairwise suffixes (Longest Match) before Single suffixes
+#   to prevent partial collisions (e.g., `_a_b` being claimed by `_b`).
+# [0.156.9-Beta] - 2026-01-05
+# - Implemented 3-Tier Tab Strategy for Multiplier Dashboard (Session, Pairs, Singles).
+# - Refactored artifact discovery to categorize reports by suffix.
+# [0.156.8-Beta] - 2026-01-05
+# - Fixed SyntaxError in `multiplier_dashboard` by correcting indentation of except block.
+# [0.156.7-Beta] - 2026-01-05
+# - Updated `multiplier_dashboard` to strip individual callsign suffixes from report filenames
+#   when the session suffix check fails (fixes display bug for drill-down reports).
+# [0.156.6-Beta] - 2026-01-05
+# - Fixed 'qso_dashboard' to target 'chart_comparative_activity_butterfly' for comparative band activity.
+# [0.156.5-Beta] - 2026-01-05
+# - Updated 'qso_dashboard' to strictly target HTML artifacts for comparative band activity.
+# [0.156.3-Beta] - 2026-01-05
+# - Refactored Multiplier Dashboard to separate "Missed" and "Summary" reports into distinct tabs.
+# - Removed legacy Solo Mode logic that re-mapped summary reports to the missed slot.
+# [0.156.2-Beta] - 2026-01-01
+# - Updated import path for report utilities to `contest_tools.utils.report_utils`
+#   to resolve circular dependency.
 # [0.156.1-Beta] - 2025-12-31
 # - Implemented "Fast Path" hydration for Multiplier Dashboard to bypass LogManager reload.
 # - Updated footer generation to support multi-line text (Branding + CTY).
@@ -189,6 +213,7 @@ import uuid
 import re
 import json
 import time
+import itertools
 from django.shortcuts import render, redirect, reverse
 from django.http import Http404, JsonResponse, FileResponse
 from django.conf import settings
@@ -200,9 +225,10 @@ from contest_tools.data_aggregators.time_series import TimeSeriesAggregator
 from contest_tools.data_aggregators.multiplier_stats import MultiplierStatsAggregator
 from contest_tools.report_generator import ReportGenerator
 from contest_tools.core_annotations import CtyLookup
-from contest_tools.reports._report_utils import _sanitize_filename_part, get_standard_title_lines, get_cty_metadata
+from contest_tools.utils.report_utils import _sanitize_filename_part, get_standard_title_lines, get_cty_metadata
 from contest_tools.utils.log_fetcher import fetch_log_index, download_logs
 from contest_tools.manifest_manager import ManifestManager
+from contest_tools.utils.profiler import ProfileContext
 
 logger = logging.getLogger(__name__)
 
@@ -334,7 +360,7 @@ def analyze_logs(request):
             except ValueError as e:
                 logger.warning(f"Validation error during public log fetch: {e}")
                 return render(request, 'analyzer/home.html', {'form': UploadLogForm(), 'error': str(e)})
-            
+             
             except Exception as e:
                 logger.exception("Public log fetch failed")
                 return render(request, 'analyzer/home.html', {'form': UploadLogForm(), 'error': str(e)})
@@ -343,47 +369,51 @@ def analyze_logs(request):
 
 def _run_analysis_pipeline(request_id, log_paths, session_path, session_key):
     """Shared logic for processing logs (Manual or Fetched)."""
-    # 3. Process with LogManager
-    # Note: We rely on docker-compose env vars for CONTEST_INPUT_DIR
-    root_input = os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
-    
-    _update_progress(request_id, 2) # Step 2: Parsing
-    lm = LogManager()
-    # Load logs (auto-detect contest type)
-    lm.load_log_batch(log_paths, root_input, 'after')
+    with ProfileContext("Web Analysis Pipeline (Total)"):
+        # 3. Process with LogManager
+        # Note: We rely on docker-compose env vars for CONTEST_INPUT_DIR
+        root_input = os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
+        
+        _update_progress(request_id, 2) # Step 2: Parsing
+        with ProfileContext("Web - Log Loading"):
+            lm = LogManager()
+            # Load logs (auto-detect contest type)
+            lm.load_log_batch(log_paths, root_input, 'after')
 
-    lm.finalize_loading(session_path)
+            lm.finalize_loading(session_path)
 
-    # --- DIAGNOSTIC: Validate Handoff ---
-    valid_count = 0
-    for log in lm.logs:
-        if not log.get_processed_data().empty:
-            valid_count += 1
-    logger.info(f"Pipeline Diagnostic: Loaded {len(lm.logs)} logs. Valid (Non-Empty): {valid_count}.")
-    # ------------------------------------
+            # --- DIAGNOSTIC: Validate Handoff ---
+            valid_count = 0
+            for log in lm.logs:
+                if not log.get_processed_data().empty:
+                    valid_count += 1
+            logger.info(f"Pipeline Diagnostic: Loaded {len(lm.logs)} logs. Valid (Non-Empty): {valid_count}.")
+            # ------------------------------------
 
-    # 4. Generate Physical Reports (Drill-Down Assets)
-    _update_progress(request_id, 3) # Step 3: Aggregating
-    
-    # Note: ReportGenerator implicitly aggregates if needed, but we treat it as the bridge
-    # Step 4: Generating
-    _update_progress(request_id, 4) 
-    
-    generator = ReportGenerator(lm.logs, root_output_dir=session_path)
-    generator.run_reports('all')
-    
-    # --- DIAGNOSTIC: Verify Disk State ---
-    generated_files = []
-    for root, dirs, files in os.walk(session_path):
-        for file in files:
-            if file.endswith('.html') or file.endswith('.png'):
-                generated_files.append(file)
-    logger.info(f"Pipeline Diagnostic: Generated {len(generated_files)} artifacts on disk: {generated_files}")
-    # -------------------------------------
-    
-    # 5. Aggregate Data (Dashboard Scalars)
-    ts_agg = TimeSeriesAggregator(lm.logs)
-    ts_data = ts_agg.get_time_series_data()
+        # 4. Generate Physical Reports (Drill-Down Assets)
+        _update_progress(request_id, 3) # Step 3: Aggregating
+        
+        # Note: ReportGenerator implicitly aggregates if needed, but we treat it as the bridge
+        # Step 4: Generating
+        _update_progress(request_id, 4) 
+        
+        with ProfileContext("Web - Report Generation"):
+            generator = ReportGenerator(lm.logs, root_output_dir=session_path)
+            generator.run_reports('all')
+        
+        # --- DIAGNOSTIC: Verify Disk State ---
+        generated_files = []
+        for root, dirs, files in os.walk(session_path):
+            for file in files:
+                if file.endswith('.html') or file.endswith('.png'):
+                    generated_files.append(file)
+        logger.info(f"Pipeline Diagnostic: Generated {len(generated_files)} artifacts on disk: {generated_files}")
+        # -------------------------------------
+        
+        # 5. Aggregate Data (Dashboard Scalars)
+        with ProfileContext("Web - Dashboard Aggregation"):
+            ts_agg = TimeSeriesAggregator(lm.logs)
+            ts_data = ts_agg.get_time_series_data()
     
     # Extract basic scalars for dashboard
     # Construct relative path components for the template
@@ -574,8 +604,9 @@ def multiplier_dashboard(request, session_id):
             with open(context_path, 'r') as f:
                 dashboard_ctx = json.load(f)
                 persisted_logs = dashboard_ctx.get('logs', [])
+    
         except Exception as e:
-             logger.error(f"Failed to load dashboard context: {e}")
+            logger.error(f"Failed to load dashboard context: {e}")
 
     # 5. Metadata Strategy (Fast Path vs Slow Path)
     lm = None
@@ -627,7 +658,7 @@ def multiplier_dashboard(request, session_id):
         for log in lm.logs:
             df = log.get_processed_data()
             if 'Mode' in df.columns:
-                modes_present.update(df['Mode'].dropna().unique())
+                 modes_present.update(df['Mode'].dropna().unique())
 
         title_lines = get_standard_title_lines("Multiplier Breakdown", lm.logs, "All Bands", None, modes_present)
         
@@ -648,7 +679,7 @@ def multiplier_dashboard(request, session_id):
     if breakdown_data and 'bands' in breakdown_data:
         for block in breakdown_data['bands']:
             if block['label'] in low_bands:
-                low_bands_data.append(block)
+                 low_bands_data.append(block)
             else:
                 high_bands_data.append(block)
     
@@ -694,6 +725,12 @@ def multiplier_dashboard(request, session_id):
     # Use Manifest to find Missed/Summary reports
     multipliers = {}
 
+    # Prepare Suffixes for Categorization
+    all_calls_safe = sorted([_sanitize_filename_part(l['callsign']) for l in persisted_logs])
+    
+    # 1. Session Suffix (All Logs)
+    suffix_session = "_" + "_".join(all_calls_safe)
+
     target_ids = ['missed_multipliers', 'multiplier_summary']
     
     for art in artifacts:
@@ -702,14 +739,44 @@ def multiplier_dashboard(request, session_id):
         
         mult_type = None
         report_key = None
+        category = None # 'session', 'pair', 'single'
+        label_context = None # e.g. "K1LZ vs K3LR" or "K1LZ"
 
         # Extract Mult Type from Filename: {report_id}_{MULT_TYPE}_{combo_id}.txt
         fname = os.path.basename(art['path'])
         # Strip extension
         base = os.path.splitext(fname)[0]
-        # Strip suffix
-        if base.endswith(suffix):
-            base = base[:-len(suffix)]
+        
+        # --- Categorization Logic ---
+        if base.endswith(suffix_session):
+            category = 'session'
+            base = base[:-len(suffix_session)]
+        else:
+            # 1. Check Pairs (Longer suffix matches first to prevent partial collision)
+            found_pair = False
+            if len(all_calls_safe) > 2:
+                pairs = list(itertools.combinations(all_calls_safe, 2))
+                for p in pairs:
+                    # Pairs are sorted in filename: _call1_call2
+                    c1, c2 = sorted(p)
+                    p_suff = f"_{c1}_{c2}"
+                    if base.endswith(p_suff):
+                        category = 'pairs'
+                        label_context = f"{c1.upper()} vs {c2.upper()}"
+                        base = base[:-len(p_suff)]
+                        found_pair = True
+                        break
+
+            # 2. Check Singles (if not pair)
+            if not found_pair:
+                for c in all_calls_safe:
+                    s_suff = f"_{c}"
+                    if base.endswith(s_suff):
+                        category = 'singles'
+                        label_context = c.upper()
+                        base = base[:-len(s_suff)]
+                        break
+
         # Strip prefix
         if base.startswith(rid + '_'):
             mult_type_slug = base[len(rid)+1:]
@@ -717,23 +784,36 @@ def multiplier_dashboard(request, session_id):
         else:
             continue
 
-        # Solo Mode Mapping Logic
-        if log_count == 1:
-            # In Solo, map 'multiplier_summary' to 'missed' slot for display
-            if rid == 'multiplier_summary':
-                report_key = 'missed'
-        else:
-            # Multi Mode: Map correctly
-            if rid == 'missed_multipliers':
-                report_key = 'missed'
-            elif rid == 'multiplier_summary':
-                report_key = 'summary'
+        if rid == 'missed_multipliers':
+            report_key = 'missed'
+        elif rid == 'multiplier_summary':
+            report_key = 'summary'
         
-        if report_key:
+        if report_key and category:
             if mult_type not in multipliers:
-                multipliers[mult_type] = {'label': mult_type, 'missed': None, 'summary': None}
+                multipliers[mult_type] = {
+                    'label': mult_type, 
+                    'session': {'missed': None, 'summary': None},
+                    'pairs': [],
+                    'singles': []
+                }
             
-            multipliers[mult_type][report_key] = f"{report_rel_path}/{art['path']}"
+            # Construct relative link
+            link = f"{report_rel_path}/{art['path']}"
+            
+            if category == 'session':
+                multipliers[mult_type]['session'][report_key] = link
+            else:
+                # For pairs/singles, we append to a list.
+                # We need to find if an entry for this context already exists to merge 'missed' and 'summary'
+                target_list = multipliers[mult_type][category]
+                existing = next((item for item in target_list if item['label'] == label_context), None)
+                if not existing:
+                    existing = {'label': label_context, 'missed': None, 'summary': None}
+                    target_list.append(existing)
+                existing[report_key] = link
+                # Sort lists for consistency
+                target_list.sort(key=lambda x: x['label'])
 
     # Convert dict to sorted list for template
     sorted_mults = sorted(multipliers.values(), key=lambda x: x['label'])
@@ -831,7 +911,9 @@ def qso_dashboard(request, session_id):
             bk_path = next((f"{report_rel_path}/{a['path']}" for a in artifacts if a['report_id'] == 'qso_breakdown_chart' and f"_{c1}_{c2}" in a['path'] and a['path'].endswith('.html')), "")
             bk_json = next((f"{settings.MEDIA_URL}sessions/{session_id}/{report_rel_path}/{a['path']}" for a in artifacts if a['report_id'] == 'qso_breakdown_chart' and f"_{c1}_{c2}" in a['path'] and a['path'].endswith('.json')), "")
             
-            ba_path = next((f"{report_rel_path}/{a['path']}" for a in artifacts if a['report_id'] == 'comparative_band_activity' and f"_{c1}_{c2}" in a['path']), "")
+            # Explicitly target HTML for interactive view
+            ba_path = next((f"{report_rel_path}/{a['path']}" for a in artifacts if a['report_id'] == 'chart_comparative_activity_butterfly' and f"_{c1}_{c2}" in a['path'] and a['path'].endswith('.html')), "")
+            ba_json = next((f"{settings.MEDIA_URL}sessions/{session_id}/{report_rel_path}/{a['path']}" for a in artifacts if a['report_id'] == 'chart_comparative_activity_butterfly' and f"_{c1}_{c2}" in a['path'] and a['path'].endswith('.json')), "")
             cont_path = next((f"{report_rel_path}/{a['path']}" for a in artifacts if a['report_id'] == 'comparative_continent_summary' and f"_{c1}_{c2}" in a['path']), "")
 
             matchups.append({
@@ -842,15 +924,41 @@ def qso_dashboard(request, session_id):
                 'qso_breakdown_file': bk_path,
                 'qso_breakdown_json': bk_json,
                 'band_activity_file': ba_path,
+                'band_activity_json': ba_json,
                 'continent_file': cont_path
             })
 
     # 4. Discover Point Rate Plots (Manifest Scan)
     point_plots = []
+    
+    # For multi-log: Only show comparison plots (ending with combo_id)
+    # For single-log: Show individual station plots (ending with single callsign)
+    target_suffix = f"_{combo_id}.html" if not is_solo else None
+    target_callsigns = callsigns_safe if is_solo else None
 
     for art in artifacts:
         if art['report_id'] == 'point_rate_plots' and art['path'].endswith('.html'):
             fname = os.path.basename(art['path'])
+            
+            # Filter by suffix pattern
+            if not is_solo:
+                # Multi-log: Only include comparison plots (ending with combo_id)
+                if not fname.endswith(target_suffix):
+                    continue
+            else:
+                # Single-log: Only include individual station plots (ending with single callsign)
+                # Exclude comparison plots (those ending with combo_id which is same as single callsign)
+                # For single log, combo_id IS the callsign, so we need to check if it's exactly one callsign
+                # Pattern: point_rate_plots_{band}_{callsign}.html (single callsign suffix)
+                matches_single = False
+                for call in target_callsigns:
+                    single_suffix = f"_{call}.html"
+                    if fname.endswith(single_suffix):
+                        matches_single = True
+                        break
+                if not matches_single:
+                    continue
+            
             # point_rate_plots_{band}_{calls}.html
             # Remove prefix
             remainder = fname.replace('point_rate_plots_', '')
@@ -885,9 +993,35 @@ def qso_dashboard(request, session_id):
 
     # 5. Discover QSO Rate Plots (Manifest Scan)
     qso_band_plots = []
+    
+    # For multi-log: Only show comparison plots (ending with combo_id)
+    # For single-log: Show individual station plots (ending with single callsign)
+    target_suffix = f"_{combo_id}.html" if not is_solo else None
+    target_callsigns = callsigns_safe if is_solo else None
+    
     for art in artifacts:
         if art['report_id'] == 'qso_rate_plots' and art['path'].endswith('.html'):
             fname = os.path.basename(art['path'])
+            
+            # Filter by suffix pattern
+            if not is_solo:
+                # Multi-log: Only include comparison plots (ending with combo_id)
+                if not fname.endswith(target_suffix):
+                    continue
+            else:
+                # Single-log: Only include individual station plots (ending with single callsign)
+                # Exclude comparison plots (those ending with combo_id which is same as single callsign)
+                # For single log, combo_id IS the callsign, so we need to check if it's exactly one callsign
+                # Pattern: qso_rate_plots_{band}_{callsign}.html (single callsign suffix)
+                matches_single = False
+                for call in target_callsigns:
+                    single_suffix = f"_{call}.html"
+                    if fname.endswith(single_suffix):
+                        matches_single = True
+                        break
+                if not matches_single:
+                    continue
+            
             remainder = fname.replace('qso_rate_plots_', '')
             parts = remainder.split('_')
             if parts:
@@ -919,7 +1053,19 @@ def qso_dashboard(request, session_id):
             qso_band_plots[0]['active'] = True
 
     # Global files via manifest lookup
-    global_qso = next((f"{report_rel_path}/{a['path']}" for a in artifacts if a['report_id'] == 'qso_rate_plots' and f"_all_{combo_id}.html" in a['path']), "")
+    # For single log: qso_rate_plots_all_{callsign}.html
+    # For multi log: qso_rate_plots_all_{call1}_{call2}...html
+    if is_solo:
+        # Single log: Look for qso_rate_plots_all_{callsign}.html
+        call_safe = callsigns_safe[0] if callsigns_safe else combo_id
+        global_qso = next((f"{report_rel_path}/{a['path']}" for a in artifacts 
+                          if a['report_id'] == 'qso_rate_plots' 
+                          and f"_all_{call_safe}.html" in a['path']), "")
+    else:
+        # Multi log: Look for qso_rate_plots_all_{combo_id}.html
+        global_qso = next((f"{report_rel_path}/{a['path']}" for a in artifacts 
+                          if a['report_id'] == 'qso_rate_plots' 
+                          and f"_all_{combo_id}.html" in a['path']), "")
     
     if not global_qso:
         logger.warning(f"QSO Dashboard: Global QSO Rate Plot not found for combo_id '{combo_id}' in '{report_rel_path}'.")

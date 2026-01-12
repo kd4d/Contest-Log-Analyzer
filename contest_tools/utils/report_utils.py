@@ -1,11 +1,11 @@
-# contest_tools/reports/_report_utils.py
+# contest_tools/utils/report_utils.py
 #
 # Purpose: A utility module providing shared helper functions for the
 #          reporting engine.
 #
 # Author: Gemini AI
-# Date: 2025-12-20
-# Version: 0.133.0-Beta
+# Date: 2026-01-01
+# Version: 0.151.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,34 +19,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
-# [0.133.0-Beta] - 2025-12-20
-# - Added `build_filename` utility to centralize and stabilize report filename generation.
-# - Re-implemented single-band detection logic within the utility to fix NameError regressions.
-# [0.131.0-Beta] - 2025-12-20
-# - Added `get_standard_title_lines` to centralize "3-Line Title" generation.
-# - Implemented "Smart Scoping" logic for title modes.
-# [0.130.0-Beta] - 2025-12-20
-# - Added `get_cty_metadata` to extract CTY version/date.
-# - Added `format_text_header` to standardize text report branding.
-# [0.125.0-Beta] - 2025-12-17
-# - Removed calculate_multiplier_pivot (moved to contest_tools.utils.pivot_utils).
-# [0.116.0-Beta] - 2025-12-15
-# - Removed get_copyright_footer helper function.
-# [0.115.3-Beta] - 2025-12-15
-# - Added `get_copyright_footer` to standardize text report footers.
-# [0.107.0-Beta] - 2025-12-14
-# - Updated `_sanitize_filename_part` to enforce strict lowercase conversion.
-# [0.106.0-Beta] - 2025-12-13
-# - Validated Matplotlib Import Guard (Stabilization Phase).
-# [0.105.5-Beta] - 2025-12-13
-# - Wrapped matplotlib imports in try/except to support lightweight containers (Guard & Triage).
-# [1.0.0] - 2025-12-10
-# - Removed ComparativeHeatmapChart and associated matplotlib imports (Phase 2 Migration).
-# [0.93.2-Beta] - 2025-11-24
-# - Fixed Critical SyntaxError in _prepare_time_series_data (Line 100).
-# - Consolidated cosmetic line breaks for stability.
-# [0.93.0-Beta] - 2025-11-24
-# - Refactored NpEncoder to contest_tools.utils.json_encoders.
+# [0.151.0-Beta] - 2026-01-01
+# - Initial creation. Migrated from contest_tools/reports/_report_utils.py.
+# - Added determine_activity_status.
+
 import pandas as pd
 try:
     import matplotlib.pyplot as plt
@@ -91,11 +67,9 @@ def get_cty_metadata(logs: list) -> str:
     if not path or not os.path.exists(path):
         return "CTY File: Unknown"
 
-    # Try to extract version from filename (cty_wt_mod_3504.dat)
     version_match = re.search(r'(\d{4})', os.path.basename(path))
     version_str = f"CTY-{version_match.group(1)}" if version_match else "CTY-Unknown"
 
-    # Try to extract date
     date_obj = CtyLookup.extract_version_date(path)
     date_str = date_obj.strftime('%Y-%m-%d') if date_obj else "Unknown Date"
 
@@ -108,7 +82,6 @@ def get_standard_title_lines(report_name: str, logs: list, band_filter: str = No
     """
     if not logs: return [report_name, "", ""]
     
-    # --- Line 2: Context ---
     metadata = logs[0].get_metadata()
     df = get_valid_dataframe(logs[0])
     year = df['Date'].dropna().iloc[0].split('-')[0] if not df.empty else "----"
@@ -119,19 +92,15 @@ def get_standard_title_lines(report_name: str, logs: list, band_filter: str = No
     
     line2 = f"{year} {event_id} {contest_name} - {callsign_str}".strip().replace("   ", " ")
 
-    # --- Line 3: Scope ---
-    # Band Logic
     is_single_band = len(logs[0].contest_definition.valid_bands) == 1
     if band_filter == 'All' or band_filter is None:
         band_text = logs[0].contest_definition.valid_bands[0].replace('M', ' Meters') if is_single_band else "All Bands"
     else:
         band_text = band_filter.replace('M', ' Meters')
 
-    # Mode Logic (Smart Scoping)
     if mode_filter:
         mode_text = f" ({mode_filter})"
     else:
-        # Only show (All Modes) if multiple modes actually exist in the data
         if modes_present_set and len(modes_present_set) > 1:
             mode_text = " (All Modes)"
         else:
@@ -145,17 +114,13 @@ def build_filename(report_id: str, logs: list, band_filter: str = None, mode_fil
     """
     Constructs a standardized, sanitized filename for reports.
     Format: {report_id}_{band}_{mode}_{callsigns}
-    Example: qso_rate_plots_20_cw_k1lz_k3lr
     """
-    # Band Part
     is_single_band = len(logs[0].contest_definition.valid_bands) == 1
     raw_band = logs[0].contest_definition.valid_bands[0] if is_single_band else (band_filter or 'All')
     filename_band = raw_band.lower().replace('m', '')
     
-    # Mode Part
     mode_suffix = f"_{mode_filter.lower()}" if mode_filter else ""
     
-    # Callsigns Part
     all_calls = sorted([l.get_metadata().get('MyCall', 'Unknown') for l in logs])
     filename_calls = '_'.join([_sanitize_filename_part(c) for c in all_calls])
     
@@ -164,31 +129,38 @@ def build_filename(report_id: str, logs: list, band_filter: str = None, mode_fil
 def format_text_header(width: int, title_lines: list, metadata_lines: list = None) -> list:
     """
     Generates a text report header with Left-Aligned Titles and Right-Aligned Metadata.
-    Args:
-        width: Total width of the report content.
-        title_lines: List of title strings (Lines 1-3).
-        metadata_lines: Optional list of metadata strings (Branding, CTY).
-        Defaults to standard CLA branding if None.
     """
     if metadata_lines is None:
-        # Default placeholder, caller should usually pass get_cty_metadata result
         metadata_lines = ["Contest Log Analytics by KD4D", "CTY File: Unknown"]
 
     header_output = []
-    
-    # Determine max height required
     max_lines = max(len(title_lines), len(metadata_lines))
     
     for i in range(max_lines):
         left = title_lines[i] if i < len(title_lines) else ""
         right = metadata_lines[i] if i < len(metadata_lines) else ""
-        
-        # Calculate padding
         padding = width - len(left) - len(right)
-        padding = max(padding, 2) # Minimum 2 spaces separation
+        padding = max(padding, 2)
         header_output.append(f"{left}{' ' * padding}{right}")
         
     return header_output
+
+def determine_activity_status(series: pd.Series) -> str:
+    """
+    Determines the dominant activity type for a set of QSOs.
+    Returns: 'Run', 'S&P', 'Mixed', 'Unknown', or 'Inactive'.
+    """
+    if series.empty:
+        return 'Inactive'
+    
+    modes = set(series.dropna().unique())
+    has_run = "Run" in modes
+    has_sp = "S&P" in modes
+    
+    if has_run and has_sp: return "Mixed"
+    elif has_run: return "Run"
+    elif has_sp: return "S&P"
+    return "Unknown"
 
 def _prepare_time_series_data(log1: ContestLog, log2: Optional[ContestLog], metric: str) -> tuple:
     """Prepares time-series data for one or two logs."""
@@ -204,7 +176,7 @@ def _prepare_time_series_data(log1: ContestLog, log2: Optional[ContestLog], metr
         
         df = get_valid_dataframe(log).copy()
         
-        if metric_col is None: # Row count metric like 'qsos'
+        if metric_col is None:
             ts = pd.Series(1, index=df['Datetime']).cumsum()
         else:
             ts = df.set_index('Datetime')[metric_col].cumsum()
@@ -214,11 +186,9 @@ def _prepare_time_series_data(log1: ContestLog, log2: Optional[ContestLog], metr
 
     df1_ts, df2_ts = all_ts
 
-    # --- Reindex against master timeline ---
     master_index = log1._log_manager_ref.master_time_index
     if master_index is not None:
         df1_ts = df1_ts.reindex(master_index, method='ffill').fillna(0)
-        # FIX: The line below was previously split, causing a SyntaxError
         if df2_ts is not None:
             df2_ts = df2_ts.reindex(master_index, method='ffill').fillna(0)
             
@@ -253,7 +223,6 @@ class DonutChartComponent:
 
     @staticmethod
     def aggregate_data(df: pd.DataFrame) -> Dict[str, Any]:
-        """Takes a raw DataFrame and returns a dictionary of aggregated data for the chart."""
         if df.empty or 'QSOPoints' not in df.columns:
             return {'point_counts': pd.Series(), 'total_points': 0, 'total_qsos': 0}
 
@@ -301,16 +270,13 @@ class DonutChartComponent:
         table.scale(1.2, 1.2)
 
 def save_debug_data(debug_flag: bool, output_path: str, data, custom_filename: str = None):
-    """
-    Saves the source data for a report to a .txt file if the debug flag is set.
-    """
+    """Saves the source data for a report to a .txt file if the debug flag is set."""
     if not debug_flag:
         return
 
     debug_dir = Path(output_path) / "Debug"
     debug_dir.mkdir(parents=True, exist_ok=True)
 
-    # Determine filename and ensure correct extension based on content type
     is_json_content = isinstance(data, dict)
     if custom_filename:
         filename = custom_filename

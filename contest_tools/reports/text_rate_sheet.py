@@ -3,8 +3,8 @@
 # Purpose: A text report that generates a detailed hourly rate sheet.
 #
 # Author: Gemini AI
-# Date: 2025-12-06
-# Version: 0.134.1-Beta
+# Date: 2026-01-03
+# Version: 0.151.2-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.151.2-Beta] - 2026-01-03
+# - Refactored imports to use absolute path `contest_tools.utils.report_utils` to resolve circular dependencies.
 # [0.134.1-Beta] - 2025-12-20
 # - Added standard report header generation using `format_text_header`.
 # [0.116.0-Beta] - 2025-12-15
@@ -32,12 +34,13 @@
 # - Implemented left-anchored, relative-centered formatting.
 # [0.90.0-Beta] - 2025-10-01
 # - Set new baseline version for release.
+
 from typing import List, Dict, Any
 import pandas as pd
 import os
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from ._report_utils import format_text_header, get_cty_metadata, get_standard_title_lines
+from contest_tools.utils.report_utils import format_text_header, get_cty_metadata, get_standard_title_lines
 from ..data_aggregators.time_series import TimeSeriesAggregator
 
 class Report(ContestReport):
@@ -56,9 +59,15 @@ class Report(ContestReport):
         include_dupes = kwargs.get('include_dupes', False)
         final_report_messages = []
 
-        # Initialize Aggregator
-        agg = TimeSeriesAggregator(self.logs)
-        ts_data = agg.get_time_series_data()
+        # --- Phase 1 Performance Optimization: Use Cached Aggregator Data ---
+        get_cached_ts_data = kwargs.get('_get_cached_ts_data')
+        if get_cached_ts_data:
+            # Use cached time series data (avoids recreating aggregator and recomputing)
+            ts_data = get_cached_ts_data()
+        else:
+            # Fallback to old behavior for backward compatibility
+            agg = TimeSeriesAggregator(self.logs)
+            ts_data = agg.get_time_series_data()
         time_bins = ts_data['time_bins']
 
         for log in self.logs:
@@ -174,7 +183,7 @@ class Report(ContestReport):
             filepath = os.path.join(output_path, filename)
             with open(filepath, 'w', encoding='utf-8') as f:
                 f.write(full_content)
-        
+            
             final_report_messages.append(f"Text report saved to: {filepath}")
 
         return "\n".join(final_report_messages)

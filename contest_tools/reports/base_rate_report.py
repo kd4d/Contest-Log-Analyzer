@@ -4,8 +4,8 @@
 #          Consolidates visualization logic, layout fixes, and JSON artifact generation.
 #
 # Author: Gemini AI
-# Date: 2025-12-29
-# Version: 0.134.0-Beta
+# Date: 2026-01-05
+# Version: 0.159.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,14 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.159.0-Beta] - 2026-01-05
+# - Disabled PNG generation logic (Kaleido dependency removal) for Web Architecture.
+# [0.158.0-Beta] - 2026-01-05
+# - Removed PNG generation (fig.write_image) to resolve Kaleido dependency issues in web container.
+# [0.151.1-Beta] - 2026-01-01
+# - Repair import path for report_utils to fix circular dependency.
+# [0.151.0-Beta] - 2026-01-01
+# - Refactored imports to use `contest_tools.utils.report_utils` to break circular dependency.
 # [0.134.0-Beta] - 2025-12-29
 # - Initial creation. Refactored from plot_qso_rate.py.
 # - Implemented vertical_spacing=0.15 to fix overlap.
@@ -33,20 +41,22 @@ from plotly.subplots import make_subplots
 
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from ._report_utils import create_output_directory, get_valid_dataframe, save_debug_data, get_cty_metadata, get_standard_title_lines, build_filename
+from contest_tools.utils.report_utils import create_output_directory, get_valid_dataframe, save_debug_data, get_cty_metadata, get_standard_title_lines, build_filename
 from ..data_aggregators.time_series import TimeSeriesAggregator
 from ..styles.plotly_style_manager import PlotlyStyleManager
 
 class BaseRateReport(ContestReport):
     """
     Base class for generating rate comparison plots.
+    Supports both single-log and multi-log scenarios.
     Subclasses must define metric_key and metric_label.
     """
     report_type: str = "plot"
     supports_multi = True
+    supports_single = True
     
     # Defaults to be overridden
-    metric_key: str = "qsos" 
+    metric_key: str = "qsos"
     metric_label: str = "QSOs"
 
     def _get_metric_name(self) -> str:
@@ -59,6 +69,7 @@ class BaseRateReport(ContestReport):
         # Filter for valid logs only
         valid_logs = []
         valid_dfs = []
+    
         for log in self.logs:
             df = get_valid_dataframe(log)
             if not df.empty:
@@ -67,7 +78,7 @@ class BaseRateReport(ContestReport):
         
         if not valid_logs:
             return f"Skipping {self.report_name}: No logs have valid QSO data."
-        
+
         # 1. Generate plots for "All Modes"
         all_created_files.extend(
             self._orchestrate_plot_generation(valid_dfs, valid_logs, output_path, mode_filter=None, **kwargs)
@@ -85,7 +96,6 @@ class BaseRateReport(ContestReport):
         
         if not all_created_files:
             return f"No {self.metric_label} rate plots were generated."
-        
         return f"{self.metric_label} rate plots saved to:\n" + "\n".join([f"  - {fp}" for fp in all_created_files])
 
     def _orchestrate_plot_generation(self, dfs: List[pd.DataFrame], logs: List[ContestLog], output_path: str, mode_filter: str, **kwargs) -> List[str]:
@@ -123,9 +133,15 @@ class BaseRateReport(ContestReport):
         debug_data_flag = kwargs.get("debug_data", False)
         metric_name = self._get_metric_name()
         
-        # --- DAL Integration ---
-        agg = TimeSeriesAggregator(logs)
-        ts_data = agg.get_time_series_data(band_filter=band_filter, mode_filter=mode_filter)
+        # --- Phase 1 Performance Optimization: Use Cached Aggregator Data ---
+        get_cached_ts_data = kwargs.get('_get_cached_ts_data')
+        if get_cached_ts_data:
+            # Use cached time series data (avoids recreating aggregator and recomputing)
+            ts_data = get_cached_ts_data(band_filter=band_filter if band_filter != 'All' else None, mode_filter=mode_filter)
+        else:
+            # Fallback to old behavior for backward compatibility
+            agg = TimeSeriesAggregator(logs)
+            ts_data = agg.get_time_series_data(band_filter=band_filter if band_filter != 'All' else None, mode_filter=mode_filter)
         time_bins = [pd.Timestamp(t) for t in ts_data['time_bins']]
 
         # Initialize Plotly Subplots
@@ -266,10 +282,10 @@ class BaseRateReport(ContestReport):
              # Ensure responsive layout in JSON for Web App
              fig.update_layout(autosize=True, width=None, height=None)
              fig.write_json(json_path)
-             # Revert for PNG
-             fig.update_layout(autosize=False, width=1200, height=900)
+             # Revert for PNG (Disabled for Web Architecture)
+             # fig.update_layout(autosize=False, width=1200, height=900)
         except Exception as e:
-            logging.warning(f"JSON artifact generation failed: {e}")
+             logging.warning(f"JSON artifact generation failed: {e}")
 
         # 2. HTML (Interactive)
         html_path = os.path.join(output_path, f"{base_filename}.html")
@@ -277,14 +293,7 @@ class BaseRateReport(ContestReport):
         config = {'toImageButtonOptions': {'filename': base_filename, 'format': 'png'}}
         fig.write_html(html_path, include_plotlyjs='cdn', config=config)
         
-        # 3. PNG (Static)
-        png_path = os.path.join(output_path, f"{base_filename}.png")
-        try:
-            fig.update_layout(autosize=False, width=1200, height=900)
-            fig.write_image(png_path)
-            return png_path
-        except Exception as e:
-            logging.warning(f"Static image generation failed (Kaleido missing?): {e}")
-            return html_path
-
-        return png_path
+        # PNG Generation (Kaleido) disabled for Web Architecture
+        # fig.write_image(png_file)
+        
+        return html_path

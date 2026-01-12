@@ -4,8 +4,8 @@
 #          JSON-compatible structure (Pure Python Primitives).
 #
 # Author: Gemini AI
-# Date: 2025-12-14
-# Version: 1.7.0
+# Date: 2026-01-05
+# Version: 1.8.0
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [1.8.0] - 2026-01-05
+# - Updated multiplier breakdown logic to respect `totaling_method` (e.g. sum_by_band).
 # [1.7.0] - 2025-12-14
 # - Added `sp_qsos`, `unknown_qsos`, `sp_points`, `unknown_points` streams
 #   to support granular difference plotting.
@@ -36,6 +38,7 @@
 # - Enforced strict separation: Points are raw sums, Score is from calculator.
 # [1.2.0] - 2025-11-24
 # - Initial creation implementing the TimeSeriesData v1.2 schema.
+
 import pandas as pd
 import numpy as np
 from typing import List, Dict, Any
@@ -129,10 +132,18 @@ class TimeSeriesAggregator:
                     for rule in contest_def.multiplier_rules:
                         mult_name = rule.get('name', 'Unknown')
                         col = rule.get('value_column')
+                        method = rule.get('totaling_method', 'sum_by_band')
+
                         if col and col in df_valid_scalars.columns:
                             # Filter out 'Unknown' or NaNs before counting
                             valid_mults = df_valid_scalars[df_valid_scalars[col].notna() & (df_valid_scalars[col] != 'Unknown')]
-                            mult_breakdown[mult_name] = int(valid_mults[col].nunique())
+                            
+                            if method == 'once_per_log':
+                                mult_breakdown[mult_name] = int(valid_mults[col].nunique())
+                            elif method == 'once_per_mode':
+                                mult_breakdown[mult_name] = int(valid_mults.groupby('Mode')[col].nunique().sum())
+                            else: # sum_by_band (default) or once_per_band_no_mode
+                                mult_breakdown[mult_name] = int(valid_mults.groupby('Band')[col].nunique().sum())
 
             log_entry = {
                 "scalars": {
@@ -251,7 +262,7 @@ class TimeSeriesAggregator:
                 # Extract final score for scalars
                 if not log.time_series_score_df.empty and 'score' in log.time_series_score_df.columns:
                     log_entry["scalars"]["final_score"] = int(log.time_series_score_df['score'].iloc[-1])
-                 
+                
                 # Use ffill to propagate the score across hours where no QSOs occurred
                 ts_df = log.time_series_score_df.reindex(master_index).ffill().fillna(0)
                 
@@ -261,7 +272,7 @@ class TimeSeriesAggregator:
                      log_entry["cumulative"]["score"] = zeros
                      
                 if 'total_mults' in ts_df:
-                    log_entry["cumulative"]["mults"] = ts_df['total_mults'].astype(int).tolist()
+                     log_entry["cumulative"]["mults"] = ts_df['total_mults'].astype(int).tolist()
                 else:
                     log_entry["cumulative"]["mults"] = zeros
             else:

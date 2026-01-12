@@ -3,8 +3,8 @@
 # Purpose: A text report that generates a comparative hourly rate sheet for two or more logs.
 #
 # Author: Gemini AI
-# Date: 2025-12-20
-# Version: 0.134.0-Beta
+# Date: 2026-01-05
+# Version: 0.159.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.159.0-Beta] - 2026-01-05
+# - Updated metadata extraction to use TimeSeriesAggregator scalars (DAL Migration).
+# [0.151.2-Beta] - 2026-01-03
+# - Refactored imports to use absolute path `contest_tools.utils.report_utils` to resolve circular dependencies.
 # [0.134.0-Beta] - 2025-12-20
 # - Standardized report header to use `_report_utils`.
 # [0.116.0-Beta] - 2025-12-15
@@ -48,7 +52,7 @@ import os
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
 from ..data_aggregators.time_series import TimeSeriesAggregator
-from ._report_utils import _sanitize_filename_part, format_text_header, get_cty_metadata, get_standard_title_lines
+from contest_tools.utils.report_utils import _sanitize_filename_part, format_text_header, get_cty_metadata, get_standard_title_lines
 
 class Report(ContestReport):
     """
@@ -66,7 +70,7 @@ class Report(ContestReport):
         """
         if len(self.logs) < 2:
             return "Error: The Comparative Rate Sheet report requires at least two logs."
-
+        
         all_calls = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])
         first_log = self.logs[0]
         contest_def = first_log.contest_definition
@@ -74,8 +78,15 @@ class Report(ContestReport):
         is_single_band = len(bands) == 1
         
         # Data Aggregation
-        agg = TimeSeriesAggregator(self.logs)
-        ts_data = agg.get_time_series_data()
+        # --- Phase 1 Performance Optimization: Use Cached Aggregator Data ---
+        get_cached_ts_data = kwargs.get('_get_cached_ts_data')
+        if get_cached_ts_data:
+            # Use cached time series data (avoids recreating aggregator and recomputing)
+            ts_data = get_cached_ts_data()
+        else:
+            # Fallback to old behavior for backward compatibility
+            agg = TimeSeriesAggregator(self.logs)
+            ts_data = agg.get_time_series_data()
         time_bins = ts_data['time_bins']
         
         # Determine available modes globally across all logs
@@ -103,14 +114,16 @@ class Report(ContestReport):
             for m in available_modes:
                 col_defs.append({'key': f'mode_{m}', 'header': m, 'width': 5, 'type': 'mode'})
 
-        # If it's single band, we skip the "Overall" block usually, but here we can just make the Overall block 
-        # behave like a Detail block.
         # Let's stick to the drill-down: Overall (Band Summary) -> Details (Mode Summary).
         col_defs.append({'key': 'total', 'header': 'Total', 'width': 7, 'type': 'calc'})
         col_defs.append({'key': 'cumul', 'header': 'Cumul', 'width': 8, 'type': 'calc'})
 
-        contest_name = first_log.get_metadata().get('ContestName', 'UnknownContest')
-        year = first_log.get_processed_data()['Date'].dropna().iloc[0].split('-')[0] if not first_log.get_processed_data().empty else "----"
+        # --- Extract Metadata from DAL Scalars (Safe Access) ---
+        first_call = all_calls[0]
+        first_log_scalars = ts_data['logs'].get(first_call, {}).get('scalars', {})
+        
+        contest_name = first_log_scalars.get('contest_name', 'UnknownContest')
+        year = first_log_scalars.get('year', '----')
         
         # Calculate modes present for smart scoping
         modes_present = set(available_modes)
@@ -319,7 +332,7 @@ class Report(ContestReport):
                     line_parts.append(f"{val:>{w}}")
                     
                 lines.append(" ".join(line_parts))
-                
+
                 first_call_line = False
             
             # Optional spacer between hours?

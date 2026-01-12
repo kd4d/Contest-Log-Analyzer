@@ -1,4 +1,5 @@
 *.txt
+!requirements.txt
 *.doc*
 *.csv
 *.xls*
@@ -9,12 +10,24 @@ __pycache__/
 CONTEST_LOGS_REPORTS/reports/
 CONTEST_LOGS_REPORTS/reports_*/
 CONTEST_LOGS_REPORTS/data/CTY/
-AIAgentGuidance/Archive/
-AIAgentGuidance/ImplementationPlan.md
-AIAgentGuidance/PlotlyTitles/
-AIAgentGuidance/PlotlyRefactor/
-AIAgentGuidance/Architect*
+AIAgentGuidance/
+Docs/Archive/
 web_app/media/
 *.sqlite3
 Archives/
 *_bundle.txt
+test_code/debug*.py
+test_code/exact_container.py
+
+# Exceptions: Important git workflow files that should always be tracked
+# Note: These exceptions ensure files are visible even if parent patterns change
+!.pre-commit-config.yaml
+!contest_tools/version.py
+!Docs/AI_AGENT_RULES.md
+!Docs/GitWorkflowSetup.md
+!tools/README.md
+!tools/setup_git_aliases.ps1
+!tools/setup_git_aliases.sh
+!tools/setup_git_workflow.bat
+!tools/setup_git_workflow.ps1
+!tools/update_version_hash.py

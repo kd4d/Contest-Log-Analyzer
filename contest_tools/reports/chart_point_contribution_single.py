@@ -4,8 +4,8 @@
 #          point value, presented as a series of pie charts per band for a SINGLE log.
 #
 # Author: Gemini AI
-# Date: 2025-12-20
-# Version: 0.131.0-Beta
+# Date: 2026-01-03
+# Version: 0.151.3-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,12 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.151.3-Beta] - 2026-01-03
+# - Refactored imports to use contest_tools.utils.report_utils to break circular dependency.
+# [0.151.1-Beta] - 2026-01-01
+# - Repair import path for report_utils to fix circular dependency.
+# [0.151.0-Beta] - 2026-01-01
+# - Refactored imports to use `contest_tools.utils.report_utils` to break circular dependency.
 # [0.131.0-Beta] - 2025-12-20
 # - Refactored to use `get_standard_title_lines` for standardized 3-line headers.
 # - Implemented explicit "Smart Scoping" for title generation.
@@ -34,6 +40,7 @@
 # [0.93.7-Beta] - 2025-12-04
 # - Fixed runtime crash by ensuring the output directory is created before
 #   saving the chart file.
+
 import os
 from typing import List, Dict
 import pandas as pd
@@ -44,7 +51,7 @@ from contest_tools.reports.report_interface import ContestReport
 from contest_tools.contest_log import ContestLog
 from contest_tools.data_aggregators.categorical_stats import CategoricalAggregator
 from contest_tools.styles.plotly_style_manager import PlotlyStyleManager
-from contest_tools.reports._report_utils import get_valid_dataframe, create_output_directory, get_cty_metadata, get_standard_title_lines
+from contest_tools.utils.report_utils import get_valid_dataframe, create_output_directory, get_cty_metadata, get_standard_title_lines
 
 class Report(ContestReport):
     """
@@ -113,7 +120,7 @@ class Report(ContestReport):
         for i, band in enumerate(bands):
             row = (i // cols) + 1
             col = (i % cols) + 1
-        
+            
             log_data = band_data_map[band]
             point_breakdown = log_data['breakdown']
 

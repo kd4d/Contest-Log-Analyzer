@@ -4,8 +4,8 @@
 #          comparing two logs, with superimposed lines for Total, Run, S&P, and Unknown.
 #
 # Author: Gemini AI
-# Date: 2025-12-29
-# Version: Phase 1 (Layout & Data Fix)
+# Date: 2026-01-05
+# Version: 0.159.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,12 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.159.0-Beta] - 2026-01-05
+# - Disabled PNG generation logic (Kaleido dependency removal) for Web Architecture.
+# [0.151.1-Beta] - 2026-01-01
+# - Repair import path for report_utils to fix circular dependency.
+# [0.151.0-Beta] - 2026-01-01
+# - Refactored imports to use `contest_tools.utils.report_utils` to break circular dependency.
 # [Phase 1 (Layout & Data Fix)] - 2025-12-29
 # - Converted Pandas Series to lists in Plotly traces to fix serialization bug.
 # [Phase 1 (Pathfinder)] - 2025-12-29
@@ -72,7 +78,6 @@
 # - Enabled Run/S&P plots for Points metric via 'run_points' schema.
 # [0.90.0-Beta] - 2025-10-01
 # - Set new baseline version for release.
-
 from typing import List
 import pandas as pd
 import plotly.graph_objects as go
@@ -82,7 +87,7 @@ import logging
 
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from ._report_utils import create_output_directory, get_valid_dataframe, save_debug_data, _sanitize_filename_part, get_cty_metadata, get_standard_title_lines, build_filename
+from contest_tools.utils.report_utils import create_output_directory, get_valid_dataframe, save_debug_data, _sanitize_filename_part, get_cty_metadata, get_standard_title_lines, build_filename
 from ..data_aggregators.time_series import TimeSeriesAggregator
 from ..styles.plotly_style_manager import PlotlyStyleManager
 
@@ -107,9 +112,15 @@ class Report(ContestReport):
         call1 = log1.get_metadata().get('MyCall', 'Log1')
         call2 = log2.get_metadata().get('MyCall', 'Log2')
         
-        # --- DAL Integration (v1.3.1) ---
-        agg = TimeSeriesAggregator([log1, log2])
-        ts_data = agg.get_time_series_data(band_filter=band_filter, mode_filter=mode_filter)
+        # --- Phase 1 Performance Optimization: Use Cached Aggregator Data ---
+        get_cached_ts_data = kwargs.get('_get_cached_ts_data')
+        if get_cached_ts_data:
+            # Use cached time series data (avoids recreating aggregator and recomputing)
+            ts_data = get_cached_ts_data(band_filter=band_filter, mode_filter=mode_filter)
+        else:
+            # Fallback to old behavior for backward compatibility
+            agg = TimeSeriesAggregator([log1, log2])
+            ts_data = agg.get_time_series_data(band_filter=band_filter, mode_filter=mode_filter)
         
         time_bins = [pd.Timestamp(t) for t in ts_data['time_bins']]
 
@@ -290,17 +301,18 @@ class Report(ContestReport):
             logging.error(f"Failed to save JSON data: {e}")
 
         # Save PNG (Requires Kaleido)
-        try:
-            # Fixed Layout for PNG
-            fig.update_layout(
-                autosize=False,
-                width=1600,
-                height=900
-            )
-            fig.write_image(png_path, width=1600, height=900)
-            generated_files.append(png_path)
-        except Exception as e:
-            logging.warning(f"Failed to generate static PNG (Kaleido missing?): {e}")
+        # Disabled for Web Architecture
+        # try:
+        #     # Fixed Layout for PNG
+        #     fig.update_layout(
+        #         autosize=False,
+        #         width=1600,
+        #         height=900
+        #     )
+        #     fig.write_image(png_path, width=1600, height=900)
+        #     generated_files.append(png_path)
+        # except Exception as e:
+        #     logging.warning(f"Failed to generate static PNG (Kaleido missing?): {e}")
 
         return generated_files
 

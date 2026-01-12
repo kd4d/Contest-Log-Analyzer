@@ -4,8 +4,8 @@
 #          visualize the band activity of two logs side-by-side using Plotly.
 #
 # Author: Gemini AI
-# Date: 2025-12-31
-# Version: 0.133.1-Beta
+# Date: 2026-01-05
+# Version: 0.159.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,12 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.159.0-Beta] - 2026-01-05
+# - Disabled PNG generation logic (Kaleido dependency removal) for Web Architecture.
+# [0.151.1-Beta] - 2026-01-01
+# - Repair import path for report_utils to fix circular dependency.
+# [0.151.0-Beta] - 2026-01-01
+# - Refactored imports to use `contest_tools.utils.report_utils` to break circular dependency.
 # [0.133.1-Beta] - 2025-12-31
 # - Applied surgical butterfly alignment fix: injected barmode='overlay' into Plotly layout.
 # [0.133.0-Beta] - 2025-12-20
@@ -47,7 +53,6 @@
 # - Refactored to use MatrixAggregator (DAL).
 # [0.91.0-Beta] - 2025-10-11
 # - Initial creation of the correct "butterfly chart" implementation.
-
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
@@ -59,7 +64,7 @@ from typing import List, Dict, Any
 
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from ._report_utils import get_valid_dataframe, create_output_directory, _sanitize_filename_part, get_cty_metadata, get_standard_title_lines, build_filename
+from contest_tools.utils.report_utils import get_valid_dataframe, create_output_directory, _sanitize_filename_part, get_cty_metadata, get_standard_title_lines, build_filename
 from ..data_aggregators.matrix_stats import MatrixAggregator
 from ..styles.plotly_style_manager import PlotlyStyleManager
 
@@ -210,15 +215,15 @@ class Report(ContestReport):
         
         results = []
         try:
-            # Fixed sizing for PNG
-            fig.update_layout(
-                autosize=False,
-                height=plot_height,
-                width=1600
-            )
+            # Fixed sizing for PNG (Disabled for Web Architecture)
+            # fig.update_layout(
+            #     autosize=False,
+            #     height=plot_height,
+            #     width=1600
+            # )
             # Save PNG
-            fig.write_image(filepath_png)
-            results.append(f"Plot saved: {filepath_png}")
+            # fig.write_image(filepath_png)
+            # results.append(f"Plot saved: {filepath_png}")
             
             # Responsive sizing for HTML
             fig.update_layout(
@@ -244,8 +249,15 @@ class Report(ContestReport):
         created_files = []
 
         # --- 1. Generate the main "All Modes" plot ---
-        aggregator = MatrixAggregator(self.logs)
-        matrix_data_all = aggregator.get_matrix_data(bin_size='15min', mode_filter=None)
+        # --- Phase 1 Performance Optimization: Use Cached Aggregator Data ---
+        get_cached_matrix_data = kwargs.get('_get_cached_matrix_data')
+        if get_cached_matrix_data:
+            # Use cached matrix data (avoids recreating aggregator and recomputing)
+            matrix_data_all = get_cached_matrix_data(bin_size='15min', mode_filter=None)
+        else:
+            # Fallback to old behavior for backward compatibility
+            aggregator = MatrixAggregator(self.logs)
+            matrix_data_all = aggregator.get_matrix_data(bin_size='15min', mode_filter=None)
         
         msg = self._generate_plot_for_slice(matrix_data_all, log1, log2, output_path, mode_filter=None, **kwargs)
         created_files.append(msg)
@@ -262,7 +274,10 @@ class Report(ContestReport):
             for mode in modes_to_plot:
                 if mode in modes_present:
                     # Fetch specific DAL slice
-                    matrix_data_mode = aggregator.get_matrix_data(bin_size='15min', mode_filter=mode)
+                    if get_cached_matrix_data:
+                        matrix_data_mode = get_cached_matrix_data(bin_size='15min', mode_filter=mode)
+                    else:
+                        matrix_data_mode = aggregator.get_matrix_data(bin_size='15min', mode_filter=mode)
                     
                     msg = self._generate_plot_for_slice(matrix_data_mode, log1, log2, output_path, mode_filter=mode, **kwargs)
                     created_files.append(msg)

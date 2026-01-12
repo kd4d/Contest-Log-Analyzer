@@ -4,8 +4,8 @@
 #          on common/unique QSOs broken down by Run vs. Search & Pounce (S&P) mode.
 #
 # Author: Gemini AI
-# Date: 2025-12-29
-# Version: Phase 1 (Pathfinder)
+# Date: 2026-01-05
+# Version: 0.159.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,16 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.159.0-Beta] - 2026-01-05
+# - Disabled PNG generation logic (Kaleido dependency removal) for Web Architecture.
+# [0.158.0-Beta] - 2026-01-05
+# - Removed PNG generation (fig.write_image) to resolve Kaleido dependency issues in web container.
+# [0.151.3-Beta] - 2026-01-03
+# - Refactored imports to use contest_tools.utils.report_utils to break circular dependency.
+# [0.151.1-Beta] - 2026-01-01
+# - Repair import path for report_utils to fix circular dependency.
+# [0.151.0-Beta] - 2026-01-01
+# - Refactored imports to use `contest_tools.utils.report_utils` to break circular dependency.
 # [Phase 1 (Pathfinder)] - 2025-12-29
 # - Added JSON export functionality for web component integration.
 # [0.147.0-Beta] - 2025-12-29
@@ -98,7 +108,6 @@
 # [0.93.7-Beta] - 2025-12-04
 # - Fixed runtime crash by ensuring the output directory is created before
 #   saving the chart file.
-
 import os
 from typing import List, Dict, Tuple
 import pandas as pd
@@ -108,7 +117,7 @@ from contest_tools.reports.report_interface import ContestReport
 from contest_tools.contest_log import ContestLog
 from contest_tools.data_aggregators.categorical_stats import CategoricalAggregator
 from contest_tools.styles.plotly_style_manager import PlotlyStyleManager
-from contest_tools.reports._report_utils import get_valid_dataframe, create_output_directory, _sanitize_filename_part, get_cty_metadata, get_standard_title_lines
+from contest_tools.utils.report_utils import get_valid_dataframe, create_output_directory, _sanitize_filename_part, get_cty_metadata, get_standard_title_lines
 
 class Report(ContestReport):
     """
@@ -221,7 +230,8 @@ class Report(ContestReport):
                         y=data[mode],
                         marker_color=colors[mode],
                         showlegend=show_legend,
-                        legendgroup=mode # Groups traces so toggling 'Run' toggles it on all subplots
+                        legendgroup=mode 
+# Groups traces so toggling 'Run' toggles it on all subplots
                     ),
                     row=row, col=col
                 )
@@ -256,7 +266,6 @@ class Report(ContestReport):
         # --- Save Files ---
         filename_base = base_filename # Re-using calculated base
         
-        filepath_png = os.path.join(output_path, f"{filename_base}.png")
         filepath_html = os.path.join(output_path, f"{filename_base}.html")
         filepath_json = os.path.join(output_path, f"{filename_base}.json")
         
@@ -273,31 +282,27 @@ class Report(ContestReport):
             fig.write_html(filepath_html, include_plotlyjs='cdn', config=config)
             results.append(f"Interactive plot saved: {filepath_html}")
 
-            # 2. Save PNG (Static - Fixed)
-            # Lock dimensions strictly for the static export
-            # Use specific width=1600 to enforce landscape orientation for standard reports
-            plot_height = 400 * rows
-            fig.update_layout(
-                autosize=False,
-                height=plot_height,
-                width=1600
-            )
-            fig.write_image(filepath_png, width=1600)
-            results.append(f"Plot saved: {filepath_png}")
-            
-            # 3. Save JSON (Component Data)
+            # 2. Save JSON (Component Data)
             fig.write_json(filepath_json)
             results.append(f"JSON data saved: {filepath_json}")
             
+            # 3. Save PNG (Disabled for Web Architecture)
+            # try:
+            #     # Fixed sizing for PNG
+            #     fig.update_layout(
+            #         autosize=False,
+            #         height=None, # Height was set in layout config
+            #         width=1600
+            #     )
+            #     # fig.write_image(filepath_png)
+            # except Exception:
+            #     pass
+            
         except Exception as e:
-            # Fallback/Error logging if one fails, but try to continue
-            # For now, just pass as per original structure, or log if logger available.
             pass
 
         # Return list of successfully created files (checking existence)
         outputs = []
-        if os.path.exists(filepath_png):
-            outputs.append(filepath_png)
         if os.path.exists(filepath_html):
             outputs.append(filepath_html)
         if os.path.exists(filepath_json):

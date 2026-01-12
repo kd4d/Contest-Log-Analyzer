@@ -1,9 +1,35 @@
 # contest_tools/data_aggregators/matrix_stats.py
+#
+# Purpose: Centralizes the calculation logic for 2D matrix statistics (Band x Time).
+#
+# Author: Gemini AI
+# Date: 2026-01-01
+# Version: 0.149.1-Beta
+#
+# Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
+#
+# License: Mozilla Public License, v. 2.0
+#          (https://www.mozilla.org/MPL/2.0/)
+#
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0.
+# If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+# --- Revision History ---
+# [0.149.1-Beta] - 2026-01-01
+# - Updated import path for `get_valid_dataframe` and `determine_activity_status` to
+#   use new `utils` location to resolve circular dependency.
+# [0.149.0-Beta] - 2026-01-01
+# - Refactored to use centralized `determine_activity_status` utility.
+# [0.134.0-Beta] - 2025-12-25
+# - Initial creation.
 import pandas as pd
 import numpy as np
 from typing import List, Dict, Any, Optional
 from ..contest_log import ContestLog
-from ..reports._report_utils import get_valid_dataframe
+from ..utils.report_utils import get_valid_dataframe, determine_activity_status
 
 class MatrixAggregator:
     """
@@ -13,25 +39,6 @@ class MatrixAggregator:
     """
     def __init__(self, logs: List[ContestLog]):
         self.logs = logs
-
-    def _determine_activity_status(self, series: pd.Series) -> str:
-        """
-        Determines the dominant activity type for a time bin.
-        Returns: 'Run', 'S&P', 'Mixed', or 'Inactive'.
-        """
-        if series.empty:
-            return 'Inactive'
-        
-        statuses = set(series.unique())
-        is_run = 'Run' in statuses
-        is_sp = 'S&P' in statuses
-        
-        if is_run and not is_sp:
-            return 'Run'
-        elif is_sp and not is_run:
-            return 'S&P'
-        else:
-            return 'Mixed'
 
     def get_matrix_data(self, bin_size: str = '15min', mode_filter: Optional[str] = None, time_index: pd.DatetimeIndex = None) -> Dict[str, Any]:
         """
@@ -126,7 +133,7 @@ class MatrixAggregator:
                         status_row = ['Inactive'] * len(time_index)
                     else:
                         # Group by 15min bin and apply logic
-                        resampled = df_band.set_index('Datetime').groupby(pd.Grouper(freq=bin_size))['Run'].apply(self._determine_activity_status)
+                        resampled = df_band.set_index('Datetime').groupby(pd.Grouper(freq=bin_size))['Run'].apply(determine_activity_status)
                         # Reindex to full time range
                         resampled = resampled.reindex(time_index, fill_value='Inactive')
                         status_row = resampled.tolist()
@@ -222,11 +229,10 @@ class MatrixAggregator:
             # Standardize Run Status for grouping
             # If 'Run' column exists, map NaNs to 'Unknown'.
             # If it doesn't exist, treat all as 'Unknown'.
+            # Any deviation becomes 'Unknown'.
             if 'Run' in df.columns:
                 df = df.copy()
                 df['RunStatus'] = df['Run'].fillna('Unknown')
-                # Ensure values are strictly mapped to our 3 keys if needed, 
-                # but 'Run'/'S&P' are standard. Any deviation becomes 'Unknown'.
                 known_statuses = {'Run', 'S&P'}
                 df.loc[~df['RunStatus'].isin(known_statuses), 'RunStatus'] = 'Unknown'
             else:

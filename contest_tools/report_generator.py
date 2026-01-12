@@ -6,21 +6,31 @@
 #          execute it (e.g., single-log, pairwise, multi-log).
 #
 # Author: Gemini AI
-# Date: 2025-12-20
-# Version: 0.134.1-Beta
+# Date: 2026-01-07
+# Version: 0.166.0-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
 #
 # License: Mozilla Public License, v. 2.0
-#          (https://www.mozilla.org/MPL/2.0/)
+#          ([https://www.mozilla.org/MPL/2.0/](https://www.mozilla.org/MPL/2.0/))
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0.
 # If a copy of the MPL was not distributed with this
-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+# file, You can obtain one at [http://mozilla.org/MPL/2.0/](http://mozilla.org/MPL/2.0/).
 #
 # --- Revision History ---
+# [0.166.0-Beta] - 2026-01-07
+# - Added performance profiling instrumentation when CLA_PROFILE=1.
+# [0.165.0-Beta] - 2026-01-07
+# - Fixed pairwise-only report bug: Changed line 217 condition from
+#   '(supports_multi or supports_pairwise)' to 'supports_multi' only.
+#   This prevents pairwise-only reports from receiving invalid all-logs instances.
+# [0.164.1-Beta] - 2026-01-05
+# - Added pairwise iteration loop for multiplier reports when > 2 logs are present.
+# [0.163.0-Beta] - 2026-01-05
+# - Enforced strict filename sanitization for callsign directory components to match report suffix logic.
 # [0.134.1-Beta] - 2025-12-20
 # - Removed redundant local 'import os' to fix NameError in nested helper.
 # [0.134.0-Beta] - 2025-12-20
@@ -45,8 +55,13 @@ import itertools
 import importlib
 import logging
 import pandas as pd
+from typing import Dict, Any, Optional, List, Tuple
 from .reports import AVAILABLE_REPORTS
 from .manifest_manager import ManifestManager
+from .utils.report_utils import _sanitize_filename_part
+from .utils.profiler import profile_section, ProfileContext
+from .data_aggregators.time_series import TimeSeriesAggregator
+from .data_aggregators.matrix_stats import MatrixAggregator
 
 class ReportGenerator:
     """
@@ -65,6 +80,7 @@ class ReportGenerator:
         self.logs = logs
         
         # --- Define Fully Unique Output Directory Structure ---
+        
         first_log = self.logs[0]
         contest_name = first_log.get_metadata().get('ContestName', 'UnknownContest').replace(' ', '_').lower()
         
@@ -84,8 +100,8 @@ class ReportGenerator:
                 event_id = "UnknownEvent"
 
         # --- Get Callsign Combination ID ---
-        all_calls = sorted([log.get_metadata().get('MyCall', f'Log{i+1}').lower() for i, log in enumerate(self.logs)])
-        callsign_combo_id = '_'.join(all_calls)
+        all_calls = sorted([log.get_metadata().get('MyCall', f'Log{i+1}') for i, log in enumerate(self.logs)])
+        callsign_combo_id = '_'.join([_sanitize_filename_part(c) for c in all_calls])
 
         # --- Construct Final Path ---
         self.base_output_dir = os.path.join(root_output_dir, 'reports', year, contest_name, event_id.lower(), callsign_combo_id)
@@ -95,7 +111,115 @@ class ReportGenerator:
         self.animations_output_dir = os.path.join(self.base_output_dir, "animations")
         
         self.manifest = ManifestManager(self.base_output_dir)
+        
+        # --- Phase 1 Performance Optimization: Shared Aggregators and Caching ---
+        # Create shared aggregator instances once to avoid recreating for each report
+        with ProfileContext("ReportGenerator - Aggregator Initialization"):
+            self._ts_aggregator = TimeSeriesAggregator(self.logs)
+            self._matrix_aggregator = MatrixAggregator(self.logs)
+            
+            # Cache for time series data (key: (band_filter, mode_filter))
+            self._ts_data_cache: Dict[Tuple[Optional[str], Optional[str]], Dict[str, Any]] = {}
+            # Cache for matrix data (key: (bin_size, mode_filter, time_index_hash))
+            self._matrix_data_cache: Dict[Tuple[str, Optional[str], Optional[str]], Dict[str, Any]] = {}
+            # Cache for stacked matrix data (key: (bin_size, mode_filter, time_index_hash))
+            self._stacked_matrix_data_cache: Dict[Tuple[str, Optional[str], Optional[str]], Dict[str, Any]] = {}
+    
+    def _get_cached_ts_data(self, band_filter: Optional[str] = None, mode_filter: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Gets cached time series data or computes and caches it.
+        
+        Args:
+            band_filter: Optional band filter (e.g., '20M')
+            mode_filter: Optional mode filter (e.g., 'CW')
+        
+        Returns:
+            Cached or newly computed time series data
+        """
+        cache_key = (band_filter, mode_filter)
+        if cache_key not in self._ts_data_cache:
+            self._ts_data_cache[cache_key] = self._ts_aggregator.get_time_series_data(
+                band_filter=band_filter, mode_filter=mode_filter
+            )
+        return self._ts_data_cache[cache_key]
+    
+    def _get_cached_matrix_data(self, bin_size: str = '15min', mode_filter: Optional[str] = None, 
+                                time_index: Optional[pd.DatetimeIndex] = None) -> Dict[str, Any]:
+        """
+        Gets cached matrix data or computes and caches it.
+        
+        Args:
+            bin_size: Pandas frequency string (default '15min')
+            mode_filter: Optional mode filter (e.g., 'CW')
+            time_index: Optional pre-calculated DatetimeIndex
+        
+        Returns:
+            Cached or newly computed matrix data
+        """
+        # Create a hash of time_index for cache key (or None if not provided)
+        time_index_hash = None
+        if time_index is not None:
+            # Use a simple hash based on start, end, and freq
+            time_index_hash = f"{time_index[0]}_{time_index[-1]}_{len(time_index)}"
+        
+        cache_key = (bin_size, mode_filter, time_index_hash)
+        if cache_key not in self._matrix_data_cache:
+            self._matrix_data_cache[cache_key] = self._matrix_aggregator.get_matrix_data(
+                bin_size=bin_size, mode_filter=mode_filter, time_index=time_index
+            )
+        return self._matrix_data_cache[cache_key]
+    
+    def _get_cached_stacked_matrix_data(self, bin_size: str = '60min', mode_filter: Optional[str] = None, 
+                                         time_index: Optional[pd.DatetimeIndex] = None) -> Dict[str, Any]:
+        """
+        Gets cached stacked matrix data or computes and caches it.
+        
+        Args:
+            bin_size: Pandas frequency string (default '60min')
+            mode_filter: Optional mode filter (e.g., 'CW')
+            time_index: Optional pre-calculated DatetimeIndex
+        
+        Returns:
+            Cached or newly computed stacked matrix data
+        """
+        # Create a hash of time_index for cache key (or None if not provided)
+        time_index_hash = None
+        if time_index is not None:
+            # Use a simple hash based on start, end, and freq
+            time_index_hash = f"{time_index[0]}_{time_index[-1]}_{len(time_index)}"
+        
+        cache_key = (bin_size, mode_filter, time_index_hash)
+        if cache_key not in self._stacked_matrix_data_cache:
+            self._stacked_matrix_data_cache[cache_key] = self._matrix_aggregator.get_stacked_matrix_data(
+                bin_size=bin_size, mode_filter=mode_filter, time_index=time_index
+            )
+        return self._stacked_matrix_data_cache[cache_key]
+    
+    def _prepare_report_kwargs(self, logs: List[Any], **base_kwargs) -> Dict[str, Any]:
+        """
+        Prepares kwargs for report generation, including cached aggregators and data.
+        
+        Args:
+            logs: List of logs for this specific report instance
+            **base_kwargs: Base kwargs to pass through
+        
+        Returns:
+            Enhanced kwargs with cached aggregators
+        """
+        kwargs = base_kwargs.copy()
+        
+        # Add cached aggregators (reports can use these instead of creating new ones)
+        kwargs['_cached_ts_aggregator'] = self._ts_aggregator
+        kwargs['_cached_matrix_aggregator'] = self._matrix_aggregator
+        
+        # Add helper methods to get cached data
+        kwargs['_get_cached_ts_data'] = self._get_cached_ts_data
+        kwargs['_get_cached_matrix_data'] = self._get_cached_matrix_data
+        kwargs['_get_cached_stacked_matrix_data'] = self._get_cached_stacked_matrix_data
+        
+        return kwargs
 
+    @profile_section("Report Generation (All Reports)")
     def run_reports(self, report_id, **report_kwargs):
         """
         Executes the requested reports based on the report_id and options.
@@ -158,8 +282,7 @@ class ReportGenerator:
 
             # --- SYSTEMIC FIX: Scaffold Output Directory ---
             # Ensures the specific report type sub-directory (e.g., /plots) exists
-            # before passing it to the plugin.
-            # Required for dynamic sessions.
+            # before passing it to the plugin. Required for dynamic sessions.
             os.makedirs(output_path, exist_ok=True)
 
             is_multiplier_report = r_id in ['missed_multipliers', 'multiplier_summary', 'multipliers_by_hour']
@@ -204,18 +327,32 @@ class ReportGenerator:
                             for log in self.logs:
                                 instance = ReportClass([log])
                                 try:
-                                    result = instance.generate(output_path=output_path, **current_kwargs)
+                                    enhanced_kwargs = self._prepare_report_kwargs([log], **current_kwargs)
+                                    result = instance.generate(output_path=output_path, **enhanced_kwargs)
                                     logging.info(result)
                                 except Exception as e:
                                     logging.error(f"Error generating '{r_id}': {e}")
                         
-                        if (ReportClass.supports_multi or ReportClass.supports_pairwise) and len(self.logs) >= 2:
+                        if ReportClass.supports_multi and len(self.logs) >= 2:
+                            # 1. Generate Session Summary (All Logs)
                             instance = ReportClass(self.logs)
                             try:
-                                result = instance.generate(output_path=output_path, **current_kwargs)
+                                enhanced_kwargs = self._prepare_report_kwargs(self.logs, **current_kwargs)
+                                result = instance.generate(output_path=output_path, **enhanced_kwargs)
                                 logging.info(result)
                             except Exception as e:
-                                logging.error(f"Error generating '{r_id}': {e}")
+                                logging.error(f"Error generating '{r_id}' (Session): {e}")
+
+                        # 2. Generate Pairwise Comparisons (if > 2 logs)
+                        if ReportClass.supports_pairwise and len(self.logs) > 2:
+                                for log_pair in itertools.combinations(self.logs, 2):
+                                    instance = ReportClass(list(log_pair))
+                                    try:
+                                        enhanced_kwargs = self._prepare_report_kwargs(list(log_pair), **current_kwargs)
+                                        result = instance.generate(output_path=output_path, **enhanced_kwargs)
+                                        logging.info(result)
+                                    except Exception as e:
+                                        logging.error(f"Error generating '{r_id}' (Pair): {e}")
             
             else:
                 # --- Path 2: Non-Multiplier Reports ---
@@ -224,7 +361,8 @@ class ReportGenerator:
                 if ReportClass.supports_multi and len(self.logs) >= 2:
                     instance = ReportClass(self.logs)
                     try:
-                        result = instance.generate(output_path=output_path, **report_kwargs)
+                        enhanced_kwargs = self._prepare_report_kwargs(self.logs, **report_kwargs)
+                        result = instance.generate(output_path=output_path, **enhanced_kwargs)
                         logging.info(result)
                     except Exception as e:
                         logging.error(f"Error generating '{r_id}': {e}")
@@ -233,7 +371,8 @@ class ReportGenerator:
                     for log_pair in itertools.combinations(self.logs, 2):
                         instance = ReportClass(list(log_pair))
                         try:
-                            result = instance.generate(output_path=output_path, **report_kwargs)
+                            enhanced_kwargs = self._prepare_report_kwargs(list(log_pair), **report_kwargs)
+                            result = instance.generate(output_path=output_path, **enhanced_kwargs)
                             logging.info(result)
                         except Exception as e:
                             logging.error(f"Error generating '{r_id}': {e}")
@@ -242,7 +381,8 @@ class ReportGenerator:
                     for log in self.logs:
                         instance = ReportClass([log])
                         try:
-                            result = instance.generate(output_path=output_path, **report_kwargs)
+                            enhanced_kwargs = self._prepare_report_kwargs([log], **report_kwargs)
+                            result = instance.generate(output_path=output_path, **enhanced_kwargs)
                             logging.info(result)
                         except Exception as e:
                             logging.error(f"Error generating '{r_id}': {e}")

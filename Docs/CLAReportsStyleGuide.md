@@ -1,10 +1,14 @@
 # CLA Reports Style Guide
 
-**Version: 1.3.0**
-**Date: 2025-12-20**
+**Version: 1.4.0**
+**Date: 2026-01-07**
 
 ---
 ### --- Revision History ---
+## [1.4.0] - 2026-01-07
+### Changed
+# - Verified PlotlyStyleManager references match current API implementation.
+# - Confirmed visualization standards align with codebase implementation.
 ## [1.3.0] - 2025-12-20
 ### Changed
 # - Updated Section 2.1 to include a "Redundancy Exception" for single-mode datasets.

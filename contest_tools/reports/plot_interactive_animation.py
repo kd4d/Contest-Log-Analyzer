@@ -3,8 +3,8 @@
 # Purpose: Generates an interactive HTML animation dashboard.
 #
 # Author: Gemini AI
-# Date: 2025-12-23
-# Version: 0.131.1-Beta
+# Date: 2026-01-01
+# Version: 0.151.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -18,6 +18,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.151.1-Beta] - 2026-01-01
+# - Repair import path for report_utils to fix circular dependency.
+# [0.151.0-Beta] - 2026-01-01
+# - Refactored imports to use `contest_tools.utils.report_utils` to break circular dependency.
 # [0.131.1-Beta] - 2025-12-23
 # - Enable single-log support.
 # [0.131.0-Beta] - 2025-12-20
@@ -42,6 +46,7 @@
 # - Implemented "Monochromatic Intensity" color strategy for animation bars.
 # [0.107.0-Beta] - 2025-12-13
 # - Changed report_type from 'html' to 'animation'.
+
 import os
 import logging
 import numpy as np
@@ -52,7 +57,7 @@ from typing import List, Dict, Any, Tuple
 from pathlib import Path
 
 from .report_interface import ContestReport
-from ._report_utils import create_output_directory, _sanitize_filename_part, get_cty_metadata, get_standard_title_lines, get_valid_dataframe
+from contest_tools.utils.report_utils import create_output_directory, _sanitize_filename_part, get_cty_metadata, get_standard_title_lines, get_valid_dataframe
 from ..data_aggregators.time_series import TimeSeriesAggregator
 from ..data_aggregators.matrix_stats import MatrixAggregator
 from ..styles.plotly_style_manager import PlotlyStyleManager
@@ -99,7 +104,7 @@ class Report(ContestReport):
         create_output_directory(output_path)
         
         # 1. Prepare Data
-        data = self._prepare_data()
+        data = self._prepare_data(**kwargs)
         
         time_bins = data['time_bins']
         callsigns = data['callsigns']
@@ -340,7 +345,7 @@ class Report(ContestReport):
 
         return f"Interactive animation generated: {filename}"
 
-    def _prepare_data(self) -> Dict[str, Any]:
+    def _prepare_data(self, **kwargs) -> Dict[str, Any]:
         """
         Aggregates and aligns data from TimeSeries and Matrix aggregators.
         """
@@ -353,13 +358,26 @@ class Report(ContestReport):
             if log_manager:
                 master_index = log_manager.master_time_index
 
-        ts_agg = TimeSeriesAggregator(self.logs)
-        # Note: We don't filter by band/mode here to get global totals for the top chart
-        ts_raw = ts_agg.get_time_series_data() 
+        # --- Phase 1 Performance Optimization: Use Cached Aggregator Data ---
+        get_cached_ts_data = kwargs.get('_get_cached_ts_data')
+        get_cached_matrix_data = kwargs.get('_get_cached_matrix_data')
         
-        matrix_agg = MatrixAggregator(self.logs)
-        # Pass the authoritative index to prevent "off-by-one-bin" shape mismatches
-        matrix_raw = matrix_agg.get_stacked_matrix_data(bin_size='60min', time_index=master_index)
+        if get_cached_ts_data:
+            # Use cached time series data (avoids recreating aggregator and recomputing)
+            ts_raw = get_cached_ts_data()
+        else:
+            # Fallback to old behavior for backward compatibility
+            ts_agg = TimeSeriesAggregator(self.logs)
+            ts_raw = ts_agg.get_time_series_data()
+        
+        get_cached_stacked_matrix_data = kwargs.get('_get_cached_stacked_matrix_data')
+        if get_cached_stacked_matrix_data:
+            # Use cached stacked matrix data (avoids recreating aggregator and recomputing)
+            matrix_raw = get_cached_stacked_matrix_data(bin_size='60min', mode_filter=None, time_index=master_index)
+        else:
+            # Fallback to old behavior for backward compatibility
+            matrix_agg = MatrixAggregator(self.logs)
+            matrix_raw = matrix_agg.get_stacked_matrix_data(bin_size='60min', time_index=master_index)
 
         callsigns = sorted(list(ts_raw['logs'].keys()))
         time_bins = ts_raw['time_bins']
@@ -404,6 +422,7 @@ class Report(ContestReport):
                 for mode in ['Run', 'S&P', 'Unknown']:
                     # Get hourly list (ensure alignment/length matching if necessary, 
                     # but aggregators should share master index logic)
+                    
                     raw_list = matrix_raw['logs'][call].get(band, {}).get(mode, [0]*len(time_bins))
                     
                     # Convert to numpy for cumsum

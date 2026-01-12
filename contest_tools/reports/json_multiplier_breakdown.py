@@ -4,8 +4,8 @@
 #          This serves as a high-speed cache for the web dashboard.
 #
 # Author: Gemini AI
-# Date: 2025-12-23
-# Version: 0.131.1-Beta
+# Date: 2026-01-01
+# Version: 0.151.1-Beta
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,6 +19,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 #
 # --- Revision History ---
+# [0.151.1-Beta] - 2026-01-01
+# - Repair import path for report_utils to fix circular dependency.
+# [0.151.0-Beta] - 2026-01-01
+# - Refactored imports to use `contest_tools.utils.report_utils` to break circular dependency.
 # [0.131.1-Beta] - 2025-12-23
 # - Enable single-log support.
 # [0.138.7-Beta] - 2025-12-22
@@ -32,13 +36,14 @@
 # - Fixed ImportError by updating ContestReport import path.
 # [0.138.0-Beta] - 2025-12-22
 # - Initial creation.
+
 import json
 import os
 import logging
 from .report_interface import ContestReport
 from contest_tools.data_aggregators.multiplier_stats import MultiplierStatsAggregator
 from contest_tools.utils.json_encoders import NpEncoder
-from ._report_utils import _sanitize_filename_part
+from contest_tools.utils.report_utils import _sanitize_filename_part
 
 logger = logging.getLogger(__name__)
 
