@@ -62,6 +62,8 @@ All Python (`.py`) files must begin with the following standard header block.
 
 **Important:** We do **not** include Author, Date, or Version in file headers. Git is our source of truth for this information.
 
+**Note:** This same principle applies to data files (JSON, etc.) and template content (HTML). Do **not** include version tags, version numbers, or date metadata in JSON data structures or hardcode version strings in HTML templates. The version information in `contest_tools/version.py` (derived from git tags) is the single source of truth for application versioning.
+
 ---
 
 ## 4. Versioning Strategy (SemVer)
