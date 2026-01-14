@@ -24,6 +24,7 @@ from pathlib import Path
 
 from .report_interface import ContestReport
 from contest_tools.utils.report_utils import create_output_directory, _sanitize_filename_part, get_cty_metadata, get_standard_title_lines, get_valid_dataframe
+from contest_tools.utils.callsign_utils import build_callsigns_filename_part
 from ..data_aggregators.time_series import TimeSeriesAggregator
 from ..data_aggregators.matrix_stats import MatrixAggregator
 from ..styles.plotly_style_manager import PlotlyStyleManager
@@ -298,12 +299,12 @@ class Report(ContestReport):
         )
 
         # 6. Save
-        sanitized_calls = "_".join([_sanitize_filename_part(c) for c in callsigns])
-        filename = f"interactive_animation_{sanitized_calls}.html"
+        callsigns_part = build_callsigns_filename_part(callsigns)
+        filename = f"interactive_animation--{callsigns_part}.html"
         full_path = os.path.join(output_path, filename)
         
         # Config for Download Filename
-        download_filename = f"contest_progress_{sanitized_calls}"
+        download_filename = f"contest_progress_{callsigns_part}"
         config = {'toImageButtonOptions': {'filename': download_filename, 'format': 'png'}}
         
         fig.write_html(full_path, auto_play=False, config=config)

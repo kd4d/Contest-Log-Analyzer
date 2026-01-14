@@ -19,6 +19,7 @@ from django.conf import settings
 from .report_interface import ContestReport
 from ..data_aggregators.multiplier_stats import MultiplierStatsAggregator
 from contest_tools.utils.report_utils import _sanitize_filename_part, get_cty_metadata, get_standard_title_lines
+from contest_tools.utils.callsign_utils import build_callsigns_filename_part
 
 class Report(ContestReport):
     report_id = "html_multiplier_breakdown"
@@ -139,8 +140,8 @@ class Report(ContestReport):
         html_content = render_to_string('html_multiplier_breakdown.html', context)
 
         # 4. Save File
-        combo_id = "_".join([_sanitize_filename_part(c) for c in all_calls])
-        filename = f"html_multiplier_breakdown_{combo_id}.html"
+        callsigns_part = build_callsigns_filename_part(all_calls)
+        filename = f"html_multiplier_breakdown--{callsigns_part}.html"
 
         os.makedirs(output_path, exist_ok=True)
         filepath = os.path.join(output_path, filename)

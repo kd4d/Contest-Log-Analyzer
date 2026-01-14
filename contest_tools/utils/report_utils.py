@@ -31,6 +31,7 @@ from typing import Optional, Dict, Any
 from ..contest_log import ContestLog
 from ..utils.json_encoders import NpEncoder
 from ..core_annotations.get_cty import CtyLookup
+from ..utils.callsign_utils import callsign_to_filename_part, build_callsigns_filename_part
 import datetime
 
 def get_valid_dataframe(log: ContestLog, include_dupes: bool = False) -> pd.DataFrame:
@@ -44,7 +45,15 @@ def create_output_directory(path: str):
     os.makedirs(path, exist_ok=True)
 
 def _sanitize_filename_part(part: str) -> str:
-    """Sanitizes a string to be used as part of a filename."""
+    """
+    Sanitizes a string to be used as part of a filename.
+    For callsigns, use callsign_to_filename_part() instead.
+    For other parts (band, mode, etc.), this handles general sanitization.
+    """
+    # If it looks like a callsign (contains / or matches callsign pattern), use callsign utility
+    if '/' in str(part) or re.match(r'^[A-Z0-9/]+$', str(part).upper()):
+        return callsign_to_filename_part(str(part))
+    # Otherwise, general sanitization (for band, mode, etc.)
     return re.sub(r'[\s/\\:]+', '_', str(part)).lower()
 
 def get_cty_metadata(logs: list) -> str:
@@ -104,7 +113,8 @@ def get_standard_title_lines(report_name: str, logs: list, band_filter: str = No
 def build_filename(report_id: str, logs: list, band_filter: str = None, mode_filter: str = None) -> str:
     """
     Constructs a standardized, sanitized filename for reports.
-    Format: {report_id}_{band}_{mode}_{callsigns}
+    Format: {report_id}_{band}_{mode}--{callsigns}
+    Uses -- delimiter to separate report metadata from callsigns.
     """
     is_single_band = len(logs[0].contest_definition.valid_bands) == 1
     raw_band = logs[0].contest_definition.valid_bands[0] if is_single_band else (band_filter or 'All')
@@ -112,10 +122,15 @@ def build_filename(report_id: str, logs: list, band_filter: str = None, mode_fil
     
     mode_suffix = f"_{mode_filter.lower()}" if mode_filter else ""
     
-    all_calls = sorted([l.get_metadata().get('MyCall', 'Unknown') for l in logs])
-    filename_calls = '_'.join([_sanitize_filename_part(c) for c in all_calls])
+    # Build metadata part (report_id, band, mode)
+    metadata_part = f"{report_id}_{filename_band}{mode_suffix}"
     
-    return f"{report_id}_{filename_band}{mode_suffix}_{filename_calls}"
+    # Build callsigns part using utility function
+    all_calls = sorted([l.get_metadata().get('MyCall', 'Unknown') for l in logs])
+    callsigns_part = build_callsigns_filename_part(all_calls)
+    
+    # Join with -- delimiter
+    return f"{metadata_part}--{callsigns_part}"
 
 def format_text_header(width: int, title_lines: list, metadata_lines: list = None) -> list:
     """

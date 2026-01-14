@@ -23,6 +23,33 @@ import logging
 from .contest_definitions import ContestDefinition
 
 # --- Internal Regex Definitions for QSO lines ---
+
+def _validate_header_callsign(callsign: str) -> str:
+    """
+    Validates CALLSIGN from Cabrillo header.
+    Raises ValueError if invalid (reject log).
+    Returns normalized callsign (uppercase, stripped).
+    
+    Rules:
+    - Only letters (A-Z), digits (0-9), and / allowed
+    - Cannot start or end with /
+    - Cannot be empty/whitespace
+    """
+    if not callsign or not callsign.strip():
+        raise ValueError("CALLSIGN header field is empty")
+    
+    callsign = callsign.strip().upper()
+    
+    # Check: only letters, digits, and / allowed
+    if not all(c in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/' for c in callsign):
+        invalid_chars = set(c for c in callsign if c not in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/')
+        raise ValueError(f"CALLSIGN contains invalid characters {invalid_chars}: {callsign}")
+    
+    # Check: cannot start or end with /
+    if callsign.startswith('/') or callsign.endswith('/'):
+        raise ValueError(f"CALLSIGN cannot start or end with /: {callsign}")
+    
+    return callsign
 QSO_REGEX_HF = re.compile(r'QSO:\s+(\d{4,5})\s+([A-Z]{2})\s+(\d{4}-\d{2}-\d{2})\s+(\d{4})\s+([A-Z0-9/]+)\s+(.*)')
 QSO_GROUPS_HF = ["FrequencyRaw", "Mode", "DateRaw", "TimeRaw", "MyCallRaw", "ExchangeRest"]
 
@@ -89,6 +116,9 @@ def parse_cabrillo_file(filepath: str, contest_definition: ContestDefinition) ->
             for cabrillo_tag, df_key in contest_definition.header_field_map.items():
                 if line_to_process.startswith(f"{cabrillo_tag}:"):
                     value = line_to_process[len(f"{cabrillo_tag}:"):].strip()
+                    # Validate CALLSIGN header field
+                    if df_key == 'MyCall':
+                        value = _validate_header_callsign(value)
                     log_metadata[df_key] = value
                     break
 
@@ -113,6 +143,13 @@ def _parse_qso_line(
 
     qso_final_dict = {col: pd.NA for col in contest_definition.default_qso_columns}
     for key, val in common_data.items():
+        if key == 'MyCallRaw':
+            # Validate QSO line callsign (warn and skip if invalid, like X-QSO)
+            if not val or not str(val).strip():
+                logging.warning(f"QSO line has empty callsign, skipping: {line}")
+                return None
+            # Note: We don't validate format for QSO line callsigns (they are data/metadata)
+            # Only check for empty/None
         qso_final_dict[key] = val.strip() if isinstance(val, str) else val
 
     exchange_rest = qso_final_dict.pop('ExchangeRest', '').strip()

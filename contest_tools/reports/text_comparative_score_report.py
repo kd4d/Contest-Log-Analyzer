@@ -22,6 +22,7 @@ from ..contest_log import ContestLog
 from ..contest_definitions import ContestDefinition
 from .report_interface import ContestReport
 from contest_tools.utils.report_utils import _sanitize_filename_part, format_text_header, get_cty_metadata, get_standard_title_lines
+from contest_tools.utils.callsign_utils import build_callsigns_filename_part
 from ..data_aggregators.score_stats import ScoreStatsAggregator
 
 class Report(ContestReport):
@@ -168,8 +169,8 @@ class Report(ContestReport):
         # --- Save to File ---
         report_content = "\n".join(report_lines) + "\n"
         os.makedirs(output_path, exist_ok=True)
-        filename_calls = '_'.join([_sanitize_filename_part(c) for c in sorted(all_calls)])
-        filename = f"{self.report_id}_{filename_calls}.txt"
+        callsigns_part = build_callsigns_filename_part(sorted(all_calls))
+        filename = f"{self.report_id}--{callsigns_part}.txt"
         filepath = os.path.join(output_path, filename)
         
         with open(filepath, 'w', encoding='utf-8') as f:

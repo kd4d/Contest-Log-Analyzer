@@ -18,6 +18,7 @@ from bs4 import BeautifulSoup
 import os
 import logging
 from typing import List, Optional
+from .callsign_utils import filename_part_to_callsign
 
 logger = logging.getLogger(__name__)
 
@@ -45,8 +46,10 @@ def fetch_log_index(year: str, mode: str) -> List[str]:
         for link in links:
             href = link['href']
             if href.endswith('.log'):
-                # Extract callsign from filename (k3lr.log -> k3lr) or text
-                call = href[:-4].upper()
+                # Extract callsign from filename (k3lr.log -> k3lr, 5b-yt7aw.log -> 5b-yt7aw)
+                filename_part = href[:-4].lower()
+                # Convert filename part back to callsign format (handles portable callsigns)
+                call = filename_part_to_callsign(filename_part)
                 callsigns.append(call)
                 
         return sorted(list(set(callsigns)))

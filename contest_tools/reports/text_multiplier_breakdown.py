@@ -16,6 +16,7 @@ import os
 from .report_interface import ContestReport
 from ..data_aggregators.multiplier_stats import MultiplierStatsAggregator
 from contest_tools.utils.report_utils import _sanitize_filename_part, format_text_header, get_cty_metadata, get_standard_title_lines
+from contest_tools.utils.callsign_utils import build_callsigns_filename_part
 
 class Report(ContestReport):
     report_id = "text_multiplier_breakdown"
@@ -159,9 +160,9 @@ class Report(ContestReport):
         content = "\n".join(lines)
         
         # 4. Save File
-        # text_multiplier_breakdown_{callsigns}.txt using utility
-        combo_id = "_".join([_sanitize_filename_part(c) for c in all_calls])
-        filename = f"text_multiplier_breakdown_{combo_id}.txt"
+        # text_multiplier_breakdown--{callsigns}.txt using utility
+        callsigns_part = build_callsigns_filename_part(all_calls)
+        filename = f"text_multiplier_breakdown--{callsigns_part}.txt"
         
         # Use output_path provided by interface
     

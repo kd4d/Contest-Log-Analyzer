@@ -226,6 +226,7 @@ from contest_tools.data_aggregators.multiplier_stats import MultiplierStatsAggre
 from contest_tools.report_generator import ReportGenerator
 from contest_tools.core_annotations import CtyLookup
 from contest_tools.utils.report_utils import _sanitize_filename_part, get_standard_title_lines, get_cty_metadata
+from contest_tools.utils.callsign_utils import build_callsigns_filename_part, parse_callsigns_from_filename_part, callsign_to_filename_part
 from contest_tools.utils.log_fetcher import fetch_log_index, download_logs
 from contest_tools.manifest_manager import ManifestManager
 from contest_tools.utils.profiler import ProfileContext
@@ -437,16 +438,16 @@ def _run_analysis_pipeline(request_id, log_paths, session_path, session_key):
     cty_version_info = f"{cty_filename} ({cty_date_str})"
     
     all_calls = sorted([l.get_metadata().get('MyCall', f'Log{i+1}') for i, l in enumerate(lm.logs)])
-    combo_id = '_'.join(all_calls)
+    combo_id = build_callsigns_filename_part(all_calls)
 
     # Construct safe URL path (LOWERCASE to match ReportGenerator's disk output)
     path_components = [year, contest_name.lower(), event_id.lower(), combo_id.lower()]
     report_url_path = "/".join([str(p) for p in path_components if p])
 
-    # Protocol 3.5: Construct Standardized Filenames <report_id>_<callsigns>.<ext>
+    # Protocol 3.5: Construct Standardized Filenames <report_id>--<callsigns>.<ext>
     # CRITICAL: Filenames on disk are lowercased by ReportGenerator. We must match that.
-    animation_filename = f"interactive_animation_{combo_id.lower()}.html"
-    plot_filename = f"qso_rate_plots_all_{combo_id.lower()}.html"
+    animation_filename = f"interactive_animation--{combo_id.lower()}.html"
+    plot_filename = f"qso_rate_plots_all--{combo_id.lower()}.html"
     
     # Note: Multiplier filename removed here. It is now dynamically resolved in multiplier_dashboard view.
 
@@ -726,10 +727,14 @@ def multiplier_dashboard(request, session_id):
     multipliers = {}
 
     # Prepare Suffixes for Categorization
-    all_calls_safe = sorted([_sanitize_filename_part(l['callsign']) for l in persisted_logs])
+    # Extract callsigns from persisted logs and build filename part
+    persisted_callsigns = [l['callsign'] for l in persisted_logs]
+    callsigns_part = build_callsigns_filename_part(sorted(persisted_callsigns))
+    # For backward compatibility with old format parsing
+    all_calls_safe = [callsign_to_filename_part(c) for c in sorted(persisted_callsigns)]
     
-    # 1. Session Suffix (All Logs)
-    suffix_session = "_" + "_".join(all_calls_safe)
+    # 1. Session Suffix (All Logs) - format: --{callsigns}
+    suffix_session = "--" + callsigns_part
 
     target_ids = ['missed_multipliers', 'multiplier_summary']
     
@@ -742,39 +747,72 @@ def multiplier_dashboard(request, session_id):
         category = None # 'session', 'pair', 'single'
         label_context = None # e.g. "K1LZ vs K3LR" or "K1LZ"
 
-        # Extract Mult Type from Filename: {report_id}_{MULT_TYPE}_{combo_id}.txt
+        # Extract Mult Type from Filename: {report_id}_{MULT_TYPE}--{callsigns}.txt
         fname = os.path.basename(art['path'])
         # Strip extension
         base = os.path.splitext(fname)[0]
         
         # --- Categorization Logic ---
+        # Check for new format with -- delimiter
         if base.endswith(suffix_session):
             category = 'session'
             base = base[:-len(suffix_session)]
+        # Also check for old format (backward compatibility during migration)
+        elif base.endswith("_" + callsigns_part):
+            category = 'session'
+            base = base[:-len("_" + callsigns_part)]
         else:
+            # Parse callsigns from filename part (handle -- delimiter)
+            # Format: {report_id}_{MULT_TYPE}--{callsigns} or old format {report_id}_{MULT_TYPE}_{callsigns}
+            if '--' in base:
+                # New format: split on -- to get callsigns part
+                parts = base.rsplit('--', 1)
+                if len(parts) == 2:
+                    callsigns_part = parts[1]
+                    parsed_calls = parse_callsigns_from_filename_part(callsigns_part)
+                    callsigns_safe_for_matching = [c.lower().replace('/', '-') for c in parsed_calls]
+                else:
+                    callsigns_safe_for_matching = []
+            else:
+                # Old format: try to extract from end (backward compatibility)
+                callsigns_safe_for_matching = all_calls_safe
+            
             # 1. Check Pairs (Longer suffix matches first to prevent partial collision)
             found_pair = False
-            if len(all_calls_safe) > 2:
-                pairs = list(itertools.combinations(all_calls_safe, 2))
+            if len(callsigns_safe_for_matching) > 2:
+                pairs = list(itertools.combinations(callsigns_safe_for_matching, 2))
                 for p in pairs:
-                    # Pairs are sorted in filename: _call1_call2
+                    # Pairs in new format: --call1_call2, old format: _call1_call2
                     c1, c2 = sorted(p)
-                    p_suff = f"_{c1}_{c2}"
-                    if base.endswith(p_suff):
+                    p_suff_new = f"--{c1}_{c2}"
+                    p_suff_old = f"_{c1}_{c2}"
+                    if base.endswith(p_suff_new):
+                        category = 'pairs'
+                        label_context = f"{c1.upper().replace('-', '/')} vs {c2.upper().replace('-', '/')}"
+                        base = base[:-len(p_suff_new)]
+                        found_pair = True
+                        break
+                    elif base.endswith(p_suff_old):
                         category = 'pairs'
                         label_context = f"{c1.upper()} vs {c2.upper()}"
-                        base = base[:-len(p_suff)]
+                        base = base[:-len(p_suff_old)]
                         found_pair = True
                         break
 
             # 2. Check Singles (if not pair)
             if not found_pair:
-                for c in all_calls_safe:
-                    s_suff = f"_{c}"
-                    if base.endswith(s_suff):
+                for c in callsigns_safe_for_matching:
+                    s_suff_new = f"--{c}"
+                    s_suff_old = f"_{c}"
+                    if base.endswith(s_suff_new):
+                        category = 'singles'
+                        label_context = c.upper().replace('-', '/')
+                        base = base[:-len(s_suff_new)]
+                        break
+                    elif base.endswith(s_suff_old):
                         category = 'singles'
                         label_context = c.upper()
-                        base = base[:-len(s_suff)]
+                        base = base[:-len(s_suff_old)]
                         break
 
         # Strip prefix
@@ -862,8 +900,8 @@ def qso_dashboard(request, session_id):
     report_rel_path = os.path.relpath(manifest_dir, session_path).replace("\\", "/")
 
     # 2. Re-construct Callsigns from the combo_id
-    callsigns_safe = combo_id.split('_')
-    callsigns_display = [c.upper() for c in callsigns_safe]
+    callsigns_display = parse_callsigns_from_filename_part(combo_id)
+    callsigns_safe = [c.lower().replace('/', '-') for c in callsigns_display]  # For filename matching
     is_solo = (len(callsigns_safe) == 1)
     BAND_SORT_ORDER = {'ALL': 0, '160M': 1, '80M': 2, '40M': 3, '20M': 4, '15M': 5, '10M': 6, '6M': 7, '2M': 8}
     

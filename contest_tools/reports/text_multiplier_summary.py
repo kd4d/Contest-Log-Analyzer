@@ -22,6 +22,7 @@ from ..contest_log import ContestLog
 from ..data_aggregators.multiplier_stats import MultiplierStatsAggregator
 from .report_interface import ContestReport
 from contest_tools.utils.report_utils import format_text_header, get_cty_metadata, get_standard_title_lines, _sanitize_filename_part
+from contest_tools.utils.callsign_utils import build_callsigns_filename_part
 
 class Report(ContestReport):
     """
@@ -116,10 +117,10 @@ class Report(ContestReport):
             # --- Save the clean (but empty) report and exit ---
             report_content = "\n".join(report_lines) + "\n"
             os.makedirs(output_path, exist_ok=True)
-            filename_calls = '_'.join([_sanitize_filename_part(c) for c in sorted(all_calls)])
+            callsigns_part = build_callsigns_filename_part(sorted(all_calls))
             
             mode_suffix = f"_{mode_filter.lower()}" if mode_filter else ""
-            filename = f"{self.report_id}_{mult_name.lower().replace('/', '_')}{mode_suffix}_{filename_calls}.txt"
+            filename = f"{self.report_id}_{mult_name.lower().replace('/', '_')}{mode_suffix}--{callsigns_part}.txt"
             filepath = os.path.join(output_path, filename)
             with open(filepath, 'w', encoding='utf-8') as f:
                 f.write(report_content)
@@ -282,9 +283,9 @@ class Report(ContestReport):
         
         os.makedirs(output_path, exist_ok=True)
         
-        filename_calls = '_'.join([_sanitize_filename_part(c) for c in sorted(all_calls)])
+        callsigns_part = build_callsigns_filename_part(sorted(all_calls))
         mode_suffix = f"_{mode_filter.lower()}" if mode_filter else ""
-        filename = f"{self.report_id}_{mult_name.lower().replace('/', '_')}{mode_suffix}_{filename_calls}.txt"
+        filename = f"{self.report_id}_{mult_name.lower().replace('/', '_')}{mode_suffix}--{callsigns_part}.txt"
         filepath = os.path.join(output_path, filename)
         
         with open(filepath, 'w', encoding='utf-8') as f:
