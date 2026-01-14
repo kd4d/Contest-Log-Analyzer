@@ -971,7 +971,9 @@ def qso_dashboard(request, session_id):
     
     # For multi-log: Only show comparison plots (ending with combo_id)
     # For single-log: Show individual station plots (ending with single callsign)
-    target_suffix = f"_{combo_id}.html" if not is_solo else None
+    # New format: --{combo_id}.html, Old format: _{combo_id}.html
+    target_suffix_new = f"--{combo_id}.html" if not is_solo else None
+    target_suffix_old = f"_{combo_id}.html" if not is_solo else None
     target_callsigns = callsigns_safe if is_solo else None
 
     for art in artifacts:
@@ -981,29 +983,43 @@ def qso_dashboard(request, session_id):
             # Filter by suffix pattern
             if not is_solo:
                 # Multi-log: Only include comparison plots (ending with combo_id)
-                if not fname.endswith(target_suffix):
+                # Check both new and old formats
+                if not (target_suffix_new and fname.endswith(target_suffix_new)) and not (target_suffix_old and fname.endswith(target_suffix_old)):
                     continue
             else:
                 # Single-log: Only include individual station plots (ending with single callsign)
                 # Exclude comparison plots (those ending with combo_id which is same as single callsign)
                 # For single log, combo_id IS the callsign, so we need to check if it's exactly one callsign
-                # Pattern: point_rate_plots_{band}_{callsign}.html (single callsign suffix)
+                # Pattern: point_rate_plots_{band}--{callsign}.html (new) or point_rate_plots_{band}_{callsign}.html (old)
                 matches_single = False
                 for call in target_callsigns:
-                    single_suffix = f"_{call}.html"
-                    if fname.endswith(single_suffix):
+                    single_suffix_new = f"--{call}.html"
+                    single_suffix_old = f"_{call}.html"
+                    if fname.endswith(single_suffix_new) or fname.endswith(single_suffix_old):
                         matches_single = True
                         break
                 if not matches_single:
                     continue
             
-            # point_rate_plots_{band}_{calls}.html
-            # Remove prefix
-            remainder = fname.replace('point_rate_plots_', '')
-            parts = remainder.split('_')
-            if parts:
-                band_key = parts[0].upper()
-                if band_key.isdigit(): band_key += 'M'
+            # Handle new format with -- delimiter: point_rate_plots_{band}--{callsigns}.html
+            # or old format: point_rate_plots_{band}_{callsigns}.html
+            if '--' in fname:
+                # New format: point_rate_plots_all--k1lz_k3lr_w3lpl.html or point_rate_plots_20m--k1lz_k3lr_w3lpl.html
+                # Split on -- to separate band/mode from callsigns
+                parts_before_dash = fname.replace('point_rate_plots_', '').split('--')[0]
+                # Extract band from first part (e.g., "all", "20m", "20m_cw")
+                band_parts = parts_before_dash.split('_')
+                band_key = band_parts[0].upper()
+            else:
+                # Old format (backward compatibility): point_rate_plots_20m_k1lz_k3lr.html
+                remainder = fname.replace('point_rate_plots_', '')
+                parts = remainder.split('_')
+                if parts:
+                    band_key = parts[0].upper()
+                else:
+                    continue
+            
+            if band_key.isdigit(): band_key += 'M'
                 
                 label = "All Bands" if band_key == 'ALL' else band_key
                 sort_val = BAND_SORT_ORDER.get(band_key, 99)
@@ -1034,7 +1050,9 @@ def qso_dashboard(request, session_id):
     
     # For multi-log: Only show comparison plots (ending with combo_id)
     # For single-log: Show individual station plots (ending with single callsign)
-    target_suffix = f"_{combo_id}.html" if not is_solo else None
+    # New format: --{combo_id}.html, Old format: _{combo_id}.html
+    target_suffix_new = f"--{combo_id}.html" if not is_solo else None
+    target_suffix_old = f"_{combo_id}.html" if not is_solo else None
     target_callsigns = callsigns_safe if is_solo else None
     
     for art in artifacts:
@@ -1044,38 +1062,54 @@ def qso_dashboard(request, session_id):
             # Filter by suffix pattern
             if not is_solo:
                 # Multi-log: Only include comparison plots (ending with combo_id)
-                if not fname.endswith(target_suffix):
+                # Check both new and old formats
+                if not (target_suffix_new and fname.endswith(target_suffix_new)) and not (target_suffix_old and fname.endswith(target_suffix_old)):
                     continue
             else:
                 # Single-log: Only include individual station plots (ending with single callsign)
                 # Exclude comparison plots (those ending with combo_id which is same as single callsign)
                 # For single log, combo_id IS the callsign, so we need to check if it's exactly one callsign
-                # Pattern: qso_rate_plots_{band}_{callsign}.html (single callsign suffix)
+                # Pattern: qso_rate_plots_{band}--{callsign}.html (new) or qso_rate_plots_{band}_{callsign}.html (old)
                 matches_single = False
                 for call in target_callsigns:
-                    single_suffix = f"_{call}.html"
-                    if fname.endswith(single_suffix):
+                    single_suffix_new = f"--{call}.html"
+                    single_suffix_old = f"_{call}.html"
+                    if fname.endswith(single_suffix_new) or fname.endswith(single_suffix_old):
                         matches_single = True
                         break
                 if not matches_single:
                     continue
             
-            remainder = fname.replace('qso_rate_plots_', '')
-            parts = remainder.split('_')
-            if parts:
-                band_key = parts[0].upper()
-                if band_key.isdigit(): band_key += 'M'
-                if band_key == 'ALL': continue
+            # Handle new format with -- delimiter: qso_rate_plots_{band}--{callsigns}.html
+            # or old format: qso_rate_plots_{band}_{callsigns}.html
+            if '--' in fname:
+                # New format: qso_rate_plots_all--k1lz_k3lr_w3lpl.html or qso_rate_plots_20m--k1lz_k3lr_w3lpl.html
+                # Split on -- to separate band/mode from callsigns
+                parts_before_dash = fname.replace('qso_rate_plots_', '').split('--')[0]
+                # Extract band from first part (e.g., "all", "20m", "20m_cw")
+                band_parts = parts_before_dash.split('_')
+                band_key = band_parts[0].upper()
+            else:
+                # Old format (backward compatibility): qso_rate_plots_20m_k1lz_k3lr.html
+                remainder = fname.replace('qso_rate_plots_', '')
+                parts = remainder.split('_')
+                if parts:
+                    band_key = parts[0].upper()
+                else:
+                    continue
+            
+            if band_key.isdigit(): band_key += 'M'
+            if band_key == 'ALL': continue
 
-                label = band_key
-                sort_val = BAND_SORT_ORDER.get(band_key, 99)
-                
-                qso_band_plots.append({
-                    'label': label,
-                    'file_html': f"{report_rel_path}/{art['path']}",
-                    'file_json': f"{settings.MEDIA_URL}sessions/{session_id}/{report_rel_path}/{art['path'].replace('.html', '.json')}",
-                    'sort_val': sort_val
-                })
+            label = band_key
+            sort_val = BAND_SORT_ORDER.get(band_key, 99)
+            
+            qso_band_plots.append({
+                'label': label,
+                'file_html': f"{report_rel_path}/{art['path']}",
+                'file_json': f"{settings.MEDIA_URL}sessions/{session_id}/{report_rel_path}/{art['path'].replace('.html', '.json')}",
+                'sort_val': sort_val
+            })
 
     qso_band_plots.sort(key=lambda x: x['sort_val'])
     
@@ -1091,26 +1125,31 @@ def qso_dashboard(request, session_id):
             qso_band_plots[0]['active'] = True
 
     # Global files via manifest lookup
-    # For single log: qso_rate_plots_all_{callsign}.html
-    # For multi log: qso_rate_plots_all_{call1}_{call2}...html
+    # New format: qso_rate_plots_all--{callsigns}.html
+    # Old format (backward compat): qso_rate_plots_all_{callsigns}.html
     if is_solo:
-        # Single log: Look for qso_rate_plots_all_{callsign}.html
+        # Single log: Look for qso_rate_plots_all--{callsign}.html or old format
         call_safe = callsigns_safe[0] if callsigns_safe else combo_id
         global_qso = next((f"{report_rel_path}/{a['path']}" for a in artifacts 
                           if a['report_id'] == 'qso_rate_plots' 
-                          and f"_all_{call_safe}.html" in a['path']), "")
+                          and (f"all--{call_safe}.html" in a['path'] or f"_all_{call_safe}.html" in a['path'])), "")
     else:
-        # Multi log: Look for qso_rate_plots_all_{combo_id}.html
+        # Multi log: Look for qso_rate_plots_all--{combo_id}.html or old format
         global_qso = next((f"{report_rel_path}/{a['path']}" for a in artifacts 
                           if a['report_id'] == 'qso_rate_plots' 
-                          and f"_all_{combo_id}.html" in a['path']), "")
+                          and (f"all--{combo_id}.html" in a['path'] or f"_all_{combo_id}.html" in a['path'])), "")
     
     if not global_qso:
         logger.warning(f"QSO Dashboard: Global QSO Rate Plot not found for combo_id '{combo_id}' in '{report_rel_path}'.")
 
     # Strict lookup for Rate Sheet Comparison to ensure we get the full multi-log version, not a pairwise subset
-    rate_sheet_target = f"rate_sheet_comparison_{combo_id}.txt"
-    rate_sheet_comp = next((f"{report_rel_path}/{a['path']}" for a in artifacts if a['report_id'] == 'rate_sheet_comparison' and a['path'].endswith(rate_sheet_target)), "")
+    # New format: rate_sheet_comparison--{combo_id}.txt
+    # Old format (backward compat): rate_sheet_comparison_{combo_id}.txt
+    rate_sheet_target_new = f"rate_sheet_comparison--{combo_id}.txt"
+    rate_sheet_target_old = f"rate_sheet_comparison_{combo_id}.txt"
+    rate_sheet_comp = next((f"{report_rel_path}/{a['path']}" for a in artifacts 
+                          if a['report_id'] == 'rate_sheet_comparison' 
+                          and (a['path'].endswith(rate_sheet_target_new) or a['path'].endswith(rate_sheet_target_old))), "")
     
     if not rate_sheet_comp and not is_solo:
         logger.warning(f"QSO Dashboard: Comparative Rate Sheet not found for combo_id '{combo_id}'. Expected suffix: '{rate_sheet_target}'.")
