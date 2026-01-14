@@ -1,6 +1,6 @@
 # Contest Log Analytics
 
-**Version: 0.128.0-Beta**  
+**Version: 1.0.0-alpha.1**  
 **A post-mortem analysis engine for amateur radio contesting**
 
 ---
@@ -33,7 +33,7 @@ Cabrillo logs don't record whether you were "Running" (Calling CQ) or "Search & 
 Forget manually downloading competitor logs. CLA connects directly to public contest archives (starting with CQ WW). Simply select the year and mode, search for competitors by callsign, and fetch data instantly for head-to-head analysis.
 
 ### Dual Interface
-- **Web Dashboard**: Containerized Django application with interactive visualizations (Plotly charts), progress tracking, and multiplier breakdown dashboards
+- **Web Dashboard**: Containerized Django application with interactive visualizations (Plotly charts), QSO and Multiplier dashboards with drill-down analysis, progress tracking, and comprehensive report viewing
 - **Command-Line Interface**: Full-featured CLI for batch processing, automation, and text report generation
 
 ### Comprehensive Reporting
@@ -41,6 +41,7 @@ Forget manually downloading competitor logs. CLA connects directly to public con
 - **Cumulative Difference Plots**: See the "zero line" of competition—where leads were built or lost
 - **QSO Breakdown Charts**: Visualize Unique vs. Common QSOs by Run/S&P/Mixed mode
 - **Multiplier Analysis**: Detailed missed multiplier reports with "Group Par" benchmarking
+- **Multiplier Breakdown Dashboards**: Interactive HTML dashboards with drill-down analysis of missed multipliers by band and operating mode
 - **Rate Sheets**: Hourly breakdown by band and mode
 - **Score Summaries**: Comprehensive scoring with band-by-band details
 
@@ -78,7 +79,7 @@ The easiest way to run CLA is via Docker with the pre-configured web dashboard:
 
 2. **Start the application**:
    ```bash
-   docker-compose up
+   docker-compose up --build
    ```
 
 3. **Access the web interface**:
@@ -98,6 +99,12 @@ python main_cli.py --report all MyLog.log CompetitorLog.log
 # Generate specific report types
 python main_cli.py --report plot MyLog.log CompetitorLog.log
 python main_cli.py --report chart MyLog.log CompetitorLog.log
+
+# WRTC scoring for IARU-HF logs
+python main_cli.py --report all --wrtc 2026 MyLog.log
+
+# Debug options
+python main_cli.py --report all --debug-data MyLog.log
 ```
 
 **Note**: The analyzer supports 1, 2, or 3 logs. Single-log analysis provides detailed performance metrics. Multi-log analysis enables head-to-head comparison and identifies unique vs. common QSOs.
@@ -116,9 +123,11 @@ Comprehensive documentation is available in the `Docs/` directory:
 
 - **[Installation Guide](Docs/InstallationGuide.md)**: Complete installation instructions for Docker and CLI environments
 - **[User Guide](Docs/UsersGuide.md)**: How to run the analyzer, interpret reports, and understand output
+- **[Contributing Guide](Docs/Contributing.md)**: Engineering standards, versioning strategy, and contribution guidelines
 - **[Programmer's Guide](Docs/ProgrammersGuide.md)**: Technical documentation for developers extending CLA
 - **[Report Interpretation Guide](Docs/ReportInterpretationGuide.md)**: Detailed explanation of report formats and what they reveal
 - **[Style Guide](Docs/CLAReportsStyleGuide.md)**: Standards for report formatting and visualization
+- **[Git Workflow Setup](Docs/GitWorkflowSetup.md)**: Git workflow conventions and setup instructions
 - **Technical Algorithms**:
   - [Run & S&P Classification Algorithm](Docs/RunS&PAlgorithm.md)
   - [Callsign Lookup Algorithm](Docs/CallsignLookupAlgorithm.md)
@@ -151,6 +160,7 @@ Contest-Log-Analyzer/
 │   ├── contest_log.py       # ContestLog class
 │   ├── log_manager.py       # Multi-log orchestration
 │   ├── report_generator.py  # Report execution engine
+│   ├── version.py           # Version management (git-based)
 │   ├── contest_definitions/ # JSON contest rule files
 │   ├── reports/             # Report generator modules
 │   ├── data_aggregators/    # Data analysis layer
@@ -171,10 +181,10 @@ CLA is under active development. To contribute:
 
 1. Fork the repository
 2. Create a feature branch
-3. Follow the coding standards in the [Programmer's Guide](Docs/ProgrammersGuide.md)
+3. Follow the coding standards in the [Contributing Guide](Docs/Contributing.md) and [Programmer's Guide](Docs/ProgrammersGuide.md)
 4. Submit a pull request
 
-See [Git Branch Instructions](Docs/GitBranchInstructions.md) for branching conventions.
+See [Git Workflow Setup](Docs/GitWorkflowSetup.md) for branching conventions and workflow details.
 
 ---
 
