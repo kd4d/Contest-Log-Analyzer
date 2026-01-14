@@ -27,7 +27,7 @@ import re
 import json
 import logging
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from ..contest_log import ContestLog
 from ..utils.json_encoders import NpEncoder
 from ..core_annotations.get_cty import CtyLookup
@@ -75,10 +75,23 @@ def get_cty_metadata(logs: list) -> str:
 
     return f"CTY File: {date_str} {version_str}"
 
-def get_standard_title_lines(report_name: str, logs: list, band_filter: str = None, mode_filter: str = None, modes_present_set: set = None) -> list:
+def get_standard_title_lines(report_name: str, logs: list, band_filter: str = None, mode_filter: str = None, modes_present_set: set = None, callsigns_override: List[str] = None) -> list:
     """
     Generates the standard 3-Line Title components (Name, Context, Scope).
     Applies Smart Scoping logic for modes.
+    
+    Args:
+        report_name: Name of the report
+        logs: List of ContestLog objects (used for metadata extraction)
+        band_filter: Optional band filter string
+        mode_filter: Optional mode filter string
+        modes_present_set: Optional set of modes present in the data
+        callsigns_override: Optional list of callsigns to use instead of extracting from logs.
+                          This ensures consistency with aggregator data when logs may include
+                          entries with no data. If None, callsigns are extracted from logs.
+    
+    Returns:
+        List of three title lines: [report_name, context_line, scope_line]
     """
     if not logs: return [report_name, "", ""]
     
@@ -87,7 +100,13 @@ def get_standard_title_lines(report_name: str, logs: list, band_filter: str = No
     year = df['Date'].dropna().iloc[0].split('-')[0] if not df.empty else "----"
     contest_name = metadata.get('ContestName', '')
     event_id = metadata.get('EventID', '')
-    all_calls = sorted([l.get_metadata().get('MyCall', 'Unknown') for l in logs])
+    
+    # Use override if provided (from aggregator data), otherwise extract from logs
+    if callsigns_override:
+        all_calls = sorted(callsigns_override)
+    else:
+        all_calls = sorted([l.get_metadata().get('MyCall', 'Unknown') for l in logs])
+    
     callsign_str = ", ".join(all_calls)
     
     line2 = f"{year} {event_id} {contest_name} - {callsign_str}".strip().replace("   ", " ")

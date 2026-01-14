@@ -221,13 +221,16 @@ class Report(ContestReport):
         fig.update_xaxes(title_text="Band", row=2, col=2)
 
         # Construct Standard Title
+        # Use the same callsigns list that was used for the filename to ensure consistency
+        # The aggregator data (data['callsigns']) is the source of truth for which callsigns have data
         modes_present = set()
         for log in self.logs:
             df = get_valid_dataframe(log)
             if 'Mode' in df.columns:
                 modes_present.update(df['Mode'].dropna().unique())
         
-        title_lines = get_standard_title_lines(self.report_name, self.logs, "All Bands", None, modes_present)
+        # Pass callsigns_override to ensure title matches what's actually displayed (from aggregator)
+        title_lines = get_standard_title_lines(self.report_name, self.logs, "All Bands", None, modes_present, callsigns_override=callsigns)
         
         # For animation, we can add help text to the title
         final_title = f"{title_lines[0]}<br><sub>{title_lines[1]}<br>{title_lines[2]}</sub>"
