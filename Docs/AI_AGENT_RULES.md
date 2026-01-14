@@ -13,9 +13,10 @@ This document provides specific rules for AI agents (like Cursor/Console AI) whe
 ## What AI Can Do Directly
 
 ### ✅ Commit Message Generation
-- Generate Angular-formatted commit messages
+- Generate Angular-formatted commit messages following strict format
 - Suggest appropriate commit types (feat, fix, docs, etc.)
-- Format commit messages with proper structure
+- Format commit messages with proper structure (subject, blank line, body)
+- Use multiple `-m` flags or single `-m` with escaped newlines for proper formatting
 
 ### ✅ Feature Branch Commits
 - Create commits on feature branches
@@ -111,10 +112,40 @@ This document provides specific rules for AI agents (like Cursor/Console AI) whe
 
 ## Commit Message Standards
 
+**Standard:** All commits MUST follow strict Angular Conventional Commits format, regardless of branch.
+
+### Angular Format Structure (Mandatory)
+```
+<type>(<scope>): <short summary>
+
+<body>
+
+<footer> (optional, only for BREAKING CHANGE)
+```
+
+**Requirements:**
+- **Type:** One of: feat, fix, docs, style, refactor, perf, test, build, ci, chore
+- **Scope:** Optional, lowercase, in parentheses (e.g., `(readme)`, `(dashboard)`)
+- **Subject:** Imperative, lowercase, < 50 characters
+- **Blank line:** MANDATORY between subject and body
+- **Body:** Detailed explanation, wrap at 72 characters, bullet points allowed
+- **Footer:** Only for BREAKING CHANGE or issue tracking
+
 ### For Feature Branch Commits
-- Can use informal messages: `"wip: adding widget framework"`
-- Can use shorthand: `"refactor dashboard"`, `"fix bug"`
-- Focus on development context, not user-facing changes
+- **Must follow Angular format strictly**
+- Use appropriate type (feat, fix, docs, refactor, etc.)
+- Include body with bullet points describing changes
+- Example:
+  ```
+  feat(dashboard): add user dashboard with widgets
+
+  Implements main dashboard view with widget framework.
+  Adds real-time data updates and user preferences.
+  
+  - Created dashboard view component
+  - Implemented widget system
+  - Added API integration for live data
+  ```
 
 ### For Merge Commits to Main
 - **Must follow Angular format strictly:**
@@ -175,12 +206,19 @@ This document provides specific rules for AI agents (like Cursor/Console AI) whe
 User: "Commit these changes with a message about adding the dashboard"
 
 AI:
-1. Generates commit message following Angular format
-2. Shows: "feat(dashboard): add user dashboard with widgets
+1. Generates commit message following strict Angular format:
+   ```
+   feat(dashboard): add user dashboard with widgets
+
+   Implements main dashboard view with widget framework.
+   Adds real-time data updates and user preferences.
    
-   Implements main dashboard view with widget framework."
-3. Executes: git commit -m "..."
-4. Confirms: "Committed to feat/dashboard branch"
+   - Created dashboard view component
+   - Implemented widget system
+   - Added API integration for live data
+   ```
+2. Executes: git commit with properly formatted message (using multiple -m flags or single -m with newlines)
+3. Confirms: "Committed to feat/dashboard branch"
 ```
 
 ### Example 2: Merge to Main
