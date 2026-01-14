@@ -191,6 +191,7 @@ Many contests require additional configuration:
 - `custom_parser_module`: Custom Cabrillo parser module (e.g., `"arrl_dx_parser"`)
 - `custom_multiplier_resolver`: Custom multiplier resolution logic (e.g., `"arrl_ss_multiplier_resolver"`)
 - `custom_location_resolver`: Custom location determination (e.g., `"wae_location_resolver"`)
+- `custom_dupe_checker`: Custom duplicate QSO checking logic (e.g., `"laqp_dupe_checker"`)
 - `custom_adif_exporter`: Custom ADIF export logic (e.g., `"cq_ww_adif"`)
 
 **Contest Period & Operating Rules:**
@@ -330,10 +331,39 @@ For real-world examples, examine existing contest definitions in `contest_tools/
 
 While most contests can be defined purely in JSON, you may need custom Python modules for:
 
-1. **Custom Scoring:** Create a module in `contest_tools/scoring/` (e.g., `wae_scoring.py`)
+1. **Custom Scoring:** Create a module in `contest_tools/contest_specific_annotations/` (e.g., `wae_scoring.py`)
 2. **Custom Parsing:** Create a module in `contest_tools/contest_specific_annotations/` (e.g., `arrl_dx_parser.py`)
-3. **Custom Multiplier Resolution:** Create a module in `contest_tools/multiplier_resolvers/` (e.g., `arrl_ss_multiplier_resolver.py`)
-4. **Custom Location Resolution:** Create a module in `contest_tools/location_resolvers/` (e.g., `wae_location_resolver.py`)
+3. **Custom Multiplier Resolution:** Create a module in `contest_tools/contest_specific_annotations/` (e.g., `arrl_ss_multiplier_resolver.py`)
+4. **Custom Location Resolution:** Create a module in `contest_tools/contest_specific_annotations/` (e.g., `wae_location_resolver.py`)
+5. **Custom Dupe Checking:** Create a module in `contest_tools/contest_specific_annotations/` (e.g., `laqp_dupe_checker.py`)
+
+**When Custom Dupe Checking is Needed:**
+- Rover stations that can be worked from multiple locations (e.g., state QSO parties with county/parish rovers)
+- Contests where dupe checking must consider exchange data (e.g., location codes in exchange)
+- Asymmetric dupe rules (different rules for in-state vs out-of-state stations)
+- Any contest where standard `(Call, Band, Mode)` dupe checking is insufficient
+
+**Function Signature:**
+```python
+def check_dupes(df: pd.DataFrame, my_location_type: Optional[str], 
+                root_input_dir: str, contest_def: ContestDefinition) -> pd.DataFrame:
+    """
+    Performs custom duplicate QSO checking.
+    Returns a new DataFrame with the 'Dupe' column updated.
+    
+    Note: Standard dupe checking runs first during apply_annotations().
+    Custom dupe checker runs after multiplier resolution (so location data
+    is available) but before scoring. It can override the standard dupe flags.
+    """
+    # Implementation
+    return df.copy()  # Always return new DataFrame (immutability)
+```
+
+**Execution Order:**
+1. Standard dupe checking (during `apply_annotations()`)
+2. Multiplier resolution (populates location/exchange data)
+3. **Custom dupe checking** (if specified, can override standard dupes)
+4. Scoring (uses final `Dupe` column)
 
 Reference existing modules in these directories for implementation patterns.
 
@@ -690,6 +720,7 @@ When things go wrong, use this systematic approach to diagnose and fix issues.
 | `custom_parser_module` | string | No | Python module for custom parsing |
 | `custom_multiplier_resolver` | string | No | Python module for custom multiplier logic |
 | `custom_location_resolver` | string | No | Python module for custom location logic |
+| `custom_dupe_checker` | string | No | Python module for custom duplicate checking |
 | `custom_adif_exporter` | string | No | Python module for custom ADIF export |
 | `time_series_calculator` | string | No | Python module for custom time series |
 | `inherits_from` | string | No | Parent contest definition to inherit from |
