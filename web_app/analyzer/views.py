@@ -1346,7 +1346,8 @@ def download_all_reports(request, session_id):
 
 def help_about(request):
     """Renders the About / Intro page."""
-    return render(request, 'analyzer/about.html')
+    from contest_tools.version import __version__
+    return render(request, 'analyzer/about.html', {'version': __version__})
 
 def help_dashboard(request):
     """Renders the Dashboard Help page."""
@@ -1355,3 +1356,31 @@ def help_dashboard(request):
 def help_reports(request):
     """Renders the Report Interpretation Guide."""
     return render(request, 'analyzer/help_reports.html')
+
+def help_release_notes(request):
+    """Renders CHANGELOG.md as HTML."""
+    import markdown
+    from contest_tools.version import __version__
+    
+    changelog_path = os.path.join(settings.BASE_DIR.parent.parent, 'CHANGELOG.md')
+    
+    try:
+        with open(changelog_path, 'r', encoding='utf-8') as f:
+            md_content = f.read()
+        
+        # Convert markdown to HTML with extensions for better formatting
+        html_content = markdown.markdown(
+            md_content, 
+            extensions=['fenced_code', 'tables', 'nl2br']
+        )
+    except FileNotFoundError:
+        logger.warning(f"CHANGELOG.md not found at {changelog_path}")
+        html_content = "<div class='alert alert-warning'><p>Release notes are currently unavailable.</p></div>"
+    except Exception as e:
+        logger.error(f"Error reading CHANGELOG.md: {e}")
+        html_content = "<div class='alert alert-danger'><p>Error loading release notes.</p></div>"
+    
+    return render(request, 'analyzer/help_release_notes.html', {
+        'changelog_html': html_content,
+        'version': __version__
+    })

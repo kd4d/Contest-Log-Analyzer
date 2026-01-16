@@ -264,6 +264,7 @@ b. **Update CHANGELOG.md:**
    - Location: `CHANGELOG.md` (project root, alongside README.md)
    - Add new entry at top (reverse chronological order)
    - Format: Use Keep a Changelog format with link to detailed release notes
+   - **Note:** CHANGELOG.md is automatically accessible via the web UI hamburger menu (Help & Documentation > Release Notes)
    - Example:
      ```markdown
      ## [1.0.0-alpha.3] - 2026-01-20

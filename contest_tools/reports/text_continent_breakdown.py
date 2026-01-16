@@ -17,7 +17,7 @@ import os
 from tabulate import tabulate
 from .report_interface import ContestReport
 from ..data_aggregators.categorical_stats import CategoricalAggregator
-from contest_tools.utils.report_utils import _sanitize_filename_part, format_text_header, get_cty_metadata, get_standard_title_lines
+from contest_tools.utils.report_utils import _sanitize_filename_part, format_text_header, get_cty_metadata, get_standard_title_lines, get_standard_footer
 
 class Report(ContestReport):
     """
