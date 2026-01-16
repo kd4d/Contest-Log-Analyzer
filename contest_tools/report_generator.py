@@ -25,6 +25,7 @@ from typing import Dict, Any, Optional, List, Tuple
 from .reports import AVAILABLE_REPORTS
 from .manifest_manager import ManifestManager
 from .utils.report_utils import _sanitize_filename_part
+from .utils.callsign_utils import build_callsigns_filename_part
 from .utils.profiler import profile_section, ProfileContext
 from .data_aggregators.time_series import TimeSeriesAggregator
 from .data_aggregators.matrix_stats import MatrixAggregator
@@ -67,7 +68,7 @@ class ReportGenerator:
 
         # --- Get Callsign Combination ID ---
         all_calls = sorted([log.get_metadata().get('MyCall', f'Log{i+1}') for i, log in enumerate(self.logs)])
-        callsign_combo_id = '_'.join([_sanitize_filename_part(c) for c in all_calls])
+        callsign_combo_id = build_callsigns_filename_part(all_calls)
 
         # --- Construct Final Path ---
         self.base_output_dir = os.path.join(root_output_dir, 'reports', year, contest_name, event_id.lower(), callsign_combo_id)

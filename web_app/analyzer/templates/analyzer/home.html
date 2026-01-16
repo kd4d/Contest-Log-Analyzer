@@ -152,7 +152,7 @@
                 <div id="archiveCollapse" class="collapse show">
                     <div class="card-body p-4">
                         <div class="alert alert-info border-0 shadow-sm mb-4">
-                            <i class="bi bi-info-circle-fill me-2"></i><strong>CQ WW Exclusive:</strong> Currently, only public logs for the CQ World Wide DX Contest are supported.
+                            <i class="bi bi-info-circle-fill me-2"></i><strong>Fetch 1, 2, or 3 Logs:</strong> Log 1 is required. Logs 2 and 3 are optional for comparison analysis. <strong>CQ WW Exclusive:</strong> Currently, only public logs for the CQ World Wide DX Contest are supported (CW, SSB, and RTTY modes).
                         </div>
                         
                         <form id="fetchForm" method="post" action="{% url 'analyze' %}">
@@ -183,30 +183,53 @@
                                     <option value="" selected>Select Mode...</option>
                                     <option value="SSB">SSB</option>
                                     <option value="CW">CW</option>
+                                    <option value="RTTY">RTTY</option>
                                 </select>
                             </div>
                         </div>
 
                         <div id="archiveSlots" class="d-none border-top pt-4">
-                            <h6 class="fw-bold text-primary mb-3">Select Logs to Analyze</h6>
-                            <p class="small text-muted mb-3"><i class="bi bi-info-circle me-1"></i>Select 1, 2, or 3 logs. At least one log is required; additional logs are optional for comparison.</p>
-                            <div class="row g-3">
-                                <div class="col-md-4">
-                                    <label class="form-label small text-muted">Log Slot 1</label>
-                                    <input type="text" class="form-control typeahead" placeholder="Search Callsign (e.g. K3LR)..." list="callsignList1">
-                                    <datalist id="callsignList1"></datalist>
-                                    <div class="valid-feedback">Log Found!</div>
-                                    <div class="invalid-feedback">Log not found in archive.</div>
+                            <div class="row justify-content-center">
+                                <div class="col-md-4 mb-4">
+                                    <div class="card h-100 shadow-sm border-0">
+                                        <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
+                                            <h5 class="card-title text-primary fw-bold mb-0">
+                                                <i class="bi bi-file-earmark-text me-2"></i>Log Slot 1
+                                            </h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <input type="text" class="form-control typeahead" placeholder="Search Callsign (e.g. K3LR)..." list="callsignList1">
+                                            <datalist id="callsignList1"></datalist>
+                                            <div class="valid-feedback">Log Found!</div>
+                                            <div class="invalid-feedback">Log not found in archive.</div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="col-md-4">
-                                    <label class="form-label small text-muted">Log Slot 2</label>
-                                    <input type="text" class="form-control typeahead" placeholder="Search Callsign..." list="callsignList2">
-                                    <datalist id="callsignList2"></datalist>
+                                <div class="col-md-4 mb-4">
+                                    <div class="card h-100 shadow-sm border-0">
+                                        <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
+                                            <h5 class="card-title text-primary fw-bold mb-0">
+                                                <i class="bi bi-file-earmark-text me-2"></i>Log Slot 2
+                                            </h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <input type="text" class="form-control typeahead" placeholder="Search Callsign..." list="callsignList2">
+                                            <datalist id="callsignList2"></datalist>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="col-md-4">
-                                    <label class="form-label small text-muted">Log Slot 3</label>
-                                    <input type="text" class="form-control typeahead" placeholder="Search Callsign..." list="callsignList3">
-                                    <datalist id="callsignList3"></datalist>
+                                <div class="col-md-4 mb-4">
+                                    <div class="card h-100 shadow-sm border-0">
+                                        <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
+                                            <h5 class="card-title text-primary fw-bold mb-0">
+                                                <i class="bi bi-file-earmark-text me-2"></i>Log Slot 3
+                                            </h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <input type="text" class="form-control typeahead" placeholder="Search Callsign..." list="callsignList3">
+                                            <datalist id="callsignList3"></datalist>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             <div class="d-grid gap-2 col-md-4 mx-auto mt-4">

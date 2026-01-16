@@ -1,10 +1,17 @@
 # Contest Log Analytics - Installation Guide
 
-**Version: 0.126.0-Beta**
-**Date: 2025-12-18**
+**Version: 1.0.0-alpha.2**
 
 ---
 ### --- Revision History ---
+## [1.0.0-alpha.1] - 2026-01-13
+### Changed
+# - Updated version to match project release versioning.
+# - Enhanced Docker installation section with detailed information about:
+#   * Data files location and requirements
+#   * Directory structure expectations
+#   * Automatic environment variable configuration
+#   * Note about included sample data files
 ## [0.126.0-Beta] - 2025-12-18
 ### Changed
 # - Promoted the Docker installation workflow to the primary "Installation Steps".
@@ -100,19 +107,44 @@ Miniforge is a minimal installer for the Conda package manager.
 ## 2. Installation Steps
 
 ### Method A: Web Dashboard (Docker)
-This is the easiest way to get started.
+This is the easiest way to get started. Docker automatically handles all dependencies and environment configuration.
 
 1.  **Clone the Repository:**
-    __CODE_BLOCK__
+    ```bash
     git clone https://github.com/user/Contest-Log-Analyzer.git
     cd Contest-Log-Analyzer
-    __CODE_BLOCK__
-2.  **Start the Application:**
-    __CODE_BLOCK__
+    ```
+
+2.  **Verify Data Files:**
+    The repository includes sample data files in `CONTEST_LOGS_REPORTS/data/`. These are sufficient for initial testing. The required data files include:
+    * `cty.dat`: Required for all contests.
+    * `CQ160mults.dat`: Required for the CQ 160-Meter contest.
+    * `arrl_10_mults.dat`: Required for the ARRL 10 Meter contest.
+    * `ARRLDXmults.dat`: Required for the ARRL DX contest.
+    * `NAQPmults.dat`: Required for NAQP contests.
+    * `SweepstakesSections.dat`: Required for ARRL Sweepstakes and ARRL Field Day.
+    * `band_allocations.dat`: Required for all contests to perform frequency validation.
+    * `iaru_officials.dat`: Required for the IARU HF World Championship contest.
+    
+    **Note:** If you need to add your own data files, place them in `CONTEST_LOGS_REPORTS/data/` before starting Docker.
+
+3.  **Start the Application:**
+    ```bash
     docker-compose up --build
-    __CODE_BLOCK__
-3.  **Access the Dashboard:**
-    Open your web browser and navigate to `http://localhost:8000`.
+    ```
+    
+    Docker automatically configures the environment variables:
+    * `CONTEST_INPUT_DIR=/app/CONTEST_LOGS_REPORTS`
+    * `CONTEST_REPORTS_DIR=/app/CONTEST_LOGS_REPORTS`
+    
+    The application expects:
+    * Data files in: `CONTEST_LOGS_REPORTS/data/`
+    * Log files in: `CONTEST_LOGS_REPORTS/Logs/`
+    * Reports generated in: `CONTEST_LOGS_REPORTS/reports/`
+
+4.  **Access the Dashboard:**
+    - Development: Open your web browser and navigate to `http://localhost:8000`.
+    - Production: Visit `https://cla.kd4d.org`.
 
 ---
 

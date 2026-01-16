@@ -67,7 +67,7 @@ export CLA_PROFILE=0
 
 ## Reading Profiling Output
 
-When `CLA_PROFILE=1`, timing information is logged to the console with a stopwatch emoji (⏱️) prefix:
+When `CLA_PROFILE=1`, timing information is logged to the console with a stopwatch prefix (shown as emoji in actual console output, but note: this is example output only):
 
 ### Example CLI Output
 ```

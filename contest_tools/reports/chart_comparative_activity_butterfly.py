@@ -25,7 +25,7 @@ from plotly.subplots import make_subplots
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
 from ..data_aggregators.matrix_stats import MatrixAggregator
-from contest_tools.utils.report_utils import create_output_directory, _sanitize_filename_part, get_cty_metadata, get_standard_title_lines, get_valid_dataframe
+from contest_tools.utils.report_utils import create_output_directory, _sanitize_filename_part, get_standard_footer, get_standard_title_lines, get_valid_dataframe
 from ..styles.plotly_style_manager import PlotlyStyleManager
 
 class Report(ContestReport):
@@ -248,7 +248,7 @@ class Report(ContestReport):
                  modes_present.update(df['Mode'].dropna().unique())
         title_lines = get_standard_title_lines(self.report_name, self.logs, "All Bands", None, modes_present)
         
-        footer_text = f"Contest Log Analytics by KD4D\n{get_cty_metadata(self.logs)}"
+        footer_text = get_standard_footer(self.logs)
         
         fig.update_layout(
             template="plotly_white",

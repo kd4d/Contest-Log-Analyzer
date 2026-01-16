@@ -26,15 +26,20 @@ This includes but is not limited to:
 - Universally supported on all platforms and terminals
 
 **Exceptions:**
-- Markdown files (`.md`) are allowed to contain UTF-8 characters including emoji, as markdown renderers handle UTF-8 encoding correctly.
+- Markdown files (`.md`) may contain UTF-8 characters, BUT with PDF compatibility restrictions.
+
+**PDF Compatibility Rule for Markdown:**
+- **All markdown files MUST be PDF-compatible** (no emoji or Unicode symbols that break LaTeX/PDF conversion)
+- **Use plain text alternatives** instead of emoji to ensure PDF conversion works correctly
+- **Rationale:** LaTeX fonts (e.g., lmroman10-regular) used for PDF conversion do not support emoji characters, causing warnings and formatting issues
 
 **Replacement Guidelines for Common Characters:**
-- ✓ (checkmark) → `[OK]`, `OK`, or `PASS`
-- ✗ (cross mark) → `[X]`, `FAIL`, or `ERROR`
-- ⚠ (warning) → `WARNING:` or `WARN:`
-- • (bullet) → `*` or `-`
-- © (copyright) → `(c)`, `Copyright`, or `(C)`
-- ® (registered) → `(R)` or `Registered`
+- [OK] (checkmark) → `[OK]`, `OK`, or `PASS`
+- [X] (cross mark) → `[X]`, `FAIL`, or `ERROR`
+- WARNING: (warning) → `WARNING:` or `WARN:`
+- * (bullet) → `*` or `-`
+- (c) (copyright) → `(c)`, `Copyright`, or `(C)`
+- (R) (registered) → `(R)` or `Registered`
 - Accented characters (é, ñ, ü, etc.) → Use ASCII equivalents (e, n, u) or spell out
 
 ---
@@ -232,17 +237,17 @@ This balances AI efficiency with human oversight for critical operations.
 ### When User Requests Git Operations
 
 **AI Can Generate (User Reviews/Executes):**
-- ✅ Generate commit messages following Angular format
-- ✅ Suggest merge commands with `--no-ff` flag
-- ✅ Update version.py via pre-commit hooks (automatic)
-- ✅ Create feature branch commits
-- ✅ Suggest git commands for workflows
+- [OK] Generate commit messages following Angular format
+- [OK] Suggest merge commands with `--no-ff` flag
+- [OK] Update version.py via pre-commit hooks (automatic)
+- [OK] Create feature branch commits
+- [OK] Suggest git commands for workflows
 
 **User Should Review/Execute (Critical Operations):**
-- ⚠️ Final merge to main (AI generates, user reviews merge message)
-- ⚠️ Creating tags/releases (user must approve tag name)
-- ⚠️ Pushing to remote (security control)
-- ⚠️ Hotfix operations (safety)
+- WARNING: Final merge to main (AI generates, user reviews merge message)
+- WARNING: Creating tags/releases (user must approve tag name)
+- WARNING: Pushing to remote (security control)
+- WARNING: Hotfix operations (safety)
 
 ### Commit Message Generation Rules
 When generating commit messages:
@@ -285,13 +290,13 @@ git merge --no-ff feat/branch-name
 For complex multi-session workflows, a `HANDOVER.md` file may exist at the repository root to maintain workflow state between agent sessions.
 
 **When to Use HANDOVER.md:**
-- ✅ Complex multi-session workflows (e.g., version cleanup, major refactoring)
-- ✅ Multi-step processes spanning multiple sessions
-- ✅ Context that spans multiple sessions (current state, next steps, decisions)
+- [OK] Complex multi-session workflows (e.g., version cleanup, major refactoring)
+- [OK] Multi-step processes spanning multiple sessions
+- [OK] Context that spans multiple sessions (current state, next steps, decisions)
 
 **When NOT to Use HANDOVER.md:**
-- ❌ Simple bug fixes (agent can analyze code directly)
-- ❌ Single-session tasks (new features, quick fixes)
+- [X] Simple bug fixes (agent can analyze code directly)
+- [X] Single-session tasks (new features, quick fixes)
 - ❌ Tasks with sufficient context in code/docs/git history
 
 **Agent Behavior:**

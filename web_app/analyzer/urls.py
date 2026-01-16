@@ -57,4 +57,5 @@ urlpatterns = [
     path('help/about/', views.help_about, name='help_about'),
     path('help/dashboard/', views.help_dashboard, name='help_dashboard'),
     path('help/reports/', views.help_reports, name='help_reports'),
+    path('help/release-notes/', views.help_release_notes, name='help_release_notes'),
 ]

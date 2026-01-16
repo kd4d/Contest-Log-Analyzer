@@ -23,7 +23,7 @@ from plotly.subplots import make_subplots
 
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from contest_tools.utils.report_utils import create_output_directory, get_valid_dataframe, save_debug_data, get_cty_metadata, get_standard_title_lines, build_filename
+from contest_tools.utils.report_utils import create_output_directory, get_valid_dataframe, save_debug_data, get_standard_footer, get_standard_title_lines, build_filename
 from ..data_aggregators.time_series import TimeSeriesAggregator
 from ..styles.plotly_style_manager import PlotlyStyleManager
 
@@ -235,7 +235,7 @@ class BaseRateReport(ContestReport):
         
         title_lines = get_standard_title_lines(self.report_name, logs, band_filter, mode_filter, modes_present)
         final_title = f"{title_lines[0]}<br><sub>{title_lines[1]}<br>{title_lines[2]}</sub>"
-        footer_text = f"Contest Log Analytics by KD4D\n{get_cty_metadata(logs)}"
+        footer_text = get_standard_footer(logs)
 
         layout_cfg = PlotlyStyleManager.get_standard_layout(final_title, footer_text)
         fig.update_layout(**layout_cfg)

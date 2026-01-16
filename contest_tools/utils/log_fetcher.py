@@ -18,19 +18,25 @@ from bs4 import BeautifulSoup
 import os
 import logging
 from typing import List, Optional
+from .callsign_utils import filename_part_to_callsign
 
 logger = logging.getLogger(__name__)
 
 CQ_WW_BASE_URL = "https://cqww.com/publiclogs/"
+CQ_WW_RTTY_BASE_URL = "https://cqwwrtty.com/publiclogs/"
 
 def fetch_log_index(year: str, mode: str) -> List[str]:
     """
     Scrapes the CQ WW public log page for a specific year and mode.
     Returns a list of available callsigns (e.g., ['K3LR', 'KC1XX']).
     """
-    # Construct URL (e.g. 2015ph for SSB, 2015cw for CW)
-    mode_suffix = "ph" if mode == "SSB" else "cw"
-    target_url = f"{CQ_WW_BASE_URL}{year}{mode_suffix}/"
+    # RTTY uses a different domain and URL structure
+    if mode == "RTTY":
+        target_url = f"{CQ_WW_RTTY_BASE_URL}{year}/"
+    else:
+        # Construct URL (e.g. 2015ph for SSB, 2015cw for CW)
+        mode_suffix = "ph" if mode == "SSB" else "cw"
+        target_url = f"{CQ_WW_BASE_URL}{year}{mode_suffix}/"
     
     try:
         response = requests.get(target_url, timeout=10)
@@ -45,8 +51,10 @@ def fetch_log_index(year: str, mode: str) -> List[str]:
         for link in links:
             href = link['href']
             if href.endswith('.log'):
-                # Extract callsign from filename (k3lr.log -> k3lr) or text
-                call = href[:-4].upper()
+                # Extract callsign from filename (k3lr.log -> k3lr, 5b-yt7aw.log -> 5b-yt7aw)
+                filename_part = href[:-4].lower()
+                # Convert filename part back to callsign format (handles portable callsigns)
+                call = filename_part_to_callsign(filename_part)
                 callsigns.append(call)
                 
         return sorted(list(set(callsigns)))
@@ -60,8 +68,12 @@ def download_logs(callsigns: List[str], year: str, mode: str, output_dir: str) -
     Downloads specific log files for the given callsigns into the output directory.
     Returns a list of full paths to the downloaded files.
     """
-    mode_suffix = "ph" if mode == "SSB" else "cw"
-    base_url = f"{CQ_WW_BASE_URL}{year}{mode_suffix}/"
+    # RTTY uses a different domain and URL structure
+    if mode == "RTTY":
+        base_url = f"{CQ_WW_RTTY_BASE_URL}{year}/"
+    else:
+        mode_suffix = "ph" if mode == "SSB" else "cw"
+        base_url = f"{CQ_WW_BASE_URL}{year}{mode_suffix}/"
     downloaded_paths = []
     
     for call in callsigns:

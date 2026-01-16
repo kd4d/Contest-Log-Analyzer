@@ -21,6 +21,7 @@ from .report_interface import ContestReport
 from contest_tools.data_aggregators.multiplier_stats import MultiplierStatsAggregator
 from contest_tools.utils.json_encoders import NpEncoder
 from contest_tools.utils.report_utils import _sanitize_filename_part
+from contest_tools.utils.callsign_utils import build_callsigns_filename_part
 
 logger = logging.getLogger(__name__)
 
@@ -46,8 +47,8 @@ class Report(ContestReport):
         
         # 2. Prepare Standardized Filename
         all_calls = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])
-        combo_id = "_".join([_sanitize_filename_part(c) for c in all_calls])
-        filename = f"json_multiplier_breakdown_{combo_id}.json"
+        callsigns_part = build_callsigns_filename_part(all_calls)
+        filename = f"json_multiplier_breakdown--{callsigns_part}.json"
         
         # 3. Determine Output Path
         # ReportGenerator already passes the correct .../text/ directory

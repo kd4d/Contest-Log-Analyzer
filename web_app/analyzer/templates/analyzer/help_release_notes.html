@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="text-center mb-5">
+                <h1 class="display-5 fw-bold text-primary">Release Notes</h1>
+                <p class="lead text-muted">Complete changelog for Contest Log Analytics</p>
+            </div>
+
+            <div class="card shadow-sm border-0 mb-5">
+                <div class="card-body p-5">
+                    <div class="changelog-content">
+                        {{ changelog_html|safe }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .changelog-content {
+        line-height: 1.6;
+    }
+    .changelog-content h2 {
+        color: #0d6efd;
+        border-bottom: 2px solid #dee2e6;
+        padding-bottom: 0.5rem;
+        margin-top: 2rem;
+        margin-bottom: 1rem;
+    }
+    .changelog-content h2:first-child {
+        margin-top: 0;
+    }
+    .changelog-content h3 {
+        color: #495057;
+        margin-top: 1.5rem;
+        margin-bottom: 0.75rem;
+    }
+    .changelog-content ul, .changelog-content ol {
+        margin-bottom: 1rem;
+        padding-left: 2rem;
+    }
+    .changelog-content li {
+        margin-bottom: 0.5rem;
+    }
+    .changelog-content code {
+        background-color: #f8f9fa;
+        padding: 0.2rem 0.4rem;
+        border-radius: 0.25rem;
+        font-size: 0.9em;
+    }
+    .changelog-content pre {
+        background-color: #f8f9fa;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        overflow-x: auto;
+        margin-bottom: 1rem;
+    }
+    .changelog-content pre code {
+        background-color: transparent;
+        padding: 0;
+    }
+    .changelog-content a {
+        color: #0d6efd;
+        text-decoration: none;
+    }
+    .changelog-content a:hover {
+        text-decoration: underline;
+    }
+    .changelog-content hr {
+        margin: 2rem 0;
+        border: 0;
+        border-top: 1px solid #dee2e6;
+    }
+</style>
+{% endblock %}

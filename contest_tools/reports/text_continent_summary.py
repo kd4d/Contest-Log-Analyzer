@@ -18,7 +18,7 @@ import pandas as pd
 import os
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from contest_tools.utils.report_utils import format_text_header, get_cty_metadata, get_standard_title_lines
+from contest_tools.utils.report_utils import format_text_header, get_standard_footer, get_standard_title_lines
 from ..data_aggregators.categorical_stats import CategoricalAggregator
 
 class Report(ContestReport):
@@ -85,7 +85,7 @@ class Report(ContestReport):
             modes_present = set(df_temp['Mode'].dropna().unique()) if not df_temp.empty else set()
             
             title_lines = get_standard_title_lines(self.report_name, [log], "All Bands", None, modes_present)
-            meta_lines = ["Contest Log Analytics by KD4D", get_cty_metadata([log])]
+            meta_lines = ["Contest Log Analytics by KD4D"]
             
             header_block = format_text_header(table_width, title_lines, meta_lines)
             report_lines.extend(header_block)
@@ -135,7 +135,8 @@ class Report(ContestReport):
                     line_calls = unique_unknown_calls[i:i+num_cols]
                     report_lines.append("  ".join([f"{call:<{col_width}}" for call in line_calls]))
 
-            report_content = "\n".join(report_lines) + "\n"
+            standard_footer = get_standard_footer([log])
+            report_content = "\n".join(report_lines) + "\n\n" + standard_footer + "\n"
             os.makedirs(output_path, exist_ok=True)
             
             filename = f"{self.report_id}_{callsign}.txt"

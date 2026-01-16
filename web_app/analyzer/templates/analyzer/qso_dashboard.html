@@ -144,12 +144,9 @@
                             <div class="d-flex align-items-center">
                                 <span class="me-2">Rate Differential</span>
                                 <div class="btn-group btn-group-sm" role="group">
-                                    <button type="button" class="btn btn-outline-secondary diff-band-btn" data-band="160">160</button>
-                                    <button type="button" class="btn btn-outline-secondary diff-band-btn" data-band="80">80</button>
-                                    <button type="button" class="btn btn-outline-secondary diff-band-btn" data-band="40">40</button>
-                                    <button type="button" class="btn btn-outline-secondary diff-band-btn" data-band="20">20</button>
-                                    <button type="button" class="btn btn-outline-secondary diff-band-btn" data-band="15">15</button>
-                                    <button type="button" class="btn btn-outline-secondary diff-band-btn" data-band="10">10</button>
+                                    {% for band in valid_bands %}
+                                    <button type="button" class="btn btn-outline-secondary diff-band-btn" data-band="{{ band.key }}">{{ band.display }}</button>
+                                    {% endfor %}
                                     <button type="button" class="btn btn-outline-secondary diff-band-btn active" data-band="all">All</button>
                                 </div>
                             </div>
@@ -322,35 +319,13 @@
                 console.groupEnd();
             };
             // -------------------------------------------
-
-            // --- BEACON: SEND LOGS TO DOCKER CONSOLE ---
-            const sendBeacon = (stage, payload) => {
-                if (containerId !== 'chart-band-activity') return;
-                let beaconUrl = '';
-                if (payload) {
-                     // Generic Payload Mode
-                     beaconUrl = `/DIAGNOSTIC_BEACON/${stage}/${payload}`;
-                } else {
-                     // Standard Dimensions Mode
-                     const rect = container.getBoundingClientRect();
-                     const width = Math.round(rect.width);
-                     const styleWidth = window.getComputedStyle(container).width.replace('px','');
-                     beaconUrl = `/DIAGNOSTIC_BEACON/STAGE_${stage}/WIDTH_${width}/STYLE_${styleWidth}`;
-                }
-                
-                // Fire and forget
-                fetch(beaconUrl, {method: 'GET', keepalive: true}).catch(() => {});
-            };
-            // -------------------------------------------
             
             logHierarchy("ENTRY");
-            sendBeacon("ENTRY");
 
             // --- LAZY LOADING: Defer render if container is hidden ---
             if (container.offsetParent === null) {
                 container.dataset.pendingSrc = jsonUrl;
                 logHierarchy("DEFER (Hidden)");
-                sendBeacon("DEFER_HIDDEN");
                 return;
             }
             delete container.dataset.pendingSrc;
@@ -365,7 +340,6 @@
                 .then(data => {
                     requestAnimationFrame(() => {
                         logHierarchy("PRE-PLOT (Inside RAF)");
-                        sendBeacon("PRE_PLOT");
                         
                         Plotly.purge(containerId);
 
@@ -406,7 +380,6 @@
                                 displayModeBar: false
                             }).then(() => {
                                 logHierarchy("POST-PLOT (Success - Butterfly)");
-                                sendBeacon("POST_PLOT_SUCCESS_BUTTERFLY");
                                 
                                 const finalRect = container.getBoundingClientRect();
                                 console.log('[BUTTERFLY] === RENDER COMPLETE ===');
@@ -450,13 +423,8 @@
                         layout.margin.b = 150; 
                         layout.margin.autoexpand = true;
 
-                        // 7. Log the Scaling Operation
-                        const logMsg = `REF_${refW}x${refH}_TO_${Math.round(availW)}x${targetH}_SCALE_${scaleFactor.toFixed(2)}`;
-                        sendBeacon("SCALING_APPLIED", logMsg);
-
                         Plotly.newPlot(containerId, data.data, layout, {responsive: false, displayModeBar: false}).then(() => {
                             logHierarchy("POST-PLOT (Success)");
-                            sendBeacon("POST_PLOT_SUCCESS");
                             
                             const observer = new ResizeObserver(entries => {
                                 // Note: Butterfly chart (chart-band-activity) has its own ResizeObserver above
