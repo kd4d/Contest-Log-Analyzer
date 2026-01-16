@@ -23,7 +23,7 @@ from contest_tools.reports.report_interface import ContestReport
 from contest_tools.contest_log import ContestLog
 from contest_tools.data_aggregators.categorical_stats import CategoricalAggregator
 from contest_tools.styles.plotly_style_manager import PlotlyStyleManager
-from contest_tools.utils.report_utils import get_valid_dataframe, create_output_directory, _sanitize_filename_part, get_cty_metadata, get_standard_title_lines
+from contest_tools.utils.report_utils import get_valid_dataframe, create_output_directory, _sanitize_filename_part, get_standard_footer, get_standard_title_lines
 
 class Report(ContestReport):
     """
@@ -148,7 +148,7 @@ class Report(ContestReport):
         
         title_lines = get_standard_title_lines(self.report_name, self.logs, "All Bands", None, modes_present)
 
-        footer_text = f"Contest Log Analytics by KD4D\n{get_cty_metadata(self.logs)}"
+        footer_text = get_standard_footer(self.logs)
         
         # Use Annotation Stack (List) for precise title spacing control
         layout_config = PlotlyStyleManager.get_standard_layout(title_lines, footer_text)

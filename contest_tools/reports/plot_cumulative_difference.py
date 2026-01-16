@@ -23,7 +23,7 @@ import logging
 
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from contest_tools.utils.report_utils import create_output_directory, get_valid_dataframe, save_debug_data, _sanitize_filename_part, get_cty_metadata, get_standard_title_lines, build_filename
+from contest_tools.utils.report_utils import create_output_directory, get_valid_dataframe, save_debug_data, _sanitize_filename_part, get_standard_footer, get_standard_title_lines, build_filename
 from ..data_aggregators.time_series import TimeSeriesAggregator
 from ..styles.plotly_style_manager import PlotlyStyleManager
 
@@ -178,7 +178,7 @@ class Report(ContestReport):
         
         title_lines = get_standard_title_lines(f"{self.report_name} ({metric_name})", self.logs, band_filter, mode_filter, modes_present)
 
-        footer_text = f"Contest Log Analytics by KD4D\n{get_cty_metadata(self.logs)}"
+        footer_text = get_standard_footer(self.logs)
 
         # --- Layout Standardization ---
         # Pass list directly to Manager for Annotation Stack generation

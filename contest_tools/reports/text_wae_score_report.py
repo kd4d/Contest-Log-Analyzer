@@ -20,7 +20,7 @@ from prettytable import PrettyTable
 
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from contest_tools.utils.report_utils import create_output_directory, save_debug_data, format_text_header, get_cty_metadata, get_standard_title_lines
+from contest_tools.utils.report_utils import create_output_directory, save_debug_data, format_text_header, get_standard_footer, get_standard_title_lines
 from ..data_aggregators.wae_stats import WaeStatsAggregator
 
 class Report(ContestReport):
@@ -76,7 +76,7 @@ class Report(ContestReport):
         
         # Standard Header
         title_lines = get_standard_title_lines(self.report_name, [log], "All Bands", None, modes_present)
-        meta_lines = ["Contest Log Analytics by KD4D", get_cty_metadata([log])]
+        meta_lines = ["Contest Log Analytics by KD4D"]
         header_block = format_text_header(table_width, title_lines, meta_lines)
 
         report_lines = header_block + [
@@ -104,7 +104,8 @@ class Report(ContestReport):
             if label == 'Total Weighted Multipliers:':
                 report_lines.append("") # Add blank line before final score
 
-        report_content = "\n".join(report_lines) + "\n"
+        standard_footer = get_standard_footer([log])
+        report_content = "\n".join(report_lines) + "\n" + standard_footer + "\n"
         create_output_directory(output_path)
         filename = f"{self.report_id}_{callsign}.txt"
         filepath = os.path.join(output_path, filename)

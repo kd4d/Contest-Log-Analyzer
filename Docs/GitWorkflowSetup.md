@@ -225,7 +225,7 @@ If PowerShell found:
       - Configures git aliases
       - Verifies version.py
 If PowerShell not found:
-  → Uses basic batch commands (limited functionality)
+  -> Uses basic batch commands (limited functionality)
 ```
 
 **You don't need to:**

@@ -227,6 +227,7 @@ from contest_tools.data_aggregators.multiplier_stats import MultiplierStatsAggre
 from contest_tools.report_generator import ReportGenerator
 from contest_tools.core_annotations import CtyLookup
 from contest_tools.utils.report_utils import _sanitize_filename_part, get_standard_title_lines, get_cty_metadata
+from contest_tools.version import __version__
 from contest_tools.utils.callsign_utils import build_callsigns_filename_part, parse_callsigns_from_filename_part, callsign_to_filename_part
 from contest_tools.utils.log_fetcher import fetch_log_index, download_logs
 from contest_tools.manifest_manager import ManifestManager
@@ -431,12 +432,16 @@ def _run_analysis_pipeline(request_id, log_paths, session_path, session_key):
     # Construct Full Title: "CQ-WW-CW 2024" or "NAQP 2025 JAN"
     full_contest_title = f"{contest_name.replace('_', ' ')} {year} {event_id}".strip()
 
-    # Extract CTY Version Info
+    # Extract CTY Version Info (format: CTY-3538 2024-12-09)
     cty_path = lm.logs[0].cty_dat_path
     cty_date = CtyLookup.extract_version_date(cty_path)
     cty_date_str = cty_date.strftime('%Y-%m-%d') if cty_date else "Unknown Date"
-    cty_filename = os.path.basename(cty_path)
-    cty_version_info = f"{cty_filename} ({cty_date_str})"
+    # Extract version number from filename (e.g., cty_wt_mod_3538.dat -> 3538)
+    version_match = re.search(r'(\d{4})', os.path.basename(cty_path))
+    cty_version_str = f"CTY-{version_match.group(1)}" if version_match else "CTY-Unknown"
+    cty_info = f"{cty_version_str} {cty_date_str}"
+    # Create footer text with CLA abbreviation
+    footer_text = f"CLA v{__version__}   |   {cty_info}"
     
     all_calls = sorted([l.get_metadata().get('MyCall', f'Log{i+1}') for i, l in enumerate(lm.logs)])
     combo_id = build_callsigns_filename_part(all_calls)
@@ -460,7 +465,8 @@ def _run_analysis_pipeline(request_id, log_paths, session_path, session_key):
         'logs': [],
         'mult_headers': [],
         'full_contest_title': full_contest_title,
-        'cty_version_info': cty_version_info,
+        'cty_version_info': cty_info,
+        'footer_text': footer_text,
         'contest_name': contest_name,
     }
     
@@ -624,7 +630,7 @@ def multiplier_dashboard(request, session_id):
         # No LogManager, No Parsing. Instant load.
         
         full_title = dashboard_ctx.get('full_contest_title', '')
-        cty_info = dashboard_ctx.get('cty_version_info', 'Unknown CTY')
+        cty_info = dashboard_ctx.get('cty_version_info', 'CTY-Unknown Unknown Date')
         
         # Reconstruct calls from persisted logs to match combo_id logic
         calls = sorted([l['callsign'] for l in persisted_logs])
@@ -633,8 +639,8 @@ def multiplier_dashboard(request, session_id):
         # Line 2: Context
         context_line = f"{full_title} - {call_str}"
         
-        # Footer: Two lines (Branding + CTY)
-        footer_text = f"Contest Log Analytics by KD4D\nCTY File: {cty_info}"
+        # Footer: One line with CLA abbreviation
+        footer_text = f"CLA v{__version__}   |   {cty_info}"
         
         report_metadata = {
             'context_line': context_line,
@@ -670,7 +676,9 @@ def multiplier_dashboard(request, session_id):
         title_lines = get_standard_title_lines("Multiplier Breakdown", lm.logs, "All Bands", None, modes_present)
         
         # Footer with Newline
-        footer_text = f"Contest Log Analytics by KD4D\n{get_cty_metadata(lm.logs)}"
+        # Extract CTY info in new format
+        cty_info = get_cty_metadata(lm.logs)
+        footer_text = f"CLA v{__version__}   |   {cty_info}"
         
         report_metadata = {
             'context_line': title_lines[1],

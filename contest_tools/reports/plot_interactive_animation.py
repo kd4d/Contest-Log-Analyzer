@@ -24,7 +24,7 @@ from pathlib import Path
 from datetime import datetime
 
 from .report_interface import ContestReport
-from contest_tools.utils.report_utils import create_output_directory, _sanitize_filename_part, get_cty_metadata, get_standard_title_lines, get_valid_dataframe
+from contest_tools.utils.report_utils import create_output_directory, _sanitize_filename_part, get_standard_footer, get_standard_title_lines, get_valid_dataframe
 from contest_tools.utils.callsign_utils import build_callsigns_filename_part
 from ..data_aggregators.time_series import TimeSeriesAggregator
 from ..data_aggregators.matrix_stats import MatrixAggregator
@@ -216,7 +216,7 @@ class Report(ContestReport):
         
         # Prepare footer text for frame annotations (needed since frame layouts replace all annotations)
         # Define footer_text early so it can be used in frames
-        footer_text = f"Contest Log Analytics by KD4D\n{get_cty_metadata(self.logs)}"
+        footer_text = get_standard_footer(self.logs)
         footer_annotation = {
             "x": 0.5,
             "y": -0.25,

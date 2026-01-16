@@ -15,7 +15,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from .report_interface import ContestReport
-from contest_tools.utils.report_utils import create_output_directory, format_text_header, get_cty_metadata, get_standard_title_lines
+from contest_tools.utils.report_utils import create_output_directory, format_text_header, get_standard_footer, get_standard_title_lines
 import pandas as pd
 import os
 from ..contest_log import ContestLog
@@ -58,7 +58,7 @@ class Report(ContestReport):
         
         title_lines = get_standard_title_lines(self.report_name, self.logs, "All Bands", None, modes_present)
         
-        meta_lines = ["Contest Log Analytics by KD4D", get_cty_metadata(self.logs)]
+        meta_lines = ["Contest Log Analytics by KD4D"]
         
         report_lines = []
         report_lines.extend(format_text_header(table_width, title_lines, meta_lines))
@@ -154,10 +154,11 @@ class Report(ContestReport):
         report_lines.append(f"{call2:<9} {total_qso_2:>8} | {total_unique_2:>6} {total_run_unique_2:>6} {total_sp_unique_2:>6} {total_unk_unique_2:>6} | {total_common_2:>6} {total_run_common_2:>6} {total_sp_common_2:>6} {total_unk_common_2:>6}")
         
         # Save to file
+        standard_footer = get_standard_footer(self.logs)
         output_filename = os.path.join(output_path, f"{self.report_id}_{call1}_vs_{call2}.txt")
         try:
             with open(output_filename, 'w') as f:
-                f.write("\n".join(report_lines) + "\n")
+                f.write("\n".join(report_lines) + "\n" + standard_footer + "\n")
             return f"'{self.report_name}' saved to {output_filename}"
         except Exception as e:
             return f"Error generating report '{self.report_name}': {e}"

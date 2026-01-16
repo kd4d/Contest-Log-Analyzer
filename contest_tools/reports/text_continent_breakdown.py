@@ -69,14 +69,14 @@ class Report(ContestReport):
             # Use utility for standard 3-line title
             title_lines = get_standard_title_lines(self.report_name, [log], "All Bands", None, modes_present)
             
-            # Use utility for footer metadata
-            meta_lines = ["Contest Log Analytics by KD4D", get_cty_metadata([log])]
+            meta_lines = ["Contest Log Analytics by KD4D"]
             
             # Use utility to format the header block based on table width
             table_width = len(table_string.split('\n')[0])
             header_block = format_text_header(table_width, title_lines, meta_lines)
             
-            full_report = "\n".join(header_block + [table_string, "\n"])
+            standard_footer = get_standard_footer([log])
+            full_report = "\n".join(header_block + [table_string, "\n"]) + standard_footer + "\n"
             
             # --- 4. Save ---
             filename = f"{self.report_id}_{_sanitize_filename_part(callsign)}.txt"

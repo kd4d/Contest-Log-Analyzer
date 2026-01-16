@@ -22,7 +22,7 @@ import logging
 from ..contest_log import ContestLog
 from ..contest_definitions import ContestDefinition
 from .report_interface import ContestReport
-from contest_tools.utils.report_utils import format_text_header, get_cty_metadata, get_valid_dataframe
+from contest_tools.utils.report_utils import format_text_header, get_standard_footer, get_valid_dataframe
 from ..data_aggregators.score_stats import ScoreStatsAggregator
 
 class Report(ContestReport):
@@ -96,10 +96,7 @@ class Report(ContestReport):
                 "All Bands" # Score report is always a summary of all bands
             ]
             
-            meta_lines = [
-                "Contest Log Analytics by KD4D",
-                get_cty_metadata([log])
-            ]
+            meta_lines = ["Contest Log Analytics by KD4D"]
             
             report_lines = []
             # Ensure table is at least wide enough for header
@@ -153,7 +150,8 @@ class Report(ContestReport):
 
             self._add_diagnostic_sections(report_lines, diagnostic_stats, log)
 
-            report_content = "\n".join(report_lines) + "\n"
+            standard_footer = get_standard_footer([log])
+            report_content = "\n".join(report_lines) + "\n" + standard_footer + "\n"
             os.makedirs(output_path, exist_ok=True)
             filename = f"{self.report_id}_{callsign}.txt"
             filepath = os.path.join(output_path, filename)

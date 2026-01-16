@@ -21,7 +21,7 @@ from tabulate import tabulate
 from ..contest_log import ContestLog
 from ..contest_definitions import ContestDefinition
 from .report_interface import ContestReport
-from contest_tools.utils.report_utils import _sanitize_filename_part, format_text_header, get_cty_metadata, get_standard_title_lines
+from contest_tools.utils.report_utils import _sanitize_filename_part, format_text_header, get_standard_footer, get_standard_title_lines
 from contest_tools.utils.callsign_utils import build_callsigns_filename_part
 from ..data_aggregators.score_stats import ScoreStatsAggregator
 
@@ -161,13 +161,14 @@ class Report(ContestReport):
                 modes_present.update(df['Mode'].dropna().unique())
 
         title_lines = get_standard_title_lines(self.report_name, self.logs, "All Bands", None, modes_present)
-        meta_lines = ["Contest Log Analytics by KD4D", get_cty_metadata(self.logs)]
+        meta_lines = ["Contest Log Analytics by KD4D"]
         
         header_block = format_text_header(table_width, title_lines, meta_lines)
         report_lines = header_block + report_lines
 
         # --- Save to File ---
-        report_content = "\n".join(report_lines) + "\n"
+        standard_footer = get_standard_footer(self.logs)
+        report_content = "\n".join(report_lines) + "\n" + standard_footer + "\n"
         os.makedirs(output_path, exist_ok=True)
         callsigns_part = build_callsigns_filename_part(sorted(all_calls))
         filename = f"{self.report_id}--{callsigns_part}.txt"

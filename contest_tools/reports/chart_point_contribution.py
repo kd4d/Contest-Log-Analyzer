@@ -24,7 +24,7 @@ from contest_tools.reports.report_interface import ContestReport
 from contest_tools.contest_log import ContestLog
 from contest_tools.data_aggregators.categorical_stats import CategoricalAggregator
 from contest_tools.styles.plotly_style_manager import PlotlyStyleManager
-from contest_tools.utils.report_utils import get_valid_dataframe, create_output_directory, get_cty_metadata, get_standard_title_lines
+from contest_tools.utils.report_utils import get_valid_dataframe, create_output_directory, get_standard_footer, get_standard_title_lines
 
 class Report(ContestReport):
     """
@@ -136,7 +136,7 @@ class Report(ContestReport):
         title_lines = get_standard_title_lines(self.report_name, self.logs, "All Bands", None, modes_present)
         final_title = f"{title_lines[0]}<br><sub>{title_lines[1]}<br>{title_lines[2]}</sub>"
 
-        footer_text = f"Contest Log Analytics by KD4D\n{get_cty_metadata(self.logs)}"
+        footer_text = get_standard_footer(self.logs)
 
         layout_config = PlotlyStyleManager.get_standard_layout(final_title, footer_text)
         

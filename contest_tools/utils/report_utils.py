@@ -59,13 +59,13 @@ def _sanitize_filename_part(part: str) -> str:
 def get_cty_metadata(logs: list) -> str:
     """
     Extracts CTY version info from the first log's CTY path.
-    Returns string format: "YYYY-MM-DD CTY-XXXX"
+    Returns string format: "CTY-XXXX YYYY-MM-DD"
     """
-    if not logs: return "CTY File: Unknown"
+    if not logs: return "CTY-Unknown Unknown Date"
     
     path = getattr(logs[0], 'cty_dat_path', '')
     if not path or not os.path.exists(path):
-        return "CTY File: Unknown"
+        return "CTY-Unknown Unknown Date"
 
     version_match = re.search(r'(\d{4})', os.path.basename(path))
     version_str = f"CTY-{version_match.group(1)}" if version_match else "CTY-Unknown"
@@ -73,7 +73,17 @@ def get_cty_metadata(logs: list) -> str:
     date_obj = CtyLookup.extract_version_date(path)
     date_str = date_obj.strftime('%Y-%m-%d') if date_obj else "Unknown Date"
 
-    return f"CTY File: {date_str} {version_str}"
+    return f"{version_str} {date_str}"
+
+def get_standard_footer(logs: list) -> str:
+    """
+    Returns standardized footer with version and CTY info for all report types.
+    Format: "Contest Log Analytics v{version}   |   {cty_info}"
+    Uses triple spaces around pipe separator.
+    """
+    from ..version import __version__
+    cty_info = get_cty_metadata(logs)
+    return f"Contest Log Analytics v{__version__}   |   {cty_info}"
 
 def get_standard_title_lines(report_name: str, logs: list, band_filter: str = None, mode_filter: str = None, modes_present_set: set = None, callsigns_override: List[str] = None) -> list:
     """
@@ -154,9 +164,10 @@ def build_filename(report_id: str, logs: list, band_filter: str = None, mode_fil
 def format_text_header(width: int, title_lines: list, metadata_lines: list = None) -> list:
     """
     Generates a text report header with Left-Aligned Titles and Right-Aligned Metadata.
+    Note: CTY and version info should be in footer, not header. Use get_standard_footer() for footer.
     """
     if metadata_lines is None:
-        metadata_lines = ["Contest Log Analytics by KD4D", "CTY File: Unknown"]
+        metadata_lines = ["Contest Log Analytics by KD4D"]
 
     header_output = []
     max_lines = max(len(title_lines), len(metadata_lines))

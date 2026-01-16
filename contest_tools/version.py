@@ -48,7 +48,8 @@ def _get_git_hash():
         return None
 
 # File-based defaults (used if git unavailable, e.g., in packaged distributions)
-# These should be updated to match the most recent git tag before release builds
+# IMPORTANT: Update this to match target tag before creating release tag.
+# See Docs/AI_AGENT_RULES.md "Release Workflow" section for full process.
 __version__ = "1.0.0-alpha.2"
 __git_hash__ = None
 

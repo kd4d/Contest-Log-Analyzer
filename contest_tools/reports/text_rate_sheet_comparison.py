@@ -18,7 +18,7 @@ import os
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
 from ..data_aggregators.time_series import TimeSeriesAggregator
-from contest_tools.utils.report_utils import _sanitize_filename_part, format_text_header, get_cty_metadata, get_standard_title_lines
+from contest_tools.utils.report_utils import _sanitize_filename_part, format_text_header, get_standard_footer, get_standard_title_lines
 from contest_tools.utils.callsign_utils import build_callsigns_filename_part
 
 class Report(ContestReport):
@@ -111,12 +111,13 @@ class Report(ContestReport):
         table_width = len(block1_lines[3]) if len(block1_lines) > 3 else 80
         
         title_lines = get_standard_title_lines(self.report_name, self.logs, "All Bands", None, modes_present)
-        meta_lines = ["Contest Log Analytics by KD4D", get_cty_metadata(self.logs)]
+        meta_lines = ["Contest Log Analytics by KD4D"]
         
         header_block = format_text_header(table_width, title_lines, meta_lines)
         
-        # Prepend header to blocks
-        full_content = "\n".join(header_block) + "\n\n" + "\n\n".join(report_blocks) + "\n"
+        # Prepend header to blocks and append standard footer
+        standard_footer = get_standard_footer(self.logs)
+        full_content = "\n".join(header_block) + "\n\n" + "\n\n".join(report_blocks) + "\n" + standard_footer + "\n"
 
         # --- BLOCKS 2+: Band Details ---
         if not is_single_band:
