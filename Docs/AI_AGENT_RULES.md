@@ -12,23 +12,23 @@ This document provides specific rules for AI agents (like Cursor/Console AI) whe
 
 ## What AI Can Do Directly
 
-### ✅ Commit Message Generation
+### [OK] Commit Message Generation
 - Generate Angular-formatted commit messages following strict format
 - Suggest appropriate commit types (feat, fix, docs, etc.)
 - Format commit messages with proper structure (subject, blank line, body)
 - Use multiple `-m` flags or single `-m` with escaped newlines for proper formatting
 
-### ✅ Feature Branch Commits
+### [OK] Feature Branch Commits
 - Create commits on feature branches
 - Use informal messages during development ("wip", "refactor X")
 - Commit code changes directly to feature branches
 
-### ✅ Generate Commands
+### [OK] Generate Commands
 - Suggest git commands for workflows
 - Generate merge commands with `--no-ff` flag
 - Create command sequences for complex operations
 
-### ✅ Automatic Operations
+### [OK] Automatic Operations
 - Pre-commit hooks automatically update `version.py` git hash
 - No manual intervention needed for hash updates
 
@@ -36,7 +36,7 @@ This document provides specific rules for AI agents (like Cursor/Console AI) whe
 
 ## What Requires User Review/Approval
 
-### ⚠️ Merges to Main Branch
+### WARNING: Merges to Main Branch
 **Process:**
 1. AI generates merge command: `git merge --no-ff feat/branch-name`
 2. AI generates merge commit message in Angular format
@@ -46,7 +46,7 @@ This document provides specific rules for AI agents (like Cursor/Console AI) whe
 
 **Why:** Main branch is sacred - requires human oversight
 
-### ⚠️ Creating Tags/Releases
+### WARNING: Creating Tags/Releases
 **Process:**
 1. AI suggests version number based on commit types
 2. AI suggests update to `version.py`
@@ -63,7 +63,7 @@ This document provides specific rules for AI agents (like Cursor/Console AI) whe
 
 **Why:** Releases are critical - require explicit approval
 
-### ⚠️ Pushing to Remote
+### WARNING: Pushing to Remote
 **Process:**
 1. AI suggests push commands
 2. **User executes** push commands manually
@@ -71,7 +71,7 @@ This document provides specific rules for AI agents (like Cursor/Console AI) whe
 
 **Why:** Security control - prevents accidental remote changes
 
-### ⚠️ Hotfix Operations
+### WARNING: Hotfix Operations
 **Process:**
 1. AI generates hotfix workflow commands
 2. **User reviews** each step
@@ -88,9 +88,9 @@ This document provides specific rules for AI agents (like Cursor/Console AI) whe
 **AI agents MUST use 7-bit ASCII (characters 0-127 only) in all non-markdown files.**
 
 **Critical Rule:** When creating or modifying any code files, scripts, or configuration files, AI agents must:
-- ✅ Use only 7-bit ASCII characters
-- ✅ Replace any non-ASCII characters with ASCII equivalents
-- ❌ Never use emoji, Unicode symbols, or multi-byte characters in code/scripts
+- [OK] Use only 7-bit ASCII characters
+- [OK] Replace any non-ASCII characters with ASCII equivalents
+- [X] Never use emoji, Unicode symbols, or multi-byte characters in code/scripts
 
 **Files Affected:**
 - All source code files (`.py`, `.js`, `.ts`, `.html`, `.css`, etc.)
@@ -98,7 +98,25 @@ This document provides specific rules for AI agents (like Cursor/Console AI) whe
 - All configuration files (`.json`, `.yaml`, `.ini`, etc.)
 - Documentation source files (`.rst`, `.txt`, etc.)
 
-**Exception:** Markdown files (`.md`) may contain UTF-8 characters including emoji.
+**Exception:** Markdown files (`.md`) may contain UTF-8 characters, BUT with PDF compatibility restrictions.
+
+**PDF Compatibility Rule for Markdown:**
+- **All markdown files MUST be PDF-compatible** (no emoji or Unicode symbols that break LaTeX/PDF conversion)
+- **Use plain text alternatives** instead of emoji:
+  - [OK] (checkmark) → `[OK]`, `OK`, or `PASS`
+  - [X] (cross mark) → `[X]`, `FAIL`, or `ERROR`
+  - WARNING: (warning) → `WARNING:` or `WARN:`
+  - * (bullet) → `*` or `-`
+  - Major Features: (target) → `Major Features:` or `Features:`
+  - Enhancements: (sparkles) → `Enhancements:` or `Improvements:`
+  - Bug Fixes: (bug) → `Bug Fixes:`
+  - Documentation: (books) → `Documentation:`
+  - Technical: (wrench) → `Technical:` or `Technical Improvements:`
+  - Statistics: (chart) → `Statistics:` or `Metrics:`
+  - Migration: (arrows) → `Migration:` or `Migration Notes:`
+  - Deployment: (rocket) → `Deployment:` or `Deployment Notes:`
+  - Notes: (memo) → `Notes:` or `Commit History:`
+- **Rationale:** LaTeX fonts (e.g., lmroman10-regular) used for PDF conversion do not support emoji characters, causing warnings and formatting issues.
 
 **Common Replacements:**
 - ✓ (checkmark) → `[OK]`, `OK`, or `PASS`
@@ -106,7 +124,7 @@ This document provides specific rules for AI agents (like Cursor/Console AI) whe
 - ⚠ (warning) → `WARNING:` or `WARN:`
 - • (bullet) → `*` or `-`
 
-**Rationale:** PowerShell, batch files, and many other tools can fail to parse files correctly when multi-byte UTF-8 characters are present, leading to cryptic parsing errors.
+**Rationale:** PowerShell, batch files, and many other tools can fail to parse files correctly when multi-byte UTF-8 characters are present, leading to cryptic parsing errors. Additionally, PDF conversion tools require plain text alternatives to emoji.
 
 ---
 
@@ -280,11 +298,11 @@ AI:
 ## Safety Checks
 
 Before any critical operation, AI should:
-1. ✅ Confirm current branch (`git branch`)
-2. ✅ Show recent commits (`git log --oneline -5`)
-3. ✅ Warn if on main branch for direct commits
-4. ✅ Suggest creating feature branch if not on one
-5. ✅ Verify pre-commit hooks are installed
+1. [OK] Confirm current branch (`git branch`)
+2. [OK] Show recent commits (`git log --oneline -5`)
+3. [OK] Warn if on main branch for direct commits
+4. [OK] Suggest creating feature branch if not on one
+5. [OK] Verify pre-commit hooks are installed
 
 ---
 
@@ -306,14 +324,14 @@ For complex multi-session workflows, a `HANDOVER.md` file may exist at the repos
 - Standard workflow: User request → Agent analyzes code/docs → Agent performs task
 
 **When to Use HANDOVER.md:**
-- ✅ Complex multi-session workflows (e.g., version cleanup, major refactoring)
-- ✅ Multi-step processes spanning multiple sessions (test → patch → tag → cleanup)
-- ✅ Context that spans multiple sessions (current state, next steps, decisions)
+- [OK] Complex multi-session workflows (e.g., version cleanup, major refactoring)
+- [OK] Multi-step processes spanning multiple sessions (test → patch → tag → cleanup)
+- [OK] Context that spans multiple sessions (current state, next steps, decisions)
 
 **When NOT to Use HANDOVER.md:**
-- ❌ Simple bug fixes (agent can analyze code directly)
-- ❌ Single-session tasks (new features, quick fixes)
-- ❌ Tasks with sufficient context in code/docs/git history
+- [X] Simple bug fixes (agent can analyze code directly)
+- [X] Single-session tasks (new features, quick fixes)
+- [X] Tasks with sufficient context in code/docs/git history
 
 **Agent Behavior:**
 1. **Session Start:** Check for `HANDOVER.md` (non-blocking)

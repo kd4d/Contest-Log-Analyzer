@@ -6,7 +6,7 @@
 
 ---
 
-## 🎯 Major Features
+## Major Features
 
 ### CQ WW RTTY Contest Support
 - **Full contest definition** with RTTY-specific scoring and multipliers
@@ -31,7 +31,7 @@
 
 ---
 
-## ✨ Enhancements
+## Enhancements
 
 ### QSO Dashboard Improvements
 - **Dynamic band selectors** based on contest `valid_bands`
@@ -52,7 +52,7 @@
 
 ---
 
-## 🐛 Bug Fixes
+## Bug Fixes
 
 - Fixed multiplier dashboard showing no data in Head to Head tab
 - Prevented unnecessary log re-ingestion (performance improvement)
@@ -63,7 +63,7 @@
 
 ---
 
-## 📚 Documentation
+## Documentation
 
 - Updated Docker installation guide with data files and directory structure
 - Added custom dupe checker plugin documentation
@@ -73,7 +73,7 @@
 
 ---
 
-## 🔧 Technical Improvements
+## Technical Improvements
 
 - Standardized filename format across all reports
 - Improved error handling and logging
@@ -83,7 +83,7 @@
 
 ---
 
-## 📊 Statistics
+## Statistics
 
 - **Files Changed**: 8 files in latest commit
 - **Code Changes**: 298 insertions, 114 deletions in latest commit
@@ -91,7 +91,7 @@
 
 ---
 
-## 🔄 Migration Notes
+## Migration Notes
 
 - **Filename format changed** from `{metadata}_{callsigns}.ext` to `{metadata}--{callsigns}.ext`
 - System maintains **backward compatibility** with old format
@@ -99,7 +99,7 @@
 
 ---
 
-## ✅ Testing Recommendations
+## Testing Recommendations
 
 - Verify CQ WW RTTY contest scoring and multipliers
 - Test public log fetching for RTTY mode
@@ -110,7 +110,7 @@
 
 ---
 
-## 🚀 Deployment
+## Deployment
 
 **Ready for deployment to production after testing.**
 
@@ -121,7 +121,7 @@
 
 ---
 
-## 📝 Commit History
+## Commit History
 
 - `d1ca37a` - feat: Enhance CQ WW RTTY support and improve QSO dashboard
 - `4dfcc4c` - Add CQ WW RTTY contest support

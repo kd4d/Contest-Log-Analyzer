@@ -26,10 +26,10 @@ setup.bat --setup-git
 ```
 
 This sets up:
-- ✅ Development environment (env vars, conda)
-- ✅ Pre-commit hooks
-- ✅ Git aliases
-- ✅ Version management
+- [OK] Development environment (env vars, conda)
+- [OK] Pre-commit hooks
+- [OK] Git aliases
+- [OK] Version management
 
 **Option 2: Just Git Workflow Tools**
 ```batch
@@ -79,25 +79,25 @@ tools\setup_git_workflow.bat
 Setting up Git Workflow Tools for Contest Log Analytics...
 
 Step 1: Installing pre-commit hooks...
-  ✓ pre-commit is installed
-  ✓ Pre-commit hooks installed successfully
+  [OK] pre-commit is installed
+  [OK] Pre-commit hooks installed successfully
 
 Step 2: Setting up git aliases...
-  ✓ mainlog alias configured
-  ✓ fullhistory alias configured
-  ✓ featurelog alias configured
-  ✓ recent alias configured
-  ✓ branchdiff alias configured
-  ✓ Git aliases configured successfully
+  [OK] mainlog alias configured
+  [OK] fullhistory alias configured
+  [OK] featurelog alias configured
+  [OK] recent alias configured
+  [OK] branchdiff alias configured
+  [OK] Git aliases configured successfully
 
 Step 3: Verifying version.py...
-  ✓ version.py exists
-  ✓ version.py is functional: 0.160.0-beta.1 (commit abc1234)
+  [OK] version.py exists
+  [OK] version.py is functional: 0.160.0-beta.1 (commit abc1234)
 
 Setup Summary:
-  • Pre-commit hooks: Configured
-  • Git aliases: Configured
-  • Version management: Ready
+  * Pre-commit hooks: Configured
+  * Git aliases: Configured
+  * Version management: Ready
 ```
 
 ---
@@ -219,8 +219,8 @@ setup.bat or setup_git_workflow.bat
 Detects PowerShell availability
   ↓
 If PowerShell found:
-  → Invokes: powershell -File tools\setup_git_workflow.ps1
-    → PowerShell does all the work:
+  -> Invokes: powershell -File tools\setup_git_workflow.ps1
+    -> PowerShell does all the work:
       - Installs pre-commit hooks
       - Configures git aliases
       - Verifies version.py
