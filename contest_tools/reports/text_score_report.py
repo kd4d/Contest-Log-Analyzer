@@ -151,7 +151,7 @@ class Report(ContestReport):
             self._add_diagnostic_sections(report_lines, diagnostic_stats, log)
 
             standard_footer = get_standard_footer([log])
-            report_content = "\n".join(report_lines) + "\n" + standard_footer + "\n"
+            report_content = "\n".join(report_lines) + "\n\n" + standard_footer + "\n"
             os.makedirs(output_path, exist_ok=True)
             filename = f"{self.report_id}_{callsign}.txt"
             filepath = os.path.join(output_path, filename)

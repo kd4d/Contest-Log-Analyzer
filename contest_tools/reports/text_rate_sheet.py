@@ -154,7 +154,7 @@ class Report(ContestReport):
 
             # --- Assembly ---
             standard_footer = get_standard_footer([log])
-            full_content = "\n".join(header_block) + "\n\n" + "\n\n".join(report_blocks) + "\n\n" + footer + "\n" + standard_footer + "\n"
+            full_content = "\n".join(header_block) + "\n\n" + "\n\n".join(report_blocks) + "\n\n" + footer + "\n\n" + standard_footer + "\n"
             
             os.makedirs(output_path, exist_ok=True)
             filename = f"{self.report_id}_{callsign}.txt"

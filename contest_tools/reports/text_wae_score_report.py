@@ -105,7 +105,7 @@ class Report(ContestReport):
                 report_lines.append("") # Add blank line before final score
 
         standard_footer = get_standard_footer([log])
-        report_content = "\n".join(report_lines) + "\n" + standard_footer + "\n"
+        report_content = "\n".join(report_lines) + "\n\n" + standard_footer + "\n"
         create_output_directory(output_path)
         filename = f"{self.report_id}_{callsign}.txt"
         filepath = os.path.join(output_path, filename)

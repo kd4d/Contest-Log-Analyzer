@@ -158,7 +158,7 @@ class Report(ContestReport):
         output_filename = os.path.join(output_path, f"{self.report_id}_{call1}_vs_{call2}.txt")
         try:
             with open(output_filename, 'w') as f:
-                f.write("\n".join(report_lines) + "\n" + standard_footer + "\n")
+                f.write("\n".join(report_lines) + "\n\n" + standard_footer + "\n")
             return f"'{self.report_name}' saved to {output_filename}"
         except Exception as e:
             return f"Error generating report '{self.report_name}': {e}"

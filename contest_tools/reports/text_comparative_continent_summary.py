@@ -20,7 +20,7 @@ import pandas as pd
 from contest_tools.reports.report_interface import ContestReport
 from contest_tools.contest_log import ContestLog
 from contest_tools.data_aggregators.categorical_stats import CategoricalAggregator
-from contest_tools.utils.report_utils import get_valid_dataframe, create_output_directory, _sanitize_filename_part, format_text_header, get_cty_metadata, get_standard_title_lines
+from contest_tools.utils.report_utils import get_valid_dataframe, create_output_directory, _sanitize_filename_part, format_text_header, get_cty_metadata, get_standard_title_lines, get_standard_footer
 
 class Report(ContestReport):
     """
@@ -84,7 +84,8 @@ class Report(ContestReport):
         lines.append("-" * 60)
         lines.append(f"{'TOTAL':<15} | {total1:10} | {total2:10} | {(total1-total2):10}")
         
-        report_text = "\n".join(lines)
+        standard_footer = get_standard_footer(self.logs)
+        report_text = "\n".join(lines) + "\n\n" + standard_footer
         
         # 4. Save
         create_output_directory(output_path)
@@ -92,6 +93,6 @@ class Report(ContestReport):
         file_path = os.path.join(output_path, base_filename)
         
         with open(file_path, 'w') as f:
-            f.write(report_text)
+            f.write(report_text + "\n")
             
         return f"Report saved to {file_path}"

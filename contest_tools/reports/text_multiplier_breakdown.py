@@ -158,7 +158,7 @@ class Report(ContestReport):
             lines.append("")
 
         standard_footer = get_standard_footer(self.logs)
-        content = "\n".join(lines) + "\n" + standard_footer + "\n"
+        content = "\n".join(lines) + "\n\n" + standard_footer + "\n"
         
         # 4. Save File
         # text_multiplier_breakdown--{callsigns}.txt using utility

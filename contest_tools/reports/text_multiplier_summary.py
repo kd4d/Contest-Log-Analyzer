@@ -280,7 +280,7 @@ class Report(ContestReport):
                 report_lines.append("  ".join([f"{call:<{col_width}}" for call in line_calls]))
 
         standard_footer = get_standard_footer(self.logs)
-        report_content = "\n".join(report_lines) + "\n" + standard_footer + "\n"
+        report_content = "\n".join(report_lines) + "\n\n" + standard_footer + "\n"
         
         os.makedirs(output_path, exist_ok=True)
         

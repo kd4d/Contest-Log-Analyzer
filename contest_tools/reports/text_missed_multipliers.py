@@ -205,7 +205,7 @@ class Report(ContestReport):
             report_lines.append(table_string)
 
         standard_footer = get_standard_footer(self.logs)
-        report_content = "\n".join(report_lines) + "\n" + standard_footer + "\n"
+        report_content = "\n".join(report_lines) + "\n\n" + standard_footer + "\n"
         os.makedirs(output_path, exist_ok=True)
         callsigns_part = build_callsigns_filename_part(sorted(all_calls))
         safe_mult_name = mult_name.lower().replace('/', '_')

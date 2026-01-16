@@ -76,7 +76,7 @@ class Report(ContestReport):
             header_block = format_text_header(table_width, title_lines, meta_lines)
             
             standard_footer = get_standard_footer([log])
-            full_report = "\n".join(header_block + [table_string, "\n"]) + standard_footer + "\n"
+            full_report = "\n".join(header_block + [table_string, "\n"]) + "\n" + standard_footer + "\n"
             
             # --- 4. Save ---
             filename = f"{self.report_id}_{_sanitize_filename_part(callsign)}.txt"

@@ -128,7 +128,7 @@ class Report(ContestReport):
         header_block = format_text_header(80, title_lines, meta_lines)
         
         standard_footer = get_standard_footer(self.logs)
-        final_report_str = "\n".join(header_block + report_lines) + "\n" + standard_footer + "\n"
+        final_report_str = "\n".join(header_block + report_lines) + "\n\n" + standard_footer + "\n"
         
         # --- Save to File ---
         create_output_directory(output_path)

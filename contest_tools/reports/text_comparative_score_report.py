@@ -168,7 +168,7 @@ class Report(ContestReport):
 
         # --- Save to File ---
         standard_footer = get_standard_footer(self.logs)
-        report_content = "\n".join(report_lines) + "\n" + standard_footer + "\n"
+        report_content = "\n".join(report_lines) + "\n\n" + standard_footer + "\n"
         os.makedirs(output_path, exist_ok=True)
         callsigns_part = build_callsigns_filename_part(sorted(all_calls))
         filename = f"{self.report_id}--{callsigns_part}.txt"

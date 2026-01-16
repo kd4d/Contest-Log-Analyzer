@@ -17,6 +17,7 @@ import os
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
 from ..data_aggregators.categorical_stats import CategoricalAggregator
+from ..utils.report_utils import get_standard_footer
 
 class Report(ContestReport):
     """
@@ -85,7 +86,8 @@ class Report(ContestReport):
             data_parts = [f"{str(row.get(h, 'N/A')):<{col_widths[h]}}" for h in headers]
             report_lines.append("  ".join(data_parts))
 
-        report_content = "\n".join(report_lines) + "\n"
+        standard_footer = get_standard_footer(self.logs)
+        report_content = "\n".join(report_lines) + "\n\n" + standard_footer + "\n"
         os.makedirs(output_path, exist_ok=True)
         
         filename_calls = '_vs_'.join(sorted(all_calls))

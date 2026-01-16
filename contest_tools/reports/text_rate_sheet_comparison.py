@@ -117,7 +117,7 @@ class Report(ContestReport):
         
         # Prepend header to blocks and append standard footer
         standard_footer = get_standard_footer(self.logs)
-        full_content = "\n".join(header_block) + "\n\n" + "\n\n".join(report_blocks) + "\n" + standard_footer + "\n"
+        full_content = "\n".join(header_block) + "\n\n" + "\n\n".join(report_blocks) + "\n\n" + standard_footer + "\n"
 
         # --- BLOCKS 2+: Band Details ---
         if not is_single_band:
