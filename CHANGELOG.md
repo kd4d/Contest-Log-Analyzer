@@ -5,6 +5,38 @@ All notable changes to Contest Log Analyzer will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-alpha.3] - 2026-01-16
+[Full Release Notes](ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.3.md)
+
+### Added
+- Release Notes web UI integration
+  - New Release Notes page accessible via hamburger menu (renders CHANGELOG.md as HTML)
+  - Version badge on About page with link to Release Notes
+  - Automatic CHANGELOG.md rendering via web interface
+- Markdown library (markdown>=3.4.0) for CHANGELOG.md rendering
+
+### Changed
+- Standardized one-line footer format across all reports (Contest Log Analytics v{version}   |   CTY-{version} {date})
+- Web dashboard footer abbreviated to "CLA"
+- CTY metadata format updated to "CTY-{version} {date}" format
+- All text reports now include blank line before footer
+- User-facing documentation versioning (all docs now match project version)
+- Production URL (cla.kd4d.org) added to user-facing documentation
+- CQ WW mode references updated to include RTTY in all documentation
+
+### Fixed
+- Missing `get_standard_footer` import in text_continent_breakdown.py
+
+### Documentation
+- Comprehensive Release Workflow added to AI_AGENT_RULES.md (includes merge, version bump, release notes, tagging steps)
+- Hotfix Workflow Integration documented (emergency release process, version numbering, backporting)
+- Rollback Strategy documented (procedures for reverting bad releases)
+- CHANGELOG.md workflow documented (Keep a Changelog format, web UI accessibility)
+- PDF compatibility restrictions added (no emojis or Unicode symbols in markdown files)
+- Emoji removal from documentation (replaced with text equivalents)
+
+---
+
 ## [1.0.0-alpha.2] - 2026-01-16
 [Full Release Notes](ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.2.md)
 

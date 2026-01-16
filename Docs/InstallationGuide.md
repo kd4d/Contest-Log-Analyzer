@@ -1,6 +1,6 @@
 # Contest Log Analytics - Installation Guide
 
-**Version: 1.0.0-alpha.2**
+**Version: 1.0.0-alpha.3**
 
 ---
 ### --- Revision History ---

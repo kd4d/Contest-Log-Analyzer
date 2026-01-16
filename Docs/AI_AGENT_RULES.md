@@ -555,7 +555,7 @@ d. **Push merged master (user executes):**
 #### Version Numbering for Hotfixes
 
 - **Patch increment from fixed release:** `1.0.0` → `1.0.1`
-- **For pre-releases:** `1.0.0-alpha.2` → `1.0.0-alpha.3`
+- **For pre-releases:** `1.0.0-alpha.3` → `1.0.0-alpha.4`
 - **Master version:** Independent of hotfix version (reflects master's development state)
 
 #### AI Agent Responsibilities for Hotfixes
