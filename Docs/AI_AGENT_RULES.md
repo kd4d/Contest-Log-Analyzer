@@ -195,7 +195,155 @@ This document provides specific rules for AI agents (like Cursor/Console AI) whe
 - Pre-commit hook automatically updates `__git_hash__` before each commit
 - `__version__` should match most recent git tag (manual update before releases)
 
-### Before Creating a Tag
+### Release Workflow: Creating a New Version Tag
+
+**Purpose:** Ensure version consistency across `version.py`, documentation, and git tags when creating a new release.
+
+**When to Use:** Before creating any version tag (alpha, beta, or release).
+
+#### Step-by-Step Process
+
+**1. Pre-Release Checklist**
+- [ ] Verify current branch state (`git status`)
+- [ ] Ensure all changes are committed
+- [ ] Review recent commits to determine appropriate version increment
+- [ ] Confirm target version number with user (e.g., `v1.0.0-alpha.3`)
+
+**2. Update Version References**
+
+AI should update all version references in this order:
+
+a. **Update `contest_tools/version.py`:**
+   ```python
+   __version__ = "1.0.0-alpha.3"  # Match target tag (without 'v' prefix)
+   ```
+
+b. **Update `README.md`:**
+   - Line 3: `**Version: 1.0.0-alpha.3**`
+   - Verify no other version references exist
+
+c. **Check other documentation files:**
+   - Search for version strings: `grep -r "1\.0\.0" Docs/ README.md`
+   - Update any hardcoded version references found
+
+**3. Create Release Notes**
+
+a. **Create release notes file:**
+   - Location: `ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.3.md`
+   - Format: Use previous release notes as template
+   - Content: Summary of commits since last tag
+
+b. **Generate commit summary:**
+   ```bash
+   git log --oneline <last-tag>..HEAD
+   ```
+   - Organize by category (Features, Enhancements, Bug Fixes, Documentation)
+   - Include all significant changes
+
+**4. Commit Version Updates**
+
+a. **Stage all version-related changes:**
+   ```bash
+   git add contest_tools/version.py README.md ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.3.md
+   ```
+
+b. **Create commit:**
+   ```bash
+   git commit -m "chore(release): bump version to 1.0.0-alpha.3 and add release notes"
+   ```
+   - Use `chore(release):` type for version bumps
+   - Include "bump version" in message
+   - Mention release notes if created
+
+**5. Create and Push Tag**
+
+a. **Create annotated tag:**
+   ```bash
+   git tag -a v1.0.0-alpha.3 -m "Release v1.0.0-alpha.3
+
+   [Summary of major changes]
+   
+   [Key features/enhancements]
+   "
+   ```
+   - Use `-a` for annotated tag (recommended)
+   - Include meaningful tag message
+   - Tag name must match version.py (with 'v' prefix)
+
+b. **Verify tag:**
+   ```bash
+   git tag -l "v1.0.0-alpha.3"
+   git show v1.0.0-alpha.3
+   ```
+
+c. **Push tag (user executes):**
+   ```bash
+   git push origin v1.0.0-alpha.3
+   git push origin <branch-name>  # Push commits too
+   ```
+
+**6. Post-Release Verification**
+
+a. **Verify version consistency:**
+   ```bash
+   # Check version.py matches tag
+   grep "__version__" contest_tools/version.py
+   git describe --tags
+   
+   # Check README matches
+   grep "Version:" README.md
+   ```
+
+b. **Verify release notes exist:**
+   ```bash
+   ls ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.3.md
+   ```
+
+#### AI Agent Responsibilities
+
+- **AI Can Do:**
+  - Suggest version number based on commit history
+  - Update `version.py` and `README.md`
+  - Generate release notes from commit history
+  - Create commit message for version bump
+  - Generate tag creation command
+  - Verify version consistency
+
+- **User Must:**
+  - Confirm target version number
+  - Review release notes content
+  - Execute tag push command
+  - Verify final state
+
+#### Version Number Guidelines
+
+- **Alpha versions:** `1.0.0-alpha.X` (e.g., `1.0.0-alpha.3`)
+- **Beta versions:** `1.0.0-beta.X` (e.g., `1.0.0-beta.5`)
+- **Release candidates:** `1.0.0-rc.X` (e.g., `1.0.0-rc.1`)
+- **Releases:** `1.0.0`, `1.1.0`, `2.0.0` (SemVer)
+
+#### Quick Reference Commands
+
+```bash
+# Find last tag
+git describe --tags --abbrev=0
+
+# List commits since last tag
+git log --oneline $(git describe --tags --abbrev=0)..HEAD
+
+# Verify version consistency
+grep -r "1\.0\.0-alpha" contest_tools/version.py README.md ReleaseNotes/
+
+# Create and push tag (after version updates committed)
+git tag -a v1.0.0-alpha.3 -m "Release v1.0.0-alpha.3"
+git push origin v1.0.0-alpha.3
+```
+
+### Legacy: Simple Tag Creation (Deprecated)
+
+For quick tags without full release process, see "Before Creating a Tag" section below. However, **full release workflow is recommended** for all version tags.
+
+### Before Creating a Tag (Legacy/Quick Method)
 1. **User specifies** target version (e.g., `v1.0.0-beta.5`)
 2. **AI suggests** updating `version.py`:
    ```python
@@ -209,6 +357,8 @@ This document provides specific rules for AI agents (like Cursor/Console AI) whe
 5. **User commits** version change
 6. **User creates** tag: `git tag v1.0.0-beta.5`
 7. **User pushes** tag: `git push origin v1.0.0-beta.5`
+
+**Note:** This method does NOT update README.md or create release notes. Use full Release Workflow for proper releases.
 
 ### Untagged Commits
 - Version string will be: `"1.0.0-beta.5-3-gabc1234"` (most recent tag + distance + hash)
