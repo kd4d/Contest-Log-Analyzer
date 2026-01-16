@@ -287,7 +287,7 @@ class ContestLog:
                 raw_df[col.replace('Raw','')] = raw_df[col].fillna('').astype(str).str.upper()
 
         # --- Check for non-standard modes ---
-        standard_modes = {'CW', 'PH', 'DG'}
+        standard_modes = {'CW', 'PH', 'DG', 'RY'}
         present_modes = set(raw_df['Mode'].dropna().unique())
         non_standard_modes = present_modes - standard_modes
         if non_standard_modes:

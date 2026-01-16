@@ -50,5 +50,17 @@
       "value_column": "Mult3",
       "name_column": "Mult3Name"
     }
+  ],
+  "default_qso_columns": [
+    "ContestName", "CategoryOverlay", "CategoryOperator", "CategoryTransmitter", "MyCall",
+    "Frequency", "Mode", "Datetime",
+    "SentRST", "SentZone", "SentLocation",
+    "Call",
+    "RST", "Zone", "RcvdLocation", "Transmitter",
+    "Band", "Date", "Hour", "Dupe",
+    "DXCCName", "DXCCPfx", "CQZone", "ITUZone", "Continent", "WAEName", "WAEPfx", "Lat", "Lon", "Tzone",
+    "portableid",
+    "Run", "QSOPoints",
+    "Mult1", "Mult1Name", "Mult2", "Mult2Name", "Mult3", "Mult3Name"
   ]
 }

@@ -214,6 +214,7 @@ import re
 import json
 import time
 import itertools
+import zipfile
 from django.shortcuts import render, redirect, reverse
 from django.http import Http404, JsonResponse, FileResponse
 from django.conf import settings
@@ -925,12 +926,43 @@ def qso_dashboard(request, session_id):
     callsigns_display = parse_callsigns_from_filename_part(combo_id)
     callsigns_safe = [c.lower().replace('/', '-') for c in callsigns_display]  # For filename matching
     is_solo = (len(callsigns_safe) == 1)
+    
+    # 2a. Load Contest Definition to get valid_bands
+    # Load LogManager minimally just to get contest definition
+    root_input = os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
+    log_candidates = []
+    for f in os.listdir(session_path):
+        f_path = os.path.join(session_path, f)
+        if os.path.isfile(f_path) and not f.startswith('dashboard_context') and not f.endswith('.zip') and not f.endswith('.json'):
+            log_candidates.append(f_path)
+    
+    valid_bands = ['80M', '40M', '20M', '15M', '10M']  # Default fallback
+    if log_candidates:
+        try:
+            lm = LogManager()
+            lm.load_log_batch(log_candidates[:1], root_input, 'after')  # Load just first log
+            if lm.logs:
+                valid_bands = lm.logs[0].contest_definition.valid_bands
+        except Exception as e:
+            logger.warning(f"Failed to load contest definition for valid_bands: {e}")
+    
+    # Build band mapping: "80M" -> "80" for template buttons
+    valid_bands_for_buttons = []
+    for band in valid_bands:
+        # Convert "80M" -> "80", "160M" -> "160", etc.
+        band_num = band.replace('M', '').lower()
+        valid_bands_for_buttons.append({
+            'display': band_num,
+            'key': band_num,
+            'full': band
+        })
+    
     BAND_SORT_ORDER = {'ALL': 0, '160M': 1, '80M': 2, '40M': 3, '20M': 4, '15M': 5, '10M': 6, '6M': 7, '2M': 8}
     
     # 3. Identify Pairs for Strategy Tab
     matchups = []
-    # Requested Sort Order for Diff Plots
-    DIFF_BANDS = ['160M', '80M', '40M', '20M', '15M', '10M', 'ALL']
+    # Requested Sort Order for Diff Plots - filter to only valid bands
+    DIFF_BANDS = ['ALL'] + [band for band in ['160M', '80M', '40M', '20M', '15M', '10M'] if band in valid_bands]
 
     if not is_solo:
         import itertools
@@ -941,31 +973,35 @@ def qso_dashboard(request, session_id):
             label = f"{c1.upper()} vs {c2.upper()}"
             
             # Discover available band variants for the diff plot via Manifest
+            # New format: cumulative_difference_plots_qsos_{band}--{callsigns}.html
+            # Where callsigns is {c1}_{c2} (lowercase, underscore-separated)
             diff_paths = {}
             diff_json_paths = {}
             
+            # Build expected callsigns part for this pair (lowercase, underscore-separated)
+            pair_callsigns = f"{c1}_{c2}"
+            
             # Filter artifacts for this pair's difference plots
-            target_prefix = f"cumulative_difference_plots_qsos_"
-            target_html_suffix = f"_{c1}_{c2}.html"
-            target_json_suffix = f"_{c1}_{c2}.json"
+            target_prefix = "cumulative_difference_plots_qsos_"
+            target_suffix = f"--{pair_callsigns}"
             
             for art in artifacts:
-                if art['report_id'] == 'cumulative_difference_plots' and art['path'].endswith(target_html_suffix):
-                    # Extract band from filename: cumulative_difference_plots_qsos_{BAND}_{c1}_{c2}.html
+                if art['report_id'] == 'cumulative_difference_plots':
                     fname = os.path.basename(art['path'])
-                    # Remove prefix and suffix to isolate band
-                    band_part = fname.replace(target_prefix, '').replace(target_html_suffix, '')
-                    # band_part is roughly {band_slug}
                     
-                    # Prepend report_rel_path to ensure view_report can find it
-                    diff_paths[band_part] = f"{report_rel_path}/{art['path']}"
-                
-                elif art['report_id'] == 'cumulative_difference_plots' and art['path'].endswith(target_json_suffix):
-                    # JSON Path Logic (Direct URL access via media)
-                    fname = os.path.basename(art['path'])
-                    band_part = fname.replace(target_prefix, '').replace(target_json_suffix, '')
-                    # Construct direct media URL for fetch()
-                    diff_json_paths[band_part] = f"{settings.MEDIA_URL}sessions/{session_id}/{report_rel_path}/{art['path']}"
+                    # Check if this file matches our pair (new format with -- delimiter)
+                    if target_suffix in fname and fname.startswith(target_prefix):
+                        # Extract band from filename: cumulative_difference_plots_qsos_{band}--{callsigns}.html
+                        # Format: {prefix}{band}--{callsigns}.{ext}
+                        band_part = fname.replace(target_prefix, '').split('--')[0]
+                        # band_part is like "all", "80", "40", "20", "15", "10" (lowercase, no 'M')
+                        
+                        if art['path'].endswith('.html'):
+                            # Prepend report_rel_path to ensure view_report can find it
+                            diff_paths[band_part] = f"{report_rel_path}/{art['path']}"
+                        elif art['path'].endswith('.json'):
+                            # JSON Path Logic (Direct URL access via media)
+                            diff_json_paths[band_part] = f"{settings.MEDIA_URL}sessions/{session_id}/{report_rel_path}/{art['path']}"
         
             # Find breakdown chart
             bk_path = next((f"{report_rel_path}/{a['path']}" for a in artifacts if a['report_id'] == 'qso_breakdown_chart' and f"_{c1}_{c2}" in a['path'] and a['path'].endswith('.html')), "")
@@ -1195,15 +1231,19 @@ def qso_dashboard(request, session_id):
         'global_qso_rate_file': global_qso,
         'rate_sheet_comparison': rate_sheet_comp,
         'report_base': report_base,
-        'is_solo': is_solo
+        'is_solo': is_solo,
+        'valid_bands': valid_bands_for_buttons  # For dynamic band button generation
     }
     
     return render(request, 'analyzer/qso_dashboard.html', context)
 
 def download_all_reports(request, session_id):
     """
-    Zips the entire 'reports' directory for the session and serves it as a download.
+    Zips the 'reports' directory and original Cabrillo log files for the session.
     Filename format: YYYY_CONTEST_NAME.zip
+    Structure:
+        - reports/ (all generated reports)
+        - logs/ (original Cabrillo log files)
     """
     session_path = os.path.join(settings.MEDIA_ROOT, 'sessions', session_id)
     context_path = os.path.join(session_path, 'dashboard_context.json')
@@ -1227,29 +1267,73 @@ def download_all_reports(request, session_id):
     except Exception:
         zip_filename = "contest_reports.zip"
 
-    # 2. Create Zip Archive
-    # We zip 'reports' directory relative to session_path to avoid recursive loops
+    # 2. Verify Required Directories/Files
     reports_root = os.path.join(session_path, 'reports')
     if not os.path.exists(reports_root):
         raise Http404("No reports found to archive")
 
-    # Output zip path (stored in session root, not inside reports!)
-    zip_output_base = os.path.join(session_path, 'archive_temp')
+    # 3. Find Log Files
+    log_extensions = ('.log', '.cbr', '.txt')
+    log_files = []
+    excluded_files = {'dashboard_context.json', 'session_manifest.json', 'archive_temp.zip'}
+    
+    if os.path.exists(session_path):
+        for item in os.listdir(session_path):
+            item_path = os.path.join(session_path, item)
+            # Only include files (not directories) with log extensions
+            if os.path.isfile(item_path) and item.lower().endswith(log_extensions):
+                # Exclude known non-log files
+                if item not in excluded_files:
+                    log_files.append((item, item_path))
+    
+    # 4. Warning if no log files found
+    if not log_files:
+        logger.warning(f"download_all_reports: No Cabrillo log files found in session {session_id}. "
+                      f"Expected files with extensions: {log_extensions}")
+    else:
+        logger.info(f"download_all_reports: Found {len(log_files)} log file(s) to include in archive")
+
+    # 5. Create Zip Archive using zipfile for more control
+    zip_output_path = os.path.join(session_path, 'archive_temp.zip')
     
     try:
-        # make_archive appends .zip automatically
-        archive_path = shutil.make_archive(
-            base_name=zip_output_base,
-            format='zip',
-            root_dir=session_path,
-            base_dir='reports'
-        )
+        with zipfile.ZipFile(zip_output_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            # Add reports directory (recursive)
+            reports_dir = os.path.join(session_path, 'reports')
+            if os.path.exists(reports_dir):
+                for root, dirs, files in os.walk(reports_dir):
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        # Calculate relative path from session_path
+                        arcname = os.path.relpath(file_path, session_path)
+                        zipf.write(file_path, arcname)
+                        logger.debug(f"Added to archive: {arcname}")
+            
+            # Add log files to logs/ subdirectory
+            if log_files:
+                for log_name, log_path in log_files:
+                    # Store in logs/ subdirectory in ZIP
+                    arcname = os.path.join('logs', log_name)
+                    zipf.write(log_path, arcname)
+                    logger.debug(f"Added log to archive: {arcname}")
+            else:
+                # Create empty logs directory marker (optional, but helps with structure)
+                logger.warning(f"Archive created without log files - logs/ directory will be empty")
         
-        # 3. Serve File
-        response = FileResponse(open(archive_path, 'rb'), as_attachment=True, filename=zip_filename)
+        # 6. Serve File
+        response = FileResponse(open(zip_output_path, 'rb'), as_attachment=True, filename=zip_filename)
+        # Clean up temp file after response (use streaming or background cleanup)
+        # For now, rely on session cleanup to remove it
         return response
+        
     except Exception as e:
-        logger.error(f"Failed to zip reports: {e}")
+        logger.error(f"Failed to create archive for session {session_id}: {e}")
+        # Clean up partial zip if it exists
+        if os.path.exists(zip_output_path):
+            try:
+                os.remove(zip_output_path)
+            except:
+                pass
         raise Http404("Failed to generate archive")
 
 def help_about(request):

@@ -309,7 +309,8 @@ class Report(ContestReport):
         # 2. Generate plots for each mode if applicable
         modes_present = pd.concat([df1_full['Mode'], df2_full['Mode']]).dropna().unique()
         if len(modes_present) > 1:
-            for mode in ['CW', 'PH', 'DG']:
+            # Include all standard modes: CW, PH (SSB), DG (Digital), RY (RTTY)
+            for mode in ['CW', 'PH', 'DG', 'RY']:
                 if mode in modes_present:
                     sliced_dfs = [df[df['Mode'] == mode] for df in [df1_full, df2_full]]
                     

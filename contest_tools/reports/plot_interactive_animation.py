@@ -21,6 +21,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from typing import List, Dict, Any, Tuple
 from pathlib import Path
+from datetime import datetime
 
 from .report_interface import ContestReport
 from contest_tools.utils.report_utils import create_output_directory, _sanitize_filename_part, get_cty_metadata, get_standard_title_lines, get_valid_dataframe
@@ -63,6 +64,38 @@ class Report(ContestReport):
         g = int(hex_clean[2:4], 16)
         b = int(hex_clean[4:6], 16)
         return f"rgba({r},{g},{b},0.5)"
+    
+    def _format_time_display(self, iso_string: str) -> Tuple[str, str]:
+        """
+        Formats ISO time string for display.
+        
+        Args:
+            iso_string: ISO format string like "2024-09-28T00:00:00"
+        
+        Returns:
+            Tuple of (full_format, compact_format):
+            - full_format: "2024-09-28 00:00 UTC" (for currentvalue)
+            - compact_format: "Sep 28, 00:00" (for slider labels)
+        """
+        try:
+            # Parse ISO format: "2024-09-28T00:00:00" or "2024-09-28T00:00:00+00:00"
+            dt = pd.to_datetime(iso_string)
+            
+            # Full format: "2024-09-28 00:00 UTC"
+            full_format = dt.strftime("%Y-%m-%d %H:%M UTC")
+            
+            # Compact format: "Sep 28, 00:00"
+            compact_format = dt.strftime("%b %d, %H:%M")
+            
+            return full_format, compact_format
+        except Exception as e:
+            logging.warning(f"Error formatting time string '{iso_string}': {e}")
+            # Fallback: try to extract what we can
+            if 'T' in iso_string:
+                date_part = iso_string.split('T')[0]
+                time_part = iso_string.split('T')[1][:5] if len(iso_string.split('T')) > 1 else "00:00"
+                return f"{date_part} {time_part} UTC", f"{date_part} {time_part}"
+            return iso_string, iso_string
 
     def generate(self, output_path: str, **kwargs) -> str:
         """
@@ -177,10 +210,31 @@ class Report(ContestReport):
                 row=1, col=1 # Assign to any subplot, it won't render data
             )
 
-        # 4. Generate Frames
+        # 4. Generate Frames with Time Formatting
         frames = []
+        time_formats = {}  # Cache formatted times
+        
+        # Prepare footer text for frame annotations (needed since frame layouts replace all annotations)
+        # Define footer_text early so it can be used in frames
+        footer_text = f"Contest Log Analytics by KD4D\n{get_cty_metadata(self.logs)}"
+        footer_annotation = {
+            "x": 0.5,
+            "y": -0.25,
+            "xref": "paper",
+            "yref": "paper",
+            "text": footer_text.replace('\n', '<br>'),
+            "showarrow": False,
+            "font": {"size": 12, "color": "#7f7f7f"},
+            "align": "center",
+            "valign": "top"
+        }
+        
         for t_idx, t_label in enumerate(time_bins):
             frame_data = []
+            
+            # Format time for this frame
+            full_format, compact_format = self._format_time_display(t_label)
+            time_formats[t_label] = (full_format, compact_format)
             
             # Update Pane 1: Racing Bars
             scores = [data['ts_data'][call]['score'][t_idx] for call in callsigns]
@@ -198,7 +252,26 @@ class Report(ContestReport):
                     y_cumul = [data['matrix_cumulative'][call][band][mode][t_idx] for band in bands]
                     frame_data.append(go.Bar(y=y_cumul))
 
-            frames.append(go.Frame(data=frame_data, name=t_label))
+            # Include layout update for annotations in frame
+            # Note: Frame layout annotations replace ALL annotations, so we must include both
+            frame_layout = {
+                "annotations": [
+                    {
+                        "text": f"<b>Current Time: {full_format}</b>",
+                        "x": 0.5,
+                        "y": 1.02,
+                        "xref": "paper",
+                        "yref": "paper",
+                        "showarrow": False,
+                        "font": {"size": 16, "color": "#2c3e50"},
+                        "xanchor": "center",
+                        "yanchor": "bottom"
+                    },
+                    footer_annotation.copy()  # Include footer in each frame
+                ]
+            }
+            
+            frames.append(go.Frame(data=frame_data, name=t_label, layout=frame_layout))
 
         fig.frames = frames
 
@@ -275,30 +348,44 @@ class Report(ContestReport):
                 ]
             }],
             sliders=[{
-                "currentvalue": {"prefix": "Time: "},
+                "currentvalue": {
+                    "prefix": "Time: ",
+                    "visible": True,
+                    "offset": 20,
+                    "font": {"size": 14},
+                    "xanchor": "left"
+                },
                 "steps": [
-                    {"args": [[f.name], {"frame": {"duration": 0, "redraw": True}, "mode": "immediate"}],
-                     "label": f.name[11:16], # Show HH:MM
-                     "method": "animate"}
+                    {
+                        "args": [[f.name], {"frame": {"duration": 0, "redraw": True}, "mode": "immediate"}],
+                        "label": time_formats.get(f.name, ("", ""))[1],  # Compact format for slider labels (e.g., "Sep 28, 00:00")
+                        "method": "animate"
+                    }
                     for f in frames
-                ]
+                ],
+                "active": 0
             }]
         )
 
-        # Update Title with Standard Formatting and Footer
-        footer_text = f"Contest Log Analytics by KD4D\n{get_cty_metadata(self.logs)}"
-        
         # Merge with existing layout properties (since animation has complex layout)
         # We inject footer as annotation manually because we aren't using get_standard_layout here
-        fig.update_layout(title_text=final_title)
-        fig.add_annotation(
-            x=0.5, y=-0.25, # Push footer way down below controls
-            xref="paper", yref="paper",
-            text=footer_text.replace('\n', '<br>'),
-            showarrow=False,
-            font=dict(size=12, color="#7f7f7f"),
-            align="center",
-            valign="top"
+        # IMPORTANT: Do NOT include the time annotation in base layout - only in frames
+        # This prevents overlay issues. Base layout only has static footer.
+        fig.update_layout(
+            title_text=final_title,
+            annotations=[
+                {
+                    "x": 0.5,
+                    "y": -0.25,
+                    "xref": "paper",
+                    "yref": "paper",
+                    "text": footer_text.replace('\n', '<br>'),
+                    "showarrow": False,
+                    "font": {"size": 12, "color": "#7f7f7f"},
+                    "align": "center",
+                    "valign": "top"
+                }
+            ]
         )
 
         # 6. Save
