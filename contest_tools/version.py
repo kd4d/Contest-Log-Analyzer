@@ -49,7 +49,7 @@ def _get_git_hash():
 
 # File-based defaults (used if git unavailable, e.g., in packaged distributions)
 # These should be updated to match the most recent git tag before release builds
-__version__ = "1.0.0-alpha.1"
+__version__ = "1.0.0-alpha.2"
 __git_hash__ = None
 
 # Try to get from git (overrides defaults in development environments)
