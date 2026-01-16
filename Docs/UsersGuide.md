@@ -1,7 +1,6 @@
 # Contest Log Analytics - User Guide
 
-**Version: 1.2.0**
-**Date: 2025-12-23**
+**Version: 1.0.0-alpha.2**
 
 ---
 ### --- Revision History ---
@@ -205,7 +204,7 @@ The following contests are currently supported:
 * ARRL Sweepstakes
 * CQ 160-Meter
 * CQ WPX (CW & SSB)
-* CQ World Wide DX (CW & SSB)
+* CQ World Wide DX (CW & SSB & RTTY)
 * IARU HF World Championship
 * North American QSO Party (NAQP)
 * WAE (CW & SSB)
@@ -269,7 +268,7 @@ The Contest Log Analytics now features a "Stateless" Web Interface designed for 
 1. Ensure Docker is running.
 2. Navigate to the project root.
 3. Run: `docker-compose up --build`
-4. Open your browser to `http://localhost:8000`.
+4. Open your browser to `http://localhost:8000` (development) or visit `https://cla.kd4d.org` (production).
 
 ### Upload Options
 The web dashboard supports flexible log analysis:

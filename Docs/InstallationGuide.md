@@ -1,7 +1,6 @@
 # Contest Log Analytics - Installation Guide
 
-**Version: 1.0.0-alpha.1**
-**Date: 2026-01-13**
+**Version: 1.0.0-alpha.2**
 
 ---
 ### --- Revision History ---
@@ -144,7 +143,8 @@ This is the easiest way to get started. Docker automatically handles all depende
     * Reports generated in: `CONTEST_LOGS_REPORTS/reports/`
 
 4.  **Access the Dashboard:**
-    Open your web browser and navigate to `http://localhost:8000`.
+    - Development: Open your web browser and navigate to `http://localhost:8000`.
+    - Production: Visit `https://cla.kd4d.org`.
 
 ---
 

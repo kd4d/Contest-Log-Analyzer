@@ -1,6 +1,6 @@
 # Contest Log Analytics
 
-**Version: 1.0.0-alpha.1**  
+**Version: 1.0.0-alpha.2**  
 **A post-mortem analysis engine for amateur radio contesting**
 
 ---
@@ -30,7 +30,7 @@ Cabrillo logs don't record whether you were "Running" (Calling CQ) or "Search & 
 "Common" QSOs are the price of admission—everyone works them. Contests are won in the margins. CLA isolates "Unique Run" and "Unique S&P" QSOs to show exactly where you gained (or lost) your advantage relative to the competition.
 
 ### Public Log Archive Integration
-Forget manually downloading competitor logs. CLA connects directly to public contest archives (starting with CQ WW). Simply select the year and mode, search for competitors by callsign, and fetch data instantly for head-to-head analysis.
+Forget manually downloading competitor logs. CLA connects directly to public contest archives (starting with CQ WW). Simply select the year and mode (CW, SSB, or RTTY), search for competitors by callsign, and fetch data instantly for head-to-head analysis.
 
 ### Dual Interface
 - **Web Dashboard**: Containerized Django application with interactive visualizations (Plotly charts), QSO and Multiplier dashboards with drill-down analysis, progress tracking, and comprehensive report viewing
@@ -50,7 +50,7 @@ Forget manually downloading competitor logs. CLA connects directly to public con
 ## Supported Contests
 
 CLA supports major international contests including:
-- **CQ World Wide DX Contest** (CW/SSB)
+- **CQ World Wide DX Contest** (CW/SSB/RTTY)
 - **CQ WPX Contest** (CW/SSB)
 - **ARRL DX Contest** (CW/SSB)
 - **ARRL Sweepstakes**
@@ -83,7 +83,8 @@ The easiest way to run CLA is via Docker with the pre-configured web dashboard:
    ```
 
 3. **Access the web interface**:
-   Open your browser to `http://localhost:8000`
+   - Development: Open your browser to `http://localhost:8000`
+   - Production: Visit `https://cla.kd4d.org`
 
 For detailed installation instructions including CLI setup, see the [Installation Guide](Docs/InstallationGuide.md).
 
