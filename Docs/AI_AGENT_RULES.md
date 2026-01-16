@@ -205,11 +205,38 @@ This document provides specific rules for AI agents (like Cursor/Console AI) whe
 
 **1. Pre-Release Checklist**
 - [ ] Verify current branch state (`git status`)
-- [ ] Ensure all changes are committed
+- [ ] Ensure all changes are committed on feature branch
 - [ ] Review recent commits to determine appropriate version increment
 - [ ] Confirm target version number with user (e.g., `v1.0.0-alpha.3`)
 
-**2. Update Version References**
+**2. Merge Feature Branch into Master**
+
+a. **Ensure feature branch is committed:**
+   ```bash
+   git status  # Verify no uncommitted changes
+   ```
+
+b. **Checkout master and pull latest:**
+   ```bash
+   git checkout master
+   git pull origin master
+   ```
+
+c. **Merge feature branch into master:**
+   ```bash
+   git merge feature/branch-name
+   ```
+
+d. **Resolve any merge conflicts** (if present)
+
+e. **Push merged master:**
+   ```bash
+   git push origin master
+   ```
+
+**Note:** All subsequent steps (version bumping, release notes, tagging) happen on master after the merge is complete.
+
+**3. Update Version References**
 
 AI should update all version references in this order:
 
@@ -226,25 +253,42 @@ c. **Check other documentation files:**
    - Search for version strings: `grep -r "1\.0\.0" Docs/ README.md`
    - Update any hardcoded version references found
 
-**3. Create Release Notes**
+**4. Create Release Notes and Update CHANGELOG.md**
 
 a. **Create release notes file:**
    - Location: `ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.3.md`
    - Format: Use previous release notes as template
    - Content: Summary of commits since last tag
 
-b. **Generate commit summary:**
+b. **Update CHANGELOG.md:**
+   - Location: `CHANGELOG.md` (project root, alongside README.md)
+   - Add new entry at top (reverse chronological order)
+   - Format: Use Keep a Changelog format with link to detailed release notes
+   - Example:
+     ```markdown
+     ## [1.0.0-alpha.3] - 2026-01-20
+     [Full Release Notes](ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.3.md)
+     
+     ### Added
+     - Feature X
+     ### Changed
+     - Enhancement Y
+     ### Fixed
+     - Bug Z
+     ```
+
+c. **Generate commit summary:**
    ```bash
    git log --oneline <last-tag>..HEAD
    ```
    - Organize by category (Features, Enhancements, Bug Fixes, Documentation)
    - Include all significant changes
 
-**4. Commit Version Updates**
+**5. Commit Version Updates**
 
 a. **Stage all version-related changes:**
    ```bash
-   git add contest_tools/version.py README.md ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.3.md
+   git add contest_tools/version.py README.md ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.3.md CHANGELOG.md
    ```
 
 b. **Create commit:**
@@ -253,9 +297,9 @@ b. **Create commit:**
    ```
    - Use `chore(release):` type for version bumps
    - Include "bump version" in message
-   - Mention release notes if created
+   - Mention release notes and CHANGELOG.md if created
 
-**5. Create and Push Tag**
+**6. Create and Push Tag**
 
 a. **Create annotated tag:**
    ```bash
@@ -276,13 +320,13 @@ b. **Verify tag:**
    git show v1.0.0-alpha.3
    ```
 
-c. **Push tag (user executes):**
+c. **Push commits and tag (user executes):**
    ```bash
-   git push origin v1.0.0-alpha.3
-   git push origin <branch-name>  # Push commits too
+   git push origin master          # Push version bump commit
+   git push origin v1.0.0-alpha.3  # Push tag
    ```
 
-**6. Post-Release Verification**
+**7. Post-Release Verification**
 
 a. **Verify version consistency:**
    ```bash
@@ -294,22 +338,27 @@ a. **Verify version consistency:**
    grep "Version:" README.md
    ```
 
-b. **Verify release notes exist:**
+b. **Verify release notes and CHANGELOG.md exist:**
    ```bash
    ls ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.3.md
+   ls CHANGELOG.md
+   grep -A 5 "## \[1.0.0-alpha.3\]" CHANGELOG.md  # Verify entry exists
    ```
 
 #### AI Agent Responsibilities
 
 - **AI Can Do:**
+  - Merge feature branch into master (after user confirmation)
   - Suggest version number based on commit history
   - Update `version.py` and `README.md`
   - Generate release notes from commit history
+  - Update CHANGELOG.md with new release entry
   - Create commit message for version bump
   - Generate tag creation command
   - Verify version consistency
 
 - **User Must:**
+  - Confirm feature branch is ready for merge
   - Confirm target version number
   - Review release notes content
   - Execute tag push command
@@ -324,7 +373,14 @@ b. **Verify release notes exist:**
 
 #### Quick Reference Commands
 
+**Regular Release:**
 ```bash
+# Merge feature branch into master (do this first)
+git checkout master
+git pull origin master
+git merge feature/branch-name
+git push origin master
+
 # Find last tag
 git describe --tags --abbrev=0
 
@@ -332,11 +388,29 @@ git describe --tags --abbrev=0
 git log --oneline $(git describe --tags --abbrev=0)..HEAD
 
 # Verify version consistency
-grep -r "1\.0\.0-alpha" contest_tools/version.py README.md ReleaseNotes/
+grep -r "1\.0\.0-alpha" contest_tools/version.py README.md ReleaseNotes/ CHANGELOG.md
 
-# Create and push tag (after version updates committed)
+# Create and push tag (after version updates committed on master)
 git tag -a v1.0.0-alpha.3 -m "Release v1.0.0-alpha.3"
+git push origin master
 git push origin v1.0.0-alpha.3
+```
+
+**Hotfix Release:**
+```bash
+# Create hotfix branch from release tag
+git checkout v1.0.0
+git checkout -b hotfix/1.0.1-description
+
+# After fix and version bump:
+git tag -a v1.0.1 -m "Hotfix v1.0.1"
+git push origin v1.0.1
+
+# Backport to master
+git checkout master
+git pull origin master
+git merge hotfix/1.0.1-description
+git push origin master
 ```
 
 ### Legacy: Simple Tag Creation (Deprecated)
@@ -359,6 +433,200 @@ For quick tags without full release process, see "Before Creating a Tag" section
 7. **User pushes** tag: `git push origin v1.0.0-beta.5`
 
 **Note:** This method does NOT update README.md or create release notes. Use full Release Workflow for proper releases.
+
+### Hotfix Workflow: Emergency Releases
+
+**Purpose:** Handle critical bugs or security vulnerabilities in released versions when master has moved ahead with new features.
+
+**When to Use:** Critical bug in released version (e.g., `v1.0.0`) but master is at higher version (e.g., `v1.1.0-alpha.1`).
+
+#### Step-by-Step Hotfix Process
+
+**1. Pre-Hotfix Checklist**
+- [ ] Identify affected release tag (e.g., `v1.0.0`)
+- [ ] Confirm bug severity (critical/security/data corruption)
+- [ ] Determine patch version (e.g., `v1.0.0` → `v1.0.1`)
+
+**2. Create Hotfix Branch from Release Tag**
+
+a. **Checkout release tag:**
+   ```bash
+   git checkout v1.0.0
+   ```
+
+b. **Create hotfix branch:**
+   ```bash
+   git checkout -b hotfix/1.0.1-security-patch
+   ```
+
+**3. Fix the Bug**
+
+a. **Make minimal fix:**
+   - Focus only on fixing the bug
+   - Avoid adding new features
+   - Test fix thoroughly
+
+b. **Commit fix:**
+   ```bash
+   git commit -m "fix(security): resolve authentication bypass"
+   ```
+
+**4. Update Version References**
+
+a. **Update `contest_tools/version.py`:**
+   ```python
+   __version__ = "1.0.1"  # Patch increment from fixed release
+   ```
+
+b. **Update `README.md`:**
+   - Line 3: `**Version: 1.0.1**`
+
+**5. Create Release Notes and Update CHANGELOG.md**
+
+a. **Create release notes file:**
+   - Location: `ReleaseNotes/RELEASE_NOTES_1.0.1.md`
+   - Format: Same as regular release notes
+   - Content: Focus on bug fix, impact, migration if needed
+   - Mark as "Hotfix" or "Security" in title
+
+b. **Update CHANGELOG.md:**
+   - Add entry at top with `[HOTFIX]` or `[SECURITY]` prefix
+   - Example:
+     ```markdown
+     ## [1.0.1] - 2026-01-20 [HOTFIX]
+     [Full Release Notes](ReleaseNotes/RELEASE_NOTES_1.0.1.md)
+     
+     ### Fixed
+     - Critical security vulnerability in authentication
+     ```
+
+**6. Commit Version Updates**
+
+a. **Stage all version-related changes:**
+   ```bash
+   git add contest_tools/version.py README.md ReleaseNotes/RELEASE_NOTES_1.0.1.md CHANGELOG.md
+   ```
+
+b. **Create commit:**
+   ```bash
+   git commit -m "chore(release): bump version to 1.0.1 for hotfix"
+   ```
+
+**7. Tag and Push Hotfix**
+
+a. **Create annotated tag:**
+   ```bash
+   git tag -a v1.0.1 -m "Hotfix v1.0.1
+
+   Critical security patch for authentication bypass.
+   
+   [Summary of fix]
+   "
+   ```
+
+b. **Push hotfix tag (user executes):**
+   ```bash
+   git push origin v1.0.1
+   ```
+
+**8. Backport to Master**
+
+a. **Checkout master:**
+   ```bash
+   git checkout master
+   git pull origin master
+   ```
+
+b. **Merge hotfix branch:**
+   ```bash
+   git merge hotfix/1.0.1-security-patch
+   ```
+
+c. **Resolve conflicts** (if master has diverged significantly)
+
+d. **Push merged master (user executes):**
+   ```bash
+   git push origin master
+   ```
+
+**Note:** Master version remains independent (e.g., `v1.1.0-alpha.1`). The fix is backported and will be included in master's next release.
+
+#### Version Numbering for Hotfixes
+
+- **Patch increment from fixed release:** `1.0.0` → `1.0.1`
+- **For pre-releases:** `1.0.0-alpha.2` → `1.0.0-alpha.3`
+- **Master version:** Independent of hotfix version (reflects master's development state)
+
+#### AI Agent Responsibilities for Hotfixes
+
+- **AI Can Do:**
+  - Generate hotfix workflow commands
+  - Update `version.py` and `README.md` for hotfix version
+  - Generate release notes and CHANGELOG.md entry
+  - Create commit message for version bump
+  - Generate tag creation command
+  - Generate merge commands for backport
+
+- **User Must:**
+  - Confirm hotfix is necessary
+  - Confirm target version number
+  - Review release notes content
+  - Execute tag push command
+  - Execute master merge push
+  - Verify final state
+
+### Rollback Strategy: Reverting Bad Releases
+
+**Purpose:** Handle situations where a release tag needs to be reverted or patched.
+
+#### When to Rollback
+
+- Release tag contains critical bug
+- Security vulnerability discovered after release
+- Data corruption issue
+- Production outage
+
+#### Rollback Options
+
+**Option 1: Create Patch Release (Recommended)**
+1. Follow Hotfix Workflow
+2. Create patch version with fix (e.g., `v1.0.0` → `v1.0.1`)
+3. Deploy patch immediately
+
+**Option 2: Revert Tag and Create New Release**
+1. Create revert commit on master:
+   ```bash
+   git revert <bad-release-commit>
+   ```
+2. Follow Regular Release Workflow
+3. Create new release (e.g., `v1.0.1`)
+
+**Option 3: Delete and Recreate Tag (Not Recommended)**
+- Only if tag hasn't been deployed yet
+- Warning: Can cause confusion if tag was already pulled
+
+#### Rollback Process
+
+**1. Identify Bad Release**
+- Tag: `v1.0.0` (contains bug)
+
+**2. Determine Strategy**
+- If fix is ready: Use Hotfix Workflow (create `v1.0.1`)
+- If fix needs development: Revert and create new release
+
+**3. Execute Rollback**
+- Follow Hotfix Workflow for immediate fix
+- Or revert commit and create new release
+
+**4. Update Documentation**
+- Update release notes to document rollback
+- Update CHANGELOG.md with rollback entry
+- Document reason for rollback
+
+**5. Notify Stakeholders**
+- Document rollback in release notes
+- Include deployment instructions
+- Include migration notes if needed
 
 ### Untagged Commits
 - Version string will be: `"1.0.0-beta.5-3-gabc1234"` (most recent tag + distance + hash)
