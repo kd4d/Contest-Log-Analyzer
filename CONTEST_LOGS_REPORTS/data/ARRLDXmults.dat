@@ -8,6 +8,7 @@
 # This data file is released into the public domain.
 #
 # Purpose: Defines aliases for ARRL DX Contest multipliers.
+#          Also used for CQ WW RTTY contest multipliers.
 # Format: ALIAS_1,ALIAS_2:Official_Abbreviation (Full Name)
 
 # --- US States (48 Contiguous) ---
