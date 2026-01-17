@@ -799,6 +799,39 @@ For complex multi-session workflows, a `HANDOVER.md` file may exist at the repos
 
 ## File Organization Rules
 
+### Test and Temporary Scripts Location
+
+**AI agents MUST place all test, diagnostic, and temporary scripts in the `test_code/` directory or a subdirectory thereof.**
+
+**Rule:** Scripts that are not part of the production codebase must be located in `test_code/`:
+- **Correct:** `test_code/diagnose_score_discrepancy.py`, `test_code/utils/helper_script.py`
+- **Incorrect:** `contest_tools/utils/diagnose_score_discrepancy.py`, `tools/debug_script.py` (outside `test_code/`)
+
+**Applies to:**
+- Diagnostic scripts (e.g., `diagnose_score_discrepancy.py`, `trace_multiplier_logic.py`)
+- Temporary debugging scripts
+- One-off analysis scripts
+- Test utilities and helpers
+- Batch files for running diagnostics (e.g., `run_all_diagnostics.bat`)
+
+**Does NOT apply to:**
+- Production utilities in `contest_tools/utils/` (e.g., `architecture_validator.py`, `report_utils.py`)
+- Production tools in `tools/` (e.g., `update_version_hash.py`, `setup_git_aliases.ps1`)
+- Test suites in `tests/` (if using pytest/unittest structure)
+
+**Rationale:**
+- Keeps production code directories clean
+- Separates temporary/diagnostic code from production utilities
+- Makes it clear which files are part of the shipped codebase
+- Aligns with existing project structure (`test_code/` already contains similar scripts)
+
+**Agent Behavior:**
+- When creating diagnostic/temporary scripts, place them in `test_code/` or `test_code/subdirectory/`
+- Do NOT add such scripts to `contest_tools/utils/`, `tools/`, or other production directories
+- If a script needs to become production code, refactor and move it appropriately (e.g., `contest_tools/utils/`)
+
+---
+
 ### Discussion Documents Location
 
 **Purpose:** Standardize location for architectural discussions, design decisions, and planning documents.
