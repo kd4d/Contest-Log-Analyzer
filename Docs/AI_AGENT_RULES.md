@@ -23,6 +23,45 @@ This document provides specific rules for AI agents (like Cursor/Console AI) whe
 - Use informal messages during development ("wip", "refactor X")
 - Commit code changes directly to feature branches
 
+### [OK] Commit Workflow - Check for Uncommitted Files
+
+**AI agents MUST check for uncommitted changes before performing a commit.**
+
+**Rule:** When asked to commit changes, AI agents must:
+1. **Check git status** for untracked or modified files in the working directory
+2. **Identify** which files are part of the current change vs. unrelated modifications
+3. **Ask the user** if there are untracked/modified files that aren't being included in the commit
+4. **Offer options** for handling untracked files (commit, delete, add to .gitignore, or leave untracked)
+5. **Wait for user confirmation** before proceeding with partial commits
+
+**Typical Behavior:**
+- **Default:** Include all project files in a commit (whether part of current change or previous work)
+- **Exception:** Only exclude files if explicitly requested by user (e.g., "commit only X, ignore Y")
+
+**Agent Behavior:**
+- Before committing, run `git status` or `git status --short` to check for uncommitted changes
+- If uncommitted files exist beyond what's being committed, present options:
+  - "There are uncommitted files (X, Y, Z) that aren't being included in this commit. Would you like to:
+    1. Include them in this commit
+    2. Commit them separately
+    3. Delete them
+    4. Add them to .gitignore (if they should be ignored)
+    5. Leave them as untracked/unstaged"
+- If untracked files exist and aren't being committed, **offer to add them to .gitignore** if appropriate
+- Only proceed with partial commits if user explicitly requests it
+
+**Handling Untracked Files:**
+- **If files should be committed:** Add them to the commit (either in current commit or separate commit)
+- **If files should be ignored:** Offer to add patterns to `.gitignore` (e.g., `test_code/`, `*.log`, etc.)
+- **If files should be deleted:** Ask for confirmation before deleting
+- **If files should remain untracked:** Acknowledge and proceed with commit
+
+**Rationale:**
+- Prevents leaving unrelated changes uncommitted
+- Ensures all project files are tracked and committed appropriately
+- Helps maintain `.gitignore` to exclude files that shouldn't be tracked
+- Maintains clean working tree after commits
+
 ### [OK] Generate Commands
 - Suggest git commands for workflows
 - Generate merge commands with `--no-ff` flag
