@@ -169,11 +169,6 @@
                         </div>
                     </div>
                     <div id="download-message" class="mt-3 text-muted small"></div>
-                    <div id="download-button-container" class="mt-3 d-none">
-                        <a id="download-link" href="#" class="btn btn-success btn-lg" download>
-                            <i class="bi bi-download me-2"></i>Download Now
-                        </a>
-                    </div>
                 </div>
             </div>
         </div>
@@ -212,11 +207,10 @@
     const downloadBtn = document.getElementById('downloadAllBtn');
     const progressContainer = document.getElementById('download-progress-container');
     const downloadMessage = document.getElementById('download-message');
-    const downloadButtonContainer = document.getElementById('download-button-container');
-    const downloadLink = document.getElementById('download-link');
     
     let pollInterval = null;
     let requestId = null;
+    let downloadTriggered = false;  // Track if download has been triggered to avoid multiple downloads
 
     function updateDownloadProgress(step, message, fileCount, downloadUrl) {
         const steps = document.querySelectorAll('#download-progress-container .step-item');
@@ -230,11 +224,13 @@
             circle.classList.remove('step-pending', 'step-active', 'step-done');
             label.classList.remove('text-primary', 'text-success');
 
-            if (stepNum < step) {
+            if (stepNum < step || (stepNum === step && step === 3)) {
+                // Mark as done if before current step, or if current step is 3 (Done - completion state)
                 circle.classList.add('step-done');
                 circle.innerHTML = '<i class="bi bi-check"></i>';
                 label.classList.add('text-success');
             } else if (stepNum === step) {
+                // Mark as active for steps 1 and 2
                 circle.classList.add('step-active');
                 circle.innerHTML = stepNum;
                 label.classList.add('text-primary');
@@ -259,10 +255,12 @@
                 segL.classList.add('step-done');
             }
 
-            if (step > rightStepNum) {
+            if (step > rightStepNum || (step === rightStepNum && step === 3)) {
+                // Mark connector as done if step is past, or if step is 3 (Done - completion state)
                 segR.classList.remove('step-pending');
                 segR.classList.add('step-done');
             } else if (step === rightStepNum) {
+                // Mark connector as active for steps 1 and 2
                 segR.classList.remove('step-pending');
                 segR.classList.add('step-active');
             }
@@ -277,13 +275,17 @@
             downloadMessage.textContent = msgText;
         }
 
-        // Show download button when ready (step 2)
-        if (step === 2 && downloadUrl) {
-            downloadLink.href = downloadUrl;
-            downloadButtonContainer.classList.remove('d-none');
-        } else if (step === 3) {
-            // Done - hide download button
-            downloadButtonContainer.classList.add('d-none');
+        // Automatically trigger download when zip is ready (step 2) and URL is available
+        if (step === 2 && downloadUrl && !downloadTriggered) {
+            downloadTriggered = true;
+            // Automatically start download by creating and clicking a temporary link
+            const tempLink = document.createElement('a');
+            tempLink.href = downloadUrl;
+            tempLink.download = '';  // Let browser determine filename from Content-Disposition
+            tempLink.style.display = 'none';
+            document.body.appendChild(tempLink);
+            tempLink.click();
+            document.body.removeChild(tempLink);
         }
     }
 
@@ -366,12 +368,6 @@
             console.error('Download initiation error:', err);
             downloadMessage.textContent = 'Error: Failed to start download. Please try again.';
         });
-    });
-
-    // Handle download link click
-    downloadLink.addEventListener('click', function(e) {
-        // Let the download proceed naturally
-        // Progress will update to step 3 when download completes
     });
 })();
 </script>

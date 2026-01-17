@@ -11,6 +11,10 @@
   "valid_bands": [
     "10M"
   ],
+  "valid_modes": [
+    "CW",
+    "PH"
+  ],
   "operating_time_rules": {
     "min_off_time_minutes": 30,
     "single_op_max_hours": 36,

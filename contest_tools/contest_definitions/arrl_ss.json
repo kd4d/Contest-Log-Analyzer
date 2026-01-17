@@ -1,6 +1,10 @@
 {
   "_filename": "contest_tools/contest_definitions/arrl_ss.json",
   "contest_name": "ARRL-SS",
+  "valid_modes": [
+    "CW",
+    "PH"
+  ],
   "scoring_module": "arrl_ss_scoring",
   "contest_period": {
     "start_day": "Saturday",

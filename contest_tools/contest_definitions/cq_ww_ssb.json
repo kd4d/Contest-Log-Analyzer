@@ -1,6 +1,9 @@
 {
   "_filename": "contest_tools/contest_definitions/cq_ww_ssb.json",
   "contest_name": "CQ-WW-SSB",
+  "valid_modes": [
+    "PH"
+  ],
   "scoring_module": "cq_ww_scoring",
   "mults_from_zero_point_qsos": true,
   "enable_adif_export": true,

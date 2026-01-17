@@ -1,6 +1,11 @@
 {
   "_filename": "contest_tools/contest_definitions/iaru_hf.json",
   "contest_name": "IARU-HF",
+  "valid_modes": [
+    "CW",
+    "PH",
+    "DG"
+  ],
   "scoring_module": "iaru_hf_scoring",
   "contest_period": {
     "start_day": "Saturday",

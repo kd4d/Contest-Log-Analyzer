@@ -1,6 +1,9 @@
 {
   "_filename": "contest_tools/contest_definitions/cq_ww_rtty.json",
   "contest_name": "CQ-WW-RTTY",
+  "valid_modes": [
+    "RY"
+  ],
   "scoring_module": "cq_ww_rtty_scoring",
   "custom_multiplier_resolver": "cq_ww_rtty_multiplier_resolver",
   "valid_bands": [

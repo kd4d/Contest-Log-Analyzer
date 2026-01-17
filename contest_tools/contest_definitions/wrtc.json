@@ -1,6 +1,11 @@
 {
   "_filename": "contest_tools/contest_definitions/wrtc.json",
   "contest_name": "WRTC",
+  "valid_modes": [
+    "CW",
+    "PH",
+    "DG"
+  ],
   "time_series_calculator": "wrtc_calculator",
   "custom_multiplier_resolver": "wrtc_multiplier_resolver",
   "contest_period": {

@@ -99,6 +99,17 @@ class ContestDefinition:
         ])
 
     @property
+    def valid_modes(self) -> List[str]:
+        """
+        Returns the list of valid modes for this contest, as defined in JSON.
+        Modes are two-letter Cabrillo codes: CW, PH, DG, RY, FM, etc.
+        
+        JSON is the single source of truth - no fallback derivation.
+        Returns empty list if not defined in JSON.
+        """
+        return self._data.get('valid_modes', [])
+
+    @property
     def operating_time_rules(self) -> Optional[Dict[str, int]]:
         return self._data.get('operating_time_rules')
         

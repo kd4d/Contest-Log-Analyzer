@@ -1,6 +1,11 @@
 {
   "_filename": "contest_tools/contest_definitions/arrl_fd.json",
   "contest_name": "ARRL-FIELD-DAY",
+  "valid_modes": [
+    "CW",
+    "PH",
+    "DG"
+  ],
   "scoring_module": "arrl_fd_scoring",
   "contest_period": {
     "start_day": "Saturday",
