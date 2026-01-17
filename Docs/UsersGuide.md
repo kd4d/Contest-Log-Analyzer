@@ -1,6 +1,6 @@
 # Contest Log Analytics - User Guide
 
-**Version: 1.0.0-alpha.3**
+**Version: 1.0.0-alpha.4**
 
 ---
 ### --- Revision History ---
@@ -229,7 +229,7 @@ Use the `Report ID` with the `--report` command-line option.
 
 #### **Plot Reports (`plots/`)**
 * `band_activity_heatmap`: Band Activity Heatmap
-* `comparative_band_activity`: Comparative Band Activity
+* `comparative_band_activity`: Comparative Band Activity (shows Mode Activity for single-band, multi-mode contests like ARRL 10 Meter)
 * `comparative_band_activity_heatmap`: Comparative Band Activity Heatmap
 * `comparative_run_sp_timeline`: Comparative Activity Timeline (Run/S&P)
 * `cumulative_difference_plots`: Cumulative Difference Plot
@@ -285,6 +285,8 @@ Once analyzed, you are presented with a "Strategy Board":
 * **The Scoreboard:** High-level metrics including Run % and total score.
 * **The Triptych:** Three paths for deeper analysis (Animation, QSO Reports, Multiplier Reports).
 * **Raw Data:** A button to download the full set of generated reports as a ZIP file.
+
+**For Single-Band, Multi-Mode Contests:** For contests like ARRL 10 Meter that operate on a single band with multiple modes, the QSO dashboard shows "Mode Activity" instead of "Band Activity", and the Multiplier dashboard breaks down multipliers by mode (CW, SSB, etc.) rather than by band.
 
 ### Single vs. Multi-Log Features
 * **Single-Log Reports:** Score summaries, rate sheets, hourly breakdowns, multiplier analysis, and performance metrics.

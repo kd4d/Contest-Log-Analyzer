@@ -323,11 +323,11 @@ You can see who was active on a band during an opening, who spent more time runn
 
 **Supports**: Pairwise only (exactly 2 logs required)
 
-This is a "butterfly" chart that shows the hourly QSO rate for two logs on each band.
+This is a "butterfly" chart that shows the hourly QSO rate for two logs on each band. For single-band, multi-mode contests like ARRL 10 Meter, the chart shows "Mode Activity" instead, displaying hourly rates for each mode (CW, SSB, etc.).
 #### How to Interpret This Plot
-For each band, bars for one station go up, and bars for the other go down.
-This provides a clear, hour-by-hour visual of which operator had a higher rate on a specific band.
-It's excellent for analyzing head-to-head band selection strategy.
+For each band (or mode in single-band contests), bars for one station go up, and bars for the other go down.
+This provides a clear, hour-by-hour visual of which operator had a higher rate on a specific band or mode.
+It's excellent for analyzing head-to-head band selection strategy, or mode selection strategy for single-band contests.
 
 ---
 

@@ -50,6 +50,7 @@ The Contest Log Analytics project is built on three core architectural principle
   - `get_mode_stacked_matrix_data()`: Generates 3D data (Mode x Time x RunStatus) for mode-dimension charts
   - `get_matrix_data()`: Generates 2D grids (Band x Time) for heatmaps
 * **`MultiplierStatsAggregator`**: Handles "Missed Multiplier" analysis and summarization.
+  - `get_multiplier_breakdown_data(dimension='band'|'mode')`: Generates hierarchical multiplier breakdown by band or mode dimension (automatically selects mode dimension for single-band, multi-mode contests).
 * **`TimeSeriesAggregator`**: Generates the standard TimeSeries Data Schema (v1.4.0).
 * **`WaeStatsAggregator`**: Specialized logic for WAE contests (QTCs and weighted multipliers).
 
