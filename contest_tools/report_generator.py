@@ -29,6 +29,7 @@ from .utils.callsign_utils import build_callsigns_filename_part
 from .utils.profiler import profile_section, ProfileContext
 from .data_aggregators.time_series import TimeSeriesAggregator
 from .data_aggregators.matrix_stats import MatrixAggregator
+from .utils.architecture_validator import ArchitectureValidator
 
 class ReportGenerator:
     """

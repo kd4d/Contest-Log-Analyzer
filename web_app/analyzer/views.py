@@ -232,6 +232,7 @@ from contest_tools.utils.callsign_utils import build_callsigns_filename_part, pa
 from contest_tools.utils.log_fetcher import fetch_log_index, download_logs
 from contest_tools.manifest_manager import ManifestManager
 from contest_tools.utils.profiler import ProfileContext
+from contest_tools.utils.architecture_validator import ArchitectureValidator
 
 logger = logging.getLogger(__name__)
 
@@ -294,6 +295,18 @@ def get_log_index_view(request):
             return JsonResponse({'callsigns': callsigns})
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
+    elif contest == 'ARRL-10' and year:
+        # ARRL 10 Meter doesn't have modes - contest code is '10m'
+        try:
+            from contest_tools.utils.log_fetcher import fetch_arrl_log_index, ARRL_CONTEST_CODES
+            contest_code = ARRL_CONTEST_CODES.get('ARRL-10')
+            if contest_code:
+                callsigns = fetch_arrl_log_index(year, contest_code)
+                return JsonResponse({'callsigns': callsigns})
+            else:
+                return JsonResponse({'error': 'ARRL-10 contest code not found'}, status=500)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
     return JsonResponse({'callsigns': []})
 
 def home(request):
@@ -351,12 +364,25 @@ def analyze_logs(request):
                 # 2. Fetch Logs
                 callsigns_raw = request.POST.get('fetch_callsigns') # JSON string
                 year = request.POST.get('fetch_year')
-                mode = request.POST.get('fetch_mode')
+                mode = request.POST.get('fetch_mode')  # May be empty for ARRL-10
+                contest = request.POST.get('fetch_contest', 'CQ-WW')  # Default to CQ-WW for backward compatibility
                 
                 callsigns = json.loads(callsigns_raw)
                 
                 _update_progress(request_id, 1) # Step 1: Fetching
-                log_paths = download_logs(callsigns, year, mode, session_path)
+                
+                # Route to appropriate download function based on contest
+                if contest == 'CQ-WW' and mode:
+                    log_paths = download_logs(callsigns, year, mode, session_path)
+                elif contest == 'ARRL-10':
+                    from contest_tools.utils.log_fetcher import download_arrl_logs, ARRL_CONTEST_CODES
+                    contest_code = ARRL_CONTEST_CODES.get('ARRL-10')
+                    if contest_code:
+                        log_paths = download_arrl_logs(callsigns, year, contest_code, session_path)
+                    else:
+                        raise ValueError('ARRL-10 contest code not found')
+                else:
+                    raise ValueError(f'Unsupported contest: {contest}')
                 
                 return _run_analysis_pipeline(request_id, log_paths, session_path, session_key)
             
@@ -402,6 +428,19 @@ def _run_analysis_pipeline(request_id, log_paths, session_path, session_key):
         
         with ProfileContext("Web - Report Generation"):
             generator = ReportGenerator(lm.logs, root_output_dir=session_path)
+            
+            # --- Architecture Validation: Check for scoring inconsistencies ---
+            try:
+                validator = ArchitectureValidator()
+                validation_results = validator.validate_all(generator.logs)
+                if validation_results['warnings']:
+                    for warning in validation_results['warnings']:
+                        logger.warning(f"Architecture Validation: {warning}")
+                logger.info(f"Architecture Validation: {validation_results['summary']}")
+            except Exception as e:
+                logger.warning(f"Architecture validation failed: {e}. Continuing with report generation.")
+            # ------------------------------------
+            
             generator.run_reports('all')
         
         # --- DIAGNOSTIC: Verify Disk State ---
@@ -454,6 +493,25 @@ def _run_analysis_pipeline(request_id, log_paths, session_path, session_key):
     # CRITICAL: Filenames on disk are lowercased by ReportGenerator. We must match that.
     animation_filename = f"interactive_animation--{combo_id.lower()}.html"
     plot_filename = f"qso_rate_plots_all--{combo_id.lower()}.html"
+    
+    # DIAGNOSTIC: Log dashboard file selection
+    logger.warning(f"DEBUG DASHBOARD FILE SELECTION: all_calls={all_calls}, combo_id={combo_id}, animation_filename={animation_filename}")
+    
+    # DIAGNOSTIC: Verify file exists on disk
+    animation_dir = os.path.join(session_path, 'reports', report_url_path, 'animations')
+    animation_full_path = os.path.join(animation_dir, animation_filename)
+    if os.path.exists(animation_full_path):
+        logger.warning(f"DEBUG DASHBOARD FILE SELECTION: Animation file EXISTS: {animation_full_path}")
+        # List all animation files to see what's actually there
+        if os.path.exists(animation_dir):
+            all_animation_files = [f for f in os.listdir(animation_dir) if f.startswith('interactive_animation')]
+            logger.warning(f"DEBUG DASHBOARD FILE SELECTION: All animation files in directory: {all_animation_files}")
+    else:
+        logger.error(f"ERROR DASHBOARD FILE SELECTION: Animation file NOT FOUND: {animation_full_path}")
+        # Try to find similar files
+        if os.path.exists(animation_dir):
+            all_animation_files = [f for f in os.listdir(animation_dir) if f.startswith('interactive_animation')]
+            logger.warning(f"ERROR DASHBOARD FILE SELECTION: Available animation files: {all_animation_files}")
     
     # Note: Multiplier filename removed here. It is now dynamically resolved in multiplier_dashboard view.
 
@@ -508,7 +566,8 @@ def dashboard_view(request, session_id):
 
     # Contest-Specific Routing
     contest_name = context.get('contest_name', '').upper()
-    if not contest_name.startswith('CQ-WW'):
+    # Enable same dashboard structure for CQ-WW and ARRL-10
+    if not (contest_name.startswith('CQ-WW') or contest_name.startswith('ARRL-10')):
         return render(request, 'analyzer/dashboard_construction.html', context)
     
     return render(request, 'analyzer/dashboard.html', context)
