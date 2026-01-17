@@ -89,7 +89,8 @@ class StandardCalculator(TimeSeriesCalculator):
             
             if totaling_method == 'once_per_log':
                 # Count unique multipliers globally (once per log)
-                hourly_sets = df_for_mults.groupby(pd.Grouper(key='Datetime', freq='h'))[mult_col].apply(set).reindex(master_index)
+                # Filter out NaN values before applying set (NaN is a placeholder, not a valid multiplier)
+                hourly_sets = df_for_mults.groupby(pd.Grouper(key='Datetime', freq='h'))[mult_col].apply(lambda x: set(x.dropna())).reindex(master_index)
                 hourly_sets = hourly_sets.apply(lambda x: x if isinstance(x, set) else set())
                 
                 running_set_for_col = set()
@@ -105,7 +106,8 @@ class StandardCalculator(TimeSeriesCalculator):
                 
                 for mode in df_for_mults['Mode'].unique():
                     df_mode = df_for_mults[df_for_mults['Mode'] == mode]
-                    hourly_sets = df_mode.groupby(pd.Grouper(key='Datetime', freq='h'))[mult_col].apply(set).reindex(master_index)
+                    # Filter out NaN values before applying set (NaN is a placeholder, not a valid multiplier)
+                    hourly_sets = df_mode.groupby(pd.Grouper(key='Datetime', freq='h'))[mult_col].apply(lambda x: set(x.dropna())).reindex(master_index)
                     hourly_sets = hourly_sets.apply(lambda x: x if isinstance(x, set) else set())
                     
                     running_set_for_mode = set()
@@ -122,7 +124,8 @@ class StandardCalculator(TimeSeriesCalculator):
                 # Count unique multipliers per band (ignoring mode)
                 for band in df_for_mults['Band'].unique():
                     df_band = df_for_mults[df_for_mults['Band'] == band]
-                    mult_set_ts = df_band.groupby(pd.Grouper(key='Datetime', freq='h'))[mult_col].apply(set).reindex(master_index)
+                    # Filter out NaN values before applying set (NaN is a placeholder, not a valid multiplier)
+                    mult_set_ts = df_band.groupby(pd.Grouper(key='Datetime', freq='h'))[mult_col].apply(lambda x: set(x.dropna())).reindex(master_index)
                     mult_set_ts = mult_set_ts.apply(lambda x: x if isinstance(x, set) else set())
                     
                     running_set = set()
@@ -136,7 +139,8 @@ class StandardCalculator(TimeSeriesCalculator):
                 # Count unique multipliers per band, then sum across bands (matches ScoreStatsAggregator logic)
                 for band in df_for_mults['Band'].unique():
                     df_band = df_for_mults[df_for_mults['Band'] == band]
-                    mult_set_ts = df_band.groupby(pd.Grouper(key='Datetime', freq='h'))[mult_col].apply(set).reindex(master_index)
+                    # Filter out NaN values before applying set (NaN is a placeholder, not a valid multiplier)
+                    mult_set_ts = df_band.groupby(pd.Grouper(key='Datetime', freq='h'))[mult_col].apply(lambda x: set(x.dropna())).reindex(master_index)
                     mult_set_ts = mult_set_ts.apply(lambda x: x if isinstance(x, set) else set())
                     
                     running_set = set()
