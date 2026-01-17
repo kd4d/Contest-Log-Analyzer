@@ -5,6 +5,42 @@ All notable changes to Contest Log Analyzer will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-alpha.4] - 2026-01-17
+[Full Release Notes](ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.4.md)
+
+### Added
+- Mode dimension support for single-band, multi-mode contests (ARRL 10 Meter)
+  - QSO Dashboard "Mode Activity" tab for single-band, multi-mode contests
+  - Multiplier Dashboard mode breakdown instead of band breakdown
+  - Dynamic dimension detection based on contest characteristics
+- Unknown (Grey) legend added to Multiplier Dashboard (top pane and Band Spectrum)
+- Band Spectrum legend added above tab pills
+- Raw Data Access progress bar for ZIP file generation
+- valid_modes field added to all contest definitions
+
+### Changed
+- QSO Dashboard "Band Activity" tab automatically becomes "Mode Activity" for single-band contests
+- Comparative butterfly chart shows mode breakdown for single-band, multi-mode contests
+- Multiplier Dashboard breaks down multipliers by mode for single-band contests
+- MultiplierStatsAggregator.get_multiplier_breakdown_data() now supports dimension parameter
+
+### Fixed
+- Exclude NaN from multiplier counting in standard_calculator (fixes scoring inconsistencies)
+- Scoring inconsistencies fixed in animation reports
+- Multiplier Dashboard Band Spectrum tabs made fully dynamic
+- QSO Dashboard mode labeling fixed for single-band, multi-mode contests
+- Django template syntax errors fixed (else between if/for tags)
+- Custom template filter (replace) added for string manipulation
+
+### Documentation
+- All documentation updated to version 1.0.0-alpha.4
+- Mode dimension support documentation added to UsersGuide.md and ReportInterpretationGuide.md
+- ProgrammersGuide.md updated with MultiplierStatsAggregator dimension parameter
+- Django Template Syntax Rules added to AI_AGENT_RULES.md
+- Technical debt documentation updated for legacy report compatibility
+
+---
+
 ## [1.0.0-alpha.3] - 2026-01-16
 [Full Release Notes](ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.3.md)
 
