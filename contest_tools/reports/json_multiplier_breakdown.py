@@ -41,9 +41,20 @@ class Report(ContestReport):
         """
         Executes the MultiplierStatsAggregator and dumps the result to JSON.
         """
-        # 1. Aggregate Data (Heavy Calculation happens here once)
+        # 1. Determine dimension (band or mode) based on contest type
+        dimension = 'band'  # Default
+        if self.logs:
+            contest_def = self.logs[0].contest_definition
+            valid_bands = contest_def.valid_bands
+            valid_modes = getattr(contest_def, 'valid_modes', [])
+            is_single_band = len(valid_bands) == 1
+            is_multi_mode = len(valid_modes) > 1
+            if is_single_band and is_multi_mode:
+                dimension = 'mode'
+        
+        # 2. Aggregate Data (Heavy Calculation happens here once)
         mult_agg = MultiplierStatsAggregator(self.logs)
-        data = mult_agg.get_multiplier_breakdown_data()
+        data = mult_agg.get_multiplier_breakdown_data(dimension=dimension)
         
         # 2. Prepare Standardized Filename
         all_calls = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])

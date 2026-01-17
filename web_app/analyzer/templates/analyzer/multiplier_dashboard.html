@@ -61,6 +61,7 @@
                <div class="d-flex gap-3 text-muted small">
                    <div class="d-flex align-items-center"><div class="legend-dot" style="background:var(--color-run);"></div>Run</div>
                    <div class="d-flex align-items-center"><div class="legend-dot" style="background:var(--color-sp);"></div>S&P</div>
+                   <div class="d-flex align-items-center"><div class="legend-dot" style="background:var(--color-unk);"></div>Unknown</div>
                </div>
                
                  <button class="btn btn-sm btn-outline-secondary" onclick="captureWidget('mult-summary-{{ forloop.counter }}', 'summary_{{ row.label|slugify }}')">
@@ -133,16 +134,24 @@
     {% endfor %}
 
     <div class="d-flex justify-content-between align-items-center mt-5 mb-3 border-bottom pb-2">
-        <h4 class="text-secondary mb-0">Band Spectrum (Unique Multipliers)</h4>
+        <h4 class="text-secondary mb-0">{% if is_mode_dimension %}Mode Spectrum{% else %}Band Spectrum{% endif %} (Unique Multipliers)</h4>
         <button class="btn btn-sm btn-outline-secondary" onclick="captureWidget('band-spectrum-container', 'band_spectrum')">
            <i class="bi bi-camera"></i>
        </button>
     </div>
 
     <div id="band-spectrum-container" class="bg-white p-2 rounded"
-         data-export-title="Band Spectrum (Unique Multipliers)"
+         data-export-title="{% if is_mode_dimension %}Mode Spectrum{% else %}Band Spectrum{% endif %} (Unique Multipliers)"
          data-export-context="{{ report_metadata.context_line }}"
          data-export-footer="{{ report_metadata.footer }}">
+        
+        <div class="d-flex justify-content-end mb-2">
+            <div class="d-flex gap-3 text-muted small">
+                <div class="d-flex align-items-center"><div class="legend-dot" style="background:var(--color-run);"></div>Run</div>
+                <div class="d-flex align-items-center"><div class="legend-dot" style="background:var(--color-sp);"></div>S&P</div>
+                <div class="d-flex align-items-center"><div class="legend-dot" style="background:var(--color-unk);"></div>Unknown</div>
+            </div>
+        </div>
         
         <ul class="nav nav-pills mb-3" id="pills-tab" role="tablist">
             <li class="nav-item" role="presentation">
@@ -150,7 +159,7 @@
             </li>
             {% for mult_name in multiplier_names %}
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="pills-{{ mult_name|lower|replace:' ':'-' }}-tab" data-bs-toggle="pill" data-bs-target="#pills-{{ mult_name|lower|replace:' ':'-' }}" type="button" role="tab">{{ mult_name }}</button>
+                <button class="nav-link" id="pills-{{ mult_name|lower|replace:" : -" }}-tab" data-bs-toggle="pill" data-bs-target="#pills-{{ mult_name|lower|replace:" : -" }}" type="button" role="tab">{{ mult_name }}</button>
             </li>
             {% endfor %}
     </ul>
@@ -179,8 +188,58 @@
                         <div class="h-grid-line" style="bottom: 100%"></div>
                     </div>
 
-                    {% for block in low_bands_data|add:high_bands_data %}
-                    <div class="vert-col">
+                    {% if is_mode_dimension %}
+                        {% for block in low_modes_data|add:high_modes_data %}
+                        <div class="vert-col">
+                            <div class="vert-header">{{ block.label }}</div>
+                            {% for row in block.rows %}
+                               {% if row.label == "TOTAL" or row.label == block.label %}
+                               <div class="vert-spikes-container">
+                                    {% for stat in row.stations %}
+                                    {% with total_unique=stat.unique_run|add:stat.unique_sp|add:stat.unique_unk %}
+                                    <div class="vert-bar-wrapper">
+                                        <div class="vert-bar" style="height: {% widthratio total_unique global_max.total 100 %}%;" data-bs-toggle="tooltip" title="{{ all_calls|get_item:forloop.counter0 }}: {{ total_unique }} Unique">
+                                            <div class="bg-unk" style="height: {% widthratio stat.unique_unk total_unique 100 %}%;"></div>
+                                            <div class="bg-sp" style="height: {% widthratio stat.unique_sp total_unique 100 %}%;"></div>
+                                            <div class="bg-run" style="height: {% widthratio stat.unique_run total_unique 100 %}%;"></div>
+                                        </div>
+                                    </div>
+                                    {% endwith %}
+                                    {% endfor %}
+                                </div>
+               
+                                {% if not is_solo %}
+                                <div class="vert-foundation">
+                                     <div class="h4 fw-bold text-secondary m-0">{{ row.common }}</div>
+                                    <div class="small fw-bold text-muted text-uppercase" style="font-size:0.6rem;">Common</div>
+                                </div>
+                                {% else %}
+                                {% for stat in row.stations %}
+                                {% if forloop.first %}
+                                <div class="vert-foundation">
+                                     <div class="h4 fw-bold text-secondary m-0">{{ stat.unique_run|add:stat.unique_sp|add:stat.unique_unk }}</div>
+                                    <div class="small fw-bold text-muted text-uppercase" style="font-size:0.6rem;">Total</div>
+                                    <div class="d-flex gap-1 mt-1 justify-content-center" style="font-size:0.5rem;">
+                                        <span><strong>{{ stat.unique_run }}</strong>R</span>
+                                        <span><strong>{{ stat.unique_sp }}</strong>S</span>
+                                    </div>
+                                </div>
+                                {% endif %}
+                                {% endfor %}
+                                {% endif %}
+     
+                                <div class="d-flex" style="background:#f8fafc;">
+                                    {% for call in all_calls %}
+                                      <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>
+                                    {% endfor %}
+                                </div>
+                               {% endif %}
+                            {% endfor %}
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        {% for block in low_bands_data|add:high_bands_data %}
+                        <div class="vert-col">
                         <div class="vert-header">{{ block.label }}</div>
                         {% for row in block.rows %}
                            {% if row.label == "TOTAL" or row.label == block.label %}
@@ -226,12 +285,14 @@
                            {% endif %}
                         {% endfor %}
                     </div>
-                    {% endfor %}
+                        {% endfor %}
+                    {% endif %}
                 </div>
             </div>
 
             {% for mult_name in multiplier_names %}
-            {% with mult_id=mult_name|lower|replace:' ':'-' mult_key=mult_name|lower|replace:" ":"_" mult_max=global_max|get_item:mult_key %}
+            {% with mult_id=mult_name|lower|replace:" : -" mult_key=mult_name|lower|replace:" : _" %}
+            {% with mult_max=global_max|get_item:mult_key %}
             <div class="tab-pane fade" id="pills-{{ mult_id }}" role="tabpanel">
                 <div class="vert-spectrum">
                     <div class="y-axis-col">
@@ -254,11 +315,12 @@
                         <div class="h-grid-line" style="bottom: 100%"></div>
                     </div>
 
-                    {% for block in low_bands_data|add:high_bands_data %}
-                    <div class="vert-col">
-                        <div class="vert-header">{{ block.label }}</div>
-                        {% for row in block.rows %}
-                            {% if mult_name in row.label %}
+                    {% if is_mode_dimension %}
+                        {% for block in low_modes_data|add:high_modes_data %}
+                        <div class="vert-col">
+                            <div class="vert-header">{{ block.label }}</div>
+                            {% for row in block.rows %}
+                                {% if mult_name in row.label %}
                                 <div class="vert-spikes-container">
                                 {% for stat in row.stations %}
                                 {% with total_unique=stat.unique_run|add:stat.unique_sp|add:stat.unique_unk %}
@@ -298,12 +360,63 @@
                                 <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>
                                 {% endfor %}
                             </div>
-                            {% endif %}
+                                {% endif %}
+                            {% endfor %}
+                        </div>
                         {% endfor %}
-                    </div>
-                    {% endfor %}
+                    {% else %}
+                        {% for block in low_bands_data|add:high_bands_data %}
+                        <div class="vert-col">
+                            <div class="vert-header">{{ block.label }}</div>
+                            {% for row in block.rows %}
+                                {% if mult_name in row.label %}
+                                <div class="vert-spikes-container">
+                                {% for stat in row.stations %}
+                                {% with total_unique=stat.unique_run|add:stat.unique_sp|add:stat.unique_unk %}
+                                    <div class="vert-bar-wrapper">
+                                    <div class="vert-bar" style="height: {% widthratio total_unique mult_max 100 %}%;" data-bs-toggle="tooltip" title="{{ all_calls|get_item:forloop.counter0 }}: {{ total_unique }} Unique">
+                                        <div class="bg-unk" style="height: {% widthratio stat.unique_unk total_unique 100 %}%;"></div>
+                                        <div class="bg-sp" style="height: {% widthratio stat.unique_sp total_unique 100 %}%;"></div>
+                                        <div class="bg-run" style="height: {% widthratio stat.unique_run total_unique 100 %}%;"></div>
+                                    </div>
+                                    </div>
+                                {% endwith %}
+                                {% endfor %}
+                                </div>
+               
+                            {% if not is_solo %}
+                            <div class="vert-foundation">
+                                <div class="h4 fw-bold text-secondary m-0">{{ row.common }}</div>
+                                <div class="small fw-bold text-muted text-uppercase" style="font-size:0.6rem;">Common</div>
+                           </div>
+                           {% else %}
+                           {% for stat in row.stations %}
+                           {% if forloop.first %}
+                           <div class="vert-foundation">
+                                <div class="h4 fw-bold text-secondary m-0">{{ stat.unique_run|add:stat.unique_sp|add:stat.unique_unk }}</div>
+                                <div class="small fw-bold text-muted text-uppercase" style="font-size:0.6rem;">Total</div>
+                                <div class="d-flex gap-1 mt-1 justify-content-center" style="font-size:0.5rem;">
+                                    <span><strong>{{ stat.unique_run }}</strong>R</span>
+                                    <span><strong>{{ stat.unique_sp }}</strong>S</span>
+                                </div>
+                           </div>
+                           {% endif %}
+                           {% endfor %}
+                           {% endif %}
+     
+                            <div class="d-flex" style="background:#f8fafc;">
+                                {% for call in all_calls %}
+                                <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>
+                                {% endfor %}
+                            </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        {% endfor %}
+                    {% endif %}
                 </div>
             </div>
+            {% endwith %}
             {% endwith %}
             {% endfor %}
 

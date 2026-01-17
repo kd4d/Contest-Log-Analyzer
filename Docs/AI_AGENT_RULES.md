@@ -1146,6 +1146,93 @@ The `C:\Users\mbdev\miniforge3\Scripts\custom_activate.bat` script uses `/K` fla
 
 ---
 
+## Django Template Syntax Rules
+
+### CRITICAL: Template Tag Nesting Constraints
+
+**AI agents MUST understand Django template tag nesting limitations to avoid syntax errors.**
+
+#### Rule: `{% else %}` Cannot Be Used Between `{% if %}` and `{% for %}`
+
+**Problem:** Django's template parser does not allow `{% else %}` between `{% if %}` and `{% for %}` tags. This causes a `TemplateSyntaxError`:
+
+```
+TemplateSyntaxError: Invalid block tag on line X: 'else', expected 'empty' or 'endfor'
+```
+
+**Incorrect Pattern (DO NOT USE):**
+```django
+{% if condition %}
+    {% for item in items %}
+{% else %}
+    {% for item in other_items %}
+{% endif %}
+    <!-- loop content -->
+{% endfor %}
+```
+
+**Correct Solutions:**
+
+**Option 1: Duplicate Loop Code (Recommended for Simple Cases)**
+```django
+{% if condition %}
+    {% for item in items %}
+        <!-- loop content -->
+    {% endfor %}
+{% else %}
+    {% for item in other_items %}
+        <!-- loop content -->
+    {% endfor %}
+{% endif %}
+```
+
+**Option 2: Use `{% with %}` to Set Variable First**
+```django
+{% if condition %}
+    {% with data=items %}
+{% else %}
+    {% with data=other_items %}
+{% endif %}
+    {% for item in data %}
+        <!-- loop content -->
+    {% endfor %}
+    {% endwith %}
+```
+
+**Option 3: Prepare Data in View**
+```python
+# In view: prepare data based on condition
+context['dimension_data'] = low_modes_data + high_modes_data if is_mode_dimension else low_bands_data + high_bands_data
+```
+```django
+{# In template: use prepared data #}
+{% for block in dimension_data %}
+    <!-- loop content -->
+{% endfor %}
+```
+
+#### Why This Matters
+
+- **Syntax Errors:** Invalid template syntax causes runtime errors that break the application
+- **User Experience:** Template errors prevent pages from rendering, causing 500 errors
+- **Debugging:** Template syntax errors can be confusing because the error message may not clearly indicate the nesting issue
+
+#### Agent Behavior
+
+When working with Django templates:
+1. **Avoid** using `{% else %}` between `{% if %}` and `{% for %}` tags
+2. **Prefer** duplicating loop code if the loop content is simple
+3. **Consider** preparing data in the view if the logic is complex
+4. **Test** template syntax by checking for linter errors or running the Django development server
+
+#### Related Issues
+
+- Similar constraints may apply to other template tag combinations
+- When in doubt, duplicate code or move logic to the view
+- Django template syntax is strict - follow Django documentation patterns
+
+---
+
 ## Summary
 
 **AI's Role:** Generate, suggest, assist, format

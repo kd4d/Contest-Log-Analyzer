@@ -44,3 +44,48 @@ def get_item(dictionary, key):
             return ""
 
     return ""
+
+@register.filter
+def replace(value, arg):
+    """
+    Template filter to replace occurrences of a substring in a string.
+    
+    Usage examples:
+    - {{ string|replace:" : -" }} (replaces space with hyphen)
+    - {{ string|replace:"old:new" }} (replaces "old" with "new")
+    - {{ string|replace:" ":"_" }} (replaces space with underscore)
+    
+    The filter accepts the replacement specification as a single string argument.
+    If the argument contains a colon, it splits on the first colon to get old:new.
+    Otherwise, it treats the entire argument as the string to replace (with empty replacement).
+    
+    Args:
+        value: The string to process
+        arg: Replacement specification. Can be:
+             - "old:new" format (splits on first colon)
+             - " : -" format (space-colon-space separates old and new)
+             - Just the old string (replaces with empty string)
+    """
+    if not value:
+        return ""
+    
+    if not isinstance(value, str):
+        value = str(value)
+    
+    if not arg:
+        return value
+    
+    # Handle format "old:new" or " : -" (space-colon-space format)
+    if ':' in arg:
+        # Try splitting on colon
+        parts = arg.split(':', 1)
+        if len(parts) == 2:
+            # Preserve the search string (old) as-is to handle spaces correctly
+            # Strip only the replacement (new) to handle " : -" format correctly
+            # " : -" means: replace " " (space) with "-" (hyphen, no leading space)
+            old = parts[0]
+            new = parts[1].strip()  # Strip replacement to remove leading space
+            return value.replace(old, new)
+    
+    # If no colon or malformed, treat entire arg as string to replace (with empty)
+    return value.replace(arg, "")

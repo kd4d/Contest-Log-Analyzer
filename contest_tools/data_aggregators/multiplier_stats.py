@@ -218,27 +218,40 @@ class MultiplierStatsAggregator:
 
         return full_results
 
-    def get_multiplier_breakdown_data(self) -> Dict[str, Any]:
+    def get_multiplier_breakdown_data(self, dimension: str = 'band') -> Dict[str, Any]:
         """
         Generates hierarchical metrics for the Multiplier Breakdown table.
-        Returns a dictionary with 'totals' and 'bands' for structured rendering.
+        
+        Args:
+            dimension: 'band' or 'mode' - determines grouping dimension
+        
+        Returns:
+            Dictionary with 'totals' and either 'bands' or 'modes' key for structured rendering.
         """
         all_calls = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])
         
         # 1. Collect all raw multiplier sets
         # Structure: sets[log_call] = set of items
-        # Items are composite keys: (rule_name, band, value) to ensure uniqueness logic matches scoring
+        # Items are composite keys: (rule_name, dimension_value, value) to ensure uniqueness logic matches scoring
         
         raw_sets = {call: set() for call in all_calls}
         
         # We also need subsets for aggregations
-        # subset_keys: 'TOTAL', 'TOTAL_{Rule}', '{Band}', '{Band}_{Rule}'
+        # subset_keys: 'TOTAL', 'TOTAL_{Rule}', '{DimensionValue}', '{DimensionValue}_{Rule}'
         subsets = {call: {} for call in all_calls}
         
         # Map to store Run/S&P status for each unique multiplier instance: map[call][composite_key] = status
         mult_status_map = {call: {} for call in all_calls}
         
-        valid_bands = self.contest_def.valid_bands
+        # Determine dimension values and grouping column
+        if dimension == 'mode':
+            valid_dimension_values = self.contest_def.valid_modes if hasattr(self.contest_def, 'valid_modes') and self.contest_def.valid_modes else []
+            group_column = 'Mode'
+            dimension_key = 'modes'
+        else:
+            valid_dimension_values = self.contest_def.valid_bands
+            group_column = 'Band'
+            dimension_key = 'bands'
         
         for rule in self.contest_def.multiplier_rules:
             mult_name = rule['name']
@@ -276,13 +289,15 @@ class MultiplierStatsAggregator:
                         # No band breakdown for once_per_log in this table
                         
                 else:
-                    # Scope: Per Band. Key: (Rule, Band, Value)
-                    grouped = valid.groupby('Band')[mult_column].unique()
-                    for band, values in grouped.items():
+                    # Scope: Per Dimension (Band or Mode). Key: (Rule, DimensionValue, Value)
+                    if group_column not in valid.columns:
+                        continue
+                    grouped = valid.groupby(group_column)[mult_column].unique()
+                    for dim_value, values in grouped.items():
                         for val in values:
-                            composite_key = (mult_name, band, val)
+                            composite_key = (mult_name, dim_value, val)
                             raw_sets[call].add(composite_key)
-                            # Lookup status for this band/val
+                            # Lookup status for this dimension value/val
                             mult_status_map[call][composite_key] = status_series.get(val, 'Unk')
                             
                             # Populate Subsets
@@ -290,10 +305,10 @@ class MultiplierStatsAggregator:
                             subsets[call].setdefault('TOTAL', set()).add(composite_key)
                             # 2. Total_Rule (Global Rule Sum)
                             subsets[call].setdefault(f'TOTAL_{mult_name}', set()).add(composite_key)
-                            # 3. Band Total (Sum of all rules on this band)
-                            subsets[call].setdefault(band, set()).add(composite_key)
-                            # 4. Band_Rule (Specific)
-                            subsets[call].setdefault(f'{band}_{mult_name}', set()).add(composite_key)
+                            # 3. Dimension Total (Sum of all rules for this dimension value)
+                            subsets[call].setdefault(dim_value, set()).add(composite_key)
+                            # 4. Dimension_Rule (Specific)
+                            subsets[call].setdefault(f'{dim_value}_{mult_name}', set()).add(composite_key)
 
         # 2. Helper to run comparison and build row
         def build_row(label, set_key, indent=0, is_bold=False):
@@ -384,31 +399,32 @@ class MultiplierStatsAggregator:
             r_name = rule['name']
             totals_rows.append(inject_max_unique(build_row(r_name, f"TOTAL_{r_name}", indent=1, is_bold=False)))
 
-        # C. Per Band Breakdowns (only if not once_per_log heavy)
-        # Only show bands if there is data
-        has_band_data = any(len(subsets[c].get(b, set())) > 0 for c in all_calls for b in valid_bands)
+        # C. Per Dimension Breakdowns (only if not once_per_log heavy)
+        # Only show dimension values if there is data
+        has_dimension_data = any(len(subsets[c].get(d, set())) > 0 for c in all_calls for d in valid_dimension_values)
         
-        if has_band_data:
-            for band in valid_bands:
-                # Check if band has activity
-                if not any(len(subsets[c].get(band, set())) > 0 for c in all_calls):
+        dimension_blocks = []
+        if has_dimension_data:
+            for dim_value in valid_dimension_values:
+                # Check if dimension value has activity
+                if not any(len(subsets[c].get(dim_value, set())) > 0 for c in all_calls):
                     continue
                 
-                # Create block for this band
-                band_rows = []
-                band_rows.append(inject_max_unique(build_row(band, band, indent=0, is_bold=True)))
+                # Create block for this dimension value
+                dim_rows = []
+                dim_rows.append(inject_max_unique(build_row(dim_value, dim_value, indent=0, is_bold=True)))
                 
                 for rule in self.contest_def.multiplier_rules:
                     if rule.get('totaling_method') == 'once_per_log': continue
                     r_name = rule['name']
-                    band_rows.append(inject_max_unique(build_row(r_name, f"{band}_{r_name}", indent=1, is_bold=False)))
+                    dim_rows.append(inject_max_unique(build_row(r_name, f"{dim_value}_{r_name}", indent=1, is_bold=False)))
                 
-                band_blocks.append({
-                    'label': band,
-                    'rows': band_rows
+                dimension_blocks.append({
+                    'label': dim_value,
+                    'rows': dim_rows
                 })
 
         return {
             'totals': totals_rows,
-            'bands': band_blocks
+            dimension_key: dimension_blocks
         }

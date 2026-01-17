@@ -46,6 +46,34 @@ class Report(ContestReport):
             'S&P': style_colors.get('S&P', '#1f77b4'),
             'Unknown': style_colors.get('Mixed/Unk', '#7f7f7f')
         }
+    
+    def _determine_dimension(self) -> str:
+        """
+        Determine if chart should use band or mode dimension.
+        Returns 'mode' for single-band, multi-mode contests, 'band' otherwise.
+        """
+        if not self.logs:
+            return "band"
+        
+        try:
+            contest_def = self.logs[0].contest_definition
+            valid_bands = contest_def.valid_bands
+            valid_modes = contest_def.valid_modes
+            
+            # Single-band, multi-mode → mode dimension
+            if len(valid_bands) == 1 and len(valid_modes) > 1:
+                return "mode"
+            
+            # Check animation_dimension as a hint (if available)
+            if hasattr(contest_def, 'animation_dimension'):
+                anim_dim = contest_def.animation_dimension
+                if anim_dim == "mode" and len(valid_bands) == 1:
+                    return "mode"
+        except (AttributeError, KeyError) as e:
+            logging.debug(f"Could not determine dimension from contest definition: {e}")
+        
+        # Default: band dimension
+        return "band"
 
     def generate(self, output_path: str, **kwargs) -> str:
         if len(self.logs) != 2:
@@ -54,33 +82,43 @@ class Report(ContestReport):
         call1 = self.logs[0].get_metadata().get('MyCall', 'LOG1')
         call2 = self.logs[1].get_metadata().get('MyCall', 'LOG2')
 
-        # 1. Fetch Data
+        # 1. Determine dimension (band or mode)
+        dimension = self._determine_dimension()
+
+        # 2. Fetch Data
         # --- Phase 1 Performance Optimization: Use Cached Aggregator Data ---
         get_cached_stacked_matrix_data = kwargs.get('_get_cached_stacked_matrix_data')
-        if get_cached_stacked_matrix_data:
-            # Use cached stacked matrix data (avoids recreating aggregator and recomputing)
-            data = get_cached_stacked_matrix_data(bin_size='60min', mode_filter=None)
-        else:
-            # Fallback to old behavior for backward compatibility
-            aggregator = MatrixAggregator(self.logs)
-            data = aggregator.get_stacked_matrix_data(bin_size='60min')
+        aggregator = MatrixAggregator(self.logs)
         
-        bands = data.get('bands', [])
+        if dimension == "mode":
+            # Use mode-based stacked matrix data
+            data = aggregator.get_mode_stacked_matrix_data(bin_size='60min')
+            items = data.get('modes', [])  # Modes instead of bands
+        else:
+            # Use band-based stacked matrix data
+            if get_cached_stacked_matrix_data:
+                # Use cached stacked matrix data (avoids recreating aggregator and recomputing)
+                data = get_cached_stacked_matrix_data(bin_size='60min', mode_filter=None)
+            else:
+                # Fallback to old behavior for backward compatibility
+                data = aggregator.get_stacked_matrix_data(bin_size='60min')
+            items = data.get('bands', [])  # Bands
+        
         time_bins = data.get('time_bins', [])
         
-        if not bands or not time_bins:
+        if not items or not time_bins:
             return "No data available to plot."
 
-        # 2. Setup Output
+        # 3. Setup Output
         charts_dir = output_path
         create_output_directory(charts_dir)
 
-        # 3. Generate Plot
+        # 4. Generate Plot
         try:
             filename_base = f"chart_comparative_activity_butterfly_{_sanitize_filename_part(call1)}_{_sanitize_filename_part(call2)}"
             
             # Create the figure
-            fig = self._create_figure(data, time_bins, bands, call1, call2)
+            fig = self._create_figure(data, time_bins, items, call1, call2, dimension)
             
             generated_files = []
 
@@ -106,24 +144,40 @@ class Report(ContestReport):
             return f"Failed to generate butterfly chart: {e}"
 
     def _create_figure(self, data: Dict[str, Any], time_bins: List[Any], 
-            bands: List[str], call1: str, call2: str) -> go.Figure:
+            items: List[str], call1: str, call2: str, dimension: str = "band") -> go.Figure:
+        """
+        Create butterfly chart figure.
         
-        num_bands = len(bands)
+        Args:
+            data: Matrix data (either band-based or mode-based)
+            time_bins: List of time bin strings
+            items: List of items (bands or modes) to plot
+            call1: First callsign
+            call2: Second callsign
+            dimension: "band" or "mode"
+        """
+        num_items = len(items)
         # [ARCHITECTURE] N+1 Rows: Row 1 = Header, Rows 2..N+1 = Charts
-        total_rows = num_bands + 1
+        total_rows = num_items + 1
         
         # Calculate relative heights: Header=15%, Rest distributed evenly
         header_height = 0.15
-        chart_height = (1.0 - header_height) / num_bands
-        row_heights = [header_height] + [chart_height] * num_bands
+        chart_height = (1.0 - header_height) / num_items
+        row_heights = [header_height] + [chart_height] * num_items
+
+        # Determine subplot titles based on dimension
+        if dimension == "mode":
+            subplot_titles = [""] + [f"Mode: {m}" for m in items]
+        else:
+            subplot_titles = [""] + [f"Band: {b}" for b in items]
 
         fig = make_subplots(
             rows=total_rows, 
             cols=1, 
-            shared_xaxes=False,  # Don't share - we'll manually link band rows only
+            shared_xaxes=False,  # Don't share - we'll manually link item rows only
             vertical_spacing=0.02,
             row_heights=row_heights,
-            subplot_titles=[""] + [f"Band: {b}" for b in bands]
+            subplot_titles=subplot_titles
         )
 
         # --- Row 1: Header & Legend Domain ---
@@ -148,14 +202,14 @@ class Report(ContestReport):
         fig.update_yaxes(visible=False, row=1, col=1)
 
         # --- Rows 2..N+1: Charts ---
-        for i, band in enumerate(bands):
+        for i, item in enumerate(items):
             row_idx = i + 2
             
             # --- Log 1 (Positive) ---
             # Order: Run, S&P, Unknown
-            l1_run = data['logs'][call1][band]['Run']
-            l1_sp = data['logs'][call1][band]['S&P']
-            l1_unk = data['logs'][call1][band]['Unknown']
+            l1_run = data['logs'][call1][item]['Run']
+            l1_sp = data['logs'][call1][item]['S&P']
+            l1_unk = data['logs'][call1][item]['Unknown']
 
             # Run
             fig.add_trace(go.Bar(
@@ -180,9 +234,9 @@ class Report(ContestReport):
 
             # --- Log 2 (Negative) ---
             # Negate values to stack downwards
-            l2_run = [-v for v in data['logs'][call2][band]['Run']]
-            l2_sp = [-v for v in data['logs'][call2][band]['S&P']]
-            l2_unk = [-v for v in data['logs'][call2][band]['Unknown']]
+            l2_run = [-v for v in data['logs'][call2][item]['Run']]
+            l2_sp = [-v for v in data['logs'][call2][item]['S&P']]
+            l2_unk = [-v for v in data['logs'][call2][item]['Unknown']]
 
             # Run
             fig.add_trace(go.Bar(
@@ -217,11 +271,11 @@ class Report(ContestReport):
             # Formatting Y-Axis (Calculated from stacked sum)
             l1_total = [x+y+z for x,y,z in zip(l1_run, l1_sp, l1_unk)]
             l2_total = [abs(x)+abs(y)+abs(z) for x,y,z in zip(l2_run, l2_sp, l2_unk)]
-            band_max = max(max(l1_total), max(l2_total)) if l1_total else 0
-            rounded_limit = self._get_rounded_axis_limit(band_max)
+            item_max = max(max(l1_total), max(l2_total)) if l1_total else 0
+            rounded_limit = self._get_rounded_axis_limit(item_max)
 
             fig.update_yaxes(
-                title_text=band,
+                title_text=item,
                 range=[-rounded_limit, rounded_limit],
                 tickmode='array',
                 tickvals=[-rounded_limit, -rounded_limit/2, 0, rounded_limit/2, rounded_limit],
@@ -230,13 +284,13 @@ class Report(ContestReport):
             )
             
             # X-Axis configuration
-            if i == num_bands - 1:
+            if i == num_items - 1:
                 # Bottom chart: show labels and title
                 # Increased standoff to 40px to prevent crowding with footer
                 fig.update_xaxes(title_text="Time (UTC)", title_standoff=40, row=row_idx, col=1)
             else:
-                # Other band charts: hide labels but link to bottom axis
-                # This synchronizes all band rows (2-7) to share the same x-axis domain
+                # Other item charts: hide labels but link to bottom axis
+                # This synchronizes all item rows (2-N+1) to share the same x-axis domain
                 fig.update_xaxes(matches=f'x{total_rows}', showticklabels=False, row=row_idx, col=1)
 
         # Layout Updates
@@ -246,7 +300,14 @@ class Report(ContestReport):
              df = get_valid_dataframe(log)
              if 'Mode' in df.columns:
                  modes_present.update(df['Mode'].dropna().unique())
-        title_lines = get_standard_title_lines(self.report_name, self.logs, "All Bands", None, modes_present)
+        
+        # Determine title dimension label
+        if dimension == "mode":
+            dimension_label = "All Modes"
+        else:
+            dimension_label = "All Bands"
+        
+        title_lines = get_standard_title_lines(self.report_name, self.logs, dimension_label, None, modes_present)
         
         footer_text = get_standard_footer(self.logs)
         
@@ -255,7 +316,7 @@ class Report(ContestReport):
             barmode='relative', # Fix: Correct stacking for butterfly
             bargap=0, # Histogram look
             margin=dict(t=50, b=180, l=110, r=50), # Increased bottom margin for footer, left for y-axis spacing
-            height=max(900, 200 * num_bands + 150),
+            height=max(900, 200 * num_items + 150),
             width=1200,
             # Legend in Header Row (Top Right)
             legend=dict(

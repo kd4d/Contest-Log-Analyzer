@@ -165,6 +165,51 @@
 
 ---
 
+## Architecture & Design Debt
+
+### Multiplier Breakdown Reports - Mode Dimension Support
+
+**Priority:** MEDIUM  
+**Impact:** Text and HTML multiplier breakdown reports will fail for single-band, multi-mode contests  
+**Status:** [ ] Not started
+
+**Issue:**
+- `text_multiplier_breakdown.py` and `html_multiplier_breakdown.py` hardcode `data['bands']` key
+- These reports call `get_multiplier_breakdown_data()` without `dimension` parameter (uses default 'band')
+- For single-band, multi-mode contests (e.g., ARRL 10 Meter), aggregator returns `'modes'` key instead of `'bands'`
+- Reports will raise `KeyError` when accessing `data['bands']` for mode dimension contests
+
+**Current State:**
+- ✅ `json_multiplier_breakdown.py` - Updated to support dimension parameter
+- ✅ `multiplier_dashboard` view - Updated to handle both 'bands' and 'modes' keys
+- ❌ `text_multiplier_breakdown.py` - Hardcodes `data['bands']` (line 147)
+- ❌ `html_multiplier_breakdown.py` - Hardcodes `data['bands']` (lines 60, 124)
+
+**Solution:**
+1. [ ] Update `text_multiplier_breakdown.py`:
+   - Detect contest type (single-band, multi-mode)
+   - Pass `dimension` parameter to aggregator
+   - Use dynamic key: `data.get('modes', data.get('bands', []))` or detect from structure
+   - Update section header: "Band Breakdown" → "Mode Breakdown" or "Band Breakdown" based on dimension
+2. [ ] Update `html_multiplier_breakdown.py`:
+   - Detect contest type (single-band, multi-mode)
+   - Pass `dimension` parameter to aggregator
+   - Use dynamic key for splitting bands/modes
+   - Update template context to handle both dimensions
+
+**Workaround:**
+- Reports will work correctly for multi-band contests (default dimension='band')
+- Reports will fail for single-band, multi-mode contests until fixed
+- Dashboard uses JSON artifact (which is updated) so dashboard works correctly
+
+**Related:**
+- `contest_tools/reports/text_multiplier_breakdown.py` (line 147)
+- `contest_tools/reports/html_multiplier_breakdown.py` (lines 60, 124)
+- `contest_tools/data_aggregators/multiplier_stats.py` - `get_multiplier_breakdown_data(dimension='band'|'mode')`
+- `web_app/analyzer/views.py` - `multiplier_dashboard` view (handles both keys)
+
+---
+
 ## Known Issues
 
 ### Score Inconsistency Across Components
@@ -233,6 +278,37 @@
 - Related items link to relevant documents/code
 - Check off items as they are completed
 - Add new items as technical debt is identified
+
+---
+
+## Technical Debt Incurred (2026-01-17)
+
+### Multiplier Breakdown Dimension Support
+
+**Context:** Added mode dimension support to multiplier dashboard for single-band, multi-mode contests (ARRL 10 Meter).
+
+**Debt Incurred:**
+
+1. **Legacy Report Compatibility:**
+   - `text_multiplier_breakdown.py` and `html_multiplier_breakdown.py` still hardcode `data['bands']` key
+   - These reports will fail for single-band, multi-mode contests
+   - **Mitigation:** Default parameter `dimension='band'` ensures backward compatibility for multi-band contests
+   - **Impact:** Medium - affects only single-band, multi-mode contests
+
+2. **JSON Artifact Backward Compatibility:**
+   - Old JSON artifacts may have 'bands' key when they should have 'modes' key for single-band, multi-mode contests
+   - **Mitigation:** View detects dimension mismatch and regenerates data in slow path
+   - **Impact:** Low - automatic regeneration handles this
+
+3. **API Change:**
+   - `get_multiplier_breakdown_data()` now accepts optional `dimension` parameter
+   - Return structure varies: `'bands'` key vs `'modes'` key
+   - **Mitigation:** Default parameter maintains backward compatibility
+   - **Impact:** Low - existing code continues to work (defaults to 'band')
+
+**Resolution Plan:**
+- See "Multiplier Breakdown Reports - Mode Dimension Support" in Architecture & Design Debt section
+- Priority: MEDIUM (reports work for multi-band contests, fail only for single-band, multi-mode)
 
 ---
 

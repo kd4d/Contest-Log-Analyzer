@@ -702,10 +702,44 @@ def multiplier_dashboard(request, session_id):
     lm = None
     report_metadata = {}
 
+    # Determine dimension from breakdown_data structure or contest definition
+    is_mode_dimension = False
+    dimension = 'band'
+    
     # Check if we have both breakdown data and persisted logs (not just empty dict)
+    # Note: breakdown_data may be None if we detected wrong dimension in fast path
     if breakdown_data and persisted_logs:
         # --- FAST PATH: Hydrate from Cache ---
         # No LogManager, No Parsing. Instant load.
+        
+        # Detect dimension from breakdown_data structure first
+        if 'modes' in breakdown_data:
+            is_mode_dimension = True
+            dimension = 'mode'
+        elif 'bands' in breakdown_data:
+            # Check if contest should actually be mode dimension (for backward compatibility)
+            valid_bands = dashboard_ctx.get('valid_bands', [])
+            valid_modes = dashboard_ctx.get('valid_modes', [])
+            is_single_band = len(valid_bands) == 1
+            is_multi_mode = len(valid_modes) > 1
+            if is_single_band and is_multi_mode:
+                # Contest should be mode dimension, but JSON has bands (old format)
+                # Regenerate with correct dimension (requires slow path)
+                breakdown_data = None  # Force regeneration
+                is_mode_dimension = True
+                dimension = 'mode'
+            else:
+                is_mode_dimension = False
+                dimension = 'band'
+        else:
+            # Fallback: check contest definition from cached context
+            valid_bands = dashboard_ctx.get('valid_bands', [])
+            valid_modes = dashboard_ctx.get('valid_modes', [])
+            is_single_band = len(valid_bands) == 1
+            is_multi_mode = len(valid_modes) > 1
+            if is_single_band and is_multi_mode:
+                is_mode_dimension = True
+                dimension = 'mode'
         
         full_title = dashboard_ctx.get('full_contest_title', '')
         cty_info = dashboard_ctx.get('cty_version_info', 'CTY-Unknown Unknown Date')
@@ -720,9 +754,10 @@ def multiplier_dashboard(request, session_id):
         # Footer: One line with CLA abbreviation
         footer_text = f"CLA v{__version__}   |   {cty_info}"
         
+        scope_line = "All Modes" if is_mode_dimension else "All Bands"
         report_metadata = {
             'context_line': context_line,
-            'scope_line': "All Bands", # Matrix is always global scope initially
+            'scope_line': scope_line,
             'footer': footer_text
         }
         
@@ -739,10 +774,26 @@ def multiplier_dashboard(request, session_id):
         root_input = os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
         lm.load_log_batch(log_candidates, root_input, 'after')
         
+        # Determine dimension (band or mode) based on contest type
+        valid_bands = lm.logs[0].contest_definition.valid_bands if lm.logs else []
+        valid_modes = lm.logs[0].contest_definition.valid_modes if lm.logs and hasattr(lm.logs[0].contest_definition, 'valid_modes') else []
+        is_single_band = len(valid_bands) == 1
+        is_multi_mode = len(valid_modes) > 1
+        dimension = 'mode' if (is_single_band and is_multi_mode) else 'band'
+        is_mode_dimension = (dimension == 'mode')
+        
         # Generate Aggregation if missing
         if not breakdown_data:
             mult_agg = MultiplierStatsAggregator(lm.logs)
-            breakdown_data = mult_agg.get_multiplier_breakdown_data()
+            breakdown_data = mult_agg.get_multiplier_breakdown_data(dimension=dimension)
+        else:
+            # Detect dimension from existing breakdown_data structure
+            if 'modes' in breakdown_data:
+                is_mode_dimension = True
+                dimension = 'mode'
+            elif 'bands' in breakdown_data:
+                is_mode_dimension = False
+                dimension = 'band'
             
         # Generate Metadata using Utilities
         modes_present = set()
@@ -751,7 +802,8 @@ def multiplier_dashboard(request, session_id):
             if 'Mode' in df.columns:
                  modes_present.update(df['Mode'].dropna().unique())
 
-        title_lines = get_standard_title_lines("Multiplier Breakdown", lm.logs, "All Bands", None, modes_present)
+        scope_label = "All Modes" if is_mode_dimension else "All Bands"
+        title_lines = get_standard_title_lines("Multiplier Breakdown", lm.logs, scope_label, None, modes_present)
         
         # Footer with Newline
         # Extract CTY info in new format
@@ -764,17 +816,29 @@ def multiplier_dashboard(request, session_id):
             'footer': footer_text
         }
     
-    # Split Bands (Layout Logic)
-    low_bands = ['160M', '80M', '40M']
+    # Split Dimension Values (Layout Logic) - First 3 go to "low", rest to "high"
     low_bands_data = []
     high_bands_data = []
+    low_modes_data = []
+    high_modes_data = []
     
-    if breakdown_data and 'bands' in breakdown_data:
-        for block in breakdown_data['bands']:
-            if block['label'] in low_bands:
-                 low_bands_data.append(block)
-            else:
-                high_bands_data.append(block)
+    if breakdown_data:
+        if is_mode_dimension and 'modes' in breakdown_data:
+            # Split modes: first 3 to low, rest to high
+            mode_blocks = breakdown_data['modes']
+            for i, block in enumerate(mode_blocks):
+                if i < 3:
+                    low_modes_data.append(block)
+                else:
+                    high_modes_data.append(block)
+        elif 'bands' in breakdown_data:
+            # Split bands: 160M, 80M, 40M to low, rest to high
+            low_bands = ['160M', '80M', '40M']
+            for block in breakdown_data['bands']:
+                if block['label'] in low_bands:
+                    low_bands_data.append(block)
+                else:
+                    high_bands_data.append(block)
     
     # Calculate optimal column width for scoreboard
     log_count = len(persisted_logs) if persisted_logs else 0
@@ -801,9 +865,10 @@ def multiplier_dashboard(request, session_id):
                     if mult_key not in global_max:
                         global_max[mult_key] = 1
         
-        # Calculate global_max for each multiplier type from band breakdowns
-        if 'bands' in breakdown_data:
-            for block in breakdown_data['bands']:
+        # Calculate global_max for each multiplier type from dimension breakdowns (bands or modes)
+        dimension_key = 'modes' if is_mode_dimension else 'bands'
+        if dimension_key in breakdown_data:
+            for block in breakdown_data[dimension_key]:
                 for row in block['rows']:
                     row_max = 0
                     for stat in row['stations']:
@@ -812,13 +877,13 @@ def multiplier_dashboard(request, session_id):
                     
                     row_label = row.get('label', '')
                     
-                    # Check if this is the TOTAL or band total row
+                    # Check if this is the TOTAL or dimension total row
                     if row_label == 'TOTAL' or row_label == block.get('label', ''):
                         if row_max > global_max['total']: global_max['total'] = row_max
                     else:
-                        # Check if this row matches any multiplier name (e.g., "10M_States" or "States")
+                        # Check if this row matches any multiplier name (e.g., "10M_States", "CW_States", or "States")
                         for mult_name in multiplier_names:
-                            # Match pattern: "{band}_{mult_name}" or just "{mult_name}"
+                            # Match pattern: "{dimension_value}_{mult_name}" or just "{mult_name}"
                             if mult_name in row_label:
                                 mult_key = mult_name.lower().replace(' ', '_')
                                 if row_max > global_max[mult_key]: global_max[mult_key] = row_max
@@ -995,6 +1060,9 @@ def multiplier_dashboard(request, session_id):
         'breakdown_totals': breakdown_data['totals'] if breakdown_data else [],
         'low_bands_data': low_bands_data,
         'high_bands_data': high_bands_data,
+        'low_modes_data': low_modes_data,
+        'high_modes_data': high_modes_data,
+        'is_mode_dimension': is_mode_dimension,
         'all_calls': sorted([l['callsign'] for l in persisted_logs]),
         'breakdown_txt_url': breakdown_txt_rel_path,
         'breakdown_html_url': breakdown_html_rel_path,
@@ -1539,6 +1607,16 @@ def qso_dashboard(request, session_id):
             'key': 'all'
         })
 
+    # Determine activity tab labels based on contest type
+    # Single-band, multi-mode contests (e.g., ARRL 10) should show "Mode Activity"
+    # Multi-band contests should show "Band Activity"
+    if is_single_band and is_multi_mode:
+        activity_tab_label = 'Mode Activity'
+        activity_tab_title = 'Mode Activity Butterfly Chart'
+    else:
+        activity_tab_label = 'Band Activity'
+        activity_tab_title = 'Band Activity Butterfly Chart'
+    
     context = {
         'session_id': session_id,
         'callsigns': callsigns_display,
@@ -1552,7 +1630,9 @@ def qso_dashboard(request, session_id):
         'is_solo': is_solo,
         'valid_bands': valid_bands_for_buttons,  # For dynamic band button generation
         'valid_modes': valid_modes_for_buttons,  # For dynamic mode button generation
-        'diff_selector_type': diff_selector_type  # 'band' or 'mode' for Rate Differential pane
+        'diff_selector_type': diff_selector_type,  # 'band' or 'mode' for Rate Differential pane
+        'activity_tab_label': activity_tab_label,  # 'Band Activity' or 'Mode Activity'
+        'activity_tab_title': activity_tab_title  # Chart title for activity tab
     }
     
     return render(request, 'analyzer/qso_dashboard.html', context)
