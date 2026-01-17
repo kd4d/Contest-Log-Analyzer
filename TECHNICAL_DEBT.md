@@ -171,25 +171,22 @@
 
 **Priority:** HIGH  
 **Impact:** User-facing data inconsistency  
-**Status:** [ ] In progress
+**Status:** [x] Completed
 
 **Description:**
-- Text score reports show correct score
-- Animation racing bar shows lower score
-- Dashboard scoreboard shows wrong score
-- All should use same source of truth
+- ~~Text score reports show correct score~~
+- ~~Animation racing bar shows lower score~~
+- ~~Dashboard scoreboard shows wrong score~~
+- ~~All should use same source of truth~~
 
-**Root Cause:**
-- `ScoreStatsAggregator` calculates independently
-- `TimeSeriesAggregator` uses calculator plugin output
-- They may calculate multipliers differently
-
-**Workaround:**
-- Currently use text reports as reference for correct score
-- Animation/dashboard scores are incorrect
+**Resolution:**
+- ✅ Fixed in "Scoring Data Source of Truth" (Architecture Debt section)
+- ✅ Calculator now filters NaN values from multiplier counting
+- ✅ ScoreStatsAggregator uses calculator's final score as authoritative source
+- ✅ All components now show consistent scores
 
 **Related:**
-- See "Scoring Data Source of Truth" in Architecture Debt section
+- See "Scoring Data Source of Truth" in Architecture Debt section (marked as [x] Completed)
 
 ---
 
