@@ -1,6 +1,10 @@
 {
   "_filename": "contest_tools/contest_definitions/cq_160.json",
   "contest_name": "CQ-160",
+  "valid_modes": [
+    "CW",
+    "PH"
+  ],
   "scoring_module": "cq_160_scoring",
   "contest_period": {
     "start_day": "Friday",

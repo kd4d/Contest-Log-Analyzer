@@ -16,9 +16,7 @@ web_app/media/
 *.sqlite3
 Archives/
 *_bundle.txt
-test_code/debug*.py
-test_code/exact_container.py
-DevNotes/
+test_code/
 
 # Exceptions: Important git workflow files that should always be tracked
 # Note: These exceptions ensure files are visible even if parent patterns change

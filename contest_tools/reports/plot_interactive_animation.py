@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 from pathlib import Path
 from datetime import datetime
 
@@ -45,7 +45,7 @@ class Report(ContestReport):
     report_type: str = "animation"
     is_specialized: bool = False
     supports_multi: bool = True
-    supports_single: bool = True
+    supports_single: bool = True  # Generate single-log files for individual analysis
 
     def _get_mode_color(self, base_hex: str, mode: str) -> str:
         """Calculates color based on mode: Run=Solid, S&P=50% Opacity, Unknown=Light Gray."""
@@ -97,26 +97,81 @@ class Report(ContestReport):
                 return f"{date_part} {time_part} UTC", f"{date_part} {time_part}"
             return iso_string, iso_string
 
+    def _determine_dimension(self) -> str:
+        """
+        Determines visualization dimension from contest definition.
+        Reads JSON configuration (animation_dimension field) or auto-detects for mode-divided contests.
+        
+        Returns:
+            'band' or 'mode' - the primary dimension for visualization
+        """
+        if not self.logs:
+            return "band"  # Default fallback
+        
+        contest_def = self.logs[0].contest_definition
+        
+        # Explicit JSON config wins
+        if contest_def.animation_dimension:
+            return contest_def.animation_dimension
+        
+        # Auto-detect: Mode-divided JSON (contest name ends with mode suffix)
+        contest_name = contest_def.contest_name
+        if contest_name.endswith(('-CW', '-SSB', '-RTTY', '-PH')):
+            # Mode-divided JSON → single mode per instance → band dimension
+            return "band"
+        
+        # Default: band dimension (mode-divided contests)
+        # Multi-mode contests without explicit config will use this (may log warning in future)
+        return "band"
+
     def generate(self, output_path: str, **kwargs) -> str:
         """
         Generates the HTML animation.
         """
         create_output_directory(output_path)
         
+        # Determine visualization dimension
+        dimension = self._determine_dimension()
+        
         # 1. Prepare Data
-        data = self._prepare_data(**kwargs)
+        if dimension == 'mode':
+            data = self._prepare_data_mode(**kwargs)
+        else:
+            data = self._prepare_data_band(**kwargs)
         
         time_bins = data['time_bins']
         callsigns = data['callsigns']
         
         if not time_bins:
             return "No data available to generate animation."
+        
+        # Verify all callsigns have data in matrix
+        if dimension == 'mode':
+            for call in callsigns:
+                if call not in data['matrix_hourly']:
+                    logging.error(f"ERROR: Missing callsign {call} in matrix_hourly for mode dimension")
+                elif data['modes'] and data['modes'][0] not in data['matrix_hourly'][call]:
+                    logging.error(f"ERROR: Missing mode data for callsign {call} in matrix_hourly")
+        elif dimension == 'band':
+            for call in callsigns:
+                if call not in data['matrix_hourly']:
+                    logging.error(f"ERROR: Missing callsign {call} in matrix_hourly for band dimension")
+
+        # Determine dimension label and subplot titles based on dimension
+        if dimension == 'mode':
+            dimension_label = "Mode"
+            subplot_title_2 = "Hourly Rate (By Mode)"
+            subplot_title_3 = "Cumulative QSOs (By Mode)"
+        else:
+            dimension_label = "Band"
+            subplot_title_2 = "Hourly Rate (By Band & Mode)"
+            subplot_title_3 = "Cumulative QSOs (By Band & Mode)"
 
         # 2. Setup Figure Layout
         fig = make_subplots(
             rows=2, cols=2,
             specs=[[{"colspan": 2}, None], [{}, {}]],
-            subplot_titles=("Cumulative Score Progression", "Hourly Rate (By Band & Mode)", "Cumulative QSOs (By Band & Mode)"),
+            subplot_titles=("Cumulative Score Progression", subplot_title_2, subplot_title_3),
             vertical_spacing=0.15,
             horizontal_spacing=0.1
         )
@@ -142,11 +197,11 @@ class Report(ContestReport):
 
         # --- Pane 2 & 3: Stacked/Grouped Bars (Bottom) ---
         # Logic: For each Station, we add 3 traces (Run, S&P, Unk) to EACH subplot.
-        # They share the X-axis (Bands).
-        # We use 'offsetgroup' to group by Call, but stack by Mode within that group.
-        bands = data['bands']
+        # They share the X-axis (Bands or Modes depending on dimension).
+        # We use 'offsetgroup' to group by Call, but stack by RunStatus within that group.
+        x_axis_items = data['bands'] if dimension == 'band' else data['modes']
         base_palette = PlotlyStyleManager._COLOR_PALETTE
-        modes = ['Run', 'S&P', 'Unknown']
+        run_statuses = ['Run', 'S&P', 'Unknown']
         
         for i, call in enumerate(callsigns):
             # Calculate offset to group bars side-by-side
@@ -155,19 +210,19 @@ class Report(ContestReport):
             # Assign base color cyclically based on station index
             base_color = base_palette[i % len(base_palette)]
             
-            for mode in modes:
-                color = self._get_mode_color(base_color, mode)
+            for run_status in run_statuses:
+                color = self._get_mode_color(base_color, run_status)
                 
                 # Bottom Left: Hourly
                 fig.add_trace(
                     go.Bar(
                         name=call,
-                        x=bands,
-                        y=[0] * len(bands),
+                        x=x_axis_items,
+                        y=[0] * len(x_axis_items),
                         marker_color=color,
                         legendgroup=call,
                         offsetgroup=call, # Group by Call
-                        showlegend=(mode == 'Run'), # Only show legend once per call
+                        showlegend=(run_status == 'Run'), # Only show legend once per call
                         textposition='none'
                     ),
                     row=2, col=1
@@ -177,8 +232,8 @@ class Report(ContestReport):
                 fig.add_trace(
                     go.Bar(
                         name=call,
-                        x=bands,
-                        y=[0] * len(bands),
+                        x=x_axis_items,
+                        y=[0] * len(x_axis_items),
                         marker_color=color,
                         legendgroup=call,
                         offsetgroup=call,
@@ -187,6 +242,11 @@ class Report(ContestReport):
                     ),
                     row=2, col=2
                 )
+        
+        trace_count_after = len(fig.data)
+        expected_traces = 1 + (len(callsigns) * len(run_statuses) * 2)  # racing bar + (calls × statuses × 2 subplots)
+        if trace_count_after != expected_traces:
+            logging.error(f"ERROR: Trace count mismatch! Expected {expected_traces} but got {trace_count_after}")
 
         # --- Legend Decoder (Representative Keys) ---
         # Add dummy traces to explain the Color Intensity/Gray logic.
@@ -242,15 +302,55 @@ class Report(ContestReport):
             frame_data.append(go.Bar(x=scores, text=scores))
             
             # Update Pane 2 & 3
-            for call in callsigns:
-                for mode in modes:
-                    # Hourly Data
-                    y_hourly = [data['matrix_hourly'][call][band][mode][t_idx] for band in bands]
-                    frame_data.append(go.Bar(y=y_hourly))
+            x_axis_items = data['bands'] if dimension == 'band' else data['modes']
+            frame_bars_count = 0
+            
+            # Track trace index for positioning (skip index 0 which is racing bar)
+            trace_idx = 1
+            
+            for i, call in enumerate(callsigns):
+                base_color = base_palette[i % len(base_palette)]
+                
+                for run_status in run_statuses:
+                    color = self._get_mode_color(base_color, run_status)
                     
-                    # Cumulative Data
-                    y_cumul = [data['matrix_cumulative'][call][band][mode][t_idx] for band in bands]
-                    frame_data.append(go.Bar(y=y_cumul))
+                    # Hourly Data (row=2, col=1)
+                    if dimension == 'band':
+                        y_hourly = [data['matrix_hourly'][call][band][run_status][t_idx] for band in x_axis_items]
+                    else:
+                        y_hourly = [data['matrix_hourly'][call][mode][run_status][t_idx] for mode in x_axis_items]
+                    
+                    # CRITICAL: Explicitly set offsetgroup, legendgroup, and color to match initial traces
+                    frame_data.append(go.Bar(
+                        x=x_axis_items,
+                        y=y_hourly,
+                        name=call,
+                        offsetgroup=call,  # Group by Call for side-by-side positioning
+                        legendgroup=call,
+                        marker_color=color,
+                        textposition='none'
+                    ))
+                    trace_idx += 1
+                    frame_bars_count += 1
+                    
+                    # Cumulative Data (row=2, col=2)
+                    if dimension == 'band':
+                        y_cumul = [data['matrix_cumulative'][call][band][run_status][t_idx] for band in x_axis_items]
+                    else:
+                        y_cumul = [data['matrix_cumulative'][call][mode][run_status][t_idx] for mode in x_axis_items]
+                    
+                    # CRITICAL: Explicitly set offsetgroup, legendgroup, and color to match initial traces
+                    frame_data.append(go.Bar(
+                        x=x_axis_items,
+                        y=y_cumul,
+                        name=call,
+                        offsetgroup=call,  # Group by Call for side-by-side positioning
+                        legendgroup=call,
+                        marker_color=color,
+                        textposition='none'
+                    ))
+                    trace_idx += 1
+                    frame_bars_count += 1
 
             # Include layout update for annotations in frame
             # Note: Frame layout annotations replace ALL annotations, so we must include both
@@ -290,8 +390,9 @@ class Report(ContestReport):
         fig.update_yaxes(title_text="Total QSOs", range=[0, max_cumul * 1.1], row=2, col=2)
         
         # Common X-Axis properties
-        fig.update_xaxes(title_text="Band", row=2, col=1)
-        fig.update_xaxes(title_text="Band", row=2, col=2)
+        x_axis_label = dimension_label  # "Band" or "Mode"
+        fig.update_xaxes(title_text=x_axis_label, row=2, col=1)
+        fig.update_xaxes(title_text=x_axis_label, row=2, col=2)
 
         # Construct Standard Title
         # Use the same callsigns list that was used for the filename to ensure consistency
@@ -315,13 +416,14 @@ class Report(ContestReport):
             # Initial placeholder title, will be updated below
             title_text=final_title,
             barmode='stack', # Enables stacking within offsetgroups
+            margin=dict(t=100, b=180, l=100, r=50), # Bottom margin for footer, top for title
             updatemenus=[{
                 "type": "buttons",
                 "showactive": False,
-                "x": 0.0,
-                "y": -0.15,
-                "xanchor": "left",
-                "yanchor": "top",
+                "x": 0.98,
+                "y": 1.08,
+                "xanchor": "right",
+                "yanchor": "bottom",
                 "buttons": [{
                     "label": "Play",
                     "method": "animate",
@@ -333,12 +435,12 @@ class Report(ContestReport):
                 }]
             }, {
                 "type": "dropdown",
-                "direction": "up",
+                "direction": "down",
                 "showactive": True,
-                "x": 0.15,
-                "y": -0.15,
-                "xanchor": "left",
-                "yanchor": "top",
+                "x": 0.88,
+                "y": 1.08,
+                "xanchor": "right",
+                "yanchor": "bottom",
                 "active": 1,
                 "buttons": [
                     {"label": "FPS: 0.5", "method": "animate", "args": [None, {"frame": {"duration": 2000, "redraw": True}, "mode": "immediate", "transition": {"duration": 2000}}]},
@@ -398,13 +500,18 @@ class Report(ContestReport):
         config = {'toImageButtonOptions': {'filename': download_filename, 'format': 'png'}}
         
         fig.write_html(full_path, auto_play=False, config=config)
+        
+        if not os.path.exists(full_path):
+            logging.error(f"ERROR: Animation file was NOT created: {full_path}")
+        
         logging.info(f"Generated interactive animation: {full_path}")
 
         return f"Interactive animation generated: {filename}"
 
-    def _prepare_data(self, **kwargs) -> Dict[str, Any]:
+    def _prepare_data_band(self, **kwargs) -> Dict[str, Any]:
         """
-        Aggregates and aligns data from TimeSeries and Matrix aggregators.
+        Aggregates and aligns data for band dimension (band -> RunStatus structure).
+        Matrix Structure: logs -> call -> band -> RunStatus -> [list of ints]
         """
         # --- 1. Get Raw Data ---
         # Retrieve authoritative time index from the LogManager of the first log
@@ -436,7 +543,9 @@ class Report(ContestReport):
             matrix_agg = MatrixAggregator(self.logs)
             matrix_raw = matrix_agg.get_stacked_matrix_data(bin_size='60min', time_index=master_index)
 
-        callsigns = sorted(list(ts_raw['logs'].keys()))
+        # Extract callsigns from actual logs being processed (not cached data)
+        # This ensures filename matches the data being generated (fixes single-log overwriting issue)
+        callsigns = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])
         time_bins = ts_raw['time_bins']
         bands = matrix_raw['bands']
 
@@ -501,6 +610,146 @@ class Report(ContestReport):
             'time_bins': time_bins,
             'callsigns': callsigns,
             'bands': bands,
+            'modes': None,  # Not used for band dimension
+            'ts_data': ts_data,
+            'matrix_hourly': matrix_hourly,
+            'matrix_cumulative': matrix_cumulative,
+            'max_stats': {
+                'hourly_qsos': int(global_max_hourly),
+                'cumulative_qsos': int(global_max_cumul)
+            }
+        }
+    
+    def _prepare_data_mode(self, **kwargs) -> Dict[str, Any]:
+        """
+        Aggregates and aligns data for mode dimension (mode -> RunStatus structure).
+        Matrix Structure: logs -> call -> mode (radio mode) -> RunStatus -> [list of ints]
+        """
+        # --- 1. Get Raw Data ---
+        # Retrieve authoritative time index from the LogManager of the first log
+        master_index = None
+        if self.logs and hasattr(self.logs[0], '_log_manager_ref'):
+            log_manager = self.logs[0]._log_manager_ref
+            if log_manager:
+                master_index = log_manager.master_time_index
+
+        # --- Phase 1 Performance Optimization: Use Cached Aggregator Data ---
+        get_cached_ts_data = kwargs.get('_get_cached_ts_data')
+        
+        if get_cached_ts_data:
+            ts_raw = get_cached_ts_data()
+        else:
+            ts_agg = TimeSeriesAggregator(self.logs)
+            ts_raw = ts_agg.get_time_series_data()
+
+        # Extract callsigns from actual logs being processed (not cached data)
+        # This ensures filename matches the data being generated (fixes single-log overwriting issue)
+        callsigns = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])
+
+        # --- 2. Process Matrix Data (Mode Dimension) ---
+        # Use MatrixAggregator for consistent data structure (like band dimension)
+        # CRITICAL: Use master_index to ensure time alignment across all logs
+        # The aggregator will reindex all data to this master index
+        if master_index is None:
+            # Fallback: create from time_bins (but prefer log_manager's master_index)
+            time_bins = ts_raw['time_bins']
+            master_index = pd.to_datetime(time_bins)
+        
+        matrix_agg = MatrixAggregator(self.logs)
+        matrix_raw = matrix_agg.get_mode_stacked_matrix_data(bin_size='60min', time_index=master_index)
+        
+        # Use time_bins from aggregator to ensure consistency
+        time_bins = matrix_raw['time_bins']
+        num_time_bins = len(time_bins)
+        
+        modes = matrix_raw['modes']
+        
+        if not modes:
+            modes = []
+
+        # --- 3. Process Time Series (Score) ---
+        ts_data = {}
+        for call in callsigns:
+            log_entry = ts_raw['logs'][call]
+            if any(log_entry['cumulative']['score']):
+                metric = log_entry['cumulative']['score']
+            elif any(log_entry['cumulative']['points']):
+                metric = log_entry['cumulative']['points']
+            else:
+                metric = log_entry['cumulative']['qsos']
+            ts_data[call] = {'score': metric}
+
+        # Convert aggregator structure to our internal format: call -> mode -> RunStatus -> [values]
+        # Aggregator returns: logs[call][mode][run_status] = [values]
+        # We need: matrix_hourly[call][mode][run_status] = [values] (same structure!)
+        matrix_hourly = {}
+        matrix_cumulative = {}
+        
+        global_max_hourly = 0
+        global_max_cumul = 0
+
+        for call in callsigns:
+            matrix_hourly[call] = {}
+            matrix_cumulative[call] = {}
+            
+            # Check if callsign exists in aggregator output
+            if call not in matrix_raw['logs']:
+                logging.warning(f"WARNING: callsign {call} NOT in aggregator output!")
+                # Initialize empty structure for missing callsign
+                for mode in modes:
+                    matrix_hourly[call][mode] = {
+                        'Run': [0] * num_time_bins,
+                        'S&P': [0] * num_time_bins,
+                        'Unknown': [0] * num_time_bins
+                    }
+                    matrix_cumulative[call][mode] = {
+                        'Run': [0] * num_time_bins,
+                        'S&P': [0] * num_time_bins,
+                        'Unknown': [0] * num_time_bins
+                    }
+                continue
+            
+            for mode in modes:
+                # Get data from aggregator (already in correct format)
+                mode_data = matrix_raw['logs'][call].get(mode, {
+                    'Run': [0] * num_time_bins,
+                    'S&P': [0] * num_time_bins,
+                    'Unknown': [0] * num_time_bins
+                })
+                
+                # Hourly data (from aggregator)
+                mode_hourly = {
+                    'Run': list(mode_data.get('Run', [0] * num_time_bins)),
+                    'S&P': list(mode_data.get('S&P', [0] * num_time_bins)),
+                    'Unknown': list(mode_data.get('Unknown', [0] * num_time_bins))
+                }
+                
+                # Calculate cumulative
+                mode_cumulative = {}
+                for rs in ['Run', 'S&P', 'Unknown']:
+                    cumulative = 0
+                    cumul_list = []
+                    for val in mode_hourly[rs]:
+                        cumulative += val
+                        cumul_list.append(cumulative)
+                    mode_cumulative[rs] = cumul_list
+                
+                matrix_hourly[call][mode] = mode_hourly
+                matrix_cumulative[call][mode] = mode_cumulative
+                
+                # Update global max
+                mode_total_hourly = [sum(mode_hourly[rs][t] for rs in ['Run', 'S&P', 'Unknown']) for t in range(num_time_bins)]
+                mode_total_cumul = [sum(mode_cumulative[rs][t] for rs in ['Run', 'S&P', 'Unknown']) for t in range(num_time_bins)]
+                if mode_total_hourly:
+                    global_max_hourly = max(global_max_hourly, max(mode_total_hourly))
+                if mode_total_cumul:
+                    global_max_cumul = max(global_max_cumul, max(mode_total_cumul))
+        
+        return {
+            'time_bins': time_bins,
+            'callsigns': callsigns,
+            'bands': None,  # Not used for mode dimension
+            'modes': modes,
             'ts_data': ts_data,
             'matrix_hourly': matrix_hourly,
             'matrix_cumulative': matrix_cumulative,

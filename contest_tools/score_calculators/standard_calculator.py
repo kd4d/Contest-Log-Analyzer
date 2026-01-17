@@ -76,45 +76,84 @@ class StandardCalculator(TimeSeriesCalculator):
         run_qso_ts = df_original_sorted[df_original_sorted['Run'] == 'Run'].set_index('Datetime')['Call'].resample('h').count().cumsum().reindex(master_index, method='ffill').fillna(0)
         sp_unk_qso_ts = cum_qso_ts - run_qso_ts
 
-        # Determine if all rules use the simple 'sum_by_band' method.
-        all_sum_by_band = all(rule.get('totaling_method', 'sum_by_band') == 'sum_by_band' for rule in log.contest_definition.multiplier_rules)
-
-        if all_sum_by_band:
-            for mult_col in multiplier_columns:
-                if mult_col in df_for_mults.columns:
-                    per_band_groups = df_for_mults.groupby('Band')
-                    for band, group_df in per_band_groups:
-                        mult_set_ts = group_df.groupby(pd.Grouper(key='Datetime', freq='h'))[mult_col].apply(set).reindex(master_index)
-                        mult_set_ts = mult_set_ts.apply(lambda x: x if isinstance(x, set) else set())
-
-                        running_set = set()
-                
-                        cumulative_sets_list = [running_set.update(s) or running_set.copy() for s in mult_set_ts]
-
-                        band_mult_ts = pd.Series(cumulative_sets_list, index=master_index).apply(len)
-                        mult_count_ts += band_mult_ts
-                        per_band_mult_ts_dict[f"total_mults_{band}"] = band_mult_ts
-     
-        else: # once_per_log or once_per_mode
-            all_cumulative_mults_ts = []
-            for rule in log.contest_definition.multiplier_rules:
-                mult_col = rule['value_column']
-                if mult_col not in df_for_mults.columns: continue
-
-                # Calculate the cumulative unique set for this multiplier type
-                hourly_sets = df_for_mults.groupby(pd.Grouper(key='Datetime', freq='h'))[mult_col].apply(set).reindex(master_index)
+        # --- Multiplier Counting: Handle different totaling_methods ---
+        # Process each multiplier rule according to its totaling_method
+        all_cumulative_mults_ts = []
+        
+        for rule in log.contest_definition.multiplier_rules:
+            mult_col = rule['value_column']
+            if mult_col not in df_for_mults.columns:
+                continue
+            
+            totaling_method = rule.get('totaling_method', 'sum_by_band')
+            
+            if totaling_method == 'once_per_log':
+                # Count unique multipliers globally (once per log)
+                # Filter out NaN values before applying set (NaN is a placeholder, not a valid multiplier)
+                hourly_sets = df_for_mults.groupby(pd.Grouper(key='Datetime', freq='h'))[mult_col].apply(lambda x: set(x.dropna())).reindex(master_index)
                 hourly_sets = hourly_sets.apply(lambda x: x if isinstance(x, set) else set())
                 
                 running_set_for_col = set()
                 cumulative_sets_for_col = [running_set_for_col.update(s) or running_set_for_col.copy() for s in hourly_sets]
                 
-                # Convert the list of sets to a time series of counts
                 cumulative_counts_for_col = pd.Series(cumulative_sets_for_col, index=master_index).apply(len)
                 all_cumulative_mults_ts.append(cumulative_counts_for_col)
+                
+            elif totaling_method == 'once_per_mode':
+                # Count unique multipliers per mode, then sum across modes (matches ScoreStatsAggregator logic)
+                # Group by mode, then for each mode calculate unique multipliers over time
+                mode_cumulative_counts = []
+                
+                for mode in df_for_mults['Mode'].unique():
+                    df_mode = df_for_mults[df_for_mults['Mode'] == mode]
+                    # Filter out NaN values before applying set (NaN is a placeholder, not a valid multiplier)
+                    hourly_sets = df_mode.groupby(pd.Grouper(key='Datetime', freq='h'))[mult_col].apply(lambda x: set(x.dropna())).reindex(master_index)
+                    hourly_sets = hourly_sets.apply(lambda x: x if isinstance(x, set) else set())
+                    
+                    running_set_for_mode = set()
+                    cumulative_sets_for_mode = [running_set_for_mode.update(s) or running_set_for_mode.copy() for s in hourly_sets]
+                    mode_counts = pd.Series(cumulative_sets_for_mode, index=master_index).apply(len)
+                    mode_cumulative_counts.append(mode_counts)
+                
+                # Sum across all modes
+                if mode_cumulative_counts:
+                    rule_total_ts = pd.concat(mode_cumulative_counts, axis=1).sum(axis=1)
+                    all_cumulative_mults_ts.append(rule_total_ts)
+                    
+            elif totaling_method == 'once_per_band_no_mode':
+                # Count unique multipliers per band (ignoring mode)
+                for band in df_for_mults['Band'].unique():
+                    df_band = df_for_mults[df_for_mults['Band'] == band]
+                    # Filter out NaN values before applying set (NaN is a placeholder, not a valid multiplier)
+                    mult_set_ts = df_band.groupby(pd.Grouper(key='Datetime', freq='h'))[mult_col].apply(lambda x: set(x.dropna())).reindex(master_index)
+                    mult_set_ts = mult_set_ts.apply(lambda x: x if isinstance(x, set) else set())
+                    
+                    running_set = set()
+                    cumulative_sets_list = [running_set.update(s) or running_set.copy() for s in mult_set_ts]
+                    
+                    band_mult_ts = pd.Series(cumulative_sets_list, index=master_index).apply(len)
+                    mult_count_ts += band_mult_ts
+                    per_band_mult_ts_dict[f"total_mults_{band}"] = band_mult_ts
+                    
+            else:  # Default: sum_by_band
+                # Count unique multipliers per band, then sum across bands (matches ScoreStatsAggregator logic)
+                for band in df_for_mults['Band'].unique():
+                    df_band = df_for_mults[df_for_mults['Band'] == band]
+                    # Filter out NaN values before applying set (NaN is a placeholder, not a valid multiplier)
+                    mult_set_ts = df_band.groupby(pd.Grouper(key='Datetime', freq='h'))[mult_col].apply(lambda x: set(x.dropna())).reindex(master_index)
+                    mult_set_ts = mult_set_ts.apply(lambda x: x if isinstance(x, set) else set())
+                    
+                    running_set = set()
+                    cumulative_sets_list = [running_set.update(s) or running_set.copy() for s in mult_set_ts]
+                    
+                    band_mult_ts = pd.Series(cumulative_sets_list, index=master_index).apply(len)
+                    mult_count_ts += band_mult_ts
+                    per_band_mult_ts_dict[f"total_mults_{band}"] = band_mult_ts
 
-            if all_cumulative_mults_ts:
-                # Sum the time series of counts for each multiplier type
-                mult_count_ts = pd.concat(all_cumulative_mults_ts, axis=1).sum(axis=1)
+        # Sum all multiplier rules that were calculated per-rule (once_per_log, once_per_mode)
+        if all_cumulative_mults_ts:
+            rule_based_mults_ts = pd.concat(all_cumulative_mults_ts, axis=1).sum(axis=1)
+            mult_count_ts += rule_based_mults_ts
 
         
         # --- Final Score Calculation (Score-Formula-Aware) ---

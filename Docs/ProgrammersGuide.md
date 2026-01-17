@@ -15,17 +15,76 @@ The Contest Log Analytics project is built on three core architectural principle
 
 ---
 
-## 2. The Data Abstraction Layer (DAL)
+## 2. The Data Aggregation Layer (DAL) - CRITICAL ARCHITECTURAL PATTERN
 
-The `contest_tools.data_aggregators` package is the sole authority for data summarization. All Aggregators must return standard Python primitives (Dictionaries, Lists, Ints), not Pandas DataFrames.
+**THE DAL IS THE SOLE AUTHORITY FOR DATA PROCESSING.** Reports MUST NOT process raw log data directly.
+
+### Core Principle: Separation of Concerns
+
+* **Data Processing:** Performed exclusively by aggregators in `contest_tools.data_aggregators`
+* **Report Generation:** Performed by reports in `contest_tools.reports`, which consume aggregator output
+* **Time Alignment:** Aggregators ensure consistent time bin alignment across all logs using `master_time_index`
+* **Data Format:** All Aggregators return standard Python primitives (Dictionaries, Lists, Ints), never Pandas DataFrames
+
+### CRITICAL RULES FOR REPORT IMPLEMENTATION
+
+1. **DO NOT process raw log data in reports.** Use aggregators instead.
+2. **DO NOT create pivot tables, groupby operations, or time binning in reports.** This belongs in aggregators.
+3. **DO NOT manually iterate over logs to extract data.** Use aggregator methods that handle all logs consistently.
+4. **DO use `master_time_index` from `LogManager`** to ensure time alignment when passing time_index to aggregators.
+5. **DO use existing aggregator methods** or extend aggregators with new methods for new data structures.
+
+### Why This Matters
+
+* **Time Alignment:** Manual time binning in reports can cause misalignment across logs, leading to rendering bugs where only some logs appear correctly.
+* **Consistency:** Aggregators ensure all logs are processed identically, preventing data structure mismatches.
+* **Maintainability:** Centralized data processing logic is easier to test, debug, and extend.
+* **Performance:** Aggregators can be cached and reused across multiple reports.
 
 ### Primary Aggregators
+
 * **`CategoricalAggregator`**: Handles set operations (Unique/Common QSOs) and categorical grouping.
 * **`ComparativeEngine`**: Implements Set Theory logic to calculate Universe, Common, Differential, and Missed counts.
-* **`MatrixAggregator`**: Generates 2D grids (Band x Time) for heatmaps.
+* **`MatrixAggregator`**: 
+  - `get_stacked_matrix_data()`: Generates 3D data (Band x Time x RunStatus) for stacked charts
+  - `get_mode_stacked_matrix_data()`: Generates 3D data (Mode x Time x RunStatus) for mode-dimension charts
+  - `get_matrix_data()`: Generates 2D grids (Band x Time) for heatmaps
 * **`MultiplierStatsAggregator`**: Handles "Missed Multiplier" analysis and summarization.
+  - `get_multiplier_breakdown_data(dimension='band'|'mode')`: Generates hierarchical multiplier breakdown by band or mode dimension (automatically selects mode dimension for single-band, multi-mode contests).
 * **`TimeSeriesAggregator`**: Generates the standard TimeSeries Data Schema (v1.4.0).
 * **`WaeStatsAggregator`**: Specialized logic for WAE contests (QTCs and weighted multipliers).
+
+### Example: Correct Pattern (Using DAL)
+
+```python
+# CORRECT: Report uses aggregator
+def generate(self, output_path: str, **kwargs):
+    # Get master_time_index for alignment
+    master_index = None
+    if self.logs and hasattr(self.logs[0], '_log_manager_ref'):
+        log_manager = self.logs[0]._log_manager_ref
+        if log_manager:
+            master_index = log_manager.master_time_index
+    
+    # Use aggregator - do NOT process raw data
+    matrix_agg = MatrixAggregator(self.logs)
+    matrix_data = matrix_agg.get_stacked_matrix_data(bin_size='60min', time_index=master_index)
+    
+    # Report only formats/visualizes the pre-processed data
+    # ... visualization code ...
+```
+
+### Example: Anti-Pattern (Manual Processing)
+
+```python
+# WRONG: Report manually processes data
+def generate(self, output_path: str, **kwargs):
+    for log in self.logs:
+        df = get_valid_dataframe(log)
+        # BAD: Manual pivot tables, time binning, etc. in report
+        pivot = df.pivot_table(...)
+        # This causes time misalignment and inconsistent data structures!
+```
 
 ---
 

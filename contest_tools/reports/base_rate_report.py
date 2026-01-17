@@ -66,15 +66,29 @@ class BaseRateReport(ContestReport):
             self._orchestrate_plot_generation(valid_dfs, valid_logs, output_path, mode_filter=None, **kwargs)
         )
 
-        # 2. Generate plots for each mode if applicable
+        # 2. Generate plots for each mode if applicable (use JSON-defined valid_modes)
         modes_present = pd.concat([df['Mode'] for df in valid_dfs]).dropna().unique()
-        if len(modes_present) > 1:
-            for mode in ['CW', 'PH', 'DG']:
+        valid_modes = valid_logs[0].contest_definition.valid_modes if valid_logs else []
+        
+        if valid_modes and len(valid_modes) > 1:
+            # Use JSON-defined modes instead of hardcoded list
+            for mode in valid_modes:
                 if mode in modes_present:
                     sliced_dfs = [df[df['Mode'] == mode] for df in valid_dfs]
                     all_created_files.extend(
                         self._orchestrate_plot_generation(sliced_dfs, valid_logs, output_path, mode_filter=mode, **kwargs)
                     )
+        elif len(modes_present) > 1:
+            # Fallback: If valid_modes not defined but multiple modes present, use modes_present
+            logging.warning(
+                f"valid_modes not defined in JSON for {valid_logs[0].contest_definition.contest_name}. "
+                f"Using modes found in data: {sorted(modes_present)}. Consider adding 'valid_modes' to contest definition."
+            )
+            for mode in sorted(modes_present):
+                sliced_dfs = [df[df['Mode'] == mode] for df in valid_dfs]
+                all_created_files.extend(
+                    self._orchestrate_plot_generation(sliced_dfs, valid_logs, output_path, mode_filter=mode, **kwargs)
+                )
         
         if not all_created_files:
             return f"No {self.metric_label} rate plots were generated."

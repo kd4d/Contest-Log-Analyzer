@@ -253,3 +253,112 @@ class MatrixAggregator:
                 result["logs"][call][band] = band_data
 
         return result
+
+    def get_mode_stacked_matrix_data(self, bin_size: str = '60min', time_index: pd.DatetimeIndex = None) -> Dict[str, Any]:
+        """
+        Generates 3D data (Mode x Time x RunStatus) for mode-dimension stacked charts.
+        Similar to get_stacked_matrix_data but groups by Mode (radio mode) instead of Band.
+        Args:
+            bin_size: Pandas frequency string.
+            time_index: Optional pre-calculated DatetimeIndex to force alignment.
+        Returns:
+        {
+            "time_bins": [iso_str, ...],
+            "modes": [mode_str, ...],  # Radio modes like 'CW', 'PH', 'SSB'
+            "logs": {
+                "CALLSIGN": {
+                    "MODE_NAME": {
+                        "Run": [int, ...],
+                        "S&P": [int, ...],
+                        "Unknown": [int, ...]
+                    }
+                }
+            }
+        }
+        """
+        # --- 1. Establish Global Dimensions ---
+        all_dfs = []
+        all_modes = set()
+        
+        for log in self.logs:
+            df = get_valid_dataframe(log, include_dupes=False)
+            if not df.empty and 'Mode' in df.columns:
+                all_dfs.append(df)
+                all_modes.update(df['Mode'].dropna().unique())
+
+        if not all_dfs:
+            return {"time_bins": [], "modes": [], "logs": {}}
+
+        # Global Time Range
+        if time_index is None:
+            full_concat = pd.concat(all_dfs)
+            min_time = full_concat['Datetime'].min().floor('h')
+            max_time = full_concat['Datetime'].max().ceil('h')
+            time_index = pd.date_range(start=min_time, end=max_time, freq=bin_size, tz='UTC')
+        
+        # Global Mode Order
+        mode_order = ['CW', 'PH', 'SSB', 'RTTY', 'FT8', 'FT4']  # Common mode order
+        sorted_modes = sorted(list(all_modes), key=lambda m: (mode_order.index(m) if m in mode_order else 99, m))
+
+        result = {
+            "time_bins": [t.isoformat() for t in time_index],
+            "modes": sorted_modes,
+            "logs": {}
+        }
+
+        # --- 2. Populate Data Per Log ---
+        for log in self.logs:
+            call = log.get_metadata().get('MyCall', 'Unknown')
+            df = get_valid_dataframe(log, include_dupes=False)
+
+            result["logs"][call] = {}
+
+            if df.empty or 'Mode' not in df.columns:
+                # Initialize empty structure for all modes
+                zeros = [0] * len(time_index)
+                for mode in sorted_modes:
+                    result["logs"][call][mode] = {
+                        "Run": list(zeros),
+                        "S&P": list(zeros),
+                        "Unknown": list(zeros)
+                    }
+                continue
+
+            # Standardize Run Status for grouping
+            if 'Run' in df.columns:
+                df = df.copy()
+                df['RunStatus'] = df['Run'].fillna('Unknown')
+                known_statuses = {'Run', 'S&P'}
+                df.loc[~df['RunStatus'].isin(known_statuses), 'RunStatus'] = 'Unknown'
+            else:
+                df = df.copy()
+                df['RunStatus'] = 'Unknown'
+
+            # Pivot: Index=[Mode, RunStatus], Columns=Time
+            pivot = df.pivot_table(
+                index=['Mode', 'RunStatus'],
+                columns=pd.Grouper(key='Datetime', freq=bin_size),
+                aggfunc='size',
+                fill_value=0
+            )
+
+            # Iterate through modes to build the nested structure
+            for mode in sorted_modes:
+                mode_data = {
+                    "Run": [],
+                    "S&P": [],
+                    "Unknown": []
+                }
+                
+                for status in ["Run", "S&P", "Unknown"]:
+                    if (mode, status) in pivot.index:
+                        # Extract the row, reindex to master time index to ensure alignment
+                        row = pivot.loc[(mode, status)]
+                        row = row.reindex(time_index, fill_value=0)
+                        mode_data[status] = row.astype(int).tolist()
+                    else:
+                        mode_data[status] = [0] * len(time_index)
+                
+                result["logs"][call][mode] = mode_data
+
+        return result

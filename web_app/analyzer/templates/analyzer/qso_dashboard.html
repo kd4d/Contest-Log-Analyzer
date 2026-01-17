@@ -95,13 +95,13 @@
         </li>
         <li class="nav-item" role="presentation">
             <button class="nav-link" id="points-tab" data-bs-toggle="tab" data-bs-target="#points" type="button" role="tab">
-                <i class="bi bi-geo-alt me-2"></i>Points & Bands
+                <i class="bi bi-geo-alt me-2"></i>Points by Band
             </button>
         </li>
         {% if not is_solo %}
         <li class="nav-item" role="presentation">
             <button class="nav-link" id="band-activity-tab" data-bs-toggle="tab" data-bs-target="#band-activity" type="button" role="tab">
-                <i class="bi bi-bar-chart-steps me-2"></i>Band Activity Comparison
+                <i class="bi bi-bar-chart-steps me-2"></i>{{ activity_tab_label }} Comparison
             </button>
         </li>
         {% endif %}
@@ -117,9 +117,9 @@
                     <option value="{{ forloop.counter }}"
                         data-breakdown-json="{{ m.qso_breakdown_json }}"
                         data-breakdown-full="{% url 'view_report' session_id m.qso_breakdown_file %}?source=qso"
-                        {% for band, path in m.diff_paths.items %}
-                        data-diff-json-{{ band }}="{{ m.diff_json_paths|get_item:band }}"
-                        data-diff-full-{{ band }}="{% url 'view_report' session_id path %}?source=qso"
+                        {% for key, path in m.diff_paths.items %}
+                        data-diff-json-{{ key }}="{{ m.diff_json_paths|get_item:key }}"
+                        data-diff-full-{{ key }}="{% url 'view_report' session_id path %}?source=qso"
                         {% endfor %}
                     >{{ m.label }}</option>
                 {% endfor %}
@@ -144,10 +144,18 @@
                             <div class="d-flex align-items-center">
                                 <span class="me-2">Rate Differential</span>
                                 <div class="btn-group btn-group-sm" role="group">
-                                    {% for band in valid_bands %}
-                                    <button type="button" class="btn btn-outline-secondary diff-band-btn" data-band="{{ band.key }}">{{ band.display }}</button>
-                                    {% endfor %}
-                                    <button type="button" class="btn btn-outline-secondary diff-band-btn active" data-band="all">All</button>
+                                    {% if diff_selector_type == 'mode' %}
+                                        {# Mode selector for single-band, multi-mode contests (e.g., ARRL 10) #}
+                                        {% for mode in valid_modes %}
+                                        <button type="button" class="btn btn-outline-secondary diff-selector-btn {% if mode.key == 'all' %}active{% endif %}" data-dimension="mode" data-value="{{ mode.key }}">{{ mode.display }}</button>
+                                        {% endfor %}
+                                    {% else %}
+                                        {# Band selector for multi-band contests (default) #}
+                                        {% for band in valid_bands %}
+                                        <button type="button" class="btn btn-outline-secondary diff-selector-btn" data-dimension="band" data-value="{{ band.key }}">{{ band.display }}</button>
+                                        {% endfor %}
+                                        <button type="button" class="btn btn-outline-secondary diff-selector-btn active" data-dimension="band" data-value="all">All</button>
+                                    {% endif %}
                                 </div>
                             </div>
                             <a id="link-diff" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
@@ -265,7 +273,7 @@
             </div>
             <div class="card shadow-sm">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <span>Band Activity Butterfly Chart</span>
+                    <span>{{ activity_tab_title }}</span>
                     <a id="link-band-activity" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
                 </div>
                 <div class="card-body p-0">
@@ -289,8 +297,16 @@
         const chartDiffId = 'chart-diff';
         const linkBreakdown = document.getElementById('link-breakdown');
         const linkDiff = document.getElementById('link-diff');
-        const diffBandBtns = document.querySelectorAll('.diff-band-btn');
-        let currentDiffBand = 'all';
+        const diffSelectorBtns = document.querySelectorAll('.diff-selector-btn');
+        // Initialize currentDiffKey based on selector type and default active button
+        let currentDiffKey = 'band:all';  // Default to band:all, will be updated by active button
+        // Set initial key from active button if present
+        const activeBtn = document.querySelector('.diff-selector-btn.active');
+        if (activeBtn) {
+            const dimension = activeBtn.dataset.dimension;
+            const value = activeBtn.dataset.value;
+            currentDiffKey = `${dimension}:${value}`;
+        }
 
         // Generic Chart Renderer
         function renderChart(containerId, jsonUrl) {
@@ -458,13 +474,24 @@
             if (!strategySelect) return;
             const selectedOption = strategySelect.options[strategySelect.selectedIndex];
             
-            // Get JSON URL
-            let diffJson = selectedOption.getAttribute('data-diff-json-' + currentDiffBand);
-            if (!diffJson) diffJson = selectedOption.getAttribute('data-diff-json-all');
+            // Get JSON URL using structured key format (dimension:value)
+            // Try exact match first, then fallback to "all"
+            let diffJson = selectedOption.getAttribute('data-diff-json-' + currentDiffKey);
+            if (!diffJson) {
+                // Fallback: try "all" variant
+                const dimension = currentDiffKey.split(':')[0];
+                const fallbackKey = dimension + ':all';
+                diffJson = selectedOption.getAttribute('data-diff-json-' + fallbackKey);
+            }
             
-            // Get Full Link
-            let diffFull = selectedOption.getAttribute('data-diff-full-' + currentDiffBand);
-            if (!diffFull) diffFull = selectedOption.getAttribute('data-diff-full-all');
+            // Get Full Link using structured key format
+            let diffFull = selectedOption.getAttribute('data-diff-full-' + currentDiffKey);
+            if (!diffFull) {
+                // Fallback: try "all" variant
+                const dimension = currentDiffKey.split(':')[0];
+                const fallbackKey = dimension + ':all';
+                diffFull = selectedOption.getAttribute('data-diff-full-' + fallbackKey);
+            }
 
             renderChart(chartDiffId, diffJson);
             if(linkDiff && diffFull) linkDiff.href = diffFull;
@@ -476,11 +503,14 @@
             strategySelect.addEventListener('change', updateStrategy);
         }
         
-        diffBandBtns.forEach(btn => {
+        diffSelectorBtns.forEach(btn => {
             btn.addEventListener('click', () => {
-                diffBandBtns.forEach(b => b.classList.remove('active'));
+                diffSelectorBtns.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
-                currentDiffBand = btn.dataset.band;
+                // Build structured key: "dimension:value" (e.g., "band:all", "mode:cw")
+                const dimension = btn.dataset.dimension;
+                const value = btn.dataset.value;
+                currentDiffKey = `${dimension}:${value}`;
                 
                 updateDiffContent();
             });

@@ -1,6 +1,9 @@
 {
   "_filename": "contest_tools/contest_definitions/cq_ww_cw.json",
   "contest_name": "CQ-WW-CW",
+  "valid_modes": [
+    "CW"
+  ],
   "scoring_module": "cq_ww_scoring",
   "mults_from_zero_point_qsos": true,
   "enable_adif_export": true,

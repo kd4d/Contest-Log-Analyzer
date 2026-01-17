@@ -1,6 +1,9 @@
 {
   "_filename": "contest_tools/contest_definitions/arrl_dx_cw.json",
   "contest_name": "ARRL-DX-CW",
+  "valid_modes": [
+    "CW"
+  ],
   "scoring_module": "arrl_dx_scoring",
   "contest_period": {
     "start_day": "Saturday",

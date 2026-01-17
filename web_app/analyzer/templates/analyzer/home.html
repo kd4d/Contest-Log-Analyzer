@@ -152,7 +152,7 @@
                 <div id="archiveCollapse" class="collapse show">
                     <div class="card-body p-4">
                         <div class="alert alert-info border-0 shadow-sm mb-4">
-                            <i class="bi bi-info-circle-fill me-2"></i><strong>Fetch 1, 2, or 3 Logs:</strong> Log 1 is required. Logs 2 and 3 are optional for comparison analysis. <strong>CQ WW Exclusive:</strong> Currently, only public logs for the CQ World Wide DX Contest are supported (CW, SSB, and RTTY modes).
+                            <i class="bi bi-info-circle-fill me-2"></i><strong>Fetch 1, 2, or 3 Logs:</strong> Log 1 is required. Logs 2 and 3 are optional for comparison analysis. <strong>Supported Contests:</strong> CQ World Wide DX (CW, SSB, RTTY modes) and ARRL 10 Meter (no mode selection required).
                         </div>
                         
                         <form id="fetchForm" method="post" action="{% url 'analyze' %}">
@@ -161,6 +161,7 @@
                             <input type="hidden" name="fetch_callsigns" id="fetchCallsignsInput">
                             <input type="hidden" name="fetch_year" id="fetchYearInput">
                             <input type="hidden" name="fetch_mode" id="fetchModeInput">
+                            <input type="hidden" name="fetch_contest" id="fetchContestInput">
                         </form>
 
                         <div class="row g-3 mb-4">
@@ -169,6 +170,7 @@
                                 <select class="form-select" id="archiveContest">
                                     <option value="" selected>Select Contest...</option>
                                     <option value="CQ-WW">CQ World Wide DX</option>
+                                    <option value="ARRL-10">ARRL 10 Meter</option>
                                 </select>
                             </div>
                             <div class="col-md-4">
@@ -316,52 +318,90 @@
 
             // Global list of available callsigns for the selected context
             let availableCallsigns = [];
+            
+            // Handle contest selection
             contestSelect.addEventListener('change', function() {
-                if (this.value === 'CQ-WW') {
+                const contest = this.value;
+                if (contest === 'CQ-WW') {
                     yearSelect.disabled = false;
+                    modeSelect.disabled = true; // Will be enabled after year selection
+                } else if (contest === 'ARRL-10') {
+                    yearSelect.disabled = false;
+                    modeSelect.disabled = true; // ARRL-10 has no modes
                 } else {
                     yearSelect.disabled = true;
                     modeSelect.disabled = true;
                     slotsDiv.classList.add('d-none');
                 }
             });
-            yearSelect.addEventListener('change', function() {
-                if (this.value) modeSelect.disabled = false;
-            });
-            modeSelect.addEventListener('change', function() {
-                if (this.value) {
-                    // 1. Fetch Index via AJAX
-                    const contest = contestSelect.value;
-                    const year = yearSelect.value;
-                    const mode = modeSelect.value;
-                    
-                    // Disable inputs while loading
-                    modeSelect.disabled = true;
-                    
-                    fetch(`/analyze/api/get_log_index/?contest=${contest}&year=${year}&mode=${mode}`)
-                        .then(response => response.json())
-                        .then(data => {
-                            availableCallsigns = data.callsigns || [];
-                            
-                            // Populate Datalists
-                            ['callsignList1', 'callsignList2', 'callsignList3'].forEach(id => {
-                                 const dl = document.getElementById(id);
-                                dl.innerHTML = '';
-                                availableCallsigns.forEach(call => {
-                                    const opt = document.createElement('option');
-                                    opt.value = call;
-                                    dl.appendChild(opt);
-                                });
+            
+            // Helper function to fetch log index (supports both CQ-WW and ARRL-10)
+            function fetchLogIndex() {
+                const contest = contestSelect.value;
+                const year = yearSelect.value;
+                const mode = modeSelect.value || ''; // May be empty for ARRL-10
+                
+                if (!contest || !year) {
+                    return;
+                }
+                
+                // CQ-WW requires mode, ARRL-10 doesn't
+                if (contest === 'CQ-WW' && !mode) {
+                    return; // Wait for mode selection
+                }
+                
+                // Disable inputs while loading
+                const inputsToDisable = [yearSelect, modeSelect];
+                inputsToDisable.forEach(inp => inp.disabled = true);
+                
+                // Build URL (mode may be empty for ARRL-10)
+                let fetchUrl = `/analyze/api/get_log_index/?contest=${contest}&year=${year}`;
+                if (mode) {
+                    fetchUrl += `&mode=${mode}`;
+                }
+                
+                fetch(fetchUrl)
+                    .then(response => response.json())
+                    .then(data => {
+                        availableCallsigns = data.callsigns || [];
+                        
+                        // Populate Datalists
+                        ['callsignList1', 'callsignList2', 'callsignList3'].forEach(id => {
+                             const dl = document.getElementById(id);
+                            dl.innerHTML = '';
+                            availableCallsigns.forEach(call => {
+                                const opt = document.createElement('option');
+                                opt.value = call;
+                                dl.appendChild(opt);
                             });
-                            
-                            slotsDiv.classList.remove('d-none');
-                            modeSelect.disabled = false;
-                        })
-                        .catch(err => {
-                            console.error(err);
-                            alert("Failed to fetch log index.");
-                            modeSelect.disabled = false;
                         });
+                        
+                        slotsDiv.classList.remove('d-none');
+                        inputsToDisable.forEach(inp => inp.disabled = false);
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        alert("Failed to fetch log index.");
+                        inputsToDisable.forEach(inp => inp.disabled = false);
+                    });
+            }
+            
+            // Handle year selection
+            yearSelect.addEventListener('change', function() {
+                const contest = contestSelect.value;
+                if (contest === 'ARRL-10') {
+                    // ARRL-10: Fetch index when year is selected (no mode needed)
+                    fetchLogIndex();
+                } else if (contest === 'CQ-WW') {
+                    // CQ-WW: Enable mode selection after year is selected
+                    modeSelect.disabled = false;
+                }
+            });
+            
+            // Handle mode selection (CQ-WW only)
+            modeSelect.addEventListener('change', function() {
+                if (contestSelect.value === 'CQ-WW') {
+                    fetchLogIndex();
                 }
             });
             // Slot Validation Logic
@@ -396,7 +436,8 @@
 
                  document.getElementById('fetchCallsignsInput').value = JSON.stringify(validCalls);
                  document.getElementById('fetchYearInput').value = yearSelect.value;
-                 document.getElementById('fetchModeInput').value = modeSelect.value;
+                 document.getElementById('fetchModeInput').value = modeSelect.value || '';
+                 document.getElementById('fetchContestInput').value = contestSelect.value;
                  
                  // Trigger Progress UI
                  const errorAlert = document.querySelector('.alert-danger');

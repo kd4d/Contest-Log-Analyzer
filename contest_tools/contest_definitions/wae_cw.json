@@ -1,6 +1,9 @@
 {
   "_filename": "contest_tools/contest_definitions/wae_cw.json",
   "contest_name": "WAE-CW",
+  "valid_modes": [
+    "CW"
+  ],
   "scoring_module": "wae_scoring",
   "contest_period": {
     "start_day": "Saturday",

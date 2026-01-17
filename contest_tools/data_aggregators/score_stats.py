@@ -60,7 +60,27 @@ class ScoreStatsAggregator:
                 }
                 continue
 
-            summary_data, total_summary, final_score = self._calculate_log_score(log, df_net)
+            summary_data, total_summary, calculated_final_score = self._calculate_log_score(log, df_net)
+            
+            # Use calculator (plugin) as single source of truth for final_score if available
+            # This respects contest-specific plugin architecture (e.g., WAE, NAQP, WRTC)
+            plugin_final_score = None
+            if hasattr(log, 'time_series_score_df') and log.time_series_score_df is not None:
+                if not log.time_series_score_df.empty and 'score' in log.time_series_score_df.columns:
+                    plugin_final_score = int(log.time_series_score_df['score'].iloc[-1])
+            
+            # Use plugin score as authoritative, fallback to calculated score
+            final_score = plugin_final_score if plugin_final_score is not None else calculated_final_score
+            
+            # Log warning if scores differ significantly (architecture validation)
+            if plugin_final_score is not None and abs(plugin_final_score - calculated_final_score) > 1:
+                import logging
+                logging.warning(
+                    f"ScoreStatsAggregator: Score difference for {callsign}: "
+                    f"Calculator (plugin)={plugin_final_score:,}, "
+                    f"Calculated={calculated_final_score:,}. "
+                    f"Using calculator as authoritative source."
+                )
             
             result["logs"][callsign] = {
                 "summary_data": summary_data,

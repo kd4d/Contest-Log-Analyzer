@@ -1,6 +1,9 @@
 {
   "_filename": "contest_tools/contest_definitions/cq_wpx_ssb.json",
   "contest_name": "CQ-WPX-SSB",
+  "valid_modes": [
+    "PH"
+  ],
   "scoring_module": "cq_wpx_scoring",
   "mults_from_zero_point_qsos": true,
   "enable_adif_export": true,

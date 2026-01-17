@@ -23,6 +23,45 @@ This document provides specific rules for AI agents (like Cursor/Console AI) whe
 - Use informal messages during development ("wip", "refactor X")
 - Commit code changes directly to feature branches
 
+### [OK] Commit Workflow - Check for Uncommitted Files
+
+**AI agents MUST check for uncommitted changes before performing a commit.**
+
+**Rule:** When asked to commit changes, AI agents must:
+1. **Check git status** for untracked or modified files in the working directory
+2. **Identify** which files are part of the current change vs. unrelated modifications
+3. **Ask the user** if there are untracked/modified files that aren't being included in the commit
+4. **Offer options** for handling untracked files (commit, delete, add to .gitignore, or leave untracked)
+5. **Wait for user confirmation** before proceeding with partial commits
+
+**Typical Behavior:**
+- **Default:** Include all project files in a commit (whether part of current change or previous work)
+- **Exception:** Only exclude files if explicitly requested by user (e.g., "commit only X, ignore Y")
+
+**Agent Behavior:**
+- Before committing, run `git status` or `git status --short` to check for uncommitted changes
+- If uncommitted files exist beyond what's being committed, present options:
+  - "There are uncommitted files (X, Y, Z) that aren't being included in this commit. Would you like to:
+    1. Include them in this commit
+    2. Commit them separately
+    3. Delete them
+    4. Add them to .gitignore (if they should be ignored)
+    5. Leave them as untracked/unstaged"
+- If untracked files exist and aren't being committed, **offer to add them to .gitignore** if appropriate
+- Only proceed with partial commits if user explicitly requests it
+
+**Handling Untracked Files:**
+- **If files should be committed:** Add them to the commit (either in current commit or separate commit)
+- **If files should be ignored:** Offer to add patterns to `.gitignore` (e.g., `test_code/`, `*.log`, etc.)
+- **If files should be deleted:** Ask for confirmation before deleting
+- **If files should remain untracked:** Acknowledge and proceed with commit
+
+**Rationale:**
+- Prevents leaving unrelated changes uncommitted
+- Ensures all project files are tracked and committed appropriately
+- Helps maintain `.gitignore` to exclude files that shouldn't be tracked
+- Maintains clean working tree after commits
+
 ### [OK] Generate Commands
 - Suggest git commands for workflows
 - Generate merge commands with `--no-ff` flag
@@ -725,6 +764,38 @@ Before any critical operation, AI should:
 
 ---
 
+## Technical Debt Tracking
+
+### TECHNICAL_DEBT.md Pattern
+
+**AI agents MUST check `TECHNICAL_DEBT.md` at the start of each session.**
+
+**When TECHNICAL_DEBT.md Exists:**
+- AI agent **must** read and review technical debt items at session start
+- AI agent **should** prioritize work that addresses technical debt
+- AI agent **should** update `TECHNICAL_DEBT.md` as items are completed
+- AI agent **should** add new items when technical debt is identified
+
+**File Location:** Repository root (`TECHNICAL_DEBT.md`)
+
+**Purpose:** Track technical debt items, architectural improvements, and known issues that need attention.
+
+**Categories:**
+- Architecture & Design Debt
+- Validation & Testing Debt
+- Code Quality Debt
+- Documentation Debt
+- Performance Debt
+- Known Issues
+- Future Enhancements
+
+**Agent Behavior:**
+1. **Session Start:** Read `TECHNICAL_DEBT.md` (non-blocking but recommended)
+2. **During Work:** Check off items as completed, add new items as discovered
+3. **Priority:** Address HIGH priority items when relevant to current task
+
+---
+
 ## Session Context & Workflow State
 
 ### HANDOVER.md Pattern (Optional)
@@ -762,6 +833,403 @@ For complex multi-session workflows, a `HANDOVER.md` file may exist at the repos
 **File Location:** Repository root (`HANDOVER.md`)
 
 **Git Treatment:** Committed but overwritten (allows backup in git history while maintaining current state)
+
+---
+
+## File Organization Rules
+
+### Test and Temporary Scripts Location
+
+**AI agents MUST place all test, diagnostic, and temporary scripts in the `test_code/` directory or a subdirectory thereof.**
+
+**Rule:** Scripts that are not part of the production codebase must be located in `test_code/`:
+- **Correct:** `test_code/diagnose_score_discrepancy.py`, `test_code/utils/helper_script.py`
+- **Incorrect:** `contest_tools/utils/diagnose_score_discrepancy.py`, `tools/debug_script.py` (outside `test_code/`)
+
+**Applies to:**
+- Diagnostic scripts (e.g., `diagnose_score_discrepancy.py`, `trace_multiplier_logic.py`)
+- Temporary debugging scripts
+- One-off analysis scripts
+- Test utilities and helpers
+- Batch files for running diagnostics (e.g., `run_all_diagnostics.bat`)
+
+**Does NOT apply to:**
+- Production utilities in `contest_tools/utils/` (e.g., `architecture_validator.py`, `report_utils.py`)
+- Production tools in `tools/` (e.g., `update_version_hash.py`, `setup_git_aliases.ps1`)
+- Test suites in `tests/` (if using pytest/unittest structure)
+
+**Rationale:**
+- Keeps production code directories clean
+- Separates temporary/diagnostic code from production utilities
+- Makes it clear which files are part of the shipped codebase
+- Aligns with existing project structure (`test_code/` already contains similar scripts)
+
+**Agent Behavior:**
+- When creating diagnostic/temporary scripts, place them in `test_code/` or `test_code/subdirectory/`
+- Do NOT add such scripts to `contest_tools/utils/`, `tools/`, or other production directories
+- If a script needs to become production code, refactor and move it appropriately (e.g., `contest_tools/utils/`)
+
+---
+
+### Discussion Documents Location
+
+**Purpose:** Standardize location for architectural discussions, design decisions, and planning documents.
+
+**Rule:** All discussion documents, architectural analysis documents, implementation plans, and design decision documents **MUST** be placed in the `DevNotes/` directory.
+
+**Examples of Documents That Belong in DevNotes:**
+- Architectural discussion documents (e.g., `COMPONENT_ARCHITECTURE_DISCUSSION.md`)
+- Refactoring analysis documents (e.g., `DASHBOARD_REFACTORING_DISCUSSION.md`)
+- Implementation planning documents (e.g., `PHASE1_SEQUENCING_DECISION.md`)
+- Design decision records
+- Technical feasibility studies
+- Project planning documents
+
+**Examples of Documents That Do NOT Belong in DevNotes:**
+- User-facing documentation (goes in `Docs/`)
+- Release notes (goes in `ReleaseNotes/` or `RELEASE_NOTES_*.md` at root)
+- Code documentation (goes with code files or `Docs/`)
+- README files (typically at directory roots where they belong)
+
+**Agent Behavior:**
+- When creating new discussion/planning documents, place them in `DevNotes/`
+- When moving existing discussion documents, move them to `DevNotes/`
+- Use descriptive filenames (e.g., `COMPONENT_ARCHITECTURE_DISCUSSION.md`, not `discussion.md`)
+
+**Directory Structure:**
+```
+DevNotes/
+  ├── LAQP_Implementation_Plan.md
+  ├── DASHBOARD_REFACTORING_DISCUSSION.md
+  ├── PHASE1_SEQUENCING_DECISION.md
+  ├── COMPONENT_ARCHITECTURE_DISCUSSION.md
+  └── ... (other discussion/planning documents)
+```
+
+---
+
+## Code Architecture Rules
+
+### CRITICAL: Data Aggregation Layer (DAL) Pattern
+
+**AI agents MUST follow the DAL pattern when implementing or modifying reports.**
+
+**Core Principle:** Reports are visualization/formatting layers. Data processing belongs exclusively in aggregators.
+
+#### Rules for Reports (`contest_tools/reports/`)
+
+1. **DO NOT process raw log data in reports.** Use aggregators from `contest_tools.data_aggregators` instead.
+
+2. **DO NOT create pivot tables, groupby operations, or manual time binning in reports.** All data aggregation belongs in aggregators.
+
+3. **DO NOT manually iterate over logs to extract or transform data.** Use aggregator methods that handle all logs consistently.
+
+4. **DO use `master_time_index` from `LogManager`** when passing time_index parameters to aggregators to ensure alignment across logs.
+
+5. **DO use existing aggregator methods** (e.g., `MatrixAggregator.get_stacked_matrix_data()`, `TimeSeriesAggregator.get_time_series_data()`). If new data structures are needed, extend aggregators with new methods rather than processing data in reports.
+
+#### Why This Matters
+
+- **Time Alignment:** Manual time binning in reports causes misalignment across logs, leading to rendering bugs where only some logs appear correctly.
+- **Consistency:** Aggregators ensure all logs are processed identically, preventing data structure mismatches.
+- **Maintainability:** Centralized data processing logic is easier to test, debug, and extend.
+- **Performance:** Aggregators can be cached and reused across multiple reports.
+
+#### Example: Correct Pattern
+
+```python
+# CORRECT: Report uses aggregator
+def generate(self, output_path: str, **kwargs):
+    # Get master_time_index for alignment
+    master_index = None
+    if self.logs and hasattr(self.logs[0], '_log_manager_ref'):
+        log_manager = self.logs[0]._log_manager_ref
+        if log_manager:
+            master_index = log_manager.master_time_index
+    
+    # Use aggregator - do NOT process raw data
+    matrix_agg = MatrixAggregator(self.logs)
+    matrix_data = matrix_agg.get_stacked_matrix_data(bin_size='60min', time_index=master_index)
+    
+    # Report only formats/visualizes the pre-processed data
+    # ... visualization code using matrix_data ...
+```
+
+#### Example: Anti-Pattern (DO NOT DO THIS)
+
+```python
+# WRONG: Report manually processes data
+def generate(self, output_path: str, **kwargs):
+    for log in self.logs:
+        df = get_valid_dataframe(log)
+        # BAD: Manual pivot tables, time binning, etc. in report
+        pivot = df.pivot_table(index='Band', columns='Hour', ...)
+        # This causes time misalignment and inconsistent data structures!
+```
+
+#### Reference Documentation
+
+For detailed information on the DAL pattern and available aggregators, see:
+- `Docs/ProgrammersGuide.md` - Section 2: "The Data Aggregation Layer (DAL)"
+- Individual aggregator modules in `contest_tools/data_aggregators/`
+
+---
+
+### CRITICAL: Contest-Specific Plugin Architecture
+
+**AI agents MUST respect contest-specific plugins and calculators as the single source of truth.**
+
+**Core Principle:** "Contest-specific weirdness is implemented in code (plugins/aggregators)"
+
+#### Rules for Plugin Architecture
+
+1. **DO NOT bypass contest-specific plugins or calculators.**
+   - If a contest defines a `time_series_calculator` (e.g., `wae_calculator`, `naqp_calculator`), use it as the authoritative source for final scores
+   - If a contest defines a `scoring_module` (e.g., `arrl_10_scoring`), respect it for point calculation
+   - Do NOT create alternative calculation paths that ignore plugins
+
+2. **DO use plugins as single source of truth.**
+   - Score calculators (`time_series_calculator`) are authoritative for final scores and cumulative score arrays
+   - Scoring modules (`scoring_module`) are authoritative for QSO point calculation
+   - Aggregators should use plugin output when available, not recalculate independently
+
+3. **DO validate architectural compliance before proposing solutions.**
+   - Before proposing changes, verify: Does this respect plugin architecture?
+   - Before creating aggregators, verify: Should this use an existing plugin?
+   - Before modifying scoring, verify: Does this respect contest-specific calculators?
+
+4. **DO add validation warnings if multiple calculation paths exist.**
+   - If aggregator calculates independently of plugin, add validation check
+   - Warn if plugin and aggregator results differ significantly
+   - Use plugin as authoritative source, aggregator as validation/fallback only
+
+#### Architecture Decision Framework
+
+When making changes that affect data calculation or contest-specific logic:
+
+**Step 1: Identify Architecture Requirements**
+- Does contest have plugin/calculator defined in JSON?
+- What is the authoritative source for this calculation?
+- Are there existing patterns to follow?
+
+**Step 2: Verify Compliance**
+- Does my solution use the plugin/calculator?
+- Am I creating alternative paths that bypass architecture?
+- Are multiple calculation paths necessary (with validation)?
+
+**Step 3: Validate Consistency**
+- If multiple paths exist, add validation checks using `ArchitectureValidator`
+- Use plugin as authoritative source
+- Warn if results differ significantly (> 1 point tolerance)
+
+**Step 4: Document Decision**
+- Document why this approach respects architecture
+- Explain if fallback paths are needed
+- Note any validation checks added
+
+#### Example: Correct Pattern (Respects Plugin)
+
+```python
+# CORRECT: Using calculator as source of truth
+if hasattr(log, 'time_series_score_df') and not log.time_series_score_df.empty:
+    # Use plugin output as authoritative
+    final_score = int(log.time_series_score_df['score'].iloc[-1])
+else:
+    # Fallback only if plugin unavailable
+    final_score = calculate_fallback_score(log)
+```
+
+#### Example: Anti-Pattern (Bypasses Plugin)
+
+```python
+# WRONG: Bypassing contest-specific calculator
+# ScoreStatsAggregator calculates score independently, ignoring time_series_calculator
+final_score = total_points * total_mults  # Doesn't use log.time_series_score_df
+# This violates plugin architecture!
+```
+
+#### Example: Validation Pattern (Multiple Paths with Checks)
+
+```python
+# CORRECT: Multiple paths with validation
+from contest_tools.utils.architecture_validator import ArchitectureValidator
+
+validator = ArchitectureValidator()
+warnings = validator.validate_scoring_consistency(log)
+if warnings:
+    for warning in warnings:
+        logging.warning(f"Architecture validation: {warning}")
+
+# Use plugin as authoritative source
+if hasattr(log, 'time_series_score_df'):
+    final_score = int(log.time_series_score_df['score'].iloc[-1])
+```
+
+#### Plugin Architecture Checklist
+
+Before implementing scoring/data changes:
+- [ ] Does contest have `time_series_calculator` or `scoring_module` defined?
+- [ ] Is plugin output available (e.g., `log.time_series_score_df`)?
+- [ ] Does my solution use plugin as authoritative source?
+- [ ] Am I creating an alternative calculation path that bypasses plugins?
+- [ ] Should I add validation to detect inconsistencies?
+
+#### Why This Matters
+
+- **Contest-Specific Logic:** Plugins implement contest-specific scoring rules (e.g., WAE, NAQP, WRTC)
+- **Single Source of Truth:** Ensures all reports/dashboards show consistent scores
+- **Maintainability:** Contest-specific logic is centralized in plugins, not scattered across aggregators
+- **Extensibility:** New contests can add plugins without modifying core aggregators
+
+#### Reference Documentation
+
+- `DevNotes/SCORING_ARCHITECTURE_ANALYSIS.md` - Detailed analysis of scoring architecture
+- `contest_tools/score_calculators/` - Score calculator implementations
+- `contest_tools/contest_specific_annotations/` - Scoring module implementations
+- `contest_tools/utils/architecture_validator.py` - Architecture validation utility
+
+---
+
+## Python Script Execution Rules
+
+### CRITICAL: Use Miniforge Python for Script Execution
+
+**AI agents MUST use the miniforge Python executable when running Python scripts in this environment.**
+
+**Rule:** When executing Python scripts, always use the full path to the miniforge Python executable:
+- **Correct:** `C:\Users\mbdev\miniforge3\python.exe script.py`
+- **Incorrect:** `python script.py` or `python.exe script.py` (these do not work in this environment)
+
+#### Why This Matters
+
+The default `python` command does not resolve correctly in this environment. Using the miniforge Python path ensures:
+- Scripts execute with the correct Python interpreter (Python 3.12.10 from conda-forge)
+- All dependencies and modules are properly accessible
+- Consistent execution environment across all script runs
+
+#### Examples
+
+**Correct Python Script Execution:**
+```powershell
+# Running a script from test_code directory
+C:\Users\mbdev\miniforge3\python.exe test_code/verify_engine.py
+
+# Running a script with arguments
+C:\Users\mbdev\miniforge3\python.exe -m pytest tests/
+
+# Running Python one-liners
+C:\Users\mbdev\miniforge3\python.exe -c "import sys; print(sys.version)"
+
+# Running scripts that import project modules
+C:\Users\mbdev\miniforge3\python.exe main_cli.py --help
+```
+
+**Incorrect Python Script Execution (DO NOT USE):**
+```powershell
+# These will fail or not work correctly
+python script.py
+python.exe script.py
+py script.py
+```
+
+#### Agent Behavior
+
+When an AI agent needs to run a Python script:
+1. **Always** use `C:\Users\mbdev\miniforge3\python.exe` as the Python interpreter
+2. **Never** use `python`, `python.exe`, or `py` without the full path
+3. **Preserve** relative paths for script arguments (e.g., `test_code/script.py`)
+4. **Use** full path only for the Python executable itself
+
+#### Note on Activation Scripts
+
+The `C:\Users\mbdev\miniforge3\Scripts\custom_activate.bat` script uses `/K` flag which opens an interactive terminal window. For non-interactive script execution, use the Python executable directly rather than trying to activate the environment first.
+
+---
+
+## Django Template Syntax Rules
+
+### CRITICAL: Template Tag Nesting Constraints
+
+**AI agents MUST understand Django template tag nesting limitations to avoid syntax errors.**
+
+#### Rule: `{% else %}` Cannot Be Used Between `{% if %}` and `{% for %}`
+
+**Problem:** Django's template parser does not allow `{% else %}` between `{% if %}` and `{% for %}` tags. This causes a `TemplateSyntaxError`:
+
+```
+TemplateSyntaxError: Invalid block tag on line X: 'else', expected 'empty' or 'endfor'
+```
+
+**Incorrect Pattern (DO NOT USE):**
+```django
+{% if condition %}
+    {% for item in items %}
+{% else %}
+    {% for item in other_items %}
+{% endif %}
+    <!-- loop content -->
+{% endfor %}
+```
+
+**Correct Solutions:**
+
+**Option 1: Duplicate Loop Code (Recommended for Simple Cases)**
+```django
+{% if condition %}
+    {% for item in items %}
+        <!-- loop content -->
+    {% endfor %}
+{% else %}
+    {% for item in other_items %}
+        <!-- loop content -->
+    {% endfor %}
+{% endif %}
+```
+
+**Option 2: Use `{% with %}` to Set Variable First**
+```django
+{% if condition %}
+    {% with data=items %}
+{% else %}
+    {% with data=other_items %}
+{% endif %}
+    {% for item in data %}
+        <!-- loop content -->
+    {% endfor %}
+    {% endwith %}
+```
+
+**Option 3: Prepare Data in View**
+```python
+# In view: prepare data based on condition
+context['dimension_data'] = low_modes_data + high_modes_data if is_mode_dimension else low_bands_data + high_bands_data
+```
+```django
+{# In template: use prepared data #}
+{% for block in dimension_data %}
+    <!-- loop content -->
+{% endfor %}
+```
+
+#### Why This Matters
+
+- **Syntax Errors:** Invalid template syntax causes runtime errors that break the application
+- **User Experience:** Template errors prevent pages from rendering, causing 500 errors
+- **Debugging:** Template syntax errors can be confusing because the error message may not clearly indicate the nesting issue
+
+#### Agent Behavior
+
+When working with Django templates:
+1. **Avoid** using `{% else %}` between `{% if %}` and `{% for %}` tags
+2. **Prefer** duplicating loop code if the loop content is simple
+3. **Consider** preparing data in the view if the logic is complex
+4. **Test** template syntax by checking for linter errors or running the Django development server
+
+#### Related Issues
+
+- Similar constraints may apply to other template tag combinations
+- When in doubt, duplicate code or move logic to the view
+- Django template syntax is strict - follow Django documentation patterns
 
 ---
 

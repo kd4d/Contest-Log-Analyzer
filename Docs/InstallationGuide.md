@@ -148,6 +148,389 @@ This is the easiest way to get started. Docker automatically handles all depende
 
 ---
 
+## 3. Managing and Updating Docker Containers
+
+This section covers managing Docker containers for remote hosting and production deployment, including updating to new releases and handling common issues.
+
+### 3.1. Updating to a New Release (Remote Hosting)
+
+When deploying on a remote server or VPS, you'll need to:
+
+1. Fetch the specific release tag from your repository
+2. Checkout that tag (or merge into your local branch)
+3. Rebuild and restart the container
+
+**Example Workflow:**
+
+1. **Fetch tags from remote:**
+   ```bash
+   git fetch origin --tags
+   ```
+
+2. **Checkout the specific tag:**
+   ```bash
+   # Option A: Checkout tag directly (detached HEAD state)
+   git checkout v1.0.0-alpha.3
+   
+   # Option B: Merge tag into master (if using branch workflow)
+   git checkout master
+   git pull origin master
+   git fetch origin --tags
+   ```
+
+3. **Stop existing containers:**
+   ```bash
+   docker-compose down
+   ```
+
+4. **Rebuild and restart containers:**
+   ```bash
+   docker-compose up --build -d
+   ```
+   The `-d` flag runs containers in detached mode (in the background).
+
+**Note:** After updating, you may need to apply Django migrations if you see migration warnings. See Section 3.2 below.
+
+### 3.2. Handling Django Migrations
+
+**Important:** If you see migration warnings like:
+```
+You have 18 unapplied migration(s). Your project may not work properly 
+until you apply the migrations for app(s): admin, auth, contenttypes, sessions.
+Run 'python manage.py migrate' to apply them.
+```
+
+These messages are coming from **inside the container**, not from your host system. You **cannot** run `python manage.py migrate` from your host system unless Python is installed there (which is not required for Docker deployment). You must run the migration command **inside the container**.
+
+**Step-by-Step Process:**
+
+1. **Identify the container name:**
+   ```bash
+   docker ps
+   ```
+   Look for the container name in the last column (typically `web-1` or similar). The container name is usually the service name from `docker-compose.yml` with a suffix.
+
+2. **Open a shell inside the container:**
+   ```bash
+   docker exec -it web-1 bash
+   ```
+   (Replace `web-1` with your actual container name if different)
+
+3. **Navigate to the project directory (if needed):**
+   ```bash
+   cd /app
+   ```
+   The project code is mounted at `/app` inside the container.
+
+4. **Run the migrations inside the container:**
+   ```bash
+   python manage.py migrate
+   ```
+   This command runs inside the container where Python and Django are installed.
+
+5. **Exit the container shell:**
+   ```bash
+   exit
+   ```
+
+**Understanding the Error:**
+
+- The migration warning appears in the **container logs**, not your host terminal
+- Python and Django are installed **inside the container**, not on your host system
+- The `docker exec` command gives you shell access to the container's internal environment
+- Running `python manage.py migrate` inside the container will apply the migrations to the container's database
+
+### 3.3. Troubleshooting Container Issues
+
+**View container logs:**
+```bash
+# View logs for all services
+docker-compose logs -f
+
+# View logs for specific service (e.g., web)
+docker-compose logs -f web
+
+# View last 50 lines of logs
+docker-compose logs --tail 50 web
+```
+
+**Check if containers are running:**
+```bash
+docker ps
+```
+Shows running containers with their names, ports, and status.
+
+**Check container resource usage:**
+```bash
+docker stats
+```
+Shows real-time CPU, memory, and network usage for all running containers.
+
+**Restart containers without rebuilding:**
+```bash
+docker-compose restart
+```
+Restarts all services without rebuilding images. Use this when only configuration changes are needed.
+
+**Restart with rebuild (after code changes):**
+```bash
+docker-compose down
+docker-compose up --build -d
+```
+Stops containers, rebuilds images, and restarts in detached mode. Use this after updating code or dependencies.
+
+**Restart specific container (after settings changes):**
+```bash
+docker restart contest-log-analyzer-web-1
+# or
+docker restart web-1
+```
+(Replace with your actual container name - use `docker ps` to find it)
+
+Use this when you've made configuration changes inside the container (e.g., Django settings) and only need to restart the web container without rebuilding.
+
+**Access container shell for debugging:**
+```bash
+docker exec -it web-1 bash
+```
+Opens an interactive bash shell inside the container for troubleshooting.
+
+**Remove all containers and start fresh:**
+```bash
+# Stop and remove containers, networks
+docker-compose down
+
+# Remove volumes (CAUTION: Deletes data in volumes)
+docker-compose down -v
+
+# Rebuild and start fresh
+docker-compose up --build -d
+```
+
+**Fix "413 Request Entity Too Large" error when uploading logs:**
+
+If you see this error when uploading log files (especially multiple files):
+```
+413 Request Entity Too Large
+nginx
+```
+
+This means nginx is blocking the upload because the combined file size exceeds nginx's default limit (usually 1MB). Contest log files can be several megabytes each, so uploading 3 files easily exceeds this limit.
+
+**Solution: Increase nginx `client_max_body_size`**
+
+**Important:** If you're using HTTPS (SSL/TLS), you likely have **two separate server blocks** - one for HTTP (port 80) and one for HTTPS (port 443). You need to add `client_max_body_size` to **both** blocks. Certbot (Let's Encrypt) typically creates a separate HTTPS server block when setting up SSL.
+
+1. **Locate your nginx configuration file:**
+   - Common locations:
+     - `/etc/nginx/sites-available/default` (default site)
+     - `/etc/nginx/sites-available/cla.kd4d.org` (site-specific config - Certbot often creates this)
+     - `/etc/nginx/nginx.conf` (main config, less common for per-site settings)
+     - `/etc/nginx/conf.d/default.conf` (alternative location)
+
+   To find your site config:
+   ```bash
+   # Search for your domain
+   grep -r "cla.kd4d.org" /etc/nginx/sites-available/
+   
+   # List available site configs
+   ls -la /etc/nginx/sites-available/
+   ```
+
+2. **Edit the nginx configuration:**
+   ```bash
+   sudo nano /etc/nginx/sites-available/cla.kd4d.org
+   # or
+   sudo nano /etc/nginx/sites-available/default
+   ```
+
+3. **Find both server blocks (HTTP and HTTPS):**
+
+   Look for two `server {` blocks in the file:
+   - One with `listen 80;` (HTTP)
+   - One with `listen 443 ssl;` (HTTPS - created by Certbot)
+
+   Example structure:
+   ```nginx
+   server {
+       listen 80;
+       server_name cla.kd4d.org;
+       # ... other settings ...
+   }
+
+   server {
+       listen 443 ssl;
+       server_name cla.kd4d.org;
+       # ... SSL certificates, other settings ...
+   }
+   ```
+
+4. **Add `client_max_body_size` to BOTH server blocks:**
+   
+   **HTTP server block (port 80):**
+   ```nginx
+   server {
+       listen 80;
+       server_name cla.kd4d.org;
+       
+       client_max_body_size 50M;  # ADD THIS LINE
+       
+       # ... other settings ...
+   }
+   ```
+   
+   **HTTPS server block (port 443):**
+   ```nginx
+   server {
+       listen 443 ssl;
+       server_name cla.kd4d.org;
+       
+       client_max_body_size 50M;  # ADD THIS LINE (required for HTTPS uploads!)
+       
+       # ... SSL certificates, other settings ...
+   }
+   ```
+
+   **Note:** Even though users access your site via HTTPS (port 443), you should add it to both blocks for consistency. The HTTPS block is the critical one if your site is accessed via `https://`.
+
+   **Alternative: Add to `http` block (applies to all sites):**
+   If you want this setting to apply to all sites, you can add it once in the `http {` block at the top of the file or in `/etc/nginx/nginx.conf`:
+   ```nginx
+   http {
+       # ... other directives ...
+       client_max_body_size 50M;  # Applies to all sites
+       # ... rest of config ...
+   }
+   ```
+
+5. **Test nginx configuration:**
+   ```bash
+   sudo nginx -t
+   ```
+   This will verify your configuration syntax is correct before reloading.
+   
+   **If you see errors:** Check that:
+   - Both server blocks have valid syntax
+   - The `location` blocks have paths (e.g., `location / {` not just `location {`)
+   - No missing semicolons or brackets
+
+6. **Reload nginx:**
+   ```bash
+   sudo systemctl reload nginx
+   # or
+   sudo service nginx reload
+   ```
+   
+   **Important:** After editing, you must reload nginx for changes to take effect. If you only edit the file without reloading, the old configuration is still active.
+
+**Recommended values:**
+- `50M` (50 megabytes) - Good for most contest logs
+- `100M` (100 megabytes) - For larger contests or multiple large files
+- `0` (unlimited) - Not recommended for security reasons
+
+**Note:** After increasing the limit, you may also need to increase Django's `FILE_UPLOAD_MAX_MEMORY_SIZE` and `DATA_UPLOAD_MAX_MEMORY_SIZE` in `web_app/config/settings.py` if those limits are also being hit. The default Django limits are typically 2.5MB, but Django settings should already be configured for larger uploads in the container.
+
+**Fix Django CSRF "Trusted Origin" error for HTTPS domain:**
+
+If you see errors like:
+```
+Django protecting you: your site is now being accessed via https://cla.kd4d.org, 
+but Django doesn't trust that origin yet.
+```
+
+This means Django's CSRF protection doesn't recognize your production domain. You need to add it to `CSRF_TRUSTED_ORIGINS` in Django settings.
+
+**Step-by-Step Process:**
+
+1. **Identify the container name:**
+   ```bash
+   docker ps
+   ```
+   Look for your web container name (e.g., `contest-log-analyzer-web-1` or `web-1`).
+
+2. **Open a shell inside the container:**
+   ```bash
+   docker exec -it contest-log-analyzer-web-1 bash
+   # or
+   docker exec -it web-1 bash
+   ```
+   (Replace with your actual container name)
+
+3. **Navigate to the project directory:**
+   ```bash
+   cd /app
+   ```
+
+4. **Edit Django settings file:**
+   ```bash
+   nano web_app/config/settings.py
+   ```
+
+5. **Find or add `CSRF_TRUSTED_ORIGINS`:**
+
+   **If `CSRF_TRUSTED_ORIGINS` doesn't exist, add it after the `ALLOWED_HOSTS` line:**
+   ```python
+   ALLOWED_HOSTS = ['*']
+   
+   CSRF_TRUSTED_ORIGINS = [
+       "https://cla.kd4d.org",
+   ]
+   ```
+
+   **If `CSRF_TRUSTED_ORIGINS` already exists, add your domain to the list:**
+   ```python
+   CSRF_TRUSTED_ORIGINS = [
+       "https://cla.kd4d.org",  # Add this line
+       # ... other origins if any ...
+   ]
+   ```
+
+   **Important:** Include the full URL with `https://` scheme. Do not include a trailing slash.
+
+6. **Save and exit nano:**
+   - Press `Ctrl+O` to save
+   - Press `Enter` to confirm
+   - Press `Ctrl+X` to exit
+
+7. **Exit the container shell:**
+   ```bash
+   exit
+   ```
+
+8. **Restart the web container:**
+   ```bash
+   docker restart contest-log-analyzer-web-1
+   # or
+   docker restart web-1
+   ```
+   (Replace `contest-log-analyzer-web-1` or `web-1` with your actual container name - use `docker ps` to find it)
+
+   Alternatively, you can restart all containers:
+   ```bash
+   docker-compose restart
+   ```
+   
+   **Note:** After restarting, the Django settings changes will take effect. You may need to wait a few seconds for the container to fully restart before testing.
+
+9. **Verify the fix:**
+   Reload your browser page and try the upload again. The CSRF error should be resolved.
+
+**Note about `ALLOWED_HOSTS`:**
+
+Your settings currently have `ALLOWED_HOSTS = ['*']`, which works functionally but is not ideal for security. For better security, consider changing it to:
+
+```python
+ALLOWED_HOSTS = ['cla.kd4d.org', 'localhost', '127.0.0.1']
+```
+
+However, `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS` serve different purposes:
+- `ALLOWED_HOSTS`: Controls which hosts Django will accept requests from (security against Host header attacks)
+- `CSRF_TRUSTED_ORIGINS`: Controls which origins Django trusts for CSRF validation (required for HTTPS domains)
+
+**Both may need to be configured, but `CSRF_TRUSTED_ORIGINS` is the one causing your current error.**
+
+---
+
 ### Method B: Advanced / Developer Setup (CLI)
 Use this method if you are developing the code or prefer the command line.
 
@@ -220,7 +603,7 @@ Download the following files and place them inside the **`data/`** subdirectory 
 * `band_allocations.dat`: Required for all contests to perform frequency validation.
 * `iaru_officials.dat`: Required for the IARU HF World Championship contest.
 ---
-## 3. Running the Analyzer
+## 4. Running the Analyzer
 To verify the installation, run the program from the project's source code directory.
 Ensure your `cla` conda environment is active.
 

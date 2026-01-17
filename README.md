@@ -1,6 +1,6 @@
 # Contest Log Analytics
 
-**Version: 1.0.0-alpha.3**  
+**Version: 1.0.0-alpha.4**  
 **A post-mortem analysis engine for amateur radio contesting**
 
 ---
@@ -41,7 +41,7 @@ Forget manually downloading competitor logs. CLA connects directly to public con
 - **Cumulative Difference Plots**: See the "zero line" of competition—where leads were built or lost
 - **QSO Breakdown Charts**: Visualize Unique vs. Common QSOs by Run/S&P/Mixed mode
 - **Multiplier Analysis**: Detailed missed multiplier reports with "Group Par" benchmarking
-- **Multiplier Breakdown Dashboards**: Interactive HTML dashboards with drill-down analysis of missed multipliers by band and operating mode
+- **Multiplier Breakdown Dashboards**: Interactive HTML dashboards with drill-down analysis of missed multipliers by band and operating mode (shows mode breakdown for single-band, multi-mode contests like ARRL 10 Meter)
 - **Rate Sheets**: Hourly breakdown by band and mode
 - **Score Summaries**: Comprehensive scoring with band-by-band details
 

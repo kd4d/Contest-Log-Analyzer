@@ -232,6 +232,7 @@ from contest_tools.utils.callsign_utils import build_callsigns_filename_part, pa
 from contest_tools.utils.log_fetcher import fetch_log_index, download_logs
 from contest_tools.manifest_manager import ManifestManager
 from contest_tools.utils.profiler import ProfileContext
+from contest_tools.utils.architecture_validator import ArchitectureValidator
 
 logger = logging.getLogger(__name__)
 
@@ -258,14 +259,31 @@ def _cleanup_old_sessions(max_age_seconds=3600):
         item_path = os.path.join(sessions_root, item)
         if os.path.isdir(item_path):
             try:
+                # Cleanup old archive_temp.zip files (15 minutes) within active sessions
+                zip_path = os.path.join(item_path, 'archive_temp.zip')
+                if os.path.exists(zip_path):
+                    zip_age = now - os.stat(zip_path).st_mtime
+                    if zip_age > 900:  # 15 minutes
+                        os.remove(zip_path)
+                        logger.info(f"Cleaned up old archive_temp.zip in session {item}")
+                
+                # Cleanup entire session if older than max_age_seconds
                 if os.stat(item_path).st_mtime < (now - max_age_seconds):
                     shutil.rmtree(item_path)
                     logger.info(f"Cleaned up old session: {item}")
             except Exception as e:
                 logger.warning(f"Failed to cleanup session {item}: {e}")
 
-def _update_progress(request_id, step):
-    """Writes the current progress step to a transient JSON file."""
+def _update_progress(request_id, step, message=None, file_count=None, download_url=None):
+    """Writes the current progress step to a transient JSON file.
+    
+    Args:
+        request_id: Unique identifier for the progress tracking
+        step: Progress step number (1, 2, 3, etc.)
+        message: Optional status message (e.g., "Zipping...")
+        file_count: Optional file count for display
+        download_url: Optional download URL when file is ready
+    """
     if not request_id:
         return
     
@@ -275,9 +293,18 @@ def _update_progress(request_id, step):
     file_path = os.path.join(progress_dir, f"{request_id}.json")
     temp_path = f"{file_path}.tmp"
 
+    # Build progress data
+    progress_data = {'step': step}
+    if message:
+        progress_data['message'] = message
+    if file_count is not None:
+        progress_data['file_count'] = file_count
+    if download_url:
+        progress_data['download_url'] = download_url
+
     # Write to a temporary file first
     with open(temp_path, 'w') as f:
-        json.dump({'step': step}, f)
+        json.dump(progress_data, f)
     
     # Atomic replace to avoid JSONDecodeError on read
     os.replace(temp_path, file_path)
@@ -292,6 +319,18 @@ def get_log_index_view(request):
         try:
             callsigns = fetch_log_index(year, mode)
             return JsonResponse({'callsigns': callsigns})
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    elif contest == 'ARRL-10' and year:
+        # ARRL 10 Meter doesn't have modes - contest code is '10m'
+        try:
+            from contest_tools.utils.log_fetcher import fetch_arrl_log_index, ARRL_CONTEST_CODES
+            contest_code = ARRL_CONTEST_CODES.get('ARRL-10')
+            if contest_code:
+                callsigns = fetch_arrl_log_index(year, contest_code)
+                return JsonResponse({'callsigns': callsigns})
+            else:
+                return JsonResponse({'error': 'ARRL-10 contest code not found'}, status=500)
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
     return JsonResponse({'callsigns': []})
@@ -351,12 +390,25 @@ def analyze_logs(request):
                 # 2. Fetch Logs
                 callsigns_raw = request.POST.get('fetch_callsigns') # JSON string
                 year = request.POST.get('fetch_year')
-                mode = request.POST.get('fetch_mode')
+                mode = request.POST.get('fetch_mode')  # May be empty for ARRL-10
+                contest = request.POST.get('fetch_contest', 'CQ-WW')  # Default to CQ-WW for backward compatibility
                 
                 callsigns = json.loads(callsigns_raw)
                 
                 _update_progress(request_id, 1) # Step 1: Fetching
-                log_paths = download_logs(callsigns, year, mode, session_path)
+                
+                # Route to appropriate download function based on contest
+                if contest == 'CQ-WW' and mode:
+                    log_paths = download_logs(callsigns, year, mode, session_path)
+                elif contest == 'ARRL-10':
+                    from contest_tools.utils.log_fetcher import download_arrl_logs, ARRL_CONTEST_CODES
+                    contest_code = ARRL_CONTEST_CODES.get('ARRL-10')
+                    if contest_code:
+                        log_paths = download_arrl_logs(callsigns, year, contest_code, session_path)
+                    else:
+                        raise ValueError('ARRL-10 contest code not found')
+                else:
+                    raise ValueError(f'Unsupported contest: {contest}')
                 
                 return _run_analysis_pipeline(request_id, log_paths, session_path, session_key)
             
@@ -402,6 +454,19 @@ def _run_analysis_pipeline(request_id, log_paths, session_path, session_key):
         
         with ProfileContext("Web - Report Generation"):
             generator = ReportGenerator(lm.logs, root_output_dir=session_path)
+            
+            # --- Architecture Validation: Check for scoring inconsistencies ---
+            try:
+                validator = ArchitectureValidator()
+                validation_results = validator.validate_all(generator.logs)
+                if validation_results['warnings']:
+                    for warning in validation_results['warnings']:
+                        logger.warning(f"Architecture Validation: {warning}")
+                logger.info(f"Architecture Validation: {validation_results['summary']}")
+            except Exception as e:
+                logger.warning(f"Architecture validation failed: {e}. Continuing with report generation.")
+            # ------------------------------------
+            
             generator.run_reports('all')
         
         # --- DIAGNOSTIC: Verify Disk State ---
@@ -457,6 +522,16 @@ def _run_analysis_pipeline(request_id, log_paths, session_path, session_key):
     
     # Note: Multiplier filename removed here. It is now dynamically resolved in multiplier_dashboard view.
 
+    # Extract valid_bands and valid_modes from contest definition for Fast Path in dashboards
+    valid_bands = ['80M', '40M', '20M', '15M', '10M']  # Default fallback
+    valid_modes = []  # Default: empty list (will be populated if defined in JSON)
+    if lm.logs:
+        try:
+            valid_bands = lm.logs[0].contest_definition.valid_bands
+            valid_modes = lm.logs[0].contest_definition.valid_modes
+        except Exception as e:
+            logger.warning(f"Failed to extract valid_bands/valid_modes from contest definition: {e}")
+    
     context = {
         'session_key': session_key,
         'report_url_path': report_url_path,
@@ -468,6 +543,8 @@ def _run_analysis_pipeline(request_id, log_paths, session_path, session_key):
         'cty_version_info': cty_info,
         'footer_text': footer_text,
         'contest_name': contest_name,
+        'valid_bands': valid_bands,  # Cached for Fast Path in qso_dashboard
+        'valid_modes': valid_modes,  # Cached for Fast Path in qso_dashboard (mode selector)
     }
     
     # Determine multiplier headers from the first log (assuming all are same contest)
@@ -508,7 +585,8 @@ def dashboard_view(request, session_id):
 
     # Contest-Specific Routing
     contest_name = context.get('contest_name', '').upper()
-    if not contest_name.startswith('CQ-WW'):
+    # Enable same dashboard structure for CQ-WW and ARRL-10
+    if not (contest_name.startswith('CQ-WW') or contest_name.startswith('ARRL-10')):
         return render(request, 'analyzer/dashboard_construction.html', context)
     
     return render(request, 'analyzer/dashboard.html', context)
@@ -624,10 +702,44 @@ def multiplier_dashboard(request, session_id):
     lm = None
     report_metadata = {}
 
+    # Determine dimension from breakdown_data structure or contest definition
+    is_mode_dimension = False
+    dimension = 'band'
+    
     # Check if we have both breakdown data and persisted logs (not just empty dict)
+    # Note: breakdown_data may be None if we detected wrong dimension in fast path
     if breakdown_data and persisted_logs:
         # --- FAST PATH: Hydrate from Cache ---
         # No LogManager, No Parsing. Instant load.
+        
+        # Detect dimension from breakdown_data structure first
+        if 'modes' in breakdown_data:
+            is_mode_dimension = True
+            dimension = 'mode'
+        elif 'bands' in breakdown_data:
+            # Check if contest should actually be mode dimension (for backward compatibility)
+            valid_bands = dashboard_ctx.get('valid_bands', [])
+            valid_modes = dashboard_ctx.get('valid_modes', [])
+            is_single_band = len(valid_bands) == 1
+            is_multi_mode = len(valid_modes) > 1
+            if is_single_band and is_multi_mode:
+                # Contest should be mode dimension, but JSON has bands (old format)
+                # Regenerate with correct dimension (requires slow path)
+                breakdown_data = None  # Force regeneration
+                is_mode_dimension = True
+                dimension = 'mode'
+            else:
+                is_mode_dimension = False
+                dimension = 'band'
+        else:
+            # Fallback: check contest definition from cached context
+            valid_bands = dashboard_ctx.get('valid_bands', [])
+            valid_modes = dashboard_ctx.get('valid_modes', [])
+            is_single_band = len(valid_bands) == 1
+            is_multi_mode = len(valid_modes) > 1
+            if is_single_band and is_multi_mode:
+                is_mode_dimension = True
+                dimension = 'mode'
         
         full_title = dashboard_ctx.get('full_contest_title', '')
         cty_info = dashboard_ctx.get('cty_version_info', 'CTY-Unknown Unknown Date')
@@ -642,9 +754,10 @@ def multiplier_dashboard(request, session_id):
         # Footer: One line with CLA abbreviation
         footer_text = f"CLA v{__version__}   |   {cty_info}"
         
+        scope_line = "All Modes" if is_mode_dimension else "All Bands"
         report_metadata = {
             'context_line': context_line,
-            'scope_line': "All Bands", # Matrix is always global scope initially
+            'scope_line': scope_line,
             'footer': footer_text
         }
         
@@ -661,10 +774,26 @@ def multiplier_dashboard(request, session_id):
         root_input = os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
         lm.load_log_batch(log_candidates, root_input, 'after')
         
+        # Determine dimension (band or mode) based on contest type
+        valid_bands = lm.logs[0].contest_definition.valid_bands if lm.logs else []
+        valid_modes = lm.logs[0].contest_definition.valid_modes if lm.logs and hasattr(lm.logs[0].contest_definition, 'valid_modes') else []
+        is_single_band = len(valid_bands) == 1
+        is_multi_mode = len(valid_modes) > 1
+        dimension = 'mode' if (is_single_band and is_multi_mode) else 'band'
+        is_mode_dimension = (dimension == 'mode')
+        
         # Generate Aggregation if missing
         if not breakdown_data:
             mult_agg = MultiplierStatsAggregator(lm.logs)
-            breakdown_data = mult_agg.get_multiplier_breakdown_data()
+            breakdown_data = mult_agg.get_multiplier_breakdown_data(dimension=dimension)
+        else:
+            # Detect dimension from existing breakdown_data structure
+            if 'modes' in breakdown_data:
+                is_mode_dimension = True
+                dimension = 'mode'
+            elif 'bands' in breakdown_data:
+                is_mode_dimension = False
+                dimension = 'band'
             
         # Generate Metadata using Utilities
         modes_present = set()
@@ -673,7 +802,8 @@ def multiplier_dashboard(request, session_id):
             if 'Mode' in df.columns:
                  modes_present.update(df['Mode'].dropna().unique())
 
-        title_lines = get_standard_title_lines("Multiplier Breakdown", lm.logs, "All Bands", None, modes_present)
+        scope_label = "All Modes" if is_mode_dimension else "All Bands"
+        title_lines = get_standard_title_lines("Multiplier Breakdown", lm.logs, scope_label, None, modes_present)
         
         # Footer with Newline
         # Extract CTY info in new format
@@ -686,17 +816,29 @@ def multiplier_dashboard(request, session_id):
             'footer': footer_text
         }
     
-    # Split Bands (Layout Logic)
-    low_bands = ['160M', '80M', '40M']
+    # Split Dimension Values (Layout Logic) - First 3 go to "low", rest to "high"
     low_bands_data = []
     high_bands_data = []
+    low_modes_data = []
+    high_modes_data = []
     
-    if breakdown_data and 'bands' in breakdown_data:
-        for block in breakdown_data['bands']:
-            if block['label'] in low_bands:
-                 low_bands_data.append(block)
-            else:
-                high_bands_data.append(block)
+    if breakdown_data:
+        if is_mode_dimension and 'modes' in breakdown_data:
+            # Split modes: first 3 to low, rest to high
+            mode_blocks = breakdown_data['modes']
+            for i, block in enumerate(mode_blocks):
+                if i < 3:
+                    low_modes_data.append(block)
+                else:
+                    high_modes_data.append(block)
+        elif 'bands' in breakdown_data:
+            # Split bands: 160M, 80M, 40M to low, rest to high
+            low_bands = ['160M', '80M', '40M']
+            for block in breakdown_data['bands']:
+                if block['label'] in low_bands:
+                    low_bands_data.append(block)
+                else:
+                    high_bands_data.append(block)
     
     # Calculate optimal column width for scoreboard
     log_count = len(persisted_logs) if persisted_logs else 0
@@ -705,22 +847,46 @@ def multiplier_dashboard(request, session_id):
     # Common suffix for text reports
     suffix = f"_{combo_id}"
 
-    # 6. Calculate Global Maxima for Consistent Scaling (Normalization)
-    global_max = {'total': 1, 'countries': 1, 'zones': 1} # Default 1 to avoid div/0
-    if breakdown_data and 'bands' in breakdown_data:
-        for block in breakdown_data['bands']:
-            for row in block['rows']:
-                row_max = 0
-                for stat in row['stations']:
-                    val = stat.get('unique_run', 0) + stat.get('unique_sp', 0) + stat.get('unique_unk', 0)
-                    if val > row_max: row_max = val
-                
-                if row['label'] == 'TOTAL' or row['label'] == block['label']:
-                    if row_max > global_max['total']: global_max['total'] = row_max
-                elif 'Countries' in row['label']:
-                    if row_max > global_max['countries']: global_max['countries'] = row_max
-                elif 'Zones' in row['label']:
-                    if row_max > global_max['zones']: global_max['zones'] = row_max
+    # 6. Extract Multiplier Names and Calculate Global Maxima Dynamically
+    multiplier_names = []  # List of multiplier names found in the data
+    global_max = {'total': 1}  # Dynamic dict: will contain 'total' and one entry per multiplier type
+    
+    if breakdown_data:
+        # Extract multiplier names from totals (skip "TOTAL" row)
+        if 'totals' in breakdown_data:
+            for row in breakdown_data['totals']:
+                mult_name = row.get('label', '')
+                if mult_name and mult_name != 'TOTAL':
+                    # Normalize multiplier name for use as dict key (lowercase, no spaces)
+                    mult_key = mult_name.lower().replace(' ', '_')
+                    if mult_name not in multiplier_names:
+                        multiplier_names.append(mult_name)
+                    # Initialize max for this multiplier type
+                    if mult_key not in global_max:
+                        global_max[mult_key] = 1
+        
+        # Calculate global_max for each multiplier type from dimension breakdowns (bands or modes)
+        dimension_key = 'modes' if is_mode_dimension else 'bands'
+        if dimension_key in breakdown_data:
+            for block in breakdown_data[dimension_key]:
+                for row in block['rows']:
+                    row_max = 0
+                    for stat in row['stations']:
+                        val = stat.get('unique_run', 0) + stat.get('unique_sp', 0) + stat.get('unique_unk', 0)
+                        if val > row_max: row_max = val
+                    
+                    row_label = row.get('label', '')
+                    
+                    # Check if this is the TOTAL or dimension total row
+                    if row_label == 'TOTAL' or row_label == block.get('label', ''):
+                        if row_max > global_max['total']: global_max['total'] = row_max
+                    else:
+                        # Check if this row matches any multiplier name (e.g., "10M_States", "CW_States", or "States")
+                        for mult_name in multiplier_names:
+                            # Match pattern: "{dimension_value}_{mult_name}" or just "{mult_name}"
+                            if mult_name in row_label:
+                                mult_key = mult_name.lower().replace(' ', '_')
+                                if row_max > global_max[mult_key]: global_max[mult_key] = row_max
 
     # 4. Discover Text Version of Breakdown
     breakdown_txt_rel_path = None
@@ -894,6 +1060,9 @@ def multiplier_dashboard(request, session_id):
         'breakdown_totals': breakdown_data['totals'] if breakdown_data else [],
         'low_bands_data': low_bands_data,
         'high_bands_data': high_bands_data,
+        'low_modes_data': low_modes_data,
+        'high_modes_data': high_modes_data,
+        'is_mode_dimension': is_mode_dimension,
         'all_calls': sorted([l['callsign'] for l in persisted_logs]),
         'breakdown_txt_url': breakdown_txt_rel_path,
         'breakdown_html_url': breakdown_html_rel_path,
@@ -901,6 +1070,7 @@ def multiplier_dashboard(request, session_id):
         'multipliers': sorted_mults,
         'is_solo': (log_count == 1),
         'global_max': global_max,
+        'multiplier_names': multiplier_names,  # Dynamic list of multiplier types for Band Spectrum tabs
     }
     return render(request, 'analyzer/multiplier_dashboard.html', context)
 
@@ -935,24 +1105,54 @@ def qso_dashboard(request, session_id):
     callsigns_safe = [c.lower().replace('/', '-') for c in callsigns_display]  # For filename matching
     is_solo = (len(callsigns_safe) == 1)
     
-    # 2a. Load Contest Definition to get valid_bands
-    # Load LogManager minimally just to get contest definition
-    root_input = os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
-    log_candidates = []
-    for f in os.listdir(session_path):
-        f_path = os.path.join(session_path, f)
-        if os.path.isfile(f_path) and not f.startswith('dashboard_context') and not f.endswith('.zip') and not f.endswith('.json'):
-            log_candidates.append(f_path)
-    
+    # 2a. Load valid_bands and valid_modes (Fast Path vs Slow Path)
+    # FAST PATH: Load from cached dashboard_context.json (avoids LogManager parsing)
+    context_path = os.path.join(session_path, 'dashboard_context.json')
     valid_bands = ['80M', '40M', '20M', '15M', '10M']  # Default fallback
-    if log_candidates:
+    valid_modes = []  # Default: empty list
+    
+    if os.path.exists(context_path):
         try:
-            lm = LogManager()
-            lm.load_log_batch(log_candidates[:1], root_input, 'after')  # Load just first log
-            if lm.logs:
-                valid_bands = lm.logs[0].contest_definition.valid_bands
+            with open(context_path, 'r') as f:
+                dashboard_ctx = json.load(f)
+                cached_bands = dashboard_ctx.get('valid_bands')
+                if cached_bands:
+                    valid_bands = cached_bands
+                cached_modes = dashboard_ctx.get('valid_modes')
+                if cached_modes:
+                    valid_modes = cached_modes
         except Exception as e:
-            logger.warning(f"Failed to load contest definition for valid_bands: {e}")
+            logger.warning(f"Failed to load valid_bands/valid_modes from dashboard context: {e}")
+    
+    # SLOW PATH: Fallback to LogManager parsing if cached data missing
+    if valid_bands == ['80M', '40M', '20M', '15M', '10M'] or not valid_modes:  # Still using default fallback
+        root_input = os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
+        log_candidates = []
+        for f in os.listdir(session_path):
+            f_path = os.path.join(session_path, f)
+            if os.path.isfile(f_path) and not f.startswith('dashboard_context') and not f.endswith('.zip') and not f.endswith('.json'):
+                log_candidates.append(f_path)
+        
+        if log_candidates:
+            try:
+                lm = LogManager()
+                lm.load_log_batch(log_candidates[:1], root_input, 'after')  # Load just first log
+                if lm.logs:
+                    valid_bands = lm.logs[0].contest_definition.valid_bands
+                    valid_modes = lm.logs[0].contest_definition.valid_modes
+            except Exception as e:
+                logger.warning(f"Failed to load contest definition for valid_bands/valid_modes (Slow Path): {e}")
+    
+    # Determine contest type for selector generation
+    is_single_band = len(valid_bands) == 1
+    is_multi_mode = len(valid_modes) > 1
+    is_multi_band = len(valid_bands) > 1
+    
+    # Determine selector type for Rate Differential pane
+    # - Single-band, multi-mode: mode selector (e.g., ARRL 10)
+    # - Multi-band, single-mode: band selector (e.g., CQ WW CW)
+    # - Multi-band, multi-mode: band selector (primary), mode can be added later (e.g., NAQP, ARRL FD)
+    diff_selector_type = 'mode' if (is_single_band and is_multi_mode) else 'band'
     
     # Build band mapping: "80M" -> "80" for template buttons
     valid_bands_for_buttons = []
@@ -966,6 +1166,56 @@ def qso_dashboard(request, session_id):
         })
     
     BAND_SORT_ORDER = {'ALL': 0, '160M': 1, '80M': 2, '40M': 3, '20M': 4, '15M': 5, '10M': 6, '6M': 7, '2M': 8}
+    MODE_SORT_ORDER = {'ALL': 0, 'CW': 1, 'PH': 2, 'RY': 3, 'DG': 4}
+    
+    def parse_diff_filename_metadata(metadata_part: str, valid_bands: list, valid_modes: list, is_single_band: bool) -> str:
+        """
+        Parses filename metadata part into a structured key for diff_paths.
+        
+        Filename format: cumulative_difference_plots_qsos_{band}_{mode}--{callsigns}.html
+        Examples:
+        - "10" (single-band, all modes) → "mode:all" (for single-band, multi-mode)
+        - "10_cw" (single-band, CW mode) → "mode:cw"
+        - "all" (multi-band, all modes) → "band:all"
+        - "80" (multi-band, all modes, specific band) → "band:80"
+        - "80_cw" (multi-band, CW mode, specific band) → "band:80" (mode handled separately later)
+        
+        Returns structured key: "dimension:value" format for extensibility.
+        """
+        parts = metadata_part.split('_')
+        band_part = parts[0].lower()
+        mode_part = parts[1].lower() if len(parts) > 1 else None
+        
+        # Normalize band part
+        if band_part == 'all':
+            band_key = 'all'
+        elif band_part.isdigit():
+            band_key = band_part
+        else:
+            # Try to match against valid_bands (e.g., "160m" -> "160")
+            band_key = band_part.replace('m', '')
+        
+        # Normalize mode part
+        mode_key = None
+        if mode_part:
+            mode_upper = mode_part.upper()
+            # Map common variations
+            if mode_upper in ['CW', 'PH', 'RY', 'DG']:
+                mode_key = mode_upper
+            elif mode_upper in ['SSB', 'USB', 'LSB']:
+                mode_key = 'PH'  # Cabrillo uses PH
+        
+        # Determine selector type and generate key
+        if is_single_band and len(valid_modes) > 1:
+            # Single-band, multi-mode: use mode dimension
+            if mode_key:
+                return f"mode:{mode_key.lower()}"
+            else:
+                return "mode:all"
+        else:
+            # Multi-band (or single-band, single-mode): use band dimension
+            # For now, ignore mode in key (can add mode: prefix later for multi-band, multi-mode)
+            return f"band:{band_key}"
     
     # 3. Identify Pairs for Strategy Tab
     matchups = []
@@ -999,17 +1249,19 @@ def qso_dashboard(request, session_id):
                     
                     # Check if this file matches our pair (new format with -- delimiter)
                     if target_suffix in fname and fname.startswith(target_prefix):
-                        # Extract band from filename: cumulative_difference_plots_qsos_{band}--{callsigns}.html
-                        # Format: {prefix}{band}--{callsigns}.{ext}
-                        band_part = fname.replace(target_prefix, '').split('--')[0]
-                        # band_part is like "all", "80", "40", "20", "15", "10" (lowercase, no 'M')
+                        # Extract metadata part from filename: cumulative_difference_plots_qsos_{band}_{mode}--{callsigns}.html
+                        # Format: {prefix}{metadata}--{callsigns}.{ext}
+                        metadata_part = fname.replace(target_prefix, '').split('--')[0]
+                        
+                        # Parse into structured key (dimension:value format)
+                        structured_key = parse_diff_filename_metadata(metadata_part, valid_bands, valid_modes, is_single_band)
                         
                         if art['path'].endswith('.html'):
                             # Prepend report_rel_path to ensure view_report can find it
-                            diff_paths[band_part] = f"{report_rel_path}/{art['path']}"
+                            diff_paths[structured_key] = f"{report_rel_path}/{art['path']}"
                         elif art['path'].endswith('.json'):
                             # JSON Path Logic (Direct URL access via media)
-                            diff_json_paths[band_part] = f"{settings.MEDIA_URL}sessions/{session_id}/{report_rel_path}/{art['path']}"
+                            diff_json_paths[structured_key] = f"{settings.MEDIA_URL}sessions/{session_id}/{report_rel_path}/{art['path']}"
         
             # Find breakdown chart
             bk_path = next((f"{report_rel_path}/{a['path']}" for a in artifacts if a['report_id'] == 'qso_breakdown_chart' and f"_{c1}_{c2}" in a['path'] and a['path'].endswith('.html')), "")
@@ -1073,22 +1325,44 @@ def qso_dashboard(request, session_id):
                 # New format: point_rate_plots_all--k1lz_k3lr_w3lpl.html or point_rate_plots_20m--k1lz_k3lr_w3lpl.html
                 # Split on -- to separate band/mode from callsigns
                 parts_before_dash = fname.replace('point_rate_plots_', '').split('--')[0]
-                # Extract band from first part (e.g., "all", "20m", "20m_cw")
+                # Extract band from first part (e.g., "all", "20m", "20m_cw", "10_cw", "10_ph")
                 band_parts = parts_before_dash.split('_')
                 band_key = band_parts[0].upper()
+                mode_key = band_parts[1].upper() if len(band_parts) > 1 else None
             else:
                 # Old format (backward compatibility): point_rate_plots_20m_k1lz_k3lr.html
                 remainder = fname.replace('point_rate_plots_', '')
                 parts = remainder.split('_')
                 if parts:
                     band_key = parts[0].upper()
+                    mode_key = parts[1].upper() if len(parts) > 1 else None
                 else:
                     continue
             
             if band_key.isdigit(): band_key += 'M'
             
-            label = "All Bands" if band_key == 'ALL' else band_key
-            sort_val = BAND_SORT_ORDER.get(band_key, 99)
+            # For single-band, multi-mode contests: use mode labels instead of band labels
+            # e.g., ARRL 10: "All", "CW", "PH" instead of all showing "10"
+            if is_single_band and is_multi_mode and mode_key:
+                # Extract mode from filename (e.g., "10_cw" -> "CW", "10_ph" -> "PH")
+                mode_upper = mode_key
+                if mode_upper in ['CW', 'PH', 'RY', 'DG']:
+                    label = mode_upper
+                elif mode_upper in ['SSB', 'USB', 'LSB']:
+                    label = 'PH'  # Cabrillo uses PH
+                else:
+                    label = mode_upper  # Fallback
+                # Sort value will be set later by MODE_SORT_ORDER, use temp value for now
+                sort_val = 50  # Temporary, will be overridden
+            elif is_single_band and is_multi_mode and not mode_key:
+                # "All" mode for single-band, multi-mode (e.g., "10" without mode suffix)
+                label = "All"
+                # Sort value will be set later by MODE_SORT_ORDER, use temp value for now
+                sort_val = 50  # Temporary, will be overridden
+            else:
+                # Multi-band contests: use band labels
+                label = "All Bands" if band_key == 'ALL' else band_key
+                sort_val = BAND_SORT_ORDER.get(band_key, 99)
             
             point_plots.append({
                 'label': label,
@@ -1097,19 +1371,45 @@ def qso_dashboard(request, session_id):
                 'sort_val': sort_val
             })
     
-    # Sort by band order
-    point_plots.sort(key=lambda x: x['sort_val'])
+    # Sort: For single-band, multi-mode, sort by mode order (All first, then CW, PH, etc.)
+    # For multi-band, sort by band order (All Bands first, then 20M, etc.)
+    if is_single_band and is_multi_mode:
+        # Define mode sort order
+        MODE_SORT_ORDER = {'all': 0, 'cw': 1, 'ph': 2, 'ry': 3, 'dg': 4}
+        for p in point_plots:
+            label_lower = p['label'].lower()
+            p['sort_val'] = MODE_SORT_ORDER.get(label_lower, 99)
+        point_plots.sort(key=lambda x: x['sort_val'])
+    else:
+        point_plots.sort(key=lambda x: x['sort_val'])
     
-    # Default active to 20M, fallback to first available
+    # Default active selection
     active_set = False
     if point_plots:
-        for p in point_plots:
-            if p['label'] == '20M':
-                p['active'] = True
-                active_set = True
-                break
-        if not active_set:
-            point_plots[0]['active'] = True
+        # For single-band, multi-mode: prioritize "All", otherwise first available
+        if is_single_band and is_multi_mode:
+            for p in point_plots:
+                if p['label'] == 'All':
+                    p['active'] = True
+                    active_set = True
+                    break
+            if not active_set:
+                point_plots[0]['active'] = True
+        else:
+            # Multi-band: prioritize "All Bands", then 20M, then first available
+            for p in point_plots:
+                if p['label'] == 'All Bands':
+                    p['active'] = True
+                    active_set = True
+                    break
+            if not active_set:
+                for p in point_plots:
+                    if p['label'] == '20M':
+                        p['active'] = True
+                        active_set = True
+                        break
+            if not active_set:
+                point_plots[0]['active'] = True
 
     # 5. Discover QSO Rate Plots (Manifest Scan)
     qso_band_plots = []
@@ -1152,23 +1452,44 @@ def qso_dashboard(request, session_id):
                 # New format: qso_rate_plots_all--k1lz_k3lr_w3lpl.html or qso_rate_plots_20m--k1lz_k3lr_w3lpl.html
                 # Split on -- to separate band/mode from callsigns
                 parts_before_dash = fname.replace('qso_rate_plots_', '').split('--')[0]
-                # Extract band from first part (e.g., "all", "20m", "20m_cw")
+                # Extract band from first part (e.g., "all", "20m", "20m_cw", "10_cw", "10_ph")
                 band_parts = parts_before_dash.split('_')
                 band_key = band_parts[0].upper()
+                mode_key = band_parts[1].upper() if len(band_parts) > 1 else None
             else:
                 # Old format (backward compatibility): qso_rate_plots_20m_k1lz_k3lr.html
                 remainder = fname.replace('qso_rate_plots_', '')
                 parts = remainder.split('_')
                 if parts:
                     band_key = parts[0].upper()
+                    mode_key = parts[1].upper() if len(parts) > 1 else None
                 else:
                     continue
             
             if band_key.isdigit(): band_key += 'M'
-            if band_key == 'ALL': continue
-
-            label = band_key
-            sort_val = BAND_SORT_ORDER.get(band_key, 99)
+            
+            # For single-band, multi-mode contests: use mode labels instead of band labels
+            # e.g., ARRL 10: "All", "CW", "PH" instead of all showing "10"
+            if is_single_band and is_multi_mode and mode_key:
+                # Extract mode from filename (e.g., "10_cw" -> "CW", "10_ph" -> "PH")
+                mode_upper = mode_key
+                if mode_upper in ['CW', 'PH', 'RY', 'DG']:
+                    label = mode_upper
+                elif mode_upper in ['SSB', 'USB', 'LSB']:
+                    label = 'PH'  # Cabrillo uses PH
+                else:
+                    label = mode_upper  # Fallback
+                # Sort value will be set later by MODE_SORT_ORDER, use temp value for now
+                sort_val = 50  # Temporary, will be overridden
+            elif is_single_band and is_multi_mode and not mode_key:
+                # "All" mode for single-band, multi-mode (e.g., "10" without mode suffix)
+                label = "All"
+                # Sort value will be set later by MODE_SORT_ORDER, use temp value for now
+                sort_val = 50  # Temporary, will be overridden
+            else:
+                # Multi-band contests: use band labels
+                label = "All Bands" if band_key == 'ALL' else band_key
+                sort_val = BAND_SORT_ORDER.get(band_key, 99)
             
             qso_band_plots.append({
                 'label': label,
@@ -1177,33 +1498,76 @@ def qso_dashboard(request, session_id):
                 'sort_val': sort_val
             })
 
-    qso_band_plots.sort(key=lambda x: x['sort_val'])
+    # Sort: For single-band, multi-mode, sort by mode order (All first, then CW, PH, etc.)
+    # For multi-band, sort by band order (All Bands first, then 20M, etc.)
+    if is_single_band and is_multi_mode:
+        # Define mode sort order
+        MODE_SORT_ORDER = {'all': 0, 'cw': 1, 'ph': 2, 'ry': 3, 'dg': 4}
+        for p in qso_band_plots:
+            label_lower = p['label'].lower()
+            p['sort_val'] = MODE_SORT_ORDER.get(label_lower, 99)
+        qso_band_plots.sort(key=lambda x: x['sort_val'])
+    else:
+        qso_band_plots.sort(key=lambda x: x['sort_val'])
     
-    # Default active to 20M for consistency
+    # Default active selection
     active_set = False
     if qso_band_plots:
-        for p in qso_band_plots:
-            if p['label'] == '20M':
-                p['active'] = True
-                active_set = True
-                break
-        if not active_set:
-            qso_band_plots[0]['active'] = True
+        # For single-band, multi-mode: prioritize "All", otherwise first available
+        if is_single_band and is_multi_mode:
+            for p in qso_band_plots:
+                if p['label'] == 'All':
+                    p['active'] = True
+                    active_set = True
+                    break
+            if not active_set:
+                qso_band_plots[0]['active'] = True
+        else:
+            # Multi-band: prioritize "All Bands", then 20M, then first available
+            for p in qso_band_plots:
+                if p['label'] == 'All Bands':
+                    p['active'] = True
+                    active_set = True
+                    break
+            if not active_set:
+                for p in qso_band_plots:
+                    if p['label'] == '20M':
+                        p['active'] = True
+                        active_set = True
+                        break
+            if not active_set:
+                qso_band_plots[0]['active'] = True
 
     # Global files via manifest lookup
-    # New format: qso_rate_plots_all--{callsigns}.html
+    # Handle both multi-band and single-band contests
+    # Multi-band: qso_rate_plots_all--{callsigns}.html
+    # Single-band: qso_rate_plots_{band}--{callsigns}.html (e.g., qso_rate_plots_10--{callsigns}.html)
     # Old format (backward compat): qso_rate_plots_all_{callsigns}.html
+    single_band_name = valid_bands[0].replace('M', '').lower() if is_single_band else None  # e.g., "10" for "10M"
+    
     if is_solo:
-        # Single log: Look for qso_rate_plots_all--{callsign}.html or old format
+        # Single log: Look for qso_rate_plots_all--{callsign}.html or qso_rate_plots_{band}--{callsign}.html or old format
         call_safe = callsigns_safe[0] if callsigns_safe else combo_id
+        # Try multi-band format first, then single-band format if applicable
         global_qso = next((f"{report_rel_path}/{a['path']}" for a in artifacts 
                           if a['report_id'] == 'qso_rate_plots' 
                           and (f"all--{call_safe}.html" in a['path'] or f"_all_{call_safe}.html" in a['path'])), "")
+        # If not found and single-band contest, try single-band format
+        if not global_qso and is_single_band and single_band_name:
+            global_qso = next((f"{report_rel_path}/{a['path']}" for a in artifacts 
+                              if a['report_id'] == 'qso_rate_plots' 
+                              and (f"{single_band_name}--{call_safe}.html" in a['path'] or f"_{single_band_name}_{call_safe}.html" in a['path'])), "")
     else:
-        # Multi log: Look for qso_rate_plots_all--{combo_id}.html or old format
+        # Multi log: Look for qso_rate_plots_all--{combo_id}.html or qso_rate_plots_{band}--{combo_id}.html or old format
+        # Try multi-band format first, then single-band format if applicable
         global_qso = next((f"{report_rel_path}/{a['path']}" for a in artifacts 
                           if a['report_id'] == 'qso_rate_plots' 
                           and (f"all--{combo_id}.html" in a['path'] or f"_all_{combo_id}.html" in a['path'])), "")
+        # If not found and single-band contest, try single-band format
+        if not global_qso and is_single_band and single_band_name:
+            global_qso = next((f"{report_rel_path}/{a['path']}" for a in artifacts 
+                              if a['report_id'] == 'qso_rate_plots' 
+                              and (f"{single_band_name}--{combo_id}.html" in a['path'] or f"_{single_band_name}_{combo_id}.html" in a['path'])), "")
     
     if not global_qso:
         logger.warning(f"QSO Dashboard: Global QSO Rate Plot not found for combo_id '{combo_id}' in '{report_rel_path}'.")
@@ -1229,6 +1593,30 @@ def qso_dashboard(request, session_id):
         if not os.path.exists(expected_rate_sheet):
             logger.warning(f"QSO Dashboard: Expected rate sheet not found: {expected_rate_sheet}")
 
+    # Prepare valid_modes for template (similar to valid_bands_for_buttons)
+    valid_modes_for_buttons = []
+    if valid_modes:
+        for mode in valid_modes:
+            valid_modes_for_buttons.append({
+                'display': mode,
+                'key': mode.lower()
+            })
+        # Add "All" option at the beginning
+        valid_modes_for_buttons.insert(0, {
+            'display': 'All',
+            'key': 'all'
+        })
+
+    # Determine activity tab labels based on contest type
+    # Single-band, multi-mode contests (e.g., ARRL 10) should show "Mode Activity"
+    # Multi-band contests should show "Band Activity"
+    if is_single_band and is_multi_mode:
+        activity_tab_label = 'Mode Activity'
+        activity_tab_title = 'Mode Activity Butterfly Chart'
+    else:
+        activity_tab_label = 'Band Activity'
+        activity_tab_title = 'Band Activity Butterfly Chart'
+    
     context = {
         'session_id': session_id,
         'callsigns': callsigns_display,
@@ -1240,7 +1628,11 @@ def qso_dashboard(request, session_id):
         'rate_sheet_comparison': rate_sheet_comp,
         'report_base': report_base,
         'is_solo': is_solo,
-        'valid_bands': valid_bands_for_buttons  # For dynamic band button generation
+        'valid_bands': valid_bands_for_buttons,  # For dynamic band button generation
+        'valid_modes': valid_modes_for_buttons,  # For dynamic mode button generation
+        'diff_selector_type': diff_selector_type,  # 'band' or 'mode' for Rate Differential pane
+        'activity_tab_label': activity_tab_label,  # 'Band Activity' or 'Mode Activity'
+        'activity_tab_title': activity_tab_title  # Chart title for activity tab
     }
     
     return render(request, 'analyzer/qso_dashboard.html', context)
@@ -1248,6 +1640,10 @@ def qso_dashboard(request, session_id):
 def download_all_reports(request, session_id):
     """
     Zips the 'reports' directory and original Cabrillo log files for the session.
+    
+    POST: Initiates zip creation with progress tracking. Returns request_id.
+    GET with request_id: Serves the completed zip file.
+    
     Filename format: YYYY_CONTEST_NAME.zip
     Structure:
         - reports/ (all generated reports)
@@ -1258,6 +1654,42 @@ def download_all_reports(request, session_id):
 
     if not os.path.exists(session_path) or not os.path.exists(context_path):
         raise Http404("Session or context not found")
+
+    # Handle GET request with request_id (serve file)
+    request_id = request.GET.get('request_id')
+    if request.method == 'GET' and request_id:
+        zip_output_path = os.path.join(session_path, 'archive_temp.zip')
+        if os.path.exists(zip_output_path):
+            # Get filename from context
+            try:
+                with open(context_path, 'r') as f:
+                    context = json.load(f)
+                path_parts = context.get('report_url_path', '').split('/')
+                if len(path_parts) >= 2:
+                    year = _sanitize_filename_part(path_parts[0])
+                    contest = _sanitize_filename_part(path_parts[1])
+                    zip_filename = f"{year}_{contest}.zip"
+                else:
+                    zip_filename = "contest_reports.zip"
+            except Exception:
+                zip_filename = "contest_reports.zip"
+            
+            # Mark as done
+            _update_progress(request_id, 3, message="Done")
+            
+            # Serve file
+            response = FileResponse(open(zip_output_path, 'rb'), as_attachment=True, filename=zip_filename)
+            return response
+        else:
+            raise Http404("Archive not found")
+
+    # Handle POST request (initiate download) or GET without request_id (backward compat)
+    # Generate request_id if not provided (for POST)
+    if request.method == 'POST':
+        request_id = request.POST.get('request_id') or f"zip_{uuid.uuid4().hex[:12]}"
+    else:
+        # Backward compatibility: direct GET serves file immediately (no progress)
+        request_id = None
 
     # 1. Get Metadata for Filename
     try:
@@ -1280,7 +1712,7 @@ def download_all_reports(request, session_id):
     if not os.path.exists(reports_root):
         raise Http404("No reports found to archive")
 
-    # 3. Find Log Files
+    # 3. Find and Count Files
     log_extensions = ('.log', '.cbr', '.txt')
     log_files = []
     excluded_files = {'dashboard_context.json', 'session_manifest.json', 'archive_temp.zip'}
@@ -1293,6 +1725,19 @@ def download_all_reports(request, session_id):
                 # Exclude known non-log files
                 if item not in excluded_files:
                     log_files.append((item, item_path))
+    
+    # Count report files
+    report_file_count = 0
+    reports_dir = os.path.join(session_path, 'reports')
+    if os.path.exists(reports_dir):
+        for root, dirs, files in os.walk(reports_dir):
+            report_file_count += len(files)
+    
+    total_file_count = report_file_count + len(log_files)
+    
+    # Update progress: Step 1 - Zipping
+    if request_id:
+        _update_progress(request_id, 1, message="Zipping...", file_count=total_file_count)
     
     # 4. Warning if no log files found
     if not log_files:
@@ -1307,7 +1752,6 @@ def download_all_reports(request, session_id):
     try:
         with zipfile.ZipFile(zip_output_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
             # Add reports directory (recursive)
-            reports_dir = os.path.join(session_path, 'reports')
             if os.path.exists(reports_dir):
                 for root, dirs, files in os.walk(reports_dir):
                     for file in files:
@@ -1328,11 +1772,18 @@ def download_all_reports(request, session_id):
                 # Create empty logs directory marker (optional, but helps with structure)
                 logger.warning(f"Archive created without log files - logs/ directory will be empty")
         
-        # 6. Serve File
-        response = FileResponse(open(zip_output_path, 'rb'), as_attachment=True, filename=zip_filename)
-        # Clean up temp file after response (use streaming or background cleanup)
-        # For now, rely on session cleanup to remove it
-        return response
+        # Update progress: Step 2 - Downloading (file ready)
+        if request_id:
+            download_url = f"/report/{session_id}/download_all/?request_id={request_id}"
+            _update_progress(request_id, 2, message="Downloading...", file_count=total_file_count, download_url=download_url)
+        
+        # If POST, return request_id. If GET (backward compat), serve file immediately.
+        if request.method == 'POST':
+            return JsonResponse({'request_id': request_id, 'status': 'ready'})
+        else:
+            # Backward compatibility: serve file immediately
+            response = FileResponse(open(zip_output_path, 'rb'), as_attachment=True, filename=zip_filename)
+            return response
         
     except Exception as e:
         logger.error(f"Failed to create archive for session {session_id}: {e}")

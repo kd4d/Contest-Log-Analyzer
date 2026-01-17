@@ -286,15 +286,27 @@ class ContestLog:
             if col in raw_df.columns:
                 raw_df[col.replace('Raw','')] = raw_df[col].fillna('').astype(str).str.upper()
 
-        # --- Check for non-standard modes ---
-        standard_modes = {'CW', 'PH', 'DG', 'RY'}
+        # --- Check for invalid modes (based on JSON valid_modes) ---
+        valid_modes = self.contest_definition.valid_modes
         present_modes = set(raw_df['Mode'].dropna().unique())
-        non_standard_modes = present_modes - standard_modes
-        if non_standard_modes:
+        
+        if valid_modes:
+            # Use JSON-defined modes for validation
+            invalid_modes = present_modes - set(valid_modes)
+            if invalid_modes:
+                # Suppress duplicate warnings for the same invalid mode
+                invalid_modes_sorted = sorted(list(invalid_modes))
+                logging.warning(
+                    f"Invalid modes found in '{os.path.basename(cabrillo_filepath)}': "
+                    f"{invalid_modes_sorted}. Valid modes for {self.contest_definition.contest_name} "
+                    f"are: {valid_modes}. These will be processed but may not be handled correctly by all reports."
+                )
+        elif present_modes:
+            # Warn if modes are present but valid_modes not defined in JSON
+            present_modes_sorted = sorted(list(present_modes))
             logging.warning(
-                f"Non-standard modes found in '{os.path.basename(cabrillo_filepath)}': "
-                f"{sorted(list(non_standard_modes))}. These will be processed but may not be "
-                "handled correctly by all reports."
+                f"valid_modes not defined in JSON for {self.contest_definition.contest_name}. "
+                f"Found modes: {present_modes_sorted}. Consider adding 'valid_modes' field to contest definition."
             )
 
         raw_df.drop(columns=['FrequencyRaw', 'DateRaw', 'TimeRaw', 'MyCallRaw', 'RawQSO'], inplace=True, errors='ignore')
@@ -647,11 +659,11 @@ class ContestLog:
             mode = row.get('Mode')
             
             
-            # Check if the mode is one of the standard phone modes
+            # Check if the mode is one of the standard phone modes (Cabrillo uses PH)
             if mode in ['PH', 'USB', 'LSB', 'SSB']:
-                output_mode = 'SSB'
+                output_mode = 'PH'  # Use Cabrillo term PH instead of SSB for consistency
             else:
-                # Otherwise, use the mode as-is (e.g., for CW, DG)
+                # Otherwise, use the mode as-is (e.g., for CW, DG, RY)
                 output_mode = mode
             # Append the formatted ADIF tag to the record
             record.append(adif_format('MODE', output_mode))
