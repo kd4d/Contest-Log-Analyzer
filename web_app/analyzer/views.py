@@ -259,14 +259,31 @@ def _cleanup_old_sessions(max_age_seconds=3600):
         item_path = os.path.join(sessions_root, item)
         if os.path.isdir(item_path):
             try:
+                # Cleanup old archive_temp.zip files (15 minutes) within active sessions
+                zip_path = os.path.join(item_path, 'archive_temp.zip')
+                if os.path.exists(zip_path):
+                    zip_age = now - os.stat(zip_path).st_mtime
+                    if zip_age > 900:  # 15 minutes
+                        os.remove(zip_path)
+                        logger.info(f"Cleaned up old archive_temp.zip in session {item}")
+                
+                # Cleanup entire session if older than max_age_seconds
                 if os.stat(item_path).st_mtime < (now - max_age_seconds):
                     shutil.rmtree(item_path)
                     logger.info(f"Cleaned up old session: {item}")
             except Exception as e:
                 logger.warning(f"Failed to cleanup session {item}: {e}")
 
-def _update_progress(request_id, step):
-    """Writes the current progress step to a transient JSON file."""
+def _update_progress(request_id, step, message=None, file_count=None, download_url=None):
+    """Writes the current progress step to a transient JSON file.
+    
+    Args:
+        request_id: Unique identifier for the progress tracking
+        step: Progress step number (1, 2, 3, etc.)
+        message: Optional status message (e.g., "Zipping...")
+        file_count: Optional file count for display
+        download_url: Optional download URL when file is ready
+    """
     if not request_id:
         return
     
@@ -276,9 +293,18 @@ def _update_progress(request_id, step):
     file_path = os.path.join(progress_dir, f"{request_id}.json")
     temp_path = f"{file_path}.tmp"
 
+    # Build progress data
+    progress_data = {'step': step}
+    if message:
+        progress_data['message'] = message
+    if file_count is not None:
+        progress_data['file_count'] = file_count
+    if download_url:
+        progress_data['download_url'] = download_url
+
     # Write to a temporary file first
     with open(temp_path, 'w') as f:
-        json.dump({'step': step}, f)
+        json.dump(progress_data, f)
     
     # Atomic replace to avoid JSONDecodeError on read
     os.replace(temp_path, file_path)
@@ -494,27 +520,16 @@ def _run_analysis_pipeline(request_id, log_paths, session_path, session_key):
     animation_filename = f"interactive_animation--{combo_id.lower()}.html"
     plot_filename = f"qso_rate_plots_all--{combo_id.lower()}.html"
     
-    # DIAGNOSTIC: Log dashboard file selection
-    logger.warning(f"DEBUG DASHBOARD FILE SELECTION: all_calls={all_calls}, combo_id={combo_id}, animation_filename={animation_filename}")
-    
-    # DIAGNOSTIC: Verify file exists on disk
-    animation_dir = os.path.join(session_path, 'reports', report_url_path, 'animations')
-    animation_full_path = os.path.join(animation_dir, animation_filename)
-    if os.path.exists(animation_full_path):
-        logger.warning(f"DEBUG DASHBOARD FILE SELECTION: Animation file EXISTS: {animation_full_path}")
-        # List all animation files to see what's actually there
-        if os.path.exists(animation_dir):
-            all_animation_files = [f for f in os.listdir(animation_dir) if f.startswith('interactive_animation')]
-            logger.warning(f"DEBUG DASHBOARD FILE SELECTION: All animation files in directory: {all_animation_files}")
-    else:
-        logger.error(f"ERROR DASHBOARD FILE SELECTION: Animation file NOT FOUND: {animation_full_path}")
-        # Try to find similar files
-        if os.path.exists(animation_dir):
-            all_animation_files = [f for f in os.listdir(animation_dir) if f.startswith('interactive_animation')]
-            logger.warning(f"ERROR DASHBOARD FILE SELECTION: Available animation files: {all_animation_files}")
-    
     # Note: Multiplier filename removed here. It is now dynamically resolved in multiplier_dashboard view.
 
+    # Extract valid_bands from contest definition for Fast Path in dashboards
+    valid_bands = ['80M', '40M', '20M', '15M', '10M']  # Default fallback
+    if lm.logs:
+        try:
+            valid_bands = lm.logs[0].contest_definition.valid_bands
+        except Exception as e:
+            logger.warning(f"Failed to extract valid_bands from contest definition: {e}")
+    
     context = {
         'session_key': session_key,
         'report_url_path': report_url_path,
@@ -526,6 +541,7 @@ def _run_analysis_pipeline(request_id, log_paths, session_path, session_key):
         'cty_version_info': cty_info,
         'footer_text': footer_text,
         'contest_name': contest_name,
+        'valid_bands': valid_bands,  # Cached for Fast Path in qso_dashboard
     }
     
     # Determine multiplier headers from the first log (assuming all are same contest)
@@ -994,24 +1010,38 @@ def qso_dashboard(request, session_id):
     callsigns_safe = [c.lower().replace('/', '-') for c in callsigns_display]  # For filename matching
     is_solo = (len(callsigns_safe) == 1)
     
-    # 2a. Load Contest Definition to get valid_bands
-    # Load LogManager minimally just to get contest definition
-    root_input = os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
-    log_candidates = []
-    for f in os.listdir(session_path):
-        f_path = os.path.join(session_path, f)
-        if os.path.isfile(f_path) and not f.startswith('dashboard_context') and not f.endswith('.zip') and not f.endswith('.json'):
-            log_candidates.append(f_path)
-    
+    # 2a. Load valid_bands (Fast Path vs Slow Path)
+    # FAST PATH: Load from cached dashboard_context.json (avoids LogManager parsing)
+    context_path = os.path.join(session_path, 'dashboard_context.json')
     valid_bands = ['80M', '40M', '20M', '15M', '10M']  # Default fallback
-    if log_candidates:
+    
+    if os.path.exists(context_path):
         try:
-            lm = LogManager()
-            lm.load_log_batch(log_candidates[:1], root_input, 'after')  # Load just first log
-            if lm.logs:
-                valid_bands = lm.logs[0].contest_definition.valid_bands
+            with open(context_path, 'r') as f:
+                dashboard_ctx = json.load(f)
+                cached_bands = dashboard_ctx.get('valid_bands')
+                if cached_bands:
+                    valid_bands = cached_bands
         except Exception as e:
-            logger.warning(f"Failed to load contest definition for valid_bands: {e}")
+            logger.warning(f"Failed to load valid_bands from dashboard context: {e}")
+    
+    # SLOW PATH: Fallback to LogManager parsing if cached data missing
+    if valid_bands == ['80M', '40M', '20M', '15M', '10M']:  # Still using default fallback
+        root_input = os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
+        log_candidates = []
+        for f in os.listdir(session_path):
+            f_path = os.path.join(session_path, f)
+            if os.path.isfile(f_path) and not f.startswith('dashboard_context') and not f.endswith('.zip') and not f.endswith('.json'):
+                log_candidates.append(f_path)
+        
+        if log_candidates:
+            try:
+                lm = LogManager()
+                lm.load_log_batch(log_candidates[:1], root_input, 'after')  # Load just first log
+                if lm.logs:
+                    valid_bands = lm.logs[0].contest_definition.valid_bands
+            except Exception as e:
+                logger.warning(f"Failed to load contest definition for valid_bands (Slow Path): {e}")
     
     # Build band mapping: "80M" -> "80" for template buttons
     valid_bands_for_buttons = []
@@ -1250,19 +1280,36 @@ def qso_dashboard(request, session_id):
             qso_band_plots[0]['active'] = True
 
     # Global files via manifest lookup
-    # New format: qso_rate_plots_all--{callsigns}.html
+    # Handle both multi-band and single-band contests
+    # Multi-band: qso_rate_plots_all--{callsigns}.html
+    # Single-band: qso_rate_plots_{band}--{callsigns}.html (e.g., qso_rate_plots_10--{callsigns}.html)
     # Old format (backward compat): qso_rate_plots_all_{callsigns}.html
+    is_single_band = len(valid_bands) == 1
+    single_band_name = valid_bands[0].replace('M', '').lower() if is_single_band else None  # e.g., "10" for "10M"
+    
     if is_solo:
-        # Single log: Look for qso_rate_plots_all--{callsign}.html or old format
+        # Single log: Look for qso_rate_plots_all--{callsign}.html or qso_rate_plots_{band}--{callsign}.html or old format
         call_safe = callsigns_safe[0] if callsigns_safe else combo_id
+        # Try multi-band format first, then single-band format if applicable
         global_qso = next((f"{report_rel_path}/{a['path']}" for a in artifacts 
                           if a['report_id'] == 'qso_rate_plots' 
                           and (f"all--{call_safe}.html" in a['path'] or f"_all_{call_safe}.html" in a['path'])), "")
+        # If not found and single-band contest, try single-band format
+        if not global_qso and is_single_band and single_band_name:
+            global_qso = next((f"{report_rel_path}/{a['path']}" for a in artifacts 
+                              if a['report_id'] == 'qso_rate_plots' 
+                              and (f"{single_band_name}--{call_safe}.html" in a['path'] or f"_{single_band_name}_{call_safe}.html" in a['path'])), "")
     else:
-        # Multi log: Look for qso_rate_plots_all--{combo_id}.html or old format
+        # Multi log: Look for qso_rate_plots_all--{combo_id}.html or qso_rate_plots_{band}--{combo_id}.html or old format
+        # Try multi-band format first, then single-band format if applicable
         global_qso = next((f"{report_rel_path}/{a['path']}" for a in artifacts 
                           if a['report_id'] == 'qso_rate_plots' 
                           and (f"all--{combo_id}.html" in a['path'] or f"_all_{combo_id}.html" in a['path'])), "")
+        # If not found and single-band contest, try single-band format
+        if not global_qso and is_single_band and single_band_name:
+            global_qso = next((f"{report_rel_path}/{a['path']}" for a in artifacts 
+                              if a['report_id'] == 'qso_rate_plots' 
+                              and (f"{single_band_name}--{combo_id}.html" in a['path'] or f"_{single_band_name}_{combo_id}.html" in a['path'])), "")
     
     if not global_qso:
         logger.warning(f"QSO Dashboard: Global QSO Rate Plot not found for combo_id '{combo_id}' in '{report_rel_path}'.")
@@ -1307,6 +1354,10 @@ def qso_dashboard(request, session_id):
 def download_all_reports(request, session_id):
     """
     Zips the 'reports' directory and original Cabrillo log files for the session.
+    
+    POST: Initiates zip creation with progress tracking. Returns request_id.
+    GET with request_id: Serves the completed zip file.
+    
     Filename format: YYYY_CONTEST_NAME.zip
     Structure:
         - reports/ (all generated reports)
@@ -1317,6 +1368,42 @@ def download_all_reports(request, session_id):
 
     if not os.path.exists(session_path) or not os.path.exists(context_path):
         raise Http404("Session or context not found")
+
+    # Handle GET request with request_id (serve file)
+    request_id = request.GET.get('request_id')
+    if request.method == 'GET' and request_id:
+        zip_output_path = os.path.join(session_path, 'archive_temp.zip')
+        if os.path.exists(zip_output_path):
+            # Get filename from context
+            try:
+                with open(context_path, 'r') as f:
+                    context = json.load(f)
+                path_parts = context.get('report_url_path', '').split('/')
+                if len(path_parts) >= 2:
+                    year = _sanitize_filename_part(path_parts[0])
+                    contest = _sanitize_filename_part(path_parts[1])
+                    zip_filename = f"{year}_{contest}.zip"
+                else:
+                    zip_filename = "contest_reports.zip"
+            except Exception:
+                zip_filename = "contest_reports.zip"
+            
+            # Mark as done
+            _update_progress(request_id, 3, message="Done")
+            
+            # Serve file
+            response = FileResponse(open(zip_output_path, 'rb'), as_attachment=True, filename=zip_filename)
+            return response
+        else:
+            raise Http404("Archive not found")
+
+    # Handle POST request (initiate download) or GET without request_id (backward compat)
+    # Generate request_id if not provided (for POST)
+    if request.method == 'POST':
+        request_id = request.POST.get('request_id') or f"zip_{uuid.uuid4().hex[:12]}"
+    else:
+        # Backward compatibility: direct GET serves file immediately (no progress)
+        request_id = None
 
     # 1. Get Metadata for Filename
     try:
@@ -1339,7 +1426,7 @@ def download_all_reports(request, session_id):
     if not os.path.exists(reports_root):
         raise Http404("No reports found to archive")
 
-    # 3. Find Log Files
+    # 3. Find and Count Files
     log_extensions = ('.log', '.cbr', '.txt')
     log_files = []
     excluded_files = {'dashboard_context.json', 'session_manifest.json', 'archive_temp.zip'}
@@ -1352,6 +1439,19 @@ def download_all_reports(request, session_id):
                 # Exclude known non-log files
                 if item not in excluded_files:
                     log_files.append((item, item_path))
+    
+    # Count report files
+    report_file_count = 0
+    reports_dir = os.path.join(session_path, 'reports')
+    if os.path.exists(reports_dir):
+        for root, dirs, files in os.walk(reports_dir):
+            report_file_count += len(files)
+    
+    total_file_count = report_file_count + len(log_files)
+    
+    # Update progress: Step 1 - Zipping
+    if request_id:
+        _update_progress(request_id, 1, message="Zipping...", file_count=total_file_count)
     
     # 4. Warning if no log files found
     if not log_files:
@@ -1366,7 +1466,6 @@ def download_all_reports(request, session_id):
     try:
         with zipfile.ZipFile(zip_output_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
             # Add reports directory (recursive)
-            reports_dir = os.path.join(session_path, 'reports')
             if os.path.exists(reports_dir):
                 for root, dirs, files in os.walk(reports_dir):
                     for file in files:
@@ -1387,11 +1486,18 @@ def download_all_reports(request, session_id):
                 # Create empty logs directory marker (optional, but helps with structure)
                 logger.warning(f"Archive created without log files - logs/ directory will be empty")
         
-        # 6. Serve File
-        response = FileResponse(open(zip_output_path, 'rb'), as_attachment=True, filename=zip_filename)
-        # Clean up temp file after response (use streaming or background cleanup)
-        # For now, rely on session cleanup to remove it
-        return response
+        # Update progress: Step 2 - Downloading (file ready)
+        if request_id:
+            download_url = f"/report/{session_id}/download_all/?request_id={request_id}"
+            _update_progress(request_id, 2, message="Downloading...", file_count=total_file_count, download_url=download_url)
+        
+        # If POST, return request_id. If GET (backward compat), serve file immediately.
+        if request.method == 'POST':
+            return JsonResponse({'request_id': request_id, 'status': 'ready'})
+        else:
+            # Backward compatibility: serve file immediately
+            response = FileResponse(open(zip_output_path, 'rb'), as_attachment=True, filename=zip_filename)
+            return response
         
     except Exception as e:
         logger.error(f"Failed to create archive for session {session_id}: {e}")

@@ -169,6 +169,10 @@ class ContestDefinition:
     @property
     def multiplier_report_scope(self) -> str:
         return self._data.get('multiplier_report_scope', 'per_band')
+    
+    @property
+    def animation_dimension(self) -> Optional[str]:
+        return self._data.get('animation_dimension')
 
     @property
     def score_formula(self) -> str:

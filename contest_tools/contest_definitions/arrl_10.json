@@ -18,6 +18,7 @@
   },
   "dupe_check_scope": "per_band",
   "multiplier_report_scope": "per_mode",
+  "animation_dimension": "mode",
   "enable_adif_export": true,
   "custom_parser_module": "arrl_10_parser",
   "custom_multiplier_resolver": "arrl_10_multiplier_resolver",

@@ -17,6 +17,7 @@
 import pandas as pd
 import os
 import logging
+import traceback
 from typing import Dict, Any, List
 
 # Import the core annotation functions to make them available at the package level
@@ -53,9 +54,22 @@ def process_dataframe_for_cty_data(df: pd.DataFrame, cty_dat_path: str, shared_c
             logging.critical(f"Fatal Error initializing CtyLookup for universal annotations: {e}")
             raise
 
-    temp_results = processed_df['Call'].apply(
-        lambda call: cty_lookup_instance.get_cty_DXCC_WAE(call)._asdict()
-    ).tolist()
+    # Diagnostic logging wrapper: log warning and return UNKNOWN_ENTITY on error (similar to X-QSO handling)
+    def safe_cty_lookup(call: str) -> Dict[str, Any]:
+        """
+        Wraps CTY lookup with error handling. Logs diagnostic information on failure
+        and returns UNKNOWN_ENTITY as fallback to continue processing.
+        """
+        try:
+            return cty_lookup_instance.get_cty_DXCC_WAE(call)._asdict()
+        except Exception as e:
+            # Log warning with diagnostic details (following X-QSO pattern: log and ignore)
+            logging.warning(f"CTY lookup failed for callsign '{call}': {e}. Using UNKNOWN_ENTITY.")
+            logging.debug(f"CTY lookup error traceback for callsign '{call}':\n{traceback.format_exc()}")
+            # Return UNKNOWN_ENTITY as fallback so processing can continue
+            return cty_lookup_instance.UNKNOWN_ENTITY._asdict()
+
+    temp_results = processed_df['Call'].apply(safe_cty_lookup).tolist()
 
     temp_df = pd.DataFrame(temp_results, index=processed_df.index)
 
