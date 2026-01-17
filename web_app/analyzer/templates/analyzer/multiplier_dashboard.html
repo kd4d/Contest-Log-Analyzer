@@ -148,12 +148,11 @@
             <li class="nav-item" role="presentation">
                 <button class="nav-link active" id="pills-all-tab" data-bs-toggle="pill" data-bs-target="#pills-all" type="button" role="tab">All Multipliers</button>
             </li>
+            {% for mult_name in multiplier_names %}
             <li class="nav-item" role="presentation">
-                 <button class="nav-link" id="pills-countries-tab" data-bs-toggle="pill" data-bs-target="#pills-countries" type="button" role="tab">Countries</button>
+                <button class="nav-link" id="pills-{{ mult_name|lower|replace:' ':'-' }}-tab" data-bs-toggle="pill" data-bs-target="#pills-{{ mult_name|lower|replace:' ':'-' }}" type="button" role="tab">{{ mult_name }}</button>
             </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="pills-zones-tab" data-bs-toggle="pill" data-bs-target="#pills-zones" type="button" role="tab">Zones</button>
-            </li>
+            {% endfor %}
     </ul>
 
         <div class="tab-content" id="pills-tabContent">
@@ -231,16 +230,18 @@
                 </div>
             </div>
 
-            <div class="tab-pane fade" id="pills-countries" role="tabpanel">
+            {% for mult_name in multiplier_names %}
+            {% with mult_id=mult_name|lower|replace:' ':'-' mult_key=mult_name|lower|replace:" ":"_" mult_max=global_max|get_item:mult_key %}
+            <div class="tab-pane fade" id="pills-{{ mult_id }}" role="tabpanel">
                 <div class="vert-spectrum">
                     <div class="y-axis-col">
                         <div class="y-axis-spacer-header"></div>
                         <div class="y-axis-scale-area">
                             <div class="y-tick" style="bottom: 0%">0</div>
-                            <div class="y-tick" style="bottom: 25%">{% widthratio global_max.countries 4 1 %}</div>
-                            <div class="y-tick" style="bottom: 50%">{% widthratio global_max.countries 2 1 %}</div>
-                            <div class="y-tick" style="bottom: 75%">{% widthratio global_max.countries 4 3 %}</div>
-                            <div class="y-tick" style="bottom: 100%">{{ global_max.countries }}</div>
+                            <div class="y-tick" style="bottom: 25%">{% widthratio mult_max 4 1 %}</div>
+                            <div class="y-tick" style="bottom: 50%">{% widthratio mult_max 2 1 %}</div>
+                            <div class="y-tick" style="bottom: 75%">{% widthratio mult_max 4 3 %}</div>
+                            <div class="y-tick" style="bottom: 100%">{{ mult_max }}</div>
                         </div>
                         <div class="y-axis-spacer-foundation"></div>
                         <div class="y-axis-spacer-footer"></div>
@@ -257,70 +258,12 @@
                     <div class="vert-col">
                         <div class="vert-header">{{ block.label }}</div>
                         {% for row in block.rows %}
-                            {% if "Countries" in row.label %}
+                            {% if mult_name in row.label %}
                                 <div class="vert-spikes-container">
                                 {% for stat in row.stations %}
                                 {% with total_unique=stat.unique_run|add:stat.unique_sp|add:stat.unique_unk %}
                                     <div class="vert-bar-wrapper">
-                                    <div class="vert-bar" style="height: {% widthratio total_unique global_max.countries 100 %}%;" data-bs-toggle="tooltip" title="{{ all_calls|get_item:forloop.counter0 }}: {{ total_unique }} Unique">
-                                        <div class="bg-unk" style="height: {% widthratio stat.unique_unk total_unique 100 %}%;"></div>
-                                        <div class="bg-sp" style="height: {% widthratio stat.unique_sp total_unique 100 %}%;"></div>
-                                        <div class="bg-run" style="height: {% widthratio stat.unique_run total_unique 100 %}%;"></div>
-                                    </div>
-                                    </div>
-                                {% endwith %}
-                                {% endfor %}
-                                </div>
-               
-                            <div class="vert-foundation">
-                                <div class="h4 fw-bold text-secondary m-0">{{ row.common }}</div>
-                                <div class="small fw-bold text-muted text-uppercase" style="font-size:0.6rem;">Common</div>
-                           </div>
-   
-                            <div class="d-flex" style="background:#f8fafc;">
-                                {% for call in all_calls %}
-                                <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>
-                                {% endfor %}
-                            </div>
-                            {% endif %}
-                        {% endfor %}
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-
-            <div class="tab-pane fade" id="pills-zones" role="tabpanel">
-                 <div class="vert-spectrum">
-                      <div class="y-axis-col">
-                        <div class="y-axis-spacer-header"></div>
-                        <div class="y-axis-scale-area">
-                            <div class="y-tick" style="bottom: 0%">0</div>
-                             <div class="y-tick" style="bottom: 25%">{% widthratio global_max.zones 4 1 %}</div>
-                            <div class="y-tick" style="bottom: 50%">{% widthratio global_max.zones 2 1 %}</div>
-                            <div class="y-tick" style="bottom: 75%">{% widthratio global_max.zones 4 3 %}</div>
-                            <div class="y-tick" style="bottom: 100%">{{ global_max.zones }}</div>
-                        </div>
-                        <div class="y-axis-spacer-foundation"></div>
-                        <div class="y-axis-spacer-footer"></div>
-                    </div>
-                    
-                    <div class="h-grid-lines-container">
-                        <div class="h-grid-line" style="bottom: 25%"></div>
-                        <div class="h-grid-line" style="bottom: 50%"></div>
-                        <div class="h-grid-line" style="bottom: 75%"></div>
-                        <div class="h-grid-line" style="bottom: 100%"></div>
-                    </div>
-
-                    {% for block in low_bands_data|add:high_bands_data %}
-                    <div class="vert-col">
-                        <div class="vert-header">{{ block.label }}</div>
-                       {% for row in block.rows %}
-                            {% if "Zones" in row.label %}
-                            <div class="vert-spikes-container">
-                                {% for stat in row.stations %}
-                                {% with total_unique=stat.unique_run|add:stat.unique_sp|add:stat.unique_unk %}
-                                <div class="vert-bar-wrapper">
-                                    <div class="vert-bar" style="height: {% widthratio total_unique global_max.zones 100 %}%;" data-bs-toggle="tooltip" title="{{ all_calls|get_item:forloop.counter0 }}: {{ total_unique }} Unique">
+                                    <div class="vert-bar" style="height: {% widthratio total_unique mult_max 100 %}%;" data-bs-toggle="tooltip" title="{{ all_calls|get_item:forloop.counter0 }}: {{ total_unique }} Unique">
                                         <div class="bg-unk" style="height: {% widthratio stat.unique_unk total_unique 100 %}%;"></div>
                                         <div class="bg-sp" style="height: {% widthratio stat.unique_sp total_unique 100 %}%;"></div>
                                         <div class="bg-run" style="height: {% widthratio stat.unique_run total_unique 100 %}%;"></div>
@@ -350,17 +293,19 @@
                            {% endfor %}
                            {% endif %}
      
-                             <div class="d-flex" style="background:#f8fafc;">
+                            <div class="d-flex" style="background:#f8fafc;">
                                 {% for call in all_calls %}
-                               <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>
+                                <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>
                                 {% endfor %}
                             </div>
                             {% endif %}
                         {% endfor %}
                     </div>
                     {% endfor %}
-                 </div>
+                </div>
             </div>
+            {% endwith %}
+            {% endfor %}
 
         </div>
     </div>

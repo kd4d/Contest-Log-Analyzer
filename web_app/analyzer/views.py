@@ -783,22 +783,45 @@ def multiplier_dashboard(request, session_id):
     # Common suffix for text reports
     suffix = f"_{combo_id}"
 
-    # 6. Calculate Global Maxima for Consistent Scaling (Normalization)
-    global_max = {'total': 1, 'countries': 1, 'zones': 1} # Default 1 to avoid div/0
-    if breakdown_data and 'bands' in breakdown_data:
-        for block in breakdown_data['bands']:
-            for row in block['rows']:
-                row_max = 0
-                for stat in row['stations']:
-                    val = stat.get('unique_run', 0) + stat.get('unique_sp', 0) + stat.get('unique_unk', 0)
-                    if val > row_max: row_max = val
-                
-                if row['label'] == 'TOTAL' or row['label'] == block['label']:
-                    if row_max > global_max['total']: global_max['total'] = row_max
-                elif 'Countries' in row['label']:
-                    if row_max > global_max['countries']: global_max['countries'] = row_max
-                elif 'Zones' in row['label']:
-                    if row_max > global_max['zones']: global_max['zones'] = row_max
+    # 6. Extract Multiplier Names and Calculate Global Maxima Dynamically
+    multiplier_names = []  # List of multiplier names found in the data
+    global_max = {'total': 1}  # Dynamic dict: will contain 'total' and one entry per multiplier type
+    
+    if breakdown_data:
+        # Extract multiplier names from totals (skip "TOTAL" row)
+        if 'totals' in breakdown_data:
+            for row in breakdown_data['totals']:
+                mult_name = row.get('label', '')
+                if mult_name and mult_name != 'TOTAL':
+                    # Normalize multiplier name for use as dict key (lowercase, no spaces)
+                    mult_key = mult_name.lower().replace(' ', '_')
+                    if mult_name not in multiplier_names:
+                        multiplier_names.append(mult_name)
+                    # Initialize max for this multiplier type
+                    if mult_key not in global_max:
+                        global_max[mult_key] = 1
+        
+        # Calculate global_max for each multiplier type from band breakdowns
+        if 'bands' in breakdown_data:
+            for block in breakdown_data['bands']:
+                for row in block['rows']:
+                    row_max = 0
+                    for stat in row['stations']:
+                        val = stat.get('unique_run', 0) + stat.get('unique_sp', 0) + stat.get('unique_unk', 0)
+                        if val > row_max: row_max = val
+                    
+                    row_label = row.get('label', '')
+                    
+                    # Check if this is the TOTAL or band total row
+                    if row_label == 'TOTAL' or row_label == block.get('label', ''):
+                        if row_max > global_max['total']: global_max['total'] = row_max
+                    else:
+                        # Check if this row matches any multiplier name (e.g., "10M_States" or "States")
+                        for mult_name in multiplier_names:
+                            # Match pattern: "{band}_{mult_name}" or just "{mult_name}"
+                            if mult_name in row_label:
+                                mult_key = mult_name.lower().replace(' ', '_')
+                                if row_max > global_max[mult_key]: global_max[mult_key] = row_max
 
     # 4. Discover Text Version of Breakdown
     breakdown_txt_rel_path = None
@@ -979,6 +1002,7 @@ def multiplier_dashboard(request, session_id):
         'multipliers': sorted_mults,
         'is_solo': (log_count == 1),
         'global_max': global_max,
+        'multiplier_names': multiplier_names,  # Dynamic list of multiplier types for Band Spectrum tabs
     }
     return render(request, 'analyzer/multiplier_dashboard.html', context)
 
