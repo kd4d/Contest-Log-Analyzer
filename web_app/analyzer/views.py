@@ -522,13 +522,15 @@ def _run_analysis_pipeline(request_id, log_paths, session_path, session_key):
     
     # Note: Multiplier filename removed here. It is now dynamically resolved in multiplier_dashboard view.
 
-    # Extract valid_bands from contest definition for Fast Path in dashboards
+    # Extract valid_bands and valid_modes from contest definition for Fast Path in dashboards
     valid_bands = ['80M', '40M', '20M', '15M', '10M']  # Default fallback
+    valid_modes = []  # Default: empty list (will be populated if defined in JSON)
     if lm.logs:
         try:
             valid_bands = lm.logs[0].contest_definition.valid_bands
+            valid_modes = lm.logs[0].contest_definition.valid_modes
         except Exception as e:
-            logger.warning(f"Failed to extract valid_bands from contest definition: {e}")
+            logger.warning(f"Failed to extract valid_bands/valid_modes from contest definition: {e}")
     
     context = {
         'session_key': session_key,
@@ -542,6 +544,7 @@ def _run_analysis_pipeline(request_id, log_paths, session_path, session_key):
         'footer_text': footer_text,
         'contest_name': contest_name,
         'valid_bands': valid_bands,  # Cached for Fast Path in qso_dashboard
+        'valid_modes': valid_modes,  # Cached for Fast Path in qso_dashboard (mode selector)
     }
     
     # Determine multiplier headers from the first log (assuming all are same contest)
@@ -1010,10 +1013,11 @@ def qso_dashboard(request, session_id):
     callsigns_safe = [c.lower().replace('/', '-') for c in callsigns_display]  # For filename matching
     is_solo = (len(callsigns_safe) == 1)
     
-    # 2a. Load valid_bands (Fast Path vs Slow Path)
+    # 2a. Load valid_bands and valid_modes (Fast Path vs Slow Path)
     # FAST PATH: Load from cached dashboard_context.json (avoids LogManager parsing)
     context_path = os.path.join(session_path, 'dashboard_context.json')
     valid_bands = ['80M', '40M', '20M', '15M', '10M']  # Default fallback
+    valid_modes = []  # Default: empty list
     
     if os.path.exists(context_path):
         try:
@@ -1022,11 +1026,14 @@ def qso_dashboard(request, session_id):
                 cached_bands = dashboard_ctx.get('valid_bands')
                 if cached_bands:
                     valid_bands = cached_bands
+                cached_modes = dashboard_ctx.get('valid_modes')
+                if cached_modes:
+                    valid_modes = cached_modes
         except Exception as e:
-            logger.warning(f"Failed to load valid_bands from dashboard context: {e}")
+            logger.warning(f"Failed to load valid_bands/valid_modes from dashboard context: {e}")
     
     # SLOW PATH: Fallback to LogManager parsing if cached data missing
-    if valid_bands == ['80M', '40M', '20M', '15M', '10M']:  # Still using default fallback
+    if valid_bands == ['80M', '40M', '20M', '15M', '10M'] or not valid_modes:  # Still using default fallback
         root_input = os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
         log_candidates = []
         for f in os.listdir(session_path):
@@ -1040,8 +1047,20 @@ def qso_dashboard(request, session_id):
                 lm.load_log_batch(log_candidates[:1], root_input, 'after')  # Load just first log
                 if lm.logs:
                     valid_bands = lm.logs[0].contest_definition.valid_bands
+                    valid_modes = lm.logs[0].contest_definition.valid_modes
             except Exception as e:
-                logger.warning(f"Failed to load contest definition for valid_bands (Slow Path): {e}")
+                logger.warning(f"Failed to load contest definition for valid_bands/valid_modes (Slow Path): {e}")
+    
+    # Determine contest type for selector generation
+    is_single_band = len(valid_bands) == 1
+    is_multi_mode = len(valid_modes) > 1
+    is_multi_band = len(valid_bands) > 1
+    
+    # Determine selector type for Rate Differential pane
+    # - Single-band, multi-mode: mode selector (e.g., ARRL 10)
+    # - Multi-band, single-mode: band selector (e.g., CQ WW CW)
+    # - Multi-band, multi-mode: band selector (primary), mode can be added later (e.g., NAQP, ARRL FD)
+    diff_selector_type = 'mode' if (is_single_band and is_multi_mode) else 'band'
     
     # Build band mapping: "80M" -> "80" for template buttons
     valid_bands_for_buttons = []
@@ -1055,6 +1074,56 @@ def qso_dashboard(request, session_id):
         })
     
     BAND_SORT_ORDER = {'ALL': 0, '160M': 1, '80M': 2, '40M': 3, '20M': 4, '15M': 5, '10M': 6, '6M': 7, '2M': 8}
+    MODE_SORT_ORDER = {'ALL': 0, 'CW': 1, 'PH': 2, 'RY': 3, 'DG': 4}
+    
+    def parse_diff_filename_metadata(metadata_part: str, valid_bands: list, valid_modes: list, is_single_band: bool) -> str:
+        """
+        Parses filename metadata part into a structured key for diff_paths.
+        
+        Filename format: cumulative_difference_plots_qsos_{band}_{mode}--{callsigns}.html
+        Examples:
+        - "10" (single-band, all modes) → "mode:all" (for single-band, multi-mode)
+        - "10_cw" (single-band, CW mode) → "mode:cw"
+        - "all" (multi-band, all modes) → "band:all"
+        - "80" (multi-band, all modes, specific band) → "band:80"
+        - "80_cw" (multi-band, CW mode, specific band) → "band:80" (mode handled separately later)
+        
+        Returns structured key: "dimension:value" format for extensibility.
+        """
+        parts = metadata_part.split('_')
+        band_part = parts[0].lower()
+        mode_part = parts[1].lower() if len(parts) > 1 else None
+        
+        # Normalize band part
+        if band_part == 'all':
+            band_key = 'all'
+        elif band_part.isdigit():
+            band_key = band_part
+        else:
+            # Try to match against valid_bands (e.g., "160m" -> "160")
+            band_key = band_part.replace('m', '')
+        
+        # Normalize mode part
+        mode_key = None
+        if mode_part:
+            mode_upper = mode_part.upper()
+            # Map common variations
+            if mode_upper in ['CW', 'PH', 'RY', 'DG']:
+                mode_key = mode_upper
+            elif mode_upper in ['SSB', 'USB', 'LSB']:
+                mode_key = 'PH'  # Cabrillo uses PH
+        
+        # Determine selector type and generate key
+        if is_single_band and len(valid_modes) > 1:
+            # Single-band, multi-mode: use mode dimension
+            if mode_key:
+                return f"mode:{mode_key.lower()}"
+            else:
+                return "mode:all"
+        else:
+            # Multi-band (or single-band, single-mode): use band dimension
+            # For now, ignore mode in key (can add mode: prefix later for multi-band, multi-mode)
+            return f"band:{band_key}"
     
     # 3. Identify Pairs for Strategy Tab
     matchups = []
@@ -1088,17 +1157,19 @@ def qso_dashboard(request, session_id):
                     
                     # Check if this file matches our pair (new format with -- delimiter)
                     if target_suffix in fname and fname.startswith(target_prefix):
-                        # Extract band from filename: cumulative_difference_plots_qsos_{band}--{callsigns}.html
-                        # Format: {prefix}{band}--{callsigns}.{ext}
-                        band_part = fname.replace(target_prefix, '').split('--')[0]
-                        # band_part is like "all", "80", "40", "20", "15", "10" (lowercase, no 'M')
+                        # Extract metadata part from filename: cumulative_difference_plots_qsos_{band}_{mode}--{callsigns}.html
+                        # Format: {prefix}{metadata}--{callsigns}.{ext}
+                        metadata_part = fname.replace(target_prefix, '').split('--')[0]
+                        
+                        # Parse into structured key (dimension:value format)
+                        structured_key = parse_diff_filename_metadata(metadata_part, valid_bands, valid_modes, is_single_band)
                         
                         if art['path'].endswith('.html'):
                             # Prepend report_rel_path to ensure view_report can find it
-                            diff_paths[band_part] = f"{report_rel_path}/{art['path']}"
+                            diff_paths[structured_key] = f"{report_rel_path}/{art['path']}"
                         elif art['path'].endswith('.json'):
                             # JSON Path Logic (Direct URL access via media)
-                            diff_json_paths[band_part] = f"{settings.MEDIA_URL}sessions/{session_id}/{report_rel_path}/{art['path']}"
+                            diff_json_paths[structured_key] = f"{settings.MEDIA_URL}sessions/{session_id}/{report_rel_path}/{art['path']}"
         
             # Find breakdown chart
             bk_path = next((f"{report_rel_path}/{a['path']}" for a in artifacts if a['report_id'] == 'qso_breakdown_chart' and f"_{c1}_{c2}" in a['path'] and a['path'].endswith('.html')), "")
@@ -1162,22 +1233,44 @@ def qso_dashboard(request, session_id):
                 # New format: point_rate_plots_all--k1lz_k3lr_w3lpl.html or point_rate_plots_20m--k1lz_k3lr_w3lpl.html
                 # Split on -- to separate band/mode from callsigns
                 parts_before_dash = fname.replace('point_rate_plots_', '').split('--')[0]
-                # Extract band from first part (e.g., "all", "20m", "20m_cw")
+                # Extract band from first part (e.g., "all", "20m", "20m_cw", "10_cw", "10_ph")
                 band_parts = parts_before_dash.split('_')
                 band_key = band_parts[0].upper()
+                mode_key = band_parts[1].upper() if len(band_parts) > 1 else None
             else:
                 # Old format (backward compatibility): point_rate_plots_20m_k1lz_k3lr.html
                 remainder = fname.replace('point_rate_plots_', '')
                 parts = remainder.split('_')
                 if parts:
                     band_key = parts[0].upper()
+                    mode_key = parts[1].upper() if len(parts) > 1 else None
                 else:
                     continue
             
             if band_key.isdigit(): band_key += 'M'
             
-            label = "All Bands" if band_key == 'ALL' else band_key
-            sort_val = BAND_SORT_ORDER.get(band_key, 99)
+            # For single-band, multi-mode contests: use mode labels instead of band labels
+            # e.g., ARRL 10: "All", "CW", "PH" instead of all showing "10"
+            if is_single_band and is_multi_mode and mode_key:
+                # Extract mode from filename (e.g., "10_cw" -> "CW", "10_ph" -> "PH")
+                mode_upper = mode_key
+                if mode_upper in ['CW', 'PH', 'RY', 'DG']:
+                    label = mode_upper
+                elif mode_upper in ['SSB', 'USB', 'LSB']:
+                    label = 'PH'  # Cabrillo uses PH
+                else:
+                    label = mode_upper  # Fallback
+                # Sort value will be set later by MODE_SORT_ORDER, use temp value for now
+                sort_val = 50  # Temporary, will be overridden
+            elif is_single_band and is_multi_mode and not mode_key:
+                # "All" mode for single-band, multi-mode (e.g., "10" without mode suffix)
+                label = "All"
+                # Sort value will be set later by MODE_SORT_ORDER, use temp value for now
+                sort_val = 50  # Temporary, will be overridden
+            else:
+                # Multi-band contests: use band labels
+                label = "All Bands" if band_key == 'ALL' else band_key
+                sort_val = BAND_SORT_ORDER.get(band_key, 99)
             
             point_plots.append({
                 'label': label,
@@ -1186,19 +1279,45 @@ def qso_dashboard(request, session_id):
                 'sort_val': sort_val
             })
     
-    # Sort by band order
-    point_plots.sort(key=lambda x: x['sort_val'])
+    # Sort: For single-band, multi-mode, sort by mode order (All first, then CW, PH, etc.)
+    # For multi-band, sort by band order (All Bands first, then 20M, etc.)
+    if is_single_band and is_multi_mode:
+        # Define mode sort order
+        MODE_SORT_ORDER = {'all': 0, 'cw': 1, 'ph': 2, 'ry': 3, 'dg': 4}
+        for p in point_plots:
+            label_lower = p['label'].lower()
+            p['sort_val'] = MODE_SORT_ORDER.get(label_lower, 99)
+        point_plots.sort(key=lambda x: x['sort_val'])
+    else:
+        point_plots.sort(key=lambda x: x['sort_val'])
     
-    # Default active to 20M, fallback to first available
+    # Default active selection
     active_set = False
     if point_plots:
-        for p in point_plots:
-            if p['label'] == '20M':
-                p['active'] = True
-                active_set = True
-                break
-        if not active_set:
-            point_plots[0]['active'] = True
+        # For single-band, multi-mode: prioritize "All", otherwise first available
+        if is_single_band and is_multi_mode:
+            for p in point_plots:
+                if p['label'] == 'All':
+                    p['active'] = True
+                    active_set = True
+                    break
+            if not active_set:
+                point_plots[0]['active'] = True
+        else:
+            # Multi-band: prioritize "All Bands", then 20M, then first available
+            for p in point_plots:
+                if p['label'] == 'All Bands':
+                    p['active'] = True
+                    active_set = True
+                    break
+            if not active_set:
+                for p in point_plots:
+                    if p['label'] == '20M':
+                        p['active'] = True
+                        active_set = True
+                        break
+            if not active_set:
+                point_plots[0]['active'] = True
 
     # 5. Discover QSO Rate Plots (Manifest Scan)
     qso_band_plots = []
@@ -1241,23 +1360,44 @@ def qso_dashboard(request, session_id):
                 # New format: qso_rate_plots_all--k1lz_k3lr_w3lpl.html or qso_rate_plots_20m--k1lz_k3lr_w3lpl.html
                 # Split on -- to separate band/mode from callsigns
                 parts_before_dash = fname.replace('qso_rate_plots_', '').split('--')[0]
-                # Extract band from first part (e.g., "all", "20m", "20m_cw")
+                # Extract band from first part (e.g., "all", "20m", "20m_cw", "10_cw", "10_ph")
                 band_parts = parts_before_dash.split('_')
                 band_key = band_parts[0].upper()
+                mode_key = band_parts[1].upper() if len(band_parts) > 1 else None
             else:
                 # Old format (backward compatibility): qso_rate_plots_20m_k1lz_k3lr.html
                 remainder = fname.replace('qso_rate_plots_', '')
                 parts = remainder.split('_')
                 if parts:
                     band_key = parts[0].upper()
+                    mode_key = parts[1].upper() if len(parts) > 1 else None
                 else:
                     continue
             
             if band_key.isdigit(): band_key += 'M'
-            if band_key == 'ALL': continue
-
-            label = band_key
-            sort_val = BAND_SORT_ORDER.get(band_key, 99)
+            
+            # For single-band, multi-mode contests: use mode labels instead of band labels
+            # e.g., ARRL 10: "All", "CW", "PH" instead of all showing "10"
+            if is_single_band and is_multi_mode and mode_key:
+                # Extract mode from filename (e.g., "10_cw" -> "CW", "10_ph" -> "PH")
+                mode_upper = mode_key
+                if mode_upper in ['CW', 'PH', 'RY', 'DG']:
+                    label = mode_upper
+                elif mode_upper in ['SSB', 'USB', 'LSB']:
+                    label = 'PH'  # Cabrillo uses PH
+                else:
+                    label = mode_upper  # Fallback
+                # Sort value will be set later by MODE_SORT_ORDER, use temp value for now
+                sort_val = 50  # Temporary, will be overridden
+            elif is_single_band and is_multi_mode and not mode_key:
+                # "All" mode for single-band, multi-mode (e.g., "10" without mode suffix)
+                label = "All"
+                # Sort value will be set later by MODE_SORT_ORDER, use temp value for now
+                sort_val = 50  # Temporary, will be overridden
+            else:
+                # Multi-band contests: use band labels
+                label = "All Bands" if band_key == 'ALL' else band_key
+                sort_val = BAND_SORT_ORDER.get(band_key, 99)
             
             qso_band_plots.append({
                 'label': label,
@@ -1266,25 +1406,51 @@ def qso_dashboard(request, session_id):
                 'sort_val': sort_val
             })
 
-    qso_band_plots.sort(key=lambda x: x['sort_val'])
+    # Sort: For single-band, multi-mode, sort by mode order (All first, then CW, PH, etc.)
+    # For multi-band, sort by band order (All Bands first, then 20M, etc.)
+    if is_single_band and is_multi_mode:
+        # Define mode sort order
+        MODE_SORT_ORDER = {'all': 0, 'cw': 1, 'ph': 2, 'ry': 3, 'dg': 4}
+        for p in qso_band_plots:
+            label_lower = p['label'].lower()
+            p['sort_val'] = MODE_SORT_ORDER.get(label_lower, 99)
+        qso_band_plots.sort(key=lambda x: x['sort_val'])
+    else:
+        qso_band_plots.sort(key=lambda x: x['sort_val'])
     
-    # Default active to 20M for consistency
+    # Default active selection
     active_set = False
     if qso_band_plots:
-        for p in qso_band_plots:
-            if p['label'] == '20M':
-                p['active'] = True
-                active_set = True
-                break
-        if not active_set:
-            qso_band_plots[0]['active'] = True
+        # For single-band, multi-mode: prioritize "All", otherwise first available
+        if is_single_band and is_multi_mode:
+            for p in qso_band_plots:
+                if p['label'] == 'All':
+                    p['active'] = True
+                    active_set = True
+                    break
+            if not active_set:
+                qso_band_plots[0]['active'] = True
+        else:
+            # Multi-band: prioritize "All Bands", then 20M, then first available
+            for p in qso_band_plots:
+                if p['label'] == 'All Bands':
+                    p['active'] = True
+                    active_set = True
+                    break
+            if not active_set:
+                for p in qso_band_plots:
+                    if p['label'] == '20M':
+                        p['active'] = True
+                        active_set = True
+                        break
+            if not active_set:
+                qso_band_plots[0]['active'] = True
 
     # Global files via manifest lookup
     # Handle both multi-band and single-band contests
     # Multi-band: qso_rate_plots_all--{callsigns}.html
     # Single-band: qso_rate_plots_{band}--{callsigns}.html (e.g., qso_rate_plots_10--{callsigns}.html)
     # Old format (backward compat): qso_rate_plots_all_{callsigns}.html
-    is_single_band = len(valid_bands) == 1
     single_band_name = valid_bands[0].replace('M', '').lower() if is_single_band else None  # e.g., "10" for "10M"
     
     if is_solo:
@@ -1335,6 +1501,20 @@ def qso_dashboard(request, session_id):
         if not os.path.exists(expected_rate_sheet):
             logger.warning(f"QSO Dashboard: Expected rate sheet not found: {expected_rate_sheet}")
 
+    # Prepare valid_modes for template (similar to valid_bands_for_buttons)
+    valid_modes_for_buttons = []
+    if valid_modes:
+        for mode in valid_modes:
+            valid_modes_for_buttons.append({
+                'display': mode,
+                'key': mode.lower()
+            })
+        # Add "All" option at the beginning
+        valid_modes_for_buttons.insert(0, {
+            'display': 'All',
+            'key': 'all'
+        })
+
     context = {
         'session_id': session_id,
         'callsigns': callsigns_display,
@@ -1346,7 +1526,9 @@ def qso_dashboard(request, session_id):
         'rate_sheet_comparison': rate_sheet_comp,
         'report_base': report_base,
         'is_solo': is_solo,
-        'valid_bands': valid_bands_for_buttons  # For dynamic band button generation
+        'valid_bands': valid_bands_for_buttons,  # For dynamic band button generation
+        'valid_modes': valid_modes_for_buttons,  # For dynamic mode button generation
+        'diff_selector_type': diff_selector_type  # 'band' or 'mode' for Rate Differential pane
     }
     
     return render(request, 'analyzer/qso_dashboard.html', context)

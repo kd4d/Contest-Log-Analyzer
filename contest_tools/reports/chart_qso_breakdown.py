@@ -43,14 +43,16 @@ class Report(ContestReport):
         self.log2 = logs[1]
         self.aggregator = CategoricalAggregator()
 
-    def _prepare_data(self, band: str) -> Dict:
+    def _prepare_data(self, band: str = None, mode_filter: str = None) -> Dict:
         """
-        Aggregates data for a specific band using CategoricalAggregator.
+        Aggregates data for a specific band or mode using CategoricalAggregator.
+        For single-band, multi-mode contests, use mode_filter instead of band_filter.
         """
         comparison_data = self.aggregator.compute_comparison_breakdown(
             self.log1, 
             self.log2, 
-            band_filter=band
+            band_filter=band,
+            mode_filter=mode_filter
         )
         
         categories = [
@@ -94,54 +96,118 @@ class Report(ContestReport):
         df1 = get_valid_dataframe(self.log1)
         df2 = get_valid_dataframe(self.log2)
 
+        # Determine contest type: single-band, multi-mode vs multi-band
         raw_bands = set(df1['Band'].unique()) | set(df2['Band'].unique())
-        canonical_band_order = [b[1] for b in ContestLog._HAM_BANDS]
-        bands = sorted(raw_bands, key=lambda b: canonical_band_order.index(b) if b in canonical_band_order else -1)
-
-        if not bands:
-            return []
-
-        # Grid Calculation
-        num_bands = len(bands)
-        cols = min(3, num_bands)
-        rows = (num_bands + cols - 1) // cols
-
-        fig = make_subplots(
-            rows=rows, 
-            cols=cols, 
-            shared_yaxes=True,
-            vertical_spacing=0.15
-        )
-
-        colors = PlotlyStyleManager.get_qso_mode_colors()
-
-        for i, band in enumerate(bands):
-            # Plotly uses 1-based indexing for rows/cols
-            row = (i // cols) + 1
-            col = (i % cols) + 1
+        raw_modes = set(df1['Mode'].dropna().unique()) | set(df2['Mode'].dropna().unique())
+        
+        is_single_band = len(raw_bands) == 1
+        is_multi_mode = len(raw_modes) > 1
+        
+        # For single-band, multi-mode: break down by mode instead of band
+        if is_single_band and is_multi_mode:
+            # Get the single band name for chart titles
+            single_band = sorted(raw_bands, key=lambda b: [b[1] for b in ContestLog._HAM_BANDS].index(b) if b in [b[1] for b in ContestLog._HAM_BANDS] else 99)[0]
             
-            data_dict = self._prepare_data(band)
-            categories = data_dict['categories']
-            modes = data_dict['modes']
-            data = data_dict['data']
+            # Use contest definition's valid_modes if available, otherwise use modes from data
+            contest_def = self.log1.contest_definition
+            if hasattr(contest_def, 'valid_modes') and contest_def.valid_modes:
+                modes = sorted([m for m in contest_def.valid_modes if m in raw_modes])
+            else:
+                modes = sorted(list(raw_modes))
             
-            # Show legend only on the first subplot to prevent duplication
-            show_legend = (i == 0)
+            if not modes:
+                return []
+            
+            # Grid Calculation for modes
+            num_items = len(modes)
+            cols = min(3, num_items)
+            rows = (num_items + cols - 1) // cols
+            
+            fig = make_subplots(
+                rows=rows, 
+                cols=cols, 
+                shared_yaxes=True,
+                vertical_spacing=0.15
+            )
+            
+            colors = PlotlyStyleManager.get_qso_mode_colors()
+            
+            for i, mode in enumerate(modes):
+                # Plotly uses 1-based indexing for rows/cols
+                row = (i // cols) + 1
+                col = (i % cols) + 1
+                
+                # Filter by mode instead of band
+                data_dict = self._prepare_data(band=None, mode_filter=mode)
+                categories = data_dict['categories']
+                run_sp_modes = data_dict['modes']
+                data = data_dict['data']
+                
+                # Show legend only on the first subplot to prevent duplication
+                show_legend = (i == 0)
+                
+                for run_sp_mode in run_sp_modes:
+                    fig.add_trace(
+                        go.Bar(
+                            name=run_sp_mode,
+                            x=categories,
+                            y=data[run_sp_mode],
+                            marker_color=colors[run_sp_mode],
+                            showlegend=show_legend,
+                            legendgroup=run_sp_mode  # Groups traces so toggling 'Run' toggles it on all subplots
+                        ),
+                        row=row, col=col
+                    )
+                # Chart title: "10M - CW" or "10M - PH" for single-band, multi-mode
+                fig.update_xaxes(title_text=f"{single_band} - {mode}", title_standoff=5, row=row, col=col)
+        else:
+            # Multi-band contest: break down by band (original logic)
+            canonical_band_order = [b[1] for b in ContestLog._HAM_BANDS]
+            bands = sorted(raw_bands, key=lambda b: canonical_band_order.index(b) if b in canonical_band_order else -1)
 
-            for mode in modes:
-                fig.add_trace(
-                    go.Bar(
-                        name=mode,
-                        x=categories,
-                        y=data[mode],
-                        marker_color=colors[mode],
-                        showlegend=show_legend,
-                        legendgroup=mode 
-# Groups traces so toggling 'Run' toggles it on all subplots
-                    ),
-                    row=row, col=col
-                )
-            fig.update_xaxes(title_text=band, title_standoff=5, row=row, col=col)
+            if not bands:
+                return []
+
+            # Grid Calculation
+            num_bands = len(bands)
+            cols = min(3, num_bands)
+            rows = (num_bands + cols - 1) // cols
+
+            fig = make_subplots(
+                rows=rows, 
+                cols=cols, 
+                shared_yaxes=True,
+                vertical_spacing=0.15
+            )
+
+            colors = PlotlyStyleManager.get_qso_mode_colors()
+
+            for i, band in enumerate(bands):
+                # Plotly uses 1-based indexing for rows/cols
+                row = (i // cols) + 1
+                col = (i % cols) + 1
+                
+                data_dict = self._prepare_data(band=band)
+                categories = data_dict['categories']
+                modes = data_dict['modes']
+                data = data_dict['data']
+                
+                # Show legend only on the first subplot to prevent duplication
+                show_legend = (i == 0)
+
+                for mode in modes:
+                    fig.add_trace(
+                        go.Bar(
+                            name=mode,
+                            x=categories,
+                            y=data[mode],
+                            marker_color=colors[mode],
+                            showlegend=show_legend,
+                            legendgroup=mode  # Groups traces so toggling 'Run' toggles it on all subplots
+                        ),
+                        row=row, col=col
+                    )
+                fig.update_xaxes(title_text=band, title_standoff=5, row=row, col=col)
 
         # Standard Layout Application
         modes_present = set(df1['Mode'].dropna().unique()) | set(df2['Mode'].dropna().unique())
