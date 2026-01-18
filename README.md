@@ -1,6 +1,6 @@
 # Contest Log Analytics
 
-**Version: 1.0.0-alpha.5**  
+**Version: 1.0.0-alpha.7**  
 **A post-mortem analysis engine for amateur radio contesting**
 
 ---

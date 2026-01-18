@@ -5,6 +5,25 @@ All notable changes to Contest Log Analyzer will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-alpha.7] - 2026-01-18
+[Full Release Notes](ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.7.md)
+
+### Fixed
+- File upload regression - form submission now includes files
+  - Removed code that disabled file inputs before form submission
+  - Disabled file inputs are not included in form data by browsers
+  - Only submit buttons are disabled to prevent double-submission
+- Release notes CHANGELOG.md path construction
+  - Fixed Path object to string conversion for cross-platform compatibility
+
+### Changed
+- Diagnostic logging improvements
+  - All diagnostics now use WARNING/ERROR level (not INFO)
+  - Added comprehensive diagnostic logging for file upload debugging
+  - Updated AI Agent Rules to require WARNING/ERROR level for diagnostics
+
+---
+
 ## [1.0.0-alpha.6] - 2026-01-17
 [Full Release Notes](ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.6.md)
 
