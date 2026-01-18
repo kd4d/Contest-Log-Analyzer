@@ -81,7 +81,7 @@
   },
   "multiplier_rules": [
     {
-      "name": "States",
+      "name": "US States",
       "value_column": "Mult_State",
       "name_column": "Mult_StateName",
       "totaling_method": "once_per_mode"
