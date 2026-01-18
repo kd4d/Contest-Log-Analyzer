@@ -170,6 +170,7 @@
                                 <select class="form-select" id="archiveContest">
                                     <option value="" selected>Select Contest...</option>
                                     <option value="CQ-WW">CQ World Wide DX</option>
+                                    <option value="CQ-160">CQ 160 Meter</option>
                                     <option value="ARRL-10">ARRL 10 Meter</option>
                                 </select>
                             </div>
@@ -325,6 +326,9 @@
                 if (contest === 'CQ-WW') {
                     yearSelect.disabled = false;
                     modeSelect.disabled = true; // Will be enabled after year selection
+                } else if (contest === 'CQ-160') {
+                    yearSelect.disabled = false;
+                    modeSelect.disabled = true; // Will be enabled after year selection
                 } else if (contest === 'ARRL-10') {
                     yearSelect.disabled = false;
                     modeSelect.disabled = true; // ARRL-10 has no modes
@@ -345,8 +349,8 @@
                     return;
                 }
                 
-                // CQ-WW requires mode, ARRL-10 doesn't
-                if (contest === 'CQ-WW' && !mode) {
+                // CQ-WW and CQ-160 require mode, ARRL-10 doesn't
+                if ((contest === 'CQ-WW' || contest === 'CQ-160') && !mode) {
                     return; // Wait for mode selection
                 }
                 
@@ -392,15 +396,16 @@
                 if (contest === 'ARRL-10') {
                     // ARRL-10: Fetch index when year is selected (no mode needed)
                     fetchLogIndex();
-                } else if (contest === 'CQ-WW') {
-                    // CQ-WW: Enable mode selection after year is selected
+                } else if (contest === 'CQ-WW' || contest === 'CQ-160') {
+                    // CQ-WW and CQ-160: Enable mode selection after year is selected
                     modeSelect.disabled = false;
                 }
             });
             
-            // Handle mode selection (CQ-WW only)
+            // Handle mode selection (CQ-WW and CQ-160)
             modeSelect.addEventListener('change', function() {
-                if (contestSelect.value === 'CQ-WW') {
+                const contest = contestSelect.value;
+                if (contest === 'CQ-WW' || contest === 'CQ-160') {
                     fetchLogIndex();
                 }
             });
@@ -554,7 +559,7 @@
                     yearSelect.disabled = false;
                 }
                 // Mode select is conditionally enabled based on contest/year
-                if (contestSelect.value === 'CQ-WW' && yearSelect.value) {
+                if ((contestSelect.value === 'CQ-WW' || contestSelect.value === 'CQ-160') && yearSelect.value) {
                     modeSelect.disabled = false;
                 } else if (contestSelect.value === 'ARRL-10' && yearSelect.value) {
                     modeSelect.disabled = true; // ARRL-10 doesn't use mode

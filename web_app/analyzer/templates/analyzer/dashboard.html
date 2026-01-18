@@ -32,46 +32,90 @@
     <p class="lead text-muted mb-5">Analysis complete.
     These interactive visualizations and reports were generated directly from your uploaded logs.</p>
 
-    <div class="card shadow-sm border-0 mb-5">
-        <div class="card-header bg-white py-3">
-            <h5 class="mb-0 fw-bold text-primary"><i class="bi bi-trophy me-2"></i>The Scoreboard</h5>
-        </div>
-        <div class="card-body p-0">
-            <table class="table table-hover table-striped mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th class="py-3 ps-4">Callsign</th>
-                        <th class="py-3 text-end">Total QSOs</th>
-                        <th class="py-3 text-end text-success">Run QSOs</th>
-                        <th class="py-3 text-end text-success">Run %</th>
-                        {% for header in mult_headers %}
-                        <th class="py-3 text-end">{{ header }}</th>
-                        {% endfor %}
-                        <th class="py-3 text-end pe-4">Score</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for log in logs %}
-                    <tr>
-                        <td class="ps-4 fw-bold text-primary">{{ log.callsign }}</td>
-                        <td class="text-end">{{ log.qsos|intcomma }}</td>
-                        <td class="text-end fw-bold text-success">{{ log.run_qsos|intcomma }}</td>
-                        <td class="text-end fw-bold text-success">{{ log.run_percent }}%</td>
-                        {% for header in mult_headers %}
-                        <td class="text-end">{{ log.mults|get_item:header }}</td>
-                        {% endfor %}
-                        <td class="text-end pe-4 fw-bold">{{ log.score|intcomma }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="10" class="text-center py-4 text-muted">No valid logs found.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-             <div class="card-footer bg-light py-2">
-                <small class="text-muted"><i class="bi bi-info-circle me-1"></i>{{ footer_text }}</small>
-            </div>
+    <div class="mb-5">
+        <h5 class="mb-4 fw-bold text-primary"><i class="bi bi-trophy me-2"></i>The Scoreboard</h5>
+        <div class="row g-4">
+            {% for score_data in score_reports_data %}
+                {% if score_reports_data|length == 1 %}
+                    <div class="col-12 col-md-8 col-lg-6 mx-auto">
+                {% elif score_reports_data|length == 2 %}
+                    <div class="col-12 col-md-6">
+                {% else %}
+                    <div class="col-12 col-md-4">
+                {% endif %}
+                    <div class="card shadow-sm border-0 h-100">
+                        <div class="card-header bg-white py-3">
+                            <h6 class="mb-0 fw-bold text-primary">{{ score_data.year }} {{ score_data.contest_name }}</h6>
+                            <div class="d-flex justify-content-between align-items-baseline mt-1">
+                                <span class="text-dark">{{ score_data.callsign }}</span>
+                                <span class="text-primary fw-bold" style="font-size: 0.9rem;">{{ score_data.final_score|intcomma }}</span>
+                            </div>
+                        </div>
+                        <div class="card-body p-0">
+                            <table class="table table-sm table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="ps-3">Band</th>
+                                        <th>Mode</th>
+                                        <th class="text-end">QSOs</th>
+                                        {% for mult_name in score_data.multiplier_names %}
+                                        <th class="text-end">{{ mult_name }}</th>
+                                        {% endfor %}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for row in score_data.summary_data %}
+                                    <tr>
+                                        <td class="ps-3">{{ row|get_item:"Band" }}</td>
+                                        <td>{{ row|get_item:"Mode" }}</td>
+                                        <td class="text-end">{{ row|get_item:"QSOs"|intcomma }}</td>
+                                        {% for mult_name in score_data.multiplier_names %}
+                                        <td class="text-end">{{ row|get_item:mult_name|intcomma }}</td>
+                                        {% endfor %}
+                                    </tr>
+                                    {% endfor %}
+                                    <tr class="table-secondary fw-bold">
+                                        <td class="ps-3">{{ score_data.total_summary|get_item:"Band" }}</td>
+                                        <td>{{ score_data.total_summary|get_item:"Mode" }}</td>
+                                        <td class="text-end">{{ score_data.total_summary|get_item:"QSOs"|intcomma }}</td>
+                                        {% for mult_name in score_data.multiplier_names %}
+                                        <td class="text-end">{{ score_data.total_summary|get_item:mult_name|intcomma }}</td>
+                                        {% endfor %}
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="card-footer bg-light py-3">
+                            <div class="d-flex flex-column gap-2">
+                                {% if score_report_text_urls|get_item:score_data.callsign %}
+                                <a href="{{ score_report_text_urls|get_item:score_data.callsign }}" 
+                                   target="_blank" 
+                                   class="btn btn-sm btn-outline-primary"
+                                   title="View detailed score summary report">
+                                    <i class="bi bi-file-text me-1"></i>Summary
+                                </a>
+                                {% endif %}
+                                {% if breakdown_report_urls|get_item:score_data.callsign %}
+                                <a href="{{ breakdown_report_urls|get_item:score_data.callsign }}" 
+                                   target="_blank" 
+                                   class="btn btn-sm btn-outline-secondary"
+                                   title="View hourly QSO/multiplier breakdown">
+                                    <i class="bi bi-clock-history me-1"></i>Breakdown
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% empty %}
+                <div class="col-12">
+                    <div class="card shadow-sm border-0">
+                        <div class="card-body text-center py-4">
+                            <p class="text-muted mb-0">No score reports available.</p>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
         </div>
     </div>
 
