@@ -902,6 +902,93 @@ def multiplier_dashboard(request, session_id):
     if html_bd_art:
         breakdown_html_rel_path = f"{report_rel_path}/{html_bd_art['path']}"
 
+    # Helper function to format multiplier label from filename slug
+    def format_multiplier_label(mult_type_slug, contest_def=None):
+        """
+        Formats a multiplier label from a filename slug (e.g., "dxcc_cw" -> "DXCC CW").
+        Strips mode suffix, looks up proper multiplier name from contest definition,
+        and uppercases mode abbreviations.
+        
+        Args:
+            mult_type_slug: The multiplier type slug from filename (e.g., 'dxcc_cw', 'us_states')
+            contest_def: ContestDefinition object (can be None)
+        
+        Returns:
+            Properly formatted label (e.g., "DXCC CW" or "US States")
+        """
+        if not mult_type_slug:
+            return ""
+        
+        # Parse the slug - handle mode suffixes (e.g., 'dxcc_cw' -> 'dxcc' + 'cw')
+        parts = mult_type_slug.split('_')
+        mult_name_slug = mult_type_slug
+        mode_suffix = None
+        
+        # Check if last part is a mode suffix (2-3 character codes like cw, ph, rtty)
+        if len(parts) > 1 and len(parts[-1]) <= 3:
+            # Might have mode suffix, try without it
+            mult_name_slug = '_'.join(parts[:-1])
+            mode_suffix = parts[-1].upper()  # Uppercase mode (CW, PH, RTTY)
+        
+        # Look up multiplier name from contest definition if available
+        mult_name = None
+        if contest_def and hasattr(contest_def, 'multiplier_rules'):
+            # Try exact match with mode suffix removed first
+            for rule in contest_def.multiplier_rules:
+                rule_slug = rule.get('name', '').lower().replace(' ', '_')
+                if rule_slug == mult_name_slug:
+                    mult_name = rule.get('name')  # Return the proper name from definition (e.g., "DXCC")
+                    break
+            
+            # Try exact match with original slug (in case multiplier name has underscores)
+            if not mult_name:
+                for rule in contest_def.multiplier_rules:
+                    rule_slug = rule.get('name', '').lower().replace(' ', '_')
+                    if rule_slug == mult_type_slug:
+                        mult_name = rule.get('name')
+                        break
+        
+        # Fallback: format the slug WITHOUT mode suffix
+        if not mult_name:
+            # Convert to title case for readability (e.g., "us_states" -> "US States")
+            # But handle common abbreviations that should be all caps
+            words = mult_name_slug.replace('_', ' ').split()
+            formatted_words = []
+            for word in words:
+                # Common multiplier abbreviations that should be all caps
+                if word.upper() in ['DXCC', 'ITU', 'CQ', 'WAE', 'WPX', 'US']:
+                    formatted_words.append(word.upper())
+                else:
+                    formatted_words.append(word.title())
+            mult_name = ' '.join(formatted_words)
+        
+        # Combine multiplier name and mode suffix
+        if mode_suffix:
+            return f"{mult_name} {mode_suffix}"
+        else:
+            return mult_name
+    
+    # Get contest definition for multiplier name lookup
+    contest_def_for_label = None
+    if lm and lm.logs:
+        contest_def_for_label = lm.logs[0].contest_definition
+    elif persisted_logs:
+        # Fast path: Try to load contest definition minimally
+        try:
+            root_input = os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
+            log_candidates = [f for f in os.listdir(session_path) 
+                            if os.path.isfile(os.path.join(session_path, f)) 
+                            and not f.startswith('dashboard_context') 
+                            and not f.endswith('.zip') 
+                            and not f.endswith('.json')]
+            if log_candidates:
+                temp_lm = LogManager()
+                temp_lm.load_log_batch(log_candidates[:1], root_input, 'after')  # Load just first log
+                if temp_lm.logs:
+                    contest_def_for_label = temp_lm.logs[0].contest_definition
+        except Exception as e:
+            logger.debug(f"Failed to load contest definition for multiplier label lookup: {e}")
+
     # 2. Scan and Group Reports
     # Use Manifest to find Missed/Summary reports
     multipliers = {}
@@ -1015,7 +1102,8 @@ def multiplier_dashboard(request, session_id):
         # Strip prefix
         if base.startswith(rid + '_'):
             mult_type_slug = base[len(rid)+1:]
-            mult_type = mult_type_slug.replace('_', ' ').title()
+            # Use helper function to format multiplier label properly
+            mult_type = format_multiplier_label(mult_type_slug, contest_def_for_label)
         else:
             continue
 

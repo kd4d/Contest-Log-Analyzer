@@ -430,27 +430,37 @@
             });
             // Handle Fetch Submission
             btnFetch.addEventListener('click', function() {
-                 const validCalls = Array.from(inputs)
-                    .filter(i => i.classList.contains('is-valid'))
-                    .map(i => i.value);
+                 // Disable all buttons and inputs immediately to prevent double-submission
+                 disableAllFormControls();
+                 
+                 try {
+                     const validCalls = Array.from(inputs)
+                        .filter(i => i.classList.contains('is-valid'))
+                        .map(i => i.value);
 
-                 document.getElementById('fetchCallsignsInput').value = JSON.stringify(validCalls);
-                 document.getElementById('fetchYearInput').value = yearSelect.value;
-                 document.getElementById('fetchModeInput').value = modeSelect.value || '';
-                 document.getElementById('fetchContestInput').value = contestSelect.value;
-                 
-                 // Trigger Progress UI
-                 const errorAlert = document.querySelector('.alert-danger');
-                 if (errorAlert) {
-                     errorAlert.style.display = 'none';
+                     document.getElementById('fetchCallsignsInput').value = JSON.stringify(validCalls);
+                     document.getElementById('fetchYearInput').value = yearSelect.value;
+                     document.getElementById('fetchModeInput').value = modeSelect.value || '';
+                     document.getElementById('fetchContestInput').value = contestSelect.value;
+                     
+                     // Trigger Progress UI
+                     const errorAlert = document.querySelector('.alert-danger');
+                     if (errorAlert) {
+                         errorAlert.style.display = 'none';
+                     }
+                     progressContainer.classList.remove('d-none');
+                     requestIdInput.value = 'req_' + Math.random().toString(36).substr(2, 9);
+                     document.querySelector('.fetch-request-id').value = requestIdInput.value;
+                     
+                     // Start Polling (reuse existing logic)
+                     startPolling(requestIdInput.value);
+                     document.getElementById('fetchForm').submit();
+                 } catch (error) {
+                     console.error('Error during fetch submission:', error);
+                     // Re-enable controls on error
+                     enableAllFormControls();
+                     alert('An error occurred while submitting the form. Please try again.');
                  }
-                 progressContainer.classList.remove('d-none');
-                 requestIdInput.value = 'req_' + Math.random().toString(36).substr(2, 9);
-                 document.querySelector('.fetch-request-id').value = requestIdInput.value;
-                 
-                 // Start Polling (reuse existing logic)
-                 startPolling(requestIdInput.value);
-                 document.getElementById('fetchForm').submit();
             });
 
             const form = document.querySelector('form');
@@ -474,29 +484,118 @@
             });
             
             function startPolling(id) {
+                let consecutiveErrors = 0;
+                const maxErrors = 5; // Allow some transient errors
+                
                 const pollInterval = setInterval(() => {
                     fetch(`/analyze/progress/${id}/`)
-                        .then(response => response.json())
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error(`HTTP ${response.status}`);
+                            }
+                            return response.json();
+                        })
                         .then(data => {
+                            consecutiveErrors = 0; // Reset error counter on success
                             updateProgress(data.step);
                             if (data.step >= 5) {
                                 clearInterval(pollInterval);
                             }
                         })
-                        .catch(err => console.error('Polling error:', err));
+                        .catch(err => {
+                            consecutiveErrors++;
+                            console.error('Polling error:', err);
+                            
+                            // If we get too many consecutive errors, assume failure and re-enable controls
+                            if (consecutiveErrors >= maxErrors) {
+                                clearInterval(pollInterval);
+                                enableAllFormControls();
+                                progressContainer.classList.add('d-none');
+                                alert('Connection error during processing. Please try again.');
+                            }
+                        });
                 }, 500);
             }
 
-            form.addEventListener('submit', function() {
-                // Show progress bar
-                const errorAlert = document.querySelector('.alert-danger');
-                if (errorAlert) {
-                    errorAlert.style.display = 'none';
-                }
-                progressContainer.classList.remove('d-none');
+            // Helper function to disable all form controls when operation starts
+            // Must be defined after all variable declarations (btnAnalyzeLogs, fileInputs, etc.)
+            function disableAllFormControls() {
+                // Disable both buttons
+                btnAnalyzeLogs.disabled = true;
+                btnFetch.disabled = true;
                 
-                // Start polling
-                startPolling(requestId);
+                // Disable file inputs
+                fileInputs.forEach(input => {
+                    input.disabled = true;
+                });
+                
+                // Disable fetch form inputs (selects and text inputs)
+                contestSelect.disabled = true;
+                yearSelect.disabled = true;
+                modeSelect.disabled = true;
+                inputs.forEach(input => {
+                    input.disabled = true;
+                });
+            }
+            
+            // Helper function to enable all form controls (for error recovery)
+            function enableAllFormControls() {
+                // Re-enable buttons (will be re-disabled by validation logic if needed)
+                btnAnalyzeLogs.disabled = false;
+                btnFetch.disabled = false;
+                
+                // Re-enable file inputs
+                fileInputs.forEach(input => {
+                    input.disabled = false;
+                });
+                
+                // Re-enable fetch form inputs
+                // Note: These may be conditionally disabled by form logic, so we check state
+                if (contestSelect.value) {
+                    contestSelect.disabled = false;
+                }
+                if (yearSelect.value) {
+                    yearSelect.disabled = false;
+                }
+                // Mode select is conditionally enabled based on contest/year
+                if (contestSelect.value === 'CQ-WW' && yearSelect.value) {
+                    modeSelect.disabled = false;
+                } else if (contestSelect.value === 'ARRL-10' && yearSelect.value) {
+                    modeSelect.disabled = true; // ARRL-10 doesn't use mode
+                }
+                
+                inputs.forEach(input => {
+                    input.disabled = false;
+                });
+                
+                // Re-validate button states
+                updateAnalyzeButton();
+                const hasValid = Array.from(inputs).some(i => i.classList.contains('is-valid'));
+                btnFetch.disabled = !hasValid;
+            }
+            
+            form.addEventListener('submit', function(e) {
+                // Disable all buttons and inputs immediately to prevent double-submission
+                disableAllFormControls();
+                
+                try {
+                    // Show progress bar
+                    const errorAlert = document.querySelector('.alert-danger');
+                    if (errorAlert) {
+                        errorAlert.style.display = 'none';
+                    }
+                    progressContainer.classList.remove('d-none');
+                    
+                    // Start polling
+                    startPolling(requestId);
+                } catch (error) {
+                    console.error('Error during form submission:', error);
+                    // Re-enable controls on error
+                    enableAllFormControls();
+                    progressContainer.classList.add('d-none');
+                    alert('An error occurred while submitting the form. Please try again.');
+                    e.preventDefault(); // Prevent form submission if we caught an error
+                }
             });
             function updateProgress(currentStep) {
                 const steps = document.querySelectorAll('.step-item');
@@ -558,6 +657,14 @@
                         segR.classList.add('step-active');
                     }
                 });
+            }
+            
+            // Ensure all form controls are enabled on page load if error is present
+            // (This handles server-side errors that cause page reload)
+            // This runs at the end, after all functions and variables are defined
+            const errorAlertOnLoad = document.querySelector('.alert-danger');
+            if (errorAlertOnLoad && typeof enableAllFormControls === 'function') {
+                enableAllFormControls();
             }
         });
     </script>
