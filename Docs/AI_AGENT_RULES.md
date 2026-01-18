@@ -751,6 +751,93 @@ AI:
 - AI should suggest updating version before tagging
 - User must confirm version number
 
+### CRITICAL: Diagnostic Logging Rules
+
+**AI agents MUST use WARNING or ERROR level for diagnostic logging, NOT INFO level.**
+
+**Rule:** When adding diagnostic logging (for debugging, troubleshooting, or tracing execution flow), AI agents must:
+- **[OK] Use `logger.warning()` or `logger.error()`** for all diagnostic messages
+- **[X] Never use `logger.info()`** for diagnostics (unless CLA_PROFILE=1 is explicitly enabled)
+
+#### Why This Matters
+
+The project's default logging level is `WARNING` (see `web_app/config/settings.py`):
+- `INFO` level logs are **NOT visible** at default settings
+- `WARNING` and `ERROR` level logs **ARE visible** at default settings
+- Diagnostic messages at `INFO` level will be silently ignored, making debugging impossible
+
+#### When Adding Diagnostics
+
+**Correct Pattern:**
+```python
+# DIAGNOSTICS: Log request details (ERROR level for visibility)
+logger.error(f"[DIAG] analyze_logs called. Method: {request.method}, Path: {request.path}")
+logger.error(f"[DIAG] POST request detected. FILES keys: {list(request.FILES.keys())}")
+logger.warning(f"[DIAG] Form validation FAILED. Form errors: {form.errors}")
+```
+
+**Incorrect Pattern (DO NOT USE):**
+```python
+# WRONG: INFO level logs won't be visible at default settings
+logger.info(f"Manual upload detected. FILES keys: {list(request.FILES.keys())}")
+logger.info(f"Form validation failed: {form.errors}")
+```
+
+#### Best Practices
+
+1. **Use `[DIAG]` prefix** for diagnostic messages to make them easy to identify and filter
+2. **Use `logger.error()` for critical diagnostics** (entry points, error paths, validation failures)
+3. **Use `logger.warning()` for non-critical diagnostics** (state transitions, optional information)
+4. **Always assume default log level is WARNING** - never assume `INFO` will be visible
+5. **Add diagnostics at entry points** of functions to trace execution flow
+6. **Wrap potentially failing operations** in try/except with error-level logging
+
+#### Example: Comprehensive Diagnostic Logging
+
+```python
+def analyze_logs(request):
+    # DIAGNOSTICS: Log all requests (ERROR level for visibility)
+    logger.error(f"[DIAG] analyze_logs called. Method: {request.method}, Path: {request.path}")
+    
+    if request.method == 'POST':
+        logger.error(f"[DIAG] POST request detected. FILES keys: {list(request.FILES.keys())}, POST keys: {list(request.POST.keys())}")
+        
+        # Wrap potentially failing operations
+        try:
+            _update_progress(request_id, 1)
+            logger.error(f"[DIAG] _update_progress called successfully")
+        except Exception as e:
+            logger.error(f"[DIAG] _update_progress FAILED: {e}")
+            logger.exception("Exception in _update_progress")
+        
+        # Add diagnostics at key decision points
+        if 'log1' in request.FILES:
+            logger.error(f"[DIAG] Manual upload branch entered")
+            # ... rest of code ...
+        elif 'fetch_callsigns' in request.POST:
+            logger.error(f"[DIAG] Public fetch branch entered")
+            # ... rest of code ...
+        else:
+            logger.error(f"[DIAG] Neither branch taken. Redirecting to home.")
+```
+
+#### Agent Behavior
+
+When adding diagnostic logging:
+1. **Always** use `logger.warning()` or `logger.error()` for diagnostics
+2. **Never** use `logger.info()` for diagnostics (unless explicitly required)
+3. **Prefix** diagnostic messages with `[DIAG]` for easy identification
+4. **Add** diagnostics at function entry points and key decision points
+5. **Wrap** potentially failing operations in try/except with error logging
+6. **Assume** default log level is WARNING - ensure diagnostics will be visible
+
+#### Rationale
+
+- **Visibility:** WARNING/ERROR level ensures diagnostics are always visible, regardless of log level configuration
+- **Debugging:** Entry-point and error-path logging enables effective troubleshooting
+- **Consistency:** Standardized diagnostic pattern makes logs easier to read and filter
+- **Reliability:** Assuming WARNING-level visibility prevents silent diagnostic failures
+
 ---
 
 ## Safety Checks

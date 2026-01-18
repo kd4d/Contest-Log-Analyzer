@@ -519,15 +519,14 @@
 
             // Helper function to disable all form controls when operation starts
             // Must be defined after all variable declarations (btnAnalyzeLogs, fileInputs, etc.)
+            // CRITICAL: Do NOT disable file inputs before form submission - browsers won't include disabled file inputs in form data
             function disableAllFormControls() {
                 // Disable both buttons
                 btnAnalyzeLogs.disabled = true;
                 btnFetch.disabled = true;
                 
-                // Disable file inputs
-                fileInputs.forEach(input => {
-                    input.disabled = true;
-                });
+                // DO NOT disable file inputs here - browsers won't include disabled file inputs in form submission
+                // File inputs are already "locked in" by the form, so disabling doesn't prevent double-submission anyway
                 
                 // Disable fetch form inputs (selects and text inputs)
                 contestSelect.disabled = true;
@@ -544,10 +543,7 @@
                 btnAnalyzeLogs.disabled = false;
                 btnFetch.disabled = false;
                 
-                // Re-enable file inputs
-                fileInputs.forEach(input => {
-                    input.disabled = false;
-                });
+                // File inputs are never disabled, so no need to re-enable them
                 
                 // Re-enable fetch form inputs
                 // Note: These may be conditionally disabled by form logic, so we check state

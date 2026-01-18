@@ -340,17 +340,43 @@ def home(request):
     return render(request, 'analyzer/home.html', {'form': form})
 
 def analyze_logs(request):
+    # DIAGNOSTICS: Log all requests to this function (ERROR level for visibility)
+    logger.error(f"[DIAG] analyze_logs called. Method: {request.method}, Path: {request.path}")
+    
     if request.method == 'POST':
+        logger.error(f"[DIAG] POST request detected. FILES keys: {list(request.FILES.keys())}, POST keys: {list(request.POST.keys())}")
+        
         _cleanup_old_sessions() # Trigger lazy cleanup
         
         # Retrieve the request_id from the form to track progress
         request_id = request.POST.get('request_id')
-        _update_progress(request_id, 1) # Step 1: Uploading (Done, moving to Parsing)
+        logger.error(f"[DIAG] request_id from POST: {request_id}")
+        
+        # Wrap _update_progress in try/except - it might be failing silently
+        try:
+            _update_progress(request_id, 1) # Step 1: Uploading (Done, moving to Parsing)
+            logger.error(f"[DIAG] _update_progress called successfully")
+        except Exception as e:
+            logger.error(f"[DIAG] _update_progress FAILED: {e}")
+            logger.exception("Exception in _update_progress")
 
         # Handle Manual Upload
         if 'log1' in request.FILES:
+            logger.error(f"[DIAG] Manual upload branch entered")
+            # DIAGNOSTICS: Log request details (ERROR level for visibility)
+            logger.error(f"[DIAG] Manual upload detected. FILES keys: {list(request.FILES.keys())}")
+            logger.error(f"[DIAG] POST keys: {list(request.POST.keys())}")
+            for key in request.FILES.keys():
+                file_obj = request.FILES[key]
+                logger.error(f"[DIAG]   File '{key}': name={file_obj.name}, size={file_obj.size}, content_type={file_obj.content_type}")
+            
             form = UploadLogForm(request.POST, request.FILES)
+            
+            # DIAGNOSTICS: Log form state before validation
+            logger.error(f"[DIAG] Form created. cleaned_data available: {hasattr(form, 'cleaned_data')}")
+            
             if form.is_valid():
+                logger.error(f"[DIAG] Form validation PASSED")
                 # 1. Create Session Context
                 session_key = str(uuid.uuid4())
                 session_path = os.path.join(settings.MEDIA_ROOT, 'sessions', session_key)
@@ -378,9 +404,27 @@ def analyze_logs(request):
                 except Exception as e:
                     logger.exception("Log analysis failed")
                     return render(request, 'analyzer/home.html', {'form': form, 'error': str(e)})
+            else:
+                # Form validation failed - render form with errors
+                logger.error(f"[DIAG] Form validation FAILED. Form errors: {form.errors}")
+                logger.error(f"[DIAG] Form non-field errors: {form.non_field_errors()}")
+                for field, errors in form.errors.items():
+                    logger.error(f"[DIAG]   Field '{field}' errors: {errors}")
+                
+                # Build detailed error message from form errors
+                error_details = []
+                for field, errors in form.errors.items():
+                    for error in errors:
+                        error_details.append(f"{field}: {error}")
+                if error_details:
+                    error_msg = "Form validation failed: " + "; ".join(error_details)
+                else:
+                    error_msg = "Please check the file uploads and try again."
+                return render(request, 'analyzer/home.html', {'form': form, 'error': error_msg})
         
         # Handle Public Fetch
         elif 'fetch_callsigns' in request.POST:
+            logger.error(f"[DIAG] Public fetch branch entered")
             try:
                 # 1. Create Session Context
                 session_key = str(uuid.uuid4())
@@ -420,6 +464,9 @@ def analyze_logs(request):
                 logger.exception("Public log fetch failed")
                 return render(request, 'analyzer/home.html', {'form': UploadLogForm(), 'error': str(e)})
         
+    # If we get here, neither branch was taken
+    logger.error(f"[DIAG] Neither manual upload nor public fetch branch taken. Redirecting to home.")
+    logger.error(f"[DIAG] request.method={request.method}, 'log1' in FILES={'log1' in request.FILES if hasattr(request, 'FILES') else 'N/A'}, 'fetch_callsigns' in POST={'fetch_callsigns' in request.POST if request.method == 'POST' else 'N/A'}")
     return redirect('home')
 
 def _run_analysis_pipeline(request_id, log_paths, session_path, session_key):
@@ -1901,7 +1948,10 @@ def help_release_notes(request):
     import markdown
     from contest_tools.version import __version__
     
-    changelog_path = os.path.join(settings.BASE_DIR.parent.parent, 'CHANGELOG.md')
+    # BASE_DIR is 'web_app/', so BASE_DIR.parent.parent is project root
+    # Convert Path to string for os.path.join() compatibility
+    project_root = str(settings.BASE_DIR.parent.parent)
+    changelog_path = os.path.join(project_root, 'CHANGELOG.md')
     
     try:
         with open(changelog_path, 'r', encoding='utf-8') as f:
