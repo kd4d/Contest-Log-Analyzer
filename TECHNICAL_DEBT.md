@@ -197,6 +197,35 @@
 
 ---
 
+### Breakdown Report Zero Multipliers (ARRL 10 Meter)
+
+**Priority:** HIGH  
+**Impact:** Breakdown report showed zero multipliers for ARRL 10 Meter  
+**Status:** [x] Completed
+
+**Issue:**
+- Breakdown report (`text_breakdown_report.py`) showed zero multipliers for ARRL 10 Meter contest
+- Affected mode dimension breakdown (ARRL 10 is single-band, multi-mode)
+- Root cause: Filtering logic used AND instead of OR for mutually exclusive multipliers
+- Each QSO has only ONE multiplier column populated (Mult_State, Mult_VE, Mult_XE, Mult_DXCC, or Mult_ITU)
+- Filter requiring all columns to be valid removed all rows
+
+**Solution Implemented:**
+1. ✅ Fixed filtering logic in `_calculate_hourly_multipliers()` to use OR logic
+2. ✅ Filter to rows where ANY multiplier column has valid value, not ALL columns
+3. ✅ Separate tracking sets for band vs mode dimensions (independent multiplier counting)
+4. ✅ Added missing logger import
+5. ✅ Changed diagnostics to WARNING/ERROR level only
+
+**Changes:**
+- `contest_tools/data_aggregators/time_series.py`: Fixed filtering logic (line 379-398), separate dimension tracking, added logger import
+
+**Related:**
+- `DevNotes/MUTUALLY_EXCLUSIVE_MULTIPLIER_FILTERING_PATTERN.md` - Pattern documentation
+- `contest_tools/contest_definitions/arrl_10.json` - Mutually exclusive multipliers example
+
+---
+
 ### Multiplier Breakdown Reports - Mode Dimension Support
 
 **Priority:** MEDIUM  
