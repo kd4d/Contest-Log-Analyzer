@@ -5,6 +5,20 @@ All notable changes to Contest Log Analyzer will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-alpha.8] - 2026-01-18
+[Full Release Notes](ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.8.md)
+
+### Added
+- CTY file inclusion in download bundle at reports root directory
+- Full support for CQ 160 Meter Contest (CW and SSB variants)
+- Custom CTY file upload with clear CUSTOM indicator in reports
+- Enhanced dashboard score reporting with improved contest definition handling
+
+### Changed
+- Dashboard score reports now eliminate cache dependency for contest definitions
+
+---
+
 ## [1.0.0-alpha.7] - 2026-01-18
 [Full Release Notes](ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.7.md)
 

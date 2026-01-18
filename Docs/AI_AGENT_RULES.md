@@ -277,6 +277,8 @@ e. **Push merged master:**
 
 **3. Update Version References**
 
+**IMPORTANT:** All version references must be updated BEFORE creating the tag. This is a mandatory step.
+
 AI should update all version references in this order:
 
 a. **Update `contest_tools/version.py`:**
@@ -286,24 +288,38 @@ a. **Update `contest_tools/version.py`:**
 
 b. **Update `README.md`:**
    - Line 3: `**Version: 1.0.0-alpha.3**`
+   - **MANDATORY:** This must be updated for every release
    - Verify no other version references exist
 
 c. **Check other documentation files:**
    - Search for version strings: `grep -r "1\.0\.0" Docs/ README.md`
    - Update any hardcoded version references found
 
-**4. Create Release Notes and Update CHANGELOG.md**
+**4. Create Release Notes and Update CHANGELOG.md (MANDATORY)**
 
-a. **Create release notes file:**
+**IMPORTANT:** Release notes and CHANGELOG.md updates are REQUIRED for every release. These must be created BEFORE creating the tag.
+
+a. **Create release notes file (REQUIRED):**
    - Location: `ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.3.md`
    - Format: Use previous release notes as template
    - Content: Summary of commits since last tag
+   - Include: Summary, Added/Changed/Fixed sections, Technical Details, Known Issues, Migration Notes
+   - Generate commit summary:
+     ```bash
+     git log --oneline <last-tag>..HEAD
+     ```
+     - Organize by category (Features, Enhancements, Bug Fixes, Documentation)
+     - Include all significant changes
 
-b. **Update CHANGELOG.md:**
+b. **Update CHANGELOG.md (REQUIRED):**
    - Location: `CHANGELOG.md` (project root, alongside README.md)
-   - Add new entry at top (reverse chronological order)
+   - **MANDATORY:** Add new entry at top (reverse chronological order)
    - Format: Use Keep a Changelog format with link to detailed release notes
    - **Note:** CHANGELOG.md is automatically accessible via the web UI hamburger menu (Help & Documentation > Release Notes)
+   - Must include:
+     - Version number with date
+     - Link to full release notes
+     - Summary sections: Added, Changed, Fixed (as applicable)
    - Example:
      ```markdown
      ## [1.0.0-alpha.3] - 2026-01-20
@@ -317,27 +333,33 @@ b. **Update CHANGELOG.md:**
      - Bug Z
      ```
 
-c. **Generate commit summary:**
-   ```bash
-   git log --oneline <last-tag>..HEAD
-   ```
-   - Organize by category (Features, Enhancements, Bug Fixes, Documentation)
-   - Include all significant changes
+**5. Commit Version Updates (MANDATORY BEFORE TAGGING)**
 
-**5. Commit Version Updates**
+**IMPORTANT:** All version updates, release notes, and CHANGELOG.md changes MUST be committed BEFORE creating the tag.
 
 a. **Stage all version-related changes:**
    ```bash
    git add contest_tools/version.py README.md ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.3.md CHANGELOG.md
    ```
+   - **All four files must be included:**
+     1. `contest_tools/version.py` - Version number
+     2. `README.md` - Version in header
+     3. `ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.3.md` - Release notes
+     4. `CHANGELOG.md` - Changelog entry
 
-b. **Create commit:**
+b. **Verify all files are staged:**
+   ```bash
+   git status
+   ```
+   - Confirm all four files appear in "Changes to be committed"
+
+c. **Create commit:**
    ```bash
    git commit -m "chore(release): bump version to 1.0.0-alpha.3 and add release notes"
    ```
    - Use `chore(release):` type for version bumps
    - Include "bump version" in message
-   - Mention release notes and CHANGELOG.md if created
+   - Mention release notes and CHANGELOG.md
 
 **6. Create and Push Tag**
 
@@ -378,31 +400,51 @@ a. **Verify version consistency:**
    grep "Version:" README.md
    ```
 
-b. **Verify release notes and CHANGELOG.md exist:**
+b. **Verify all required files exist and are correct:**
    ```bash
+   # Verify version.py matches tag
+   grep "__version__" contest_tools/version.py
+   
+   # Verify README.md updated
+   grep "Version:" README.md
+   
+   # Verify release notes exist
    ls ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.3.md
-   ls CHANGELOG.md
-   grep -A 5 "## \[1.0.0-alpha.3\]" CHANGELOG.md  # Verify entry exists
+   
+   # Verify CHANGELOG.md entry exists
+   grep -A 5 "## \[1.0.0-alpha.3\]" CHANGELOG.md
+   
+   # Verify version consistency across all files
+   grep -r "1\.0\.0-alpha\.3" contest_tools/version.py README.md ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.3.md CHANGELOG.md
    ```
 
 #### AI Agent Responsibilities
 
-- **AI Can Do:**
+- **AI MUST Do (Mandatory Steps):**
   - Merge feature branch into master (after user confirmation)
+  - Update `contest_tools/version.py` to match target version
+  - **Update `README.md` version** (Line 3) - REQUIRED for every release
+  - **Create release notes file** in `ReleaseNotes/` directory - REQUIRED for every release
+  - **Update `CHANGELOG.md`** with new release entry at top - REQUIRED for every release
+  - Stage all four files: `version.py`, `README.md`, `ReleaseNotes/*.md`, `CHANGELOG.md`
+  - Commit version updates BEFORE creating tag
+  - Generate tag creation command (after all updates committed)
+  - Verify version consistency across all files
+
+- **AI Should Do:**
   - Suggest version number based on commit history
-  - Update `version.py` and `README.md`
   - Generate release notes from commit history
-  - Update CHANGELOG.md with new release entry
-  - Create commit message for version bump
-  - Generate tag creation command
-  - Verify version consistency
+  - Organize release notes by category (Added, Changed, Fixed)
+  - Verify all required files exist before proceeding
 
 - **User Must:**
   - Confirm feature branch is ready for merge
   - Confirm target version number
-  - Review release notes content
+  - Review release notes content before committing
   - Execute tag push command
   - Verify final state
+
+**Critical Reminder:** Release notes and CHANGELOG.md updates are NOT optional. They must be created and committed before tagging the release.
 
 #### Version Number Guidelines
 
@@ -513,24 +555,31 @@ b. **Commit fix:**
 
 **4. Update Version References**
 
+**IMPORTANT:** All version references must be updated BEFORE creating the tag.
+
 a. **Update `contest_tools/version.py`:**
    ```python
    __version__ = "1.0.1"  # Patch increment from fixed release
    ```
 
-b. **Update `README.md`:**
+b. **Update `README.md` (MANDATORY):**
    - Line 3: `**Version: 1.0.1**`
+   - **MANDATORY:** This must be updated for every release, including hotfixes
 
-**5. Create Release Notes and Update CHANGELOG.md**
+**5. Create Release Notes and Update CHANGELOG.md (MANDATORY)**
 
-a. **Create release notes file:**
+**IMPORTANT:** Release notes and CHANGELOG.md updates are REQUIRED for hotfix releases. These must be created BEFORE creating the tag.
+
+a. **Create release notes file (REQUIRED):**
    - Location: `ReleaseNotes/RELEASE_NOTES_1.0.1.md`
    - Format: Same as regular release notes
    - Content: Focus on bug fix, impact, migration if needed
    - Mark as "Hotfix" or "Security" in title
+   - Include: Summary, Fixed section, Technical Details, Migration Notes
 
-b. **Update CHANGELOG.md:**
-   - Add entry at top with `[HOTFIX]` or `[SECURITY]` prefix
+b. **Update CHANGELOG.md (REQUIRED):**
+   - **MANDATORY:** Add entry at top with `[HOTFIX]` or `[SECURITY]` prefix
+   - Must include version number with date and link to full release notes
    - Example:
      ```markdown
      ## [1.0.1] - 2026-01-20 [HOTFIX]
@@ -540,12 +589,26 @@ b. **Update CHANGELOG.md:**
      - Critical security vulnerability in authentication
      ```
 
-**6. Commit Version Updates**
+**6. Commit Version Updates (MANDATORY BEFORE TAGGING)**
+
+**IMPORTANT:** All version updates, release notes, and CHANGELOG.md changes MUST be committed BEFORE creating the tag.
 
 a. **Stage all version-related changes:**
    ```bash
    git add contest_tools/version.py README.md ReleaseNotes/RELEASE_NOTES_1.0.1.md CHANGELOG.md
    ```
+   - **All four files must be included:**
+     1. `contest_tools/version.py` - Version number
+     2. `README.md` - Version in header
+     3. `ReleaseNotes/RELEASE_NOTES_1.0.1.md` - Release notes
+     4. `CHANGELOG.md` - Changelog entry
+
+b. **Verify all files are staged:**
+   ```bash
+   git status
+   ```
+
+c. **Create commit:**
 
 b. **Create commit:**
    ```bash
