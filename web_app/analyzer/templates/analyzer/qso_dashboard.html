@@ -85,7 +85,7 @@
         {% endif %}
         <li class="nav-item" role="presentation">
             <button class="nav-link" id="cumul-tab" data-bs-toggle="tab" data-bs-target="#cumul" type="button" role="tab">
-                <i class="bi bi-graph-up-arrow me-2"></i>QSOs by Band
+                <i class="bi bi-graph-up-arrow me-2"></i>{{ qso_tab_label }}
             </button>
         </li>
         <li class="nav-item" role="presentation">
@@ -95,7 +95,7 @@
         </li>
         <li class="nav-item" role="presentation">
             <button class="nav-link" id="points-tab" data-bs-toggle="tab" data-bs-target="#points" type="button" role="tab">
-                <i class="bi bi-geo-alt me-2"></i>Points by Band
+                <i class="bi bi-geo-alt me-2"></i>{{ points_tab_label }}
             </button>
         </li>
         {% if not is_solo %}
@@ -171,7 +171,7 @@
 
         <div class="tab-pane fade" id="cumul" role="tabpanel">
             <div class="input-group mb-3 w-auto">
-                <label class="input-group-text" for="cumulSelect"><i class="bi bi-filter me-2"></i>Select Band:</label>
+                <label class="input-group-text" for="cumulSelect"><i class="bi bi-filter me-2"></i>Select {{ dimension_label }}:</label>
                 <select class="form-select" id="cumulSelect">
                 {% for p in qso_band_plots %}
                     <option value="{{ p.label }}"
@@ -185,7 +185,7 @@
                 <div class="col-12 mb-4">
                     <div class="card shadow-sm">
                         <div class="card-header d-flex justify-content-between align-items-center">
-                            <span>Cumulative QSO Rates (By Band)</span>
+                            <span>Cumulative QSO Rates (By {{ dimension_label }})</span>
                             <a id="link-qso-rates" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
                         </div>
                         <div class="card-body p-0">
@@ -226,7 +226,7 @@
         
         <div class="tab-pane fade" id="points" role="tabpanel">
             <div class="input-group mb-3 w-auto">
-                <label class="input-group-text" for="pointsSelect"><i class="bi bi-filter me-2"></i>Select Band:</label>
+                <label class="input-group-text" for="pointsSelect"><i class="bi bi-filter me-2"></i>Select {{ dimension_label }}:</label>
                 <select class="form-select" id="pointsSelect">
                 {% for p in point_plots %}
                     <option value="{{ p.label }}"

@@ -233,6 +233,7 @@ from contest_tools.utils.log_fetcher import fetch_log_index, download_logs
 from contest_tools.manifest_manager import ManifestManager
 from contest_tools.utils.profiler import ProfileContext
 from contest_tools.utils.architecture_validator import ArchitectureValidator
+from contest_tools.contest_definitions import ContestDefinition
 
 logger = logging.getLogger(__name__)
 
@@ -569,7 +570,9 @@ def _run_analysis_pipeline(request_id, log_paths, session_path, session_key):
     
     # Note: Multiplier filename removed here. It is now dynamically resolved in multiplier_dashboard view.
 
-    # Extract valid_bands and valid_modes from contest definition for Fast Path in dashboards
+    # Extract valid_bands and valid_modes from contest definition for dashboard context
+    # Note: Dashboards now load this directly from ContestDefinition JSON, but we keep it
+    # in context for backward compatibility and other uses (e.g., download_all_reports)
     valid_bands = ['80M', '40M', '20M', '15M', '10M']  # Default fallback
     valid_modes = []  # Default: empty list (will be populated if defined in JSON)
     if lm.logs:
@@ -590,8 +593,8 @@ def _run_analysis_pipeline(request_id, log_paths, session_path, session_key):
         'cty_version_info': cty_info,
         'footer_text': footer_text,
         'contest_name': contest_name,
-        'valid_bands': valid_bands,  # Cached for Fast Path in qso_dashboard
-        'valid_modes': valid_modes,  # Cached for Fast Path in qso_dashboard (mode selector)
+        'valid_bands': valid_bands,  # Kept for backward compatibility and other uses
+        'valid_modes': valid_modes,  # Kept for backward compatibility and other uses
     }
     
     # Determine multiplier headers from the first log (assuming all are same contest)
@@ -646,6 +649,36 @@ def get_progress(request, request_id):
             data = json.load(f)
         return JsonResponse(data)
     return JsonResponse({'step': 0})
+
+def _extract_contest_name_from_path(report_rel_path: str) -> str:
+    """
+    Extracts contest name from the report directory path structure.
+    
+    Path format: "reports/YYYY/contest_name/event_id/combo_id/" or similar variations.
+    Returns contest name in format expected by ContestDefinition.from_json() (e.g., "ARRL-10", "CQ-WW-CW").
+    
+    Args:
+        report_rel_path: Relative path from session root (e.g., "reports/2024/arrl-10/jan/k1lz_k3lr")
+    
+    Returns:
+        Contest name string (e.g., "ARRL-10", "CQ-WW-CW") or None if extraction fails
+    """
+    if not report_rel_path:
+        return None
+    
+    # Split path and normalize
+    parts = [p for p in report_rel_path.replace("\\", "/").split("/") if p]
+    
+    # Path structure: reports/YYYY/contest_name/event_id/combo_id
+    # We want the contest_name part (typically index 2)
+    if len(parts) >= 3 and parts[0].lower() == 'reports':
+        contest_name_lower = parts[2]  # e.g., "arrl-10", "cq-ww-cw"
+        # Convert to expected format: uppercase and replace hyphens appropriately
+        # Contest definition files use format like "ARRL-10", "CQ-WW-CW"
+        contest_name = contest_name_lower.upper().replace('_', '-')
+        return contest_name
+    
+    return None
 
 def view_report(request, session_id, file_path):
     """
@@ -745,13 +778,32 @@ def multiplier_dashboard(request, session_id):
         except Exception as e:
             logger.error(f"Failed to load dashboard context: {e}")
 
-    # 5. Metadata Strategy (Fast Path vs Slow Path)
+    # 5. Load contest definition to determine dimension (band vs mode)
+    # Extract contest name from directory path structure (no cache needed)
+    contest_name = _extract_contest_name_from_path(report_rel_path)
+    valid_bands = ['80M', '40M', '20M', '15M', '10M']  # Default fallback
+    valid_modes = []  # Default: empty list
+    
+    if contest_name:
+        try:
+            # Load contest definition directly from JSON (no log parsing needed)
+            contest_def = ContestDefinition.from_json(contest_name)
+            valid_bands = contest_def.valid_bands
+            valid_modes = contest_def.valid_modes
+        except (FileNotFoundError, ValueError, Exception) as e:
+            logger.warning(f"Failed to load contest definition for '{contest_name}': {e}. Using defaults.")
+    else:
+        logger.warning(f"Could not extract contest name from path: {report_rel_path}. Using defaults.")
+    
+    # Determine dimension (band vs mode) based on contest type
+    is_single_band = len(valid_bands) == 1
+    is_multi_mode = len(valid_modes) > 1
+    dimension = 'mode' if (is_single_band and is_multi_mode) else 'band'
+    is_mode_dimension = (dimension == 'mode')
+    
+    # 6. Metadata Strategy (Fast Path vs Slow Path)
     lm = None
     report_metadata = {}
-
-    # Determine dimension from breakdown_data structure or contest definition
-    is_mode_dimension = False
-    dimension = 'band'
     
     # Check if we have both breakdown data and persisted logs (not just empty dict)
     # Note: breakdown_data may be None if we detected wrong dimension in fast path
@@ -765,10 +817,6 @@ def multiplier_dashboard(request, session_id):
             dimension = 'mode'
         elif 'bands' in breakdown_data:
             # Check if contest should actually be mode dimension (for backward compatibility)
-            valid_bands = dashboard_ctx.get('valid_bands', [])
-            valid_modes = dashboard_ctx.get('valid_modes', [])
-            is_single_band = len(valid_bands) == 1
-            is_multi_mode = len(valid_modes) > 1
             if is_single_band and is_multi_mode:
                 # Contest should be mode dimension, but JSON has bands (old format)
                 # Regenerate with correct dimension (requires slow path)
@@ -779,11 +827,7 @@ def multiplier_dashboard(request, session_id):
                 is_mode_dimension = False
                 dimension = 'band'
         else:
-            # Fallback: check contest definition from cached context
-            valid_bands = dashboard_ctx.get('valid_bands', [])
-            valid_modes = dashboard_ctx.get('valid_modes', [])
-            is_single_band = len(valid_bands) == 1
-            is_multi_mode = len(valid_modes) > 1
+            # Fallback: use contest definition we just loaded
             if is_single_band and is_multi_mode:
                 is_mode_dimension = True
                 dimension = 'mode'
@@ -811,6 +855,7 @@ def multiplier_dashboard(request, session_id):
     else:
         # --- SLOW PATH: Fallback to Log Parsing ---
         # Required if JSON artifact is missing or context is corrupted
+        # Note: valid_bands and valid_modes already loaded from ContestDefinition above
         lm = LogManager()
         log_candidates = []
         for f in os.listdir(session_path):
@@ -821,13 +866,7 @@ def multiplier_dashboard(request, session_id):
         root_input = os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
         lm.load_log_batch(log_candidates, root_input, 'after')
         
-        # Determine dimension (band or mode) based on contest type
-        valid_bands = lm.logs[0].contest_definition.valid_bands if lm.logs else []
-        valid_modes = lm.logs[0].contest_definition.valid_modes if lm.logs and hasattr(lm.logs[0].contest_definition, 'valid_modes') else []
-        is_single_band = len(valid_bands) == 1
-        is_multi_mode = len(valid_modes) > 1
-        dimension = 'mode' if (is_single_band and is_multi_mode) else 'band'
-        is_mode_dimension = (dimension == 'mode')
+        # Dimension already determined from ContestDefinition above, no need to recalculate
         
         # Generate Aggregation if missing
         if not breakdown_data:
@@ -1240,43 +1279,23 @@ def qso_dashboard(request, session_id):
     callsigns_safe = [c.lower().replace('/', '-') for c in callsigns_display]  # For filename matching
     is_solo = (len(callsigns_safe) == 1)
     
-    # 2a. Load valid_bands and valid_modes (Fast Path vs Slow Path)
-    # FAST PATH: Load from cached dashboard_context.json (avoids LogManager parsing)
-    context_path = os.path.join(session_path, 'dashboard_context.json')
-    valid_bands = ['80M', '40M', '20M', '15M', '10M']  # Default fallback
+    # 2a. Load valid_bands and valid_modes from contest definition JSON (no cache needed)
+    # Extract contest name from directory path structure
+    contest_name = _extract_contest_name_from_path(report_rel_path)
+    DEFAULT_BANDS = ['80M', '40M', '20M', '15M', '10M']  # Default fallback
+    valid_bands = DEFAULT_BANDS.copy()
     valid_modes = []  # Default: empty list
     
-    if os.path.exists(context_path):
+    if contest_name:
         try:
-            with open(context_path, 'r') as f:
-                dashboard_ctx = json.load(f)
-                cached_bands = dashboard_ctx.get('valid_bands')
-                if cached_bands:
-                    valid_bands = cached_bands
-                cached_modes = dashboard_ctx.get('valid_modes')
-                if cached_modes:
-                    valid_modes = cached_modes
-        except Exception as e:
-            logger.warning(f"Failed to load valid_bands/valid_modes from dashboard context: {e}")
-    
-    # SLOW PATH: Fallback to LogManager parsing if cached data missing
-    if valid_bands == ['80M', '40M', '20M', '15M', '10M'] or not valid_modes:  # Still using default fallback
-        root_input = os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
-        log_candidates = []
-        for f in os.listdir(session_path):
-            f_path = os.path.join(session_path, f)
-            if os.path.isfile(f_path) and not f.startswith('dashboard_context') and not f.endswith('.zip') and not f.endswith('.json'):
-                log_candidates.append(f_path)
-        
-        if log_candidates:
-            try:
-                lm = LogManager()
-                lm.load_log_batch(log_candidates[:1], root_input, 'after')  # Load just first log
-                if lm.logs:
-                    valid_bands = lm.logs[0].contest_definition.valid_bands
-                    valid_modes = lm.logs[0].contest_definition.valid_modes
-            except Exception as e:
-                logger.warning(f"Failed to load contest definition for valid_bands/valid_modes (Slow Path): {e}")
+            # Load contest definition directly from JSON (no log parsing needed)
+            contest_def = ContestDefinition.from_json(contest_name)
+            valid_bands = contest_def.valid_bands
+            valid_modes = contest_def.valid_modes
+        except (FileNotFoundError, ValueError, Exception) as e:
+            logger.warning(f"Failed to load contest definition for '{contest_name}': {e}. Using defaults.")
+    else:
+        logger.warning(f"Could not extract contest name from path: {report_rel_path}. Using defaults.")
     
     # Determine contest type for selector generation
     is_single_band = len(valid_bands) == 1
@@ -1748,9 +1767,15 @@ def qso_dashboard(request, session_id):
     if is_single_band and is_multi_mode:
         activity_tab_label = 'Mode Activity'
         activity_tab_title = 'Mode Activity Butterfly Chart'
+        qso_tab_label = 'QSOs by Mode'
+        points_tab_label = 'Points by Mode'
+        dimension_label = 'Mode'
     else:
         activity_tab_label = 'Band Activity'
         activity_tab_title = 'Band Activity Butterfly Chart'
+        qso_tab_label = 'QSOs by Band'
+        points_tab_label = 'Points by Band'
+        dimension_label = 'Band'
     
     context = {
         'session_id': session_id,
@@ -1767,7 +1792,10 @@ def qso_dashboard(request, session_id):
         'valid_modes': valid_modes_for_buttons,  # For dynamic mode button generation
         'diff_selector_type': diff_selector_type,  # 'band' or 'mode' for Rate Differential pane
         'activity_tab_label': activity_tab_label,  # 'Band Activity' or 'Mode Activity'
-        'activity_tab_title': activity_tab_title  # Chart title for activity tab
+        'activity_tab_title': activity_tab_title,  # Chart title for activity tab
+        'qso_tab_label': qso_tab_label,  # 'QSOs by Band' or 'QSOs by Mode'
+        'points_tab_label': points_tab_label,  # 'Points by Band' or 'Points by Mode'
+        'dimension_label': dimension_label  # 'Band' or 'Mode' for dropdown labels
     }
     
     return render(request, 'analyzer/qso_dashboard.html', context)
@@ -1948,10 +1976,15 @@ def help_release_notes(request):
     import markdown
     from contest_tools.version import __version__
     
-    # BASE_DIR is 'web_app/', so BASE_DIR.parent.parent is project root
+    # BASE_DIR is 'web_app/' (Path object)
+    # In Docker: /app/web_app/
+    # Project root is BASE_DIR.parent: /app/
     # Convert Path to string for os.path.join() compatibility
-    project_root = str(settings.BASE_DIR.parent.parent)
+    project_root = str(settings.BASE_DIR.parent)
     changelog_path = os.path.join(project_root, 'CHANGELOG.md')
+    
+    # DIAGNOSTICS: Log the path being checked
+    logger.error(f"[DIAG] help_release_notes: BASE_DIR={settings.BASE_DIR}, project_root={project_root}, changelog_path={changelog_path}")
     
     try:
         with open(changelog_path, 'r', encoding='utf-8') as f:
