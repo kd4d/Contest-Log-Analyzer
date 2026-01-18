@@ -322,6 +322,13 @@ def get_log_index_view(request):
             return JsonResponse({'callsigns': callsigns})
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
+    elif contest == 'CQ-160' and year and mode:
+        try:
+            from contest_tools.utils.log_fetcher import fetch_cq160_log_index
+            callsigns = fetch_cq160_log_index(year, mode)
+            return JsonResponse({'callsigns': callsigns})
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
     elif contest == 'ARRL-10' and year:
         # ARRL 10 Meter doesn't have modes - contest code is '10m'
         try:
@@ -341,43 +348,23 @@ def home(request):
     return render(request, 'analyzer/home.html', {'form': form})
 
 def analyze_logs(request):
-    # DIAGNOSTICS: Log all requests to this function (ERROR level for visibility)
-    logger.error(f"[DIAG] analyze_logs called. Method: {request.method}, Path: {request.path}")
-    
     if request.method == 'POST':
-        logger.error(f"[DIAG] POST request detected. FILES keys: {list(request.FILES.keys())}, POST keys: {list(request.POST.keys())}")
-        
         _cleanup_old_sessions() # Trigger lazy cleanup
         
         # Retrieve the request_id from the form to track progress
         request_id = request.POST.get('request_id')
-        logger.error(f"[DIAG] request_id from POST: {request_id}")
         
         # Wrap _update_progress in try/except - it might be failing silently
         try:
             _update_progress(request_id, 1) # Step 1: Uploading (Done, moving to Parsing)
-            logger.error(f"[DIAG] _update_progress called successfully")
         except Exception as e:
-            logger.error(f"[DIAG] _update_progress FAILED: {e}")
             logger.exception("Exception in _update_progress")
 
         # Handle Manual Upload
         if 'log1' in request.FILES:
-            logger.error(f"[DIAG] Manual upload branch entered")
-            # DIAGNOSTICS: Log request details (ERROR level for visibility)
-            logger.error(f"[DIAG] Manual upload detected. FILES keys: {list(request.FILES.keys())}")
-            logger.error(f"[DIAG] POST keys: {list(request.POST.keys())}")
-            for key in request.FILES.keys():
-                file_obj = request.FILES[key]
-                logger.error(f"[DIAG]   File '{key}': name={file_obj.name}, size={file_obj.size}, content_type={file_obj.content_type}")
-            
             form = UploadLogForm(request.POST, request.FILES)
             
-            # DIAGNOSTICS: Log form state before validation
-            logger.error(f"[DIAG] Form created. cleaned_data available: {hasattr(form, 'cleaned_data')}")
-            
             if form.is_valid():
-                logger.error(f"[DIAG] Form validation PASSED")
                 # 1. Create Session Context
                 session_key = str(uuid.uuid4())
                 session_path = os.path.join(settings.MEDIA_ROOT, 'sessions', session_key)
@@ -397,7 +384,18 @@ def analyze_logs(request):
                                 destination.write(chunk)
                         log_paths.append(file_path)
 
-                    return _run_analysis_pipeline(request_id, log_paths, session_path, session_key)
+                    # 3. Handle Custom CTY File (if uploaded)
+                    custom_cty_path = None
+                    cty_file_choice = form.cleaned_data.get('cty_file_choice', 'default')
+                    if cty_file_choice == 'upload' and 'custom_cty_file' in request.FILES:
+                        cty_file = request.FILES['custom_cty_file']
+                        custom_cty_path = os.path.join(session_path, cty_file.name)
+                        with open(custom_cty_path, 'wb+') as destination:
+                            for chunk in cty_file.chunks():
+                                destination.write(chunk)
+                        logger.info(f"Custom CTY file uploaded: {cty_file.name}")
+
+                    return _run_analysis_pipeline(request_id, log_paths, session_path, session_key, custom_cty_path=custom_cty_path)
                 except ValueError as e:
                     logger.warning(f"Validation error during manual upload: {e}")
                     return render(request, 'analyzer/home.html', {'form': form, 'error': str(e)})
@@ -407,11 +405,6 @@ def analyze_logs(request):
                     return render(request, 'analyzer/home.html', {'form': form, 'error': str(e)})
             else:
                 # Form validation failed - render form with errors
-                logger.error(f"[DIAG] Form validation FAILED. Form errors: {form.errors}")
-                logger.error(f"[DIAG] Form non-field errors: {form.non_field_errors()}")
-                for field, errors in form.errors.items():
-                    logger.error(f"[DIAG]   Field '{field}' errors: {errors}")
-                
                 # Build detailed error message from form errors
                 error_details = []
                 for field, errors in form.errors.items():
@@ -425,14 +418,24 @@ def analyze_logs(request):
         
         # Handle Public Fetch
         elif 'fetch_callsigns' in request.POST:
-            logger.error(f"[DIAG] Public fetch branch entered")
             try:
                 # 1. Create Session Context
                 session_key = str(uuid.uuid4())
                 session_path = os.path.join(settings.MEDIA_ROOT, 'sessions', session_key)
                 os.makedirs(session_path, exist_ok=True)
 
-                # 2. Fetch Logs
+                # 2. Handle Custom CTY File (if uploaded)
+                custom_cty_path = None
+                cty_file_choice = request.POST.get('fetch_cty_file_choice', 'default')
+                if cty_file_choice == 'upload' and 'fetch_custom_cty_file' in request.FILES:
+                    cty_file = request.FILES['fetch_custom_cty_file']
+                    custom_cty_path = os.path.join(session_path, cty_file.name)
+                    with open(custom_cty_path, 'wb+') as destination:
+                        for chunk in cty_file.chunks():
+                            destination.write(chunk)
+                    logger.info(f"Custom CTY file uploaded via public archive: {cty_file.name}")
+
+                # 3. Fetch Logs
                 callsigns_raw = request.POST.get('fetch_callsigns') # JSON string
                 year = request.POST.get('fetch_year')
                 mode = request.POST.get('fetch_mode')  # May be empty for ARRL-10
@@ -445,6 +448,9 @@ def analyze_logs(request):
                 # Route to appropriate download function based on contest
                 if contest == 'CQ-WW' and mode:
                     log_paths = download_logs(callsigns, year, mode, session_path)
+                elif contest == 'CQ-160' and mode:
+                    from contest_tools.utils.log_fetcher import download_cq160_logs
+                    log_paths = download_cq160_logs(callsigns, year, mode, session_path)
                 elif contest == 'ARRL-10':
                     from contest_tools.utils.log_fetcher import download_arrl_logs, ARRL_CONTEST_CODES
                     contest_code = ARRL_CONTEST_CODES.get('ARRL-10')
@@ -455,7 +461,7 @@ def analyze_logs(request):
                 else:
                     raise ValueError(f'Unsupported contest: {contest}')
                 
-                return _run_analysis_pipeline(request_id, log_paths, session_path, session_key)
+                return _run_analysis_pipeline(request_id, log_paths, session_path, session_key, custom_cty_path=custom_cty_path)
             
             except ValueError as e:
                 logger.warning(f"Validation error during public log fetch: {e}")
@@ -466,11 +472,9 @@ def analyze_logs(request):
                 return render(request, 'analyzer/home.html', {'form': UploadLogForm(), 'error': str(e)})
         
     # If we get here, neither branch was taken
-    logger.error(f"[DIAG] Neither manual upload nor public fetch branch taken. Redirecting to home.")
-    logger.error(f"[DIAG] request.method={request.method}, 'log1' in FILES={'log1' in request.FILES if hasattr(request, 'FILES') else 'N/A'}, 'fetch_callsigns' in POST={'fetch_callsigns' in request.POST if request.method == 'POST' else 'N/A'}")
     return redirect('home')
 
-def _run_analysis_pipeline(request_id, log_paths, session_path, session_key):
+def _run_analysis_pipeline(request_id, log_paths, session_path, session_key, custom_cty_path=None):
     """Shared logic for processing logs (Manual or Fetched)."""
     with ProfileContext("Web Analysis Pipeline (Total)"):
         # 3. Process with LogManager
@@ -481,7 +485,9 @@ def _run_analysis_pipeline(request_id, log_paths, session_path, session_key):
         with ProfileContext("Web - Log Loading"):
             lm = LogManager()
             # Load logs (auto-detect contest type)
-            lm.load_log_batch(log_paths, root_input, 'after')
+            # Use custom CTY path if provided, otherwise use default 'after' specifier
+            cty_specifier = 'after' if not custom_cty_path else 'after'  # Specifier only used if custom_cty_path is None
+            lm.load_log_batch(log_paths, root_input, cty_specifier, custom_cty_path=custom_cty_path)
 
             lm.finalize_loading(session_path)
 
@@ -545,14 +551,22 @@ def _run_analysis_pipeline(request_id, log_paths, session_path, session_key):
     # Construct Full Title: "CQ-WW-CW 2024" or "NAQP 2025 JAN"
     full_contest_title = f"{contest_name.replace('_', ' ')} {year} {event_id}".strip()
 
-    # Extract CTY Version Info (format: CTY-3538 2024-12-09)
+    # Extract CTY Version Info (format: CTY-3538 2024-12-09 or CUSTOM CTY FILE: filename.dat)
     cty_path = lm.logs[0].cty_dat_path
-    cty_date = CtyLookup.extract_version_date(cty_path)
-    cty_date_str = cty_date.strftime('%Y-%m-%d') if cty_date else "Unknown Date"
-    # Extract version number from filename (e.g., cty_wt_mod_3538.dat -> 3538)
-    version_match = re.search(r'(\d{4})', os.path.basename(cty_path))
-    cty_version_str = f"CTY-{version_match.group(1)}" if version_match else "CTY-Unknown"
-    cty_info = f"{cty_version_str} {cty_date_str}"
+    # Check if this is a custom CTY file (uploaded by user)
+    # Custom files are typically in the session directory, while default files are in data/CTY/
+    is_custom_cty = custom_cty_path is not None or 'sessions' in str(cty_path)
+    
+    if is_custom_cty:
+        cty_filename = os.path.basename(cty_path)
+        cty_info = f"CUSTOM CTY FILE: {cty_filename}"
+    else:
+        cty_date = CtyLookup.extract_version_date(cty_path)
+        cty_date_str = cty_date.strftime('%Y-%m-%d') if cty_date else "Unknown Date"
+        # Extract version number from filename (e.g., cty_wt_mod_3538.dat -> 3538)
+        version_match = re.search(r'(\d{4})', os.path.basename(cty_path))
+        cty_version_str = f"CTY-{version_match.group(1)}" if version_match else "CTY-Unknown"
+        cty_info = f"{cty_version_str} {cty_date_str}"
     # Create footer text with CLA abbreviation
     footer_text = f"CLA v{__version__}   |   {cty_info}"
     
@@ -595,6 +609,8 @@ def _run_analysis_pipeline(request_id, log_paths, session_path, session_key):
         'contest_name': contest_name,
         'valid_bands': valid_bands,  # Kept for backward compatibility and other uses
         'valid_modes': valid_modes,  # Kept for backward compatibility and other uses
+        'custom_cty_path': custom_cty_path,  # Store for bundle inclusion
+        'cty_dat_path': str(cty_path),  # Store actual CTY file path for bundle inclusion
     }
     
     # Determine multiplier headers from the first log (assuming all are same contest)
@@ -635,9 +651,82 @@ def dashboard_view(request, session_id):
 
     # Contest-Specific Routing
     contest_name = context.get('contest_name', '').upper()
-    # Enable same dashboard structure for CQ-WW and ARRL-10
-    if not (contest_name.startswith('CQ-WW') or contest_name.startswith('ARRL-10')):
+    # Enable same dashboard structure for CQ-WW, CQ-160, and ARRL-10
+    # CQ-160 is single-band, multi-mode (like ARRL-10), so it uses the same dashboard architecture
+    if not (contest_name.startswith('CQ-WW') or contest_name.startswith('CQ-160') or contest_name.startswith('ARRL-10')):
         return render(request, 'analyzer/dashboard_construction.html', context)
+    
+    # Load score report data for dashboard display
+    # 1. Discover Manifest (Deep Search)
+    manifest_dir = None
+    for root, dirs, files in os.walk(session_path):
+        if 'session_manifest.json' in files:
+            manifest_dir = root
+            break
+    
+    score_reports_data = []
+    score_report_text_urls = {}
+    
+    if manifest_dir:
+        # 2. Load Manifest & Artifacts
+        manifest_mgr = ManifestManager(manifest_dir)
+        artifacts = manifest_mgr.load()
+        report_rel_path = os.path.relpath(manifest_dir, session_path).replace("\\", "/")
+        
+        # 3. Get callsigns from context
+        persisted_logs = context.get('logs', [])
+        callsigns = [log.get('callsign', '') for log in persisted_logs]
+        
+        # 4. Load JSON score report artifacts for each log
+        for callsign in callsigns:
+            callsign_safe = callsign.lower().replace('/', '-')
+            
+            # Find JSON artifact
+            json_filename = f"json_score_report_dashboard_{callsign_safe}.json"
+            json_art = next((a for a in artifacts 
+                            if a['report_id'] == 'json_score_report_dashboard' 
+                            and a['path'].endswith(json_filename)), None)
+            
+            if json_art:
+                try:
+                    full_path = os.path.join(manifest_dir, json_art['path'])
+                    with open(full_path, 'r', encoding='utf-8') as json_file:
+                        score_data = json.load(json_file)
+                        score_reports_data.append(score_data)
+                except Exception as e:
+                    logger.error(f"Failed to load JSON score report for {callsign}: {e}")
+            
+            # Find text report artifact for score summary link
+            text_filename = f"score_report_{callsign_safe}.txt"
+            text_art = next((a for a in artifacts 
+                           if a['report_id'] == 'score_report' 
+                           and a['path'].endswith(text_filename)), None)
+            
+            if text_art:
+                # Build URL for view_report with chromeless=1
+                text_report_path = f"{report_rel_path}/{text_art['path']}"
+                score_report_text_urls[callsign] = reverse('view_report', args=[session_id, text_report_path]) + '?chromeless=1'
+        
+        # 5. Discover breakdown report artifacts for each log
+        breakdown_report_urls = {}
+        for callsign in callsigns:
+            callsign_safe = callsign.lower().replace('/', '-')
+            
+            # Find breakdown report artifact
+            breakdown_filename = f"breakdown_report_{callsign_safe}.txt"
+            breakdown_art = next((a for a in artifacts 
+                                if a['report_id'] == 'breakdown_report' 
+                                and a['path'].endswith(breakdown_filename)), None)
+            
+            if breakdown_art:
+                # Build URL for view_report with chromeless=1
+                breakdown_report_path = f"{report_rel_path}/{breakdown_art['path']}"
+                breakdown_report_urls[callsign] = reverse('view_report', args=[session_id, breakdown_report_path]) + '?chromeless=1'
+    
+    # Add score report data to context
+    context['score_reports_data'] = score_reports_data
+    context['score_report_text_urls'] = score_report_text_urls
+    context['breakdown_report_urls'] = breakdown_report_urls
     
     return render(request, 'analyzer/dashboard.html', context)
 
@@ -672,10 +761,18 @@ def _extract_contest_name_from_path(report_rel_path: str) -> str:
     # Path structure: reports/YYYY/contest_name/event_id/combo_id
     # We want the contest_name part (typically index 2)
     if len(parts) >= 3 and parts[0].lower() == 'reports':
-        contest_name_lower = parts[2]  # e.g., "arrl-10", "cq-ww-cw"
+        contest_name_lower = parts[2]  # e.g., "arrl-10", "cq-ww-cw", "cq-160-cw"
         # Convert to expected format: uppercase and replace hyphens appropriately
-        # Contest definition files use format like "ARRL-10", "CQ-WW-CW"
+        # Contest definition files use format like "ARRL-10", "CQ-WW-CW", "CQ-160"
         contest_name = contest_name_lower.upper().replace('_', '-')
+        
+        # Normalize CQ-160 variants (CQ-160-CW, CQ-160-SSB) to base contest name (CQ-160)
+        # This allows the single contest definition file to handle both modes
+        # ContestDefinition.from_json() will handle the fallback, but normalizing here
+        # makes the code more explicit and consistent
+        if contest_name.startswith('CQ-160-'):
+            contest_name = 'CQ-160'
+        
         return contest_name
     
     return None
@@ -1934,6 +2031,37 @@ def download_all_reports(request, session_id):
             else:
                 # Create empty logs directory marker (optional, but helps with structure)
                 logger.warning(f"Archive created without log files - logs/ directory will be empty")
+            
+            # Add CTY file to reports root directory (e.g., reports/YYYY/contest/event/calls/cty_file.dat)
+            try:
+                cty_dat_path_from_context = context.get('cty_dat_path')
+                if cty_dat_path_from_context and os.path.exists(cty_dat_path_from_context):
+                    cty_filename = os.path.basename(cty_dat_path_from_context)
+                    # Get report_url_path to determine reports subdirectory structure
+                    report_url_path = context.get('report_url_path', '')
+                    if report_url_path:
+                        # Construct path: reports/YYYY/contest/event/calls/cty_file.dat
+                        arcname = os.path.join('reports', report_url_path, cty_filename)
+                    else:
+                        # Fallback: place at reports root if path structure unknown
+                        arcname = os.path.join('reports', cty_filename)
+                    zipf.write(cty_dat_path_from_context, arcname)
+                    logger.debug(f"Added CTY file to archive: {arcname}")
+                else:
+                    logger.warning(f"CTY file not found or not specified in context: {cty_dat_path_from_context}")
+            except Exception as e:
+                logger.warning(f"Could not add CTY file to bundle: {e}")
+            
+            # Add custom CTY file to logs/ subdirectory if custom CTY was used (backward compatibility)
+            try:
+                custom_cty_path_from_context = context.get('custom_cty_path')
+                if custom_cty_path_from_context and os.path.exists(custom_cty_path_from_context):
+                    cty_filename = os.path.basename(custom_cty_path_from_context)
+                    arcname = os.path.join('logs', cty_filename)
+                    zipf.write(custom_cty_path_from_context, arcname)
+                    logger.debug(f"Added custom CTY file to logs subdirectory: {arcname}")
+            except Exception as e:
+                logger.debug(f"Could not add custom CTY file to logs subdirectory: {e}")
         
         # Update progress: Step 2 - Downloading (file ready)
         if request_id:
@@ -1984,7 +2112,6 @@ def help_release_notes(request):
     changelog_path = os.path.join(project_root, 'CHANGELOG.md')
     
     # DIAGNOSTICS: Log the path being checked
-    logger.error(f"[DIAG] help_release_notes: BASE_DIR={settings.BASE_DIR}, project_root={project_root}, changelog_path={changelog_path}")
     
     try:
         with open(changelog_path, 'r', encoding='utf-8') as f:

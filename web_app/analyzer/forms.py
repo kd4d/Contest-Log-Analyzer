@@ -41,3 +41,19 @@ class UploadLogForm(forms.Form):
         required=False,
         widget=forms.FileInput(attrs={'class': 'form-control', 'accept': '.log,.cbr,.txt'})
     )
+    
+    # CTY File Options
+    cty_file_choice = forms.ChoiceField(
+        choices=[('default', 'Use Default CTY File'), ('upload', 'Upload Custom CTY File')],
+        initial='default',
+        required=False,
+        widget=forms.RadioSelect(attrs={'class': 'form-check-input'})
+    )
+    custom_cty_file = forms.FileField(
+        required=False,
+        widget=forms.FileInput(attrs={
+            'class': 'form-control', 
+            'accept': '.dat',
+            'style': 'display: none;'
+        })
+    )

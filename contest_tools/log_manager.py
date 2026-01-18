@@ -38,10 +38,13 @@ class LogManager:
         self.master_time_index = None
 
     @profile_section("Log Batch Loading (Total)")
-    def load_log_batch(self, log_filepaths: List[str], root_input_dir: str, cty_specifier: str, wrtc_year: int = None):
+    def load_log_batch(self, log_filepaths: List[str], root_input_dir: str, cty_specifier: str, wrtc_year: int = None, custom_cty_path: str = None):
         """
         Performs validation on log files (duplicates, consistency, empty checks), selects a single
         CTY file, and then loads and processes all logs.
+        
+        Args:
+            custom_cty_path: Optional direct path to custom CTY file. If provided, this takes precedence over cty_specifier.
         """
         # --- 1. Pre-flight Validation Phase ---
         if log_filepaths:
@@ -97,34 +100,44 @@ class LogManager:
 
         # --- 2. Single CTY File Selection ---
         with ProfileContext("CTY File Resolution"):
-            logging.info("Resolving CTY file for batch...")
-            cty_manager = CtyManager(root_input_dir)
-            
-            if cty_specifier in ['before', 'after']:
-                all_dates = [self._get_first_qso_date_from_log(path) for path in log_filepaths]
-                # Filter None to be safe (though validation guarantees validity)
-                valid_dates = [d for d in all_dates if d is not None]
+            if custom_cty_path:
+                # Use custom CTY file directly (user-uploaded)
+                if not os.path.exists(custom_cty_path):
+                    raise FileNotFoundError(f"Custom CTY file not found: {custom_cty_path}")
+                cty_dat_path = custom_cty_path
+                # For custom files, we create a minimal file_info dict
+                cty_file_info = {'filename': os.path.basename(custom_cty_path), 'date': None, 'custom': True}
+                logging.info(f"Using custom CTY file: {os.path.basename(cty_dat_path)}")
+            else:
+                # Use default CTY selection logic
+                logging.info("Resolving CTY file for batch...")
+                cty_manager = CtyManager(root_input_dir)
                 
-                if not valid_dates:
-                    target_date = pd.Timestamp.now(tz='UTC')
+                if cty_specifier in ['before', 'after']:
+                    all_dates = [self._get_first_qso_date_from_log(path) for path in log_filepaths]
+                    # Filter None to be safe (though validation guarantees validity)
+                    valid_dates = [d for d in all_dates if d is not None]
+                    
+                    if not valid_dates:
+                        target_date = pd.Timestamp.now(tz='UTC')
+                    else:
+                        target_date = min(valid_dates) if cty_specifier == 'before' else max(valid_dates)
                 else:
-                    target_date = min(valid_dates) if cty_specifier == 'before' else max(valid_dates)
-            else:
-                # If a specific filename is given, we need a date for the sync check.
-                # We'll just use the first log's date as it's a reasonable proxy.
-                target_date = self._get_first_qso_date_from_log(log_filepaths[0]) or pd.Timestamp.now(tz='UTC')
+                    # If a specific filename is given, we need a date for the sync check.
+                    # We'll just use the first log's date as it's a reasonable proxy.
+                    target_date = self._get_first_qso_date_from_log(log_filepaths[0]) or pd.Timestamp.now(tz='UTC')
 
-            # Conditionally update the index based on the determined target date
-            cty_manager.sync_index(contest_date=target_date)
+                # Conditionally update the index based on the determined target date
+                cty_manager.sync_index(contest_date=target_date)
 
-            if cty_specifier in ['before', 'after']:
-                cty_dat_path, cty_file_info = cty_manager.find_cty_file_by_date(target_date, cty_specifier)
-            else:
-                cty_dat_path, cty_file_info = cty_manager.find_cty_file_by_name(cty_specifier)
-            
-            if not cty_dat_path:
-                raise FileNotFoundError(f"Could not find a suitable CTY.DAT file for specifier '{cty_specifier}'.")
-            logging.info(f"Using CTY file for all logs: {os.path.basename(cty_dat_path)} (Date: {cty_file_info.get('date')})")
+                if cty_specifier in ['before', 'after']:
+                    cty_dat_path, cty_file_info = cty_manager.find_cty_file_by_date(target_date, cty_specifier)
+                else:
+                    cty_dat_path, cty_file_info = cty_manager.find_cty_file_by_name(cty_specifier)
+                
+                if not cty_dat_path:
+                    raise FileNotFoundError(f"Could not find a suitable CTY.DAT file for specifier '{cty_specifier}'.")
+                logging.info(f"Using CTY file for all logs: {os.path.basename(cty_dat_path)} (Date: {cty_file_info.get('date')})")
 
         # --- 2.5. Create Shared Instances (Performance Optimization) ---
         # Create shared CTY lookup and BandAllocator instances to avoid reloading from disk for each log

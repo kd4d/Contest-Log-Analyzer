@@ -143,7 +143,10 @@ class TimeSeriesAggregator:
                     "qsos": [], 
                     "by_band": {},
                     "by_mode": {},
-                    "by_band_mode": {}
+                    "by_band_mode": {},
+                    "new_mults_by_band": {},
+                    "new_mults_by_mode": {},
+                    "cumulative_mults": []
                 }
             }
 
@@ -307,6 +310,140 @@ class TimeSeriesAggregator:
                 for band in contest_def.valid_bands:
                     log_entry["hourly"]["by_band"][band] = zeros
             
+            # --- Hourly Multiplier Data ---
+            if not df_full.empty and not is_filtered:
+                df_valid = df_full[df_full['Dupe'] == False].copy()
+                if not df_valid.empty:
+                    hourly_mult_data = self._calculate_hourly_multipliers(
+                        df_valid, master_index, contest_def
+                    )
+                    log_entry["hourly"]["new_mults_by_band"] = hourly_mult_data["new_mults_by_band"]
+                    log_entry["hourly"]["new_mults_by_mode"] = hourly_mult_data["new_mults_by_mode"]
+                    log_entry["hourly"]["cumulative_mults"] = hourly_mult_data["cumulative_mults"]
+                else:
+                    # Initialize empty structures
+                    for band in contest_def.valid_bands:
+                        log_entry["hourly"]["new_mults_by_band"][band] = zeros
+                    log_entry["hourly"]["cumulative_mults"] = zeros
+            else:
+                # Initialize empty structures
+                for band in contest_def.valid_bands:
+                    log_entry["hourly"]["new_mults_by_band"][band] = zeros
+                log_entry["hourly"]["cumulative_mults"] = zeros
+            
             data["logs"][callsign] = log_entry
 
         return data
+    
+    def _calculate_hourly_multipliers(
+        self, df: pd.DataFrame, master_index: pd.DatetimeIndex, contest_def
+    ) -> Dict[str, Any]:
+        """
+        Calculates NEW multipliers per hour per band/mode and cumulative multipliers.
+        
+        Returns:
+            {
+                "new_mults_by_band": {band: [counts_per_hour, ...]},
+                "new_mults_by_mode": {mode: [counts_per_hour, ...]},
+                "cumulative_mults": [cum_counts_per_hour, ...]
+            }
+        """
+        result = {
+            "new_mults_by_band": {},
+            "new_mults_by_mode": {},
+            "cumulative_mults": [0] * len(master_index)
+        }
+        
+        if df.empty or not contest_def.multiplier_rules:
+            # Initialize empty structures
+            valid_bands = contest_def.valid_bands
+            for band in valid_bands:
+                result["new_mults_by_band"][band] = [0] * len(master_index)
+            return result
+        
+        # Get all multiplier columns
+        mult_cols = [rule['value_column'] for rule in contest_def.multiplier_rules 
+                    if rule.get('value_column') in df.columns]
+        
+        if not mult_cols:
+            # Initialize empty structures
+            valid_bands = contest_def.valid_bands
+            for band in valid_bands:
+                result["new_mults_by_band"][band] = [0] * len(master_index)
+            return result
+        
+        # Filter valid multipliers (not NaN, not 'Unknown')
+        df_valid = df.copy()
+        for col in mult_cols:
+            if col in df_valid.columns:
+                df_valid = df_valid[df_valid[col].notna() & (df_valid[col] != 'Unknown')]
+        
+        if df_valid.empty:
+            # Initialize empty structures
+            valid_bands = contest_def.valid_bands
+            for band in valid_bands:
+                result["new_mults_by_band"][band] = [0] * len(master_index)
+            return result
+        
+        # Initialize result structures
+        valid_bands = contest_def.valid_bands
+        for band in valid_bands:
+            result["new_mults_by_band"][band] = [0] * len(master_index)
+        
+        # Track multipliers seen so far (cumulative, shared across all dimensions)
+        seen_mults = set()
+        
+        # For each hour
+        for hour_idx, hour_ts in enumerate(master_index):
+            # Get QSOs in this hour
+            hour_start = hour_ts
+            hour_end = hour_ts + pd.Timedelta(hours=1)
+            hour_df = df_valid[
+                (df_valid['Datetime'] >= hour_start) & 
+                (df_valid['Datetime'] < hour_end)
+            ]
+            
+            # Calculate new multipliers per band
+            for band in valid_bands:
+                band_df = hour_df[hour_df['Band'] == band]
+                if not band_df.empty:
+                    # Collect all multiplier values from all multiplier columns for this hour/band
+                    new_mults_this_hour_band = set()
+                    for col in mult_cols:
+                        if col in band_df.columns:
+                            valid_mults = band_df[col].dropna()
+                            for mult_val in valid_mults:
+                                # Check if this is a NEW multiplier (not seen before in any hour)
+                                if mult_val not in seen_mults:
+                                    new_mults_this_hour_band.add(mult_val)
+                                    seen_mults.add(mult_val)
+                    
+                    result["new_mults_by_band"][band][hour_idx] = len(new_mults_this_hour_band)
+            
+            # Calculate new multipliers per mode
+            if 'Mode' in df_valid.columns:
+                modes_present = df_valid['Mode'].unique()
+                for mode in modes_present:
+                    if mode not in result["new_mults_by_mode"]:
+                        result["new_mults_by_mode"][mode] = [0] * len(master_index)
+                    
+                    mode_df = hour_df[hour_df['Mode'] == mode]
+                    if not mode_df.empty:
+                        new_mults_this_hour_mode = set()
+                        for col in mult_cols:
+                            if col in mode_df.columns:
+                                valid_mults = mode_df[col].dropna()
+                                for mult_val in valid_mults:
+                                    # Check if this is a NEW multiplier (not seen before in any hour)
+                                    if mult_val not in seen_mults:
+                                        new_mults_this_hour_mode.add(mult_val)
+                                        seen_mults.add(mult_val)
+                        
+                        result["new_mults_by_mode"][mode][hour_idx] = len(new_mults_this_hour_mode)
+            
+            # Calculate cumulative multipliers up to this hour
+            # seen_mults is already built incrementally as we process new multipliers
+            # So we can just use its length
+            result["cumulative_mults"][hour_idx] = len(seen_mults)
+        
+        return result

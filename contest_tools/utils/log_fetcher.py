@@ -26,6 +26,9 @@ logger = logging.getLogger(__name__)
 CQ_WW_BASE_URL = "https://cqww.com/publiclogs/"
 CQ_WW_RTTY_BASE_URL = "https://cqwwrtty.com/publiclogs/"
 
+# CQ 160 Public Log Archive
+CQ_160_BASE_URL = "https://cq160.com/publiclogs/"
+
 # ARRL Public Log Archive
 ARRL_BASE_URL = "https://contests.arrl.org"
 ARRL_PUBLICLOGS_URL = f"{ARRL_BASE_URL}/publiclogs.php"
@@ -107,6 +110,92 @@ def download_logs(callsigns: List[str], year: str, mode: str, output_dir: str) -
         except Exception as e:
             logger.error(f"Failed to download {filename}: {e}")
             
+    return downloaded_paths
+
+
+# ============================================================================
+# CQ 160 Public Log Archive Functions
+# ============================================================================
+
+def fetch_cq160_log_index(year: str, mode: str) -> List[str]:
+    """
+    Scrapes the CQ 160 public log page for a specific year and mode.
+    Returns a list of available callsigns (e.g., ['K3LR', 'KC1XX']).
+    
+    Args:
+        year: Year as string (e.g., '2024')
+        mode: Mode as string ('CW' or 'SSB')
+    
+    Returns:
+        List of callsigns available for download
+    """
+    # Construct URL (e.g. 2024ph for SSB, 2024cw for CW)
+    mode_suffix = "ph" if mode == "SSB" else "cw"
+    target_url = f"{CQ_160_BASE_URL}{year}{mode_suffix}/"
+    
+    try:
+        response = requests.get(target_url, timeout=10)
+        response.raise_for_status()
+        
+        soup = BeautifulSoup(response.text, 'html.parser')
+        # Logs are listed as links in a table: <a href='k3lr.log'>K3LR</a>
+        # We look for links ending in .log
+        links = soup.find_all('a', href=True)
+        callsigns = []
+        
+        for link in links:
+            href = link['href']
+            if href.endswith('.log'):
+                # Extract callsign from filename (k3lr.log -> k3lr, 5b-yt7aw.log -> 5b-yt7aw)
+                filename_part = href[:-4].lower()
+                # Convert filename part back to callsign format (handles portable callsigns)
+                call = filename_part_to_callsign(filename_part)
+                callsigns.append(call)
+                
+        return sorted(list(set(callsigns)))
+
+    except Exception as e:
+        logger.error(f"Failed to fetch CQ 160 log index from {target_url}: {e}")
+        return []
+
+
+def download_cq160_logs(callsigns: List[str], year: str, mode: str, output_dir: str) -> List[str]:
+    """
+    Downloads specific log files for CQ 160 contest for the given callsigns into the output directory.
+    Returns a list of full paths to the downloaded files.
+    
+    Args:
+        callsigns: List of callsigns to download (e.g., ['K3LR', 'KC1XX'])
+        year: Year as string (e.g., '2024')
+        mode: Mode as string ('CW' or 'SSB')
+        output_dir: Directory to save downloaded logs
+        
+    Returns:
+        List of full paths to downloaded log files
+    """
+    # Construct URL (e.g. 2024ph for SSB, 2024cw for CW)
+    mode_suffix = "ph" if mode == "SSB" else "cw"
+    base_url = f"{CQ_160_BASE_URL}{year}{mode_suffix}/"
+    downloaded_paths = []
+    
+    for call in callsigns:
+        filename = f"{call.lower()}.log"
+        file_url = f"{base_url}{filename}"
+        local_path = os.path.join(output_dir, filename)
+        
+        try:
+            response = requests.get(file_url, timeout=15)
+            response.raise_for_status()
+            
+            with open(local_path, 'wb') as f:
+                f.write(response.content)
+            
+            downloaded_paths.append(local_path)
+            logger.info(f"Downloaded CQ 160 log: {filename}")
+            
+        except Exception as e:
+            logger.error(f"Failed to download CQ 160 log {filename}: {e}")
+    
     return downloaded_paths
 
 

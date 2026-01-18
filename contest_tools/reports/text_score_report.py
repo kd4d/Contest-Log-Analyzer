@@ -153,7 +153,7 @@ class Report(ContestReport):
             standard_footer = get_standard_footer([log])
             report_content = "\n".join(report_lines) + "\n\n" + standard_footer + "\n"
             os.makedirs(output_path, exist_ok=True)
-            filename = f"{self.report_id}_{callsign}.txt"
+            filename = f"{self.report_id}_{callsign.lower().replace('/', '-')}.txt"
             filepath = os.path.join(output_path, filename)
             with open(filepath, 'w', encoding='utf-8') as f:
                 f.write(report_content)
