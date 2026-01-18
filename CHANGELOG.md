@@ -5,6 +5,31 @@ All notable changes to Contest Log Analyzer will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-alpha.6] - 2026-01-17
+[Full Release Notes](ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.6.md)
+
+### Fixed
+- Multiplier Dashboard label capitalization issues
+  - "US States" now correctly capitalized (was "Us States")
+  - "DXCC CW" now correctly capitalized (was "Dxcc Cw")
+  - All multiplier names and modes now properly formatted from contest definitions
+- Changed "States" to "US States" in ARRL 10 Meter contest definition
+  - Provides clarity when contest has both "US States" and "Mexican States"
+  - Ensures consistent naming across all reports and dashboards
+- Log Upload/Public Log page double-submission vulnerability
+  - Buttons (Upload & Fetch) are now disabled immediately when clicked
+  - All form controls are disabled during processing
+  - Prevents multiple instances of ingest software from running
+
+### Changed
+- Form control state management on upload/fetch operations
+  - Form controls are re-enabled if submission fails (client-side errors)
+  - Form controls are re-enabled if server returns error (page reload with error)
+  - Polling failures now re-enable controls after 5 consecutive errors
+  - Users can retry operations without refreshing the page
+
+---
+
 ## [1.0.0-alpha.5] - 2026-01-17
 [Full Release Notes](ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.5.md)
 
