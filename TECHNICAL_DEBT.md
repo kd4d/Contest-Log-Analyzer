@@ -167,6 +167,36 @@
 
 ## Architecture & Design Debt
 
+### CQ 160 CW PH Mode Suppression in Breakdown Report
+
+**Priority:** LOW  
+**Impact:** PH mode appears in hourly breakdown for CQ 160 CW when it shouldn't  
+**Status:** [ ] Not started
+
+**Issue:**
+- CQ 160 CW contest is CW-only, but hourly breakdown report shows PH (Phone) mode columns
+- Contest definition (`cq_160.json`) includes both `["CW", "PH"]` in `valid_modes` to support both variants
+- Breakdown report (`text_breakdown_report.py`) uses `contest_def.valid_modes` directly without filtering by variant
+- Parser extracts specific variant from header (`CQ-160-CW` or `CQ-160-SSB`) but report doesn't use this
+
+**Current State:**
+- Parser correctly identifies contest variant (`CQ-160-CW` vs `CQ-160-SSB`)
+- Contest definition includes both modes for both variants
+- Report displays all modes from definition regardless of actual variant
+
+**Solution:**
+- Filter `valid_modes` in breakdown report based on actual contest name from metadata
+- If `contest_name == "CQ-160-CW"` → show only CW
+- If `contest_name == "CQ-160-SSB"` → show only PH (or SSB depending on mode mapping)
+
+**Related:**
+- `DevNotes/CQ_160_CW_PH_MODE_SUPPRESSION_DISCUSSION.md` - Detailed discussion and solution options
+- `contest_tools/reports/text_breakdown_report.py` (line 104) - Mode dimension filtering
+- `contest_tools/contest_definitions/cq_160.json` - Contest definition with `valid_modes`
+- `contest_tools/contest_specific_annotations/cq_160_parser.py` - Parser extracts variant
+
+---
+
 ### Multiplier Breakdown Reports - Mode Dimension Support
 
 **Priority:** MEDIUM  

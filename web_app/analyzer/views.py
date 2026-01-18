@@ -610,6 +610,7 @@ def _run_analysis_pipeline(request_id, log_paths, session_path, session_key, cus
         'valid_bands': valid_bands,  # Kept for backward compatibility and other uses
         'valid_modes': valid_modes,  # Kept for backward compatibility and other uses
         'custom_cty_path': custom_cty_path,  # Store for bundle inclusion
+        'cty_dat_path': str(cty_path),  # Store actual CTY file path for bundle inclusion
     }
     
     # Determine multiplier headers from the first log (assuming all are same contest)
@@ -2031,16 +2032,36 @@ def download_all_reports(request, session_id):
                 # Create empty logs directory marker (optional, but helps with structure)
                 logger.warning(f"Archive created without log files - logs/ directory will be empty")
             
-            # Add CTY file to logs/ subdirectory if custom CTY was used
+            # Add CTY file to reports root directory (e.g., reports/YYYY/contest/event/calls/cty_file.dat)
+            try:
+                cty_dat_path_from_context = context.get('cty_dat_path')
+                if cty_dat_path_from_context and os.path.exists(cty_dat_path_from_context):
+                    cty_filename = os.path.basename(cty_dat_path_from_context)
+                    # Get report_url_path to determine reports subdirectory structure
+                    report_url_path = context.get('report_url_path', '')
+                    if report_url_path:
+                        # Construct path: reports/YYYY/contest/event/calls/cty_file.dat
+                        arcname = os.path.join('reports', report_url_path, cty_filename)
+                    else:
+                        # Fallback: place at reports root if path structure unknown
+                        arcname = os.path.join('reports', cty_filename)
+                    zipf.write(cty_dat_path_from_context, arcname)
+                    logger.debug(f"Added CTY file to archive: {arcname}")
+                else:
+                    logger.warning(f"CTY file not found or not specified in context: {cty_dat_path_from_context}")
+            except Exception as e:
+                logger.warning(f"Could not add CTY file to bundle: {e}")
+            
+            # Add custom CTY file to logs/ subdirectory if custom CTY was used (backward compatibility)
             try:
                 custom_cty_path_from_context = context.get('custom_cty_path')
                 if custom_cty_path_from_context and os.path.exists(custom_cty_path_from_context):
                     cty_filename = os.path.basename(custom_cty_path_from_context)
                     arcname = os.path.join('logs', cty_filename)
                     zipf.write(custom_cty_path_from_context, arcname)
-                    logger.debug(f"Added custom CTY file to archive: {arcname}")
+                    logger.debug(f"Added custom CTY file to logs subdirectory: {arcname}")
             except Exception as e:
-                logger.warning(f"Could not add CTY file to bundle: {e}")
+                logger.debug(f"Could not add custom CTY file to logs subdirectory: {e}")
         
         # Update progress: Step 2 - Downloading (file ready)
         if request_id:
