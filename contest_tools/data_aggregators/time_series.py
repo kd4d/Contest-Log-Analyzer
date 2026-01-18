@@ -390,8 +390,12 @@ class TimeSeriesAggregator:
         for band in valid_bands:
             result["new_mults_by_band"][band] = [0] * len(master_index)
         
-        # Track multipliers seen so far (cumulative, shared across all dimensions)
-        seen_mults = set()
+        # Track multipliers seen so far - SEPARATE tracking per dimension
+        # This allows band and mode calculations to be independent
+        seen_mults_by_band = set()
+        seen_mults_by_mode = set()
+        # Cumulative tracking (union of all multipliers across all dimensions)
+        seen_mults_cumulative = set()
         
         # For each hour
         for hour_idx, hour_ts in enumerate(master_index):
@@ -413,10 +417,13 @@ class TimeSeriesAggregator:
                         if col in band_df.columns:
                             valid_mults = band_df[col].dropna()
                             for mult_val in valid_mults:
-                                # Check if this is a NEW multiplier (not seen before in any hour)
-                                if mult_val not in seen_mults:
+                                # Check if this is a NEW multiplier for this band dimension
+                                # (not seen before in any hour for band tracking)
+                                if mult_val not in seen_mults_by_band:
                                     new_mults_this_hour_band.add(mult_val)
-                                    seen_mults.add(mult_val)
+                                    seen_mults_by_band.add(mult_val)
+                                    # Also add to cumulative tracking
+                                    seen_mults_cumulative.add(mult_val)
                     
                     result["new_mults_by_band"][band][hour_idx] = len(new_mults_this_hour_band)
             
@@ -434,16 +441,20 @@ class TimeSeriesAggregator:
                             if col in mode_df.columns:
                                 valid_mults = mode_df[col].dropna()
                                 for mult_val in valid_mults:
-                                    # Check if this is a NEW multiplier (not seen before in any hour)
-                                    if mult_val not in seen_mults:
+                                    # Check if this is a NEW multiplier for this mode dimension
+                                    # (not seen before in any hour for mode tracking)
+                                    # This is independent of band tracking, allowing mode breakdown
+                                    # to show multipliers even in single-band contests
+                                    if mult_val not in seen_mults_by_mode:
                                         new_mults_this_hour_mode.add(mult_val)
-                                        seen_mults.add(mult_val)
+                                        seen_mults_by_mode.add(mult_val)
+                                        # Also add to cumulative tracking
+                                        seen_mults_cumulative.add(mult_val)
                         
                         result["new_mults_by_mode"][mode][hour_idx] = len(new_mults_this_hour_mode)
             
             # Calculate cumulative multipliers up to this hour
-            # seen_mults is already built incrementally as we process new multipliers
-            # So we can just use its length
-            result["cumulative_mults"][hour_idx] = len(seen_mults)
+            # Use cumulative tracking which includes all multipliers from both dimensions
+            result["cumulative_mults"][hour_idx] = len(seen_mults_cumulative)
         
         return result
