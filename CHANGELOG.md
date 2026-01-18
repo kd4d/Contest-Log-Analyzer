@@ -5,6 +5,23 @@ All notable changes to Contest Log Analyzer will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-alpha.5] - 2026-01-17
+[Full Release Notes](ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.5.md)
+
+### Added
+- Local settings override pattern for production deployments
+  - settings.py now imports settings_local.py if it exists (gitignored)
+  - Created settings_local.py.example template with production values
+  - Production settings persist automatically across updates
+  - No more manual stashing/popping of production settings
+
+### Changed
+- Configuration management workflow for VPS deployments
+  - Production-specific settings (ALLOWED_HOSTS, CSRF_TRUSTED_ORIGINS) now use override pattern
+  - Clean git status on VPS (no modified settings.py)
+
+---
+
 ## [1.0.0-alpha.4] - 2026-01-17
 [Full Release Notes](ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.4.md)
 
