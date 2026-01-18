@@ -49,6 +49,15 @@ DEBUG = bool(os.environ.get('DEBUG', False))
 
 ALLOWED_HOSTS = ['*']
 
+# Load local settings override if it exists (for production-specific configuration)
+# This file should be gitignored and not committed to the repository
+# On VPS/production: create web_app/config/settings_local.py with production settings
+try:
+    from .settings_local import *
+except ImportError:
+    # settings_local.py doesn't exist, use defaults above
+    pass
+
 # Application definition
 
 INSTALLED_APPS = [

@@ -1,0 +1,21 @@
+# web_app/config/settings_local.py.example
+#
+# Purpose: Example template for production-specific Django settings overrides.
+#          Copy this file to settings_local.py on your production VPS and customize.
+#          The settings_local.py file is gitignored and will persist across updates.
+#
+# Copyright (c) 2025 Mark Bailey, KD4D
+# Contact: kd4d@kd4d.org
+#
+# License: Mozilla Public License, v. 2.0
+#          (https://www.mozilla.org/MPL/2.0/)
+
+# Production-specific ALLOWED_HOSTS
+# Replace wildcard '*' with your production domain(s)
+ALLOWED_HOSTS = ['cla.kd4d.org', 'localhost', '127.0.0.1']
+
+# CSRF Trusted Origins for HTTPS production domains
+# Add your production HTTPS domain here
+CSRF_TRUSTED_ORIGINS = [
+    "https://cla.kd4d.org",
+]
