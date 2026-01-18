@@ -384,7 +384,18 @@ def analyze_logs(request):
                                 destination.write(chunk)
                         log_paths.append(file_path)
 
-                    return _run_analysis_pipeline(request_id, log_paths, session_path, session_key)
+                    # 3. Handle Custom CTY File (if uploaded)
+                    custom_cty_path = None
+                    cty_file_choice = form.cleaned_data.get('cty_file_choice', 'default')
+                    if cty_file_choice == 'upload' and 'custom_cty_file' in request.FILES:
+                        cty_file = request.FILES['custom_cty_file']
+                        custom_cty_path = os.path.join(session_path, cty_file.name)
+                        with open(custom_cty_path, 'wb+') as destination:
+                            for chunk in cty_file.chunks():
+                                destination.write(chunk)
+                        logger.info(f"Custom CTY file uploaded: {cty_file.name}")
+
+                    return _run_analysis_pipeline(request_id, log_paths, session_path, session_key, custom_cty_path=custom_cty_path)
                 except ValueError as e:
                     logger.warning(f"Validation error during manual upload: {e}")
                     return render(request, 'analyzer/home.html', {'form': form, 'error': str(e)})
@@ -413,7 +424,18 @@ def analyze_logs(request):
                 session_path = os.path.join(settings.MEDIA_ROOT, 'sessions', session_key)
                 os.makedirs(session_path, exist_ok=True)
 
-                # 2. Fetch Logs
+                # 2. Handle Custom CTY File (if uploaded)
+                custom_cty_path = None
+                cty_file_choice = request.POST.get('fetch_cty_file_choice', 'default')
+                if cty_file_choice == 'upload' and 'fetch_custom_cty_file' in request.FILES:
+                    cty_file = request.FILES['fetch_custom_cty_file']
+                    custom_cty_path = os.path.join(session_path, cty_file.name)
+                    with open(custom_cty_path, 'wb+') as destination:
+                        for chunk in cty_file.chunks():
+                            destination.write(chunk)
+                    logger.info(f"Custom CTY file uploaded via public archive: {cty_file.name}")
+
+                # 3. Fetch Logs
                 callsigns_raw = request.POST.get('fetch_callsigns') # JSON string
                 year = request.POST.get('fetch_year')
                 mode = request.POST.get('fetch_mode')  # May be empty for ARRL-10
@@ -439,7 +461,7 @@ def analyze_logs(request):
                 else:
                     raise ValueError(f'Unsupported contest: {contest}')
                 
-                return _run_analysis_pipeline(request_id, log_paths, session_path, session_key)
+                return _run_analysis_pipeline(request_id, log_paths, session_path, session_key, custom_cty_path=custom_cty_path)
             
             except ValueError as e:
                 logger.warning(f"Validation error during public log fetch: {e}")
@@ -452,7 +474,7 @@ def analyze_logs(request):
     # If we get here, neither branch was taken
     return redirect('home')
 
-def _run_analysis_pipeline(request_id, log_paths, session_path, session_key):
+def _run_analysis_pipeline(request_id, log_paths, session_path, session_key, custom_cty_path=None):
     """Shared logic for processing logs (Manual or Fetched)."""
     with ProfileContext("Web Analysis Pipeline (Total)"):
         # 3. Process with LogManager
@@ -463,7 +485,9 @@ def _run_analysis_pipeline(request_id, log_paths, session_path, session_key):
         with ProfileContext("Web - Log Loading"):
             lm = LogManager()
             # Load logs (auto-detect contest type)
-            lm.load_log_batch(log_paths, root_input, 'after')
+            # Use custom CTY path if provided, otherwise use default 'after' specifier
+            cty_specifier = 'after' if not custom_cty_path else 'after'  # Specifier only used if custom_cty_path is None
+            lm.load_log_batch(log_paths, root_input, cty_specifier, custom_cty_path=custom_cty_path)
 
             lm.finalize_loading(session_path)
 
@@ -527,14 +551,22 @@ def _run_analysis_pipeline(request_id, log_paths, session_path, session_key):
     # Construct Full Title: "CQ-WW-CW 2024" or "NAQP 2025 JAN"
     full_contest_title = f"{contest_name.replace('_', ' ')} {year} {event_id}".strip()
 
-    # Extract CTY Version Info (format: CTY-3538 2024-12-09)
+    # Extract CTY Version Info (format: CTY-3538 2024-12-09 or CUSTOM CTY FILE: filename.dat)
     cty_path = lm.logs[0].cty_dat_path
-    cty_date = CtyLookup.extract_version_date(cty_path)
-    cty_date_str = cty_date.strftime('%Y-%m-%d') if cty_date else "Unknown Date"
-    # Extract version number from filename (e.g., cty_wt_mod_3538.dat -> 3538)
-    version_match = re.search(r'(\d{4})', os.path.basename(cty_path))
-    cty_version_str = f"CTY-{version_match.group(1)}" if version_match else "CTY-Unknown"
-    cty_info = f"{cty_version_str} {cty_date_str}"
+    # Check if this is a custom CTY file (uploaded by user)
+    # Custom files are typically in the session directory, while default files are in data/CTY/
+    is_custom_cty = custom_cty_path is not None or 'sessions' in str(cty_path)
+    
+    if is_custom_cty:
+        cty_filename = os.path.basename(cty_path)
+        cty_info = f"CUSTOM CTY FILE: {cty_filename}"
+    else:
+        cty_date = CtyLookup.extract_version_date(cty_path)
+        cty_date_str = cty_date.strftime('%Y-%m-%d') if cty_date else "Unknown Date"
+        # Extract version number from filename (e.g., cty_wt_mod_3538.dat -> 3538)
+        version_match = re.search(r'(\d{4})', os.path.basename(cty_path))
+        cty_version_str = f"CTY-{version_match.group(1)}" if version_match else "CTY-Unknown"
+        cty_info = f"{cty_version_str} {cty_date_str}"
     # Create footer text with CLA abbreviation
     footer_text = f"CLA v{__version__}   |   {cty_info}"
     
@@ -577,6 +609,7 @@ def _run_analysis_pipeline(request_id, log_paths, session_path, session_key):
         'contest_name': contest_name,
         'valid_bands': valid_bands,  # Kept for backward compatibility and other uses
         'valid_modes': valid_modes,  # Kept for backward compatibility and other uses
+        'custom_cty_path': custom_cty_path,  # Store for bundle inclusion
     }
     
     # Determine multiplier headers from the first log (assuming all are same contest)
@@ -1997,6 +2030,17 @@ def download_all_reports(request, session_id):
             else:
                 # Create empty logs directory marker (optional, but helps with structure)
                 logger.warning(f"Archive created without log files - logs/ directory will be empty")
+            
+            # Add CTY file to logs/ subdirectory if custom CTY was used
+            try:
+                custom_cty_path_from_context = context.get('custom_cty_path')
+                if custom_cty_path_from_context and os.path.exists(custom_cty_path_from_context):
+                    cty_filename = os.path.basename(custom_cty_path_from_context)
+                    arcname = os.path.join('logs', cty_filename)
+                    zipf.write(custom_cty_path_from_context, arcname)
+                    logger.debug(f"Added custom CTY file to archive: {arcname}")
+            except Exception as e:
+                logger.warning(f"Could not add CTY file to bundle: {e}")
         
         # Update progress: Step 2 - Downloading (file ready)
         if request_id:

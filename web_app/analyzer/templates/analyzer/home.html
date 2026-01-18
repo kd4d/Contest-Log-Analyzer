@@ -65,25 +65,50 @@
                         
                         <div class="row justify-content-center">
                             {% for field in form %}
-                            <div class="col-md-4 mb-4">
-                                <div class="card h-100 shadow-sm border-0">
-                                    <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
-                                        <h5 class="card-title text-primary fw-bold mb-0">
-                                            <i class="bi bi-file-earmark-text me-2"></i>Log Slot {{ forloop.counter }}
-                                        </h5>
-                                    </div>
-                                    <div class="card-body">
-                                        {{ field }}
-                                        {% if field.help_text %}
-                                        <div class="form-text text-muted small mt-2">{{ field.help_text }}</div>
-                                        {% endif %}
-                                        {% for error in field.errors %}
-                                        <div class="text-danger small mt-1">{{ error }}</div>
-                                        {% endfor %}
+                                {% if field.name != 'cty_file_choice' and field.name != 'custom_cty_file' %}
+                                <div class="col-md-4 mb-4">
+                                    <div class="card h-100 shadow-sm border-0">
+                                        <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
+                                            <h5 class="card-title text-primary fw-bold mb-0">
+                                                <i class="bi bi-file-earmark-text me-2"></i>Log Slot {{ forloop.counter }}
+                                            </h5>
+                                        </div>
+                                        <div class="card-body">
+                                            {{ field }}
+                                            {% if field.help_text %}
+                                            <div class="form-text text-muted small mt-2">{{ field.help_text }}</div>
+                                            {% endif %}
+                                            {% for error in field.errors %}
+                                            <div class="text-danger small mt-1">{{ error }}</div>
+                                            {% endfor %}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
+                                {% endif %}
                             {% endfor %}
+                        </div>
+
+                        <div class="border-top pt-4 mt-4 mb-4">
+                            <h6 class="fw-bold text-secondary mb-3"><i class="bi bi-globe me-2"></i>CTY File (Country Data)</h6>
+                            <div class="mb-3">
+                                {% for choice in form.cty_file_choice %}
+                                <div class="form-check mb-2">
+                                    {{ choice.tag }}
+                                    <label class="form-check-label" for="{{ choice.id_for_label }}">
+                                        {{ choice.choice_label }}
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <div id="ctyUploadSection" style="display: none;">
+                                {{ form.custom_cty_file }}
+                                <div class="form-text text-muted small mt-2">
+                                    <i class="bi bi-info-circle me-1"></i>Preferred format: <code>cty_wt_mod.dat</code>
+                                </div>
+                                {% for error in form.custom_cty_file.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                                {% endfor %}
+                            </div>
                         </div>
 
                         <div class="d-grid gap-2 col-md-4 mx-auto mt-4">
@@ -155,7 +180,7 @@
                             <i class="bi bi-info-circle-fill me-2"></i><strong>Fetch 1, 2, or 3 Logs:</strong> Log 1 is required. Logs 2 and 3 are optional for comparison analysis. <strong>Supported Contests:</strong> CQ World Wide DX (CW, SSB, RTTY modes) and ARRL 10 Meter (no mode selection required).
                         </div>
                         
-                        <form id="fetchForm" method="post" action="{% url 'analyze' %}">
+                        <form id="fetchForm" method="post" action="{% url 'analyze' %}" enctype="multipart/form-data">
                             {% csrf_token %}
                             <input type="hidden" name="request_id" class="fetch-request-id">
                             <input type="hidden" name="fetch_callsigns" id="fetchCallsignsInput">
@@ -235,6 +260,29 @@
                                     </div>
                                 </div>
                             </div>
+                            <div class="border-top pt-4 mt-4 mb-4">
+                                <h6 class="fw-bold text-secondary mb-3"><i class="bi bi-globe me-2"></i>CTY File (Country Data)</h6>
+                                <div class="mb-3">
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="radio" name="fetch_cty_file_choice" id="fetchCtyDefault" value="default" checked>
+                                        <label class="form-check-label" for="fetchCtyDefault">
+                                            Use Default CTY File
+                                        </label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="radio" name="fetch_cty_file_choice" id="fetchCtyUpload" value="upload">
+                                        <label class="form-check-label" for="fetchCtyUpload">
+                                            Upload Custom CTY File
+                                        </label>
+                                    </div>
+                                </div>
+                                <div id="fetchCtyUploadSection" style="display: none;">
+                                    <input type="file" class="form-control" name="fetch_custom_cty_file" accept=".dat" id="fetchCustomCtyFile">
+                                    <div class="form-text text-muted small mt-2">
+                                        <i class="bi bi-info-circle me-1"></i>Preferred format: <code>cty_wt_mod.dat</code>
+                                    </div>
+                                </div>
+                            </div>
                             <div class="d-grid gap-2 col-md-4 mx-auto mt-4">
                                 <button type="button" class="btn btn-success btn-lg shadow-sm" id="btnFetchAnalyze" disabled>
                                     <i class="bi bi-cloud-download-fill me-2"></i>Fetch & Analyze
@@ -295,6 +343,43 @@
     
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // CTY File Upload Toggle (Manual Upload Form)
+            const ctyRadioButtons = document.querySelectorAll('input[name="cty_file_choice"]');
+            const ctyUploadSection = document.getElementById('ctyUploadSection');
+            const customCtyFileInput = document.querySelector('input[name="custom_cty_file"]');
+            
+            if (ctyRadioButtons.length > 0 && ctyUploadSection && customCtyFileInput) {
+                ctyRadioButtons.forEach(radio => {
+                    radio.addEventListener('change', function() {
+                        if (this.value === 'upload') {
+                            ctyUploadSection.style.display = 'block';
+                            customCtyFileInput.removeAttribute('style');
+                        } else {
+                            ctyUploadSection.style.display = 'none';
+                            customCtyFileInput.value = '';
+                        }
+                    });
+                });
+            }
+
+            // CTY File Upload Toggle (Public Archive Form)
+            const fetchCtyRadioButtons = document.querySelectorAll('input[name="fetch_cty_file_choice"]');
+            const fetchCtyUploadSection = document.getElementById('fetchCtyUploadSection');
+            const fetchCustomCtyFileInput = document.getElementById('fetchCustomCtyFile');
+            
+            if (fetchCtyRadioButtons.length > 0 && fetchCtyUploadSection && fetchCustomCtyFileInput) {
+                fetchCtyRadioButtons.forEach(radio => {
+                    radio.addEventListener('change', function() {
+                        if (this.value === 'upload') {
+                            fetchCtyUploadSection.style.display = 'block';
+                        } else {
+                            fetchCtyUploadSection.style.display = 'none';
+                            fetchCustomCtyFileInput.value = '';
+                        }
+                    });
+                });
+            }
+
             // Gatekeeper Logic
             if (!sessionStorage.getItem('betaAccepted')) {
                 var betaModal = new bootstrap.Modal(document.getElementById('betaGatekeeperModal'));

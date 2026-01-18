@@ -59,13 +59,21 @@ def _sanitize_filename_part(part: str) -> str:
 def get_cty_metadata(logs: list) -> str:
     """
     Extracts CTY version info from the first log's CTY path.
-    Returns string format: "CTY-XXXX YYYY-MM-DD"
+    Returns string format: "CTY-XXXX YYYY-MM-DD" or "CUSTOM CTY FILE: filename.dat"
     """
     if not logs: return "CTY-Unknown Unknown Date"
     
     path = getattr(logs[0], 'cty_dat_path', '')
     if not path or not os.path.exists(path):
         return "CTY-Unknown Unknown Date"
+
+    # Check if this is a custom CTY file (typically in sessions directory)
+    # Custom files should show filename instead of version/date
+    path_str = str(path)
+    if 'sessions' in path_str or os.path.dirname(path_str) == os.path.dirname(os.path.dirname(path_str)):
+        # Likely a custom file - use filename
+        filename = os.path.basename(path)
+        return f"CUSTOM CTY FILE: {filename}"
 
     version_match = re.search(r'(\d{4})', os.path.basename(path))
     version_str = f"CTY-{version_match.group(1)}" if version_match else "CTY-Unknown"
