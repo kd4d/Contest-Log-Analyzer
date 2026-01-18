@@ -15,7 +15,10 @@
 
 import pandas as pd
 import numpy as np
+import logging
 from typing import List, Dict, Any
+
+logger = logging.getLogger(__name__)
 
 class TimeSeriesAggregator:
     """
@@ -366,6 +369,7 @@ class TimeSeriesAggregator:
                     if rule.get('value_column') in df.columns]
         
         if not mult_cols:
+            logger.warning(f"_calculate_hourly_multipliers: No multiplier columns found in dataframe")
             # Initialize empty structures
             valid_bands = contest_def.valid_bands
             for band in valid_bands:
@@ -373,10 +377,27 @@ class TimeSeriesAggregator:
             return result
         
         # Filter valid multipliers (not NaN, not 'Unknown')
+        # IMPORTANT: For mutually exclusive multipliers (like ARRL 10), each QSO has only ONE multiplier column populated
+        # So we need to filter to rows where ANY multiplier column has a valid value, not ALL columns
         df_valid = df.copy()
+        
+        # Build a mask for rows that have at least one valid multiplier
+        has_valid_mult = pd.Series([False] * len(df_valid), index=df_valid.index)
         for col in mult_cols:
             if col in df_valid.columns:
-                df_valid = df_valid[df_valid[col].notna() & (df_valid[col] != 'Unknown')]
+                col_valid = df_valid[col].notna() & (df_valid[col] != 'Unknown')
+                has_valid_mult = has_valid_mult | col_valid
+        
+        df_valid = df_valid[has_valid_mult]
+        
+        if df_valid.empty and not df.empty:
+            logger.warning(f"_calculate_hourly_multipliers: All rows filtered out after multiplier validation. Original rows: {len(df)}, after filter: {len(df_valid)}")
+            logger.warning(f"_calculate_hourly_multipliers: Multiplier columns checked: {mult_cols}")
+            # Log sample values for debugging if no valid multipliers found
+            for col in mult_cols:
+                if col in df.columns:
+                    sample_vals = df[col].dropna().head(10).tolist()
+                    logger.warning(f"_calculate_hourly_multipliers: Column {col} sample values (first 10): {sample_vals}")
         
         if df_valid.empty:
             # Initialize empty structures
@@ -407,6 +428,7 @@ class TimeSeriesAggregator:
                 (df_valid['Datetime'] < hour_end)
             ]
             
+            
             # Calculate new multipliers per band
             for band in valid_bands:
                 band_df = hour_df[hour_df['Band'] == band]
@@ -415,7 +437,9 @@ class TimeSeriesAggregator:
                     new_mults_this_hour_band = set()
                     for col in mult_cols:
                         if col in band_df.columns:
+                            # Filter out NaN and 'Unknown' values
                             valid_mults = band_df[col].dropna()
+                            valid_mults = valid_mults[valid_mults != 'Unknown']
                             for mult_val in valid_mults:
                                 # Check if this is a NEW multiplier for this band dimension
                                 # (not seen before in any hour for band tracking)
@@ -424,6 +448,7 @@ class TimeSeriesAggregator:
                                     seen_mults_by_band.add(mult_val)
                                     # Also add to cumulative tracking
                                     seen_mults_cumulative.add(mult_val)
+                    
                     
                     result["new_mults_by_band"][band][hour_idx] = len(new_mults_this_hour_band)
             
@@ -439,7 +464,9 @@ class TimeSeriesAggregator:
                         new_mults_this_hour_mode = set()
                         for col in mult_cols:
                             if col in mode_df.columns:
+                                # Filter out NaN and 'Unknown' values
                                 valid_mults = mode_df[col].dropna()
+                                valid_mults = valid_mults[valid_mults != 'Unknown']
                                 for mult_val in valid_mults:
                                     # Check if this is a NEW multiplier for this mode dimension
                                     # (not seen before in any hour for mode tracking)
@@ -450,6 +477,7 @@ class TimeSeriesAggregator:
                                         seen_mults_by_mode.add(mult_val)
                                         # Also add to cumulative tracking
                                         seen_mults_cumulative.add(mult_val)
+                        
                         
                         result["new_mults_by_mode"][mode][hour_idx] = len(new_mults_this_hour_mode)
             
