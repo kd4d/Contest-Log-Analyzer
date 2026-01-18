@@ -5,6 +5,30 @@ All notable changes to Contest Log Analyzer will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-alpha.9] - 2026-01-18
+[Full Release Notes](ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.9.md)
+
+### Fixed
+- ARRL 10 Meter multiplier filtering bug - breakdown reports now correctly show multipliers
+  - Fixed filtering logic for mutually exclusive multipliers (changed from AND to OR condition)
+  - Resolves issue where contests with mutually exclusive multiplier types showed zero multipliers
+- Multiplier tracking separation for band vs mode dimensions
+  - Fixed issue where multiplier counting was incorrectly mixing band and mode dimensions
+  - Ensures accurate multiplier breakdowns for contests with different dimension requirements
+- Added missing logger to time series aggregator for multiplier calculation warnings
+
+### Changed
+- Enhanced multiplier filtering logic in time series aggregator for mutually exclusive multipliers
+  - Updated `_calculate_hourly_multipliers` to use OR logic instead of AND logic
+  - Handles contests where each QSO has only one multiplier type populated
+
+### Added
+- Comprehensive documentation for mutually exclusive multiplier filtering pattern
+  - New file: `DevNotes/MUTUALLY_EXCLUSIVE_MULTIPLIER_FILTERING_PATTERN.md`
+  - Documents bug pattern and correct fix pattern for future reference
+
+---
+
 ## [1.0.0-alpha.8] - 2026-01-18
 [Full Release Notes](ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.8.md)
 
