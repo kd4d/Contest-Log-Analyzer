@@ -128,7 +128,7 @@ class Report(ContestReport):
             report_lines = self._build_report_lines(
                 year, contest_name, callsign, mult_label, dimension, valid_dimensions,
                 master_index, hourly_data, hourly_new_mults, hourly_cum_mults,
-                cum_qsos, cum_score
+                cum_qsos, cum_score, log=log
             )
             
             # Write file
@@ -149,7 +149,8 @@ class Report(ContestReport):
         self, year: str, contest_name: str, callsign: str, mult_label: str,
         dimension: str, valid_dimensions: List[str], master_index: pd.DatetimeIndex,
         hourly_data: Dict[str, List[int]], hourly_new_mults: Dict[str, List[int]],
-        hourly_cum_mults: List[int], cum_qsos: List[int], cum_score: List[int]
+        hourly_cum_mults: List[int], cum_qsos: List[int], cum_score: List[int],
+        log: ContestLog = None
     ) -> List[str]:
         """
         Builds the formatted report lines.
@@ -277,14 +278,72 @@ class Report(ContestReport):
         total_row_parts = [f"{'':<10}"]
         
         # Calculate totals per dimension
+        total_breakdown_mults = 0
+        total_qsos_sum = 0
         for dim in valid_dimensions:
             qsos_list = hourly_data.get(dim, [])
             mults_list = hourly_new_mults.get(dim, [])
             dim_qsos = sum(qsos_list) if qsos_list else 0
             dim_mults = sum(mults_list) if mults_list else 0
+            total_qsos_sum += dim_qsos
+            total_breakdown_mults += dim_mults
             total_pair_str = f"{dim_qsos}/{dim_mults}"
             total_row_parts.append(f"{total_pair_str:>{dim_col_width}}")
         
+        # Add Total column (sum of all dimension QSOs/mults)
+        total_pair_str = f"{total_qsos_sum}/{total_breakdown_mults}"
+        total_row_parts.append(f"{total_pair_str:>{dim_col_width}}")
+        
+        # Add CUMM column (final cumulative QSOs/mults)
+        if cum_qsos and hourly_cum_mults:
+            final_cum_qsos = cum_qsos[-1] if len(cum_qsos) > 0 else 0
+            final_cum_mults = hourly_cum_mults[-1] if len(hourly_cum_mults) > 0 else 0
+            cum_pair_str = f"{final_cum_qsos}/{final_cum_mults}"
+            total_row_parts.append(f"{cum_pair_str:>{cumm_col_width}}")
+        else:
+            total_row_parts.append(f"{'  -  ':>{cumm_col_width}}")
+        
+        # Add Score column (final cumulative score)
+        if cum_score:
+            final_score = cum_score[-1] if len(cum_score) > 0 else 0
+            score_str = f"{final_score:,}"
+            total_row_parts.append(f"{score_str:>{score_col_width}}")
+        else:
+            total_row_parts.append(f"{'  -  ':>{score_col_width}}")
+        
         report_lines.append("  ".join(total_row_parts))
+        
+        # DIAGNOSTIC: Compare breakdown totals with scoreboard (only if log is provided and debug enabled)
+        if log is not None:
+            try:
+                import logging
+                diag_logger = logging.getLogger(__name__)
+                # Only log diagnostics if debug level is enabled
+                if diag_logger.isEnabledFor(logging.DEBUG):
+                    from ..data_aggregators.score_stats import ScoreStatsAggregator
+                    score_agg = ScoreStatsAggregator([log])
+                    score_data = score_agg.get_score_breakdown()
+                    if callsign in score_data.get('logs', {}):
+                        scoreboard_data = score_data['logs'][callsign]
+                        scoreboard_totals = scoreboard_data.get('total_summary', {})
+                        # Get multiplier names from contest definition
+                        contest_def = log.contest_definition
+                        mult_names = [rule['name'] for rule in contest_def.multiplier_rules]
+                        scoreboard_total_mults = sum(scoreboard_totals.get(name, 0) for name in mult_names)
+                        diag_logger.debug(f"[DIAG] Breakdown Report Totals for {callsign}:")
+                        diag_logger.debug(f"[DIAG]   Breakdown (sum of hourly_new_mults): {total_breakdown_mults}")
+                        diag_logger.debug(f"[DIAG]   Scoreboard total: {scoreboard_total_mults}")
+                        diag_logger.debug(f"[DIAG]   Difference: {scoreboard_total_mults - total_breakdown_mults}")
+                        # Per-band comparison
+                        for dim in valid_dimensions:
+                            dim_mults = sum(hourly_new_mults.get(dim, [])) if hourly_new_mults.get(dim) else 0
+                            diag_logger.debug(f"[DIAG]   {dim}: Breakdown={dim_mults}")
+            except Exception as e:
+                # Only log if debug enabled
+                if log is not None:
+                    import logging
+                    diag_logger = logging.getLogger(__name__)
+                    if diag_logger.isEnabledFor(logging.DEBUG):
+                        diag_logger.debug(f"[DIAG] Could not compare breakdown totals with scoreboard: {e}")
         
         return report_lines

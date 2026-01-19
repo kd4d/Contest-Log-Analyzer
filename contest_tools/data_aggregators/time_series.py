@@ -63,7 +63,13 @@ class TimeSeriesAggregator:
             contest_def = log.contest_definition
             
             # --- Prepare Data ---
-            df_full = log.get_processed_data()
+            # Use same data source as scoreboard to ensure matching counts
+            from ..utils.report_utils import get_valid_dataframe
+            df_full = get_valid_dataframe(log, include_dupes=False)
+            
+            # Filter out zero-point QSOs if contest rules require it (match scoreboard logic)
+            if not contest_def.mults_from_zero_point_qsos:
+                df_full = df_full[df_full['QSOPoints'] > 0].copy()
 
             # Apply Filters (Schema v1.3.1)
             if band_filter and band_filter != 'All':
@@ -315,10 +321,12 @@ class TimeSeriesAggregator:
             
             # --- Hourly Multiplier Data ---
             if not df_full.empty and not is_filtered:
-                df_valid = df_full[df_full['Dupe'] == False].copy()
+                # df_full already has dupes filtered and zero-point QSOs filtered (if applicable)
+                df_valid = df_full.copy()
                 if not df_valid.empty:
+                    log_location_type = getattr(log, '_my_location_type', None)
                     hourly_mult_data = self._calculate_hourly_multipliers(
-                        df_valid, master_index, contest_def
+                        df_valid, master_index, contest_def, log_location_type, log=log
                     )
                     log_entry["hourly"]["new_mults_by_band"] = hourly_mult_data["new_mults_by_band"]
                     log_entry["hourly"]["new_mults_by_mode"] = hourly_mult_data["new_mults_by_mode"]
@@ -339,7 +347,7 @@ class TimeSeriesAggregator:
         return data
     
     def _calculate_hourly_multipliers(
-        self, df: pd.DataFrame, master_index: pd.DatetimeIndex, contest_def
+        self, df: pd.DataFrame, master_index: pd.DatetimeIndex, contest_def, log_location_type: str = None, log: Any = None
     ) -> Dict[str, Any]:
         """
         Calculates NEW multipliers per hour per band/mode and cumulative multipliers.
@@ -411,12 +419,57 @@ class TimeSeriesAggregator:
         for band in valid_bands:
             result["new_mults_by_band"][band] = [0] * len(master_index)
         
-        # Track multipliers seen so far - SEPARATE tracking per dimension
-        # This allows band and mode calculations to be independent
-        seen_mults_by_band = set()
+        # Filter multiplier rules by location type for ARRL DX and determine totaling_method
+        applicable_rules = []
+        for rule in contest_def.multiplier_rules:
+            applies_to = rule.get('applies_to')
+            if applies_to is None or (log_location_type and applies_to == log_location_type):
+                col = rule.get('value_column')
+                if col and col in mult_cols:
+                    applicable_rules.append(rule)
+        
+        if not applicable_rules:
+            # No applicable rules, initialize empty and return
+            return result
+        
+        # Determine totaling_method from applicable rules
+        # If all rules have the same totaling_method, use that. Otherwise, default to sum_by_band.
+        totaling_methods = [rule.get('totaling_method', 'sum_by_band') for rule in applicable_rules]
+        if len(set(totaling_methods)) == 1:
+            totaling_method = totaling_methods[0]
+        else:
+            # Mixed totaling_methods - use sum_by_band as default (most common)
+            totaling_method = 'sum_by_band'
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"[DIAG] Mixed totaling_methods found: {totaling_methods}. Using sum_by_band as default.")
+        
+        # Track multipliers based on totaling_method
+        if totaling_method == 'once_per_log':
+            # Global tracking across all bands - multiplier counts once regardless of band
+            seen_mults_global = set()
+        elif totaling_method in ['sum_by_band', 'once_per_band_no_mode']:
+            # Per-band tracking - same multiplier can count on different bands
+            seen_mults_by_band = {band: set() for band in valid_bands}
+        else:
+            # Default to per-band tracking for other methods (once_per_mode handled separately)
+            seen_mults_by_band = {band: set() for band in valid_bands}
+        
         seen_mults_by_mode = set()
         # Cumulative tracking (union of all multipliers across all dimensions)
         seen_mults_cumulative = set()
+        
+        # Get applicable multiplier columns
+        applicable_mult_cols = [rule['value_column'] for rule in applicable_rules]
+        
+        # DIAGNOSTIC: Log initial state (only if debug level is enabled)
+        import logging
+        logger = logging.getLogger(__name__)
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"[DIAG] _calculate_hourly_multipliers: totaling_method={totaling_method}, applicable_mult_cols={applicable_mult_cols}")
+            logger.debug(f"[DIAG] _calculate_hourly_multipliers: df_valid rows={len(df_valid)}, valid_bands={valid_bands}")
+            if log_location_type:
+                logger.debug(f"[DIAG] _calculate_hourly_multipliers: log_location_type={log_location_type}")
         
         # For each hour
         for hour_idx, hour_ts in enumerate(master_index):
@@ -435,24 +488,39 @@ class TimeSeriesAggregator:
                 if not band_df.empty:
                     # Collect all multiplier values from all multiplier columns for this hour/band
                     new_mults_this_hour_band = set()
-                    for col in mult_cols:
+                    for col in applicable_mult_cols:
                         if col in band_df.columns:
                             # Filter out NaN and 'Unknown' values
                             valid_mults = band_df[col].dropna()
                             valid_mults = valid_mults[valid_mults != 'Unknown']
                             for mult_val in valid_mults:
-                                # Check if this is a NEW multiplier for this band dimension
-                                # (not seen before in any hour for band tracking)
-                                if mult_val not in seen_mults_by_band:
+                                # Check if this is a NEW multiplier based on totaling_method
+                                is_new_mult = False
+                                if totaling_method == 'once_per_log':
+                                    # Global tracking - multiplier counts once across all bands
+                                    if mult_val not in seen_mults_global:
+                                        is_new_mult = True
+                                        seen_mults_global.add(mult_val)
+                                elif totaling_method in ['sum_by_band', 'once_per_band_no_mode']:
+                                    # Per-band tracking - same multiplier can count on different bands
+                                    if mult_val not in seen_mults_by_band[band]:
+                                        is_new_mult = True
+                                        seen_mults_by_band[band].add(mult_val)
+                                else:
+                                    # Default to per-band tracking for other methods
+                                    if mult_val not in seen_mults_by_band[band]:
+                                        is_new_mult = True
+                                        seen_mults_by_band[band].add(mult_val)
+                                
+                                if is_new_mult:
                                     new_mults_this_hour_band.add(mult_val)
-                                    seen_mults_by_band.add(mult_val)
                                     # Also add to cumulative tracking
                                     seen_mults_cumulative.add(mult_val)
                     
                     
                     result["new_mults_by_band"][band][hour_idx] = len(new_mults_this_hour_band)
             
-            # Calculate new multipliers per mode
+            # Calculate new multipliers per mode (inside hour loop)
             if 'Mode' in df_valid.columns:
                 modes_present = df_valid['Mode'].unique()
                 for mode in modes_present:
@@ -462,7 +530,7 @@ class TimeSeriesAggregator:
                     mode_df = hour_df[hour_df['Mode'] == mode]
                     if not mode_df.empty:
                         new_mults_this_hour_mode = set()
-                        for col in mult_cols:
+                        for col in applicable_mult_cols:
                             if col in mode_df.columns:
                                 # Filter out NaN and 'Unknown' values
                                 valid_mults = mode_df[col].dropna()
@@ -478,11 +546,55 @@ class TimeSeriesAggregator:
                                         # Also add to cumulative tracking
                                         seen_mults_cumulative.add(mult_val)
                         
-                        
                         result["new_mults_by_mode"][mode][hour_idx] = len(new_mults_this_hour_mode)
             
             # Calculate cumulative multipliers up to this hour
-            # Use cumulative tracking which includes all multipliers from both dimensions
-            result["cumulative_mults"][hour_idx] = len(seen_mults_cumulative)
+            # For sum_by_band, use sum of per-band unique multipliers (matches band-by-band totals)
+            # For once_per_log, use globally unique multipliers
+            if totaling_method == 'once_per_log':
+                # Global tracking - use globally unique count
+                result["cumulative_mults"][hour_idx] = len(seen_mults_global) if 'seen_mults_global' in locals() else len(seen_mults_cumulative)
+            elif totaling_method in ['sum_by_band', 'once_per_band_no_mode']:
+                # Per-band tracking - sum unique multipliers per band (matches band totals)
+                result["cumulative_mults"][hour_idx] = sum(len(seen_mults_by_band[band]) for band in valid_bands)
+            else:
+                # Default: use cumulative tracking which includes all multipliers from both dimensions
+                result["cumulative_mults"][hour_idx] = len(seen_mults_cumulative)
+        
+        # DIAGNOSTIC: Log final totals per band (only if debug level is enabled)
+        if logger.isEnabledFor(logging.DEBUG):
+            if totaling_method == 'once_per_log':
+                logger.debug(f"[DIAG] _calculate_hourly_multipliers: Final seen_mults_global count={len(seen_mults_global)}")
+            elif totaling_method in ['sum_by_band', 'once_per_band_no_mode']:
+                total_per_band = sum(len(seen_mults_by_band[band]) for band in valid_bands)
+                logger.debug(f"[DIAG] _calculate_hourly_multipliers: Final per-band totals: sum={total_per_band}")
+                for band in valid_bands:
+                    band_count = len(seen_mults_by_band[band])
+                    if band_count > 0:
+                        logger.debug(f"[DIAG] _calculate_hourly_multipliers:   Band {band}: {band_count} unique multipliers")
+        
+        # DIAGNOSTIC: Compare with scoreboard (only log if debug level is enabled)
+        # Note: This diagnostic is informational - the plugin calculates scores, and this validates
+        # that breakdown totals match scoreboard totals for debugging purposes.
+        if log is not None and logger.isEnabledFor(logging.DEBUG):
+            from ..data_aggregators.score_stats import ScoreStatsAggregator
+            try:
+                score_agg = ScoreStatsAggregator([log])
+                score_data = score_agg.get_score_breakdown()
+                call = log.get_metadata().get('MyCall', 'Unknown')
+                if call in score_data.get('logs', {}):
+                    scoreboard_data = score_data['logs'][call]
+                    scoreboard_totals = scoreboard_data.get('total_summary', {})
+                    # Find multiplier rule name
+                    for rule in contest_def.multiplier_rules:
+                        r_name = rule['name']
+                        scoreboard_count = scoreboard_totals.get(r_name, 0)
+                        if totaling_method == 'once_per_log':
+                            breakdown_count = len(seen_mults_global)
+                        else:
+                            breakdown_count = sum(len(seen_mults_by_band[band]) for band in valid_bands)
+                        logger.debug(f"[DIAG] {call} {r_name} - BREAKDOWN (hourly sum): {breakdown_count}, SCOREBOARD: {scoreboard_count}, DIFF: {scoreboard_count - breakdown_count}")
+            except Exception as e:
+                logger.debug(f"[DIAG] Could not compare with scoreboard: {e}")
         
         return result
