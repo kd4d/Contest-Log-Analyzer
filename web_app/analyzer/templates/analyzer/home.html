@@ -177,7 +177,7 @@
                 <div id="archiveCollapse" class="collapse show">
                     <div class="card-body p-4">
                         <div class="alert alert-info border-0 shadow-sm mb-4">
-                            <i class="bi bi-info-circle-fill me-2"></i><strong>Fetch 1, 2, or 3 Logs:</strong> Log 1 is required. Logs 2 and 3 are optional for comparison analysis. <strong>Supported Contests:</strong> CQ World Wide DX (CW, SSB, RTTY modes) and ARRL 10 Meter (no mode selection required).
+                            <i class="bi bi-info-circle-fill me-2"></i><strong>Fetch 1, 2, or 3 Logs:</strong> Log 1 is required. Logs 2 and 3 are optional for comparison analysis. <strong>Supported Contests:</strong> CQ World Wide DX (CW, SSB, RTTY modes), CQ 160 Meter (CW, SSB, RTTY modes), ARRL 10 Meter (no mode selection required), and ARRL DX (CW and SSB - no mode selection required, mode is determined by contest selection).
                         </div>
                         
                         <form id="fetchForm" method="post" action="{% url 'analyze' %}" enctype="multipart/form-data">
@@ -197,6 +197,8 @@
                                     <option value="CQ-WW">CQ World Wide DX</option>
                                     <option value="CQ-160">CQ 160 Meter</option>
                                     <option value="ARRL-10">ARRL 10 Meter</option>
+                                    <option value="ARRL-DX-CW">ARRL DX CW</option>
+                                    <option value="ARRL-DX-SSB">ARRL DX SSB</option>
                                 </select>
                             </div>
                             <div class="col-md-4">
@@ -417,6 +419,11 @@
                 } else if (contest === 'ARRL-10') {
                     yearSelect.disabled = false;
                     modeSelect.disabled = true; // ARRL-10 has no modes
+                    modeSelect.closest('.col-md-4').style.display = 'block'; // Show but disabled
+                } else if (contest === 'ARRL-DX-CW' || contest === 'ARRL-DX-SSB') {
+                    yearSelect.disabled = false;
+                    modeSelect.disabled = true; // ARRL DX contests don't use mode selector
+                    modeSelect.closest('.col-md-4').style.display = 'none'; // Hide mode selector entirely
                 } else {
                     yearSelect.disabled = true;
                     modeSelect.disabled = true;
@@ -434,7 +441,7 @@
                     return;
                 }
                 
-                // CQ-WW and CQ-160 require mode, ARRL-10 doesn't
+                // CQ-WW and CQ-160 require mode, ARRL-10 and ARRL-DX don't
                 if ((contest === 'CQ-WW' || contest === 'CQ-160') && !mode) {
                     return; // Wait for mode selection
                 }
@@ -450,9 +457,33 @@
                 }
                 
                 fetch(fetchUrl)
-                    .then(response => response.json())
+                    .then(response => {
+                        // Parse JSON even for error status codes to get error message
+                        return response.json().then(data => {
+                            if (!response.ok) {
+                                // Server returned error status with JSON error message
+                                throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
+                            }
+                            return data;
+                        });
+                    })
                     .then(data => {
+                        // Check for API errors (even if status was 200)
+                        if (data.error) {
+                            console.error('API Error:', data.error);
+                            alert(`Failed to fetch log index: ${data.error}\n\nNote: ARRL DX public log fetch requires backend configuration.`);
+                            inputsToDisable.forEach(inp => inp.disabled = false);
+                            return;
+                        }
+                        
                         availableCallsigns = data.callsigns || [];
+                        
+                        if (availableCallsigns.length === 0) {
+                            console.warn('No callsigns returned from API');
+                            alert('No logs found for this contest/year combination.\n\nThis may indicate:\n- No logs available for this year\n- Backend configuration incomplete\n- Network/API issue');
+                            inputsToDisable.forEach(inp => inp.disabled = false);
+                            return;
+                        }
                         
                         // Populate Datalists
                         ['callsignList1', 'callsignList2', 'callsignList3'].forEach(id => {
@@ -469,8 +500,8 @@
                         inputsToDisable.forEach(inp => inp.disabled = false);
                     })
                     .catch(err => {
-                        console.error(err);
-                        alert("Failed to fetch log index.");
+                        console.error('Fetch Error:', err);
+                        alert(`Failed to fetch log index: ${err.message}\n\nCheck browser console for details.`);
                         inputsToDisable.forEach(inp => inp.disabled = false);
                     });
             }
@@ -481,8 +512,12 @@
                 if (contest === 'ARRL-10') {
                     // ARRL-10: Fetch index when year is selected (no mode needed)
                     fetchLogIndex();
+                } else if (contest === 'ARRL-DX-CW' || contest === 'ARRL-DX-SSB') {
+                    // ARRL DX: Fetch index when year is selected (no mode needed)
+                    fetchLogIndex();
                 } else if (contest === 'CQ-WW' || contest === 'CQ-160') {
                     // CQ-WW and CQ-160: Enable mode selection after year is selected
+                    modeSelect.closest('.col-md-4').style.display = 'block'; // Show mode selector
                     modeSelect.disabled = false;
                 }
             });
@@ -645,9 +680,14 @@
                 }
                 // Mode select is conditionally enabled based on contest/year
                 if ((contestSelect.value === 'CQ-WW' || contestSelect.value === 'CQ-160') && yearSelect.value) {
+                    modeSelect.closest('.col-md-4').style.display = 'block'; // Show mode selector
                     modeSelect.disabled = false;
-                } else if (contestSelect.value === 'ARRL-10' && yearSelect.value) {
+                } else if (contestSelect.value === 'ARRL-10') {
+                    modeSelect.closest('.col-md-4').style.display = 'block'; // Show but disabled
                     modeSelect.disabled = true; // ARRL-10 doesn't use mode
+                } else if (contestSelect.value === 'ARRL-DX-CW' || contestSelect.value === 'ARRL-DX-SSB') {
+                    modeSelect.closest('.col-md-4').style.display = 'none'; // Hide mode selector
+                    modeSelect.disabled = true; // ARRL-DX don't use mode
                 }
                 
                 inputs.forEach(input => {

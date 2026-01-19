@@ -230,6 +230,14 @@ class MultiplierStatsAggregator:
         """
         all_calls = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])
         
+        # Filter multiplier rules based on location type (for asymmetric contests like ARRL DX)
+        # All logs should have the same location type due to pre-flight validation
+        log_location_type = getattr(self.logs[0], '_my_location_type', None)
+        applicable_rules = [
+            r for r in self.contest_def.multiplier_rules 
+            if r.get('applies_to') is None or r.get('applies_to') == log_location_type
+        ]
+        
         # 1. Collect all raw multiplier sets
         # Structure: sets[log_call] = set of items
         # Items are composite keys: (rule_name, dimension_value, value) to ensure uniqueness logic matches scoring
@@ -253,18 +261,24 @@ class MultiplierStatsAggregator:
             group_column = 'Band'
             dimension_key = 'bands'
         
-        for rule in self.contest_def.multiplier_rules:
+        for rule in applicable_rules:
             mult_name = rule['name']
             mult_column = rule['value_column']
             method = rule.get('totaling_method', 'sum_by_band')
             
             for log in self.logs:
                 call = log.get_metadata().get('MyCall', 'Unknown')
-                df = log.get_processed_data()
+                # Use same data source as scoreboard to ensure matching counts
+                from ..utils.report_utils import get_valid_dataframe
+                df = get_valid_dataframe(log, include_dupes=False)
                 
                 if df.empty or mult_column not in df.columns: continue
                 
-                # Filter valid
+                # Filter out zero-point QSOs if contest rules require it (match scoreboard logic)
+                if not self.contest_def.mults_from_zero_point_qsos:
+                    df = df[df['QSOPoints'] > 0].copy()
+                
+                # Filter valid multipliers
                 valid = df[df[mult_column].notna() & (df[mult_column] != 'Unknown')]
                 
                 # Pre-calculate status for all multipliers in this scope
@@ -293,6 +307,7 @@ class MultiplierStatsAggregator:
                     if group_column not in valid.columns:
                         continue
                     grouped = valid.groupby(group_column)[mult_column].unique()
+                    
                     for dim_value, values in grouped.items():
                         for val in values:
                             composite_key = (mult_name, dim_value, val)
@@ -394,8 +409,8 @@ class MultiplierStatsAggregator:
         # A. Grand Total
         totals_rows.append(inject_max_unique(build_row("TOTAL", "TOTAL", indent=0, is_bold=True)))
         
-        # B. Global Rule Breakdowns
-        for rule in self.contest_def.multiplier_rules:
+        # B. Global Rule Breakdowns (only applicable rules based on location type)
+        for rule in applicable_rules:
             r_name = rule['name']
             totals_rows.append(inject_max_unique(build_row(r_name, f"TOTAL_{r_name}", indent=1, is_bold=False)))
 
@@ -414,7 +429,7 @@ class MultiplierStatsAggregator:
                 dim_rows = []
                 dim_rows.append(inject_max_unique(build_row(dim_value, dim_value, indent=0, is_bold=True)))
                 
-                for rule in self.contest_def.multiplier_rules:
+                for rule in applicable_rules:
                     if rule.get('totaling_method') == 'once_per_log': continue
                     r_name = rule['name']
                     dim_rows.append(inject_max_unique(build_row(r_name, f"{dim_value}_{r_name}", indent=1, is_bold=False)))
