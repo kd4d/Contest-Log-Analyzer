@@ -117,17 +117,47 @@ class ScoreStatsAggregator:
         canonical_bands = [b[1] for b in ContestLog._HAM_BANDS]
         present_bands = [b for b in canonical_bands if b in df_net['Band'].unique()]
 
+        # Check if any multiplier rule uses once_per_mode (affects 'ALL' line calculation)
+        has_once_per_mode = any(rule.get('totaling_method') == 'once_per_mode' for rule in multiplier_rules)
+
         for band in present_bands:
             band_df = df_net[df_net['Band'] == band]
             modes_on_band = sorted(band_df['Mode'].unique())
 
             if len(modes_on_band) > 1:
-                # Create 'ALL' summary row (Union of mults on band)
-                summary_data.append(self._process_slice(band_df, band, 'ALL', multiplier_rules, log_location_type))
-                # Create individual mode rows
+                # Create individual mode rows first (needed for once_per_mode calculation)
+                mode_rows = []
                 for mode in modes_on_band:
                     mode_df = band_df[band_df['Mode'] == mode]
-                    summary_data.append(self._process_slice(mode_df, band, mode, multiplier_rules, log_location_type))
+                    mode_row = self._process_slice(mode_df, band, mode, multiplier_rules, log_location_type)
+                    mode_rows.append(mode_row)
+                
+                # Create 'ALL' summary row
+                if has_once_per_mode:
+                    # For once_per_mode: Sum multipliers from each mode (not union)
+                    all_row = {'Band': band, 'Mode': 'ALL'}
+                    all_row['QSOs'] = band_df.shape[0]
+                    all_row['Points'] = band_df['QSOPoints'].sum()
+                    
+                    for rule in multiplier_rules:
+                        mult_name = rule['name']
+                        applies_to = rule.get('applies_to')
+                        
+                        if applies_to and log_location_type and applies_to != log_location_type:
+                            all_row[mult_name] = 0
+                            continue
+                        
+                        # Sum multipliers from each mode row
+                        all_row[mult_name] = sum(row.get(mult_name, 0) for row in mode_rows)
+                    
+                    all_row['AVG'] = (all_row['Points'] / all_row['QSOs']) if all_row['QSOs'] > 0 else 0
+                    # Add 'ALL' row first, then mode rows (maintain original order)
+                    summary_data.append(all_row)
+                    summary_data.extend(mode_rows)
+                else:
+                    # For other totaling methods: Union of mults on band (original behavior)
+                    summary_data.append(self._process_slice(band_df, band, 'ALL', multiplier_rules, log_location_type))
+                    summary_data.extend(mode_rows)
             elif len(modes_on_band) == 1:
                 # Single mode
                 mode = modes_on_band[0]

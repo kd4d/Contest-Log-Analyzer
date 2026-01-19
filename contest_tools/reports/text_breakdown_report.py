@@ -278,13 +278,62 @@ class Report(ContestReport):
         total_row_parts = [f"{'':<10}"]
         
         # Calculate totals per dimension
+        # For once_per_mode: use cumulative multipliers per mode from scalars (matches score summary)
+        # For other methods: sum new multipliers per hour
         total_breakdown_mults = 0
         total_qsos_sum = 0
+        
+        # Check if contest uses once_per_mode
+        has_once_per_mode = False
+        if log and log.contest_definition:
+            has_once_per_mode = any(
+                rule.get('totaling_method') == 'once_per_mode' 
+                for rule in log.contest_definition.multiplier_rules
+            )
+        
+        # For once_per_mode, get cumulative multipliers per mode from scalars
+        # This matches the score summary calculation (once_per_mode sums unique per mode)
+        mode_cumulative_mults = {}
+        if has_once_per_mode and dimension == 'mode' and log:
+            # Get cumulative multipliers per mode from score summary calculation
+            # Use ScoreStatsAggregator to get accurate per-mode totals
+            from contest_tools.data_aggregators.score_stats import ScoreStatsAggregator
+            from contest_tools.utils.report_utils import get_valid_dataframe
+            df_net = get_valid_dataframe(log, include_dupes=False)
+            if not df_net.empty:
+                contest_def = log.contest_definition
+                multiplier_rules = contest_def.multiplier_rules
+                log_location_type = getattr(log, '_my_location_type', None)
+                
+                # Filter out zero-point QSOs if contest rules require it
+                if not contest_def.mults_from_zero_point_qsos:
+                    df_net = df_net[df_net['QSOPoints'] > 0].copy()
+                
+                for mode in valid_dimensions:
+                    mode_df = df_net[df_net['Mode'] == mode]
+                    mode_total_mults = 0
+                    for rule in multiplier_rules:
+                        mult_col = rule['value_column']
+                        applies_to = rule.get('applies_to')
+                        if applies_to and log_location_type and applies_to != log_location_type:
+                            continue
+                        if mult_col in mode_df.columns:
+                            df_valid_mults = mode_df[mode_df[mult_col].notna() & (mode_df[mult_col] != 'Unknown')]
+                            mode_total_mults += df_valid_mults[mult_col].nunique()
+                    mode_cumulative_mults[mode] = mode_total_mults
+        
         for dim in valid_dimensions:
             qsos_list = hourly_data.get(dim, [])
             mults_list = hourly_new_mults.get(dim, [])
             dim_qsos = sum(qsos_list) if qsos_list else 0
-            dim_mults = sum(mults_list) if mults_list else 0
+            
+            if has_once_per_mode and dimension == 'mode' and dim in mode_cumulative_mults:
+                # For once_per_mode: use cumulative unique multipliers per mode (matches score summary)
+                dim_mults = mode_cumulative_mults[dim]
+            else:
+                # For other methods: sum new multipliers per hour
+                dim_mults = sum(mults_list) if mults_list else 0
+            
             total_qsos_sum += dim_qsos
             total_breakdown_mults += dim_mults
             total_pair_str = f"{dim_qsos}/{dim_mults}"

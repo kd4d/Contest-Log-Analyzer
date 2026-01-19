@@ -1109,6 +1109,7 @@ def multiplier_dashboard(request, session_id):
     contest_name = _extract_contest_name_from_path(report_rel_path)
     valid_bands = ['80M', '40M', '20M', '15M', '10M']  # Default fallback
     valid_modes = []  # Default: empty list
+    contest_def = None
     
     if contest_name:
         try:
@@ -1260,7 +1261,35 @@ def multiplier_dashboard(request, session_id):
     suffix = f"_{combo_id}"
 
     # 6. Extract Multiplier Names and Calculate Global Maxima Dynamically
-    multiplier_names = []  # List of multiplier names found in the data
+    # Determine applicable multiplier count from contest definition (not log data)
+    # This ensures "All Multipliers" tab is hidden when contest defines only one multiplier type
+    # Get location_type from dashboard context (e.g., "W/VE" or "DX" for ARRL DX)
+    location_type = dashboard_ctx.get('location_type')
+    
+    # Count applicable multiplier rules from contest definition
+    # This determines whether to show "All Multipliers" tab (hidden when only 1 type applies)
+    applicable_multiplier_count = 0
+    if contest_def:
+        multiplier_rules = contest_def.multiplier_rules
+        for rule in multiplier_rules:
+            applies_to = rule.get('applies_to')
+            # If no applies_to specified, rule applies to all entry classes
+            # If applies_to is specified, check if it matches location_type
+            if not applies_to or applies_to == location_type:
+                applicable_multiplier_count += 1
+    
+    # If contest definition not available or no rules found, fall back to log data
+    if applicable_multiplier_count == 0:
+        # Fallback: count from log data (backward compatibility)
+        if breakdown_data and 'totals' in breakdown_data:
+            seen_names = set()
+            for row in breakdown_data['totals']:
+                mult_name = row.get('label', '')
+                if mult_name and mult_name != 'TOTAL' and mult_name not in seen_names:
+                    seen_names.add(mult_name)
+                    applicable_multiplier_count += 1
+    
+    multiplier_names = []  # List of multiplier names found in the data (still used for tabs)
     global_max = {'total': 1}  # Dynamic dict: will contain 'total' and one entry per multiplier type
     
     if breakdown_data:
@@ -1570,7 +1599,8 @@ def multiplier_dashboard(request, session_id):
         'multipliers': sorted_mults,
         'is_solo': (log_count == 1),
         'global_max': global_max,
-        'multiplier_names': multiplier_names,  # Dynamic list of multiplier types for Band Spectrum tabs
+        'multiplier_names': multiplier_names,  # Dynamic list of multiplier types for Band Spectrum tabs (from log data)
+        'multiplier_count': applicable_multiplier_count,  # Count of applicable multiplier types from contest definition
     }
     return render(request, 'analyzer/multiplier_dashboard.html', context)
 

@@ -28,9 +28,52 @@
         color: #6c757d !important;
         /* Muted text */
     }
+    /* Tab-style buttons */
+    .method-tabs {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1.5rem;
+        border-bottom: 2px solid #dee2e6;
+        padding-bottom: 0.5rem;
+    }
+    .method-tab {
+        flex: 1;
+        padding: 0.75rem 1.5rem;
+        border: none;
+        background: transparent;
+        color: #6c757d;
+        font-weight: 600;
+        cursor: pointer;
+        border-radius: 0.375rem 0.375rem 0 0;
+        transition: all 0.2s ease;
+        position: relative;
+    }
+    .method-tab:hover {
+        background: #f8f9fa;
+        color: #495057;
+    }
+    .method-tab.active {
+        color: #2979ff;
+        background: white;
+    }
+    .method-tab.active::after {
+        content: '';
+        position: absolute;
+        bottom: -2px;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: #2979ff;
+    }
+    .method-content {
+        display: none;
+    }
+    .method-content.active {
+        display: block;
+    }
 </style>
-<div class="container mt-5">
-    <div class="text-center mb-5">
+<div class="container mt-4">
+    <div class="text-center mb-4">
         <h1 class="display-4 fw-bold text-primary">Contest Log Analytics</h1>
         <p class="lead text-muted">Upload your Cabrillo logs to generate detailed statistics and visualizations.</p>
     </div>
@@ -51,74 +94,224 @@
             </div>
             {% endif %}
             
-            <div class="card shadow-lg border-0 mb-4" id="manualCard">
-                <div class="card-header bg-white py-3">
-                    <h5 class="mb-0 fw-bold text-secondary"><i class="bi bi-upload me-2"></i>Manual Log Upload</h5>
-                </div>
+            <!-- Method Selection Tabs -->
+            <div class="method-tabs">
+                <button type="button" class="method-tab active" data-method="manual">
+                    <i class="bi bi-upload me-2"></i>Manual Log Upload
+                </button>
+                <button type="button" class="method-tab" data-method="archive">
+                    <i class="bi bi-cloud-download me-2"></i>Public Log Archive
+                </button>
+            </div>
+
+            <!-- Main Content Container -->
+            <div class="card shadow-lg border-0 mb-4">
                 <div class="card-body p-4">
-                    <div class="alert alert-info border-0 shadow-sm mb-4">
-                        <i class="bi bi-info-circle-fill me-2"></i><strong>Upload 1, 2, or 3 Logs:</strong> Log 1 is required. Logs 2 and 3 are optional for comparison analysis.
-                    </div>
-                    <form method="post" action="{% url 'analyze' %}" enctype="multipart/form-data">
-                        {% csrf_token %}
-                        <input type="hidden" id="request_id" name="request_id" value="">
+                    
+                    <!-- Manual Upload Section -->
+                    <div id="manualMethod" class="method-content active">
+                        <div class="alert alert-info border-0 shadow-sm mb-3">
+                            <i class="bi bi-info-circle-fill me-2"></i><strong>Upload 1, 2, or 3 Logs:</strong> Log 1 is required. Logs 2 and 3 are optional for comparison analysis.
+                        </div>
                         
-                        <div class="row justify-content-center">
-                            {% for field in form %}
-                                {% if field.name != 'cty_file_choice' and field.name != 'custom_cty_file' %}
-                                <div class="col-md-4 mb-4">
+                        <form method="post" action="{% url 'analyze' %}" enctype="multipart/form-data" id="manualForm">
+                            {% csrf_token %}
+                            <input type="hidden" id="request_id" name="request_id" value="">
+                            
+                            <!-- Log Slots -->
+                            <div class="row justify-content-center mb-4">
+                                {% for field in form %}
+                                    {% if field.name != 'cty_file_choice' and field.name != 'custom_cty_file' %}
+                                    <div class="col-md-4 mb-3">
+                                        <div class="card h-100 shadow-sm border-0">
+                                            <div class="card-header bg-white border-bottom-0 pt-3 pb-0">
+                                                <h6 class="card-title text-primary fw-bold mb-0">
+                                                    <i class="bi bi-file-earmark-text me-2"></i>Log Slot {{ forloop.counter }}
+                                                </h6>
+                                            </div>
+                                            <div class="card-body">
+                                                {{ field }}
+                                                {% if field.help_text %}
+                                                <div class="form-text text-muted small mt-2">{{ field.help_text }}</div>
+                                                {% endif %}
+                                                {% for error in field.errors %}
+                                                <div class="text-danger small mt-1">{{ error }}</div>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+
+                            <!-- CTY File Section -->
+                            <div class="border-top pt-3 mb-3">
+                                <h6 class="fw-bold text-secondary mb-3"><i class="bi bi-globe me-2"></i>CTY File (Country Data)</h6>
+                                <div class="row align-items-center mb-2">
+                                    <div class="col-auto">
+                                        {% for choice in form.cty_file_choice %}
+                                        <div class="form-check form-check-inline">
+                                            {{ choice.tag }}
+                                            <label class="form-check-label" for="{{ choice.id_for_label }}">
+                                                {{ choice.choice_label }}
+                                            </label>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                <div id="ctyUploadSection" style="display: none;" class="mt-2">
+                                    {{ form.custom_cty_file }}
+                                    <div class="form-text text-muted small mt-2">
+                                        <i class="bi bi-info-circle me-1"></i>Preferred format: <code>cty_wt_mod.dat</code>
+                                    </div>
+                                    {% for error in form.custom_cty_file.errors %}
+                                    <div class="text-danger small mt-1">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+
+                            <!-- Analyze Button -->
+                            <div class="d-grid gap-2 col-md-4 mx-auto mt-3">
+                                <button type="submit" class="btn btn-primary btn-lg shadow-sm" id="btnAnalyzeLogs" disabled>
+                                    <i class="bi bi-bar-chart-fill me-2"></i>Analyze Logs
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Public Archive Section -->
+                    <div id="archiveMethod" class="method-content">
+                        <div class="alert alert-info border-0 shadow-sm mb-3">
+                            <i class="bi bi-info-circle-fill me-2"></i><strong>Fetch 1, 2, or 3 Logs:</strong> Log 1 is required. Logs 2 and 3 are optional for comparison analysis. <strong>Supported Contests:</strong> CQ World Wide DX (CW, SSB, RTTY modes), CQ 160 Meter (CW, SSB, RTTY modes), ARRL 10 Meter (no mode selection required), and ARRL DX (CW and SSB - no mode selection required, mode is determined by contest selection).
+                        </div>
+                        
+                        <form id="fetchForm" method="post" action="{% url 'analyze' %}" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            <input type="hidden" name="request_id" class="fetch-request-id">
+                            <input type="hidden" name="fetch_callsigns" id="fetchCallsignsInput">
+                            <input type="hidden" name="fetch_year" id="fetchYearInput">
+                            <input type="hidden" name="fetch_mode" id="fetchModeInput">
+                            <input type="hidden" name="fetch_contest" id="fetchContestInput">
+                        </form>
+
+                        <!-- Contest/Year/Mode Selection -->
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold text-secondary">Contest</label>
+                                <select class="form-select" id="archiveContest">
+                                    <option value="" selected>Select Contest...</option>
+                                    <option value="CQ-WW">CQ World Wide DX</option>
+                                    <option value="CQ-160">CQ 160 Meter</option>
+                                    <option value="ARRL-10">ARRL 10 Meter</option>
+                                    <option value="ARRL-DX-CW">ARRL DX CW</option>
+                                    <option value="ARRL-DX-SSB">ARRL DX SSB</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold text-secondary">Year</label>
+                                <select class="form-select" id="archiveYear" disabled>
+                                    <option value="" selected>Select Year...</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold text-secondary">Mode</label>
+                                <select class="form-select" id="archiveMode" disabled>
+                                    <option value="" selected>Select Mode...</option>
+                                    <option value="SSB">SSB</option>
+                                    <option value="CW">CW</option>
+                                    <option value="RTTY">RTTY</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Log Slots (shown after contest/year/mode selection) -->
+                        <div id="archiveSlots" class="d-none">
+                            <div class="row justify-content-center mb-4">
+                                <div class="col-md-4 mb-3">
                                     <div class="card h-100 shadow-sm border-0">
-                                        <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
-                                            <h5 class="card-title text-primary fw-bold mb-0">
-                                                <i class="bi bi-file-earmark-text me-2"></i>Log Slot {{ forloop.counter }}
-                                            </h5>
+                                        <div class="card-header bg-white border-bottom-0 pt-3 pb-0">
+                                            <h6 class="card-title text-primary fw-bold mb-0">
+                                                <i class="bi bi-file-earmark-text me-2"></i>Log Slot 1
+                                            </h6>
                                         </div>
                                         <div class="card-body">
-                                            {{ field }}
-                                            {% if field.help_text %}
-                                            <div class="form-text text-muted small mt-2">{{ field.help_text }}</div>
-                                            {% endif %}
-                                            {% for error in field.errors %}
-                                            <div class="text-danger small mt-1">{{ error }}</div>
-                                            {% endfor %}
+                                            <input type="text" class="form-control typeahead" placeholder="Search Callsign (e.g. K3LR)..." list="callsignList1">
+                                            <datalist id="callsignList1"></datalist>
+                                            <div class="valid-feedback">Log Found!</div>
+                                            <div class="invalid-feedback">Log not found in archive.</div>
                                         </div>
                                     </div>
                                 </div>
-                                {% endif %}
-                            {% endfor %}
-                        </div>
-
-                        <div class="border-top pt-4 mt-4 mb-4">
-                            <h6 class="fw-bold text-secondary mb-3"><i class="bi bi-globe me-2"></i>CTY File (Country Data)</h6>
-                            <div class="mb-3">
-                                {% for choice in form.cty_file_choice %}
-                                <div class="form-check mb-2">
-                                    {{ choice.tag }}
-                                    <label class="form-check-label" for="{{ choice.id_for_label }}">
-                                        {{ choice.choice_label }}
-                                    </label>
+                                <div class="col-md-4 mb-3">
+                                    <div class="card h-100 shadow-sm border-0">
+                                        <div class="card-header bg-white border-bottom-0 pt-3 pb-0">
+                                            <h6 class="card-title text-primary fw-bold mb-0">
+                                                <i class="bi bi-file-earmark-text me-2"></i>Log Slot 2
+                                            </h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <input type="text" class="form-control typeahead" placeholder="Search Callsign..." list="callsignList2">
+                                            <datalist id="callsignList2"></datalist>
+                                        </div>
+                                    </div>
                                 </div>
-                                {% endfor %}
-                            </div>
-                            <div id="ctyUploadSection" style="display: none;">
-                                {{ form.custom_cty_file }}
-                                <div class="form-text text-muted small mt-2">
-                                    <i class="bi bi-info-circle me-1"></i>Preferred format: <code>cty_wt_mod.dat</code>
+                                <div class="col-md-4 mb-3">
+                                    <div class="card h-100 shadow-sm border-0">
+                                        <div class="card-header bg-white border-bottom-0 pt-3 pb-0">
+                                            <h6 class="card-title text-primary fw-bold mb-0">
+                                                <i class="bi bi-file-earmark-text me-2"></i>Log Slot 3
+                                            </h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <input type="text" class="form-control typeahead" placeholder="Search Callsign..." list="callsignList3">
+                                            <datalist id="callsignList3"></datalist>
+                                        </div>
+                                    </div>
                                 </div>
-                                {% for error in form.custom_cty_file.errors %}
-                                <div class="text-danger small mt-1">{{ error }}</div>
-                                {% endfor %}
+                            </div>
+
+                            <!-- CTY File Section -->
+                            <div class="border-top pt-3 mb-3">
+                                <h6 class="fw-bold text-secondary mb-3"><i class="bi bi-globe me-2"></i>CTY File (Country Data)</h6>
+                                <div class="row align-items-center mb-2">
+                                    <div class="col-auto">
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="radio" name="fetch_cty_file_choice" id="fetchCtyDefault" value="default" checked>
+                                            <label class="form-check-label" for="fetchCtyDefault">
+                                                Use Default CTY File
+                                            </label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="radio" name="fetch_cty_file_choice" id="fetchCtyUpload" value="upload">
+                                            <label class="form-check-label" for="fetchCtyUpload">
+                                                Upload Custom CTY File
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="fetchCtyUploadSection" style="display: none;" class="mt-2">
+                                    <input type="file" class="form-control" name="fetch_custom_cty_file" accept=".dat" id="fetchCustomCtyFile">
+                                    <div class="form-text text-muted small mt-2">
+                                        <i class="bi bi-info-circle me-1"></i>Preferred format: <code>cty_wt_mod.dat</code>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Fetch & Analyze Button -->
+                            <div class="d-grid gap-2 col-md-4 mx-auto mt-3">
+                                <button type="button" class="btn btn-success btn-lg shadow-sm" id="btnFetchAnalyze" disabled>
+                                    <i class="bi bi-cloud-download-fill me-2"></i>Fetch & Analyze
+                                </button>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
 
-                        <div class="d-grid gap-2 col-md-4 mx-auto mt-4">
-                            <button type="submit" class="btn btn-primary btn-lg shadow-sm" id="btnAnalyzeLogs" disabled>
-                                <i class="bi bi-bar-chart-fill me-2"></i>Analyze Logs
-                            </button>
-                        </div>
-                    </form>
-
-                    <div id="progress-container" class="d-none mt-5 w-100">
+            <!-- Progress Bar (Shared, at bottom) -->
+            <div id="progress-container" class="d-none mt-4 w-100">
+                <div class="card shadow-sm border-0">
+                    <div class="card-body">
                         <div class="d-flex align-items-start justify-content-between">
                             <div class="d-flex flex-column align-items-center step-item" style="z-index: 1;" data-step="1">
                                 <div class="rounded-circle step-pending d-flex align-items-center justify-content-center fw-bold transition-all circle" style="width: 40px; height: 40px;">1</div>
@@ -163,132 +356,6 @@
                             <div class="d-flex flex-column align-items-center step-item" style="z-index: 1;" data-step="5">
                                 <div class="rounded-circle step-pending d-flex align-items-center justify-content-center fw-bold transition-all circle" style="width: 40px; height: 40px;">5</div>
                                 <div class="mt-2 small fw-bold text-muted text-uppercase">Ready</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card shadow-sm border-0 mb-5" id="archiveCard">
-                <div class="card-header bg-light py-3 d-flex justify-content-between align-items-center" style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#archiveCollapse">
-                    <h5 class="mb-0 fw-bold text-secondary"><i class="bi bi-cloud-download me-2"></i>Public Log Archive</h5>
-                    <i class="bi bi-chevron-down"></i>
-                </div>
-                <div id="archiveCollapse" class="collapse show">
-                    <div class="card-body p-4">
-                        <div class="alert alert-info border-0 shadow-sm mb-4">
-                            <i class="bi bi-info-circle-fill me-2"></i><strong>Fetch 1, 2, or 3 Logs:</strong> Log 1 is required. Logs 2 and 3 are optional for comparison analysis. <strong>Supported Contests:</strong> CQ World Wide DX (CW, SSB, RTTY modes), CQ 160 Meter (CW, SSB, RTTY modes), ARRL 10 Meter (no mode selection required), and ARRL DX (CW and SSB - no mode selection required, mode is determined by contest selection).
-                        </div>
-                        
-                        <form id="fetchForm" method="post" action="{% url 'analyze' %}" enctype="multipart/form-data">
-                            {% csrf_token %}
-                            <input type="hidden" name="request_id" class="fetch-request-id">
-                            <input type="hidden" name="fetch_callsigns" id="fetchCallsignsInput">
-                            <input type="hidden" name="fetch_year" id="fetchYearInput">
-                            <input type="hidden" name="fetch_mode" id="fetchModeInput">
-                            <input type="hidden" name="fetch_contest" id="fetchContestInput">
-                        </form>
-
-                        <div class="row g-3 mb-4">
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold text-secondary">Contest</label>
-                                <select class="form-select" id="archiveContest">
-                                    <option value="" selected>Select Contest...</option>
-                                    <option value="CQ-WW">CQ World Wide DX</option>
-                                    <option value="CQ-160">CQ 160 Meter</option>
-                                    <option value="ARRL-10">ARRL 10 Meter</option>
-                                    <option value="ARRL-DX-CW">ARRL DX CW</option>
-                                    <option value="ARRL-DX-SSB">ARRL DX SSB</option>
-                                </select>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold text-secondary">Year</label>
-                                <select class="form-select" id="archiveYear" disabled>
-                                    <option value="" selected>Select Year...</option>
-                                </select>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold text-secondary">Mode</label>
-                                <select class="form-select" id="archiveMode" disabled>
-                                    <option value="" selected>Select Mode...</option>
-                                    <option value="SSB">SSB</option>
-                                    <option value="CW">CW</option>
-                                    <option value="RTTY">RTTY</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div id="archiveSlots" class="d-none border-top pt-4">
-                            <div class="row justify-content-center">
-                                <div class="col-md-4 mb-4">
-                                    <div class="card h-100 shadow-sm border-0">
-                                        <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
-                                            <h5 class="card-title text-primary fw-bold mb-0">
-                                                <i class="bi bi-file-earmark-text me-2"></i>Log Slot 1
-                                            </h5>
-                                        </div>
-                                        <div class="card-body">
-                                            <input type="text" class="form-control typeahead" placeholder="Search Callsign (e.g. K3LR)..." list="callsignList1">
-                                            <datalist id="callsignList1"></datalist>
-                                            <div class="valid-feedback">Log Found!</div>
-                                            <div class="invalid-feedback">Log not found in archive.</div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-4 mb-4">
-                                    <div class="card h-100 shadow-sm border-0">
-                                        <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
-                                            <h5 class="card-title text-primary fw-bold mb-0">
-                                                <i class="bi bi-file-earmark-text me-2"></i>Log Slot 2
-                                            </h5>
-                                        </div>
-                                        <div class="card-body">
-                                            <input type="text" class="form-control typeahead" placeholder="Search Callsign..." list="callsignList2">
-                                            <datalist id="callsignList2"></datalist>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-4 mb-4">
-                                    <div class="card h-100 shadow-sm border-0">
-                                        <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
-                                            <h5 class="card-title text-primary fw-bold mb-0">
-                                                <i class="bi bi-file-earmark-text me-2"></i>Log Slot 3
-                                            </h5>
-                                        </div>
-                                        <div class="card-body">
-                                            <input type="text" class="form-control typeahead" placeholder="Search Callsign..." list="callsignList3">
-                                            <datalist id="callsignList3"></datalist>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="border-top pt-4 mt-4 mb-4">
-                                <h6 class="fw-bold text-secondary mb-3"><i class="bi bi-globe me-2"></i>CTY File (Country Data)</h6>
-                                <div class="mb-3">
-                                    <div class="form-check mb-2">
-                                        <input class="form-check-input" type="radio" name="fetch_cty_file_choice" id="fetchCtyDefault" value="default" checked>
-                                        <label class="form-check-label" for="fetchCtyDefault">
-                                            Use Default CTY File
-                                        </label>
-                                    </div>
-                                    <div class="form-check mb-2">
-                                        <input class="form-check-input" type="radio" name="fetch_cty_file_choice" id="fetchCtyUpload" value="upload">
-                                        <label class="form-check-label" for="fetchCtyUpload">
-                                            Upload Custom CTY File
-                                        </label>
-                                    </div>
-                                </div>
-                                <div id="fetchCtyUploadSection" style="display: none;">
-                                    <input type="file" class="form-control" name="fetch_custom_cty_file" accept=".dat" id="fetchCustomCtyFile">
-                                    <div class="form-text text-muted small mt-2">
-                                        <i class="bi bi-info-circle me-1"></i>Preferred format: <code>cty_wt_mod.dat</code>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="d-grid gap-2 col-md-4 mx-auto mt-4">
-                                <button type="button" class="btn btn-success btn-lg shadow-sm" id="btnFetchAnalyze" disabled>
-                                    <i class="bi bi-cloud-download-fill me-2"></i>Fetch & Analyze
-                                </button>
                             </div>
                         </div>
                     </div>
@@ -345,6 +412,26 @@
     
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Tab Switching Logic
+            const methodTabs = document.querySelectorAll('.method-tab');
+            const methodContents = document.querySelectorAll('.method-content');
+            
+            methodTabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const method = this.getAttribute('data-method');
+                    
+                    // Update tab states
+                    methodTabs.forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // Update content visibility
+                    methodContents.forEach(content => {
+                        content.classList.remove('active');
+                    });
+                    document.getElementById(method + 'Method').classList.add('active');
+                });
+            });
+
             // CTY File Upload Toggle (Manual Upload Form)
             const ctyRadioButtons = document.querySelectorAll('input[name="cty_file_choice"]');
             const ctyUploadSection = document.getElementById('ctyUploadSection');
@@ -588,7 +675,7 @@
                  }
             });
 
-            const form = document.querySelector('form');
+            const manualForm = document.getElementById('manualForm');
             const progressContainer = document.getElementById('progress-container');
             const requestIdInput = document.getElementById('request_id');
             // Generate UUID-like ID for this request
@@ -597,7 +684,7 @@
             
             // Enable/disable Analyze Logs button based on file selection
             const btnAnalyzeLogs = document.getElementById('btnAnalyzeLogs');
-            const fileInputs = form.querySelectorAll('input[type="file"]');
+            const fileInputs = manualForm.querySelectorAll('input[type="file"]');
             
             function updateAnalyzeButton() {
                 const hasFile = Array.from(fileInputs).some(input => input.files && input.files.length > 0);
@@ -700,7 +787,7 @@
                 btnFetch.disabled = !hasValid;
             }
             
-            form.addEventListener('submit', function(e) {
+            manualForm.addEventListener('submit', function(e) {
                 // Disable all buttons and inputs immediately to prevent double-submission
                 disableAllFormControls();
                 

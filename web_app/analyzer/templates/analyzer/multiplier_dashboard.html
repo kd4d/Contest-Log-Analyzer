@@ -154,18 +154,21 @@
         </div>
         
         <ul class="nav nav-pills mb-3" id="pills-tab" role="tablist">
+            {% if multiplier_count > 1 %}
             <li class="nav-item" role="presentation">
                 <button class="nav-link active" id="pills-all-tab" data-bs-toggle="pill" data-bs-target="#pills-all" type="button" role="tab">All Multipliers</button>
             </li>
+            {% endif %}
             {% for mult_name in multiplier_names %}
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="pills-{{ mult_name|lower|replace:" : -" }}-tab" data-bs-toggle="pill" data-bs-target="#pills-{{ mult_name|lower|replace:" : -" }}" type="button" role="tab">{{ mult_name }}</button>
+                <button class="nav-link {% if multiplier_count == 1 %}active{% endif %}" id="pills-{{ mult_name|lower|replace:" : -" }}-tab" data-bs-toggle="pill" data-bs-target="#pills-{{ mult_name|lower|replace:" : -" }}" type="button" role="tab">{{ mult_name }}</button>
             </li>
             {% endfor %}
     </ul>
 
         <div class="tab-content" id="pills-tabContent">
             
+            {% if multiplier_count > 1 %}
             <div class="tab-pane fade show active" id="pills-all" role="tabpanel">
                 <div class="vert-spectrum">
                     <div class="y-axis-col">
@@ -289,11 +292,12 @@
                     {% endif %}
                 </div>
             </div>
+            {% endif %}
 
             {% for mult_name in multiplier_names %}
             {% with mult_id=mult_name|lower|replace:" : -" mult_key=mult_name|lower|replace:" : _" %}
             {% with mult_max=global_max|get_item:mult_key %}
-            <div class="tab-pane fade" id="pills-{{ mult_id }}" role="tabpanel">
+            <div class="tab-pane fade {% if multiplier_count == 1 %}show active{% endif %}" id="pills-{{ mult_id }}" role="tabpanel">
                 <div class="vert-spectrum">
                     <div class="y-axis-col">
                         <div class="y-axis-spacer-header"></div>

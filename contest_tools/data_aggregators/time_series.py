@@ -452,7 +452,15 @@ class TimeSeriesAggregator:
             # Default to per-band tracking for other methods (once_per_mode handled separately)
             seen_mults_by_band = {band: set() for band in valid_bands}
         
-        seen_mults_by_mode = set()
+        # For once_per_mode, track multipliers separately per mode per rule, then sum
+        # For other methods, use single shared tracking
+        if totaling_method == 'once_per_mode':
+            # Track per rule per mode: {mode: {rule_col: set()}}
+            # This matches score summary logic: count unique per rule per mode, then sum
+            seen_mults_by_mode_by_rule = {}  # {mode: {col: set()}}
+        else:
+            seen_mults_by_mode = set()
+        
         # Cumulative tracking (union of all multipliers across all dimensions)
         seen_mults_cumulative = set()
         
@@ -524,24 +532,51 @@ class TimeSeriesAggregator:
                                 valid_mults = mode_df[col].dropna()
                                 valid_mults = valid_mults[valid_mults != 'Unknown']
                                 for mult_val in valid_mults:
-                                    # Check if this is a NEW multiplier for this mode dimension
-                                    # (not seen before in any hour for mode tracking)
-                                    # This is independent of band tracking, allowing mode breakdown
-                                    # to show multipliers even in single-band contests
-                                    if mult_val not in seen_mults_by_mode:
+                                    # Check if this is a NEW multiplier for this mode
+                                    # For once_per_mode: track separately per mode per rule (column), then sum
+                                    # This matches score summary: count unique per rule per mode, sum across rules
+                                    # For other methods: use shared tracking across all modes
+                                    is_new_mult = False
+                                    if totaling_method == 'once_per_mode':
+                                        # Track per rule (column) per mode - allows same multiplier value in different columns
+                                        # to count separately (though for mutually exclusive, this shouldn't happen)
+                                        if mode not in seen_mults_by_mode_by_rule:
+                                            seen_mults_by_mode_by_rule[mode] = {}
+                                        if col not in seen_mults_by_mode_by_rule[mode]:
+                                            seen_mults_by_mode_by_rule[mode][col] = set()
+                                        if mult_val not in seen_mults_by_mode_by_rule[mode][col]:
+                                            is_new_mult = True
+                                            seen_mults_by_mode_by_rule[mode][col].add(mult_val)
+                                    else:
+                                        # Shared tracking - multiplier counts once across all modes
+                                        if mult_val not in seen_mults_by_mode:
+                                            is_new_mult = True
+                                            seen_mults_by_mode.add(mult_val)
+                                    
+                                    if is_new_mult:
                                         new_mults_this_hour_mode.add(mult_val)
-                                        seen_mults_by_mode.add(mult_val)
-                                        # Also add to cumulative tracking
-                                        seen_mults_cumulative.add(mult_val)
+                                        # Also add to cumulative tracking (for other totaling methods)
+                                        if totaling_method != 'once_per_mode':
+                                            seen_mults_cumulative.add(mult_val)
                         
                         result["new_mults_by_mode"][mode][hour_idx] = len(new_mults_this_hour_mode)
             
             # Calculate cumulative multipliers up to this hour
-            # For sum_by_band, use sum of per-band unique multipliers (matches band-by-band totals)
-            # For once_per_log, use globally unique multipliers
+            # For once_per_mode: sum unique multipliers per mode (matches score summary logic)
+            # For sum_by_band: use sum of per-band unique multipliers (matches band-by-band totals)
+            # For once_per_log: use globally unique multipliers
             if totaling_method == 'once_per_log':
                 # Global tracking - use globally unique count
                 result["cumulative_mults"][hour_idx] = len(seen_mults_global) if 'seen_mults_global' in locals() else len(seen_mults_cumulative)
+            elif totaling_method == 'once_per_mode':
+                # Per-mode tracking - sum unique multipliers per rule per mode, then sum across rules
+                # This matches score summary logic: for each rule, count unique per mode, sum across modes, then sum across rules
+                # Structure: {mode: {col: set()}} - sum unique per col per mode, then sum across all cols and modes
+                total_cumulative = 0
+                for mode in seen_mults_by_mode_by_rule:
+                    for col in seen_mults_by_mode_by_rule[mode]:
+                        total_cumulative += len(seen_mults_by_mode_by_rule[mode][col])
+                result["cumulative_mults"][hour_idx] = total_cumulative
             elif totaling_method in ['sum_by_band', 'once_per_band_no_mode']:
                 # Per-band tracking - sum unique multipliers per band (matches band totals)
                 result["cumulative_mults"][hour_idx] = sum(len(seen_mults_by_band[band]) for band in valid_bands)
