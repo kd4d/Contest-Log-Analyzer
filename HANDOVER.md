@@ -41,14 +41,17 @@
 - **After testing:** Version cleanup (automated task for agent)
 - **After cleanup:** Tag first beta with new versioning system
 
-### Multiplier Breakdown Report Fix (In Progress - Awaiting Verification)
+### Multiplier Breakdown Report Fix
 
-**Problem:** Breakdown report multiplier totals did not match scoreboard totals. For example, K9CT showed 137 multipliers in breakdown vs 595 in scoreboard for ARRL DX CW.
+**Status:** ✅ Completed (2026-01-19)
 
-**Root Causes Identified:**
-1. **Data Source Inconsistency:** `MultiplierStatsAggregator` used `get_processed_data()` (includes dupes) while `ScoreStatsAggregator` used `get_valid_dataframe(log, include_dupes=False)`
-2. **Incorrect Multiplier Tracking:** `TimeSeriesAggregator._calculate_hourly_multipliers()` used global multiplier tracking for all contests, breaking `sum_by_band` contests like ARRL DX
-3. **Missing Filters:** Breakdown calculations didn't filter zero-point QSOs or filter multiplier rules by location type for ARRL DX
+**Problem:** Breakdown report multiplier totals did not match scoreboard totals. For example, K1LZ showed 140 multipliers in CUMM column vs 625 in scoreboard for ARRL DX CW.
+
+**Root Causes Identified and Fixed:**
+1. **Data Source Inconsistency:** `MultiplierStatsAggregator` and `TimeSeriesAggregator` used `get_processed_data()` (includes dupes) while `ScoreStatsAggregator` used `get_valid_dataframe(log, include_dupes=False)` - **FIXED**
+2. **Incorrect Multiplier Tracking:** `TimeSeriesAggregator._calculate_hourly_multipliers()` used global multiplier tracking for all contests, breaking `sum_by_band` contests like ARRL DX - **FIXED**
+3. **Missing Filters:** Breakdown calculations didn't filter zero-point QSOs or filter multiplier rules by location type for ARRL DX - **FIXED**
+4. **CUMM Column Calculation:** Cumulative multiplier totals not correctly calculated based on `totaling_method` - **FIXED**
 
 **Files Modified:**
 1. **`contest_tools/data_aggregators/multiplier_stats.py`**:
@@ -65,49 +68,63 @@
      - `once_per_band_no_mode`: Uses per-band tracking
      - Default: Per-band tracking for other methods
    - Added location type filtering for ARRL DX
+   - Fixed cumulative multiplier calculation to match band-by-band totals for `sum_by_band` contests
 
-3. **`Docs/AI_AGENT_RULES.md`**:
-   - Updated diagnostic logging rules to require `[DIAG]` prefix (mandatory, not optional)
-   - Clarified that `[DIAG]` prefix is required for all diagnostic messages
+3. **`contest_tools/reports/text_breakdown_report.py`**:
+   - Fixed CUMM column totals row to correctly display final cumulative multipliers
+   - Fixed totals row to include Total, CUMM, and Score columns
 
-**Testing Status:**
-- ✅ Implementation complete
-- ⚠️ **Issue Found:** Breakdown report totals still don't match scoreboard (e.g., K1LZ shows 140 vs 625)
-- 🔍 **Diagnostics Added (2025-01-19):**
-  - **`TimeSeriesAggregator._calculate_hourly_multipliers()`:**
-    - Logs initial state: `totaling_method`, `applicable_mult_cols`, `df_valid` row count, `valid_bands`, `log_location_type`
-    - Logs final per-band multiplier counts after processing all hours
-    - Compares breakdown totals (sum of `seen_mults_by_band` or `seen_mults_global`) with scoreboard totals
-    - Logs difference for each multiplier rule
-  - **`text_breakdown_report.py` (Totals section):**
-    - Logs breakdown totals (sum of `hourly_new_mults` per dimension)
-    - Logs scoreboard totals from `ScoreStatsAggregator`
-    - Logs per-band/dimension comparison
-    - Logs difference between breakdown and scoreboard
-- ⏳ **Awaiting diagnostic output** to identify root cause
-- 📝 **Note:** Diagnostics use `[DIAG]` prefix as required by project rules
-
-**Known Issues:**
-- Breakdown report totals don't match scoreboard totals
-- Breakdown report uses `TimeSeriesAggregator` (hourly_new_mults), not `MultiplierStatsAggregator`
-- The sum of `hourly_new_mults` per band should equal scoreboard per-band totals, but doesn't
-- Possible causes:
-  1. `totaling_method` logic not working correctly in `_calculate_hourly_multipliers()`
-  2. Location type filtering excluding valid multipliers
-  3. Data source changes not taking effect (container restart needed?)
-  4. Different calculation method between breakdown and scoreboard
-
-**Next Steps:**
-1. **Check diagnostic logs** after regenerating reports to see:
-   - What `totaling_method` is being used
-   - What the final per-band counts are in `_calculate_hourly_multipliers()`
-   - How they compare to scoreboard totals
-2. **Identify root cause** from diagnostic output
-3. **Fix the issue** based on diagnostic findings
-4. **Verify** breakdown totals match scoreboard
+**Resolution:**
+- All identified issues have been fixed
+- Breakdown report totals now match scoreboard totals
+- CUMM column correctly displays cumulative multipliers matching band-by-band totals
+- Diagnostic messages removed (no longer needed - issue resolved)
 
 **Technical Notes:**
 - The fix ensures both breakdown and scoreboard use the same data source (`get_valid_dataframe`)
 - The fix respects contest-specific `totaling_method` from JSON definitions
 - For ARRL DX, only applicable multiplier rules are counted (DXCC for W/VE, STPROV for DX)
 - Zero-point QSOs are excluded from multiplier counts for contests where `mults_from_zero_point_qsos` is false
+
+---
+
+### StandardCalculator `applies_to` Field Support Issue (Deferred)
+
+**Status:** 🔍 Identified, ⏸️ Deferred (2026-01-19)
+
+**Problem:** `StandardCalculator` (default time-series score calculator) does not respect the `applies_to` field in multiplier rules, causing incorrect score calculations for asymmetric contests like ARRL DX.
+
+**Symptom:**
+- ARRL DX: Plugin calculator shows correct score (e.g., 30,843,750)
+- ScoreStatsAggregator calculated score shows exactly half (e.g., 15,421,875)
+- Score difference is exactly 2x, indicating multiplier double-counting
+
+**Root Cause:**
+- ARRL DX has asymmetric multiplier rules (DXCC for W/VE, STPROV for DX)
+- `StandardCalculator` counts ALL multiplier rules without filtering by `applies_to`
+- For W/VE operators, it counts both DXCC (correct) and STPROV (incorrect), causing 2x multiplier count
+- ARRL DX uses `StandardCalculator` because it lacks a `time_series_calculator` definition (only has `scoring_module`)
+
+**Current Workaround:**
+- `ScoreStatsAggregator` uses the plugin calculator's score as authoritative (dashboard shows correct score)
+- However, time-series score calculations (used in animations) still show incorrect values
+
+**Proposed Solution:**
+- Add `applies_to` filtering to `StandardCalculator` (similar to other aggregators)
+- Filter multiplier rules based on `log_location_type` before processing
+- Only process multiplier rules where `applies_to` is None or matches `log_location_type`
+
+**Risk Assessment:**
+- **Risk Level:** MEDIUM (potentially breaking change)
+- **Affected Contests:** All contests using `StandardCalculator` (ARRL 10, ARRL SS, ARRL FD, CQ WW, CQ WPX, IARU HF, CQ 160, ARRL DX)
+- **Mitigation:** Comprehensive regression testing required before implementation
+
+**Decision:**
+- **Status:** Deferred until comprehensive regression testing can be performed
+- **Reason:** High risk of breaking changes requires extensive test coverage
+- **Testing Plan:** See `DevNotes/Decisions_Architecture/STANDARD_CALCULATOR_APPLIES_TO_TESTING_PLAN.md`
+
+**Related Documentation:**
+- `DevNotes/Decisions_Architecture/STANDARD_CALCULATOR_APPLIES_TO_DISCUSSION.md` - Detailed discussion
+- `TECHNICAL_DEBT.md` - Technical debt entry
+- `DevNotes/Decisions_Architecture/PLUGIN_ARCHITECTURE_BOUNDARY_DECISION.md` - Architecture principle
