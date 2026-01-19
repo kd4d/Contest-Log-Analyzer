@@ -912,6 +912,81 @@ Before any critical operation, AI should:
 4. [OK] Suggest creating feature branch if not on one
 5. [OK] Verify pre-commit hooks are installed
 
+### CRITICAL: Stash Before Cleaning/Reverting Changes
+
+**IMPORTANT:** Uncommitted changes exist in the working directory, NOT in branches. When you switch branches, uncommitted changes travel with you. If you discard changes on one branch (e.g., `git restore .` or `git clean -fd`), those changes are PERMANENTLY LOST from ALL branches.
+
+**Rule:** Before performing any destructive git operations that might discard uncommitted changes, AI agents MUST:
+
+1. **Check for uncommitted changes:**
+   ```bash
+   git status
+   ```
+
+2. **If uncommitted changes exist, STASH them first:**
+   ```bash
+   git stash push -m "WIP: [description of changes]"
+   ```
+
+3. **Perform the operation** (e.g., clean master branch, switch branches, etc.)
+
+4. **Restore changes on target branch:**
+   ```bash
+   git checkout [target-branch]
+   git stash pop
+   ```
+
+**Common Scenarios Requiring Stash:**
+
+- **Cleaning master/main branch while on feature branch:**
+  - ❌ **WRONG:** `git checkout master && git restore . && git clean -fd`
+  - ✅ **CORRECT:** `git stash push -m "WIP: feature changes" && git checkout master && git restore . && git clean -fd && git checkout feature-branch && git stash pop`
+
+- **Switching branches with uncommitted changes:**
+  - If changes should stay on current branch: Stash first, switch, then pop on return
+  - If changes should move to new branch: Just switch (git carries them), but be aware they're not committed
+
+- **Reverting changes on one branch while keeping them on another:**
+  - Stash changes first
+  - Switch to branch to clean
+  - Clean that branch
+  - Switch back to feature branch
+  - Pop stash to restore changes
+
+**Why This Matters:**
+- Uncommitted changes are NOT stored in branches - they're in the working directory
+- Discarding changes on one branch discards them everywhere
+- Stashing preserves changes in git's stash, allowing safe branch operations
+- Stash can be restored on any branch with `git stash pop` or `git stash apply`
+
+**Example Workflow: Moving Changes from Master to Feature Branch:**
+
+```bash
+# 1. Check status (on master with uncommitted changes)
+git status
+
+# 2. Stash the changes
+git stash push -m "WIP: ARRL DX implementation"
+
+# 3. Verify master is clean
+git status  # Should show "working tree clean"
+
+# 4. Create and switch to feature branch
+git checkout -b feature/1.0.0-alpha.10
+
+# 5. Restore stashed changes
+git stash pop
+
+# 6. Verify changes are restored
+git status  # Should show the uncommitted changes again
+```
+
+**Rationale:**
+- Prevents accidental loss of uncommitted work
+- Allows safe branch operations without losing changes
+- Makes it clear where changes belong (which branch)
+- Enables clean separation between branches
+
 ---
 
 ## Technical Debt Tracking
