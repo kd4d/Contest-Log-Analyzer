@@ -440,9 +440,6 @@ class TimeSeriesAggregator:
         else:
             # Mixed totaling_methods - use sum_by_band as default (most common)
             totaling_method = 'sum_by_band'
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.warning(f"[DIAG] Mixed totaling_methods found: {totaling_methods}. Using sum_by_band as default.")
         
         # Track multipliers based on totaling_method
         if totaling_method == 'once_per_log':
@@ -461,15 +458,6 @@ class TimeSeriesAggregator:
         
         # Get applicable multiplier columns
         applicable_mult_cols = [rule['value_column'] for rule in applicable_rules]
-        
-        # DIAGNOSTIC: Log initial state (only if debug level is enabled)
-        import logging
-        logger = logging.getLogger(__name__)
-        if logger.isEnabledFor(logging.DEBUG):
-            logger.debug(f"[DIAG] _calculate_hourly_multipliers: totaling_method={totaling_method}, applicable_mult_cols={applicable_mult_cols}")
-            logger.debug(f"[DIAG] _calculate_hourly_multipliers: df_valid rows={len(df_valid)}, valid_bands={valid_bands}")
-            if log_location_type:
-                logger.debug(f"[DIAG] _calculate_hourly_multipliers: log_location_type={log_location_type}")
         
         # For each hour
         for hour_idx, hour_ts in enumerate(master_index):
@@ -560,41 +548,5 @@ class TimeSeriesAggregator:
             else:
                 # Default: use cumulative tracking which includes all multipliers from both dimensions
                 result["cumulative_mults"][hour_idx] = len(seen_mults_cumulative)
-        
-        # DIAGNOSTIC: Log final totals per band (only if debug level is enabled)
-        if logger.isEnabledFor(logging.DEBUG):
-            if totaling_method == 'once_per_log':
-                logger.debug(f"[DIAG] _calculate_hourly_multipliers: Final seen_mults_global count={len(seen_mults_global)}")
-            elif totaling_method in ['sum_by_band', 'once_per_band_no_mode']:
-                total_per_band = sum(len(seen_mults_by_band[band]) for band in valid_bands)
-                logger.debug(f"[DIAG] _calculate_hourly_multipliers: Final per-band totals: sum={total_per_band}")
-                for band in valid_bands:
-                    band_count = len(seen_mults_by_band[band])
-                    if band_count > 0:
-                        logger.debug(f"[DIAG] _calculate_hourly_multipliers:   Band {band}: {band_count} unique multipliers")
-        
-        # DIAGNOSTIC: Compare with scoreboard (only log if debug level is enabled)
-        # Note: This diagnostic is informational - the plugin calculates scores, and this validates
-        # that breakdown totals match scoreboard totals for debugging purposes.
-        if log is not None and logger.isEnabledFor(logging.DEBUG):
-            from ..data_aggregators.score_stats import ScoreStatsAggregator
-            try:
-                score_agg = ScoreStatsAggregator([log])
-                score_data = score_agg.get_score_breakdown()
-                call = log.get_metadata().get('MyCall', 'Unknown')
-                if call in score_data.get('logs', {}):
-                    scoreboard_data = score_data['logs'][call]
-                    scoreboard_totals = scoreboard_data.get('total_summary', {})
-                    # Find multiplier rule name
-                    for rule in contest_def.multiplier_rules:
-                        r_name = rule['name']
-                        scoreboard_count = scoreboard_totals.get(r_name, 0)
-                        if totaling_method == 'once_per_log':
-                            breakdown_count = len(seen_mults_global)
-                        else:
-                            breakdown_count = sum(len(seen_mults_by_band[band]) for band in valid_bands)
-                        logger.debug(f"[DIAG] {call} {r_name} - BREAKDOWN (hourly sum): {breakdown_count}, SCOREBOARD: {scoreboard_count}, DIFF: {scoreboard_count - breakdown_count}")
-            except Exception as e:
-                logger.debug(f"[DIAG] Could not compare with scoreboard: {e}")
         
         return result

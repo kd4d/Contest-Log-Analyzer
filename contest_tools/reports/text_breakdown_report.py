@@ -313,37 +313,4 @@ class Report(ContestReport):
         
         report_lines.append("  ".join(total_row_parts))
         
-        # DIAGNOSTIC: Compare breakdown totals with scoreboard (only if log is provided and debug enabled)
-        if log is not None:
-            try:
-                import logging
-                diag_logger = logging.getLogger(__name__)
-                # Only log diagnostics if debug level is enabled
-                if diag_logger.isEnabledFor(logging.DEBUG):
-                    from ..data_aggregators.score_stats import ScoreStatsAggregator
-                    score_agg = ScoreStatsAggregator([log])
-                    score_data = score_agg.get_score_breakdown()
-                    if callsign in score_data.get('logs', {}):
-                        scoreboard_data = score_data['logs'][callsign]
-                        scoreboard_totals = scoreboard_data.get('total_summary', {})
-                        # Get multiplier names from contest definition
-                        contest_def = log.contest_definition
-                        mult_names = [rule['name'] for rule in contest_def.multiplier_rules]
-                        scoreboard_total_mults = sum(scoreboard_totals.get(name, 0) for name in mult_names)
-                        diag_logger.debug(f"[DIAG] Breakdown Report Totals for {callsign}:")
-                        diag_logger.debug(f"[DIAG]   Breakdown (sum of hourly_new_mults): {total_breakdown_mults}")
-                        diag_logger.debug(f"[DIAG]   Scoreboard total: {scoreboard_total_mults}")
-                        diag_logger.debug(f"[DIAG]   Difference: {scoreboard_total_mults - total_breakdown_mults}")
-                        # Per-band comparison
-                        for dim in valid_dimensions:
-                            dim_mults = sum(hourly_new_mults.get(dim, [])) if hourly_new_mults.get(dim) else 0
-                            diag_logger.debug(f"[DIAG]   {dim}: Breakdown={dim_mults}")
-            except Exception as e:
-                # Only log if debug enabled
-                if log is not None:
-                    import logging
-                    diag_logger = logging.getLogger(__name__)
-                    if diag_logger.isEnabledFor(logging.DEBUG):
-                        diag_logger.debug(f"[DIAG] Could not compare breakdown totals with scoreboard: {e}")
-        
         return report_lines

@@ -46,6 +46,69 @@
 
 ---
 
+### StandardCalculator `applies_to` Field Support
+
+**Priority:** HIGH  
+**Impact:** Incorrect score calculations for asymmetric contests (e.g., ARRL DX shows 2x multiplier count)  
+**Status:** [ ] Deferred - Requires comprehensive regression testing
+
+**Issue:**
+- `StandardCalculator` (default time-series score calculator) does not respect the `applies_to` field in multiplier rules
+- For asymmetric contests like ARRL DX, this causes incorrect multiplier counting
+- ARRL DX W/VE operators: Only DXCC multipliers should count, but StandardCalculator counts both DXCC and STPROV (2x multiplier count)
+- ARRL DX DX operators: Only STPROV multipliers should count, but StandardCalculator counts both (2x multiplier count)
+- Symptom: Plugin calculator shows correct score (30,843,750), StandardCalculator shows exactly half (15,421,875)
+
+**Root Cause:**
+- ARRL DX has a contest-specific `scoring_module` (`arrl_dx_scoring`) for point calculation
+- ARRL DX does NOT have a `time_series_calculator` defined, so it defaults to `StandardCalculator`
+- `StandardCalculator` processes ALL multiplier rules without filtering by `applies_to`
+- Other components (`ScoreStatsAggregator`, `MultiplierStatsAggregator`, `TimeSeriesAggregator`) correctly filter by `applies_to`
+
+**Current Workaround:**
+- `ScoreStatsAggregator` uses the plugin calculator's score as authoritative (mitigates dashboard score display)
+- However, time-series score calculations (used in animations and breakdown reports) still show incorrect values
+
+**Proposed Solution:**
+- Add `applies_to` filtering to `StandardCalculator` (similar to other aggregators)
+- Filter multiplier rules based on `log_location_type` before processing
+- Only process multiplier rules where `applies_to` is None or matches `log_location_type`
+
+**Implementation Pattern:**
+```python
+# Filter multiplier rules by applies_to (similar to ScoreStatsAggregator)
+log_location_type = getattr(log, '_my_location_type', None)
+applicable_rules = [
+    r for r in contest_def.multiplier_rules 
+    if r.get('applies_to') is None or r.get('applies_to') == log_location_type
+]
+```
+
+**Risk Assessment:**
+- **Risk Level:** MEDIUM (potentially breaking change)
+- **Affected Contests:** All contests using `StandardCalculator` (ARRL 10, ARRL SS, ARRL FD, CQ WW, CQ WPX, IARU HF, CQ 160, ARRL DX)
+- **Mitigation:** Comprehensive regression testing required before implementation
+
+**Testing Strategy:**
+- Use `ScoreStatsAggregator` as golden reference (already correctly handles `applies_to`)
+- Compare `StandardCalculator` output with `ScoreStatsAggregator` output
+- Test all contest patterns: symmetric, asymmetric, different `totaling_method` values
+- Regression test all contests using `StandardCalculator`
+
+**Deferral Reason:**
+- High risk of breaking changes requires comprehensive regression testing
+- Current workaround mitigates dashboard score display issue
+- Test plan created, implementation deferred until full regression test suite is ready
+
+**Related:**
+- `contest_tools/score_calculators/standard_calculator.py` - File to be updated
+- `contest_tools/data_aggregators/score_stats.py` - Reference implementation (lines 168-171)
+- `DevNotes/Decisions_Architecture/STANDARD_CALCULATOR_APPLIES_TO_DISCUSSION.md` - Detailed discussion
+- `DevNotes/Decisions_Architecture/STANDARD_CALCULATOR_APPLIES_TO_TESTING_PLAN.md` - Testing plan
+- `DevNotes/Decisions_Architecture/PLUGIN_ARCHITECTURE_BOUNDARY_DECISION.md` - Architecture principle
+
+---
+
 ### ARRL 10 Meter Animation File Selection
 
 **Priority:** HIGH  

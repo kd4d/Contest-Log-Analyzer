@@ -72,28 +72,6 @@ class ScoreStatsAggregator:
             # Use plugin score as authoritative, fallback to calculated score
             final_score = plugin_final_score if plugin_final_score is not None else calculated_final_score
             
-            # Log warning if scores differ significantly (architecture validation)
-            # Only log at DEBUG level unless difference is very large (might indicate a real bug)
-            if plugin_final_score is not None and abs(plugin_final_score - calculated_final_score) > 1:
-                import logging
-                logger = logging.getLogger(__name__)
-                # If scores differ significantly (more than 5%), log as warning; otherwise debug
-                score_ratio = abs(plugin_final_score - calculated_final_score) / max(calculated_final_score, 1)
-                if score_ratio > 0.05:  # More than 5% difference
-                    logger.warning(
-                        f"ScoreStatsAggregator: Score difference for {callsign}: "
-                        f"Calculator (plugin)={plugin_final_score:,}, "
-                        f"Calculated={calculated_final_score:,}. "
-                        f"Using calculator as authoritative source."
-                    )
-                else:
-                    logger.debug(
-                        f"ScoreStatsAggregator: Minor score difference for {callsign}: "
-                        f"Calculator (plugin)={plugin_final_score:,}, "
-                        f"Calculated={calculated_final_score:,}. "
-                        f"Using calculator as authoritative source."
-                    )
-            
             result["logs"][callsign] = {
                 "summary_data": summary_data,
                 "total_summary": total_summary,
