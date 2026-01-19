@@ -1458,6 +1458,51 @@ When working with Django templates:
 
 ---
 
+## DevNotes Directory Structure
+
+**AI agents MUST understand the DevNotes organization:**
+
+### Directories AI Agents Should Read
+- **Root DevNotes/**: Active planning documents - READ these for current work
+- **Decisions_Architecture/**: Important patterns, architectural decisions, and reusable guidance - READ these
+
+### Directories AI Agents Should Ignore (Unless Requested)
+- **Archive/**: Completed implementation plans - IGNORE unless user explicitly requests historical context
+- **Discussions/**: Obsolete/complete discussions - IGNORE unless user explicitly requests historical context
+
+### When to Review Archive/Discussions
+- User explicitly asks: "How was X implemented?" or "Why did we choose Y?"
+- AI agent needs historical context to understand a decision
+- Researching implementation details of completed work
+- User requests review of specific historical discussion
+
+### File Status Standardization
+All DevNotes files should have standardized metadata:
+```markdown
+**Status:** Active | Completed | Deferred | Obsolete
+**Date:** YYYY-MM-DD
+**Last Updated:** YYYY-MM-DD
+**Category:** Planning | Discussion | Decision | Pattern
+```
+
+### Value Test for Categorization
+When categorizing DevNotes files:
+- **Decisions_Architecture/**: Documents reusable patterns, architectural principles, or important decisions that future work should follow
+- **Discussions/**: Historical conversations where decisions were made (the decision itself may be documented elsewhere)
+- **Archive/**: Completed step-by-step implementation plans (historical reference)
+- **Root DevNotes/**: Active planning documents for current or deferred work
+
+### Directory Structure
+```
+DevNotes/
+├── [Active Planning Documents]          # Active work - AI agents read these
+├── Archive/                              # Completed plans - AI agents ignore
+├── Discussions/                          # Obsolete/complete discussions - AI agents ignore
+└── Decisions_Architecture/                # Important decisions/patterns - AI agents should read
+```
+
+---
+
 ## Summary
 
 **AI's Role:** Generate, suggest, assist, format

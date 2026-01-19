@@ -167,6 +167,72 @@
 
 ## Architecture & Design Debt
 
+### WRTC Contest Architecture - Promote to First-Level Contest
+
+**Priority:** MEDIUM  
+**Impact:** Cleaner architecture, eliminates special-case logic, better directory structure  
+**Status:** [ ] Not started
+
+**Issue:**
+- WRTC is currently implemented as a variant of IARU-HF using inheritance
+- Special-case logic in `LogManager`: `--wrtc` flag transforms `IARU-HF` → `WRTC-{year}` at runtime
+- Year embedded in contest_name (`WRTC-2026`) instead of being a separate parameter
+- Conceptual confusion: WRTC has major differences (scoring, multipliers, reports) but is treated as a variant
+- Inheritance misuse: using inheritance for code sharing (parser/exporter) rather than conceptual relationship
+
+**Current Architecture:**
+```
+IARU-HF (base contest)
+  └── WRTC (variant, inherits parser)
+      ├── WRTC-2023 (year variant, inherits WRTC, adds scoring)
+      ├── WRTC-2025 (year variant, inherits WRTC, adds scoring)
+      └── WRTC-2026 (year variant, inherits WRTC, adds scoring)
+```
+
+**What WRTC Shares with IARU-HF:**
+- Same parser: `iaru_hf_parser` (logs are IARU-HF format)
+- Same ADIF exporter: `iaru_hf_adif`
+- Same contest period, bands, modes, exchange format
+
+**What WRTC Differs:**
+- Different scoring: `wrtc_2023_scoring`, `wrtc_2026_scoring` vs `iaru_hf_scoring`
+- Different multiplier resolver: `wrtc_multiplier_resolver` vs `iaru_hf_multiplier_resolver`
+- Different multiplier rules: DXCC/HQ/Official (no Zones) vs Zones/HQ/Official
+- Different reports: `wrtc_propagation`, `wrtc_propagation_animation`
+- Year-specific scoring rules (2023/2025 vs 2026)
+
+**Proposed Solution:**
+1. Promote WRTC to first-level contest (not a variant of IARU-HF)
+2. Use year as a parameter (not in contest_name, not as "overlay")
+3. Share parser/exporter via composition (reference, not inheritance)
+4. Update directory structure: `reports/{year}/wrtc/{year}/{mode}/...` (year appears twice: contest year and WRTC edition year)
+5. Remove `--wrtc` flag transformation logic
+
+**Implementation Approach:**
+- Create `wrtc.json` as first-level contest definition
+- Reference `iaru_hf_parser` and `iaru_hf_adif` via composition (not inheritance)
+- Year-specific scoring modules remain (wrtc_2023_scoring, wrtc_2026_scoring)
+- Remove overlay concept entirely - year is just a parameter
+
+**Migration Impact:**
+- Existing reports: `reports/2024/wrtc-2026/...` → `reports/2024/wrtc/2026/...`
+- Contest name resolution: `WRTC-2026` → `WRTC` with year parameter `2026`
+- Backward compatibility: support both patterns during transition
+
+**Estimated Effort:** Medium
+- Update JSON definitions
+- Refactor LogManager (remove special-case logic)
+- Update directory structure code
+- Migrate existing reports
+- Update tests
+
+**Related:**
+- `contest_tools/log_manager.py` - Special-case `--wrtc` flag logic (lines 67, 155, 222)
+- `contest_tools/contest_definitions/wrtc.json` - Base WRTC definition
+- `contest_tools/contest_definitions/wrtc_2026.json` - Year-specific variant
+
+---
+
 ### CQ 160 CW PH Mode Suppression in Breakdown Report
 
 **Priority:** LOW  
