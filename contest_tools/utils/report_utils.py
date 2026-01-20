@@ -117,6 +117,11 @@ def get_standard_title_lines(report_name: str, logs: list, band_filter: str = No
     df = get_valid_dataframe(logs[0])
     year = df['Date'].dropna().iloc[0].split('-')[0] if not df.empty else "----"
     contest_name = metadata.get('ContestName', '')
+    # Ensure IARU and HQ are always capitalized (acronym requirements)
+    import re
+    contest_name = re.sub(r'\biaru\b', 'IARU', contest_name, flags=re.IGNORECASE)
+    contest_name = re.sub(r'\bhq\b', 'HQ', contest_name, flags=re.IGNORECASE)
+    
     event_id = metadata.get('EventID', '')
     
     # Use override if provided (from aggregator data), otherwise extract from logs
@@ -245,6 +250,11 @@ def _create_time_series_figure(log: ContestLog, report_name: str) -> tuple:
     metadata = log.get_metadata()
     year = get_valid_dataframe(log)['Date'].dropna().iloc[0].split('-')[0]
     contest_name = metadata.get('ContestName', '')
+    # Ensure IARU and HQ are always capitalized (acronym requirements)
+    import re
+    contest_name = re.sub(r'\biaru\b', 'IARU', contest_name, flags=re.IGNORECASE)
+    contest_name = re.sub(r'\bhq\b', 'HQ', contest_name, flags=re.IGNORECASE)
+    
     event_id = metadata.get('EventID', '')
     
     title_line1 = f"{event_id} {year} {contest_name}".strip()

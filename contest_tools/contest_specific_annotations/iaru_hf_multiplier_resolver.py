@@ -22,27 +22,7 @@ import logging
 from typing import Dict, Any, Set, Tuple, Optional
 
 from ..contest_definitions import ContestDefinition
-
-# Global cache for the officials set to avoid re-reading the file
-_OFFICIALS_SET_CACHE: Set[str] = set()
-
-def _load_officials_set(root_input_dir: str) -> Set[str]:
-    """Loads the iaru_officials.dat file into a set for fast lookups."""
-    global _OFFICIALS_SET_CACHE
-    if _OFFICIALS_SET_CACHE:
-        return _OFFICIALS_SET_CACHE
-
-    try:
-        root_dir = root_input_dir.strip().strip('"').strip("'")
-        data_dir = os.path.join(root_dir, 'data')
-        filepath = os.path.join(data_dir, 'iaru_officials.dat')
-        with open(filepath, 'r', encoding='utf-8') as f:
-            _OFFICIALS_SET_CACHE = {line.strip().upper() for line in f if line.strip()}
-    except Exception as e:
-        print(f"Warning: Could not load iaru_officials.dat file. Official multiplier check will be disabled. Error: {e}")
-        _OFFICIALS_SET_CACHE = set()
-
-    return _OFFICIALS_SET_CACHE
+from ..core_annotations._iaru_mult_utils import load_officials_set, resolve_iaru_hq_official
 
 def _resolve_row(row: pd.Series, officials_set: Set[str]) -> Dict[str, Optional[str]]:
     """
@@ -57,15 +37,14 @@ def _resolve_row(row: pd.Series, officials_set: Set[str]) -> Dict[str, Optional[
     if pd.notna(exchange):
         exchange = str(exchange).strip()
         
-        # 1. Check if it's a numeric ITU Zone
+        # 1. Check if it's a numeric ITU Zone (IARU-HF specific)
         if exchange.isnumeric():
             mult_zone = exchange
-        # 2. Check if it's an IARU Official
-        elif exchange.upper() in officials_set:
-            mult_official = exchange.upper()
-        # 3. Assume it's an IARU HQ station if it's alphabetic
-        elif exchange.isalpha():
-            mult_hq = exchange.upper()
+        else:
+            # 2. Use shared utility for HQ/Official parsing
+            hq_official = resolve_iaru_hq_official(exchange, officials_set)
+            mult_hq = hq_official['hq']
+            mult_official = hq_official['official']
 
     return {'zone': mult_zone, 'hq': mult_hq, 'official': mult_official}
 
@@ -90,7 +69,7 @@ def resolve_multipliers(df: pd.DataFrame, my_location_type: str, root_input_dir:
                 df[col] = pd.NA
         return df
 
-    officials_set = _load_officials_set(root_input_dir)
+    officials_set = load_officials_set(root_input_dir)
     
     # Get the categorized multiplier data for all rows in a single pass.
     categorized_mults = df.apply(_resolve_row, axis=1, officials_set=officials_set)

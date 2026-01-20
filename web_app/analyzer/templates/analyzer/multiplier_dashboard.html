@@ -161,7 +161,7 @@
             {% endif %}
             {% for mult_name in multiplier_names %}
             <li class="nav-item" role="presentation">
-                <button class="nav-link {% if multiplier_count == 1 %}active{% endif %}" id="pills-{{ mult_name|lower|replace:" : -" }}-tab" data-bs-toggle="pill" data-bs-target="#pills-{{ mult_name|lower|replace:" : -" }}" type="button" role="tab">{{ mult_name|abbreviate_multiplier }}</button>
+                <button class="nav-link {% if multiplier_count == 1 %}active{% endif %}" id="pills-{{ mult_name|lower|replace:" : -" }}-tab" data-bs-toggle="pill" data-bs-target="#pills-{{ mult_name|lower|replace:" : -" }}" type="button" role="tab">{{ mult_name|capitalize_iaru|abbreviate_multiplier }}</button>
             </li>
             {% endfor %}
     </ul>

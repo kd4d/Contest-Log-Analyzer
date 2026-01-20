@@ -577,14 +577,14 @@ def get_log_index_view(request):
         except Exception as e:
             logger.exception(f"Error fetching IARU-HF log index: {e}")
             return JsonResponse({'error': str(e)}, status=500)
-    elif contest == 'WRTC-2026' and year:
-        # WRTC-2026 uses IARU archive (same as IARU-HF)
+    elif contest.startswith('WRTC') and year:
+        # All WRTC contests use IARU archive (same as IARU-HF)
         try:
             from contest_tools.utils.log_fetcher import fetch_iaru_log_index
             callsigns = fetch_iaru_log_index(year)
             return JsonResponse({'callsigns': callsigns})
         except Exception as e:
-            logger.exception(f"Error fetching WRTC-2026 log index: {e}")
+            logger.exception(f"Error fetching {contest} log index: {e}")
             return JsonResponse({'error': str(e)}, status=500)
     return JsonResponse({'callsigns': []})
 
@@ -798,8 +798,8 @@ def analyze_logs(request):
                 elif contest == 'IARU-HF':
                     from contest_tools.utils.log_fetcher import download_iaru_logs
                     log_paths = download_iaru_logs(callsigns, year, session_path)
-                elif contest == 'WRTC-2026':
-                    # WRTC-2026 uses IARU archive (same as IARU-HF)
+                elif contest.startswith('WRTC'):
+                    # All WRTC contests use IARU archive (same as IARU-HF)
                     from contest_tools.utils.log_fetcher import download_iaru_logs
                     log_paths = download_iaru_logs(callsigns, year, session_path)
                 else:
@@ -1028,15 +1028,16 @@ def dashboard_view(request, session_id):
 
     # Contest-Specific Routing
     contest_name = context.get('contest_name', '').upper()  # Already uppercased, but explicit for clarity
-    # Enable same dashboard structure for CQ-WW, CQ-160, ARRL-10, ARRL-DX, IARU-HF, and WRTC-2026
+    # Enable same dashboard structure for CQ-WW, CQ-160, ARRL-10, ARRL-DX, IARU-HF, and all WRTC contests
     # CQ-160 is single-band, multi-mode (like ARRL-10), so it uses the same dashboard architecture
     # ARRL-DX is multi-band, single-mode (like CQ-WW), so it uses the same dashboard architecture
+    # IARU-HF and WRTC contests are multi-band, multi-mode, so they use the same dashboard architecture
     if not (contest_name.startswith('CQ-WW') or 
             contest_name.startswith('CQ-160') or 
             contest_name.startswith('ARRL-10') or
             contest_name.startswith('ARRL-DX') or
             contest_name.startswith('IARU-HF') or
-            contest_name.startswith('WRTC-2026')):
+            contest_name.startswith('WRTC')):
         return render(request, 'analyzer/dashboard_construction.html', context)
     
     # Load score report data for dashboard display
@@ -1555,7 +1556,7 @@ def multiplier_dashboard(request, session_id):
             formatted_words = []
             for word in words:
                 # Common multiplier abbreviations that should be all caps
-                if word.upper() in ['DXCC', 'ITU', 'CQ', 'WAE', 'WPX', 'US']:
+                if word.upper() in ['DXCC', 'ITU', 'CQ', 'WAE', 'WPX', 'US', 'IARU', 'HQ']:
                     formatted_words.append(word.upper())
                 else:
                     formatted_words.append(word.title())
@@ -2028,8 +2029,19 @@ def qso_dashboard(request, session_id):
                 # Sort value will be set later by MODE_SORT_ORDER, use temp value for now
                 sort_val = 50  # Temporary, will be overridden
             else:
-                # Multi-band contests: use band labels
-                label = "All Bands" if band_key == 'ALL' else band_key
+                # Multi-band contests: use band labels, or band+mode for multi-mode contests
+                if is_multi_mode and mode_key:
+                    # Multi-band, multi-mode: include mode in label (e.g., "80M CW", "80M PH", "All Bands CW")
+                    mode_upper = mode_key
+                    if mode_upper in ['SSB', 'USB', 'LSB']:
+                        mode_upper = 'PH'  # Cabrillo uses PH
+                    if band_key == 'ALL':
+                        label = f"All Bands {mode_upper}"
+                    else:
+                        label = f"{band_key} {mode_upper}"
+                else:
+                    # Multi-band, single-mode: just band label
+                    label = "All Bands" if band_key == 'ALL' else band_key
                 sort_val = BAND_SORT_ORDER.get(band_key, 99)
             
             point_plots.append({
@@ -2155,8 +2167,19 @@ def qso_dashboard(request, session_id):
                 # Sort value will be set later by MODE_SORT_ORDER, use temp value for now
                 sort_val = 50  # Temporary, will be overridden
             else:
-                # Multi-band contests: use band labels
-                label = "All Bands" if band_key == 'ALL' else band_key
+                # Multi-band contests: use band labels, or band+mode for multi-mode contests
+                if is_multi_mode and mode_key:
+                    # Multi-band, multi-mode: include mode in label (e.g., "80M CW", "80M PH", "All Bands CW")
+                    mode_upper = mode_key
+                    if mode_upper in ['SSB', 'USB', 'LSB']:
+                        mode_upper = 'PH'  # Cabrillo uses PH
+                    if band_key == 'ALL':
+                        label = f"All Bands {mode_upper}"
+                    else:
+                        label = f"{band_key} {mode_upper}"
+                else:
+                    # Multi-band, single-mode: just band label
+                    label = "All Bands" if band_key == 'ALL' else band_key
                 sort_val = BAND_SORT_ORDER.get(band_key, 99)
             
             qso_band_plots.append({

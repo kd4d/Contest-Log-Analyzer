@@ -24,7 +24,7 @@
 
 <div class="container mt-5">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="mb-0 text-secondary">Analysis Results: <span class="text-dark">{{ full_contest_title }}</span>
+        <h2 class="mb-0 text-secondary">Analysis Results: <span class="text-dark">{{ full_contest_title|capitalize_iaru }}</span>
             {% if location_type %}
                 <span class="badge bg-{% if location_type == 'W/VE' %}primary{% else %}success{% endif %} ms-2">
                     {{ location_type }}
@@ -51,7 +51,7 @@
                 {% endif %}
                     <div class="card shadow-sm border-0 h-100">
                         <div class="card-header bg-white py-3">
-                            <h6 class="mb-0 fw-bold text-primary">{{ score_data.year }} {{ score_data.contest_name }}</h6>
+                            <h6 class="mb-0 fw-bold text-primary">{{ score_data.year }} {{ score_data.contest_name|capitalize_iaru }}</h6>
                             <div class="d-flex justify-content-between align-items-baseline mt-1">
                                 <span class="text-dark">{{ score_data.callsign }}</span>
                                 <span class="text-primary fw-bold" style="font-size: 0.9rem;">{{ score_data.final_score|intcomma }}</span>
@@ -65,7 +65,7 @@
                                         <th>Mode</th>
                                         <th class="text-end">QSOs</th>
                                         {% for mult_name in score_data.multiplier_names %}
-                                        <th class="text-end">{{ mult_name|abbreviate_multiplier }}</th>
+                                        <th class="text-end">{{ mult_name|capitalize_iaru|abbreviate_multiplier }}</th>
                                         {% endfor %}
                                     </tr>
                                 </thead>

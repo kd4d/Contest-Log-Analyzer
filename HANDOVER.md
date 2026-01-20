@@ -1,11 +1,11 @@
 # Workflow State Handover
 
 ## Current State
-- **Status:** Merged feature branch to master
-- **Branch:** master
-- **Last Commit:** 38fb9b5 (chore: merge CQ WW dashboard feature branch and git workflow tooling)
+- **Status:** Active development on feature branch
+- **Branch:** feature/1.0.0-alpha.11
+- **Last Commit:** 0fc9f5e (fix(WRTC): Fix scoring calculation and UI improvements)
 - **Working Tree:** Clean
-- **Version:** 0.160.0-beta.1 (in contest_tools/version.py)
+- **Version:** 1.0.0-alpha.10 (in contest_tools/version.py) - Last release
 
 ## Next Steps
 1. **Test** merged code on master
@@ -201,3 +201,89 @@
 - **Other `once_per_mode` contests:** All fixes apply if they use this totaling method
 
 **Related Commit:** `cc4426427cf740902a83c8b0982b8e4d3e361d4b`
+
+---
+
+### WRTC-2026 Contest Implementation
+
+**Status:** ✅ Core Implementation Complete (2026-01-20)
+
+**Overview:**
+- WRTC-2026 implemented as standalone contest (not overlay/variant)
+- Uses IARU-HF log format and public log archive
+- Applies WRTC-2026 specific scoring rules (points, multipliers, Europe-only rule)
+- UI support for selecting WRTC rules when uploading IARU-HF logs
+
+**Implementation Details:**
+
+1. **Contest Definition:**
+   - Created `contest_tools/contest_definitions/wrtc_2026.json` as standalone contest
+   - Scoring: 2 points within Europe, 5 points outside Europe (Europe-only rule enforced)
+   - Multipliers: DXCC Countries, HQ Stations, IARU Officials (once per band, no mode)
+   - Rule 8.2: HQ/Officials do not count for DXCC multipliers (mutually exclusive)
+
+2. **Scoring Module:**
+   - `contest_tools/contest_specific_annotations/wrtc_2026_scoring.py`
+   - Enforces Europe-only rule (returns 0 points for non-EU stations)
+   - Calculates points based on worked station's continent
+
+3. **Multiplier Resolver:**
+   - `contest_tools/contest_specific_annotations/wrtc_multiplier_resolver.py`
+   - Uses shared utilities from `contest_tools/core_annotations/_iaru_mult_utils.py`
+   - Resolves DXCC, HQ, and Official multipliers
+   - Enforces Rule 8.2 (mutually exclusive multipliers)
+
+4. **Public Log Fetching:**
+   - Added IARU-HF to `ARRL_CONTEST_CODES` mapping
+   - Created `fetch_iaru_log_index()` convenience function
+   - WRTC-2026 uses IARU archive (same as IARU-HF)
+
+5. **UI Support:**
+   - Added WRTC checkbox and selector to manual upload form
+   - Added WRTC checkbox and selector to public archive form (shown when IARU-HF selected)
+   - Dynamic WRTC contest discovery via API endpoint
+   - Filters out incomplete/placeholder WRTC contest definitions
+
+6. **Shared Utilities:**
+   - Created `contest_tools/core_annotations/_iaru_mult_utils.py` for common IARU HQ/Official logic
+   - Used by both IARU-HF and WRTC multiplier resolvers
+   - Promotes composition over inheritance pattern
+
+**Recent Fixes (2026-01-20):**
+
+1. **WRTC Scoring Calculation Bug:**
+   - **Issue:** Score was ~12× too high (36,649,620 vs expected 3,057,586)
+   - **Root Cause:** `wrtc_calculator.py` was overwriting per-band multiplier tracking instead of accumulating
+   - **Fix:** Corrected multiplier counting to accumulate across all multiplier columns and bands
+   - **Result:** Score now matches expected calculation (points × multipliers)
+
+2. **Breakdown Report Totals Line Formatting:**
+   - **Issue:** Extra line break after "Totals:" label, misaligned spacing
+   - **Fix:** Removed separate "Totals:" line, made it part of totals row aligned with "Hour" column
+   - **Result:** Clean formatting matching data rows
+
+3. **WRTC Selector UI Improvements:**
+   - Made checkbox bolder and more prominent
+   - Added validation to filter out incomplete WRTC contest definitions
+   - Only shows contests with valid scoring modules
+
+**Files Modified:**
+- `contest_tools/contest_definitions/wrtc_2026.json` - Standalone contest definition
+- `contest_tools/contest_specific_annotations/wrtc_2026_scoring.py` - Scoring logic
+- `contest_tools/contest_specific_annotations/wrtc_multiplier_resolver.py` - Multiplier resolution
+- `contest_tools/core_annotations/_iaru_mult_utils.py` - Shared utilities (NEW)
+- `contest_tools/score_calculators/wrtc_calculator.py` - Time-series calculator (FIXED)
+- `contest_tools/utils/log_fetcher.py` - IARU public log fetching
+- `contest_tools/log_manager.py` - Removed `--wrtc` flag logic
+- `web_app/analyzer/views.py` - WRTC contest discovery API, IARU/WRTC routing
+- `web_app/analyzer/templates/analyzer/home.html` - WRTC selector UI
+- `web_app/analyzer/urls.py` - WRTC API endpoint
+
+**Related:**
+- `DevNotes/WRTC_2026_IMPLEMENTATION_PLAN.md` - Detailed implementation plan
+- `DevNotes/Decisions_Architecture/SHARED_IARU_MULTIPLIER_UTILITIES_PATTERN.md` - Pattern documentation
+- `TECHNICAL_DEBT.md` - WRTC architecture promotion (status updated)
+
+**Related Commits:**
+- `0fc9f5e` - Fix WRTC scoring calculation and UI improvements
+- `51ed612` - Release 1.0.0-alpha.10 with ARRL DX multiplier corrections

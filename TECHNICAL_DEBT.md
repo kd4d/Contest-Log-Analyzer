@@ -234,7 +234,9 @@ applicable_rules = [
 
 **Priority:** MEDIUM  
 **Impact:** Cleaner architecture, eliminates special-case logic, better directory structure  
-**Status:** [ ] Not started
+**Status:** [x] Completed (WRTC-2026 implementation)
+
+**Note:** WRTC-2026 implemented as standalone contest. See `DevNotes/WRTC_2026_IMPLEMENTATION_PLAN.md` for details.
 
 **Issue:**
 - WRTC is currently implemented as a variant of IARU-HF using inheritance
@@ -243,26 +245,25 @@ applicable_rules = [
 - Conceptual confusion: WRTC has major differences (scoring, multipliers, reports) but is treated as a variant
 - Inheritance misuse: using inheritance for code sharing (parser/exporter) rather than conceptual relationship
 
-**Current Architecture:**
+**Current Architecture (After Migration):**
 ```
-IARU-HF (base contest)
-  └── WRTC (variant, inherits parser)
-      ├── WRTC-2023 (year variant, inherits WRTC, adds scoring)
-      ├── WRTC-2025 (year variant, inherits WRTC, adds scoring)
-      └── WRTC-2026 (year variant, inherits WRTC, adds scoring)
+WRTC-2022 (standalone contest) ✅
+WRTC-2026 (standalone contest) ✅
+WRTC-2018 (standalone contest) ⏳ (pending implementation)
 ```
 
 **What WRTC Shares with IARU-HF:**
 - Same parser: `iaru_hf_parser` (logs are IARU-HF format)
 - Same ADIF exporter: `iaru_hf_adif`
 - Same contest period, bands, modes, exchange format
+- Same public log archive
 
 **What WRTC Differs:**
-- Different scoring: `wrtc_2023_scoring`, `wrtc_2026_scoring` vs `iaru_hf_scoring`
+- Different scoring: `wrtc_2022_scoring`, `wrtc_2026_scoring` vs `iaru_hf_scoring`
 - Different multiplier resolver: `wrtc_multiplier_resolver` vs `iaru_hf_multiplier_resolver`
 - Different multiplier rules: DXCC/HQ/Official (no Zones) vs Zones/HQ/Official
 - Different reports: `wrtc_propagation`, `wrtc_propagation_animation`
-- Year-specific scoring rules (2023/2025 vs 2026)
+- Year-specific scoring rules (2022/2026: uniform 2/5 points; 2018: TBD)
 
 **Proposed Solution:**
 1. Promote WRTC to first-level contest (not a variant of IARU-HF)
@@ -272,10 +273,16 @@ IARU-HF (base contest)
 5. Remove `--wrtc` flag transformation logic
 
 **Implementation Approach:**
-- Create `wrtc.json` as first-level contest definition
+- Each WRTC year is a standalone contest definition (no base `wrtc.json` inheritance)
 - Reference `iaru_hf_parser` and `iaru_hf_adif` via composition (not inheritance)
-- Year-specific scoring modules remain (wrtc_2023_scoring, wrtc_2026_scoring)
+- Year-specific scoring modules: `wrtc_2022_scoring`, `wrtc_2026_scoring`, `wrtc_2018_scoring` (pending)
 - Remove overlay concept entirely - year is just a parameter
+
+**Migration Status:**
+- ✅ WRTC-2022: Converted from inheritance to standalone (renamed from 2023)
+- ✅ WRTC-2026: Already standalone
+- ⏳ WRTC-2018: Pending implementation
+- ✅ WRTC-2025: Deleted (does not exist)
 
 **Migration Impact:**
 - Existing reports: `reports/2024/wrtc-2026/...` → `reports/2024/wrtc/2026/...`
@@ -290,9 +297,10 @@ IARU-HF (base contest)
 - Update tests
 
 **Related:**
-- `contest_tools/log_manager.py` - Special-case `--wrtc` flag logic (lines 67, 155, 222)
-- `contest_tools/contest_definitions/wrtc.json` - Base WRTC definition
-- `contest_tools/contest_definitions/wrtc_2026.json` - Year-specific variant
+- `contest_tools/contest_definitions/wrtc_2022.json` - Standalone WRTC-2022 definition
+- `contest_tools/contest_definitions/wrtc_2026.json` - Standalone WRTC-2026 definition
+- `contest_tools/contest_definitions/wrtc_2018.json` - Pending implementation
+- `DevNotes/WRTC_LEGACY_IMPLEMENTATION_PLAN.md` - Implementation plan for legacy WRTC contests
 
 ---
 

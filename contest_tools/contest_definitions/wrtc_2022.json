@@ -1,6 +1,6 @@
 {
-  "_filename": "contest_tools/contest_definitions/wrtc_2026.json",
-  "contest_name": "WRTC-2026",
+  "_filename": "contest_tools/contest_definitions/wrtc_2022.json",
+  "contest_name": "WRTC-2022",
   "valid_modes": [
     "CW",
     "PH"
@@ -12,7 +12,7 @@
     "15M",
     "10M"
   ],
-  "scoring_module": "wrtc_2026_scoring",
+  "scoring_module": "wrtc_2022_scoring",
   "time_series_calculator": "wrtc_calculator",
   "custom_multiplier_resolver": "wrtc_multiplier_resolver",
   "contest_period": {

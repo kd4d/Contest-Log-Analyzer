@@ -38,6 +38,7 @@ ARRL_CONTEST_CODES = {
     'ARRL-10': '10m',
     'ARRL-DX-CW': 'dx',
     'ARRL-DX-SSB': 'dx',
+    'IARU-HF': 'iaruhf',
     # Add other ARRL contests as they're implemented
 }
 
@@ -460,3 +461,39 @@ def download_arrl_logs(callsigns: List[str], year: str, contest_code: str, outpu
     except Exception as e:
         logger.error(f"Failed to download ARRL logs for {contest_code} {year}: {e}")
         return []
+
+
+# ============================================================================
+# IARU HF Public Log Archive Functions (uses same archive as ARRL)
+# ============================================================================
+
+def fetch_iaru_log_index(year: str) -> List[str]:
+    """
+    Fetches list of available callsigns for IARU HF contest and year.
+    
+    IARU HF uses the same ARRL public log archive structure.
+    
+    Args:
+        year: Year as string (e.g., '2024')
+        
+    Returns:
+        List of callsigns in sorted order (e.g., ['2E0BLN', 'K3LR'])
+    """
+    return fetch_arrl_log_index(year, 'iaruhf', contest_name='IARU-HF')
+
+
+def download_iaru_logs(callsigns: List[str], year: str, output_dir: str) -> List[str]:
+    """
+    Downloads specific log files for IARU HF contest.
+    
+    IARU HF uses the same ARRL public log archive structure.
+    
+    Args:
+        callsigns: List of callsigns to download (e.g., ['2E0BLN', 'K3LR'])
+        year: Year as string (e.g., '2024')
+        output_dir: Directory to save downloaded logs
+        
+    Returns:
+        List of full paths to downloaded log files
+    """
+    return download_arrl_logs(callsigns, year, 'iaruhf', output_dir, contest_name='IARU-HF')

@@ -38,7 +38,7 @@ class LogManager:
         self.master_time_index = None
 
     @profile_section("Log Batch Loading (Total)")
-    def load_log_batch(self, log_filepaths: List[str], root_input_dir: str, cty_specifier: str, wrtc_year: int = None, custom_cty_path: str = None):
+    def load_log_batch(self, log_filepaths: List[str], root_input_dir: str, cty_specifier: str, custom_cty_path: str = None):
         """
         Performs validation on log files (duplicates, consistency, empty checks), selects a single
         CTY file, and then loads and processes all logs.
@@ -61,11 +61,7 @@ class LogManager:
                         raise ValueError(f"Duplicate log callsign '{call}' detected in cabrillo header of '{os.path.basename(path)}'. Each log must be from a unique station.")
                     seen_calls.add(call)
 
-                    base_contest = self._get_contest_name_from_header(path)
-                    if wrtc_year and base_contest == 'IARU-HF':
-                        effective_contest = f"WRTC-{wrtc_year}"
-                    else:
-                        effective_contest = base_contest
+                    effective_contest = self._get_contest_name_from_header(path)
 
                     date = self._get_first_qso_date_from_log(path)
                     if date is None:
@@ -149,16 +145,10 @@ class LogManager:
             try:
                 with ProfileContext(f"Individual Log Loading - {os.path.basename(path)}"):
                     logging.info(f"Loading log: {path}...")
-                    base_contest_name = self._get_contest_name_from_header(path)
-                    if not base_contest_name:
+                    contest_name = self._get_contest_name_from_header(path)
+                    if not contest_name:
                         logging.warning(f"  - Could not determine contest name from file header. Skipping.")
                         continue
-
-                    if wrtc_year and base_contest_name == 'IARU-HF':
-                        contest_name = f"WRTC-{wrtc_year}"
-                        logging.info(f"  --wrtc flag is set. Scoring as '{contest_name}'.")
-                    else:
-                        contest_name = base_contest_name
 
                     log = ContestLog(contest_name=contest_name, cabrillo_filepath=path, root_input_dir=root_input_dir, 
                                    cty_dat_path=cty_dat_path, shared_cty_lookup=shared_cty_lookup, 
@@ -321,8 +311,15 @@ class LogManager:
                 for line in f:
                     if line.upper().startswith('CONTEST:'):
                         return line.split(':', 1)[1].strip()
+        except FileNotFoundError as e:
+            # Show full path and indicate this is a validation issue
+            abs_path = os.path.abspath(filepath) if not os.path.isabs(filepath) else filepath
+            logging.warning(f"Pre-flight validation: Log file not found at '{abs_path}'. "
+                          f"File may not exist or path may be incorrect. Validation may be incomplete. "
+                          f"Original error: {e}")
         except Exception as e:
-            logging.warning(f"Could not read contest name from {filepath}: {e}")
+            abs_path = os.path.abspath(filepath) if not os.path.isabs(filepath) else filepath
+            logging.warning(f"Pre-flight validation: Could not read contest name from '{abs_path}': {e}")
         return ""
 
     def _get_callsign_from_header(self, filepath: str) -> str:
@@ -334,8 +331,15 @@ class LogManager:
                 for line in f:
                     if line.upper().startswith('CALLSIGN:'):
                         return line.split(':', 1)[1].strip()
+        except FileNotFoundError as e:
+            # Show full path and indicate this is a validation issue
+            abs_path = os.path.abspath(filepath) if not os.path.isabs(filepath) else filepath
+            logging.warning(f"Pre-flight validation: Log file not found at '{abs_path}'. "
+                          f"File may not exist or path may be incorrect. Validation may be incomplete. "
+                          f"Original error: {e}")
         except Exception as e:
-            logging.warning(f"Could not read callsign from {filepath}: {e}")
+            abs_path = os.path.abspath(filepath) if not os.path.isabs(filepath) else filepath
+            logging.warning(f"Pre-flight validation: Could not read callsign from '{abs_path}': {e}")
         return "Unknown"
 
     def get_logs(self):

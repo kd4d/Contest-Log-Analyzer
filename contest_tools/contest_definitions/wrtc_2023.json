@@ -1,6 +1,0 @@
-{
-  "_filename": "contest_tools/contest_definitions/wrtc_2023.json",
-  "contest_name": "WRTC-2023",
-  "inherits_from": "wrtc",
-  "scoring_module": "wrtc_2023_scoring"
-}
