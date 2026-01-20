@@ -5,6 +5,35 @@ All notable changes to Contest Log Analyzer will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-alpha.10] - 2026-01-20
+[Full Release Notes](ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.10.md)
+
+### Fixed
+- Once per mode multiplier calculation fixes for ARRL 10 Meter and similar contests
+  - Fixed Score Summary 'ALL' line to sum multipliers from mode rows instead of union
+  - Fixed Breakdown Report totals to use cumulative unique multipliers per mode
+  - Fixed Cumulative Multiplier Tracking (CUMM column) to match score summary totals
+  - Fixed Multiplier Dashboard "All Multipliers" tab redundancy (hidden when only one multiplier type)
+- Dashboard UI improvements - abbreviated multiplier names in tables and tabs
+  - Provinces → Provs, Mexican States → Mex, ITU Regions → Regs
+  - Reduces space compression in ARRL Analysis Results Dashboard
+
+### Added
+- ARRL DX contest support with asymmetric contest rules handling
+  - Supports different multipliers for W/VE vs DX entries
+  - Multiplier rules filtered by location_type based on entry class
+- DevNotes directory reorganization with improved structure
+  - New structure: `DevNotes/Archive/`, `DevNotes/Decisions_Architecture/`, `DevNotes/Discussions/`
+  - Added `DevNotes/README.md` with organization guidelines
+- Template filter for abbreviating multiplier names in UI
+- Comprehensive documentation for plugin architecture and testing plans
+
+### Changed
+- Enhanced score statistics aggregator for once per mode multiplier calculation
+- Improved breakdown report totals calculation for once per mode contests
+- Enhanced time series aggregator multiplier tracking per rule per mode
+- Improved multiplier dashboard tab display logic
+
 ## [1.0.0-alpha.9] - 2026-01-18
 [Full Release Notes](ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.9.md)
 
