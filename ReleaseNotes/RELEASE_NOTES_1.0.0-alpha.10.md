@@ -50,7 +50,8 @@ This release fixes critical multiplier calculation bugs for `once_per_mode` cont
 - **Added full ARRL DX contest support**
   - Supports asymmetric contest rules (different multipliers for W/VE vs DX entries)
   - Multiplier rules filtered by `applies_to` (location_type) based on entry class
-  - Handles Canadian Provinces and DXCC Countries multipliers correctly
+  - W/VE entries count DXCC Countries (DX stations worked)
+  - DX entries count States/Provinces (US States + Canadian Provinces from W/VE stations worked)
   - Includes public log fetching and preflight validation
 
 ### Documentation
