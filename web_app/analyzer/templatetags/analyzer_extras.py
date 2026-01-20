@@ -89,3 +89,62 @@ def replace(value, arg):
     
     # If no colon or malformed, treat entire arg as string to replace (with empty)
     return value.replace(arg, "")
+
+@register.filter
+def abbreviate_multiplier(value):
+    """
+    Template filter to abbreviate multiplier names for compact tab display.
+    
+    Abbreviations:
+    - "Provinces" → "Provs"
+    - "Mexican States" → "Mex"
+    - "ITU Regions" → "Regs"
+    - "Regions" → "Regs"
+    
+    Usage: {{ mult_name|abbreviate_multiplier }}
+    """
+    if not value:
+        return ""
+    
+    if not isinstance(value, str):
+        value = str(value)
+    
+    # Strip whitespace for matching
+    value_trimmed = value.strip()
+    
+    # Abbreviation mapping - check both full names and prefixed versions
+    abbreviations = {
+        # Full names
+        "Provinces": "Provs",
+        "Mexican States": "Mex",
+        "ITU Regions": "Regs",
+        "Regions": "Regs",
+        # Prefixed versions (e.g., "US Provinces", "Mexican Regions")
+        "US Provinces": "US Provs",
+        "Mexican States": "Mex",
+        "Mexican Regions": "Mex Regs",
+        "ITU Regions": "Regs",
+    }
+    
+    # Try exact match first
+    if value_trimmed in abbreviations:
+        return abbreviations[value_trimmed]
+    
+    # Try to match with prefix removed (e.g., "US Provinces" -> check "Provinces")
+    # This handles cases like "US Provinces", "Canadian Provinces", etc.
+    for key, abbr in [("Provinces", "Provs"), ("Regions", "Regs")]:
+        if value_trimmed.endswith(f" {key}"):
+            prefix = value_trimmed[:-len(f" {key}")]
+            return f"{prefix} {abbr}"
+    
+    # Special handling for "Mexican States" - can appear with or without prefix
+    if "Mexican States" in value_trimmed:
+        # If it's just "Mexican States", return "Mex"
+        if value_trimmed == "Mexican States":
+            return "Mex"
+        # If it has a prefix like "US Mexican States" (unlikely but handle it), keep prefix
+        if value_trimmed.startswith("Mexican States"):
+            return value_trimmed.replace("Mexican States", "Mex")
+    
+    # Return original value if no match
+    return value

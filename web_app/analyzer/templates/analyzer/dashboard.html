@@ -65,7 +65,7 @@
                                         <th>Mode</th>
                                         <th class="text-end">QSOs</th>
                                         {% for mult_name in score_data.multiplier_names %}
-                                        <th class="text-end">{{ mult_name }}</th>
+                                        <th class="text-end">{{ mult_name|abbreviate_multiplier }}</th>
                                         {% endfor %}
                                     </tr>
                                 </thead>
