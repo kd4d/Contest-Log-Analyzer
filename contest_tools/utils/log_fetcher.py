@@ -36,9 +36,9 @@ ARRL_PUBLICLOGS_URL = f"{ARRL_BASE_URL}/publiclogs.php"
 # Mapping: Contest name in our system -> ARRL contest code parameter
 ARRL_CONTEST_CODES = {
     'ARRL-10': '10m',
+    'ARRL-DX-CW': 'dx',
+    'ARRL-DX-SSB': 'dx',
     # Add other ARRL contests as they're implemented
-    # 'ARRL-DX-CW': 'dx',
-    # 'ARRL-DX-SSB': 'dx',
 }
 
 def fetch_log_index(year: str, mode: str) -> List[str]:
@@ -203,7 +203,7 @@ def download_cq160_logs(callsigns: List[str], year: str, mode: str, output_dir: 
 # ARRL Public Log Archive Functions
 # ============================================================================
 
-def _get_arrl_eid_iid(year: str, contest_code: str) -> Optional[Tuple[str, str]]:
+def _get_arrl_eid_iid(year: str, contest_code: str, contest_name: str = None) -> Optional[Tuple[str, str]]:
     """
     Discovers the event ID (eid) and instance ID (iid) for a given ARRL contest and year.
     
@@ -212,7 +212,9 @@ def _get_arrl_eid_iid(year: str, contest_code: str) -> Optional[Tuple[str, str]]
     
     Args:
         year: Year as string (e.g., '2024')
-        contest_code: ARRL contest code (e.g., '10m')
+        contest_code: ARRL contest code (e.g., '10m', 'dx')
+        contest_name: Optional contest name for disambiguation (e.g., 'ARRL-DX-CW', 'ARRL-DX-SSB')
+                      Used when contest_code is 'dx' to distinguish between CW and Phone
         
     Returns:
         Tuple of (eid, iid) if found, None otherwise
@@ -225,6 +227,40 @@ def _get_arrl_eid_iid(year: str, contest_code: str) -> Optional[Tuple[str, str]]
         
         soup = BeautifulSoup(response.text, 'html.parser')
         
+        # For ARRL DX (cn=dx), we need to distinguish between CW and Phone
+        # They have different eid values. Try to find the eid from the dropdown or use known values
+        if contest_code == 'dx' and contest_name:
+            is_cw = 'CW' in contest_name.upper() or contest_name == 'ARRL-DX-CW'
+            is_phone = 'SSB' in contest_name.upper() or 'PHONE' in contest_name.upper() or contest_name == 'ARRL-DX-SSB'
+            
+            # Try to find the eid from the dropdown select options
+            # The select has name='eid' and option values are just the eid numbers
+            select = soup.find('select', {'name': 'eid'})
+            if select:
+                for option in select.find_all('option'):
+                    option_text = option.get_text().strip().upper()
+                    option_value = option.get('value', '')
+                    
+                    # Check if this option matches our contest
+                    # Option values are just numbers like '13' or '14'
+                    if is_cw and ('DX CW' in option_text or 'INTERNATIONAL DX CW' in option_text):
+                        if option_value and option_value != '0':  # Skip the "Select" option
+                            eid_from_option = option_value
+                            # Now navigate to that eid page to get year links
+                            eid_url = f"{ARRL_PUBLICLOGS_URL}?eid={eid_from_option}"
+                            response = requests.get(eid_url, timeout=10)
+                            response.raise_for_status()
+                            soup = BeautifulSoup(response.text, 'html.parser')
+                            break
+                    elif is_phone and ('DX PHONE' in option_text or 'INTERNATIONAL DX PHONE' in option_text):
+                        if option_value and option_value != '0':  # Skip the "Select" option
+                            eid_from_option = option_value
+                            eid_url = f"{ARRL_PUBLICLOGS_URL}?eid={eid_from_option}"
+                            response = requests.get(eid_url, timeout=10)
+                            response.raise_for_status()
+                            soup = BeautifulSoup(response.text, 'html.parser')
+                            break
+        
         # Find year links - they appear as links with year text
         year_links = soup.find_all('a', href=True, string=re.compile(rf'^{year}$'))
         
@@ -234,18 +270,18 @@ def _get_arrl_eid_iid(year: str, contest_code: str) -> Optional[Tuple[str, str]]
             match = re.search(r'eid=(\d+)&iid=(\d+)', href)
             if match:
                 eid, iid = match.groups()
-                logger.info(f"Found ARRL eid={eid}, iid={iid} for {contest_code} {year}")
+                logger.info(f"Found ARRL eid={eid}, iid={iid} for {contest_code} {year} (contest_name={contest_name})")
                 return (eid, iid)
         
-        logger.warning(f"Could not find eid/iid for ARRL {contest_code} {year}")
+        logger.warning(f"Could not find eid/iid for ARRL {contest_code} {year} (contest_name={contest_name})")
         return None
         
     except Exception as e:
-        logger.error(f"Failed to get ARRL eid/iid for {contest_code} {year}: {e}")
+        logger.error(f"Failed to get ARRL eid/iid for {contest_code} {year} (contest_name={contest_name}): {e}")
         return None
 
 
-def fetch_arrl_log_index(year: str, contest_code: str) -> List[str]:
+def fetch_arrl_log_index(year: str, contest_code: str, contest_name: str = None) -> List[str]:
     """
     Fetches list of available callsigns for an ARRL contest and year.
     
@@ -254,16 +290,18 @@ def fetch_arrl_log_index(year: str, contest_code: str) -> List[str]:
     
     Args:
         year: Year as string (e.g., '2024')
-        contest_code: ARRL contest code (e.g., '10m')
+        contest_code: ARRL contest code (e.g., '10m', 'dx')
+        contest_name: Optional contest name for disambiguation (e.g., 'ARRL-DX-CW', 'ARRL-DX-SSB')
+                      Used when contest_code is 'dx' to distinguish between CW and Phone
         
     Returns:
         List of callsigns in sorted order (e.g., ['2E0BLN', 'K3LR'])
     """
     try:
         # Get event/instance IDs
-        eid_iid = _get_arrl_eid_iid(year, contest_code)
+        eid_iid = _get_arrl_eid_iid(year, contest_code, contest_name=contest_name)
         if not eid_iid:
-            logger.error(f"Could not get eid/iid for ARRL {contest_code} {year}")
+            logger.error(f"Could not get eid/iid for ARRL {contest_code} {year} (contest_name={contest_name})")
             return []
         
         eid, iid = eid_iid
@@ -298,7 +336,7 @@ def fetch_arrl_log_index(year: str, contest_code: str) -> List[str]:
         return []
 
 
-def fetch_arrl_log_mapping(year: str, contest_code: str) -> Dict[str, str]:
+def fetch_arrl_log_mapping(year: str, contest_code: str, contest_name: str = None) -> Dict[str, str]:
     """
     Fetches mapping of callsign -> encoded q parameter for ARRL logs.
     
@@ -307,16 +345,18 @@ def fetch_arrl_log_mapping(year: str, contest_code: str) -> Dict[str, str]:
     
     Args:
         year: Year as string (e.g., '2024')
-        contest_code: ARRL contest code (e.g., '10m')
+        contest_code: ARRL contest code (e.g., '10m', 'dx')
+        contest_name: Optional contest name for disambiguation (e.g., 'ARRL-DX-CW', 'ARRL-DX-SSB')
+                      Used when contest_code is 'dx' to distinguish between CW and Phone
         
     Returns:
         Dictionary mapping callsign (uppercase) -> q parameter
     """
     try:
         # Get event/instance IDs
-        eid_iid = _get_arrl_eid_iid(year, contest_code)
+        eid_iid = _get_arrl_eid_iid(year, contest_code, contest_name=contest_name)
         if not eid_iid:
-            logger.error(f"Could not get eid/iid for ARRL {contest_code} {year}")
+            logger.error(f"Could not get eid/iid for ARRL {contest_code} {year} (contest_name={contest_name})")
             return {}
         
         eid, iid = eid_iid
@@ -358,7 +398,7 @@ def fetch_arrl_log_mapping(year: str, contest_code: str) -> Dict[str, str]:
         return {}
 
 
-def download_arrl_logs(callsigns: List[str], year: str, contest_code: str, output_dir: str) -> List[str]:
+def download_arrl_logs(callsigns: List[str], year: str, contest_code: str, output_dir: str, contest_name: str = None) -> List[str]:
     """
     Downloads specific log files for an ARRL contest.
     
@@ -368,17 +408,19 @@ def download_arrl_logs(callsigns: List[str], year: str, contest_code: str, outpu
     Args:
         callsigns: List of callsigns to download (e.g., ['2E0BLN', 'K3LR'])
         year: Year as string (e.g., '2024')
-        contest_code: ARRL contest code (e.g., '10m')
+        contest_code: ARRL contest code (e.g., '10m', 'dx')
         output_dir: Directory to save downloaded logs
+        contest_name: Optional contest name for disambiguation (e.g., 'ARRL-DX-CW', 'ARRL-DX-SSB')
+                      Used when contest_code is 'dx' to distinguish between CW and Phone
         
     Returns:
         List of full paths to downloaded log files
     """
     try:
         # Fetch the callsign -> q parameter mapping
-        mapping = fetch_arrl_log_mapping(year, contest_code)
+        mapping = fetch_arrl_log_mapping(year, contest_code, contest_name=contest_name)
         if not mapping:
-            logger.error(f"Could not get log mapping for ARRL {contest_code} {year}")
+            logger.error(f"Could not get log mapping for ARRL {contest_code} {year} (contest_name={contest_name})")
             return []
         
         downloaded_paths = []

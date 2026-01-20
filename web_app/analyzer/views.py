@@ -215,6 +215,7 @@ import json
 import time
 import itertools
 import zipfile
+from typing import Dict, List, Optional, Any
 from django.shortcuts import render, redirect, reverse
 from django.http import Http404, JsonResponse, FileResponse
 from django.conf import settings
@@ -310,6 +311,169 @@ def _update_progress(request_id, step, message=None, file_count=None, download_u
     # Atomic replace to avoid JSONDecodeError on read
     os.replace(temp_path, file_path)
 
+def _read_cabrillo_header(filepath: str) -> Dict[str, str]:
+    """
+    Lightweight header reader - only reads header lines, doesn't parse QSOs.
+    Returns dict with header fields (CONTEST, CALLSIGN, START-OF-LOG, etc.)
+    """
+    header = {}
+    try:
+        with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                if line.upper().startswith('QSO:'):
+                    break  # End of header
+                if ':' in line:
+                    key, value = line.split(':', 1)
+                    header[key.strip().upper()] = value.strip()
+    except Exception as e:
+        logger.warning(f"Error reading header from {filepath}: {e}")
+    return header
+
+def _get_cty_file_for_validation(log_paths: List[str], root_input_dir: str, custom_cty_path: str = None, cty_specifier: str = 'after') -> Optional[str]:
+    """
+    Determines CTY file for validation (same logic as LogManager).
+    Returns path to CTY file or None if cannot be determined.
+    """
+    if custom_cty_path and os.path.exists(custom_cty_path):
+        return custom_cty_path
+    
+    try:
+        from contest_tools.utils.cty_manager import CtyManager
+        import pandas as pd
+        
+        cty_manager = CtyManager(root_input_dir)
+        
+        # Get first QSO date from logs (similar to LogManager logic)
+        first_dates = []
+        for path in log_paths:
+            try:
+                with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+                    for line in f:
+                        if line.upper().startswith('QSO:'):
+                            parts = line.split()
+                            if len(parts) >= 4:
+                                date_str = parts[3]
+                                first_dates.append(pd.to_datetime(date_str).tz_localize('UTC'))
+                                break
+            except Exception:
+                continue
+        
+        if not first_dates:
+            # No valid dates found, use current date
+            target_date = pd.Timestamp.now(tz='UTC')
+        else:
+            # Use min date for 'before', max date for 'after'
+            target_date = min(first_dates) if cty_specifier == 'before' else max(first_dates)
+        
+        # Sync index and find CTY file
+        cty_manager.sync_index(contest_date=target_date)
+        cty_dat_path, _ = cty_manager.find_cty_file_by_date(target_date, cty_specifier)
+        return cty_dat_path
+    except Exception as e:
+        logger.warning(f"Error determining CTY file for validation: {e}")
+        return None
+
+def _validate_arrl_dx_location_types(log_paths: List[str], root_input_dir: str, custom_cty_path: str = None, cty_specifier: str = 'after') -> Dict[str, Any]:
+    """
+    Pre-flight validation: Checks if all ARRL DX logs are from the same category (W/VE or DX).
+    
+    Returns:
+        Dict with 'valid' (bool) and 'error_message' (str) keys
+    """
+    if len(log_paths) <= 1:
+        return {'valid': True, 'error_message': None}
+    
+    # 1. Read headers to get contest name and callsigns
+    headers = []
+    for path in log_paths:
+        header = _read_cabrillo_header(path)
+        contest = header.get('CONTEST', '').strip()
+        callsign = header.get('CALLSIGN', '').strip()
+        
+        if not contest or not callsign:
+            # Can't validate if we don't have contest name or callsign
+            continue
+        
+        headers.append({
+            'path': path,
+            'contest': contest,
+            'callsign': callsign,
+            'filename': os.path.basename(path)
+        })
+    
+    if not headers:
+        # No valid headers found, skip validation
+        return {'valid': True, 'error_message': None}
+    
+    # 2. Check if ARRL DX contest
+    first_contest = headers[0]['contest']
+    if first_contest not in ['ARRL-DX-CW', 'ARRL-DX-SSB']:
+        return {'valid': True, 'error_message': None}  # Not ARRL DX, skip validation
+    
+    # 3. Determine CTY file (same logic as LogManager)
+    cty_dat_path = _get_cty_file_for_validation(log_paths, root_input_dir, custom_cty_path, cty_specifier)
+    if not cty_dat_path:
+        # If we can't determine CTY file, skip validation (will fail later anyway)
+        logger.warning("Could not determine CTY file for ARRL DX validation, skipping pre-flight check")
+        return {'valid': True, 'error_message': None}
+    
+    # 4. Look up location types
+    from contest_tools.core_annotations import CtyLookup
+    cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)
+    location_types = []
+    
+    for header in headers:
+        call = header['callsign']
+        if not call:
+            continue
+        
+        try:
+            info = cty_lookup.get_cty_DXCC_WAE(call)._asdict()
+            dxcc_pfx = info.get('DXCCPfx', '')
+            dxcc_name = info.get('DXCCName', '')
+            
+            # Same logic as arrl_dx_location_resolver
+            if dxcc_pfx in ['KH6', 'KL7', 'CY9', 'CY0']:
+                location_type = "DX"
+            elif dxcc_name in ["United States", "Canada"]:
+                location_type = "W/VE"
+            else:
+                location_type = "DX"
+            
+            location_types.append({
+                'call': call,
+                'location_type': location_type,
+                'filename': header['filename']
+            })
+        except Exception as e:
+            logger.warning(f"Could not determine location type for {call}: {e}")
+            continue
+    
+    # 5. Check for mismatch
+    if len(location_types) < 2:
+        return {'valid': True, 'error_message': None}  # Not enough logs to validate
+    
+    unique_location_types = set(item['location_type'] for item in location_types)
+    if len(unique_location_types) > 1:
+        # Mismatch found
+        location_summary = ", ".join([
+            f"{item['call']} ({item['location_type']})" 
+            for item in location_types
+        ])
+        error_message = (
+            "ARRL DX Contest Error: All logs must be from the same category.\n\n"
+            "ARRL DX is an asymmetric contest:\n"
+            "• W/VE = 48 contiguous US States + VE provinces\n"
+            "• DX = Everything else (including Alaska, Hawaii, and other US possessions)\n\n"
+            f"Found: {location_summary}"
+        )
+        return {'valid': False, 'error_message': error_message}
+    
+    return {'valid': True, 'error_message': None}
+
 def get_log_index_view(request):
     """API Endpoint: Returns list of available callsigns for Year/Mode."""
     contest = request.GET.get('contest')
@@ -340,6 +504,19 @@ def get_log_index_view(request):
             else:
                 return JsonResponse({'error': 'ARRL-10 contest code not found'}, status=500)
         except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    elif contest in ['ARRL-DX-CW', 'ARRL-DX-SSB'] and year:
+        # ARRL DX CW and SSB use contest code 'dx' but need contest_name for disambiguation
+        try:
+            from contest_tools.utils.log_fetcher import fetch_arrl_log_index, ARRL_CONTEST_CODES
+            contest_code = ARRL_CONTEST_CODES.get(contest)
+            if contest_code:
+                callsigns = fetch_arrl_log_index(year, contest_code, contest_name=contest)
+                return JsonResponse({'callsigns': callsigns})
+            else:
+                return JsonResponse({'error': f'{contest} contest code not found'}, status=500)
+        except Exception as e:
+            logger.exception(f"Error fetching ARRL DX log index: {e}")
             return JsonResponse({'error': str(e)}, status=500)
     return JsonResponse({'callsigns': []})
 
@@ -394,6 +571,19 @@ def analyze_logs(request):
                             for chunk in cty_file.chunks():
                                 destination.write(chunk)
                         logger.info(f"Custom CTY file uploaded: {cty_file.name}")
+
+                    # 4. Pre-flight validation for ARRL DX (if multiple logs)
+                    if len(log_paths) > 1:
+                        root_input = os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
+                        validation_result = _validate_arrl_dx_location_types(
+                            log_paths, root_input, custom_cty_path, cty_specifier='after'
+                        )
+                        if not validation_result['valid']:
+                            logger.warning(f"ARRL DX location type validation failed: {validation_result['error_message']}")
+                            return render(request, 'analyzer/home.html', {
+                                'form': form, 
+                                'error': validation_result['error_message']
+                            })
 
                     return _run_analysis_pipeline(request_id, log_paths, session_path, session_key, custom_cty_path=custom_cty_path)
                 except ValueError as e:
@@ -458,8 +648,28 @@ def analyze_logs(request):
                         log_paths = download_arrl_logs(callsigns, year, contest_code, session_path)
                     else:
                         raise ValueError('ARRL-10 contest code not found')
+                elif contest in ['ARRL-DX-CW', 'ARRL-DX-SSB']:
+                    from contest_tools.utils.log_fetcher import download_arrl_logs, ARRL_CONTEST_CODES
+                    contest_code = ARRL_CONTEST_CODES.get(contest)
+                    if contest_code:
+                        log_paths = download_arrl_logs(callsigns, year, contest_code, session_path, contest_name=contest)
+                    else:
+                        raise ValueError(f'{contest} contest code not found')
                 else:
                     raise ValueError(f'Unsupported contest: {contest}')
+                
+                # Pre-flight validation for ARRL DX (if multiple logs)
+                if len(log_paths) > 1:
+                    root_input = os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
+                    validation_result = _validate_arrl_dx_location_types(
+                        log_paths, root_input, custom_cty_path, cty_specifier='after'
+                    )
+                    if not validation_result['valid']:
+                        logger.warning(f"ARRL DX location type validation failed: {validation_result['error_message']}")
+                        return render(request, 'analyzer/home.html', {
+                            'form': UploadLogForm(), 
+                            'error': validation_result['error_message']
+                        })
                 
                 return _run_analysis_pipeline(request_id, log_paths, session_path, session_key, custom_cty_path=custom_cty_path)
             
@@ -596,6 +806,16 @@ def _run_analysis_pipeline(request_id, log_paths, session_path, session_key, cus
         except Exception as e:
             logger.warning(f"Failed to extract valid_bands/valid_modes from contest definition: {e}")
     
+    # Extract location type for ARRL DX (if available)
+    location_type = None
+    if lm.logs and contest_name.startswith('ARRL-DX'):
+        first_log = lm.logs[0]
+        # Location type is stored in _my_location_type attribute (set by arrl_dx_location_resolver)
+        location_type = getattr(first_log, '_my_location_type', None)
+        # Fallback: try to get from metadata if stored there
+        if not location_type:
+            location_type = first_log.get_metadata().get('LocationType')
+    
     context = {
         'session_key': session_key,
         'report_url_path': report_url_path,
@@ -611,6 +831,7 @@ def _run_analysis_pipeline(request_id, log_paths, session_path, session_key, cus
         'valid_modes': valid_modes,  # Kept for backward compatibility and other uses
         'custom_cty_path': custom_cty_path,  # Store for bundle inclusion
         'cty_dat_path': str(cty_path),  # Store actual CTY file path for bundle inclusion
+        'location_type': location_type,  # 'W/VE' or 'DX' for ARRL DX, None for other contests
     }
     
     # Determine multiplier headers from the first log (assuming all are same contest)
@@ -650,10 +871,14 @@ def dashboard_view(request, session_id):
         context = json.load(f)
 
     # Contest-Specific Routing
-    contest_name = context.get('contest_name', '').upper()
-    # Enable same dashboard structure for CQ-WW, CQ-160, and ARRL-10
+    contest_name = context.get('contest_name', '').upper()  # Already uppercased, but explicit for clarity
+    # Enable same dashboard structure for CQ-WW, CQ-160, ARRL-10, and ARRL-DX
     # CQ-160 is single-band, multi-mode (like ARRL-10), so it uses the same dashboard architecture
-    if not (contest_name.startswith('CQ-WW') or contest_name.startswith('CQ-160') or contest_name.startswith('ARRL-10')):
+    # ARRL-DX is multi-band, single-mode (like CQ-WW), so it uses the same dashboard architecture
+    if not (contest_name.startswith('CQ-WW') or 
+            contest_name.startswith('CQ-160') or 
+            contest_name.startswith('ARRL-10') or
+            contest_name.startswith('ARRL-DX')):
         return render(request, 'analyzer/dashboard_construction.html', context)
     
     # Load score report data for dashboard display
@@ -773,6 +998,10 @@ def _extract_contest_name_from_path(report_rel_path: str) -> str:
         if contest_name.startswith('CQ-160-'):
             contest_name = 'CQ-160'
         
+        # ARRL-DX-CW and ARRL-DX-SSB are separate contests (separate JSON files)
+        # No normalization needed - uppercase conversion already handles them correctly
+        # Explicit comment for clarity and consistency with CQ-160 pattern
+        
         return contest_name
     
     return None
@@ -880,6 +1109,7 @@ def multiplier_dashboard(request, session_id):
     contest_name = _extract_contest_name_from_path(report_rel_path)
     valid_bands = ['80M', '40M', '20M', '15M', '10M']  # Default fallback
     valid_modes = []  # Default: empty list
+    contest_def = None
     
     if contest_name:
         try:
@@ -1031,7 +1261,35 @@ def multiplier_dashboard(request, session_id):
     suffix = f"_{combo_id}"
 
     # 6. Extract Multiplier Names and Calculate Global Maxima Dynamically
-    multiplier_names = []  # List of multiplier names found in the data
+    # Determine applicable multiplier count from contest definition (not log data)
+    # This ensures "All Multipliers" tab is hidden when contest defines only one multiplier type
+    # Get location_type from dashboard context (e.g., "W/VE" or "DX" for ARRL DX)
+    location_type = dashboard_ctx.get('location_type')
+    
+    # Count applicable multiplier rules from contest definition
+    # This determines whether to show "All Multipliers" tab (hidden when only 1 type applies)
+    applicable_multiplier_count = 0
+    if contest_def:
+        multiplier_rules = contest_def.multiplier_rules
+        for rule in multiplier_rules:
+            applies_to = rule.get('applies_to')
+            # If no applies_to specified, rule applies to all entry classes
+            # If applies_to is specified, check if it matches location_type
+            if not applies_to or applies_to == location_type:
+                applicable_multiplier_count += 1
+    
+    # If contest definition not available or no rules found, fall back to log data
+    if applicable_multiplier_count == 0:
+        # Fallback: count from log data (backward compatibility)
+        if breakdown_data and 'totals' in breakdown_data:
+            seen_names = set()
+            for row in breakdown_data['totals']:
+                mult_name = row.get('label', '')
+                if mult_name and mult_name != 'TOTAL' and mult_name not in seen_names:
+                    seen_names.add(mult_name)
+                    applicable_multiplier_count += 1
+    
+    multiplier_names = []  # List of multiplier names found in the data (still used for tabs)
     global_max = {'total': 1}  # Dynamic dict: will contain 'total' and one entry per multiplier type
     
     if breakdown_data:
@@ -1341,7 +1599,8 @@ def multiplier_dashboard(request, session_id):
         'multipliers': sorted_mults,
         'is_solo': (log_count == 1),
         'global_max': global_max,
-        'multiplier_names': multiplier_names,  # Dynamic list of multiplier types for Band Spectrum tabs
+        'multiplier_names': multiplier_names,  # Dynamic list of multiplier types for Band Spectrum tabs (from log data)
+        'multiplier_count': applicable_multiplier_count,  # Count of applicable multiplier types from contest definition
     }
     return render(request, 'analyzer/multiplier_dashboard.html', context)
 

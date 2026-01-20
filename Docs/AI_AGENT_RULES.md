@@ -817,10 +817,13 @@ AI:
 ### CRITICAL: Diagnostic Logging Rules
 
 **AI agents MUST use WARNING or ERROR level for diagnostic logging, NOT INFO level.**
+**AI agents MUST use the `[DIAG]` prefix for ALL diagnostic messages.**
 
 **Rule:** When adding diagnostic logging (for debugging, troubleshooting, or tracing execution flow), AI agents must:
-- **[OK] Use `logger.warning()` or `logger.error()`** for all diagnostic messages
+- **[REQUIRED] Use `logger.warning()` or `logger.error()`** for all diagnostic messages
+- **[REQUIRED] Use `[DIAG]` prefix** for all diagnostic messages (mandatory, not optional)
 - **[X] Never use `logger.info()`** for diagnostics (unless CLA_PROFILE=1 is explicitly enabled)
+- **[X] Never omit the `[DIAG]` prefix** from diagnostic messages
 
 #### Why This Matters
 
@@ -828,32 +831,38 @@ The project's default logging level is `WARNING` (see `web_app/config/settings.p
 - `INFO` level logs are **NOT visible** at default settings
 - `WARNING` and `ERROR` level logs **ARE visible** at default settings
 - Diagnostic messages at `INFO` level will be silently ignored, making debugging impossible
+- The `[DIAG]` prefix allows easy filtering and identification of diagnostic messages in logs
 
 #### When Adding Diagnostics
 
-**Correct Pattern:**
+**Correct Pattern (REQUIRED):**
 ```python
-# DIAGNOSTICS: Log request details (ERROR level for visibility)
+# DIAGNOSTICS: Log request details (ERROR level for visibility, [DIAG] prefix required)
 logger.error(f"[DIAG] analyze_logs called. Method: {request.method}, Path: {request.path}")
 logger.error(f"[DIAG] POST request detected. FILES keys: {list(request.FILES.keys())}")
 logger.warning(f"[DIAG] Form validation FAILED. Form errors: {form.errors}")
 ```
 
-**Incorrect Pattern (DO NOT USE):**
+**Incorrect Patterns (DO NOT USE):**
 ```python
 # WRONG: INFO level logs won't be visible at default settings
 logger.info(f"Manual upload detected. FILES keys: {list(request.FILES.keys())}")
 logger.info(f"Form validation failed: {form.errors}")
+
+# WRONG: Missing [DIAG] prefix (required for all diagnostic messages)
+logger.warning(f"Processing {call} {mult_name} for sum_by_band")
+logger.error(f"Form validation failed: {form.errors}")
 ```
 
 #### Best Practices
 
-1. **Use `[DIAG]` prefix** for diagnostic messages to make them easy to identify and filter
+1. **[REQUIRED] Use `[DIAG]` prefix** for ALL diagnostic messages - this is mandatory, not optional
 2. **Use `logger.error()` for critical diagnostics** (entry points, error paths, validation failures)
 3. **Use `logger.warning()` for non-critical diagnostics** (state transitions, optional information)
 4. **Always assume default log level is WARNING** - never assume `INFO` will be visible
 5. **Add diagnostics at entry points** of functions to trace execution flow
 6. **Wrap potentially failing operations** in try/except with error-level logging
+7. **Format: `[DIAG] <descriptive message>`** - always start with `[DIAG]` followed by a space
 
 #### Example: Comprehensive Diagnostic Logging
 
@@ -887,12 +896,19 @@ def analyze_logs(request):
 #### Agent Behavior
 
 When adding diagnostic logging:
-1. **Always** use `logger.warning()` or `logger.error()` for diagnostics
-2. **Never** use `logger.info()` for diagnostics (unless explicitly required)
-3. **Prefix** diagnostic messages with `[DIAG]` for easy identification
-4. **Add** diagnostics at function entry points and key decision points
-5. **Wrap** potentially failing operations in try/except with error logging
-6. **Assume** default log level is WARNING - ensure diagnostics will be visible
+1. **[REQUIRED] Always** use `logger.warning()` or `logger.error()` for diagnostics
+2. **[REQUIRED] Always** prefix diagnostic messages with `[DIAG]` (mandatory, not optional)
+3. **[X] Never** use `logger.info()` for diagnostics (unless explicitly required)
+4. **[X] Never** omit the `[DIAG]` prefix from diagnostic messages
+5. **Add** diagnostics at function entry points and key decision points
+6. **Wrap** potentially failing operations in try/except with error logging
+7. **Assume** default log level is WARNING - ensure diagnostics will be visible
+
+**Enforcement:** AI agents must include `[DIAG]` in every diagnostic log message. This prefix is required for:
+- Easy filtering of diagnostic messages in logs (e.g., `grep "[DIAG]" logs.txt`)
+- Distinguishing diagnostics from actual warnings/errors
+- Consistent logging format across the codebase
+- Enabling automated log analysis tools to identify diagnostic output
 
 #### Rationale
 
@@ -911,6 +927,81 @@ Before any critical operation, AI should:
 3. [OK] Warn if on main branch for direct commits
 4. [OK] Suggest creating feature branch if not on one
 5. [OK] Verify pre-commit hooks are installed
+
+### CRITICAL: Stash Before Cleaning/Reverting Changes
+
+**IMPORTANT:** Uncommitted changes exist in the working directory, NOT in branches. When you switch branches, uncommitted changes travel with you. If you discard changes on one branch (e.g., `git restore .` or `git clean -fd`), those changes are PERMANENTLY LOST from ALL branches.
+
+**Rule:** Before performing any destructive git operations that might discard uncommitted changes, AI agents MUST:
+
+1. **Check for uncommitted changes:**
+   ```bash
+   git status
+   ```
+
+2. **If uncommitted changes exist, STASH them first:**
+   ```bash
+   git stash push -m "WIP: [description of changes]"
+   ```
+
+3. **Perform the operation** (e.g., clean master branch, switch branches, etc.)
+
+4. **Restore changes on target branch:**
+   ```bash
+   git checkout [target-branch]
+   git stash pop
+   ```
+
+**Common Scenarios Requiring Stash:**
+
+- **Cleaning master/main branch while on feature branch:**
+  - ❌ **WRONG:** `git checkout master && git restore . && git clean -fd`
+  - ✅ **CORRECT:** `git stash push -m "WIP: feature changes" && git checkout master && git restore . && git clean -fd && git checkout feature-branch && git stash pop`
+
+- **Switching branches with uncommitted changes:**
+  - If changes should stay on current branch: Stash first, switch, then pop on return
+  - If changes should move to new branch: Just switch (git carries them), but be aware they're not committed
+
+- **Reverting changes on one branch while keeping them on another:**
+  - Stash changes first
+  - Switch to branch to clean
+  - Clean that branch
+  - Switch back to feature branch
+  - Pop stash to restore changes
+
+**Why This Matters:**
+- Uncommitted changes are NOT stored in branches - they're in the working directory
+- Discarding changes on one branch discards them everywhere
+- Stashing preserves changes in git's stash, allowing safe branch operations
+- Stash can be restored on any branch with `git stash pop` or `git stash apply`
+
+**Example Workflow: Moving Changes from Master to Feature Branch:**
+
+```bash
+# 1. Check status (on master with uncommitted changes)
+git status
+
+# 2. Stash the changes
+git stash push -m "WIP: ARRL DX implementation"
+
+# 3. Verify master is clean
+git status  # Should show "working tree clean"
+
+# 4. Create and switch to feature branch
+git checkout -b feature/1.0.0-alpha.10
+
+# 5. Restore stashed changes
+git stash pop
+
+# 6. Verify changes are restored
+git status  # Should show the uncommitted changes again
+```
+
+**Rationale:**
+- Prevents accidental loss of uncommitted work
+- Allows safe branch operations without losing changes
+- Makes it clear where changes belong (which branch)
+- Enables clean separation between branches
 
 ---
 
@@ -1129,7 +1220,17 @@ For detailed information on the DAL pattern and available aggregators, see:
 
 **AI agents MUST respect contest-specific plugins and calculators as the single source of truth.**
 
-**Core Principle:** "Contest-specific weirdness is implemented in code (plugins/aggregators)"
+**Core Principle:** "Contest-specific algorithmic weirdness is implemented in code (plugins). Common declarative rules defined in contest definitions are handled by core modules."
+
+**Refined Boundary:**
+- **Core modules** (like `StandardCalculator`) handle declarative rules from contest definitions:
+  - `applies_to` filtering, `totaling_method` variations, standard score formulas
+  - These are metadata-driven patterns defined in JSON
+- **Plugins** handle algorithmic complexity:
+  - Complex stateful calculations, non-standard formulas, custom algorithms
+  - True "weirdness" that requires custom implementation
+
+See [PLUGIN_ARCHITECTURE_BOUNDARY_DECISION.md](../DevNotes/Decisions_Architecture/PLUGIN_ARCHITECTURE_BOUNDARY_DECISION.md) for detailed discussion.
 
 #### Rules for Plugin Architecture
 
@@ -1160,10 +1261,12 @@ When making changes that affect data calculation or contest-specific logic:
 **Step 1: Identify Architecture Requirements**
 - Does contest have plugin/calculator defined in JSON?
 - What is the authoritative source for this calculation?
+- Is this algorithmic complexity (needs plugin) or declarative rule (core module handles)?
 - Are there existing patterns to follow?
 
 **Step 2: Verify Compliance**
-- Does my solution use the plugin/calculator?
+- Does my solution use the plugin/calculator (if algorithmic complexity)?
+- For declarative rules (applies_to, totaling_method): Should core module handle this?
 - Am I creating alternative paths that bypass architecture?
 - Are multiple calculation paths necessary (with validation)?
 
@@ -1380,6 +1483,51 @@ When working with Django templates:
 - Similar constraints may apply to other template tag combinations
 - When in doubt, duplicate code or move logic to the view
 - Django template syntax is strict - follow Django documentation patterns
+
+---
+
+## DevNotes Directory Structure
+
+**AI agents MUST understand the DevNotes organization:**
+
+### Directories AI Agents Should Read
+- **Root DevNotes/**: Active planning documents - READ these for current work
+- **Decisions_Architecture/**: Important patterns, architectural decisions, and reusable guidance - READ these
+
+### Directories AI Agents Should Ignore (Unless Requested)
+- **Archive/**: Completed implementation plans - IGNORE unless user explicitly requests historical context
+- **Discussions/**: Obsolete/complete discussions - IGNORE unless user explicitly requests historical context
+
+### When to Review Archive/Discussions
+- User explicitly asks: "How was X implemented?" or "Why did we choose Y?"
+- AI agent needs historical context to understand a decision
+- Researching implementation details of completed work
+- User requests review of specific historical discussion
+
+### File Status Standardization
+All DevNotes files should have standardized metadata:
+```markdown
+**Status:** Active | Completed | Deferred | Obsolete
+**Date:** YYYY-MM-DD
+**Last Updated:** YYYY-MM-DD
+**Category:** Planning | Discussion | Decision | Pattern
+```
+
+### Value Test for Categorization
+When categorizing DevNotes files:
+- **Decisions_Architecture/**: Documents reusable patterns, architectural principles, or important decisions that future work should follow
+- **Discussions/**: Historical conversations where decisions were made (the decision itself may be documented elsewhere)
+- **Archive/**: Completed step-by-step implementation plans (historical reference)
+- **Root DevNotes/**: Active planning documents for current or deferred work
+
+### Directory Structure
+```
+DevNotes/
+├── [Active Planning Documents]          # Active work - AI agents read these
+├── Archive/                              # Completed plans - AI agents ignore
+├── Discussions/                          # Obsolete/complete discussions - AI agents ignore
+└── Decisions_Architecture/                # Important decisions/patterns - AI agents should read
+```
 
 ---
 
