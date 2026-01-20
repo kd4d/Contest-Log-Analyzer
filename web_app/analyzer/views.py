@@ -332,6 +332,56 @@ def _read_cabrillo_header(filepath: str) -> Dict[str, str]:
         logger.warning(f"Error reading header from {filepath}: {e}")
     return header
 
+def _extract_year_from_log(log_path: str) -> Optional[str]:
+    """
+    Extracts year from first QSO line in a log file.
+    Returns year as string or None if not found.
+    """
+    try:
+        with open(log_path, 'r', encoding='utf-8', errors='ignore') as f:
+            for line in f:
+                if line.upper().startswith('QSO:'):
+                    parts = line.strip().split()
+                    if len(parts) >= 4:
+                        date_str = parts[2]  # Format: YYYY-MM-DD
+                        date_match = re.match(r'(\d{4})-\d{2}-\d{2}', date_str)
+                        if date_match:
+                            return date_match.group(1)
+    except Exception as e:
+        logger.warning(f"Could not extract year from {log_path}: {e}")
+    return None
+
+def _apply_contest_override(log_paths: List[str], contest_override: str):
+    """
+    Modifies Cabrillo file headers to use a different contest name.
+    Used when applying WRTC rules to IARU logs.
+    
+    Args:
+        log_paths: List of log file paths
+        contest_override: Contest name to use (e.g., 'WRTC-2026')
+    """
+    for log_path in log_paths:
+        try:
+            # Read file
+            with open(log_path, 'r', encoding='utf-8', errors='ignore') as f:
+                lines = f.readlines()
+            
+            # Modify CONTEST: line
+            modified = False
+            for i, line in enumerate(lines):
+                if line.upper().startswith('CONTEST:'):
+                    lines[i] = f'CONTEST: {contest_override}\n'
+                    modified = True
+                    break
+            
+            # Write back if modified
+            if modified:
+                with open(log_path, 'w', encoding='utf-8', errors='ignore') as f:
+                    f.writelines(lines)
+                logger.info(f"Applied contest override '{contest_override}' to {os.path.basename(log_path)}")
+        except Exception as e:
+            logger.warning(f"Failed to apply contest override to {log_path}: {e}")
+
 def _get_cty_file_for_validation(log_paths: List[str], root_input_dir: str, custom_cty_path: str = None, cty_specifier: str = 'after') -> Optional[str]:
     """
     Determines CTY file for validation (same logic as LogManager).
@@ -518,7 +568,92 @@ def get_log_index_view(request):
         except Exception as e:
             logger.exception(f"Error fetching ARRL DX log index: {e}")
             return JsonResponse({'error': str(e)}, status=500)
+    elif contest == 'IARU-HF' and year:
+        # IARU-HF uses contest code 'iaruhf'
+        try:
+            from contest_tools.utils.log_fetcher import fetch_iaru_log_index
+            callsigns = fetch_iaru_log_index(year)
+            return JsonResponse({'callsigns': callsigns})
+        except Exception as e:
+            logger.exception(f"Error fetching IARU-HF log index: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
+    elif contest == 'WRTC-2026' and year:
+        # WRTC-2026 uses IARU archive (same as IARU-HF)
+        try:
+            from contest_tools.utils.log_fetcher import fetch_iaru_log_index
+            callsigns = fetch_iaru_log_index(year)
+            return JsonResponse({'callsigns': callsigns})
+        except Exception as e:
+            logger.exception(f"Error fetching WRTC-2026 log index: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
     return JsonResponse({'callsigns': []})
+
+
+def get_wrtc_contests_view(request):
+    """
+    API Endpoint: Returns list of available WRTC contest definitions.
+    Scans contest_definitions directory for wrtc_*.json files.
+    """
+    import os
+    import re
+    
+    try:
+        # Find contest_definitions directory
+        import contest_tools.contest_definitions as contest_defs_module
+        contest_defs_dir = os.path.dirname(contest_defs_module.__file__)
+        
+        # Scan for WRTC contest files
+        wrtc_contests = []
+        if os.path.exists(contest_defs_dir):
+            for filename in os.listdir(contest_defs_dir):
+                # Match wrtc_YYYY.json pattern (e.g., wrtc_2026.json)
+                match = re.match(r'wrtc_(\d{4})\.json$', filename, re.IGNORECASE)
+                if match:
+                    year = match.group(1)
+                    contest_name = f'WRTC-{year}'
+                    
+                    # Validate that the contest definition is complete and has its own scoring module
+                    try:
+                        from contest_tools.contest_definitions import ContestDefinition
+                        import importlib
+                        contest_def = ContestDefinition.from_json(contest_name)
+                        scoring_module_name = contest_def._data.get('scoring_module')
+                        
+                        # Only include if scoring_module exists, can be imported, and matches this year
+                        # (filters out placeholder files that reference other years' modules)
+                        if scoring_module_name:
+                            expected_module = f'wrtc_{year}_scoring'
+                            if scoring_module_name == expected_module:
+                                try:
+                                    # Try to import the scoring module to verify it exists
+                                    module_path = f'contest_tools.contest_specific_annotations.{scoring_module_name}'
+                                    importlib.import_module(module_path)
+                                    wrtc_contests.append({
+                                        'contest_name': contest_name,
+                                        'year': year,
+                                        'filename': filename
+                                    })
+                                except ImportError:
+                                    logger.warning(f"[DIAG] Skipping incomplete WRTC contest {contest_name} (scoring module {scoring_module_name} not found)")
+                            else:
+                                logger.warning(f"[DIAG] Skipping placeholder WRTC contest {contest_name} (uses {scoring_module_name}, not {expected_module})")
+                        else:
+                            logger.warning(f"[DIAG] Skipping incomplete WRTC contest {contest_name} (no scoring_module)")
+                    except Exception as e:
+                        logger.warning(f"[DIAG] Skipping invalid WRTC contest {contest_name}: {e}")
+                        continue
+        
+        # Sort by year (newest first)
+        wrtc_contests.sort(key=lambda x: x['year'], reverse=True)
+        
+        return JsonResponse({
+            'wrtc_contests': [c['contest_name'] for c in wrtc_contests],
+            'details': wrtc_contests
+        })
+    except Exception as e:
+        logger.exception(f"Error discovering WRTC contests: {e}")
+        return JsonResponse({'error': str(e)}, status=500)
+
 
 def home(request):
     form = UploadLogForm()
@@ -572,7 +707,12 @@ def analyze_logs(request):
                                 destination.write(chunk)
                         logger.info(f"Custom CTY file uploaded: {cty_file.name}")
 
-                    # 4. Pre-flight validation for ARRL DX (if multiple logs)
+                    # 4. Handle contest override (for WRTC rules on IARU logs)
+                    contest_override = request.POST.get('contest_override')
+                    if contest_override:
+                        _apply_contest_override(log_paths, contest_override)
+
+                    # 5. Pre-flight validation for ARRL DX (if multiple logs)
                     if len(log_paths) > 1:
                         root_input = os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
                         validation_result = _validate_arrl_dx_location_types(
@@ -655,9 +795,21 @@ def analyze_logs(request):
                         log_paths = download_arrl_logs(callsigns, year, contest_code, session_path, contest_name=contest)
                     else:
                         raise ValueError(f'{contest} contest code not found')
+                elif contest == 'IARU-HF':
+                    from contest_tools.utils.log_fetcher import download_iaru_logs
+                    log_paths = download_iaru_logs(callsigns, year, session_path)
+                elif contest == 'WRTC-2026':
+                    # WRTC-2026 uses IARU archive (same as IARU-HF)
+                    from contest_tools.utils.log_fetcher import download_iaru_logs
+                    log_paths = download_iaru_logs(callsigns, year, session_path)
                 else:
                     raise ValueError(f'Unsupported contest: {contest}')
                 
+                # Handle contest override (for WRTC rules on IARU logs from public archive)
+                contest_override = request.POST.get('contest_override')
+                if contest_override:
+                    _apply_contest_override(log_paths, contest_override)
+
                 # Pre-flight validation for ARRL DX (if multiple logs)
                 if len(log_paths) > 1:
                     root_input = os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
@@ -670,6 +822,10 @@ def analyze_logs(request):
                             'form': UploadLogForm(), 
                             'error': validation_result['error_message']
                         })
+                
+                # Handle contest override (for WRTC rules on IARU logs from public archive)
+                if contest_override:
+                    _apply_contest_override(log_paths, contest_override)
                 
                 return _run_analysis_pipeline(request_id, log_paths, session_path, session_key, custom_cty_path=custom_cty_path)
             
@@ -872,13 +1028,15 @@ def dashboard_view(request, session_id):
 
     # Contest-Specific Routing
     contest_name = context.get('contest_name', '').upper()  # Already uppercased, but explicit for clarity
-    # Enable same dashboard structure for CQ-WW, CQ-160, ARRL-10, and ARRL-DX
+    # Enable same dashboard structure for CQ-WW, CQ-160, ARRL-10, ARRL-DX, IARU-HF, and WRTC-2026
     # CQ-160 is single-band, multi-mode (like ARRL-10), so it uses the same dashboard architecture
     # ARRL-DX is multi-band, single-mode (like CQ-WW), so it uses the same dashboard architecture
     if not (contest_name.startswith('CQ-WW') or 
             contest_name.startswith('CQ-160') or 
             contest_name.startswith('ARRL-10') or
-            contest_name.startswith('ARRL-DX')):
+            contest_name.startswith('ARRL-DX') or
+            contest_name.startswith('IARU-HF') or
+            contest_name.startswith('WRTC-2026')):
         return render(request, 'analyzer/dashboard_construction.html', context)
     
     # Load score report data for dashboard display

@@ -274,8 +274,7 @@ class Report(ContestReport):
         
         # Footer - Totals by dimension
         report_lines.append("")
-        report_lines.append("Totals:")
-        total_row_parts = [f"{'':<10}"]
+        total_row_parts = [f"{'Totals:':<10}"]
         
         # Calculate totals per dimension
         # For once_per_mode: use cumulative multipliers per mode from scalars (matches score summary)

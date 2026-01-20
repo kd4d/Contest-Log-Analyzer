@@ -39,31 +39,56 @@ class WrtcCalculator(TimeSeriesCalculator):
         df_sorted = df_non_dupes.dropna(subset=['Datetime', 'QSOPoints']).sort_values(by='Datetime')
 
         # --- Multiplier Counting ---
+        # For WRTC, multipliers are mutually exclusive (DXCC, HQ, Official)
+        # Count unique multipliers per band (once_per_band_no_mode), then sum across bands
         multiplier_columns = sorted(list(set([rule['value_column'] for rule in log.contest_definition.multiplier_rules])))
 
         df_for_mults = df_sorted.copy()
+        # Filter out 'Unknown' values
         for col in multiplier_columns:
             if col in df_for_mults.columns:
                 df_for_mults = df_for_mults[df_for_mults[col] != 'Unknown']
+        # Keep rows where at least one multiplier column has a value (mutually exclusive)
         df_for_mults.dropna(subset=multiplier_columns, how='all', inplace=True)
 
         mult_count_ts = pd.Series(0.0, index=master_index)
         per_band_mult_ts_dict = {}
 
-        # New logic for once_per_band_no_mode
+        # For once_per_band_no_mode: Count unique multipliers per band, then sum across bands
+        # Process each multiplier rule separately, then sum the results
         for mult_col in multiplier_columns:
-            if mult_col in df_for_mults.columns:
-                per_band_groups = df_for_mults.groupby('Band')
-                for band, group_df in per_band_groups:
-                    mult_set_ts = group_df.groupby(pd.Grouper(key='Datetime', freq='h'))[mult_col].apply(set).reindex(master_index)
-                    mult_set_ts = mult_set_ts.apply(lambda x: x if isinstance(x, set) else set())
-                    
-                    running_set = set()
-                    cumulative_sets_list = [running_set.update(s) or running_set.copy() for s in mult_set_ts]
+            if mult_col not in df_for_mults.columns:
+                continue
+                
+            # Filter to rows where this multiplier column has a value
+            df_col_mults = df_for_mults[df_for_mults[mult_col].notna()].copy()
+            
+            if df_col_mults.empty:
+                continue
+            
+            # Group by band and count unique multipliers per band over time
+            per_band_groups = df_col_mults.groupby('Band')
+            for band, group_df in per_band_groups:
+                # Count unique multipliers per hour for this band and column
+                mult_set_ts = group_df.groupby(pd.Grouper(key='Datetime', freq='h'))[mult_col].apply(lambda x: set(x.dropna())).reindex(master_index)
+                mult_set_ts = mult_set_ts.apply(lambda x: x if isinstance(x, set) else set())
+                
+                # Build cumulative set of unique multipliers seen so far
+                running_set = set()
+                cumulative_sets_list = []
+                for s in mult_set_ts:
+                    running_set.update(s)
+                    cumulative_sets_list.append(running_set.copy())
 
-                    band_mult_ts = pd.Series(cumulative_sets_list, index=master_index).apply(len)
-                    mult_count_ts += band_mult_ts
-                    per_band_mult_ts_dict[f"total_mults_{band}"] = band_mult_ts
+                band_mult_ts = pd.Series(cumulative_sets_list, index=master_index).apply(len)
+                
+                # Accumulate multiplier counts across all columns and bands
+                mult_count_ts += band_mult_ts
+                
+                # Track per-band totals (accumulate across multiplier columns)
+                if f"total_mults_{band}" not in per_band_mult_ts_dict:
+                    per_band_mult_ts_dict[f"total_mults_{band}"] = pd.Series(0.0, index=master_index)
+                per_band_mult_ts_dict[f"total_mults_{band}"] += band_mult_ts
         
         # --- QSO Points & Counts ---
         hourly_groups = df_sorted.set_index('Datetime').groupby(pd.Grouper(freq='h'))

@@ -170,6 +170,26 @@
                                 </div>
                             </div>
 
+                            <!-- WRTC Scoring Rules (Advanced) -->
+                            <div class="border-top pt-3 mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="wrtcRulesCheckbox" style="width: 1.2rem; height: 1.2rem;">
+                                    <label class="form-check-label fw-bold fs-6" for="wrtcRulesCheckbox" style="font-size: 1rem !important;">
+                                        <strong>Apply WRTC scoring rules</strong> <span class="text-muted">(for IARU-HF logs only)</span>
+                                    </label>
+                                </div>
+                                <div id="wrtcSelectorContainer" class="mt-2" style="display: none;">
+                                    <label class="form-label">Select WRTC contest:</label>
+                                    <select class="form-select" id="wrtcContestSelector" name="contest_override">
+                                        <option value="">Select WRTC contest...</option>
+                                        <!-- Options will be populated dynamically -->
+                                    </select>
+                                    <div class="form-text text-muted">
+                                        <i class="bi bi-info-circle me-1"></i>Only applies to IARU-HF logs. Other contests will ignore this setting.
+                                    </div>
+                                </div>
+                            </div>
+
                             <!-- Analyze Button -->
                             <div class="d-grid gap-2 col-md-4 mx-auto mt-3">
                                 <button type="submit" class="btn btn-primary btn-lg shadow-sm" id="btnAnalyzeLogs" disabled>
@@ -205,6 +225,8 @@
                                     <option value="ARRL-10">ARRL 10 Meter</option>
                                     <option value="ARRL-DX-CW">ARRL DX CW</option>
                                     <option value="ARRL-DX-SSB">ARRL DX SSB</option>
+                                    <option value="IARU-HF">IARU HF World Championship</option>
+                                    <option value="WRTC-2026">WRTC 2026</option>
                                 </select>
                             </div>
                             <div class="col-md-4">
@@ -293,6 +315,26 @@
                                     <input type="file" class="form-control" name="fetch_custom_cty_file" accept=".dat" id="fetchCustomCtyFile">
                                     <div class="form-text text-muted small mt-2">
                                         <i class="bi bi-info-circle me-1"></i>Preferred format: <code>cty_wt_mod.dat</code>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- WRTC Scoring Rules (Advanced) - Only for IARU-HF -->
+                            <div id="fetchWrtcContainer" class="mt-3 mb-3" style="display: none;">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="wrtcRulesCheckboxFetch">
+                                    <label class="form-check-label" for="wrtcRulesCheckboxFetch">
+                                        <small>Apply WRTC scoring rules</small>
+                                    </label>
+                                </div>
+                                <div id="wrtcSelectorContainerFetch" class="mt-2" style="display: none;">
+                                    <label class="form-label small">Select WRTC contest:</label>
+                                    <select class="form-select form-select-sm" id="wrtcContestSelectorFetch" name="contest_override">
+                                        <option value="">Select WRTC contest...</option>
+                                        <!-- Options will be populated dynamically -->
+                                    </select>
+                                    <div class="form-text small text-muted">
+                                        <i class="bi bi-info-circle me-1"></i>Only applies to IARU-HF logs. Other contests will ignore this setting.
                                     </div>
                                 </div>
                             </div>
@@ -494,9 +536,65 @@
             // Global list of available callsigns for the selected context
             let availableCallsigns = [];
             
+            // WRTC Selector for Public Archive (separate from manual upload)
+            const fetchWrtcContainer = document.getElementById('fetchWrtcContainer');
+            const wrtcRulesCheckboxFetch = document.getElementById('wrtcRulesCheckboxFetch');
+            const wrtcSelectorContainerFetch = document.getElementById('wrtcSelectorContainerFetch');
+            const wrtcContestSelectorFetch = document.getElementById('wrtcContestSelectorFetch');
+
+            // Populate fetch WRTC selector (reuse same API)
+            async function loadWRTCContestsFetch() {
+                try {
+                    const response = await fetch('/analyze/api/get_wrtc_contests/');
+                    const data = await response.json();
+                    if (data.wrtc_contests && data.wrtc_contests.length > 0) {
+                        const selectOption = wrtcContestSelectorFetch.querySelector('option[value=""]');
+                        wrtcContestSelectorFetch.innerHTML = '';
+                        if (selectOption) {
+                            wrtcContestSelectorFetch.appendChild(selectOption);
+                        }
+                        data.wrtc_contests.forEach(contest => {
+                            const option = document.createElement('option');
+                            option.value = contest;
+                            option.textContent = contest;
+                            wrtcContestSelectorFetch.appendChild(option);
+                        });
+                    }
+                } catch (error) {
+                    console.error('[DIAG] Error loading WRTC contests for fetch form:', error);
+                }
+            }
+            loadWRTCContestsFetch();
+
+            // Show/hide fetch WRTC selector based on checkbox
+            if (wrtcRulesCheckboxFetch) {
+                wrtcRulesCheckboxFetch.addEventListener('change', function() {
+                    if (this.checked) {
+                        wrtcSelectorContainerFetch.style.display = 'block';
+                    } else {
+                        wrtcSelectorContainerFetch.style.display = 'none';
+                        wrtcContestSelectorFetch.value = '';
+                    }
+                });
+            }
+
             // Handle contest selection
             contestSelect.addEventListener('change', function() {
                 const contest = this.value;
+                
+                // Show/hide WRTC container based on IARU-HF selection
+                if (contest === 'IARU-HF') {
+                    fetchWrtcContainer.style.display = 'block';
+                } else {
+                    fetchWrtcContainer.style.display = 'none';
+                    // Reset WRTC selection when switching away from IARU
+                    if (wrtcRulesCheckboxFetch) {
+                        wrtcRulesCheckboxFetch.checked = false;
+                        wrtcSelectorContainerFetch.style.display = 'none';
+                        wrtcContestSelectorFetch.value = '';
+                    }
+                }
+                
                 if (contest === 'CQ-WW') {
                     yearSelect.disabled = false;
                     modeSelect.disabled = true; // Will be enabled after year selection
@@ -511,10 +609,34 @@
                     yearSelect.disabled = false;
                     modeSelect.disabled = true; // ARRL DX contests don't use mode selector
                     modeSelect.closest('.col-md-4').style.display = 'none'; // Hide mode selector entirely
+                    fetchWrtcContainer.style.display = 'none'; // Hide WRTC selector
+                } else if (contest === 'IARU-HF') {
+                    yearSelect.disabled = false;
+                    modeSelect.disabled = true; // IARU-HF doesn't use mode selector
+                    modeSelect.closest('.col-md-4').style.display = 'none'; // Hide mode selector
+                    fetchWrtcContainer.style.display = 'block'; // Show WRTC selector
+                } else if (contest === 'WRTC-2026') {
+                    yearSelect.disabled = false;
+                    modeSelect.disabled = true; // WRTC-2026 doesn't use mode selector
+                    modeSelect.closest('.col-md-4').style.display = 'none'; // Hide mode selector
+                    fetchWrtcContainer.style.display = 'none'; // Hide WRTC selector (WRTC-2026 is already selected)
+                    // Reset WRTC selection when switching to WRTC-2026 directly
+                    if (wrtcRulesCheckboxFetch) {
+                        wrtcRulesCheckboxFetch.checked = false;
+                        wrtcSelectorContainerFetch.style.display = 'none';
+                        wrtcContestSelectorFetch.value = '';
+                    }
                 } else {
                     yearSelect.disabled = true;
                     modeSelect.disabled = true;
                     slotsDiv.classList.add('d-none');
+                    fetchWrtcContainer.style.display = 'none'; // Hide WRTC selector for other contests
+                    // Reset WRTC selection when switching away from IARU
+                    if (wrtcRulesCheckboxFetch) {
+                        wrtcRulesCheckboxFetch.checked = false;
+                        wrtcSelectorContainerFetch.style.display = 'none';
+                        wrtcContestSelectorFetch.value = '';
+                    }
                 }
             });
             
@@ -528,7 +650,7 @@
                     return;
                 }
                 
-                // CQ-WW and CQ-160 require mode, ARRL-10 and ARRL-DX don't
+                // CQ-WW and CQ-160 require mode, ARRL-10, ARRL-DX, IARU-HF, and WRTC-2026 don't
                 if ((contest === 'CQ-WW' || contest === 'CQ-160') && !mode) {
                     return; // Wait for mode selection
                 }
@@ -602,6 +724,12 @@
                 } else if (contest === 'ARRL-DX-CW' || contest === 'ARRL-DX-SSB') {
                     // ARRL DX: Fetch index when year is selected (no mode needed)
                     fetchLogIndex();
+                } else if (contest === 'IARU-HF') {
+                    // IARU-HF: Fetch index when year is selected (no mode needed)
+                    fetchLogIndex();
+                } else if (contest === 'WRTC-2026') {
+                    // WRTC-2026: Fetch index when year is selected (no mode needed, uses IARU archive)
+                    fetchLogIndex();
                 } else if (contest === 'CQ-WW' || contest === 'CQ-160') {
                     // CQ-WW and CQ-160: Enable mode selection after year is selected
                     modeSelect.closest('.col-md-4').style.display = 'block'; // Show mode selector
@@ -642,6 +770,14 @@
             });
             // Handle Fetch Submission
             btnFetch.addEventListener('click', function() {
+                 // Validate WRTC selection if checkbox is checked
+                 if (wrtcRulesCheckboxFetch && wrtcRulesCheckboxFetch.checked) {
+                     if (!wrtcContestSelectorFetch || !wrtcContestSelectorFetch.value) {
+                         alert('Please select a WRTC contest from the dropdown, or uncheck "Apply WRTC scoring rules".');
+                         return;
+                     }
+                 }
+                 
                  // Disable all buttons and inputs immediately to prevent double-submission
                  disableAllFormControls();
                  
@@ -655,20 +791,24 @@
                      document.getElementById('fetchModeInput').value = modeSelect.value || '';
                      document.getElementById('fetchContestInput').value = contestSelect.value;
                      
+                     // contest_override is already in the form as a select element, so it will submit automatically
+                     
                      // Trigger Progress UI
                      const errorAlert = document.querySelector('.alert-danger');
                      if (errorAlert) {
                          errorAlert.style.display = 'none';
                      }
-                     progressContainer.classList.remove('d-none');
-                     requestIdInput.value = 'req_' + Math.random().toString(36).substr(2, 9);
-                     document.querySelector('.fetch-request-id').value = requestIdInput.value;
+                    progressContainer.classList.remove('d-none');
+                    requestIdInput.value = 'req_' + Math.random().toString(36).substr(2, 9);
+                    document.querySelector('.fetch-request-id').value = requestIdInput.value;
                      
-                     // Start Polling (reuse existing logic)
-                     startPolling(requestIdInput.value);
-                     document.getElementById('fetchForm').submit();
+                    // Start polling
+                    startPolling(requestIdInput.value);
+                    
+                    // Submit form
+                    document.getElementById('fetchForm').submit();
                  } catch (error) {
-                     console.error('Error during fetch submission:', error);
+                     console.error('[DIAG] Error during fetch submission:', error);
                      // Re-enable controls on error
                      enableAllFormControls();
                      alert('An error occurred while submitting the form. Please try again.');
@@ -772,6 +912,9 @@
                 } else if (contestSelect.value === 'ARRL-10') {
                     modeSelect.closest('.col-md-4').style.display = 'block'; // Show but disabled
                     modeSelect.disabled = true; // ARRL-10 doesn't use mode
+                } else if (contestSelect.value === 'IARU-HF' || contestSelect.value === 'WRTC-2026') {
+                    modeSelect.closest('.col-md-4').style.display = 'none'; // Hide mode selector
+                    modeSelect.disabled = true; // IARU-HF and WRTC-2026 don't use mode
                 } else if (contestSelect.value === 'ARRL-DX-CW' || contestSelect.value === 'ARRL-DX-SSB') {
                     modeSelect.closest('.col-md-4').style.display = 'none'; // Hide mode selector
                     modeSelect.disabled = true; // ARRL-DX don't use mode
@@ -787,7 +930,60 @@
                 btnFetch.disabled = !hasValid;
             }
             
+            // WRTC Rules Checkbox + Selector (Simple Option 1)
+            const wrtcRulesCheckbox = document.getElementById('wrtcRulesCheckbox');
+            const wrtcSelectorContainer = document.getElementById('wrtcSelectorContainer');
+            const wrtcContestSelector = document.getElementById('wrtcContestSelector');
+
+            // Load available WRTC contests and populate dropdown
+            async function loadWRTCContests() {
+                try {
+                    const response = await fetch('/analyze/api/get_wrtc_contests/');
+                    const data = await response.json();
+                    if (data.wrtc_contests && data.wrtc_contests.length > 0) {
+                        // Clear existing options (keep the "Select..." option)
+                        const selectOption = wrtcContestSelector.querySelector('option[value=""]');
+                        wrtcContestSelector.innerHTML = '';
+                        if (selectOption) {
+                            wrtcContestSelector.appendChild(selectOption);
+                        }
+                        // Add WRTC options
+                        data.wrtc_contests.forEach(contest => {
+                            const option = document.createElement('option');
+                            option.value = contest;
+                            option.textContent = contest;
+                            wrtcContestSelector.appendChild(option);
+                        });
+                    }
+                } catch (error) {
+                    console.error('[DIAG] Error loading WRTC contests:', error);
+                }
+            }
+            loadWRTCContests();
+
+            // Show/hide selector based on checkbox
+            if (wrtcRulesCheckbox) {
+                wrtcRulesCheckbox.addEventListener('change', function() {
+                    if (this.checked) {
+                        wrtcSelectorContainer.style.display = 'block';
+                    } else {
+                        wrtcSelectorContainer.style.display = 'none';
+                        wrtcContestSelector.value = ''; // Clear selection
+                    }
+                });
+            }
+
+            // Normal form submission
             manualForm.addEventListener('submit', function(e) {
+                // Validate WRTC selection if checkbox is checked
+                if (wrtcRulesCheckbox && wrtcRulesCheckbox.checked) {
+                    if (!wrtcContestSelector || !wrtcContestSelector.value) {
+                        alert('Please select a WRTC contest from the dropdown, or uncheck "Apply WRTC scoring rules".');
+                        e.preventDefault();
+                        return;
+                    }
+                }
+                
                 // Disable all buttons and inputs immediately to prevent double-submission
                 disableAllFormControls();
                 
@@ -802,7 +998,7 @@
                     // Start polling
                     startPolling(requestId);
                 } catch (error) {
-                    console.error('Error during form submission:', error);
+                    console.error('[DIAG] Error during form submission:', error);
                     // Re-enable controls on error
                     enableAllFormControls();
                     progressContainer.classList.add('d-none');
