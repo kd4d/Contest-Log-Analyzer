@@ -26,12 +26,27 @@ class Report(ContestReport):
     supports_single = True
 
     def generate(self, output_path: str, **kwargs) -> str:
-        # 1. Aggregate Data
-        mult_agg = MultiplierStatsAggregator(self.logs)
-        data = mult_agg.get_multiplier_breakdown_data()
+        # 1. Determine dimension (band or mode) based on contest type
+        dimension = 'band'  # Default
+        if self.logs:
+            contest_def = self.logs[0].contest_definition
+            valid_bands = contest_def.valid_bands
+            valid_modes = getattr(contest_def, 'valid_modes', [])
+            is_single_band = len(valid_bands) == 1
+            is_multi_mode = len(valid_modes) > 1
+            if is_single_band and is_multi_mode:
+                dimension = 'mode'
         
-    
-        # 2. Setup Headers
+        # 2. Aggregate Data
+        mult_agg = MultiplierStatsAggregator(self.logs)
+        data = mult_agg.get_multiplier_breakdown_data(dimension=dimension)
+        
+        # Determine dimension key and label
+        dimension_key = 'modes' if dimension == 'mode' else 'bands'
+        dimension_label = 'Mode Breakdown' if dimension == 'mode' else 'Band Breakdown'
+        scope_label = 'All Modes' if dimension == 'mode' else 'All Bands'
+        
+        # 3. Setup Headers
         # Identify callsigns from logs to ensure alignment
         all_calls = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])
         
@@ -44,7 +59,7 @@ class Report(ContestReport):
         df = first_log.get_processed_data()
         year = df['Date'].dropna().iloc[0].split('-')[0] if not df.empty else "----"
             
-        # 3. Build Text Content
+        # 4. Build Text Content
         lines = []
         
         # Title
@@ -59,7 +74,7 @@ class Report(ContestReport):
         title_lines = get_standard_title_lines(
             "Multiplier Breakdown (Group Par)", 
             self.logs, 
-            "All Bands", 
+            scope_label, 
             None, 
             modes_present
         )
@@ -140,11 +155,11 @@ class Report(ContestReport):
             
         lines.append("")
         lines.append("-" * len(header_row1))
-        lines.append("Band Breakdown")
+        lines.append(dimension_label)
         lines.append("-" * len(header_row1))
         
-        # Process Bands
-        for block in data['bands']:
+        # Process dimension blocks (bands or modes)
+        for block in data[dimension_key]:
             # Band Header
             for row in block['rows']:
                 lines.append(format_row(

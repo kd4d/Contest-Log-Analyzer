@@ -29,12 +29,26 @@ class Report(ContestReport):
     supports_single = True
 
     def generate(self, output_path: str, **kwargs) -> str:
-        # 1. Aggregate Data
-        mult_agg = MultiplierStatsAggregator(self.logs)
-        data = mult_agg.get_multiplier_breakdown_data()
-
+        # 1. Determine dimension (band or mode) based on contest type
+        dimension = 'band'  # Default
+        if self.logs:
+            contest_def = self.logs[0].contest_definition
+            valid_bands = contest_def.valid_bands
+            valid_modes = getattr(contest_def, 'valid_modes', [])
+            is_single_band = len(valid_bands) == 1
+            is_multi_mode = len(valid_modes) > 1
+            if is_single_band and is_multi_mode:
+                dimension = 'mode'
         
-        # 2. Setup Context
+        # 2. Aggregate Data
+        mult_agg = MultiplierStatsAggregator(self.logs)
+        data = mult_agg.get_multiplier_breakdown_data(dimension=dimension)
+        
+        # Determine dimension key and labels
+        dimension_key = 'modes' if dimension == 'mode' else 'bands'
+        scope_label = 'All Modes' if dimension == 'mode' else 'All Bands'
+        
+        # 3. Setup Context
         all_calls = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])
         
         # Smart scoping for title (Modes)
@@ -47,21 +61,32 @@ class Report(ContestReport):
         title_lines = get_standard_title_lines(
             "Multiplier Breakdown (Group Par)", 
             self.logs, 
-            "All Bands", 
+            scope_label, 
             None, 
             modes_present
         )
         
-        # Split Bands for Layout (Low vs High) to match template expectation
-        low_bands = ['160M', '80M', '40M']
-        low_bands_data = []
-        high_bands_data = []
-        
-        for block in data['bands']:
-            if block['label'] in low_bands:
-                low_bands_data.append(block)
-            else:
-                high_bands_data.append(block)
+        # Split dimension blocks for Layout (Low vs High) to match template expectation
+        # For bands: low_bands = ['160M', '80M', '40M']
+        # For modes: low_modes = ['CW'] (typically first alphabetically)
+        if dimension == 'mode':
+            # For modes, we'll use a simple split: first half vs second half
+            # Or we could use a specific list if needed
+            mode_blocks = data[dimension_key] if dimension_key in data else []
+            mid_point = len(mode_blocks) // 2
+            low_bands_data = mode_blocks[:mid_point] if mid_point > 0 else mode_blocks
+            high_bands_data = mode_blocks[mid_point:] if mid_point > 0 else []
+        else:
+            # Band dimension: use traditional low/high split
+            low_bands = ['160M', '80M', '40M']
+            low_bands_data = []
+            high_bands_data = []
+            
+            for block in data[dimension_key]:
+                if block['label'] in low_bands:
+                    low_bands_data.append(block)
+                else:
+                    high_bands_data.append(block)
 
         # --- Load html2canvas and CSS for Inlining ---
         # settings.BASE_DIR points to /app/web_app
@@ -119,9 +144,9 @@ class Report(ContestReport):
         if 'totals' in data:
             process_rows(data['totals'])
 
-        # Process Bands
-        if 'bands' in data:
-            for block in data['bands']:
+        # Process dimension blocks (bands or modes)
+        if dimension_key in data:
+            for block in data[dimension_key]:
                 process_rows(block['rows'])
 
         context = {
