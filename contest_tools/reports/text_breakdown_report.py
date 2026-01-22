@@ -22,6 +22,7 @@ from ..contest_log import ContestLog
 from .report_interface import ContestReport
 from contest_tools.utils.report_utils import format_text_header, get_standard_footer, get_valid_dataframe
 from contest_tools.data_aggregators.time_series import TimeSeriesAggregator
+from contest_tools.utils.callsign_utils import callsign_to_filename_part
 
 logger = logging.getLogger(__name__)
 
@@ -135,7 +136,7 @@ class Report(ContestReport):
             standard_footer = get_standard_footer([log])
             report_content = "\n".join(report_lines) + "\n\n" + standard_footer + "\n"
             os.makedirs(output_path, exist_ok=True)
-            filename = f"{self.report_id}_{callsign.lower().replace('/', '-')}.txt"
+            filename = f"{self.report_id}_{callsign_to_filename_part(callsign)}.txt"
             filepath = os.path.join(output_path, filename)
             with open(filepath, 'w', encoding='utf-8') as f:
                 f.write(report_content)

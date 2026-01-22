@@ -145,7 +145,7 @@ applicable_rules = [
 **Solution:**
 1. ✅ Created `ArchitectureValidator` utility (Phase 2)
 2. ✅ Added validation calls to critical paths (web app report generation pipeline)
-3. [ ] Add validation to CLI report generation
+3. [ ] Add validation to web report generation (CLI deprecated)
 4. [ ] Create pre-commit hooks for architecture validation
 5. [ ] Add architecture compliance tests
 

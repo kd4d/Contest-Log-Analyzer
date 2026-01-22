@@ -148,9 +148,9 @@ LOG_LEVEL = 'INFO' if CLA_PROFILE_ENABLED else 'WARNING'
 
 # Diagnostic: Print profiling status at startup (helps verify env var is being read)
 if CLA_PROFILE_ENABLED:
-    print("✅ Performance profiling ENABLED (CLA_PROFILE=1 detected)")
+    print("Performance profiling ENABLED (CLA_PROFILE=1 detected)")
 else:
-    print("ℹ️  Performance profiling DISABLED (set CLA_PROFILE=1 in docker-compose.yml to enable)")
+    print("Performance profiling DISABLED (set CLA_PROFILE=1 in docker-compose.yml to enable)")
 
 LOGGING = {
     'version': 1,

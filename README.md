@@ -32,9 +32,8 @@ Cabrillo logs don't record whether you were "Running" (Calling CQ) or "Search & 
 ### Public Log Archive Integration
 Forget manually downloading competitor logs. CLA connects directly to public contest archives (starting with CQ WW). Simply select the year and mode (CW, SSB, or RTTY), search for competitors by callsign, and fetch data instantly for head-to-head analysis.
 
-### Dual Interface
-- **Web Dashboard**: Containerized Django application with interactive visualizations (Plotly charts), QSO and Multiplier dashboards with drill-down analysis, progress tracking, and comprehensive report viewing
-- **Command-Line Interface**: Full-featured CLI for batch processing, automation, and text report generation
+### Web Dashboard
+Containerized Django application with interactive visualizations (Plotly charts), QSO and Multiplier dashboards with drill-down analysis, progress tracking, and comprehensive report viewing. All reports are available for download as a ZIP archive.
 
 ### Comprehensive Reporting
 - **Interactive Animations**: Replay the contest hour-by-hour to visualize momentum shifts
@@ -86,33 +85,16 @@ The easiest way to run CLA is via Docker with the pre-configured web dashboard:
    - Development: Open your browser to `http://localhost:8000`
    - Production: Visit `https://cla.kd4d.org`
 
-For detailed installation instructions including CLI setup, see the [Installation Guide](Docs/InstallationGuide.md).
+For detailed installation instructions, see the [Installation Guide](Docs/InstallationGuide.md).
 
-### Basic Usage (CLI)
+### Basic Usage
 
-```bash
-# Analyze a single log
-python main_cli.py --report summary MyLog.log
-
-# Compare two logs with all reports
-python main_cli.py --report all MyLog.log CompetitorLog.log
-
-# Generate specific report types
-python main_cli.py --report plot MyLog.log CompetitorLog.log
-python main_cli.py --report chart MyLog.log CompetitorLog.log
-
-# WRTC scoring for IARU-HF logs
-python main_cli.py --report all --wrtc 2026 MyLog.log
-
-# Debug options
-python main_cli.py --report all --debug-data MyLog.log
-```
+1. **Upload Logs**: Use the web interface to upload 1, 2, or 3 Cabrillo log files
+2. **Wait for Processing**: The system will analyze your logs and generate reports
+3. **View Results**: Explore interactive dashboards, charts, and reports
+4. **Download Reports**: Download all reports as a ZIP archive
 
 **Note**: The analyzer supports 1, 2, or 3 logs. Single-log analysis provides detailed performance metrics. Multi-log analysis enables head-to-head comparison and identifies unique vs. common QSOs.
-
-**Environment Variables**: You must set two environment variables before running:
-- `CONTEST_INPUT_DIR`: Root directory containing your 'Logs' and 'data' subdirectories
-- `CONTEST_REPORTS_DIR`: Output directory for generated reports (must be local, not cloud-synced)
 
 For complete usage instructions, see the [User Guide](Docs/UsersGuide.md).
 
@@ -122,7 +104,7 @@ For complete usage instructions, see the [User Guide](Docs/UsersGuide.md).
 
 Comprehensive documentation is available in the `Docs/` directory:
 
-- **[Installation Guide](Docs/InstallationGuide.md)**: Complete installation instructions for Docker and CLI environments
+- **[Installation Guide](Docs/InstallationGuide.md)**: Complete installation instructions for Docker
 - **[User Guide](Docs/UsersGuide.md)**: How to run the analyzer, interpret reports, and understand output
 - **[Contributing Guide](Docs/Contributing.md)**: Engineering standards, versioning strategy, and contribution guidelines
 - **[Programmer's Guide](Docs/ProgrammersGuide.md)**: Technical documentation for developers extending CLA
@@ -148,7 +130,7 @@ Reports and contest-specific logic modules can be dropped into appropriate direc
 The `contest_tools.data_aggregators` package provides pure Python primitive outputs (dictionaries, lists, scalars) ensuring complete decoupling between data processing and presentation layers.
 
 ### Stateless Web Architecture
-The Django web dashboard is stateless and containerized, using the file system for session persistence. It shares HTML templates with the CLI via a unified presentation layer.
+The Django web dashboard is stateless and containerized, using the file system for session persistence.
 
 ---
 
@@ -156,7 +138,6 @@ The Django web dashboard is stateless and containerized, using the file system f
 
 ```
 Contest-Log-Analyzer/
-├── main_cli.py              # CLI entry point
 ├── contest_tools/           # Core analysis engine
 │   ├── contest_log.py       # ContestLog class
 │   ├── log_manager.py       # Multi-log orchestration

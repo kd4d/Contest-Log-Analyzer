@@ -516,8 +516,8 @@ def _validate_arrl_dx_location_types(log_paths: List[str], root_input_dir: str, 
         error_message = (
             "ARRL DX Contest Error: All logs must be from the same category.\n\n"
             "ARRL DX is an asymmetric contest:\n"
-            "• W/VE = 48 contiguous US States + VE provinces\n"
-            "• DX = Everything else (including Alaska, Hawaii, and other US possessions)\n\n"
+            "- W/VE = 48 contiguous US States + VE provinces\n"
+            "- DX = Everything else (including Alaska, Hawaii, and other US possessions)\n\n"
             f"Found: {location_summary}"
         )
         return {'valid': False, 'error_message': error_message}
@@ -672,6 +672,27 @@ def analyze_logs(request):
         except Exception as e:
             logger.exception("Exception in _update_progress")
 
+        # Debug: Print what's in request.FILES and request.POST (for test debugging)
+        # Use print for immediate visibility, logger for production
+        files_keys = list(request.FILES.keys()) if hasattr(request, 'FILES') else []
+        post_keys = list(request.POST.keys()) if hasattr(request, 'POST') else []
+        content_type = request.META.get('CONTENT_TYPE', 'N/A')
+        http_content_type = request.META.get('HTTP_CONTENT_TYPE', 'N/A')
+        print(f"DEBUG analyze_logs: method={request.method}, CONTENT_TYPE={content_type}, HTTP_CONTENT_TYPE={http_content_type}, FILES keys={files_keys}, POST keys={post_keys}, 'log1' in FILES={'log1' in request.FILES}")
+        logger.info(f"analyze_logs: request.method={request.method}, CONTENT_TYPE={content_type}, request.FILES keys={files_keys}, request.POST keys={post_keys}")
+        
+        # Additional debugging for test client issues
+        if request.method == 'POST' and not files_keys:
+            logger.warning(f"WARNING - POST request but FILES is empty. CONTENT_TYPE={content_type}, HTTP_CONTENT_TYPE={http_content_type}")
+            print(f"DEBUG: WARNING - POST request but FILES is empty.")
+            print(f"  CONTENT_TYPE={content_type}")
+            print(f"  HTTP_CONTENT_TYPE={http_content_type}")
+            print(f"  request.META keys with 'CONTENT' or 'TYPE': {[k for k in request.META.keys() if 'CONTENT' in k or 'TYPE' in k]}")
+            # Check if this looks like a multipart request
+            if 'multipart' in content_type.lower() or 'multipart' in http_content_type.lower():
+                print(f"  DEBUG: Content type suggests multipart, but FILES is empty - Django test client parsing issue")
+                print(f"  DEBUG: This is likely a Django test client bug. Files may need to be sent differently.")
+        
         # Handle Manual Upload
         if 'log1' in request.FILES:
             form = UploadLogForm(request.POST, request.FILES)
@@ -848,12 +869,15 @@ def _run_analysis_pipeline(request_id, log_paths, session_path, session_key, cus
         root_input = os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
         
         _update_progress(request_id, 2) # Step 2: Parsing
+        logger.info(f"[PIPELINE] Starting log loading for {len(log_paths)} log(s)")
         with ProfileContext("Web - Log Loading"):
             lm = LogManager()
             # Load logs (auto-detect contest type)
             # Use custom CTY path if provided, otherwise use default 'after' specifier
             cty_specifier = 'after' if not custom_cty_path else 'after'  # Specifier only used if custom_cty_path is None
+            logger.info(f"[PIPELINE] Calling load_log_batch with {len(log_paths)} paths, root_input={root_input}")
             lm.load_log_batch(log_paths, root_input, cty_specifier, custom_cty_path=custom_cty_path)
+            logger.info(f"[PIPELINE] load_log_batch completed, calling finalize_loading")
 
             lm.finalize_loading(session_path)
 
@@ -1063,7 +1087,7 @@ def dashboard_view(request, session_id):
         
         # 4. Load JSON score report artifacts for each log
         for callsign in callsigns:
-            callsign_safe = callsign.lower().replace('/', '-')
+            callsign_safe = callsign_to_filename_part(callsign)
             
             # Find JSON artifact
             json_filename = f"json_score_report_dashboard_{callsign_safe}.json"
@@ -1094,7 +1118,7 @@ def dashboard_view(request, session_id):
         # 5. Discover breakdown report artifacts for each log
         breakdown_report_urls = {}
         for callsign in callsigns:
-            callsign_safe = callsign.lower().replace('/', '-')
+            callsign_safe = callsign_to_filename_part(callsign)
             
             # Find breakdown report artifact
             breakdown_filename = f"breakdown_report_{callsign_safe}.txt"
@@ -1637,7 +1661,7 @@ def multiplier_dashboard(request, session_id):
                 if len(parts) == 2:
                     callsigns_part = parts[1]
                     parsed_calls = parse_callsigns_from_filename_part(callsigns_part)
-                    callsigns_safe_for_matching = [c.lower().replace('/', '-') for c in parsed_calls]
+                    callsigns_safe_for_matching = [callsign_to_filename_part(c) for c in parsed_calls]
                 else:
                     callsigns_safe_for_matching = []
             else:
@@ -1791,7 +1815,7 @@ def qso_dashboard(request, session_id):
 
     # 2. Re-construct Callsigns from the combo_id
     callsigns_display = parse_callsigns_from_filename_part(combo_id)
-    callsigns_safe = [c.lower().replace('/', '-') for c in callsigns_display]  # For filename matching
+    callsigns_safe = [callsign_to_filename_part(c) for c in callsigns_display]  # For filename matching
     is_solo = (len(callsigns_safe) == 1)
     
     # 2a. Load valid_bands and valid_modes from contest definition JSON (no cache needed)
@@ -1843,11 +1867,11 @@ def qso_dashboard(request, session_id):
         
         Filename format: cumulative_difference_plots_qsos_{band}_{mode}--{callsigns}.html
         Examples:
-        - "10" (single-band, all modes) → "mode:all" (for single-band, multi-mode)
-        - "10_cw" (single-band, CW mode) → "mode:cw"
-        - "all" (multi-band, all modes) → "band:all"
-        - "80" (multi-band, all modes, specific band) → "band:80"
-        - "80_cw" (multi-band, CW mode, specific band) → "band:80" (mode handled separately later)
+        - "10" (single-band, all modes) -> "mode:all" (for single-band, multi-mode)
+        - "10_cw" (single-band, CW mode) -> "mode:cw"
+        - "all" (multi-band, all modes) -> "band:all"
+        - "80" (multi-band, all modes, specific band) -> "band:80"
+        - "80_cw" (multi-band, CW mode, specific band) -> "band:80" (mode handled separately later)
         
         Returns structured key: "dimension:value" format for extensibility.
         """
@@ -2344,7 +2368,12 @@ def download_all_reports(request, session_id):
     POST: Initiates zip creation with progress tracking. Returns request_id.
     GET with request_id: Serves the completed zip file.
     
-    Filename format: YYYY_CONTEST_NAME.zip
+    Filename format: YYYY_CONTEST_NAME--callsigns.zip
+    - Callsigns use filename-safe format (e.g., "5b-yt7aw_k3lr" for "5B/YT7AW" and "K3LR")
+    - "/" in callsigns is converted to "-" (e.g., "5B/YT7AW" -> "5b-yt7aw")
+    - Multiple callsigns are joined with "_" (e.g., "k3lr_w3lpl")
+    - Format uses "--" delimiter to separate contest info from callsigns
+    
     Structure:
         - reports/ (all generated reports)
         - logs/ (original Cabrillo log files)
@@ -2364,8 +2393,17 @@ def download_all_reports(request, session_id):
             try:
                 with open(context_path, 'r') as f:
                     context = json.load(f)
-                path_parts = context.get('report_url_path', '').split('/')
-                if len(path_parts) >= 2:
+                # report_url_path format: "YYYY/contest_name/event/calls" or "YYYY/contest_name/calls"
+                # Callsigns are always the last part (already filename-safe from build_callsigns_filename_part)
+                path_parts = [p for p in context.get('report_url_path', '').split('/') if p]
+                if len(path_parts) >= 3:
+                    # Has callsigns: format is "YYYY/contest_name/[event/]calls"
+                    year = _sanitize_filename_part(path_parts[0])
+                    contest = _sanitize_filename_part(path_parts[1])
+                    callsigns = path_parts[-1]  # Last part is always callsigns
+                    zip_filename = f"{year}_{contest}--{callsigns}.zip"
+                elif len(path_parts) >= 2:
+                    # No callsigns (shouldn't happen, but handle gracefully)
                     year = _sanitize_filename_part(path_parts[0])
                     contest = _sanitize_filename_part(path_parts[1])
                     zip_filename = f"{year}_{contest}.zip"
@@ -2396,9 +2434,17 @@ def download_all_reports(request, session_id):
         with open(context_path, 'r') as f:
             context = json.load(f)
         
-        # report_url_path format: "YYYY/contest_name/event/calls"
-        path_parts = context.get('report_url_path', '').split('/')
-        if len(path_parts) >= 2:
+        # report_url_path format: "YYYY/contest_name/event/calls" or "YYYY/contest_name/calls"
+        # Callsigns are always the last part (already filename-safe from build_callsigns_filename_part)
+        path_parts = [p for p in context.get('report_url_path', '').split('/') if p]
+        if len(path_parts) >= 3:
+            # Has callsigns: format is "YYYY/contest_name/[event/]calls"
+            year = _sanitize_filename_part(path_parts[0])
+            contest = _sanitize_filename_part(path_parts[1])
+            callsigns = path_parts[-1]  # Last part is always callsigns
+            zip_filename = f"{year}_{contest}--{callsigns}.zip"
+        elif len(path_parts) >= 2:
+            # No callsigns (shouldn't happen, but handle gracefully)
             year = _sanitize_filename_part(path_parts[0])
             contest = _sanitize_filename_part(path_parts[1])
             zip_filename = f"{year}_{contest}.zip"

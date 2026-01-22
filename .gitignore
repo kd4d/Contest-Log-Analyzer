@@ -18,6 +18,9 @@ web_app/config/settings_local.py
 Archives/
 *_bundle.txt
 test_code/
+# Regression test baselines (local git repo, never pushed)
+regression_baselines/
+!regression_baselines/README.md
 
 # Exceptions: Important git workflow files that should always be tracked
 # Note: These exceptions ensure files are visible even if parent patterns change

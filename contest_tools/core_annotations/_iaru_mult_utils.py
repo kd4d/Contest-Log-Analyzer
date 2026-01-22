@@ -55,9 +55,9 @@ def resolve_iaru_hq_official(exchange: str, officials_set: Set[str]) -> Dict[str
     Parses exchange to identify HQ Station or IARU Official.
     
     This function identifies IARU multipliers from the received exchange:
-    - If exchange matches an IARU official (AC, R1, R2, R3) → Official multiplier
-    - If exchange is alphabetic (not numeric, not official) → HQ Station multiplier
-    - Otherwise → No multiplier
+    - If exchange matches an IARU official (AC, R1, R2, R3) -> Official multiplier
+    - If exchange is alphabetic (not numeric, not official) -> HQ Station multiplier
+    - Otherwise -> No multiplier
     
     Args:
         exchange: Received exchange value (from RcvdMult column)

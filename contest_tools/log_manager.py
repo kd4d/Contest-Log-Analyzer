@@ -23,6 +23,7 @@ from .contest_log import ContestLog
 from .utils.cty_manager import CtyManager
 from .core_annotations import CtyLookup, BandAllocator
 from .utils.profiler import profile_section, ProfileContext
+from .utils.callsign_utils import build_callsigns_filename_part
 import os
 import importlib
 from datetime import datetime
@@ -201,8 +202,8 @@ class LogManager:
         for log in self.logs:
             log.metadata['EventID'] = event_id
         
-        all_calls = sorted([log.get_metadata().get('MyCall', f'Log{i+1}').lower() for i, log in enumerate(self.logs)])
-        callsign_combo_id = '_'.join(all_calls)
+        all_calls = sorted([log.get_metadata().get('MyCall', f'Log{i+1}') for i, log in enumerate(self.logs)])
+        callsign_combo_id = build_callsigns_filename_part(all_calls)
 
         output_dir = os.path.join(root_dir, 'reports', year, contest_name, event_id, callsign_combo_id)
         os.makedirs(output_dir, exist_ok=True)

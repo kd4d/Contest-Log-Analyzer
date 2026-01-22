@@ -589,9 +589,7 @@ python -m json.tool contest_tools/contest_definitions/my_contest.json
 
 1. **Prepare a test log:** Use a small Cabrillo log file from the contest you're adding
 2. **Run a simple analysis:**
-   ```bash
-   python main_cli.py --report summary path/to/test.log
-   ```
+   Use the web interface to upload and analyze test logs, or use the Django test client for automated testing.
 3. **Check for errors:** Look for:
    - `FileNotFoundError`: Contest definition not found (check filename and `contest_name`)
    - `ValueError`: Parsing errors, missing fields, or configuration issues
@@ -613,9 +611,7 @@ Check that QSOs are parsed correctly:
 **Step 5: Test Reports**
 
 Generate different report types to ensure they work:
-```bash
-python main_cli.py --report all path/to/test.log
-```
+Use the web interface to upload logs and verify all report types are generated correctly, or use the Django test client for automated testing.
 
 **Common Test Scenarios:**
 
@@ -763,6 +759,58 @@ When things go wrong, use this systematic approach to diagnose and fix issues.
 - Check error messages carefully—they often point to the exact issue
 - Test with minimal configuration first, then add complexity
 - Use the reference examples listed earlier in this guide
+
+---
+
+## 6. Testing
+
+### Web Regression Testing
+
+The project includes automated regression testing for the web version using Django's test client. Tests verify that report generation produces consistent output across releases.
+
+**Test Infrastructure:**
+- **Location:** `test_code/web_regression_test.py`
+- **Test Data:** `regression_baselines/Logs/` (version-controlled test logs)
+- **Baselines:** `regression_baselines/web_baseline_*/` (versioned ZIP archives)
+
+**Running Tests:**
+
+**Create a New Baseline:**
+```batch
+regression_baselines\run_tests.bat --create-baseline v1.0.0-alpha.10
+```
+
+This generates baseline ZIP archives for all test cases and stores them in `regression_baselines/web_baseline_v1.0.0-alpha.10/`.
+
+**Run Regression Tests:**
+```batch
+regression_baselines\run_tests.bat --baseline v1.0.0-alpha.10
+```
+
+This compares current output against the specified baseline and reports any differences.
+
+**Requirements:**
+- Conda environment `cla` with Django installed
+- Test logs in `regression_baselines/Logs/`
+- Project root as current directory
+
+**How It Works:**
+1. Tests use Django test client (in-process, no HTTP server needed)
+2. Uploads test logs via Django test client
+3. Downloads generated ZIP archives
+4. Compares against baseline archives (sanitizing dynamic content like UUIDs, timestamps)
+5. Reports differences for investigation
+
+**Test Cases:**
+- 18 test cases covering multiple contests (CQ WW, ARRL SS, CQ 160, CQ WPX, ARRL 10, ARRL DX, IARU HF, WAE, NAQP)
+- Single-log and multi-log scenarios
+- Different contest types (symmetric, asymmetric, custom calculators)
+
+**For More Information:**
+- `regression_baselines/README.md` - Test data repository documentation
+- `DevNotes/REGRESSION_TESTING_WEB_VERSION_STRATEGY.md` - Detailed testing strategy
+
+---
 
 ### JSON Quick Reference
 

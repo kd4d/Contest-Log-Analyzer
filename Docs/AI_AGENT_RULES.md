@@ -1,10 +1,28 @@
-# AI Agent Rules for Git Operations
+# AI Agent Rules
 
-This document provides specific rules for AI agents (like Cursor/Console AI) when performing git operations on this repository.
+This document provides specific rules for AI agents (like Cursor/Console AI) when working on this repository.
 
 ---
 
-## Overview
+## Project Architecture Overview
+
+**CRITICAL: This project is web-first. CLI interface has been deprecated and removed.**
+
+- **Primary Interface:** Web dashboard (Django application)
+- **No CLI Interface:** `main_cli.py` and CLI-related code have been removed
+- **Core Application:** `contest_tools/` - Independent, reusable library (no CLI dependencies)
+- **Web Application:** `web_app/` - Django application using core library directly
+- **Test Infrastructure:** `test_code/` - Separate from main project, uses Django test client
+
+**Agent Behavior:**
+- Do NOT create or reference CLI interfaces
+- Do NOT assume CLI functionality exists
+- Use web interface or Django test client for testing
+- Core application (`contest_tools/`) is independent and has no CLI dependencies
+
+---
+
+## Git Operations Overview
 
 **Primary Principle:** AI assists with git operations, but the user maintains final control over critical operations.
 
@@ -126,6 +144,28 @@ This document provides specific rules for AI agents (like Cursor/Console AI) whe
 ### 7-bit ASCII Requirement
 **AI agents MUST use 7-bit ASCII (characters 0-127 only) in all non-markdown files.**
 
+**MANDATORY: Check this section BEFORE creating or modifying any code files, scripts, or configuration files.**
+
+**MANDATORY WORKFLOW FOR FILE MODIFICATIONS:**
+
+1. **BEFORE modifying any file:**
+   - Check this section of AI Agent Rules
+   - Identify if the file type requires 7-bit ASCII (all non-markdown files)
+   - **Scan the file for existing Unicode/emoji violations** (use grep/search tools if needed)
+   - Plan replacements for any non-ASCII characters using the common replacements list
+   - **Fix existing violations BEFORE making other changes** to the file
+
+2. **DURING modification:**
+   - **Always** use 7-bit ASCII characters (0-127 only)
+   - **Never** add emoji, Unicode symbols, or multi-byte characters
+   - **Replace** any existing non-ASCII characters with ASCII equivalents
+   - **Use** the common replacements listed below
+
+3. **AFTER modification:**
+   - Verify the file contains only 7-bit ASCII characters
+   - Check for any Unicode/emoji that may have been introduced
+   - If violations found: Fix immediately before proceeding
+
 **Critical Rule:** When creating or modifying any code files, scripts, or configuration files, AI agents must:
 - [OK] Use only 7-bit ASCII characters
 - [OK] Replace any non-ASCII characters with ASCII equivalents
@@ -137,7 +177,22 @@ This document provides specific rules for AI agents (like Cursor/Console AI) whe
 - All configuration files (`.json`, `.yaml`, `.ini`, etc.)
 - Documentation source files (`.rst`, `.txt`, etc.)
 
-**Exception:** Markdown files (`.md`) may contain UTF-8 characters, BUT with PDF compatibility restrictions.
+**Exceptions:**
+- **Markdown files (`.md`):** May contain UTF-8 characters, BUT with PDF compatibility restrictions (see below).
+- **Third-party/vendor libraries:** Minified or vendor-supplied files (e.g., `html2canvas.min.js`) are excluded from this rule. Only project-authored code must comply.
+
+**Scanning for Violations:**
+Before modifying files, use search tools to identify existing violations:
+- Search for common Unicode characters: `grep -r "[✅ℹ️⚠️✓✗•→🎯✨🐛📚🔧📊🔄🚀📝⏱️]" path/to/directory`
+- Check specific file types: `grep -r "pattern" --include="*.py" path/`
+- Focus on files you're about to modify: Always scan target files before editing
+
+**Runtime Error Risk:**
+Non-ASCII characters in code can cause runtime errors:
+- `UnicodeEncodeError` when printing emoji in Windows console (e.g., `'charmap' codec can't encode characters`)
+- Parsing errors in PowerShell/batch scripts
+- Import failures when Python source files contain non-ASCII characters
+- **Always fix violations immediately** to prevent runtime failures
 
 **PDF Compatibility Rule for Markdown:**
 - **All markdown files MUST be PDF-compatible** (no emoji or Unicode symbols that break LaTeX/PDF conversion)
@@ -162,6 +217,8 @@ This document provides specific rules for AI agents (like Cursor/Console AI) whe
 - ✗ (cross mark) → `[X]`, `FAIL`, or `ERROR`
 - ⚠ (warning) → `WARNING:` or `WARN:`
 - • (bullet) → `*` or `-`
+- → (arrow) → `->` or `=>` or `:`
+- ⏱️ (stopwatch) → `[TIME]` or `[PROFILE]` or remove entirely
 
 **Rationale:** PowerShell, batch files, and many other tools can fail to parse files correctly when multi-byte UTF-8 characters are present, leading to cryptic parsing errors. Additionally, PDF conversion tools require plain text alternatives to emoji.
 
@@ -1098,6 +1155,7 @@ For complex multi-session workflows, a `HANDOVER.md` file may exist at the repos
 - Production utilities in `contest_tools/utils/` (e.g., `architecture_validator.py`, `report_utils.py`)
 - Production tools in `tools/` (e.g., `update_version_hash.py`, `setup_git_aliases.ps1`)
 - Test suites in `tests/` (if using pytest/unittest structure)
+- `__main__` blocks in core utilities (e.g., `contest_tools/core_annotations/get_cty.py`) - These are debugging/testing features, not standalone scripts
 
 **Rationale:**
 - Keeps production code directories clean
@@ -1109,6 +1167,20 @@ For complex multi-session workflows, a `HANDOVER.md` file may exist at the repos
 - When creating diagnostic/temporary scripts, place them in `test_code/` or `test_code/subdirectory/`
 - Do NOT add such scripts to `contest_tools/utils/`, `tools/`, or other production directories
 - If a script needs to become production code, refactor and move it appropriately (e.g., `contest_tools/utils/`)
+
+**CRITICAL: Main Project Must Not Reference Test Infrastructure**
+
+**Rule:** The main project code (`contest_tools/`, `web_app/`) must NEVER import from or depend on test infrastructure (`test_code/`).
+
+- **Correct:** Test utilities in `test_code/` import from main project (`contest_tools/`, `web_app/`)
+- **Incorrect:** Main project code importing from `test_code/`
+- **Rationale:** Main project should be independent and testable. Test infrastructure is a consumer of the main project, not a dependency.
+
+**Examples:**
+- ✅ `test_code/web_regression_test.py` imports from `contest_tools.log_manager`
+- ✅ `test_code/regression_test_utils.py` is in `test_code/` (not `contest_tools/utils/`)
+- ❌ `contest_tools/utils/regression_test_utils.py` (would create dependency from main project to test code)
+- ❌ `web_app/analyzer/views.py` importing from `test_code/`
 
 ---
 
@@ -1349,6 +1421,14 @@ Before implementing scoring/data changes:
 
 **AI agents MUST use the miniforge Python executable when running Python scripts in this environment.**
 
+**⚠️ MANDATORY: Check this section BEFORE executing any Python command. Do NOT assume `python` will work.**
+
+**MANDATORY WORKFLOW:**
+1. **BEFORE executing any Python command:** Check this section of AI Agent Rules
+2. **ALWAYS use the full path:** `C:\Users\mbdev\miniforge3\python.exe`
+3. **NEVER use:** `python`, `python.exe`, or `py` without the full path
+4. **AFTER execution:** Check exit code and error messages (see "Command Execution and Error Checking" section)
+
 **Rule:** When executing Python scripts, always use the full path to the miniforge Python executable:
 - **Correct:** `C:\Users\mbdev\miniforge3\python.exe script.py`
 - **Incorrect:** `python script.py` or `python.exe script.py` (these do not work in this environment)
@@ -1373,8 +1453,8 @@ C:\Users\mbdev\miniforge3\python.exe -m pytest tests/
 # Running Python one-liners
 C:\Users\mbdev\miniforge3\python.exe -c "import sys; print(sys.version)"
 
-# Running scripts that import project modules
-C:\Users\mbdev\miniforge3\python.exe main_cli.py --help
+# Running Django management commands
+C:\Users\mbdev\miniforge3\python.exe web_app/manage.py runserver
 ```
 
 **Incorrect Python Script Execution (DO NOT USE):**
@@ -1387,15 +1467,321 @@ py script.py
 
 #### Agent Behavior
 
-When an AI agent needs to run a Python script:
-1. **Always** use `C:\Users\mbdev\miniforge3\python.exe` as the Python interpreter
-2. **Never** use `python`, `python.exe`, or `py` without the full path
-3. **Preserve** relative paths for script arguments (e.g., `test_code/script.py`)
-4. **Use** full path only for the Python executable itself
+**MANDATORY WORKFLOW FOR ALL PYTHON COMMANDS:**
+
+1. **BEFORE execution:**
+   - Check this section of AI Agent Rules
+   - Identify the required Python path: `C:\Users\mbdev\miniforge3\python.exe`
+   - Use this path in the command
+
+2. **DURING execution:**
+   - **Always** use `C:\Users\mbdev\miniforge3\python.exe` as the Python interpreter
+   - **Never** use `python`, `python.exe`, or `py` without the full path
+   - **Preserve** relative paths for script arguments (e.g., `test_code/script.py`)
+   - **Use** full path only for the Python executable itself
+
+3. **AFTER execution:**
+   - Check exit code (non-zero = failure)
+   - Read error messages completely
+   - If error: Stop, fix, retry with correct path
+   - If success: Verify output is as expected
+   - Do NOT proceed with dependent operations if command failed
 
 #### Note on Activation Scripts
 
 The `C:\Users\mbdev\miniforge3\Scripts\custom_activate.bat` script uses `/K` flag which opens an interactive terminal window. For non-interactive script execution, use the Python executable directly rather than trying to activate the environment first.
+
+### CRITICAL: Syntax Validation Before Finishing
+
+**AI agents MUST validate Python syntax using `py_compile` before completing code changes.**
+
+**⚠️ MANDATORY: Check Python syntax after modifying any Python file.**
+
+**MANDATORY WORKFLOW:**
+1. **AFTER modifying any Python file:** Run `py_compile` to check for syntax errors
+2. **ALWAYS use the conda environment Python:** `C:\Users\mbdev\miniforge3\envs\cla\python.exe -m py_compile <file_path>`
+3. **NEVER skip this step:** Syntax errors cause runtime failures and must be caught immediately
+4. **FIX all syntax errors** before proceeding with other work
+
+**Rule:** After creating or modifying any Python file, AI agents must:
+- **Run:** `C:\Users\mbdev\miniforge3\envs\cla\python.exe -m py_compile <file_path>`
+- **Check exit code:** Non-zero exit code indicates syntax errors
+- **Read error messages:** Syntax errors show exact line numbers and issues
+- **Fix immediately:** Do not proceed until all syntax errors are resolved
+
+**Why This Matters:**
+- Catches indentation errors, missing colons, unclosed brackets, and other syntax issues
+- Prevents runtime failures that would break the application
+- Identifies errors immediately rather than during execution
+- Saves debugging time by catching issues early
+
+**Example Workflow:**
+```powershell
+# After modifying a Python file
+C:\Users\mbdev\miniforge3\envs\cla\python.exe -m py_compile regression_baselines\test_code\web_regression_test.py
+
+# If successful (exit code 0): Proceed with other work
+# If failed (exit code non-zero): Read error message, fix syntax, retry compilation
+```
+
+**Note:** Use the conda environment Python (`envs\cla\python.exe`) to ensure the same Python version and dependencies as the project uses.
+
+**Common Syntax Errors to Catch:**
+- IndentationError (mismatched indentation levels)
+- SyntaxError (missing colons, unclosed brackets, invalid syntax)
+- TabError (mixing tabs and spaces)
+- Missing closing brackets, parentheses, or quotes
+
+**Agent Behavior:**
+- **MUST** run `py_compile` after modifying any Python file
+- **MUST** fix all syntax errors before proceeding
+- **MUST** verify exit code is zero before considering work complete
+- **MUST NOT** skip syntax validation even for "simple" changes
+
+---
+
+## PowerShell Command Syntax Rules
+
+### CRITICAL: PowerShell vs CMD Syntax Differences
+
+**AI agents MUST use PowerShell syntax when executing commands in this environment, NOT CMD syntax.**
+
+**Rule:** This environment uses PowerShell (`powershell.exe`), not Windows Command Prompt (`cmd.exe`). AI agents must use PowerShell-compatible syntax for all terminal commands.
+
+#### Why This Matters
+
+PowerShell and CMD have different syntax for:
+- Command chaining (`&&` vs `;`)
+- Executing batch files (`call` vs `&` or direct execution)
+- Path handling and directory changes
+- Variable expansion and quoting
+
+Using CMD syntax in PowerShell causes errors like:
+- `The token '&&' is not a valid statement separator in this version`
+- `call : The term 'call' is not recognized as the name of a cmdlet, function, script file, or operable program`
+- Path resolution errors when changing directories
+
+#### Command Chaining
+
+**PowerShell Syntax (CORRECT):**
+```powershell
+# Use semicolon (;) to chain commands
+cd regression_baselines; git init; git config user.name "Test User"
+
+# Or use separate commands on separate lines
+cd regression_baselines
+git init
+git config user.name "Test User"
+```
+
+**CMD Syntax (INCORRECT - DO NOT USE):**
+```cmd
+# WRONG: && is CMD syntax, not PowerShell
+cd regression_baselines && git init && git config user.name "Test User"
+```
+
+#### Executing Batch Files
+
+**PowerShell Syntax (CORRECT):**
+```powershell
+# Direct execution (if path has no spaces)
+regression_baselines\test_setup.bat
+
+# Using call operator (if path has spaces or special characters)
+& "regression_baselines\test_setup.bat"
+
+# Using full path with call operator
+& "C:\Users\mbdev\OneDrive\Desktop\Repos\Contest-Log-Analyzer\regression_baselines\test_setup.bat"
+```
+
+**CMD Syntax (INCORRECT - DO NOT USE):**
+```cmd
+# WRONG: call is CMD syntax, not PowerShell
+call regression_baselines\test_setup.bat
+```
+
+#### Directory Changes
+
+**PowerShell Syntax (CORRECT):**
+```powershell
+# Use Set-Location or cd with proper path handling
+Set-Location regression_baselines
+# Or
+cd regression_baselines
+
+# Use absolute paths when current directory is uncertain
+Set-Location "C:\Users\mbdev\OneDrive\Desktop\Repos\Contest-Log-Analyzer\regression_baselines"
+
+# Use -C flag for git commands to specify directory (avoids cd issues)
+git -C regression_baselines init
+git -C regression_baselines status
+```
+
+**Common Issues:**
+- If already in `regression_baselines`, `cd regression_baselines` will fail (looking for `regression_baselines/regression_baselines`)
+- Use `git -C <directory>` to avoid directory change issues
+- Check current directory with `Get-Location` or `pwd` before changing directories
+
+#### Path Handling
+
+**PowerShell Syntax (CORRECT):**
+```powershell
+# Use backslashes for Windows paths (PowerShell accepts both, but backslashes are standard)
+$path = "regression_baselines\Logs"
+
+# Use quotes for paths with spaces
+$path = "C:\Users\mbdev\OneDrive\Desktop\Repos\Contest-Log-Analyzer\regression_baselines"
+
+# Use Join-Path for path construction
+$logPath = Join-Path $scriptDir "Logs"
+```
+
+#### Variable Expansion
+
+**PowerShell Syntax (CORRECT):**
+```powershell
+# Use $variable for variables
+$TEST_DATA_DIR = "regression_baselines\Logs"
+echo $TEST_DATA_DIR
+
+# Use $env:VARIABLE for environment variables
+echo $env:TEST_DATA_DIR
+```
+
+**CMD Syntax (INCORRECT - DO NOT USE):**
+```cmd
+# WRONG: %VARIABLE% is CMD syntax
+set TEST_DATA_DIR=regression_baselines\Logs
+echo %TEST_DATA_DIR%
+```
+
+#### Command Execution and Error Checking
+
+**CRITICAL: AI agents MUST check command outputs and handle errors before proceeding.**
+
+**⚠️ MANDATORY WORKFLOW FOR ALL COMMANDS - NO EXCEPTIONS:**
+
+**BEFORE execution (MANDATORY):**
+1. **Check relevant project rules FIRST:** Review AI Agent Rules for command-specific requirements
+   - Python commands: Check "Python Script Execution Rules" section → Use `C:\Users\mbdev\miniforge3\python.exe`
+   - PowerShell commands: Check "PowerShell Command Syntax Rules" section → Use PowerShell syntax, not CMD
+   - Git commands: Check git workflow rules
+2. **Use correct syntax/paths:** Apply rules from project documentation - do NOT assume defaults will work
+3. **Verify prerequisites:** Ensure required files/directories exist before executing
+
+**AFTER execution (MANDATORY):**
+1. **Check exit code IMMEDIATELY:** 
+   - Non-zero exit code = FAILURE → STOP, read error, fix, retry
+   - Zero exit code = SUCCESS → Verify output is as expected
+2. **Read error messages COMPLETELY:** Error messages contain critical information - read the entire error, not just the first line
+3. **Verify command results:** Check that commands produced expected output (not empty, not unexpected format)
+4. **Address failures IMMEDIATELY:** 
+   - Do NOT proceed with subsequent commands if a command fails
+   - Do NOT ignore errors and continue
+   - Do NOT assume "it will work next time"
+5. **Check working directory:** Verify current directory when path-related errors occur
+6. **Do NOT ignore errors:** Empty output or unexpected results require investigation before proceeding
+
+**Rule:** After executing any terminal command, AI agents MUST:
+1. **Check exit codes:** Non-zero exit codes indicate failure
+2. **Read error messages:** Error messages contain critical information about what went wrong
+3. **Verify command results:** Check that commands produced expected output
+4. **Address failures immediately:** Do not proceed with subsequent commands if a command fails
+5. **Check working directory:** Verify current directory when path-related errors occur
+
+**Error Checking Workflow:**
+```powershell
+# Example: Check if file exists
+$result = Test-Path "test_code\regression_test_utils.py"
+if (-not $result) {
+    # File doesn't exist - investigate why
+    Write-Host "ERROR: File not found. Checking current directory..."
+    Get-Location
+    # Fix the issue before proceeding
+}
+```
+
+**Common Error Patterns to Watch For:**
+- **Path not found errors:** `Cannot find path '...' because it does not exist`
+  - **Action:** Check current working directory with `Get-Location` or `pwd`
+  - **Action:** Use absolute paths or verify relative paths are correct
+  - **Action:** Verify the file/directory actually exists before using it
+
+- **Exit code non-zero:** Commands return exit code > 0
+  - **Action:** Read the error message in the command output
+  - **Action:** Do not proceed with dependent operations
+  - **Action:** Fix the underlying issue before continuing
+
+- **Empty output when expecting results:** Commands return no output
+  - **Action:** Verify the command syntax is correct
+  - **Action:** Check if the operation actually succeeded
+  - **Action:** Use verbose flags or additional checks to verify success
+
+**Example Error Handling:**
+```powershell
+# BAD: Ignoring errors
+Test-Path "test_code\regression_test_utils.py"
+Get-ChildItem "test_code"  # This might fail if path is wrong
+
+# GOOD: Checking and handling errors
+$fileExists = Test-Path "test_code\regression_test_utils.py"
+if (-not $fileExists) {
+    Write-Host "ERROR: File not found at test_code\regression_test_utils.py"
+    Write-Host "Current directory: $(Get-Location)"
+    Write-Host "Checking if test_code directory exists..."
+    if (Test-Path "test_code") {
+        Get-ChildItem "test_code" | Select-Object Name
+    } else {
+        Write-Host "ERROR: test_code directory not found. Wrong working directory?"
+    }
+    # DO NOT PROCEED until issue is resolved
+}
+```
+
+**Working Directory Verification:**
+```powershell
+# Always verify working directory when path errors occur
+$currentDir = Get-Location
+Write-Host "Current directory: $currentDir"
+
+# If wrong directory, change to correct one
+if ($currentDir -notlike "*Contest-Log-Analyzer*") {
+    Set-Location "C:\Users\mbdev\OneDrive\Desktop\Repos\Contest-Log-Analyzer"
+}
+```
+
+**Agent Behavior Requirements:**
+
+When executing terminal commands in this environment:
+1. **Always** use PowerShell syntax (`;` for chaining, `&` for batch files, `$variable` for variables)
+2. **Never** use CMD syntax (`&&` for chaining, `call` for batch files, `%variable%` for variables)
+3. **Prefer** `git -C <directory>` over `cd <directory>` to avoid path issues
+4. **Check** current directory with `Get-Location` or `pwd` before changing directories
+5. **Use** absolute paths or `Set-Location` with proper path handling when directory changes are needed
+6. **Use** `&` operator or direct execution for batch files, never `call`
+7. **MUST check exit codes** and error messages after every command
+8. **MUST read error output** completely before proceeding
+9. **MUST verify working directory** when path-related errors occur
+10. **MUST fix errors** before executing dependent commands
+11. **MUST NOT ignore** empty output or unexpected results
+
+#### Quick Reference
+
+| Operation | PowerShell (CORRECT) | CMD (INCORRECT) |
+|-----------|---------------------|-----------------|
+| Chain commands | `cmd1; cmd2; cmd3` | `cmd1 && cmd2 && cmd3` |
+| Execute batch file | `& "path\file.bat"` or `path\file.bat` | `call path\file.bat` |
+| Set variable | `$var = "value"` | `set var=value` |
+| Use variable | `$var` or `$env:VAR` | `%var%` or `%VAR%` |
+| Change directory | `Set-Location path` or `cd path` | `cd path` |
+| Git in directory | `git -C path command` | `cd path && git command` |
+
+#### Rationale
+
+- **Environment Consistency:** This environment uses PowerShell, so all commands must use PowerShell syntax
+- **Error Prevention:** Using CMD syntax causes command failures and requires manual correction
+- **User Experience:** Correct syntax ensures commands execute successfully without user intervention
+- **Maintainability:** Consistent PowerShell syntax makes scripts and commands easier to understand and maintain
 
 ---
 

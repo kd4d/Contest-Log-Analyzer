@@ -212,7 +212,7 @@ class ContestLog:
         else:
             raw_df, metadata = parse_cabrillo_file(cabrillo_filepath, self.contest_definition)
         
-        # Preserve the contest_name from the constructor (e.g., from --wrtc flag)
+        # Preserve the contest_name from the constructor (e.g., from contest override in web interface)
         # by removing the one parsed from the file header before updating metadata.
         metadata.pop('ContestName', None)
         

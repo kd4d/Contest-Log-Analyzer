@@ -117,7 +117,7 @@ class Report(ContestReport):
         # Auto-detect: Mode-divided JSON (contest name ends with mode suffix)
         contest_name = contest_def.contest_name
         if contest_name.endswith(('-CW', '-SSB', '-RTTY', '-PH')):
-            # Mode-divided JSON → single mode per instance → band dimension
+            # Mode-divided JSON -> single mode per instance -> band dimension
             return "band"
         
         # Default: band dimension (mode-divided contests)

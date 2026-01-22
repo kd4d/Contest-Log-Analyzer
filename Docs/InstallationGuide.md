@@ -99,10 +99,6 @@ Before you begin, ensure you have the following software installed on your syste
 ### For Web Dashboard (Preferred)
 * **Docker Desktop**: The application runs inside a container, requiring no local Python or library installation.
 
-### For CLI / Development (Advanced)
-* **Git:** For cloning the source code repository.
-* **Miniforge:** This is the recommended way to install Python and manage the project's libraries in an isolated environment.
-Miniforge is a minimal installer for the Conda package manager.
 ---
 ## 2. Installation Steps
 
@@ -531,8 +527,9 @@ However, `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS` serve different purposes:
 
 ---
 
-### Method B: Advanced / Developer Setup (CLI)
-Use this method if you are developing the code or prefer the command line.
+### Method B: Developer Setup (For Code Development)
+
+Use this method if you are developing the code and need direct access to the Python environment.
 
 #### Step 1: Clone the Repository
 Open a terminal or command prompt, navigate to the directory where you want to store the project, and clone the remote Git repository.
@@ -582,15 +579,9 @@ Create the Output Directory:** This folder is where the analyzer will save all g
 **This directory must be on a local, non-synced path.** A recommended location is in your user profile directory.
 Example: `%USERPROFILE%\HamRadio\CLA` (which translates to `C:\Users\YourUser\HamRadio\CLA`)
 
-#### Step 5: Set the Environment Variables
-You must set two system environment variables that point to the directories you created in the previous step.
-* **`CONTEST_INPUT_DIR`**: Points to your main input directory (e.g., `C:\Users\YourUser\OneDrive\Desktop\CLA_Inputs`).
-* **`CONTEST_REPORTS_DIR`**: Points to your main output directory (e.g., `C:\Users\YourUser\HamRadio\CLA`).
-**For Windows:**
-1.  Open the Start Menu and search for "Edit the system environment variables."
-2.  In the System Properties window, click the "Environment Variables..." button.
-3.  In the "User variables" section, click "New..." and create both variables.
-4.  Click OK to close all windows. You must **restart** your terminal or command prompt for the changes to take effect.
+#### Step 5: Configure Django Settings
+
+For local development, the web application uses Django settings. The default settings in `web_app/config/settings.py` should work for most development scenarios. For production deployment, see the Docker installation method above.
 #### Step 6: Obtain and Place Data Files
 The analyzer relies on several external data files.
 Download the following files and place them inside the **`data/`** subdirectory within your **Input Directory** (`CONTEST_INPUT_DIR`).
@@ -604,16 +595,34 @@ Download the following files and place them inside the **`data/`** subdirectory 
 * `iaru_officials.dat`: Required for the IARU HF World Championship contest.
 ---
 ## 4. Running the Analyzer
-To verify the installation, run the program from the project's source code directory.
-Ensure your `cla` conda environment is active.
 
-__CODE_BLOCK__
-# Make sure your conda environment is active
-conda activate cla
+### For Docker Installation (Recommended)
 
-# Run the script from the main project directory, providing a relative path
-# to a log file inside your CONTEST_INPUT_DIR
-(cla) C:\..._Analyzer>python main_cli.py --report score_report 2025/NAQP-CW/aug/k3aj.log
-__CODE_BLOCK__
+1. **Start the application:**
+   ```bash
+   docker-compose up --build
+   ```
 
-If the installation is successful, you will see an output message indicating that the report was saved, and you will find a new `.txt` file in a `reports` subdirectory inside your `CONTEST_REPORTS_DIR`.
+2. **Access the web interface:**
+   - Development: `http://localhost:8000`
+   - Production: `https://cla.kd4d.org`
+
+### For Developer Setup
+
+1. **Activate your conda environment:**
+   ```bash
+   conda activate cla
+   ```
+
+2. **Run Django migrations (if needed):**
+   ```bash
+   python web_app/manage.py migrate
+   ```
+
+3. **Start the development server:**
+   ```bash
+   python web_app/manage.py runserver
+   ```
+
+4. **Access the web interface:**
+   - Open your browser to `http://localhost:8000`
