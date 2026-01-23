@@ -4,6 +4,41 @@ This document provides specific rules for AI agents (like Cursor/Console AI) whe
 
 ---
 
+## Discussion Mode Rules
+
+### CRITICAL: "Discuss" or "Discuss Only" Means No File Updates
+
+**When user says "Discuss" or "Discuss only":**
+- **DO NOT** update any files (code, markdown, configuration, etc.)
+- **DO NOT** create new files
+- **DO NOT** modify existing files
+- **Exception**: Discussion markdown files in `DevNotes/Discussions/` may be updated if explicitly part of the discussion
+
+**What "Discuss" Means:**
+- Provide analysis, recommendations, and discussion
+- Explain concepts, approaches, and trade-offs
+- Answer questions and clarify understanding
+- Propose solutions and alternatives
+- **DO NOT** implement changes
+
+**When to Update Files:**
+- Only after explicit user instruction to proceed with implementation
+- User will request file updates as a separate step
+- Implementation happens after discussion and agreement
+
+**Agent Behavior:**
+1. **During Discussion**: Provide analysis, recommendations, and discussion only
+2. **After Discussion**: Wait for explicit user instruction to proceed with implementation
+3. **File Updates**: Only update files when explicitly requested, not during discussion phase
+
+**Rationale:**
+- Discussion phase is for understanding and agreement
+- Implementation phase is separate and explicit
+- Prevents premature changes before full understanding
+- Allows user to review and approve approach before changes
+
+---
+
 ## Project Architecture Overview
 
 **CRITICAL: This project is web-first. CLI interface has been deprecated and removed.**
@@ -1062,9 +1097,34 @@ git status  # Should show the uncommitted changes again
 
 ---
 
-## Technical Debt Tracking
+## Work Tracking System
 
-### TECHNICAL_DEBT.md Pattern
+### Three-Track System
+
+**AI agents MUST understand the three-track work tracking system:**
+
+1. **Technical Debt** (`TECHNICAL_DEBT.md`): Issues with existing code that need fixing
+2. **Future Work** (`DevNotes/FUTURE_WORK.md`): Committed work we will do (decided to proceed)
+3. **Potential Enhancements** (`DevNotes/POTENTIAL_ENHANCEMENTS.md`): Ideas we might do (not committed)
+
+**CRITICAL: Category Identification Requirement**
+
+**AI agents MUST identify which category an item belongs to when:**
+- User proposes a new feature or enhancement
+- User identifies an issue or problem
+- User discusses potential improvements
+- AI agent identifies something that needs tracking
+
+**If category is unclear, AI agent MUST ask the user to clarify:**
+- "Is this a bug/issue with existing code? (Technical Debt)"
+- "Is this a committed enhancement we will do? (Future Work)"
+- "Is this an idea we might do? (Potential Enhancements)"
+
+**AI agents MUST NOT add items to tracking documents without identifying the correct category.**
+
+---
+
+### Technical Debt Tracking
 
 **AI agents MUST check `TECHNICAL_DEBT.md` at the start of each session.**
 
@@ -1078,6 +1138,13 @@ git status  # Should show the uncommitted changes again
 
 **Purpose:** Track technical debt items, architectural improvements, and known issues that need attention.
 
+**What Belongs Here:**
+- Bugs in existing code
+- Architectural problems
+- Inconsistencies in current implementation
+- Performance issues with existing features
+- Code quality problems
+
 **Categories:**
 - Architecture & Design Debt
 - Validation & Testing Debt
@@ -1085,12 +1152,78 @@ git status  # Should show the uncommitted changes again
 - Documentation Debt
 - Performance Debt
 - Known Issues
-- Future Enhancements
 
 **Agent Behavior:**
 1. **Session Start:** Read `TECHNICAL_DEBT.md` (non-blocking but recommended)
 2. **During Work:** Check off items as completed, add new items as discovered
 3. **Priority:** Address HIGH priority items when relevant to current task
+4. **Category Identification:** When adding items, ensure they are bugs/issues with existing code, not new features
+
+---
+
+### Future Work Tracking
+
+**AI agents SHOULD check `DevNotes/FUTURE_WORK.md` when planning work.**
+
+**When FUTURE_WORK.md Exists:**
+- AI agent **should** review future work items when planning implementations
+- AI agent **should** update status as work progresses
+- AI agent **should** link to implementation plans when created
+
+**File Location:** `DevNotes/FUTURE_WORK.md`
+
+**Purpose:** Track committed work that we have decided to proceed with.
+
+**What Belongs Here:**
+- Committed enhancements we will implement
+- Work that has been decided to proceed with
+- Items moved from Potential Enhancements after decision to proceed
+
+**Status Values:**
+- Planned - Committed to doing, not yet started
+- In Progress - Currently being implemented
+- Completed - Implemented and verified
+- Deferred - Postponed (with reason)
+- Cancelled - Decided not to proceed (with reason)
+
+**Agent Behavior:**
+1. **When Planning:** Review future work items relevant to current task
+2. **When Implementing:** Update status to "In Progress"
+3. **When Completing:** Update status to "Completed" and link to implementation
+4. **Category Identification:** Only add items here if they are committed work (decided to proceed)
+
+---
+
+### Potential Enhancements Tracking
+
+**AI agents SHOULD check `DevNotes/POTENTIAL_ENHANCEMENTS.md` when discussing new features.**
+
+**When POTENTIAL_ENHANCEMENTS.md Exists:**
+- AI agent **should** review potential enhancements when discussing new features
+- AI agent **should** add items when new capabilities are proposed
+- AI agent **should** update status as items are evaluated
+
+**File Location:** `DevNotes/POTENTIAL_ENHANCEMENTS.md`
+
+**Purpose:** Track ideas, proposals, and potential enhancements that are under consideration but not yet committed.
+
+**What Belongs Here:**
+- Ideas and proposals
+- Potential new capabilities
+- Enhancements under consideration
+- Research items
+
+**Status Values:**
+- Proposed - Initial idea, needs discussion
+- Under Discussion - Being evaluated/designed
+- Deferred - Postponed for later consideration (with reason)
+- Rejected - Decided not to implement (with reason)
+
+**Agent Behavior:**
+1. **When Discussing:** Add items here when new ideas are proposed
+2. **When Evaluating:** Update status as items are discussed
+3. **When Deciding:** Move to Future Work if decided to proceed, or mark Deferred/Rejected
+4. **Category Identification:** Add items here if they are ideas/proposals, not committed work
 
 ---
 

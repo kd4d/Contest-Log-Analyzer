@@ -302,3 +302,72 @@ class CategoricalAggregator:
             })
             
         return results
+
+    def compute_band_distribution_breakdown(self, log1: ContestLog, log2: ContestLog, include_dupes: bool = False) -> Dict:
+        """
+        For contest-wide QSO counting (dupe_check_scope: "all_bands"):
+        Computes band distribution of unique QSOs (symmetric difference).
+        
+        This method is used when QSOs count once per contest, not per band.
+        It computes:
+        1. Common QSOs across ALL bands (contest-wide intersection)
+        2. Symmetric difference (unique to each log)
+        3. For each band, shows which unique QSOs were worked on that band
+        4. Breakdown by Run/S&P/Unknown for each log per band
+        
+        Args:
+            log1: First contest log
+            log2: Second contest log
+            include_dupes: Whether to include duplicate QSOs
+        
+        Returns:
+            Dictionary with structure:
+            {
+                'bands': {
+                    '20M': {
+                        'log1': {'run': X, 'sp': Y, 'unk': Z},
+                        'log2': {'run': X, 'sp': Y, 'unk': Z}
+                    },
+                    ...
+                }
+            }
+        """
+        # 1. Get ALL QSOs (no band filter) to compute common set across all bands
+        df1_all = get_valid_dataframe(log1, include_dupes=include_dupes)
+        df2_all = get_valid_dataframe(log2, include_dupes=include_dupes)
+        
+        # 2. Compute common QSOs (intersection across all bands)
+        set1_all = set(df1_all['Call'].unique())
+        set2_all = set(df2_all['Call'].unique())
+        common_calls = set1_all.intersection(set2_all)
+        
+        # 3. Compute symmetric difference (unique to each log)
+        log1_unique_calls = set1_all - common_calls
+        log2_unique_calls = set2_all - common_calls
+        
+        # 4. Get valid bands from contest definition
+        contest_def = log1.contest_definition
+        valid_bands = contest_def.valid_bands
+        
+        # 5. For each band, filter unique QSOs worked on that band
+        result = {'bands': {}}
+        
+        for band in valid_bands:
+            # Filter each log's data to this band
+            df1_band = df1_all[df1_all['Band'] == band].copy()
+            df2_band = df2_all[df2_all['Band'] == band].copy()
+            
+            # Get unique QSOs worked on this band for each log
+            log1_unique_on_band = df1_band[df1_band['Call'].isin(log1_unique_calls)].copy()
+            log2_unique_on_band = df2_band[df2_band['Call'].isin(log2_unique_calls)].copy()
+            
+            # Categorize by Run/S&P/Unknown for each log
+            log1_breakdown = self._get_qso_mode_counts(log1_unique_on_band)
+            log2_breakdown = self._get_qso_mode_counts(log2_unique_on_band)
+            
+            result['bands'][band] = {
+                'log1': log1_breakdown,
+                'log2': log2_breakdown
+            }
+        
+        return result

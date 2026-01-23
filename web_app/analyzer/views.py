@@ -1825,12 +1825,43 @@ def qso_dashboard(request, session_id):
     valid_bands = DEFAULT_BANDS.copy()
     valid_modes = []  # Default: empty list
     
+    # Detect contest-wide QSO counting
+    is_contest_wide_qso = False
+    contest_wide_qso_report = None
+    band_distribution_report = None
+    
     if contest_name:
         try:
             # Load contest definition directly from JSON (no log parsing needed)
             contest_def = ContestDefinition.from_json(contest_name)
             valid_bands = contest_def.valid_bands
             valid_modes = contest_def.valid_modes
+            
+            # Check for contest-wide QSO counting
+            is_contest_wide_qso = getattr(contest_def, 'dupe_check_scope', None) == 'all_bands'
+            
+            # If contest-wide, discover the new reports
+            if is_contest_wide_qso and not is_solo:
+                # Discover contest-wide QSO breakdown report
+                # Search by report_id (both files will have same report_id)
+                contest_wide_qso_report = next(
+                    (f"{report_rel_path}/{a['path']}" 
+                     for a in artifacts 
+                     if a['report_id'] == 'qso_breakdown_chart_contest_wide' 
+                     and 'qso_breakdown_chart_contest_wide' in a['path']
+                     and a['path'].endswith('.html')),
+                    None
+                )
+                
+                # Discover band distribution report (same report_id, different filename)
+                band_distribution_report = next(
+                    (f"{report_rel_path}/{a['path']}" 
+                     for a in artifacts 
+                     if a['report_id'] == 'qso_breakdown_chart_contest_wide' 
+                     and 'qso_band_distribution' in a['path']
+                     and a['path'].endswith('.html')),
+                    None
+                )
         except (FileNotFoundError, ValueError, Exception) as e:
             logger.warning(f"Failed to load contest definition for '{contest_name}': {e}. Using defaults.")
     else:
@@ -2356,7 +2387,10 @@ def qso_dashboard(request, session_id):
         'activity_tab_title': activity_tab_title,  # Chart title for activity tab
         'qso_tab_label': qso_tab_label,  # 'QSOs by Band' or 'QSOs by Mode'
         'points_tab_label': points_tab_label,  # 'Points by Band' or 'Points by Mode'
-        'dimension_label': dimension_label  # 'Band' or 'Mode' for dropdown labels
+        'dimension_label': dimension_label,  # 'Band' or 'Mode' for dropdown labels
+        'is_contest_wide_qso': is_contest_wide_qso,  # True if dupe_check_scope == "all_bands"
+        'contest_wide_qso_report': contest_wide_qso_report,  # Path to contest-wide QSO breakdown report
+        'band_distribution_report': band_distribution_report  # Path to band distribution report
     }
     
     return render(request, 'analyzer/qso_dashboard.html', context)

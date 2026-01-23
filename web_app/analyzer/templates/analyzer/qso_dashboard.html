@@ -76,6 +76,20 @@
     </div>
 
     <ul class="nav nav-tabs mb-3" id="qsoTabs" role="tablist">
+        {% if is_contest_wide_qso and not is_solo %}
+        {# Contest-wide QSO counting: Show Contest Total and Band Distribution tabs #}
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="contest-total-tab" data-bs-toggle="tab" data-bs-target="#contest-total" type="button" role="tab">
+                <i class="bi bi-pie-chart me-2"></i>Contest Total
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="band-distribution-tab" data-bs-toggle="tab" data-bs-target="#band-distribution" type="button" role="tab">
+                <i class="bi bi-bar-chart me-2"></i>Band Distribution
+            </button>
+        </li>
+        {% else %}
+        {# Standard per-band QSO counting: Show existing tabs #}
         {% if not is_solo %}
         <li class="nav-item" role="presentation">
             <button class="nav-link active" id="strategy-tab" data-bs-toggle="tab" data-bs-target="#strategy" type="button" role="tab">
@@ -105,9 +119,62 @@
             </button>
         </li>
         {% endif %}
+        {% endif %}
     </ul>
 
     <div class="tab-content" id="qsoTabsContent">
+        {% if is_contest_wide_qso and not is_solo %}
+        {# Contest-wide QSO counting: Contest Total tab #}
+        <div class="tab-pane fade show active" id="contest-total" role="tabpanel">
+            {% if contest_wide_qso_report %}
+            <div class="row">
+                <div class="col-12 mb-4">
+                    <div class="card shadow-sm">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span>QSO Breakdown - Contest Total</span>
+                            <a href="{% url 'view_report' session_id contest_wide_qso_report %}?source=qso" target="_blank" class="btn btn-xs btn-link text-muted">
+                                <i class="bi bi-box-arrow-up-right"></i>
+                            </a>
+                        </div>
+                        <div class="card-body p-0">
+                            <iframe src="{% url 'view_report' session_id contest_wide_qso_report %}?chromeless=1" class="viewport-frame"></iframe>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>Contest-wide QSO breakdown report not available.
+            </div>
+            {% endif %}
+        </div>
+
+        {# Contest-wide QSO counting: Band Distribution tab #}
+        <div class="tab-pane fade" id="band-distribution" role="tabpanel">
+            {% if band_distribution_report %}
+            <div class="row">
+                <div class="col-12 mb-4">
+                    <div class="card shadow-sm">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span>QSO Band Distribution</span>
+                            <a href="{% url 'view_report' session_id band_distribution_report %}?source=qso" target="_blank" class="btn btn-xs btn-link text-muted">
+                                <i class="bi bi-box-arrow-up-right"></i>
+                            </a>
+                        </div>
+                        <div class="card-body p-0">
+                            <iframe src="{% url 'view_report' session_id band_distribution_report %}?chromeless=1" class="viewport-frame"></iframe>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>Band distribution report not available.
+            </div>
+            {% endif %}
+        </div>
+        {% else %}
+        {# Standard per-band QSO counting: Existing tabs #}
         {% if not is_solo %}
         <div class="tab-pane fade show active" id="strategy" role="tabpanel">
             <div class="input-group mb-3 w-auto">
@@ -251,7 +318,7 @@
             </div>
         </div>
 
-        {% if not is_solo %}
+        {% if not is_solo and not is_contest_wide_qso %}
         <div class="tab-pane fade" id="band-activity" role="tabpanel">
             <div class="input-group mb-3 w-auto">
                 <label class="input-group-text" for="bandActivitySelect"><i class="bi bi-people me-2"></i>Select Matchup:</label>
@@ -283,6 +350,7 @@
                 </div>
             </div>
         </div>
+        {% endif %}
         {% endif %}
 
     </div>
