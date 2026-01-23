@@ -25,6 +25,7 @@ regression_baselines/
 # Exceptions: Important git workflow files that should always be tracked
 # Note: These exceptions ensure files are visible even if parent patterns change
 !.pre-commit-config.yaml
+!.dockerignore
 !contest_tools/version.py
 !Docs/AI_AGENT_RULES.md
 !Docs/GitWorkflowSetup.md
