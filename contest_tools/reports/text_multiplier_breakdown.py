@@ -172,6 +172,12 @@ class Report(ContestReport):
  
             lines.append("")
 
+        # Add note about Run/S&P/Unknown classification
+        lines.append("")
+        lines.append("Note: Run/S&P/Unknown classification is based on the first time")
+        lines.append("      the multiplier is worked in each log.")
+        lines.append("")
+
         standard_footer = get_standard_footer(self.logs)
         content = "\n".join(lines) + "\n\n" + standard_footer + "\n"
         

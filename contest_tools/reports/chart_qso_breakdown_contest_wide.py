@@ -217,11 +217,18 @@ class Report(ContestReport):
         
         # Apply styling
         title_lines = prepare_qso_chart_title(
-            "QSO Band Distribution",
+            "Unique QSO Band Distribution",
             self.logs,
             "Band Distribution of Worked Stations"
         )
-        footer_text = get_standard_footer(self.logs)
+        # Add explanation to footer
+        standard_footer = get_standard_footer(self.logs)
+        explanation = (
+            "This chart shows the distribution of unique QSOs (stations worked by one log but not both) "
+            "across bands. Each band shows only the unique QSOs worked on that band, categorized by "
+            "Run/S&P/Unknown based on the first time the station was worked."
+        )
+        footer_text = f"{standard_footer}\n\n{explanation}"
         apply_qso_chart_styling(fig, title_lines, footer_text, barmode='stack')
         
         # Save files
