@@ -132,6 +132,13 @@ The `contest_tools.data_aggregators` package provides pure Python primitive outp
 ### Stateless Web Architecture
 The Django web dashboard is stateless and containerized, using the file system for session persistence.
 
+### Dashboard Chart Embedding
+The dashboard uses two embedding strategies:
+- **Direct Plotly Embedding:** Interactive charts with `autosize=True` are loaded from JSON and rendered directly in divs, enabling true responsive behavior and proper title/legend positioning.
+- **Iframe Embedding:** Legacy approach for static HTML reports and text-based content with fixed dimensions.
+
+See the [Programmer's Guide](Docs/ProgrammersGuide.md) for detailed architecture documentation.
+
 ---
 
 ## Project Structure

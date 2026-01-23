@@ -47,7 +47,7 @@
         }
         /* Subplot charts need more vertical space for multi-line titles */
         .viewport-frame-subplot {
-            height: 1300px; /* Increased height for subplot charts with 3-line titles */
+            height: 1500px; /* Increased height for subplot charts with 3-line titles and legend */
         }
     </style>
 
@@ -155,7 +155,7 @@
 
         {# Contest-wide QSO counting: Band Distribution tab #}
         <div class="tab-pane fade" id="band-distribution" role="tabpanel">
-            {% if band_distribution_report %}
+            {% if band_distribution_json %}
             <div class="row">
                 <div class="col-12 mb-4">
                     <div class="card shadow-sm">
@@ -166,7 +166,8 @@
                             </a>
                         </div>
                         <div class="card-body p-0">
-                            <iframe src="{% url 'view_report' session_id band_distribution_report %}?chromeless=1" class="viewport-frame viewport-frame-subplot"></iframe>
+                            {# Direct Plotly embedding for autosize charts - avoids iframe constraints #}
+                            <div id="chart-band-distribution" style="width: 100%; min-height: 1200px;"></div>
                         </div>
                     </div>
                 </div>
@@ -620,6 +621,33 @@
         setupDropdown('ratesSelect', 'frame-rates', 'link-rates');
         // Remains Iframe
         setupDropdown('pointsSelect', 'chart-points', 'link-points');
+
+        // --- Band Distribution Chart: Direct Plotly Embedding (for autosize charts) ---
+        {% if band_distribution_json %}
+        (function() {
+            const containerId = 'chart-band-distribution';
+            const container = document.getElementById(containerId);
+            const jsonUrl = '{{ band_distribution_json }}';
+            
+            if (container && jsonUrl) {
+                // Load and render chart when tab becomes visible
+                const bandDistTab = document.getElementById('band-distribution-tab');
+                if (bandDistTab) {
+                    bandDistTab.addEventListener('shown.bs.tab', function() {
+                        if (!container.dataset.loaded) {
+                            container.dataset.loaded = 'true';
+                            renderChart(containerId, jsonUrl);
+                        }
+                    });
+                    // Also load if tab is already active
+                    if (bandDistTab.classList.contains('active')) {
+                        container.dataset.loaded = 'true';
+                        renderChart(containerId, jsonUrl);
+                    }
+                }
+            }
+        })();
+        {% endif %}
 
         // --- Band Activity: Explicit "Lazy Click-to-Load" Architecture ---
         // This replaces generic setupDropdown to prevent race conditions with Plotly layout.

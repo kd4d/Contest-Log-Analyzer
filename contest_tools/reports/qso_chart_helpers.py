@@ -59,19 +59,28 @@ def apply_qso_chart_styling(fig: go.Figure, title_lines: List[str], footer_text:
         barmode: Bar mode ('stack' or 'group')
         show_legend: Whether to show legend
     """
+    # Detect if this is a subplot chart (has _grid_ref attribute)
+    is_subplot = hasattr(fig, '_grid_ref') and fig._grid_ref is not None
+    
     # Apply standard layout
-    layout_config = PlotlyStyleManager.get_standard_layout(title_lines, footer_text)
+    layout_config = PlotlyStyleManager.get_standard_layout(title_lines, footer_text, is_subplot=is_subplot)
     fig.update_layout(layout_config)
     
     # QSO-specific adjustments
+    # Adjust legend position for subplot charts to account for larger title area
+    # Higher y values move legend further up (away from plot area)
+    # For regular charts (like contest-wide breakdown), use lower position to avoid title overlap
+    # For subplot charts (like band distribution), use higher position for better spacing
+    legend_y = 1.05 if is_subplot else 1.025
+    
     fig.update_layout(
         barmode=barmode,
         showlegend=show_legend,
-        # Legend Belt: Horizontal, Centered, Just above grid (y=1.02)
+        # Legend Belt: Horizontal, Centered, Positioned below title area
         legend=dict(
             orientation="h",
             x=0.5,
-            y=1.02,
+            y=legend_y,
             xanchor="center",
             yanchor="bottom",
             bgcolor="rgba(255,255,255,0.8)",

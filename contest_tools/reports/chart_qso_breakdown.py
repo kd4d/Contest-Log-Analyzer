@@ -216,16 +216,19 @@ class Report(ContestReport):
 
         footer_text = get_standard_footer(self.logs)
         
+        # Detect if this is a subplot chart (has _grid_ref attribute)
+        is_subplot = hasattr(fig, '_grid_ref') and fig._grid_ref is not None
+        
         # Use Annotation Stack (List) for precise title spacing control
-        layout_config = PlotlyStyleManager.get_standard_layout(title_lines, footer_text)
+        layout_config = PlotlyStyleManager.get_standard_layout(title_lines, footer_text, is_subplot=is_subplot)
         fig.update_layout(layout_config)
         
         # Specific Adjustments
         fig.update_layout(
             barmode='stack',
             showlegend=True,
-            # Legend Belt: Horizontal, Centered, Just above grid (y=1.02)
-            legend=dict(orientation="h", x=0.5, y=1.02, xanchor="center", yanchor="bottom", bgcolor="rgba(255,255,255,0.8)", bordercolor="Black", borderwidth=1)
+            # Legend Belt: Horizontal, Centered, Positioned above plot area (y=1.05 for better spacing)
+            legend=dict(orientation="h", x=0.5, y=1.05, xanchor="center", yanchor="bottom", bgcolor="rgba(255,255,255,0.8)", bordercolor="Black", borderwidth=1)
         )
 
         create_output_directory(output_path)

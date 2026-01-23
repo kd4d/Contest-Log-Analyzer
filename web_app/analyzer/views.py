@@ -1857,6 +1857,7 @@ def qso_dashboard(request, session_id):
     is_contest_wide_qso = False
     contest_wide_qso_report = None
     band_distribution_report = None
+    band_distribution_json = None
     
     if contest_name:
         try:
@@ -1881,8 +1882,8 @@ def qso_dashboard(request, session_id):
                     None
                 )
                 
-                # Discover band distribution report (same report_id, different filename)
-                band_distribution_report = next(
+                # Discover band distribution report (HTML and JSON for direct embedding)
+                band_distribution_html = next(
                     (f"{report_rel_path}/{a['path']}" 
                      for a in artifacts 
                      if a['report_id'] == 'qso_breakdown_chart_contest_wide' 
@@ -1890,6 +1891,15 @@ def qso_dashboard(request, session_id):
                      and a['path'].endswith('.html')),
                     None
                 )
+                band_distribution_json = next(
+                    (f"{settings.MEDIA_URL}sessions/{session_id}/{report_rel_path}/{a['path']}" 
+                     for a in artifacts 
+                     if a['report_id'] == 'qso_breakdown_chart_contest_wide' 
+                     and 'qso_band_distribution' in a['path']
+                     and a['path'].endswith('.json')),
+                    None
+                )
+                band_distribution_report = band_distribution_html  # Keep HTML for full-screen link
         except (FileNotFoundError, ValueError, Exception) as e:
             logger.warning(f"Failed to load contest definition for '{contest_name}': {e}. Using defaults.")
     else:
@@ -2418,7 +2428,8 @@ def qso_dashboard(request, session_id):
         'dimension_label': dimension_label,  # 'Band' or 'Mode' for dropdown labels
         'is_contest_wide_qso': is_contest_wide_qso,  # True if dupe_check_scope == "all_bands"
         'contest_wide_qso_report': contest_wide_qso_report,  # Path to contest-wide QSO breakdown report
-        'band_distribution_report': band_distribution_report  # Path to band distribution report
+        'band_distribution_report': band_distribution_report,  # Path to band distribution HTML report (for full-screen link)
+        'band_distribution_json': band_distribution_json  # URL to band distribution JSON (for direct embedding)
     }
     
     return render(request, 'analyzer/qso_dashboard.html', context)

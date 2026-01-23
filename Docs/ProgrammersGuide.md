@@ -99,6 +99,58 @@ To ensure responsiveness, the application employs a **"Write Once, Read Many" (W
 2.  **Hydration Phase:** When a user loads a dashboard view, the view hydrates its context directly from these pre-computed JSON artifacts via the `ManifestManager`.
 3.  **Result:** No re-parsing of Cabrillo logs occurs on page load.
 
+### Dashboard Chart Embedding Architecture
+
+The dashboard uses two distinct approaches for displaying charts, each optimized for different use cases:
+
+#### Iframe Embedding (Legacy - Text Reports)
+**Use Case:** Static HTML reports, text-based reports, or charts with fixed dimensions.
+
+**Implementation:**
+- Charts are saved as standalone HTML files
+- Embedded via nested iframes: `qso_dashboard.html` → `report_viewer.html` → HTML file
+- Fixed-height iframes provide consistent viewport sizing
+- Works well for reports that don't require dynamic resizing
+
+**Limitations:**
+- Fixed-height iframes constrain content and prevent true `autosize=True` behavior
+- Title annotations with fixed pixel offsets (`yshift`) don't scale proportionally in constrained iframes
+- Double iframe nesting adds complexity and can cause layout issues
+
+#### Direct Plotly Embedding (Modern - Interactive Charts)
+**Use Case:** Interactive Plotly charts with `autosize=True`, subplot charts, or charts requiring responsive behavior.
+
+**Implementation:**
+- Charts are saved as both HTML (for full-screen viewing) and JSON (for embedding)
+- JSON files are loaded via JavaScript and rendered directly into `<div>` elements using `Plotly.newPlot()`
+- Charts can truly autosize to fill their container
+- ResizeObserver handles dynamic resizing
+
+**Benefits:**
+- True responsive behavior - charts adapt to container size
+- No iframe constraints - title positioning works correctly
+- Better performance - direct DOM manipulation
+- Proper legend positioning - no overlap with titles
+
+**When to Use Each Approach:**
+- **Use Direct Embedding:** For all new Plotly charts, especially subplot charts or charts with multi-line titles
+- **Use Iframe Embedding:** For text reports, static HTML, or legacy charts that haven't been migrated yet
+
+**Example - Direct Embedding Pattern:**
+```javascript
+// Load JSON and render directly in div
+fetch(jsonUrl)
+    .then(response => response.json())
+    .then(data => {
+        Plotly.newPlot('chart-container', data.data, data.layout, {
+            responsive: true,
+            displayModeBar: false
+        });
+    });
+```
+
+**Migration Note:** The "Unique QSO Band Distribution" chart was migrated from iframe to direct embedding to resolve title overlap and legend positioning issues in the dashboard. This pattern should be used for all future Plotly chart implementations.
+
 ---
 
 ## 4. Shared Utilities & Styles
