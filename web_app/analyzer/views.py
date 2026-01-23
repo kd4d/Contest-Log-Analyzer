@@ -672,14 +672,12 @@ def analyze_logs(request):
         except Exception as e:
             logger.exception("Exception in _update_progress")
 
-        # Debug: Print what's in request.FILES and request.POST (for test debugging)
-        # Use print for immediate visibility, logger for production
+        # Debug: Log request details for troubleshooting (debug level to reduce verbosity)
         files_keys = list(request.FILES.keys()) if hasattr(request, 'FILES') else []
         post_keys = list(request.POST.keys()) if hasattr(request, 'POST') else []
         content_type = request.META.get('CONTENT_TYPE', 'N/A')
         http_content_type = request.META.get('HTTP_CONTENT_TYPE', 'N/A')
-        print(f"DEBUG analyze_logs: method={request.method}, CONTENT_TYPE={content_type}, HTTP_CONTENT_TYPE={http_content_type}, FILES keys={files_keys}, POST keys={post_keys}, 'log1' in FILES={'log1' in request.FILES}")
-        logger.info(f"analyze_logs: request.method={request.method}, CONTENT_TYPE={content_type}, request.FILES keys={files_keys}, request.POST keys={post_keys}")
+        logger.debug(f"analyze_logs: request.method={request.method}, CONTENT_TYPE={content_type}, request.FILES keys={files_keys}, request.POST keys={post_keys}")
         
         # Additional debugging for test client issues
         if request.method == 'POST' and not files_keys:
@@ -1052,14 +1050,16 @@ def dashboard_view(request, session_id):
 
     # Contest-Specific Routing
     contest_name = context.get('contest_name', '').upper()  # Already uppercased, but explicit for clarity
-    # Enable same dashboard structure for CQ-WW, CQ-160, ARRL-10, ARRL-DX, IARU-HF, and all WRTC contests
+    # Enable same dashboard structure for CQ-WW, CQ-160, ARRL-10, ARRL-DX, ARRL-SS, IARU-HF, and all WRTC contests
     # CQ-160 is single-band, multi-mode (like ARRL-10), so it uses the same dashboard architecture
     # ARRL-DX is multi-band, single-mode (like CQ-WW), so it uses the same dashboard architecture
+    # ARRL-SS is multi-band, single-mode with contest-wide QSO counting, so it uses the same dashboard architecture
     # IARU-HF and WRTC contests are multi-band, multi-mode, so they use the same dashboard architecture
     if not (contest_name.startswith('CQ-WW') or 
             contest_name.startswith('CQ-160') or 
             contest_name.startswith('ARRL-10') or
             contest_name.startswith('ARRL-DX') or
+            contest_name.startswith('ARRL-SS') or
             contest_name.startswith('IARU-HF') or
             contest_name.startswith('WRTC')):
         return render(request, 'analyzer/dashboard_construction.html', context)
@@ -1765,6 +1765,31 @@ def multiplier_dashboard(request, session_id):
     # Convert dict to sorted list for template
     sorted_mults = sorted(multipliers.values(), key=lambda x: x['label'])
 
+    # Sweepstakes-specific logic: Get total multiplier count from .dat file
+    is_sweepstakes = (contest_name == "ARRL-SS")
+    fixed_multiplier_max = None
+    all_logs_same_mult_count = False
+    
+    if is_sweepstakes and breakdown_data and 'totals' in breakdown_data:
+        # Find the TOTAL row to get multiplier counts
+        total_row = next((row for row in breakdown_data['totals'] if row.get('label') == 'TOTAL'), None)
+        if total_row and total_row.get('stations'):
+            # Get multiplier counts for each log
+            mult_counts = [stat.get('count', 0) for stat in total_row['stations']]
+            if mult_counts:
+                all_logs_same_mult_count = len(set(mult_counts)) == 1
+                
+                # Load total multiplier count from .dat file
+                try:
+                    root_input = os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
+                    data_dir = os.path.join(root_input, 'data')
+                    from contest_tools.contest_specific_annotations.arrl_ss_multiplier_resolver import SectionAliasLookup
+                    alias_lookup = SectionAliasLookup(data_dir)
+                    fixed_multiplier_max = alias_lookup.get_total_multiplier_count()
+                except Exception as e:
+                    logger.warning(f"Failed to load Sweepstakes multiplier count: {e}")
+                    fixed_multiplier_max = None
+
     context = {
         'session_id': session_id,
         'scoreboard': persisted_logs, # Use persisted logs for accurate scores
@@ -1784,6 +1809,9 @@ def multiplier_dashboard(request, session_id):
         'global_max': global_max,
         'multiplier_names': multiplier_names,  # Dynamic list of multiplier types for Band Spectrum tabs (from log data)
         'multiplier_count': applicable_multiplier_count,  # Count of applicable multiplier types from contest definition
+        'is_sweepstakes': is_sweepstakes,
+        'fixed_multiplier_max': fixed_multiplier_max,  # Fixed scale for Sweepstakes progress bar
+        'all_logs_same_mult_count': all_logs_same_mult_count,  # Whether to suppress Band Spectrum pane
     }
     return render(request, 'analyzer/multiplier_dashboard.html', context)
 

@@ -202,7 +202,8 @@
                     <!-- Public Archive Section -->
                     <div id="archiveMethod" class="method-content">
                         <div class="alert alert-info border-0 shadow-sm mb-3">
-                            <i class="bi bi-info-circle-fill me-2"></i><strong>Fetch 1, 2, or 3 Logs:</strong> Log 1 is required. Logs 2 and 3 are optional for comparison analysis. <strong>Supported Contests:</strong> CQ World Wide DX (CW, SSB, RTTY modes), CQ 160 Meter (CW, SSB, RTTY modes), ARRL 10 Meter (no mode selection required), and ARRL DX (CW and SSB - no mode selection required, mode is determined by contest selection).
+                            <i class="bi bi-info-circle-fill me-2"></i><strong>Fetch 1, 2, or 3 Logs:</strong> Log 1 is required. Logs 2 and 3 are optional for comparison analysis.<br>
+                            <strong>Supported Contests:</strong> CQ World Wide DX (CW, SSB, RTTY modes), CQ 160-Meter (CW, SSB, RTTY modes), ARRL 10 Meter (no mode selection required), ARRL DX (CW and SSB - mode is determined by contest selection), ARRL IARU HF World Championship, and WRTC contests.
                         </div>
                         
                         <form id="fetchForm" method="post" action="{% url 'analyze' %}" enctype="multipart/form-data">
@@ -431,14 +432,29 @@
             <div class="row g-3">
                 <div class="col-md-6">
                     <div class="p-3 bg-light rounded border h-100">
-                        <h6 class="fw-bold text-success"><i class="bi bi-speedometer2 me-2"></i>CQ WW Contests</h6>
-                        <p class="small text-muted mb-0">Full interactive support enabled, including the <strong>Strategy Dashboard</strong>.</p>
+                        <h6 class="fw-bold text-success"><i class="bi bi-speedometer2 me-2"></i>Full Dashboard Support</h6>
+                        <p class="small text-muted mb-2">Full interactive support enabled, including the <strong>Strategy Dashboard</strong>:</p>
+                        <ul class="small text-muted mb-0 ps-3">
+                            <li>CQ World Wide DX (CW, SSB, RTTY)</li>
+                            <li>CQ 160-Meter (CW, SSB, RTTY)</li>
+                            <li>ARRL 10 Meter</li>
+                            <li>ARRL DX (CW & SSB)</li>
+                            <li>ARRL Sweepstakes</li>
+                            <li>ARRL IARU HF World Championship</li>
+                            <li>WRTC (all years)</li>
+                        </ul>
                     </div>
                 </div>
                 <div class="col-md-6">
                     <div class="p-3 bg-light rounded border h-100">
-                        <h6 class="fw-bold text-secondary"><i class="bi bi-file-earmark-zip me-2"></i>Other Contests</h6>
-                        <p class="small text-muted mb-0">Support limited to <strong>Downloadable Report Packages</strong> (ZIP) only.</p>
+                        <h6 class="fw-bold text-secondary"><i class="bi bi-file-earmark-zip me-2"></i>ZIP Report Packages</h6>
+                        <p class="small text-muted mb-2">Support limited to <strong>Downloadable Report Packages</strong> (ZIP) only:</p>
+                        <ul class="small text-muted mb-0 ps-3">
+                            <li>CQ WPX (CW & SSB)</li>
+                            <li>ARRL Field Day</li>
+                            <li>North American QSO Party (NAQP)</li>
+                            <li>WAE Contest (CW & SSB)</li>
+                        </ul>
                     </div>
                 </div>
             </div>

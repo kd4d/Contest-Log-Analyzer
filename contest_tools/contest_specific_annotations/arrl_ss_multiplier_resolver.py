@@ -76,6 +76,12 @@ class SectionAliasLookup:
                     return official_abbr, full_name
         
         return "Unknown", None
+    
+    def get_total_multiplier_count(self) -> int:
+        """
+        Returns the total number of valid multipliers defined in the .dat file.
+        """
+        return len(self._valid_mults)
 
 def resolve_multipliers(df: pd.DataFrame, my_location_type: Optional[str], root_input_dir: str, contest_def: ContestDefinition) -> pd.DataFrame:
     """

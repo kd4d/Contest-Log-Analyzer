@@ -98,14 +98,19 @@
                     <div class="v-grid-line" style="left: 50%"></div>
                     <div class="v-grid-line" style="left: 75%"></div>
                     <div class="v-grid-line" style="left: 100%"></div>
+                    {% if is_sweepstakes and fixed_multiplier_max %}
+                    {# Dark black reference line at total multiplier count (e.g., 85 for Sweepstakes) #}
+                    <div class="v-grid-line" style="left: 100%; border-left: 2px solid #000 !important; z-index: 10;"></div>
+                    {% endif %}
                 </div>
 
                 {% for stat in row.stations %}
                 {% with total_unique=stat.unique_run|add:stat.unique_sp|add:stat.unique_unk %}
+                {% with scale_max=fixed_multiplier_max|default:row.max_unique %}
                 <div class="h-bar-row">
                     <div class="fw-bold">{{ all_calls|get_item:forloop.counter0 }}</div>
                     <div class="h-bar-track">
-                        <div class="h-bar-fill" style="width: {% widthratio total_unique row.max_unique 100 %}%;">
+                        <div class="h-bar-fill" style="width: {% widthratio total_unique scale_max 100 %}%;">
                             <div class="bg-run" style="width: {% widthratio stat.unique_run total_unique 100 %}%;"></div>
                             <div class="bg-sp" style="width: {% widthratio stat.unique_sp total_unique 100 %}%;"></div>
                              <div class="bg-unk" style="width: {% widthratio stat.unique_unk total_unique 100 %}%;"></div>
@@ -115,16 +120,19 @@
                     <div class="fw-bold text-end text-danger">{{ stat.delta }}</div>
                 </div>
                 {% endwith %}
+                {% endwith %}
                 {% endfor %}
         
                 <div class="x-axis-row">
                     <div></div>
                     <div class="x-axis-scale">
+                        {% with scale_max=fixed_multiplier_max|default:row.max_unique %}
                         <span class="tick-label" style="left: 0%">0</span>
-                        <span class="tick-label" style="left: 25%">{% widthratio row.max_unique 4 1 %}</span>
-                        <span class="tick-label" style="left: 50%">{% widthratio row.max_unique 2 1 %}</span>
-                        <span class="tick-label" style="left: 75%">{% widthratio row.max_unique 4 3 %}</span>
-                       <span class="tick-label" style="left: 100%">{{ row.max_unique }}</span>
+                        <span class="tick-label" style="left: 25%">{% widthratio scale_max 4 1 %}</span>
+                        <span class="tick-label" style="left: 50%">{% widthratio scale_max 2 1 %}</span>
+                        <span class="tick-label" style="left: 75%">{% widthratio scale_max 4 3 %}</span>
+                        <span class="tick-label" style="left: 100%; {% if is_sweepstakes and fixed_multiplier_max %}font-weight: bold; color: #000;{% endif %}">{{ scale_max }}</span>
+                        {% endwith %}
                     </div>
                     <div></div><div></div>
                 </div>
@@ -133,6 +141,7 @@
     </div>
     {% endfor %}
 
+    {% if not is_sweepstakes or not all_logs_same_mult_count %}
     <div class="d-flex justify-content-between align-items-center mt-5 mb-3 border-bottom pb-2">
         <h4 class="text-secondary mb-0">{% if is_mode_dimension %}Mode Spectrum{% else %}Band Spectrum{% endif %} (Unique Multipliers)</h4>
         <button class="btn btn-sm btn-outline-secondary" onclick="captureWidget('band-spectrum-container', 'band_spectrum')">
@@ -426,6 +435,7 @@
 
         </div>
     </div>
+    {% endif %}
     
     <h5 class="fw-bold text-secondary mb-3 mt-5 pt-4"><i class="bi bi-file-text me-2"></i>Analysis Reports</h5>
     

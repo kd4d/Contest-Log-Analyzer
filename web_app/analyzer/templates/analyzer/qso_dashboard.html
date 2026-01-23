@@ -45,6 +45,10 @@
             display: block;
             text-align: left;
         }
+        /* Subplot charts need more vertical space for multi-line titles */
+        .viewport-frame-subplot {
+            height: 1300px; /* Increased height for subplot charts with 3-line titles */
+        }
     </style>
 
     <div class="row mb-4">
@@ -162,7 +166,7 @@
                             </a>
                         </div>
                         <div class="card-body p-0">
-                            <iframe src="{% url 'view_report' session_id band_distribution_report %}?chromeless=1" class="viewport-frame"></iframe>
+                            <iframe src="{% url 'view_report' session_id band_distribution_report %}?chromeless=1" class="viewport-frame viewport-frame-subplot"></iframe>
                         </div>
                     </div>
                 </div>
