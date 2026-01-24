@@ -149,6 +149,48 @@ class Report(ContestReport):
             for block in data[dimension_key]:
                 process_rows(block['rows'])
 
+        # Sweepstakes-specific logic: Get total multiplier count from .dat file
+        is_sweepstakes = False
+        fixed_multiplier_max = None
+        is_solo = (len(self.logs) == 1)
+        multiplier_count = 0  # Count of multiplier types (excluding TOTAL row)
+        # Reference line is now part of grid-lines-container, no height calculation needed
+        
+        if self.logs:
+            contest_def = self.logs[0].contest_definition
+            contest_name = contest_def.contest_name
+            if contest_name and contest_name.startswith("ARRL-SS"):
+                is_sweepstakes = True
+                
+                # Load total multiplier count from .dat file
+                if data and 'totals' in data:
+                    total_row = next((row for row in data['totals'] if row.get('label') == 'TOTAL'), None)
+                    if total_row and total_row.get('stations'):
+                        try:
+                            # Get root input directory from kwargs or environment
+                            root_input = kwargs.get('root_input_dir') or os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
+                            data_dir = os.path.join(root_input, 'data')
+                            from contest_tools.contest_specific_annotations.arrl_ss_multiplier_resolver import SectionAliasLookup
+                            alias_lookup = SectionAliasLookup(data_dir)
+                            fixed_multiplier_max = alias_lookup.get_total_multiplier_count()
+                        except Exception as e:
+                            import logging
+                            logger = logging.getLogger(__name__)
+                            logger.warning(f"Failed to load Sweepstakes multiplier count: {e}")
+                            fixed_multiplier_max = None
+            
+            # Count multiplier types from breakdown_totals (excluding TOTAL row)
+            if data and 'totals' in data:
+                multiplier_count = len([row for row in data['totals'] if row.get('label') != 'TOTAL'])
+                
+                # Calculate reference line height for Sweepstakes
+                if is_sweepstakes:
+                    total_row = next((row for row in data['totals'] if row.get('label') == 'TOTAL'), None)
+                    if total_row and total_row.get('stations'):
+                        # Calculate reference line height: (number of bars * 40px per bar) + 8px margin
+                        bar_count = len(total_row['stations'])
+                        # Reference line is now part of grid-lines-container, automatically sized
+        
         context = {
             'report_title_lines': title_lines,
             'creation_date': get_cty_metadata(self.logs),
@@ -159,6 +201,11 @@ class Report(ContestReport):
             'global_max': global_max,
             'html2canvas_js': js_content, # Pass full JS string
             'css_content': css_content,   # Pass full CSS string
+            'is_sweepstakes': is_sweepstakes,
+            'fixed_multiplier_max': fixed_multiplier_max,
+            'is_solo': is_solo,
+            'multiplier_count': multiplier_count,
+            # Reference line is now part of grid-lines-container, automatically sized
         }
 
         # 3. Render Template

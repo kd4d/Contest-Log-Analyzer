@@ -366,7 +366,16 @@ class MultiplierStatsAggregator:
                         u_sp = 0
                         u_unk = 0
                         
-                        for item in unique_items:
+                        # Check if this is Sweepstakes (totaling_method: "once_per_log")
+                        # For Sweepstakes, calculate Run/S&P from ALL multipliers, not just unique ones
+                        # because multipliers count once per contest, not per band
+                        is_sweepstakes = (self.contest_def.multiplier_rules and 
+                                         any(rule.get('totaling_method') == 'once_per_log' 
+                                             for rule in self.contest_def.multiplier_rules))
+                        
+                        items_to_process = log_set if is_sweepstakes else unique_items
+                        
+                        for item in items_to_process:
                             status = mult_status_map[call].get(item, 'Unk')
                             # Map 'Both' to 'Run' or 'S&P'? Usually 'Run' is dominant/preferred, 
                             # but 'Both' implies it was worked multiple times.

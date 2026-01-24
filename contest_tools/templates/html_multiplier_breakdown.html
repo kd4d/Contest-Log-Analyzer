@@ -36,6 +36,8 @@
         </div>
 
         {% for row in breakdown_totals %}
+        {# Suppress "TOTAL" pane if there's only one multiplier type #}
+        {% if row.label != "TOTAL" or multiplier_count != 1 %}
         <div class="mult-card" id="mult-summary-{{ forloop.counter }}"
              data-export-title="{{ row.label }}"
              data-export-context="{{ report_title_lines.1 }}"
@@ -60,11 +62,26 @@
                </div>
             </div>
             
-            <div class="horiz-grid">
+            <div class="horiz-grid" {% if is_sweepstakes %}style="grid-template-columns: 1fr;"{% endif %}>
+                {% if not is_solo and not is_sweepstakes %}
                 <div class="horiz-common">
                     <div class="display-4 fw-bold text-secondary">{{ row.common }}</div>
                     <div class="small fw-bold text-muted text-uppercase ls-1">Common</div>
                 </div>
+                {% elif is_solo and not is_sweepstakes %}
+                {% for stat in row.stations %}
+                {% if forloop.first %}
+                <div class="horiz-common">
+                    <div class="display-4 fw-bold text-secondary">{{ stat.unique_run|add:stat.unique_sp|add:stat.unique_unk }}</div>
+                    <div class="small fw-bold text-muted text-uppercase ls-1">Total</div>
+                    <div class="d-flex gap-2 mt-2 justify-content-center">
+                        <span class="small"><strong>{{ stat.unique_run }}</strong> Run</span>
+                        <span class="small"><strong>{{ stat.unique_sp }}</strong> S&P</span>
+                    </div>
+                </div>
+                {% endif %}
+                {% endfor %}
+                {% endif %}
                 
                 <div class="horiz-strategy">
                     <div class="grid-lines-container">
@@ -73,39 +90,80 @@
                         <div class="v-grid-line" style="left: 50%"></div>
                         <div class="v-grid-line" style="left: 75%"></div>
                         <div class="v-grid-line" style="left: 100%"></div>
+                        {% if is_sweepstakes and fixed_multiplier_max %}
+                        {# Reference line at 100% (full scale) - part of the bar chart coordinate system #}
+                        <div class="v-grid-line v-reference-line" style="left: 100%"></div>
+                        {% endif %}
                     </div>
 
                     {% for stat in row.stations %}
                     {% with total_unique=stat.unique_run|add:stat.unique_sp|add:stat.unique_unk %}
-                    <div class="h-bar-row">
-                        <div class="fw-bold">{{ all_calls|get_item:forloop.counter0 }}</div>
-                        <div class="h-bar-track">
-                             <div class="h-bar-fill" style="width: {% widthratio total_unique row.max_unique 100 %}%;">
-                                <div class="bg-run" style="width: {% widthratio stat.unique_run total_unique 100 %}%;"></div>
-                                <div class="bg-sp" style="width: {% widthratio stat.unique_sp total_unique 100 %}%;"></div>
-                                <div class="bg-unk" style="width: {% widthratio stat.unique_unk total_unique 100 %}%;"></div>
+                    {% with scale_max=fixed_multiplier_max|default:row.max_unique %}
+                    {# For Sweepstakes, use stat.count (all multipliers) for both bar width AND color breakdown #}
+                    {# For others, use total_unique (unique only) for both bar width AND color breakdown #}
+                    {% if is_sweepstakes %}
+                        {% with total_for_bar=stat.count %}
+                        {% with total_for_colors=stat.count %}
+                        <div class="h-bar-row">
+                            <div class="fw-bold">{{ all_calls|get_item:forloop.counter0 }}</div>
+                            <div class="h-bar-track">
+                                <div class="h-bar-fill" style="width: {% widthratio total_for_bar scale_max 100 %}%;">
+                                    <div class="bg-run" style="width: {% widthratio stat.unique_run total_for_colors 100 %}%;"></div>
+                                    <div class="bg-sp" style="width: {% widthratio stat.unique_sp total_for_colors 100 %}%;"></div>
+                                    <div class="bg-unk" style="width: {% widthratio stat.unique_unk total_for_colors 100 %}%;"></div>
+                                </div>
                             </div>
+                            <div class="fw-bold text-end">{{ stat.count }}</div>
+                            <div class="fw-bold text-end text-danger">{{ stat.missed }}</div>
                         </div>
-                        <div class="fw-bold text-end">{{ stat.count }}</div>
-                        <div class="fw-bold text-end text-danger">{{ stat.missed }}</div>
-                    </div>
+                        {% endwith %}
+                        {% endwith %}
+                    {% else %}
+                        {% with total_for_bar=total_unique %}
+                        {% with total_for_colors=total_unique %}
+                        <div class="h-bar-row">
+                            <div class="fw-bold">{{ all_calls|get_item:forloop.counter0 }}</div>
+                            <div class="h-bar-track">
+                                <div class="h-bar-fill" style="width: {% widthratio total_for_bar scale_max 100 %}%;">
+                                    <div class="bg-run" style="width: {% widthratio stat.unique_run total_for_colors 100 %}%;"></div>
+                                    <div class="bg-sp" style="width: {% widthratio stat.unique_sp total_for_colors 100 %}%;"></div>
+                                    <div class="bg-unk" style="width: {% widthratio stat.unique_unk total_for_colors 100 %}%;"></div>
+                                </div>
+                            </div>
+                            <div class="fw-bold text-end">{{ stat.count }}</div>
+                            <div class="fw-bold text-end text-danger">{{ stat.missed }}</div>
+                        </div>
+                        {% endwith %}
+                        {% endwith %}
+                    {% endif %}
+                    {% endwith %}
                     {% endwith %}
                     {% endfor %}
                     
                     <div class="x-axis-row">
                         <div></div>
-                        <div class="x-axis-scale">
-                             <span class="tick-label" style="left: 0%">0</span>
-                            <span class="tick-label" style="left: 25%">{% widthratio row.max_unique 4 1 %}</span>
-                            <span class="tick-label" style="left: 50%">{% widthratio row.max_unique 2 1 %}</span>
-                            <span class="tick-label" style="left: 75%">{% widthratio row.max_unique 4 3 %}</span>
-                           <span class="tick-label" style="left: 100%">{{ row.max_unique }}</span>
+                        <div class="x-axis-scale" style="position: relative;">
+                            {% with scale_max=fixed_multiplier_max|default:row.max_unique %}
+                            <span class="tick-label" style="left: 0%">0</span>
+                            <span class="tick-label" style="left: 25%">{% widthratio scale_max 4 1 %}</span>
+                            <span class="tick-label" style="left: 50%">{% widthratio scale_max 2 1 %}</span>
+                            <span class="tick-label" style="left: 75%">{% widthratio scale_max 4 3 %}</span>
+                            <span class="tick-label" style="left: 100%; {% if is_sweepstakes and fixed_multiplier_max %}font-weight: bold; color: #000;{% endif %}">{{ scale_max }}</span>
+                            {% if is_sweepstakes and fixed_multiplier_max and reference_line_height %}
+                            {# Reference line positioned relative to x-axis-scale to align with tick labels #}
+                            {# Extends from top of bars area to the x-axis border (not below it) #}
+                            {# Height calculated in report generator: (number of bars * 40px) + 8px margin #}
+                            {# bottom: 0 aligns with top of x-axis-scale (the x-axis border) #}
+                            <div style="position: absolute; left: 100%; top: -{{ reference_line_height }}px; bottom: 0; border-left: 3px solid #000; z-index: 10; pointer-events: none;"></div>
+                            {% endif %}
+                            {% endwith %}
                         </div>
                         <div></div><div></div>
                     </div>
                 </div>
            </div>
         </div>
+        {% endif %}
         {% endfor %}
 
         <div class="d-flex justify-content-between align-items-center mt-5 mb-3 border-bottom pb-2">
@@ -173,10 +231,25 @@
                                         {% endwith %}
                                         {% endfor %}
                                     </div>
+                                    {% if not is_solo and not is_sweepstakes %}
                                     <div class="vert-foundation">
                                         <div class="h4 fw-bold text-secondary m-0">{{ row.common }}</div>
                                         <div class="small fw-bold text-muted text-uppercase" style="font-size:0.6rem;">Common</div>
                                     </div>
+                                    {% elif is_solo and not is_sweepstakes %}
+                                    {% for stat in row.stations %}
+                                    {% if forloop.first %}
+                                    <div class="vert-foundation">
+                                        <div class="h4 fw-bold text-secondary m-0">{{ stat.unique_run|add:stat.unique_sp|add:stat.unique_unk }}</div>
+                                        <div class="small fw-bold text-muted text-uppercase" style="font-size:0.6rem;">Total</div>
+                                        <div class="d-flex gap-1 mt-1 justify-content-center" style="font-size:0.5rem;">
+                                            <span><strong>{{ stat.unique_run }}</strong>R</span>
+                                            <span><strong>{{ stat.unique_sp }}</strong>S</span>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                    {% endfor %}
+                                    {% endif %}
                                     <div class="d-flex" style="background:#f8fafc;">
                                         {% for call in all_calls %}
                                         <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>
@@ -228,10 +301,25 @@
                                     {% endwith %}
                                      {% endfor %}
                                     </div>
+                                    {% if not is_solo and not is_sweepstakes %}
                                     <div class="vert-foundation">
                                          <div class="h4 fw-bold text-secondary m-0">{{ row.common }}</div>
                                     <div class="small fw-bold text-muted text-uppercase" style="font-size:0.6rem;">Common</div>
                                      </div>
+                                    {% elif is_solo and not is_sweepstakes %}
+                                    {% for stat in row.stations %}
+                                    {% if forloop.first %}
+                                    <div class="vert-foundation">
+                                        <div class="h4 fw-bold text-secondary m-0">{{ stat.unique_run|add:stat.unique_sp|add:stat.unique_unk }}</div>
+                                        <div class="small fw-bold text-muted text-uppercase" style="font-size:0.6rem;">Total</div>
+                                        <div class="d-flex gap-1 mt-1 justify-content-center" style="font-size:0.5rem;">
+                                            <span><strong>{{ stat.unique_run }}</strong>R</span>
+                                            <span><strong>{{ stat.unique_sp }}</strong>S</span>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                    {% endfor %}
+                                    {% endif %}
                                     <div class="d-flex" style="background:#f8fafc;">
                                     {% for call in all_calls %}
                                      <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>
@@ -283,10 +371,25 @@
                                     {% endwith %}
                                      {% endfor %}
                                    </div>
+                                   {% if not is_solo and not is_sweepstakes %}
                                    <div class="vert-foundation">
                                       <div class="h4 fw-bold text-secondary m-0">{{ row.common }}</div>
                                     <div class="small fw-bold text-muted text-uppercase" style="font-size:0.6rem;">Common</div>
                                      </div>
+                                    {% elif is_solo and not is_sweepstakes %}
+                                    {% for stat in row.stations %}
+                                    {% if forloop.first %}
+                                    <div class="vert-foundation">
+                                        <div class="h4 fw-bold text-secondary m-0">{{ stat.unique_run|add:stat.unique_sp|add:stat.unique_unk }}</div>
+                                        <div class="small fw-bold text-muted text-uppercase" style="font-size:0.6rem;">Total</div>
+                                        <div class="d-flex gap-1 mt-1 justify-content-center" style="font-size:0.5rem;">
+                                            <span><strong>{{ stat.unique_run }}</strong>R</span>
+                                            <span><strong>{{ stat.unique_sp }}</strong>S</span>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                    {% endfor %}
+                                    {% endif %}
                                 <div class="d-flex" style="background:#f8fafc;">
                                     {% for call in all_calls %}
                                      <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>

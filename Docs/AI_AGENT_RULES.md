@@ -1997,6 +1997,107 @@ When working with Django templates:
 3. **Consider** preparing data in the view if the logic is complex
 4. **Test** template syntax by checking for linter errors or running the Django development server
 
+#### Rule: `{% else %}` Cannot Be Used Inside `{% with %}` Block
+
+**Problem:** Django's template parser does not allow `{% else %}` inside a `{% with %}` block. This causes a `TemplateSyntaxError`:
+
+```
+TemplateSyntaxError: Invalid block tag on line X: 'else', expected 'endwith'. Did you forget to register or load this tag?
+```
+
+**Incorrect Pattern (DO NOT USE):**
+```django
+{% with total_unique=stat.unique_run|add:stat.unique_sp|add:stat.unique_unk %}
+{% with scale_max=fixed_multiplier_max|default:row.max_unique %}
+{% if is_sweepstakes %}
+    {% with total_for_bar=stat.count %}
+{% else %}
+    {% with total_for_bar=total_unique %}
+{% endif %}
+    <!-- content using total_for_bar -->
+{% endwith %}
+{% endwith %}
+{% endwith %}
+```
+
+**Correct Solution: Duplicate Code in Each Branch**
+```django
+{% with total_unique=stat.unique_run|add:stat.unique_sp|add:stat.unique_unk %}
+{% with scale_max=fixed_multiplier_max|default:row.max_unique %}
+{% if is_sweepstakes %}
+    {% with total_for_bar=stat.count %}
+        <!-- content using total_for_bar -->
+    {% endwith %}
+{% else %}
+    {% with total_for_bar=total_unique %}
+        <!-- content using total_for_bar -->
+    {% endwith %}
+{% endif %}
+{% endwith %}
+{% endwith %}
+```
+
+**Key Points:**
+- Each branch (`{% if %}` and `{% else %}`) must have its own complete `{% with %}` block
+- Each `{% with %}` block must be closed with `{% endwith %}` before the `{% else %}`
+- Outer `{% with %}` blocks can remain open for both branches
+
+#### Rule: Parentheses Not Supported in `{% if %}` Statements
+
+**Problem:** Django's template parser does not support parentheses for grouping conditions in `{% if %}` statements. This causes a `TemplateSyntaxError`:
+
+```
+TemplateSyntaxError: Could not parse the remainder: '(row.label' from '(row.label'
+```
+
+**Incorrect Pattern (DO NOT USE):**
+```django
+{% if not (row.label == "TOTAL" and multiplier_count == 1) %}
+    <!-- content -->
+{% endif %}
+```
+
+**Correct Solution: Use De Morgan's Law to Rewrite Without Parentheses**
+
+Rewrite the condition using logical equivalences:
+- `not (A and B)` is equivalent to `(not A) or (not B)`
+- `not (A or B)` is equivalent to `(not A) and (not B)`
+
+**Example 1: Negated AND**
+```django
+{# Incorrect: {% if not (row.label == "TOTAL" and multiplier_count == 1) %} #}
+{# Correct: #}
+{% if row.label != "TOTAL" or multiplier_count != 1 %}
+    <!-- content -->
+{% endif %}
+```
+
+**Example 2: Negated OR**
+```django
+{# Incorrect: {% if not (condition1 or condition2) %} #}
+{# Correct: #}
+{% if not condition1 and not condition2 %}
+    <!-- content -->
+{% endif %}
+```
+
+**Example 3: Complex Conditions**
+```django
+{# Incorrect: {% if (A and B) or (C and D) %} #}
+{# Correct: Use nested if statements or prepare in view #}
+{% if A and B %}
+    <!-- content -->
+{% elif C and D %}
+    <!-- content -->
+{% endif %}
+```
+
+**Key Points:**
+- Django templates do NOT support parentheses for grouping in `{% if %}` statements
+- Use De Morgan's law to rewrite negated conditions
+- For complex conditions, use nested `{% if %}` statements or prepare the condition in the view
+- When in doubt, simplify the condition or move the logic to Python
+
 #### Related Issues
 
 - Similar constraints may apply to other template tag combinations

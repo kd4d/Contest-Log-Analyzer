@@ -45,6 +45,8 @@
     </div>
 
     {% for row in breakdown_totals %}
+    {# Suppress "TOTAL" pane if there's only one multiplier type #}
+    {% if row.label != "TOTAL" or multiplier_count != 1 %}
     <div class="mult-card" id="mult-summary-{{ forloop.counter }}"
          data-export-title="{{ row.label }}"
          data-export-context="{{ report_metadata.context_line }}"
@@ -70,13 +72,13 @@
            </div>
         </div>
         
-        <div class="horiz-grid">
-            {% if not is_solo %}
+        <div class="horiz-grid" {% if is_sweepstakes %}style="grid-template-columns: 1fr;"{% endif %}>
+            {% if not is_solo and not is_sweepstakes %}
             <div class="horiz-common">
                 <div class="display-4 fw-bold text-secondary">{{ row.common }}</div>
                 <div class="small fw-bold text-muted text-uppercase ls-1">Common</div>
             </div>
-            {% else %}
+            {% elif is_solo and not is_sweepstakes %}
             {% for stat in row.stations %}
             {% if forloop.first %}
             <div class="horiz-common">
@@ -99,33 +101,58 @@
                     <div class="v-grid-line" style="left: 75%"></div>
                     <div class="v-grid-line" style="left: 100%"></div>
                     {% if is_sweepstakes and fixed_multiplier_max %}
-                    {# Dark black reference line at total multiplier count (e.g., 85 for Sweepstakes) #}
-                    <div class="v-grid-line" style="left: 100%; border-left: 2px solid #000 !important; z-index: 10;"></div>
+                    {# Reference line at 100% (full scale) - part of the bar chart coordinate system #}
+                    <div class="v-grid-line v-reference-line" style="left: 100%"></div>
                     {% endif %}
                 </div>
 
                 {% for stat in row.stations %}
                 {% with total_unique=stat.unique_run|add:stat.unique_sp|add:stat.unique_unk %}
                 {% with scale_max=fixed_multiplier_max|default:row.max_unique %}
-                <div class="h-bar-row">
-                    <div class="fw-bold">{{ all_calls|get_item:forloop.counter0 }}</div>
-                    <div class="h-bar-track">
-                        <div class="h-bar-fill" style="width: {% widthratio total_unique scale_max 100 %}%;">
-                            <div class="bg-run" style="width: {% widthratio stat.unique_run total_unique 100 %}%;"></div>
-                            <div class="bg-sp" style="width: {% widthratio stat.unique_sp total_unique 100 %}%;"></div>
-                             <div class="bg-unk" style="width: {% widthratio stat.unique_unk total_unique 100 %}%;"></div>
+                {# For Sweepstakes, use stat.count (all multipliers) for both bar width AND color breakdown #}
+                {# For others, use total_unique (unique only) for both bar width AND color breakdown #}
+                {% if is_sweepstakes %}
+                    {% with total_for_bar=stat.count %}
+                    {% with total_for_colors=stat.count %}
+                    <div class="h-bar-row">
+                        <div class="fw-bold">{{ all_calls|get_item:forloop.counter0 }}</div>
+                        <div class="h-bar-track">
+                            <div class="h-bar-fill" style="width: {% widthratio total_for_bar scale_max 100 %}%;">
+                                <div class="bg-run" style="width: {% widthratio stat.unique_run total_for_colors 100 %}%;"></div>
+                                <div class="bg-sp" style="width: {% widthratio stat.unique_sp total_for_colors 100 %}%;"></div>
+                                 <div class="bg-unk" style="width: {% widthratio stat.unique_unk total_for_colors 100 %}%;"></div>
+                            </div>
                         </div>
+                        <div class="fw-bold text-end">{{ stat.count }}</div>
+                        <div class="fw-bold text-end text-danger">{{ stat.delta }}</div>
                     </div>
-                    <div class="fw-bold text-end">{{ stat.count }}</div>
-                    <div class="fw-bold text-end text-danger">{{ stat.delta }}</div>
-                </div>
+                    {% endwith %}
+                    {% endwith %}
+                {% else %}
+                    {% with total_for_bar=total_unique %}
+                    {% with total_for_colors=total_unique %}
+                    <div class="h-bar-row">
+                        <div class="fw-bold">{{ all_calls|get_item:forloop.counter0 }}</div>
+                        <div class="h-bar-track">
+                            <div class="h-bar-fill" style="width: {% widthratio total_for_bar scale_max 100 %}%;">
+                                <div class="bg-run" style="width: {% widthratio stat.unique_run total_for_colors 100 %}%;"></div>
+                                <div class="bg-sp" style="width: {% widthratio stat.unique_sp total_for_colors 100 %}%;"></div>
+                                 <div class="bg-unk" style="width: {% widthratio stat.unique_unk total_for_colors 100 %}%;"></div>
+                            </div>
+                        </div>
+                        <div class="fw-bold text-end">{{ stat.count }}</div>
+                        <div class="fw-bold text-end text-danger">{{ stat.delta }}</div>
+                    </div>
+                    {% endwith %}
+                    {% endwith %}
+                {% endif %}
                 {% endwith %}
                 {% endwith %}
                 {% endfor %}
         
                 <div class="x-axis-row">
                     <div></div>
-                    <div class="x-axis-scale">
+                    <div class="x-axis-scale" style="position: relative;">
                         {% with scale_max=fixed_multiplier_max|default:row.max_unique %}
                         <span class="tick-label" style="left: 0%">0</span>
                         <span class="tick-label" style="left: 25%">{% widthratio scale_max 4 1 %}</span>
@@ -139,6 +166,7 @@
             </div>
        </div>
     </div>
+    {% endif %}
     {% endfor %}
 
     {% if not is_sweepstakes or not all_logs_same_mult_count %}
@@ -220,12 +248,12 @@
                                     {% endfor %}
                                 </div>
                
-                                {% if not is_solo %}
+                                {% if not is_solo and not is_sweepstakes %}
                                 <div class="vert-foundation">
                                      <div class="h4 fw-bold text-secondary m-0">{{ row.common }}</div>
                                     <div class="small fw-bold text-muted text-uppercase" style="font-size:0.6rem;">Common</div>
                                 </div>
-                                {% else %}
+                                {% elif is_solo and not is_sweepstakes %}
                                 {% for stat in row.stations %}
                                 {% if forloop.first %}
                                 <div class="vert-foundation">
@@ -269,12 +297,12 @@
                                     {% endfor %}
                                 </div>
                
-                                {% if not is_solo %}
+                                {% if not is_solo and not is_sweepstakes %}
                                 <div class="vert-foundation">
                                      <div class="h4 fw-bold text-secondary m-0">{{ row.common }}</div>
                                     <div class="small fw-bold text-muted text-uppercase" style="font-size:0.6rem;">Common</div>
                                 </div>
-                                {% else %}
+                                {% elif is_solo and not is_sweepstakes %}
                                 {% for stat in row.stations %}
                                 {% if forloop.first %}
                                 <div class="vert-foundation">
@@ -348,12 +376,12 @@
                                 {% endfor %}
                                 </div>
                
-                            {% if not is_solo %}
+                            {% if not is_solo and not is_sweepstakes %}
                             <div class="vert-foundation">
                                 <div class="h4 fw-bold text-secondary m-0">{{ row.common }}</div>
                                 <div class="small fw-bold text-muted text-uppercase" style="font-size:0.6rem;">Common</div>
                            </div>
-                           {% else %}
+                           {% elif is_solo and not is_sweepstakes %}
                            {% for stat in row.stations %}
                            {% if forloop.first %}
                            <div class="vert-foundation">
@@ -397,12 +425,12 @@
                                 {% endfor %}
                                 </div>
                
-                            {% if not is_solo %}
+                            {% if not is_solo and not is_sweepstakes %}
                             <div class="vert-foundation">
                                 <div class="h4 fw-bold text-secondary m-0">{{ row.common }}</div>
                                 <div class="small fw-bold text-muted text-uppercase" style="font-size:0.6rem;">Common</div>
                            </div>
-                           {% else %}
+                           {% elif is_solo and not is_sweepstakes %}
                            {% for stat in row.stations %}
                            {% if forloop.first %}
                            <div class="vert-foundation">
