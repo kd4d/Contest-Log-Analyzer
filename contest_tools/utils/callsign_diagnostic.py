@@ -180,27 +180,33 @@ class CallsignDiagnostic:
         
         # Log key events to Python logger for debugging
         # All events are still captured in the diagnostic file
+        # Critical diagnostic events are logged at WARNING level to ensure visibility
         if event_type == 'filename_generation':
-            # Log filename generation with simplified format
+            # Log filename generation at WARNING level for mismatch diagnosis
             filename = data.get('filename', '[partial]')
             callsigns = data.get('callsigns', [])
-            logger.info(f"[CALLSIGN_DIAG] filename_generation | Report: {self.current_report_id} | Filename: {filename} | Callsigns: {callsigns}")
+            source = data.get('source', 'unknown')
+            logger.warning(f"[CALLSIGN_DIAG] filename_generation | Report: {self.current_report_id} | Filename: {filename} | Callsigns: {callsigns} | Source: {source}")
         elif event_type == 'content_callsigns':
-            # Log content callsigns extraction
+            # Log content callsigns extraction at WARNING level for mismatch diagnosis
             callsigns = data.get('callsigns', [])
             source = data.get('source', 'unknown')
             method = data.get('method', 'unknown')
-            logger.info(f"[CALLSIGN_DIAG] content_callsigns | Report: {self.current_report_id} | Source: {source} | Callsigns: {callsigns} | Method: {method}")
+            logger.warning(f"[CALLSIGN_DIAG] content_callsigns | Report: {self.current_report_id} | Source: {source} | Callsigns: {callsigns} | Method: {method}")
         elif event_type == 'cached_data_callsigns':
-            # Log cached data callsigns
+            # Log cached data callsigns at WARNING level to help diagnose data source issues
             callsigns = data.get('callsigns_in_data', [])
             data_source = data.get('data_source', 'unknown')
-            logger.info(f"[CALLSIGN_DIAG] cached_data_callsigns | Report: {self.current_report_id} | Data Source: {data_source} | Callsigns: {callsigns}")
+            logger.warning(f"[CALLSIGN_DIAG] cached_data_callsigns | Report: {self.current_report_id} | Data Source: {data_source} | Callsigns: {callsigns}")
         elif event_type == 'mismatch_detected':
-            # Log mismatches as warnings (these are important)
+            # Log mismatches as warnings with detailed information for diagnosis
             filename_calls = data.get('filename_callsigns', [])
             content_calls = data.get('content_callsigns', [])
+            in_filename_not_content = data.get('in_filename_not_content', [])
+            in_content_not_filename = data.get('in_content_not_filename', [])
             logger.warning(f"[CALLSIGN_DIAG] mismatch_detected | Report: {self.current_report_id} | Filename: {filename_calls} | Content: {content_calls}")
+            if in_filename_not_content or in_content_not_filename:
+                logger.warning(f"[CALLSIGN_DIAG] mismatch_details | Report: {self.current_report_id} | In filename but NOT in content: {in_filename_not_content} | In content but NOT in filename: {in_content_not_filename}")
         # report_start events are only written to the diagnostic file, not to the Python logger
     
     def finalize_report(self):
