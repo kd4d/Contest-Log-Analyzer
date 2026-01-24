@@ -899,7 +899,7 @@ The project includes automated regression testing for the web version using Djan
 **Test Infrastructure:**
 - **Location:** `test_code/web_regression_test.py`
 - **Test Data:** `regression_baselines/Logs/` (version-controlled test logs)
-- **Baselines:** `regression_baselines/web_baseline_*/` (versioned ZIP archives)
+- **Baselines:** `regression_baselines/web_baseline/{version_tag}/{date_time}/` (versioned ZIP archives organized by version and test run time)
 
 **Running Tests:**
 
@@ -908,7 +908,7 @@ The project includes automated regression testing for the web version using Djan
 regression_baselines\run_tests.bat --create-baseline v1.0.0-alpha.10
 ```
 
-This generates baseline ZIP archives for all test cases and stores them in `regression_baselines/web_baseline_v1.0.0-alpha.10/`.
+This generates baseline ZIP archives for all test cases and stores them in `regression_baselines/web_baseline/v1.0.0-alpha.10/{date_time}/`, where `{date_time}` is automatically created based on the test run start time (format: `YYYY-MM-DD HHMM`, e.g., `2026-01-22 0102`).
 
 **Run Regression Tests:**
 ```batch
