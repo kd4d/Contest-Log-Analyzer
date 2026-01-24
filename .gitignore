@@ -6,7 +6,7 @@
 *.png
 *.ops
 *.wt4
-__pycache__/
+**/__pycache__/
 CONTEST_LOGS_REPORTS/reports/
 CONTEST_LOGS_REPORTS/reports_*/
 CONTEST_LOGS_REPORTS/data/CTY/
