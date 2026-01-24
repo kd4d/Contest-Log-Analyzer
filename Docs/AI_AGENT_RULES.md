@@ -1808,11 +1808,21 @@ C:\Users\mbdev\miniforge3\envs\cla\python.exe -m py_compile regression_baselines
 
 ## PowerShell Command Syntax Rules
 
-### CRITICAL: PowerShell vs CMD Syntax Differences
+### ⚠️ CRITICAL: PowerShell vs CMD Syntax Differences
 
 **AI agents MUST use PowerShell syntax when executing commands in this environment, NOT CMD syntax.**
 
+**⚠️ MOST COMMON ERROR: Using `&&` instead of `;` for command chaining**
+- **WRONG:** `cd dir && git init` ❌ (causes error: "The token '&&' is not a valid statement separator")
+- **CORRECT:** `cd dir; git init` ✅
+
 **Rule:** This environment uses PowerShell (`powershell.exe`), not Windows Command Prompt (`cmd.exe`). AI agents must use PowerShell-compatible syntax for all terminal commands.
+
+**Quick Reference - Command Chaining:**
+| Syntax | PowerShell (CORRECT) | CMD (INCORRECT - DO NOT USE) |
+|--------|---------------------|------------------------------|
+| Chain commands | `cmd1; cmd2; cmd3` | `cmd1 && cmd2 && cmd3` ❌ |
+| Example | `cd dir; git status` ✅ | `cd dir && git status` ❌ |
 
 #### Why This Matters
 
@@ -1934,9 +1944,15 @@ echo %TEST_DATA_DIR%
 **BEFORE execution (MANDATORY):**
 1. **Check relevant project rules FIRST:** Review AI Agent Rules for command-specific requirements
    - Python commands: Check "Python Script Execution Rules" section → Use `C:\Users\mbdev\miniforge3\python.exe`
-   - PowerShell commands: Check "PowerShell Command Syntax Rules" section → Use PowerShell syntax, not CMD
+   - **PowerShell commands: ⚠️ CRITICAL - Check "PowerShell Command Syntax Rules" section**
+     - **NEVER use `&&` for command chaining** - This is CMD syntax and will FAIL in PowerShell
+     - **ALWAYS use `;` for command chaining** - This is PowerShell syntax
+     - **Example WRONG:** `cd dir && git init` ❌ (will cause error: "The token '&&' is not a valid statement separator")
+     - **Example CORRECT:** `cd dir; git init` ✅
+     - See "PowerShell Command Syntax Rules" section (line ~1809) for complete details
    - Git commands: Check git workflow rules
 2. **Use correct syntax/paths:** Apply rules from project documentation - do NOT assume defaults will work
+   - **PowerShell syntax check:** If chaining commands, verify you're using `;` not `&&`
 3. **Verify prerequisites:** Ensure required files/directories exist before executing
 
 **AFTER execution (MANDATORY):**
