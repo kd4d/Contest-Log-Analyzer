@@ -89,12 +89,17 @@
                         <div class="v-grid-line" style="left: 25%"></div>
                         <div class="v-grid-line" style="left: 50%"></div>
                         <div class="v-grid-line" style="left: 75%"></div>
+                        {% if not is_sweepstakes or not fixed_multiplier_max %}
                         <div class="v-grid-line" style="left: 100%"></div>
-                        {% if is_sweepstakes and fixed_multiplier_max %}
-                        {# Reference line at 100% (full scale) - part of the bar chart coordinate system #}
-                        <div class="v-grid-line v-reference-line" style="left: 100%"></div>
                         {% endif %}
                     </div>
+
+                    {% if is_sweepstakes and fixed_multiplier_max %}
+                    {# Reference line at 100% (x=85) - positioned in same container as bars for precise alignment #}
+                    <div class="h-bar-reference-line-container">
+                        <div class="h-bar-reference-line"></div>
+                    </div>
+                    {% endif %}
 
                     {% for stat in row.stations %}
                     {% with total_unique=stat.unique_run|add:stat.unique_sp|add:stat.unique_unk %}
@@ -149,13 +154,6 @@
                             <span class="tick-label" style="left: 50%">{% widthratio scale_max 2 1 %}</span>
                             <span class="tick-label" style="left: 75%">{% widthratio scale_max 4 3 %}</span>
                             <span class="tick-label" style="left: 100%; {% if is_sweepstakes and fixed_multiplier_max %}font-weight: bold; color: #000;{% endif %}">{{ scale_max }}</span>
-                            {% if is_sweepstakes and fixed_multiplier_max and reference_line_height %}
-                            {# Reference line positioned relative to x-axis-scale to align with tick labels #}
-                            {# Extends from top of bars area to the x-axis border (not below it) #}
-                            {# Height calculated in report generator: (number of bars * 40px) + 8px margin #}
-                            {# bottom: 0 aligns with top of x-axis-scale (the x-axis border) #}
-                            <div style="position: absolute; left: 100%; top: -{{ reference_line_height }}px; bottom: 0; border-left: 3px solid #000; z-index: 10; pointer-events: none;"></div>
-                            {% endif %}
                             {% endwith %}
                         </div>
                         <div></div><div></div>
@@ -166,6 +164,7 @@
         {% endif %}
         {% endfor %}
 
+        {% if not is_sweepstakes %}
         <div class="d-flex justify-content-between align-items-center mt-5 mb-3 border-bottom pb-2">
             <h4 class="text-secondary mb-0">Band Spectrum (Unique Multipliers)</h4>
             <button class="btn btn-sm btn-outline-secondary" onclick="captureWidget('band-spectrum-container', 'band_spectrum')">
@@ -404,6 +403,7 @@
 
             </div>
         </div>
+        {% endif %}
         
         <div class="bg-light p-4 border-t text-center text-xs text-muted mt-5">
             Contest Log Analytics by KD4D<br>

@@ -1600,11 +1600,11 @@ def multiplier_dashboard(request, session_id):
         # Fast path: Try to load contest definition minimally
         try:
             root_input = os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
-            log_candidates = [f for f in os.listdir(session_path) 
-                            if os.path.isfile(os.path.join(session_path, f)) 
-                            and not f.startswith('dashboard_context') 
-                            and not f.endswith('.zip') 
-                            and not f.endswith('.json')]
+            log_candidates = []
+            for f in os.listdir(session_path):
+                f_path = os.path.join(session_path, f)
+                if os.path.isfile(f_path) and not f.startswith('dashboard_context') and not f.endswith('.zip') and not f.endswith('.json'):
+                    log_candidates.append(f_path)
             if log_candidates:
                 temp_lm = LogManager()
                 temp_lm.load_log_batch(log_candidates[:1], root_input, 'after')  # Load just first log
@@ -1765,54 +1765,58 @@ def multiplier_dashboard(request, session_id):
     # Convert dict to sorted list for template
     sorted_mults = sorted(multipliers.values(), key=lambda x: x['label'])
 
+    # Discover Enhanced Missed Multipliers report (Sweepstakes only)
+    # Note: This report is generated for the session (all logs), so we need to match the session suffix
+    enhanced_missed_mult_rel_path = None
+    if contest_name and contest_name.startswith("ARRL-SS"):
+        # Build callsigns_part from all persisted logs for session-level report
+        # This should match: enhanced_missed_multipliers--{all_callsigns}.txt
+        session_callsigns = sorted([l['callsign'] for l in persisted_logs])
+        session_callsigns_part = build_callsigns_filename_part(session_callsigns)
+        enhanced_suffix = f"--{session_callsigns_part}.txt"
+        # Check basename of path, not full path (path may include subdirectories like 'text/')
+        enhanced_art = next((a for a in artifacts 
+                           if a['report_id'] == 'enhanced_missed_multipliers' 
+                           and os.path.basename(a['path']).endswith(enhanced_suffix)), None)
+        if enhanced_art:
+            # Check if report has content (not empty/skipped)
+            try:
+                full_path = os.path.join(manifest_dir, enhanced_art['path'])
+                with open(full_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                    # Check if report was skipped (contains "Skipped:" message)
+                    if 'Skipped:' not in content and len(content.strip()) > 100:
+                        enhanced_missed_mult_rel_path = f"{report_rel_path}/{enhanced_art['path']}"
+            except Exception as e:
+                logger.warning(f"Failed to check enhanced missed multipliers report content: {e}")
+
     # Sweepstakes-specific logic: Get total multiplier count from .dat file
-    # DEBUG: Log contest name extraction and Sweepstakes detection
-    logger.warning(f"[multiplier_dashboard] report_rel_path={report_rel_path}")
-    logger.warning(f"[multiplier_dashboard] contest_name={contest_name}")
-    logger.warning(f"[multiplier_dashboard] contest_name type={type(contest_name)}")
-    logger.warning(f"[multiplier_dashboard] contest_name.startswith('ARRL-SS')={contest_name.startswith('ARRL-SS') if contest_name else 'N/A (contest_name is None/empty)'}")
-    
     is_sweepstakes = contest_name and contest_name.startswith("ARRL-SS")
-    logger.warning(f"[multiplier_dashboard] is_sweepstakes={is_sweepstakes}")
     
     fixed_multiplier_max = None
     all_logs_same_mult_count = False
     # Reference line is now part of grid-lines-container, no height calculation needed
     
     if is_sweepstakes and breakdown_data and 'totals' in breakdown_data:
-        logger.warning(f"[multiplier_dashboard] Sweepstakes detected, processing multiplier data...")
         # Find the TOTAL row to get multiplier counts
         total_row = next((row for row in breakdown_data['totals'] if row.get('label') == 'TOTAL'), None)
         if total_row and total_row.get('stations'):
             # Get multiplier counts for each log
             mult_counts = [stat.get('count', 0) for stat in total_row['stations']]
-            logger.warning(f"[multiplier_dashboard] mult_counts={mult_counts}")
-            logger.warning(f"[multiplier_dashboard] total_row['stations'] count={len(total_row.get('stations', []))}")
-            
-            # Calculate reference line height: (number of bars * 40px per bar) + 8px margin
-            # Each bar row is ~40px (28px bar height + gap), x-axis-row has 0.5rem (8px) margin-top
-            bar_count = len(total_row['stations'])
-            # Reference line is now part of grid-lines-container, automatically sized
             
             if mult_counts:
                 all_logs_same_mult_count = len(set(mult_counts)) == 1
-                logger.warning(f"[multiplier_dashboard] all_logs_same_mult_count={all_logs_same_mult_count}")
                 
                 # Load total multiplier count from .dat file
                 try:
                     root_input = os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
                     data_dir = os.path.join(root_input, 'data')
-                    logger.warning(f"[multiplier_dashboard] Loading multiplier count from data_dir={data_dir}")
                     from contest_tools.contest_specific_annotations.arrl_ss_multiplier_resolver import SectionAliasLookup
                     alias_lookup = SectionAliasLookup(data_dir)
                     fixed_multiplier_max = alias_lookup.get_total_multiplier_count()
-                    logger.warning(f"[multiplier_dashboard] fixed_multiplier_max={fixed_multiplier_max}")
                 except Exception as e:
                     logger.warning(f"Failed to load Sweepstakes multiplier count: {e}")
-                    logger.warning(f"[multiplier_dashboard] Exception details: {type(e).__name__}: {str(e)}", exc_info=True)
                     fixed_multiplier_max = None
-    else:
-        logger.warning(f"[multiplier_dashboard] NOT processing Sweepstakes logic: is_sweepstakes={is_sweepstakes}, breakdown_data exists={breakdown_data is not None}, has totals={'totals' in breakdown_data if breakdown_data else False}")
 
     context = {
         'session_id': session_id,
@@ -1836,20 +1840,9 @@ def multiplier_dashboard(request, session_id):
         'is_sweepstakes': is_sweepstakes,
         'fixed_multiplier_max': fixed_multiplier_max,  # Fixed scale for Sweepstakes progress bar
         'all_logs_same_mult_count': all_logs_same_mult_count,  # Whether to suppress Band Spectrum pane
+        'enhanced_missed_mult_rel_path': enhanced_missed_mult_rel_path,  # Enhanced missed multipliers report (Sweepstakes only)
     }
     
-    # DEBUG: Log final context values being passed to template
-    logger.warning(f"[multiplier_dashboard] Final context values:")
-    logger.warning(f"  - is_sweepstakes={is_sweepstakes}")
-    logger.warning(f"  - fixed_multiplier_max={fixed_multiplier_max}")
-    logger.warning(f"  - all_logs_same_mult_count={all_logs_same_mult_count}")
-    logger.warning(f"  - multiplier_count={applicable_multiplier_count}")
-    logger.warning(f"  - breakdown_totals count={len(context.get('breakdown_totals', []))}")
-    if context.get('breakdown_totals'):
-        for row in context['breakdown_totals']:
-            logger.warning(f"    - Row: label={row.get('label')}, stations count={len(row.get('stations', []))}")
-            for i, stat in enumerate(row.get('stations', [])):
-                logger.warning(f"      Station {i}: count={stat.get('count')}, unique_run={stat.get('unique_run')}, unique_sp={stat.get('unique_sp')}, unique_unk={stat.get('unique_unk')}")
     
     return render(request, 'analyzer/multiplier_dashboard.html', context)
 

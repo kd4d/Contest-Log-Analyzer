@@ -159,6 +159,15 @@ Once analyzed, you are presented with a "Strategy Board":
 
 **For Single-Band, Multi-Mode Contests:** For contests like ARRL 10 Meter that operate on a single band with multiple modes, the QSO dashboard shows "Mode Activity" instead of "Band Activity", and the Multiplier dashboard breaks down multipliers by mode (CW, SSB, etc.) rather than by band.
 
+### Sweepstakes-Specific Features
+
+ARRL Sweepstakes includes specialized analysis features in the Multiplier Dashboard:
+
+* **Fixed Multiplier Scale**: Progress bars use a fixed scale showing 85 sections (the maximum possible). A vertical reference line at 100% indicates the maximum multiplier count.
+* **Multiplier Saturation Visualization**: When all logs have reached 85 multipliers, the dashboard clearly shows this saturation state.
+* **Enhanced Missed Multipliers Report**: A detailed breakdown showing which logs worked each missed section, bands/modes where worked, and Run/S&P/Unknown counts. This report appears in the "Missed Multipliers" tab alongside the standard missed multipliers report.
+* **Band Spectrum Suppression**: For Sweepstakes, the Band Spectrum visualization is automatically suppressed since multipliers count once per contest (not per band), making per-band breakdowns less meaningful.
+
 ### WRTC Scoring
 
 For IARU-HF logs, you can apply WRTC scoring rules by selecting "Apply WRTC scoring rules" in the advanced options and choosing the WRTC contest year (e.g., WRTC-2026).

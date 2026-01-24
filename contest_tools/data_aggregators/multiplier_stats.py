@@ -127,10 +127,15 @@ class MultiplierStatsAggregator:
             'bands': self.contest_def.valid_bands
         }
 
-    def get_missed_data(self, mult_name: str, mode_filter: str = None) -> Dict[str, Any]:
+    def get_missed_data(self, mult_name: str, mode_filter: str = None, enhanced: bool = False) -> Dict[str, Any]:
         """
         Extracts logic from text_missed_multipliers.py.
         Returns a dictionary mapping bands to their respective missed/worked sets.
+        
+        When enhanced=True (for Sweepstakes), also includes enhanced_breakdown with:
+        - Which logs worked each missed multiplier
+        - Bands/modes where worked
+        - Run/S&P/Unknown counts
         """
         # --- 1. Setup Rules and Calls ---
         mult_rule = next((r for r in self.contest_def.multiplier_rules if r.get('name', '').lower() == mult_name.lower()), None)
@@ -216,7 +221,105 @@ class MultiplierStatsAggregator:
                 "missed_mults_on_band": sorted(list(missed_mults_on_band))
             }
 
+        # --- Enhanced Breakdown (Sweepstakes only) ---
+        if enhanced:
+            enhanced_breakdown = self._compute_enhanced_breakdown(
+                mult_name, mode_filter, full_results, log_data_to_process, mult_column, name_column
+            )
+            full_results['enhanced_breakdown'] = enhanced_breakdown
+
         return full_results
+    
+    def _compute_enhanced_breakdown(
+        self, mult_name: str, mode_filter: str, full_results: Dict, 
+        log_data_to_process: List, mult_column: str, name_column: str
+    ) -> List[Dict[str, Any]]:
+        """
+        Computes enhanced breakdown for missed multipliers (Sweepstakes).
+        Returns list of missed multipliers with worked-by info, bands/modes, and Run/S&P/Unknown counts.
+        """
+        all_calls = full_results['all_calls']
+        mult_rule = full_results['mult_rule']
+        
+        # Get missed multipliers from "All Bands" data
+        if "All Bands" not in full_results['band_data']:
+            return []
+        
+        all_bands_data = full_results['band_data']["All Bands"]
+        missed_mults = set(all_bands_data['missed_mults_on_band'])
+        mult_sets = {call: set(all_bands_data['mult_sets'][call]) for call in all_calls}
+        
+        if not missed_mults:
+            return []
+        
+        enhanced_breakdown = []
+        
+        # For each missed multiplier, collect enhanced info
+        for mult_value in sorted(missed_mults):
+            # Determine which logs worked this multiplier
+            worked_by_calls = [call for call in all_calls if mult_value in mult_sets[call]]
+            
+            # Collect bands/modes and Run/S&P/Unknown counts
+            bands_worked = set()
+            modes_worked = set()
+            run_count = 0
+            sp_count = 0
+            unk_count = 0
+            
+            if worked_by_calls:
+                # Process QSO data to get band/mode and Run/S&P breakdown
+                for log_data in log_data_to_process:
+                    callsign = log_data['meta'].get('MyCall', 'Unknown')
+                    if callsign not in worked_by_calls:
+                        continue
+                    
+                    df = log_data['df'][log_data['df']['Dupe'] == False].copy()
+                    if df.empty or mult_column not in df.columns:
+                        continue
+                    
+                    if mode_filter:
+                        df = df[df['Mode'] == mode_filter].copy()
+                    
+                    # Filter to this multiplier
+                    df_mult = df[df[mult_column] == mult_value].copy()
+                    if df_mult.empty:
+                        continue
+                    
+                    # Collect bands and modes
+                    bands_worked.update(df_mult['Band'].dropna().unique())
+                    modes_worked.update(df_mult['Mode'].dropna().unique())
+                    
+                    # Count Run/S&P/Unknown across all QSOs for this multiplier
+                    # Aggregate counts across all bands/modes for this multiplier
+                    if 'Run' in df_mult.columns:
+                        run_series = df_mult['Run']
+                        run_count += int((run_series == 'Run').sum())
+                        sp_count += int((run_series == 'S&P').sum())
+                        unk_count += int((run_series == 'Unknown').sum() | (run_series.isna()).sum())
+                    else:
+                        # Fallback if Run column doesn't exist
+                        unk_count += len(df_mult)
+            
+            # Get multiplier name if available
+            mult_display = str(mult_value)
+            if name_column and all_bands_data.get('prefix_to_name_map'):
+                name_map = all_bands_data['prefix_to_name_map']
+                if mult_value in name_map:
+                    clean_name = str(name_map[mult_value]).split(';')[0].strip()
+                    mult_display = f"{mult_value} ({clean_name})"
+            
+            enhanced_breakdown.append({
+                'multiplier': mult_value,
+                'multiplier_display': mult_display,
+                'worked_by_calls': worked_by_calls,
+                'bands_worked': sorted(list(bands_worked)),
+                'modes_worked': sorted(list(modes_worked)),
+                'run_count': run_count,
+                'sp_count': sp_count,
+                'unk_count': unk_count
+            })
+        
+        return enhanced_breakdown
 
     def get_multiplier_breakdown_data(self, dimension: str = 'band') -> Dict[str, Any]:
         """

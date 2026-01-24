@@ -154,7 +154,7 @@ class Report(ContestReport):
         fixed_multiplier_max = None
         is_solo = (len(self.logs) == 1)
         multiplier_count = 0  # Count of multiplier types (excluding TOTAL row)
-        # Reference line is now part of grid-lines-container, no height calculation needed
+        all_logs_same_mult_count = False  # Whether all logs have the same multiplier count (for Band Spectrum suppression)
         
         if self.logs:
             contest_def = self.logs[0].contest_definition
@@ -166,6 +166,11 @@ class Report(ContestReport):
                 if data and 'totals' in data:
                     total_row = next((row for row in data['totals'] if row.get('label') == 'TOTAL'), None)
                     if total_row and total_row.get('stations'):
+                        # Calculate all_logs_same_mult_count for Band Spectrum suppression
+                        mult_counts = [stat.get('count', 0) for stat in total_row['stations']]
+                        if mult_counts:
+                            all_logs_same_mult_count = len(set(mult_counts)) == 1
+                        
                         try:
                             # Get root input directory from kwargs or environment
                             root_input = kwargs.get('root_input_dir') or os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
@@ -182,14 +187,6 @@ class Report(ContestReport):
             # Count multiplier types from breakdown_totals (excluding TOTAL row)
             if data and 'totals' in data:
                 multiplier_count = len([row for row in data['totals'] if row.get('label') != 'TOTAL'])
-                
-                # Calculate reference line height for Sweepstakes
-                if is_sweepstakes:
-                    total_row = next((row for row in data['totals'] if row.get('label') == 'TOTAL'), None)
-                    if total_row and total_row.get('stations'):
-                        # Calculate reference line height: (number of bars * 40px per bar) + 8px margin
-                        bar_count = len(total_row['stations'])
-                        # Reference line is now part of grid-lines-container, automatically sized
         
         context = {
             'report_title_lines': title_lines,
@@ -205,7 +202,7 @@ class Report(ContestReport):
             'fixed_multiplier_max': fixed_multiplier_max,
             'is_solo': is_solo,
             'multiplier_count': multiplier_count,
-            # Reference line is now part of grid-lines-container, automatically sized
+            'all_logs_same_mult_count': all_logs_same_mult_count,  # For Band Spectrum suppression
         }
 
         # 3. Render Template

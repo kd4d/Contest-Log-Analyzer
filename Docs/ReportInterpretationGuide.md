@@ -1,10 +1,15 @@
 # Report Interpretation Guide
 
-**Version: 0.140.0-Beta**
-**Date: 2025-12-23**
+**Version: 0.160.0-Beta**
+**Date: 2026-01-24**
 
 ---
 ### --- Revision History ---
+## [0.160.0-Beta] - 2026-01-24
+### Added
+- Added "Enhanced Missed Multipliers Report" section for Sweepstakes contests.
+- Documented Sweepstakes-specific multiplier analysis features.
+
 ## [0.140.0-Beta] - 2025-12-23
 ### Added
 # - Added "Multiplier Breakdown (Group Par)" section.
@@ -171,6 +176,52 @@ It lists every multiplier that was worked by at least one person in the group bu
 The text `(Run)`, `(S&P)`, or `(Both)` shows how the station logged that multiplier.
 This is critical information. If your competitor worked a rare multiplier via `(S&P)`, it means they found it by tuning the band.
 If they got it via `(Run)`, it means that multiplier *called them*.
+---
+
+### Enhanced Missed Multipliers Report (`enhanced_missed_multipliers`) - Sweepstakes Only
+
+**Supports**: Multi-log only (2+ logs required), Sweepstakes contests only
+
+This specialized report provides detailed analysis of missed multipliers for ARRL Sweepstakes contests.
+Unlike standard contests where multipliers are counted per band, Sweepstakes multipliers (sections) count once per contest regardless of band.
+This report shows comprehensive information about each missed section.
+
+#### Report Structure
+
+The report presents a table with the following columns:
+* **Section**: The ARRL section identifier (e.g., WMA, CT, RI)
+* **Worked By**: Lists the callsigns of logs that worked this section (comma-separated)
+* **Bands/Modes**: Lists all bands and modes where the section was worked by any log
+* **Run**: Total count of Run QSOs across all bands/modes where this section was worked
+* **S&P**: Total count of S&P QSOs across all bands/modes where this section was worked
+* **Unknown**: Total count of QSOs where Run/S&P classification could not be determined
+
+#### How to Interpret This Report
+
+* **Worked By Column**: Shows which logs in your comparison worked each missed section.
+  - If a section shows "AA3B, K3MM", both of those logs worked it, but your log (or another log) did not.
+  - If a section shows "--", no logs in the comparison worked it.
+* **Bands/Modes Column**: Reveals where the section was found.
+  - If a section shows "20M, 40M", it was worked on both bands by at least one log.
+  - This helps identify which bands you should have been monitoring.
+* **Run/S&P/Unknown Counts**: Shows how the section was worked.
+  - High Run count suggests the section was calling CQ (you might have heard them if you were on the right frequency).
+  - High S&P count suggests the section was found by tuning (you might have missed them by not checking that part of the band).
+  - Unknown indicates the activity rate was too low to reliably classify the operating mode.
+* **Summary Statistics**: The report includes summary counts showing:
+  - Total missed multipliers analyzed
+  - How many were worked by all logs (everyone found them)
+  - How many were worked by some logs (missed opportunities)
+  - How many were worked by no logs (truly rare sections)
+
+#### Strategic Insights
+
+This report is particularly valuable for Sweepstakes because:
+* **Multiplier Saturation**: With only 85 possible sections, every missed section is costly.
+* **Band Strategy**: Seeing which bands sections were worked on helps refine your band-hopping strategy.
+* **Operating Mode Analysis**: Understanding whether missed sections were Run or S&P helps identify if you need to improve your tuning skills or your run frequency selection.
+
+**Note**: This report only generates for Sweepstakes contests and only when there are actual missed multipliers to report.
 ---
 
 ### Multiplier Breakdown (`text_multiplier_breakdown` & `html_multiplier_breakdown`)

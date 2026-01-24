@@ -28,66 +28,75 @@
 
 ### Contest-Wide QSO Breakdown Report
 
-**Status:** [ ] Planned  
+**Status:** [x] Completed  
 **Priority:** HIGH  
-**Date Added:** 2025-01-XX
+**Date Added:** 2025-01-XX  
+**Date Completed:** 2026-01-24
 
 **Description:**
 - Generate contest-wide QSO breakdown report (not band-by-band)
 - Primary view: Contest totals (Log1 Unique | Common | Log2 Unique)
 - Secondary view: Band distribution (informational only, clearly labeled)
 
-**Requirements:**
-- Detect contest-wide QSO counting (`dupe_check_scope: "all_bands"`)
-- Generate contest-wide QSO breakdown report
-- Generate band distribution report (informational)
-- Dashboard integration
+**Implementation:**
+- Contest-wide QSO breakdown report implemented
+- QSO Band Distribution report implemented
+- Dashboard integration complete with conditional tabs
 
 **Related:**
 - `DevNotes/Discussions/SWEEPSTAKES_VISUALIZATION_STRATEGY.md`
+- `DevNotes/Archive/SWEEPSTAKES_VISUALIZATION_IMPLEMENTATION_PLAN.md`
+- `DevNotes/Archive/SWEEPSTAKES_VISUALIZATION_DETAILED_IMPLEMENTATION_PLAN.md`
 
 ---
 
 ### Enhanced Missed Multipliers Report
 
-**Status:** [ ] Planned  
+**Status:** [x] Completed  
 **Priority:** HIGH  
-**Date Added:** 2025-01-XX
+**Date Added:** 2025-01-XX  
+**Date Completed:** 2026-01-24
 
 **Description:**
-- Enhanced missed multipliers report with Run/S&P/Mixed breakdown
-- Include band distribution for missed multipliers
-- Text table format (5-10 items typically)
+- Enhanced missed multipliers report with Run/S&P and band context
+- Shows which logs worked each missed multiplier
+- Shows bands where multiplier was worked
+- Shows Run/S&P/Unknown breakdown
 
-**Requirements:**
-- Generate enhanced missed multipliers text report (table format)
-- Include Run/S&P/Mixed breakdown
-- Include band distribution
-- Dashboard integration
+**Implementation:**
+- `MultiplierStatsAggregator.get_missed_data()` enhanced with `enhanced=True` parameter
+- `text_enhanced_missed_multipliers.py` report created
+- Dashboard integration complete
+- Report appears in Multiplier Dashboard when missed multipliers exist
 
 **Related:**
 - `DevNotes/Discussions/SWEEPSTAKES_VISUALIZATION_STRATEGY.md`
+- `DevNotes/Archive/SWEEPSTAKES_VISUALIZATION_IMPLEMENTATION_PLAN.md`
+- `DevNotes/Archive/SWEEPSTAKES_VISUALIZATION_DETAILED_IMPLEMENTATION_PLAN.md`
 
 ---
 
-### Multiplier Acquisition Analysis
+### Multiplier Acquisition Timeline (Phase 3)
 
 **Status:** [ ] Planned  
 **Priority:** MEDIUM  
 **Date Added:** 2025-01-XX
 
 **Description:**
-- Analyze how multipliers were acquired (band and operating style)
-- Band distribution of multiplier acquisition
-- Run/S&P breakdown per multiplier
+- Multiplier acquisition timeline text reports (single-log and multi-log comparison)
+- Show hourly progression of unique multipliers (when each multiplier is first worked)
+- Follow rate sheet report structure pattern
+- Include in bulk download, exclude from dashboards
 
 **Requirements:**
-- Generate multiplier acquisition by band report
-- Generate Run/S&P breakdown report
-- Dashboard integration
+- Create `text_multiplier_timeline.py` (single-log version)
+- Create `text_multiplier_timeline_comparison.py` (multi-log version)
+- Include in bulk download
+- Exclude from dashboards (per design decision)
 
 **Related:**
 - `DevNotes/Discussions/SWEEPSTAKES_VISUALIZATION_STRATEGY.md`
+- `DevNotes/Archive/SWEEPSTAKES_VISUALIZATION_IMPLEMENTATION_PLAN.md` (Phase 3)
 
 ---
 

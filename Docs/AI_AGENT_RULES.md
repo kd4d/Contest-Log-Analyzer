@@ -1283,6 +1283,7 @@ For complex multi-session workflows, a `HANDOVER.md` file may exist at the repos
 - One-off analysis scripts
 - Test utilities and helpers
 - Batch files for running diagnostics (e.g., `run_all_diagnostics.bat`)
+- Mockup generators and mockup output files (e.g., `test_code/mockups/generate_enhanced_missed_multipliers_mockup.py`)
 
 **Does NOT apply to:**
 - Production utilities in `contest_tools/utils/` (e.g., `architecture_validator.py`, `report_utils.py`)
@@ -1298,6 +1299,7 @@ For complex multi-session workflows, a `HANDOVER.md` file may exist at the repos
 
 **Agent Behavior:**
 - When creating diagnostic/temporary scripts, place them in `test_code/` or `test_code/subdirectory/`
+- When creating mockup generators or mockup files, place them in `test_code/mockups/`
 - Do NOT add such scripts to `contest_tools/utils/`, `tools/`, or other production directories
 - If a script needs to become production code, refactor and move it appropriately (e.g., `contest_tools/utils/`)
 

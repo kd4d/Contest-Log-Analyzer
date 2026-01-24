@@ -253,7 +253,7 @@ class ReportGenerator:
             # before passing it to the plugin. Required for dynamic sessions.
             os.makedirs(output_path, exist_ok=True)
 
-            is_multiplier_report = r_id in ['missed_multipliers', 'multiplier_summary', 'multipliers_by_hour']
+            is_multiplier_report = r_id in ['missed_multipliers', 'multiplier_summary', 'multipliers_by_hour', 'enhanced_missed_multipliers']
 
             # --- MUTUALLY EXCLUSIVE LOGIC PATHS ---
             if is_multiplier_report:

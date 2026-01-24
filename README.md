@@ -52,7 +52,7 @@ CLA supports major international contests including:
 - **CQ World Wide DX Contest** (CW/SSB/RTTY)
 - **CQ WPX Contest** (CW/SSB)
 - **ARRL DX Contest** (CW/SSB)
-- **ARRL Sweepstakes**
+- **ARRL Sweepstakes** (CW/SSB) - Full support with enhanced multiplier analysis
 - **ARRL IARU HF World Championship**
 - **WAE Contest** (CW/SSB with QTC support)
 - **WRTC** (with specialized propagation analysis)
@@ -61,6 +61,13 @@ CLA supports major international contests including:
 - **ARRL Field Day**
 
 The analyzer utilizes external data files (CTY.DAT, Section files) to ensure accurate scoring and multiplier calculations.
+
+### Sweepstakes-Specific Features
+
+ARRL Sweepstakes includes specialized analysis features:
+- **Enhanced Missed Multipliers Report**: Detailed breakdown showing which logs worked each missed section, bands/modes where worked, and Run/S&P/Unknown counts
+- **Fixed Multiplier Scale**: Progress bars use a fixed scale (85 sections) with a reference line showing the maximum possible
+- **Multiplier Saturation Visualization**: Dashboard clearly shows when all logs have reached the maximum multiplier count
 
 ---
 

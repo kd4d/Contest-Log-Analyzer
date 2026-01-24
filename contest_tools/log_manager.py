@@ -313,14 +313,14 @@ class LogManager:
                     if line.upper().startswith('CONTEST:'):
                         return line.split(':', 1)[1].strip()
         except FileNotFoundError as e:
-            # Show full path and indicate this is a validation issue
+            # Log at debug level - file may exist at a different path, this is often a false positive
             abs_path = os.path.abspath(filepath) if not os.path.isabs(filepath) else filepath
-            logging.warning(f"Pre-flight validation: Log file not found at '{abs_path}'. "
-                          f"File may not exist or path may be incorrect. Validation may be incomplete. "
-                          f"Original error: {e}")
+            logging.debug(f"Pre-flight validation: Log file not found at '{abs_path}'. "
+                         f"File may not exist or path may be incorrect. Validation may be incomplete. "
+                         f"Original error: {e}")
         except Exception as e:
             abs_path = os.path.abspath(filepath) if not os.path.isabs(filepath) else filepath
-            logging.warning(f"Pre-flight validation: Could not read contest name from '{abs_path}': {e}")
+            logging.debug(f"Pre-flight validation: Could not read contest name from '{abs_path}': {e}")
         return ""
 
     def _get_callsign_from_header(self, filepath: str) -> str:
@@ -333,14 +333,14 @@ class LogManager:
                     if line.upper().startswith('CALLSIGN:'):
                         return line.split(':', 1)[1].strip()
         except FileNotFoundError as e:
-            # Show full path and indicate this is a validation issue
+            # Log at debug level - file may exist at a different path, this is often a false positive
             abs_path = os.path.abspath(filepath) if not os.path.isabs(filepath) else filepath
-            logging.warning(f"Pre-flight validation: Log file not found at '{abs_path}'. "
-                          f"File may not exist or path may be incorrect. Validation may be incomplete. "
-                          f"Original error: {e}")
+            logging.debug(f"Pre-flight validation: Log file not found at '{abs_path}'. "
+                         f"File may not exist or path may be incorrect. Validation may be incomplete. "
+                         f"Original error: {e}")
         except Exception as e:
             abs_path = os.path.abspath(filepath) if not os.path.isabs(filepath) else filepath
-            logging.warning(f"Pre-flight validation: Could not read callsign from '{abs_path}': {e}")
+            logging.debug(f"Pre-flight validation: Could not read callsign from '{abs_path}': {e}")
         return "Unknown"
 
     def get_logs(self):

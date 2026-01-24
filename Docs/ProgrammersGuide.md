@@ -1,7 +1,7 @@
 # Contest Log Analytics - Programmer's Guide
 
-**Version: 0.129.0-Beta**
-**Date: 2026-01-11**
+**Version: 0.160.0-Beta**
+**Date: 2026-01-24**
 
 ---
 
@@ -51,6 +51,7 @@ The Contest Log Analytics project is built on three core architectural principle
   - `get_matrix_data()`: Generates 2D grids (Band x Time) for heatmaps
 * **`MultiplierStatsAggregator`**: Handles "Missed Multiplier" analysis and summarization.
   - `get_multiplier_breakdown_data(dimension='band'|'mode')`: Generates hierarchical multiplier breakdown by band or mode dimension (automatically selects mode dimension for single-band, multi-mode contests).
+  - `get_missed_data(mult_name, mode_filter=None, enhanced=False)`: Returns missed multiplier analysis. When `enhanced=True` (Sweepstakes only), includes detailed breakdown with worked-by callsigns, bands/modes, and Run/S&P/Unknown counts.
 * **`TimeSeriesAggregator`**: Generates the standard TimeSeries Data Schema (v1.4.0).
 * **`WaeStatsAggregator`**: Specialized logic for WAE contests (QTCs and weighted multipliers).
 
@@ -760,6 +761,48 @@ Learn from common mistakes to avoid frustration.
 - Ensure module is in `contest_tools/contest_specific_annotations/`
 - Verify module has `parse_log()` function with correct signature
 - Check module name matches `custom_parser_module` value exactly
+
+### Sweepstakes-Specific Implementation
+
+ARRL Sweepstakes has unique scoring rules that require specialized handling:
+
+**Key Characteristics:**
+- **Multiplier Counting:** Uses `totaling_method: "once_per_log"` - each section counts once per contest, not per band
+- **Fixed Multiplier Maximum:** There are exactly 85 possible sections (loaded from `SweepstakesSections.dat`)
+- **Enhanced Missed Multipliers Report:** Specialized report (`text_enhanced_missed_multipliers.py`) provides detailed breakdown
+
+**Implementation Details:**
+
+1. **Multiplier Dashboard Features:**
+   - Fixed scale progress bars with reference line at 85 multipliers
+   - Band Spectrum automatically suppressed (multipliers are contest-wide, not per-band)
+   - Enhanced Missed Multipliers report appears in dashboard when missed multipliers exist
+
+2. **Enhanced Missed Multipliers Report:**
+   - Report ID: `enhanced_missed_multipliers`
+   - Only generates for contests with `contest_name.startswith("ARRL-SS")`
+   - Uses `MultiplierStatsAggregator.get_missed_data(mult_name, mode_filter, enhanced=True)`
+   - Returns detailed breakdown with:
+     - Which logs worked each missed multiplier
+     - Bands/modes where worked
+     - Aggregated Run/S&P/Unknown counts across all bands/modes
+
+3. **Data Aggregation:**
+   - `MultiplierStatsAggregator._compute_enhanced_breakdown()` processes QSO data to extract:
+     - Worked-by callsigns (from multiplier sets)
+     - Band/mode distribution (from QSO records)
+     - Run/S&P/Unknown classification (from `Run` column in dataframe)
+
+4. **Report Generation:**
+   - Report must be added to `is_multiplier_report` list in `report_generator.py`
+   - Generates with session-level filename: `enhanced_missed_multipliers--{callsigns}.txt`
+   - Only generates when missed multipliers exist (skips if none found)
+
+**Files Involved:**
+- `contest_tools/data_aggregators/multiplier_stats.py`: Enhanced breakdown computation
+- `contest_tools/reports/text_enhanced_missed_multipliers.py`: Report generation
+- `web_app/analyzer/views.py`: Dashboard discovery and display logic
+- `web_app/analyzer/templates/analyzer/multiplier_dashboard.html`: UI integration
 
 ### Troubleshooting
 
