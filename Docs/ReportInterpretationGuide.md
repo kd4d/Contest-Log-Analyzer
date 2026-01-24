@@ -1,10 +1,16 @@
 # Report Interpretation Guide
 
-**Version: 0.160.0-Beta**
-**Date: 2026-01-24**
+**Version:** 1.0.0-alpha.10
+**Date:** 2026-01-24
+**Last Updated:** 2026-01-24
+**Category:** User Guide
 
 ---
 ### --- Revision History ---
+## [1.0.0-alpha.10] - 2026-01-24
+### Changed
+- Updated version to match project release v1.0.0-alpha.10 (no content changes)
+
 ## [0.160.0-Beta] - 2026-01-24
 ### Added
 - Added "Enhanced Missed Multipliers Report" section for Sweepstakes contests.

@@ -321,6 +321,52 @@ Non-ASCII characters in code can cause runtime errors:
 
 ## Version Management
 
+### CRITICAL: Document Consistency Check
+
+**⚠️ MANDATORY: Before performing any version updates, AI agents MUST:**
+
+1. **Read both documents:**
+   - `Docs/AI_AGENT_RULES.md` Section "Version Management" (this section)
+   - `Docs/VersionManagement.md` Section 3 (Documentation Versioning Policy)
+
+2. **Verify consistency using this checklist:**
+   - [ ] Category definitions match (A, B, C, D)
+   - [ ] Category file lists match
+   - [ ] Workflow steps align (same steps, same order)
+   - [ ] Policy rules are consistent (when to update, how to update)
+   - [ ] "Compatible With" field rules match
+   - [ ] Revision history requirements match
+   - [ ] File locations match
+   - [ ] Version number formats match
+   - [ ] Update triggers match (when to update each category)
+
+3. **If ANY discrepancy is detected:**
+   - **STOP immediately**
+   - **DO NOT proceed with version updates**
+   - **Report the discrepancy using this format:**
+     ```
+     **DISCREPANCY DETECTED - STOPPING WORKFLOW**
+     
+     I detected a discrepancy between the versioning documents:
+     
+     **Location:** [Section name in each document]
+     **Issue:** [Brief description]
+     **AI_AGENT_RULES.md says:** [Exact quote or summary]
+     **VersionManagement.md says:** [Exact quote or summary]
+     
+     **Impact:** [What could go wrong if I proceed]
+     
+     **Request for Guidance:**
+     1. Which document should I follow?
+     2. Should I update one document to match the other?
+     3. Is this an intentional difference, or a documentation error?
+     
+     **Action:** Waiting for your guidance before proceeding with version updates.
+     ```
+   - **Wait for explicit user guidance**
+
+**For complete discrepancy detection procedures, see:** `Docs/VersionManagement.md` Section 5
+
 ### How Version.py Works
 - `contest_tools/version.py` contains `__version__` and `__git_hash__`
 - Pre-commit hook automatically updates `__git_hash__` before each commit
@@ -333,6 +379,25 @@ Non-ASCII characters in code can cause runtime errors:
 **When to Use:** Before creating any version tag (alpha, beta, or release).
 
 #### Step-by-Step Process
+
+**0. Document Consistency Check (MANDATORY FIRST STEP)**
+
+**⚠️ CRITICAL: This step MUST be performed before any version updates.**
+
+a. **Read both versioning documents:**
+   - `Docs/AI_AGENT_RULES.md` Section "Version Management" (this section)
+   - `Docs/VersionManagement.md` Section 3 (Documentation Versioning Policy)
+
+b. **Verify consistency:**
+   - Use the discrepancy detection checklist above
+   - Check that category definitions, file lists, workflow steps, and policy rules match
+
+c. **If discrepancy detected:**
+   - STOP immediately
+   - Report using the format above
+   - Wait for user guidance
+
+d. **Only proceed if documents are consistent**
 
 **1. Pre-Release Checklist**
 - [ ] Verify current branch state (`git status`)
@@ -383,9 +448,42 @@ b. **Update `README.md`:**
    - **MANDATORY:** This must be updated for every release
    - Verify no other version references exist
 
-c. **Check other documentation files:**
-   - Search for version strings: `grep -r "1\.0\.0" Docs/ README.md`
-   - Update any hardcoded version references found
+c. **Update Documentation Files (MANDATORY):**
+   
+   **Reference:** See `Docs/VersionManagement.md` Section 3 for complete documentation versioning policy.
+   
+   **Category-Based Update Process:**
+   
+   **Category A (User-Facing Documentation):**
+   - Files: `UsersGuide.md`, `InstallationGuide.md`, `ReportInterpretationGuide.md`
+   - Action: Update version to match project version (e.g., `1.0.0-alpha.3`)
+   - Update "Last Updated" date to today
+   - Add revision history entry: "Updated version to match project release v1.0.0-alpha.3 (no content changes)"
+   
+   **Category B (Programmer Reference):**
+   - Files: `ProgrammersGuide.md`, `PerformanceProfilingGuide.md`
+   - Action: Update version to match project version (e.g., `1.0.0-alpha.3`)
+   - Update "Last Updated" date to today
+   - Add revision history entry: "Updated version to match project release v1.0.0-alpha.3 (no content changes)"
+   
+   **Category C (Algorithm Specifications):**
+   - Files: `CallsignLookupAlgorithm.md`, `RunS&PAlgorithm.md`, `WPXPrefixLookup.md`
+   - Action: Update "Compatible with" field to "up to v1.0.0-alpha.3" (keep algorithm version unchanged)
+   - Update "Last Updated" date to today
+   - Add revision history entry: "Updated 'Compatible with' field to include project version v1.0.0-alpha.3"
+   
+   **Category D (Style Guides):**
+   - Files: `CLAReportsStyleGuide.md`
+   - Action: No version update required (only update when style rules change)
+   - If style rules changed: Increment version, update "Last Updated" date, add revision history entry
+   
+   **Verification:**
+   - Verify all Category A & B files match project version
+   - Verify all Category C files have "Compatible with" field updated
+   - Verify all metadata formats are consistent (see `Docs/VersionManagement.md` Section 3)
+   - Verify all revision history entries are added
+   
+   **For complete documentation versioning rules, see:** `Docs/VersionManagement.md` Section 3
 
 **4. Create Release Notes and Update CHANGELOG.md (MANDATORY)**
 
@@ -432,12 +530,26 @@ b. **Update CHANGELOG.md (REQUIRED):**
 a. **Stage all version-related changes:**
    ```bash
    git add contest_tools/version.py README.md ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.3.md CHANGELOG.md
+   git add Docs/UsersGuide.md Docs/InstallationGuide.md Docs/ReportInterpretationGuide.md
+   git add Docs/ProgrammersGuide.md Docs/PerformanceProfilingGuide.md
+   git add Docs/CallsignLookupAlgorithm.md Docs/RunS&PAlgorithm.md Docs/WPXPrefixLookup.md
    ```
-   - **All four files must be included:**
+   - **Core version files (required):**
      1. `contest_tools/version.py` - Version number
      2. `README.md` - Version in header
      3. `ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.3.md` - Release notes
      4. `CHANGELOG.md` - Changelog entry
+   - **Documentation files (Category A & B - match project version):**
+     5. `Docs/UsersGuide.md`
+     6. `Docs/InstallationGuide.md`
+     7. `Docs/ReportInterpretationGuide.md`
+     8. `Docs/ProgrammersGuide.md`
+     9. `Docs/PerformanceProfilingGuide.md`
+   - **Algorithm specifications (Category C - update Compatible With field):**
+     10. `Docs/CallsignLookupAlgorithm.md`
+     11. `Docs/RunS&PAlgorithm.md`
+     12. `Docs/WPXPrefixLookup.md`
+   - **Note:** Category D (Style Guides) only updated when style rules change
 
 b. **Verify all files are staged:**
    ```bash
@@ -508,17 +620,29 @@ b. **Verify all required files exist and are correct:**
    
    # Verify version consistency across all files
    grep -r "1\.0\.0-alpha\.3" contest_tools/version.py README.md ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.3.md CHANGELOG.md
+   
+   # Verify documentation versions (Category A & B should match project version)
+   grep "Version:" Docs/UsersGuide.md Docs/InstallationGuide.md Docs/ReportInterpretationGuide.md
+   grep "Version:" Docs/ProgrammersGuide.md Docs/PerformanceProfilingGuide.md
+   
+   # Verify Category C "Compatible with" fields updated
+   grep "Compatible with" Docs/CallsignLookupAlgorithm.md Docs/RunS&PAlgorithm.md Docs/WPXPrefixLookup.md
    ```
 
 #### AI Agent Responsibilities
 
 - **AI MUST Do (Mandatory Steps):**
+  - **Perform document consistency check** (Step 0) - REQUIRED before any updates
   - Merge feature branch into master (after user confirmation)
   - Update `contest_tools/version.py` to match target version
   - **Update `README.md` version** (Line 3) - REQUIRED for every release
+  - **Update documentation files** per category-based policy (Step 3c) - REQUIRED for every release
+    - Category A & B: Update version to match project version
+    - Category C: Update "Compatible with" field
+    - Category D: Only update if style rules changed
   - **Create release notes file** in `ReleaseNotes/` directory - REQUIRED for every release
   - **Update `CHANGELOG.md`** with new release entry at top - REQUIRED for every release
-  - Stage all four files: `version.py`, `README.md`, `ReleaseNotes/*.md`, `CHANGELOG.md`
+  - Stage all version-related files: `version.py`, `README.md`, documentation files, `ReleaseNotes/*.md`, `CHANGELOG.md`
   - Commit version updates BEFORE creating tag
   - Generate tag creation command (after all updates committed)
   - Verify version consistency across all files
@@ -905,6 +1029,13 @@ AI:
 - AI should warn if `version.py` doesn't match recent tag
 - AI should suggest updating version before tagging
 - User must confirm version number
+
+### If Document Discrepancy Detected
+- **CRITICAL:** AI MUST STOP immediately if discrepancy found between `AI_AGENT_RULES.md` and `VersionManagement.md`
+- **DO NOT proceed** with version updates
+- Report discrepancy using the format in "Version Management" > "CRITICAL: Document Consistency Check" section
+- **Wait for explicit user guidance** before proceeding
+- **For complete procedures, see:** `Docs/VersionManagement.md` Section 5
 
 ### CRITICAL: Diagnostic Logging Rules
 
@@ -1715,6 +1846,8 @@ git config user.name "Test User"
 cd regression_baselines && git init && git config user.name "Test User"
 ```
 
+**Note:** For file operations (move, copy, delete), see "File Operation Verification" section under "Command Execution and Error Checking" for complete verification requirements.
+
 #### Executing Batch Files
 
 **PowerShell Syntax (CORRECT):**
@@ -1794,6 +1927,8 @@ echo %TEST_DATA_DIR%
 
 **CRITICAL: AI agents MUST check command outputs and handle errors before proceeding.**
 
+**⚠️ CRITICAL: File operations (move, copy, delete, rename) require verification of both source and destination states. See "File Operation Verification" subsection below.**
+
 **⚠️ MANDATORY WORKFLOW FOR ALL COMMANDS - NO EXCEPTIONS:**
 
 **BEFORE execution (MANDATORY):**
@@ -1807,15 +1942,17 @@ echo %TEST_DATA_DIR%
 **AFTER execution (MANDATORY):**
 1. **Check exit code IMMEDIATELY:** 
    - Non-zero exit code = FAILURE → STOP, read error, fix, retry
-   - Zero exit code = SUCCESS → Verify output is as expected
-2. **Read error messages COMPLETELY:** Error messages contain critical information - read the entire error, not just the first line
-3. **Verify command results:** Check that commands produced expected output (not empty, not unexpected format)
-4. **Address failures IMMEDIATELY:** 
+   - Zero exit code = SUCCESS → BUT STILL VERIFY RESULTS (exit code 0 does NOT guarantee success for file operations)
+2. **For file operations (move/copy/delete/rename):** ALWAYS verify both source and destination states (see "File Operation Verification" below)
+3. **Read error messages COMPLETELY:** Error messages contain critical information - read the entire error, not just the first line
+4. **Verify command results:** Check that commands produced expected output (not empty, not unexpected format)
+5. **Address failures IMMEDIATELY:** 
    - Do NOT proceed with subsequent commands if a command fails
    - Do NOT ignore errors and continue
    - Do NOT assume "it will work next time"
-5. **Check working directory:** Verify current directory when path-related errors occur
-6. **Do NOT ignore errors:** Empty output or unexpected results require investigation before proceeding
+   - Do NOT assume exit code 0 means success for file operations
+6. **Check working directory:** Verify current directory when path-related errors occur
+7. **Do NOT ignore errors:** Empty output or unexpected results require investigation before proceeding
 
 **Rule:** After executing any terminal command, AI agents MUST:
 1. **Check exit codes:** Non-zero exit codes indicate failure
@@ -1884,6 +2021,161 @@ if ($currentDir -notlike "*Contest-Log-Analyzer*") {
     Set-Location "C:\Users\mbdev\OneDrive\Desktop\Repos\Contest-Log-Analyzer"
 }
 ```
+
+### CRITICAL: File Operation Verification
+
+**AI agents MUST verify file operations (move, copy, delete, rename) by checking both source and destination states.**
+
+**⚠️ MANDATORY: After ANY file operation, verify the operation actually succeeded.**
+
+**File Operation Verification Checklist:**
+
+**BEFORE execution:**
+- [ ] Source file/directory exists (use `Test-Path`)
+- [ ] Destination directory exists (use `Test-Path` for directory)
+- [ ] Using PowerShell cmdlets (`Move-Item`, `Copy-Item`, `Remove-Item` - NOT `move`, `copy`, `del`)
+- [ ] Using PowerShell syntax (`;` for chaining, NOT `&&`)
+
+**AFTER execution:**
+- [ ] Exit code checked (non-zero = stop immediately, even if some files moved)
+- [ ] Source state verified: For moves/deletes, file should be GONE from source
+- [ ] Destination state verified: For moves/copies, file should EXIST in destination
+- [ ] Both verifications passed before proceeding to next operation
+
+**MANDATORY WORKFLOW FOR FILE OPERATIONS:**
+
+1. **BEFORE operation:**
+   - Verify source file/directory exists using `Test-Path`
+   - Verify destination directory exists using `Test-Path`
+   - Use PowerShell cmdlets (`Move-Item`, `Copy-Item`, `Remove-Item`) - NOT CMD commands (`move`, `copy`, `del`)
+   - Use PowerShell syntax (`;` for chaining) - NOT CMD syntax (`&&`)
+
+2. **EXECUTE operation:**
+   - Use proper PowerShell cmdlet with correct syntax
+   - Use `-Force` flag if overwriting is intended
+
+3. **AFTER operation:**
+   - **Check exit code:** Non-zero = stop immediately, investigate, fix
+   - **Verify source state:** 
+     - For moves/deletes: File should be GONE from source location
+     - For copies: File should still exist in source location
+   - **Verify destination state:**
+     - For moves/copies: File should EXIST in destination location
+     - For deletes: File should NOT exist (verify deletion)
+   - **Use Test-Path for verification:** Don't assume - actually check both locations
+   - **Only proceed if both verifications pass**
+
+**Example: File Move with Verification**
+```powershell
+# BEFORE: Verify prerequisites
+$source = "DevNotes\VERSIONING_IMPLEMENTATION_SUMMARY.md"
+$dest = "DevNotes\Archive\VERSIONING_IMPLEMENTATION_SUMMARY.md"
+
+# Verify source exists
+if (-not (Test-Path $source)) {
+    Write-Host "ERROR: Source file does not exist: $source"
+    exit 1
+}
+
+# Verify destination directory exists
+$destDir = Split-Path $dest -Parent
+if (-not (Test-Path $destDir)) {
+    Write-Host "ERROR: Destination directory does not exist: $destDir"
+    exit 1
+}
+
+# EXECUTE: Perform move operation
+Move-Item $source $dest -Force
+
+# AFTER: Verify operation succeeded
+# Check exit code was already done by tool, but verify file states:
+
+# Verify source is GONE (for moves)
+if (Test-Path $source) {
+    Write-Host "ERROR: Move failed - source file still exists: $source"
+    exit 1
+}
+
+# Verify destination EXISTS (for moves)
+if (-not (Test-Path $dest)) {
+    Write-Host "ERROR: Move failed - destination file does not exist: $dest"
+    exit 1
+}
+
+# Only proceed if both verifications pass
+Write-Host "SUCCESS: File moved and verified"
+```
+
+**Example: Batch File Operations with Verification**
+```powershell
+# For multiple files, verify each operation
+$files = @("file1.md", "file2.md", "file3.md")
+$destDir = "DevNotes\Archive"
+
+# Verify destination exists
+if (-not (Test-Path $destDir)) {
+    Write-Host "ERROR: Destination directory does not exist: $destDir"
+    exit 1
+}
+
+# Move and verify each file
+foreach ($file in $files) {
+    $source = "DevNotes\$file"
+    $dest = "$destDir\$file"
+    
+    # Verify source exists
+    if (-not (Test-Path $source)) {
+        Write-Host "WARNING: Source file does not exist: $source (skipping)"
+        continue
+    }
+    
+    # Execute move
+    Move-Item $source $dest -Force
+    
+    # Verify move succeeded
+    if (Test-Path $source) {
+        Write-Host "ERROR: Move failed - source still exists: $source"
+        exit 1
+    }
+    if (-not (Test-Path $dest)) {
+        Write-Host "ERROR: Move failed - destination missing: $dest"
+        exit 1
+    }
+}
+
+Write-Host "SUCCESS: All files moved and verified"
+```
+
+**Common Mistakes to Avoid:**
+- ❌ **WRONG:** Assuming exit code 0 means file operation succeeded
+- ❌ **WRONG:** Not checking if source file was actually removed (for moves/deletes)
+- ❌ **WRONG:** Not checking if destination file actually exists (for moves/copies)
+- ❌ **WRONG:** Using CMD commands (`move`, `copy`, `del`) instead of PowerShell cmdlets
+- ❌ **WRONG:** Using CMD syntax (`&&` for chaining) instead of PowerShell syntax (`;`)
+- ❌ **WRONG:** Proceeding with subsequent operations after unverified file operations
+- ❌ **WRONG:** Ignoring error messages even when exit code is 0
+
+**Why This Matters:**
+- File operations can appear to succeed but actually fail silently
+- Directory context issues can cause operations to fail in unexpected ways
+- Partial success (some files moved, others failed) can cause inconsistent state
+- Verification prevents cascading failures from unverified operations
+- Exit code 0 does NOT guarantee file operation succeeded - always verify
+- Ensures file operations actually completed before proceeding with dependent operations
+
+**Agent Behavior Requirements:**
+
+When performing file operations:
+1. **MUST** verify source exists before operation
+2. **MUST** verify destination directory exists before operation
+3. **MUST** use PowerShell cmdlets (`Move-Item`, `Copy-Item`, `Remove-Item`) - NOT CMD commands
+4. **MUST** use PowerShell syntax (`;` for chaining) - NOT CMD syntax (`&&`)
+5. **MUST** check exit code after operation
+6. **MUST** verify source state after operation (gone for moves/deletes, unchanged for copies)
+7. **MUST** verify destination state after operation (exists for moves/copies, gone for deletes)
+8. **MUST** use `Test-Path` for verification - don't assume
+9. **MUST NOT** proceed with subsequent operations if verification fails
+10. **MUST NOT** ignore error messages even if exit code is 0
 
 **Agent Behavior Requirements:**
 

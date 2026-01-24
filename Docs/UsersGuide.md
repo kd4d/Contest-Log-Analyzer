@@ -1,12 +1,19 @@
 # Contest Log Analytics - User Guide
 
-**Version: 1.0.0-alpha.4**
+**Version:** 1.0.0-alpha.10
+**Date:** 2026-01-24
+**Last Updated:** 2026-01-24
+**Category:** User Guide
 
 ---
 ### --- Revision History ---
+## [1.0.0-alpha.10] - 2026-01-24
+### Changed
+- Updated version to match project release v1.0.0-alpha.10 (no content changes)
+
 ## [1.2.0] - 2025-12-23
 ### Added
-# - Added Multiplier Breakdown reports (HTML, Text, JSON) to Section 5.
+- Added Multiplier Breakdown reports (HTML, Text, JSON) to Section 5.
 ## [1.1.0] - 2025-12-15
 ### Added
 # - Added Section 6 "The Web Dashboard" to document the containerized workflow.

@@ -1,7 +1,15 @@
 # Performance Profiling Guide
 
-**Version: 1.0**  
-**Date: 2026-01-07**
+**Version:** 1.0.0-alpha.10
+**Date:** 2026-01-07
+**Last Updated:** 2026-01-24
+**Category:** Programmer Reference
+
+---
+### --- Revision History ---
+## [1.0.0-alpha.10] - 2026-01-24
+### Changed
+- Updated version to match project release v1.0.0-alpha.10 (no content changes)
 
 ---
 

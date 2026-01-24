@@ -74,6 +74,8 @@ All Python (`.py`) files must begin with the following standard header block.
 ## 4. Versioning Strategy (SemVer)
 We follow **Semantic Versioning 2.0.0**.
 
+**For complete versioning policies and documentation versioning rules, see:** `Docs/VersionManagement.md`
+
 ### Version Source of Truth
 * **Git Tags** are authoritative for releases (e.g., `v1.0.0`, `v1.0.0-beta.1`)
 * **Runtime Version** is stored in `contest_tools/version.py` as `__version__`

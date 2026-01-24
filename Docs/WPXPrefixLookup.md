@@ -1,14 +1,20 @@
 # WPX Prefix Lookup Specification
 
-**Version: 0.70.0-Beta**
-**Date: 2025-09-09**
+**Version:** 0.70.0-Beta
+**Date:** 2025-09-09
+**Last Updated:** 2026-01-24
+**Category:** Algorithm Spec
+**Compatible with:** up to v1.0.0-alpha.10
 
 ---
 ### --- Revision History ---
+## [0.70.0-Beta] - 2026-01-24
+### Changed
+- Updated "Compatible with" field to include project version v1.0.0-alpha.10
+
 ## [0.70.0-Beta] - 2025-09-09
 ### Changed
-# - Updated the "Strip Suffixes" rule in Section 2.1 to include the
-#   complete list of suffixes (/A, /E, /J) to match the code baseline.
+- Updated the "Strip Suffixes" rule in Section 2.1 to include the complete list of suffixes (/A, /E, /J) to match the code baseline.
 ## [0.31.60-Beta] - 2025-08-24
 ### Changed
 # - Updated the "Data Flow" section to reflect the module's refactoring

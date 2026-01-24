@@ -1,15 +1,21 @@
 # Callsign Lookup Algorithm Specification
 
-**Version: 0.90.11-Beta**
-**Date: 2025-10-06**
+**Version:** 0.90.11-Beta
+**Date:** 2025-10-06
+**Last Updated:** 2026-01-24
+**Category:** Algorithm Spec
+**Compatible with:** up to v1.0.0-alpha.10
 
 ---
 ### --- Revision History ---
+## [0.90.11-Beta] - 2026-01-24
+### Changed
+- Updated "Compatible with" field to include project version v1.0.0-alpha.10
+
 ## [0.90.11-Beta] - 2025-10-06
 ### Fixed
-# - Synchronized documentation with the code baseline in `get_cty.py`.
-# - Added documentation for the two special-case rules for handling
-#   ambiguous KG4 callsigns.
+- Synchronized documentation with the code baseline in `get_cty.py`.
+- Added documentation for the two special-case rules for handling ambiguous KG4 callsigns.
 ## [0.30.43-Beta] - 2025-08-24
 ### Changed
 # - Corrected Step 6 of the Portable Call Heuristics to accurately

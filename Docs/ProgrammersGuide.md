@@ -1,7 +1,15 @@
 # Contest Log Analytics - Programmer's Guide
 
-**Version: 0.160.0-Beta**
-**Date: 2026-01-24**
+**Version:** 1.0.0-alpha.10
+**Date:** 2026-01-24
+**Last Updated:** 2026-01-24
+**Category:** Programmer Reference
+
+---
+### --- Revision History ---
+## [1.0.0-alpha.10] - 2026-01-24
+### Changed
+- Updated version to match project release v1.0.0-alpha.10 (no content changes)
 
 ---
 
@@ -12,6 +20,31 @@ The Contest Log Analytics project is built on three core architectural principle
 * **Data-Driven:** The behavior of the analysis engine is primarily controlled by data, not code. Contest rules, multiplier definitions, and parsing logic are defined in simple `.json` files.
 * **Extensible:** The application uses a "plugin" architecture. New reports and contest-specific logic modules are dynamically discovered at runtime.
 * **Convention over Configuration:** Files and classes must be named and placed in specific, predictable locations to be discovered.
+
+---
+
+## Documentation Index
+
+**Purpose:** Central reference for all maintained documentation. See `Docs/VersionManagement.md` Section 3 for complete versioning policy.
+
+### User-Facing Documentation (Category A - Match Project Version)
+- `UsersGuide.md` - Version: 1.0.0-alpha.10
+- `InstallationGuide.md` - Version: 1.0.0-alpha.10
+- `ReportInterpretationGuide.md` - Version: 1.0.0-alpha.10
+
+### Programmer Reference (Category B - Match Project Version)
+- `ProgrammersGuide.md` - Version: 1.0.0-alpha.10
+- `PerformanceProfilingGuide.md` - Version: 1.0.0-alpha.10
+
+### Algorithm Specifications (Category C - Independent Versioning)
+- `CallsignLookupAlgorithm.md` - Version: 0.90.11-Beta (Compatible with: up to v1.0.0-alpha.10)
+- `RunS&PAlgorithm.md` - Version: 0.47.4-Beta (Compatible with: up to v1.0.0-alpha.10)
+- `WPXPrefixLookup.md` - Version: 0.70.0-Beta (Compatible with: up to v1.0.0-alpha.10)
+
+### Style Guides (Category D - Independent Versioning)
+- `CLAReportsStyleGuide.md` - Version: 1.4.0
+
+**For versioning policy details, see:** `Docs/VersionManagement.md` Section 3
 
 ---
 

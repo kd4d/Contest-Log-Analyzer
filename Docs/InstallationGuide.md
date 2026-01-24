@@ -1,17 +1,24 @@
 # Contest Log Analytics - Installation Guide
 
-**Version: 1.0.0-alpha.3**
+**Version:** 1.0.0-alpha.10
+**Date:** 2026-01-24
+**Last Updated:** 2026-01-24
+**Category:** User Guide
 
 ---
 ### --- Revision History ---
+## [1.0.0-alpha.10] - 2026-01-24
+### Changed
+- Updated version to match project release v1.0.0-alpha.10 (no content changes)
+
 ## [1.0.0-alpha.1] - 2026-01-13
 ### Changed
-# - Updated version to match project release versioning.
-# - Enhanced Docker installation section with detailed information about:
-#   * Data files location and requirements
-#   * Directory structure expectations
-#   * Automatic environment variable configuration
-#   * Note about included sample data files
+- Updated version to match project release versioning.
+- Enhanced Docker installation section with detailed information about:
+  * Data files location and requirements
+  * Directory structure expectations
+  * Automatic environment variable configuration
+  * Note about included sample data files
 ## [0.126.0-Beta] - 2025-12-18
 ### Changed
 # - Promoted the Docker installation workflow to the primary "Installation Steps".
