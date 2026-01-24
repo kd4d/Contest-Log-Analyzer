@@ -99,12 +99,17 @@
                     <div class="v-grid-line" style="left: 25%"></div>
                     <div class="v-grid-line" style="left: 50%"></div>
                     <div class="v-grid-line" style="left: 75%"></div>
+                    {% if not is_sweepstakes or not fixed_multiplier_max %}
                     <div class="v-grid-line" style="left: 100%"></div>
-                    {% if is_sweepstakes and fixed_multiplier_max %}
-                    {# Reference line at 100% (full scale) - part of the bar chart coordinate system #}
-                    <div class="v-grid-line v-reference-line" style="left: 100%"></div>
                     {% endif %}
                 </div>
+
+                {% if is_sweepstakes and fixed_multiplier_max %}
+                {# Reference line at 100% (x=85) - positioned in same container as bars for precise alignment #}
+                <div class="h-bar-reference-line-container">
+                    <div class="h-bar-reference-line"></div>
+                </div>
+                {% endif %}
 
                 {% for stat in row.stations %}
                 {% with total_unique=stat.unique_run|add:stat.unique_sp|add:stat.unique_unk %}
