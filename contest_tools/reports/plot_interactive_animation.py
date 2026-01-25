@@ -244,7 +244,7 @@ class Report(ContestReport):
                 )
         
         trace_count_after = len(fig.data)
-        expected_traces = 1 + (len(callsigns) * len(run_statuses) * 2)  # racing bar + (calls × statuses × 2 subplots)
+        expected_traces = 1 + (len(callsigns) * len(run_statuses) * 2)  # racing bar + (calls x statuses x 2 subplots)
         if trace_count_after != expected_traces:
             logging.error(f"ERROR: Trace count mismatch! Expected {expected_traces} but got {trace_count_after}")
 
