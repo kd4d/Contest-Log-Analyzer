@@ -51,6 +51,7 @@ Containerized Django application with interactive visualizations (Plotly charts)
 CLA supports major international contests including:
 - **CQ World Wide DX Contest** (CW/SSB/RTTY)
 - **CQ WPX Contest** (CW/SSB)
+- **ARRL 10 Meter**
 - **ARRL DX Contest** (CW/SSB)
 - **ARRL Sweepstakes** (CW/SSB) - Full support with enhanced multiplier analysis
 - **ARRL IARU HF World Championship**
