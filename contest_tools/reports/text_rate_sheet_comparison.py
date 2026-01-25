@@ -64,6 +64,9 @@ class Report(ContestReport):
                 global_modes.update(entry['hourly'].get('by_mode', {}).keys())
         available_modes = sorted(list(global_modes))
         if not available_modes: available_modes = ['QSO']
+        
+        # Check if contest is single-mode (all detail sections should be suppressed)
+        is_single_mode = len(available_modes) == 1
 
         report_blocks = []
 
@@ -120,7 +123,8 @@ class Report(ContestReport):
         full_content = "\n".join(header_block) + "\n\n" + "\n\n".join(report_blocks) + "\n\n" + standard_footer + "\n"
 
         # --- BLOCKS 2+: Band Details ---
-        if not is_single_band:
+        # Skip detail sections for single-mode contests (redundant information)
+        if not is_single_band and not is_single_mode:
             for band in bands:
                 # Check if this band has ANY data across ANY log
                 has_data = False

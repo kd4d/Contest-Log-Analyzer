@@ -75,6 +75,9 @@ class Report(ContestReport):
 
             # Calculate modes present for smart scoping
             modes_present = set(available_modes)
+            
+            # Check if contest is single-mode (all detail sections should be suppressed)
+            is_single_mode = len(available_modes) == 1
 
             report_blocks = []
 
@@ -110,8 +113,9 @@ class Report(ContestReport):
             # --- BLOCKS 2+: Band Details ---
             # Generate a detail table for each band that has data
             # Columns: [Modes...] | [Totals]
+            # Skip detail sections for single-mode contests (redundant information)
             
-            if not is_single_band:
+            if not is_single_band and not is_single_mode:
                 for band in bands:
                     # Check if band has any data
                     band_qsos = hourly_data['by_band'].get(band, [])
