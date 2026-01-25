@@ -1,4 +1,4 @@
-﻿# contest_tools/version.py
+# contest_tools/version.py
 #
 # Purpose: Centralized version management for the Contest Log Analytics project.
 #          Provides runtime version information derived from git tags or file-based defaults.
