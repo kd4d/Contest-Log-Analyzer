@@ -278,49 +278,42 @@ class Report(ContestReport):
         ]
         meta_lines = [f"QSO/{mult_label} by hour and {dimension}", "Contest Log Analytics by KD4D"]
         
-        # Calculate column widths - need to account for QSO/Mult format (e.g., "1234/567")
-        # Find max width needed for QSO/Mult pairs in each dimension
-        max_qso_mult_width = 7  # Minimum width for "1234/567" format
+        # Helper function to format QSO/Mult pairs with aligned "/"
+        def format_qso_mult(qsos: int, mults: int, qso_width: int, mult_width: int) -> str:
+            """Format QSO/Mult pair with aligned slash."""
+            return f"{qsos:>{qso_width}}/{mults:<{mult_width}}"
+        
+        # Calculate max widths for QSO and mult parts (to align "/" vertically)
+        max_qso = 0
+        max_mult = 0
         for dim in valid_dimensions:
-            qsos_list = hourly_data.get(dim, [])
-            mults_list = hourly_new_mults.get(dim, [])
-            if qsos_list and mults_list:
-                for qsos, mults in zip(qsos_list, mults_list):
-                    pair_str = f"{qsos}/{mults}"
-                    max_qso_mult_width = max(max_qso_mult_width, len(pair_str))
+            for q, m in zip(hourly_data.get(dim, []), hourly_new_mults.get(dim, [])):
+                max_qso = max(max_qso, len(str(q)))
+                max_mult = max(max_mult, len(str(m)))
+            # Check totals
+            total_q = sum(hourly_data.get(dim, []))
+            total_m = sum(hourly_new_mults.get(dim, []))
+            max_qso = max(max_qso, len(str(total_q)))
+            max_mult = max(max_mult, len(str(total_m)))
         
-        # Also check totals
-        for dim in valid_dimensions:
-            qsos_list = hourly_data.get(dim, [])
-            mults_list = hourly_new_mults.get(dim, [])
-            if qsos_list and mults_list:
-                total_qsos = sum(qsos_list)
-                total_mults = sum(mults_list)
-                pair_str = f"{total_qsos}/{total_mults}"
-                max_qso_mult_width = max(max_qso_mult_width, len(pair_str))
+        # Check overall totals
+        total_qsos_sum = sum(sum(hourly_data.get(dim, [])) for dim in valid_dimensions)
+        total_breakdown_mults = sum(sum(hourly_new_mults.get(dim, [])) for dim in valid_dimensions)
+        max_qso = max(max_qso, len(str(total_qsos_sum)))
+        max_mult = max(max_mult, len(str(total_breakdown_mults)))
         
-        # Ensure column width is at least as wide as the dimension name
-        dim_col_width = max(max_qso_mult_width, max(len(dim) for dim in valid_dimensions) if valid_dimensions else 6)
-        dim_col_width = max(dim_col_width, 7)  # Minimum 7 for "Total" and QSO/Mult format
+        # Column width = QSO width + "/" + mult width
+        dim_col_width = max(max_qso + 1 + max_mult, 
+                           max(len(d) for d in valid_dimensions) if valid_dimensions else 6,
+                           len("Total"), 7)
         
-        # Pre-calculate CUMM and Score column widths by scanning ALL rows
-        max_cumm_width = len("Cumm")  # Minimum width for header
-        max_score_width = len("Score")  # Minimum width for header
+        # Calculate CUMM column widths
+        cumm_qso = max(len(str(c)) for c in cum_qsos) if cum_qsos else 1
+        cumm_mult = max(len(str(c)) for c in hourly_cum_mults) if hourly_cum_mults else 1
+        cumm_col_width = max(cumm_qso + 1 + cumm_mult, len("Cumm")) + 1
         
-        for hour_idx in range(len(master_index)):
-            # Check CUMM width
-            cum_qso = cum_qsos[hour_idx] if hour_idx < len(cum_qsos) else 0
-            cum_mult = hourly_cum_mults[hour_idx] if hour_idx < len(hourly_cum_mults) else 0
-            cum_pair_str = f"{cum_qso}/{cum_mult}"
-            max_cumm_width = max(max_cumm_width, len(cum_pair_str))
-            
-            # Check Score width (with comma formatting)
-            score = cum_score[hour_idx] if hour_idx < len(cum_score) else 0
-            score_str = f"{score:,}"
-            max_score_width = max(max_score_width, len(score_str))
-        
-        # Add one space padding to CUMM and Score columns for readability
-        cumm_col_width = max_cumm_width + 1
+        # Calculate Score column width
+        max_score_width = max(len(f"{s:,}") for s in cum_score) if cum_score else len("Score")
         score_col_width = max_score_width + 1
         
         # Calculate InactiveTime column width
@@ -372,20 +365,20 @@ class Report(ContestReport):
                 if qsos == 0 and mults == 0:
                     row_parts.append(f"{'  -  ':>{dim_col_width}}")
                 else:
-                    pair_str = f"{qsos}/{mults}"
+                    pair_str = format_qso_mult(qsos, mults, max_qso, max_mult)
                     row_parts.append(f"{pair_str:>{dim_col_width}}")
             
             # Total for hour
             if total_qsos == 0 and total_mults == 0:
                 row_parts.append(f"{'  -  ':>{dim_col_width}}")
             else:
-                total_pair_str = f"{total_qsos}/{total_mults}"
-                row_parts.append(f"{total_pair_str:>{dim_col_width}}")
+                pair_str = format_qso_mult(total_qsos, total_mults, max_qso, max_mult)
+                row_parts.append(f"{pair_str:>{dim_col_width}}")
             
             # Cumulative
             cum_qso = cum_qsos[hour_idx] if hour_idx < len(cum_qsos) else 0
             cum_mult = hourly_cum_mults[hour_idx] if hour_idx < len(hourly_cum_mults) else 0
-            cum_pair_str = f"{cum_qso}/{cum_mult}"
+            cum_pair_str = format_qso_mult(cum_qso, cum_mult, cumm_qso, cumm_mult)
             row_parts.append(f"{cum_pair_str:>{cumm_col_width}}")
             
             # Score
@@ -466,18 +459,18 @@ class Report(ContestReport):
             
             total_qsos_sum += dim_qsos
             total_breakdown_mults += dim_mults
-            total_pair_str = f"{dim_qsos}/{dim_mults}"
-            total_row_parts.append(f"{total_pair_str:>{dim_col_width}}")
+            pair_str = format_qso_mult(dim_qsos, dim_mults, max_qso, max_mult)
+            total_row_parts.append(f"{pair_str:>{dim_col_width}}")
         
         # Add Total column (sum of all dimension QSOs/mults)
-        total_pair_str = f"{total_qsos_sum}/{total_breakdown_mults}"
-        total_row_parts.append(f"{total_pair_str:>{dim_col_width}}")
+        pair_str = format_qso_mult(total_qsos_sum, total_breakdown_mults, max_qso, max_mult)
+        total_row_parts.append(f"{pair_str:>{dim_col_width}}")
         
         # Add CUMM column (final cumulative QSOs/mults)
         if cum_qsos and hourly_cum_mults:
             final_cum_qsos = cum_qsos[-1] if len(cum_qsos) > 0 else 0
             final_cum_mults = hourly_cum_mults[-1] if len(hourly_cum_mults) > 0 else 0
-            cum_pair_str = f"{final_cum_qsos}/{final_cum_mults}"
+            cum_pair_str = format_qso_mult(final_cum_qsos, final_cum_mults, cumm_qso, cumm_mult)
             total_row_parts.append(f"{cum_pair_str:>{cumm_col_width}}")
         else:
             total_row_parts.append(f"{'  -  ':>{cumm_col_width}}")
