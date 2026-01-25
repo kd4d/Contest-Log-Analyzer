@@ -50,6 +50,9 @@ class Report(ContestReport):
         # Identify callsigns from logs to ensure alignment
         all_calls = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])
         
+        # Check if this is a single-log or multi-log case
+        is_multi_log = len(self.logs) > 1
+        
         # Metadata
         first_log = self.logs[0]
         metadata = first_log.get_metadata()
@@ -76,19 +79,23 @@ class Report(ContestReport):
             self.logs, 
             scope_label, 
             None, 
-            modes_present
+            modes_present,
+            callsigns_override=all_calls  # Ensure consistency with filename
         )
         meta_lines = ["Contest Log Analytics by KD4D"]
         
         # Helper to format a row
     
-        # Layout: Scope (25), Total (8), Common (8), Call1 (30), Call2 (30)...
+        # Layout: Scope (25), Total (8), [Common (8) if multi-log], Call1 (30), Call2 (30)...
         def format_row(label, total, common, station_dict, indent=0):
             prefix = " " * (indent * 2)
             lbl = f"{prefix}{label}"
             
-            # Base columns
-            row_str = f"{lbl:<25} {total:>8} {common:>8}"
+            # Base columns - conditionally include Common column
+            if is_multi_log:
+                row_str = f"{lbl:<25} {total:>8} {common:>8}"
+            else:
+                row_str = f"{lbl:<25} {total:>8}"
             
             # Station columns
             # Re-implement row formatter to handle list input correctly
@@ -99,7 +106,7 @@ class Report(ContestReport):
                 # Verbose Breakdown: "972 [Run:60 S&P:25 Unk:5] -39"
                 count_part = f"{stats['count']}"
               
-  
+    
                 u_run = stats.get('unique_run', 0)
                 u_sp = stats.get('unique_sp', 0)
                 u_unk = stats.get('unique_unk', 0)
@@ -111,26 +118,40 @@ class Report(ContestReport):
                 else:
                     breakdown = "[Par]"
                 
-                delta = stats.get('delta', 0)
-                # Display absolute value for "Missed" (Positive Deficit)
-                delta_part = f"{abs(delta)}" if delta != 0 else "0"
-                
-                # Align: Count (5) + Breakdown (24) + Missed (6) ~= 35 chars
-                col_text = f"{count_part:>5} {breakdown:<24} {delta_part:>6}"
+                # Conditionally include Missed column
+                if is_multi_log:
+                    delta = stats.get('delta', 0)
+                    # Display absolute value for "Missed" (Positive Deficit)
+                    delta_part = f"{abs(delta)}" if delta != 0 else "0"
+                    # Align: Count (5) + Breakdown (24) + Missed (6) ~= 35 chars
+                    col_text = f"{count_part:>5} {breakdown:<24} {delta_part:>6}"
+                else:
+                    # Align: Count (5) + Breakdown (24) ~= 29 chars
+                    col_text = f"{count_part:>5} {breakdown:<24}"
                 row_str += f" {col_text}"
             return row_str
 
         # Header Rows
         # Row 1: Callsigns
-        header_row1 = f"{'Scope':<25} {'Total':>8} {'Common':>8}"
-        # Row 2: Column Labels (Wrkd, Uniques, Missed)
-        header_row2 = f"{'':<25} {'':>8} {'':>8}"
+        if is_multi_log:
+            header_row1 = f"{'Scope':<25} {'Total':>8} {'Common':>8}"
+            # Row 2: Column Labels (Wrkd, Uniques, Missed)
+            header_row2 = f"{'':<25} {'':>8} {'':>8}"
+        else:
+            header_row1 = f"{'Scope':<25} {'Total':>8}"
+            # Row 2: Column Labels (Wrkd, Uniques)
+            header_row2 = f"{'':<25} {'':>8}"
 
         for call in all_calls:
-            # Center alignment (~37 chars to fit data block)
-            header_row1 += f" {call:^37}"
-            # Sub-headers aligned with data columns: Wrkd(5) Uniques(24) Missed(6)
-            header_row2 += f" {'Wrkd':>5} {'Uniques':<24} {'Missed':>6}"
+            # Center alignment (~37 chars for multi-log, ~29 chars for single-log)
+            if is_multi_log:
+                header_row1 += f" {call:^37}"
+                # Sub-headers aligned with data columns: Wrkd(5) Uniques(24) Missed(6)
+                header_row2 += f" {'Wrkd':>5} {'Uniques':<24} {'Missed':>6}"
+            else:
+                header_row1 += f" {call:^29}"
+                # Sub-headers aligned with data columns: Wrkd(5) Uniques(24)
+                header_row2 += f" {'Wrkd':>5} {'Uniques':<24}"
         
         table_width = len(header_row1)
         
@@ -185,6 +206,18 @@ class Report(ContestReport):
         # text_multiplier_breakdown--{callsigns}.txt using utility
         callsigns_part = build_callsigns_filename_part(all_calls)
         filename = f"text_multiplier_breakdown--{callsigns_part}.txt"
+        
+        # Diagnostic: Log filename generation (Temporary - will be removed after bug fixes)
+        try:
+            from contest_tools.utils.callsign_diagnostic import log_filename_generation
+            log_filename_generation(
+                source='self.logs (sorted all_calls)',
+                callsigns=all_calls,
+                filename=filename,
+                context={'report_id': self.report_id, 'logs_count': len(self.logs)}
+            )
+        except Exception:
+            pass  # Don't break report generation
         
         # Use output_path provided by interface
     
