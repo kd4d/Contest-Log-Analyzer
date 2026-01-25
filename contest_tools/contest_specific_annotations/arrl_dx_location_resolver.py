@@ -19,6 +19,9 @@ from ..core_annotations import CtyLookup
 def resolve_location_type(metadata: Dict[str, Any], cty_dat_path: str) -> Optional[str]:
     """
     Determines if the logger is W/VE or DX for the ARRL DX contest.
+    
+    Hawaii (KH6), Alaska (KL7), St. Paul Is. (CY9), and Sable Is. (CY0) 
+    stations participate as DX stations.
     """
     my_call = metadata.get('MyCall')
     if not my_call:
@@ -27,4 +30,14 @@ def resolve_location_type(metadata: Dict[str, Any], cty_dat_path: str) -> Option
     cty_lookup = CtyLookup(cty_dat_path=cty_dat_path)
     info = cty_lookup.get_cty_DXCC_WAE(my_call)._asdict()
     
-    return "W/VE" if info.get('DXCCName') in ["United States", "Canada"] else "DX"
+    # Check for Alaska, Hawaii, and US possessions - these are DX, not W/VE
+    dxcc_pfx = info.get('DXCCPfx', '')
+    if dxcc_pfx in ['KH6', 'KL7', 'CY9', 'CY0']:
+        return "DX"
+    
+    # W/VE = 48 contiguous US States + Canada provinces
+    dxcc_name = info.get('DXCCName', '')
+    if dxcc_name in ["United States", "Canada"]:
+        return "W/VE"
+    
+    return "DX"
