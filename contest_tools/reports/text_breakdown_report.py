@@ -26,6 +26,115 @@ from contest_tools.utils.callsign_utils import callsign_to_filename_part
 
 logger = logging.getLogger(__name__)
 
+def _calculate_inactive_time_per_hour(
+    log: ContestLog, 
+    master_index: pd.DatetimeIndex
+) -> Dict[pd.Timestamp, int]:
+    """
+    Calculate inactive time (15+ minutes without QSOs) per hour.
+    
+    Returns a dictionary mapping hour timestamps to minutes of inactive time.
+    Only includes hours with inactive time > 0.
+    """
+    from contest_tools.utils.report_utils import get_valid_dataframe
+    
+    # Get all QSO datetimes (non-dupes only for inactive time calculation)
+    df = get_valid_dataframe(log, include_dupes=False)
+    if df.empty or 'Datetime' not in df.columns:
+        return {}
+    
+    # Get contest period
+    contest_def = log.contest_definition
+    contest_period = contest_def.contest_period if contest_def else None
+    
+    # Determine contest start and end times
+    if contest_period and not df.empty:
+        # Use same logic as _filter_by_contest_period
+        DAY_NAME_TO_INT = {'MONDAY': 0, 'TUESDAY': 1, 'WEDNESDAY': 2, 'THURSDAY': 3,
+                          'FRIDAY': 4, 'SATURDAY': 5, 'SUNDAY': 6}
+        
+        log_date = df['Datetime'].min().date()
+        start_time_str = contest_period['start_time']
+        end_time_str = contest_period['end_time']
+        start_weekday = DAY_NAME_TO_INT[contest_period['start_day'].upper()]
+        end_weekday = DAY_NAME_TO_INT[contest_period['end_day'].upper()]
+        
+        # Find the actual start date
+        days_to_subtract = (log_date.weekday() - start_weekday + 7) % 7
+        start_date = log_date - pd.to_timedelta(days_to_subtract, unit='d')
+        contest_start = pd.to_datetime(start_date.strftime('%Y-%m-%d') + ' ' + start_time_str, utc=True)
+        
+        days_to_add = (end_weekday - start_weekday + 7) % 7
+        end_date = start_date + pd.to_timedelta(days_to_add, unit='d')
+        contest_end = pd.to_datetime(end_date.strftime('%Y-%m-%d') + ' ' + end_time_str, utc=True)
+    else:
+        # Fallback: use first and last QSO times
+        contest_start = df['Datetime'].min()
+        contest_end = df['Datetime'].max()
+    
+    # Get sorted QSO datetimes
+    qso_times = df['Datetime'].sort_values().tolist()
+    
+    if not qso_times:
+        return {}
+    
+    # Initialize inactive time per hour
+    inactive_per_hour: Dict[pd.Timestamp, int] = {}
+    
+    # Helper function to allocate minutes to hours
+    def allocate_minutes_to_hours(start_time: pd.Timestamp, end_time: pd.Timestamp):
+        """Allocate minutes from a time range to the hours it spans."""
+        if start_time >= end_time:
+            return
+        
+        # Round start_time down to minute precision (Cabrillo is hhmm)
+        start_min = start_time.replace(second=0, microsecond=0)
+        # Round end_time up to minute precision
+        end_min = end_time.replace(second=0, microsecond=0)
+        if end_time.second > 0 or end_time.microsecond > 0:
+            end_min += pd.Timedelta(minutes=1)
+        
+        current = start_min
+        while current < end_min:
+            # Find the hour this minute belongs to
+            hour_start = current.floor('h')
+            
+            # Calculate minutes in this hour
+            hour_end = hour_start + pd.Timedelta(hours=1)
+            range_start = max(current, hour_start)
+            range_end = min(end_min, hour_end)
+            
+            minutes_in_hour = int((range_end - range_start).total_seconds() / 60)
+            
+            if minutes_in_hour > 0:
+                inactive_per_hour[hour_start] = inactive_per_hour.get(hour_start, 0) + minutes_in_hour
+            
+            current = hour_end
+    
+    # Check gap before first QSO
+    first_qso = qso_times[0]
+    if contest_start < first_qso:
+        gap_minutes = (first_qso - contest_start).total_seconds() / 60
+        if gap_minutes >= 15:
+            allocate_minutes_to_hours(contest_start, first_qso)
+    
+    # Check gaps between consecutive QSOs
+    for i in range(len(qso_times) - 1):
+        current_qso = qso_times[i]
+        next_qso = qso_times[i + 1]
+        gap_minutes = (next_qso - current_qso).total_seconds() / 60
+        if gap_minutes >= 15:
+            allocate_minutes_to_hours(current_qso, next_qso)
+    
+    # Check gap after last QSO
+    last_qso = qso_times[-1]
+    if last_qso < contest_end:
+        gap_minutes = (contest_end - last_qso).total_seconds() / 60
+        if gap_minutes >= 15:
+            allocate_minutes_to_hours(last_qso, contest_end)
+    
+    return inactive_per_hour
+
 class Report(ContestReport):
     """
     Generates a WriteLog-style breakdown report showing QSO/Multiplier by hour.
@@ -125,11 +234,14 @@ class Report(ContestReport):
             # Extract year
             year = df_full['Date'].iloc[0].split('-')[0] if not df_full.empty and not df_full['Date'].dropna().empty else "----"
             
+            # Calculate inactive time per hour
+            inactive_time_per_hour = _calculate_inactive_time_per_hour(log, master_index)
+            
             # Build report
             report_lines = self._build_report_lines(
                 year, contest_name, callsign, mult_label, dimension, valid_dimensions,
                 master_index, hourly_data, hourly_new_mults, hourly_cum_mults,
-                cum_qsos, cum_score, log=log
+                cum_qsos, cum_score, inactive_time_per_hour, log=log
             )
             
             # Write file
@@ -151,7 +263,7 @@ class Report(ContestReport):
         dimension: str, valid_dimensions: List[str], master_index: pd.DatetimeIndex,
         hourly_data: Dict[str, List[int]], hourly_new_mults: Dict[str, List[int]],
         hourly_cum_mults: List[int], cum_qsos: List[int], cum_score: List[int],
-        log: ContestLog = None
+        inactive_time_per_hour: Dict[pd.Timestamp, int], log: ContestLog = None
     ) -> List[str]:
         """
         Builds the formatted report lines.
@@ -211,6 +323,15 @@ class Report(ContestReport):
         cumm_col_width = max_cumm_width + 1
         score_col_width = max_score_width + 1
         
+        # Calculate InactiveTime column width
+        max_inactive_width = len("InactiveTime")  # Minimum width for header
+        for hour_ts in master_index:
+            inactive_minutes = inactive_time_per_hour.get(hour_ts, 0)
+            if inactive_minutes > 0:
+                inactive_str = f"{inactive_minutes} minutes"
+                max_inactive_width = max(max_inactive_width, len(inactive_str))
+        inactive_col_width = max_inactive_width + 1
+        
         # Build header row
         header_parts = [f"{'Hour':<10}"]
         for dim in valid_dimensions:
@@ -218,7 +339,8 @@ class Report(ContestReport):
         header_parts.extend([
             f"{'Total':>{dim_col_width}}", 
             f"{'Cumm':>{cumm_col_width}}", 
-            f"{'Score':>{score_col_width}}"
+            f"{'Score':>{score_col_width}}",
+            f"{'InactiveTime':>{inactive_col_width}}"
         ])
         header = "  ".join(header_parts)
         table_width = len(header)
@@ -270,6 +392,14 @@ class Report(ContestReport):
             score = cum_score[hour_idx] if hour_idx < len(cum_score) else 0
             score_str = f"{score:,}"
             row_parts.append(f"{score_str:>{score_col_width}}")
+            
+            # InactiveTime
+            inactive_minutes = inactive_time_per_hour.get(hour_ts, 0)
+            if inactive_minutes > 0:
+                inactive_str = f"{inactive_minutes} minutes"
+                row_parts.append(f"{inactive_str:>{inactive_col_width}}")
+            else:
+                row_parts.append(f"{'':>{inactive_col_width}}")
             
             report_lines.append("  ".join(row_parts))
         
@@ -360,6 +490,18 @@ class Report(ContestReport):
         else:
             total_row_parts.append(f"{'  -  ':>{score_col_width}}")
         
+        # Add InactiveTime total
+        total_inactive_minutes = sum(inactive_time_per_hour.values())
+        if total_inactive_minutes > 0:
+            inactive_total_str = f"{total_inactive_minutes} minutes"
+            total_row_parts.append(f"{inactive_total_str:>{inactive_col_width}}")
+        else:
+            total_row_parts.append(f"{'':>{inactive_col_width}}")
+        
         report_lines.append("  ".join(total_row_parts))
+        
+        # Add footnote
+        report_lines.append("")
+        report_lines.append("InactiveTime is defined as at least 15 minutes without a QSO and does not depend on contest rules.")
         
         return report_lines
