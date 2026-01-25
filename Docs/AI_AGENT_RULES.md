@@ -2586,6 +2586,33 @@ DevNotes/
 
 ---
 
+## AI Agent Operation Checklists
+
+### CRITICAL: Checklist Maintenance Rule
+
+**⚠️ MANDATORY: When `AI_AGENT_RULES.md` is modified, AI agents MUST:**
+
+1. **Review the modified sections** in `AI_AGENT_RULES.md`
+2. **Check `Docs/AI_AGENT_CHECKLISTS.md`** for affected checklists
+3. **Update relevant checklists** to match new or changed rules
+4. **Verify checklist items align** with mandatory workflows in the source document
+5. **Update source line references** if document structure changed
+6. **Test checklist completeness** against recent operations
+
+**Purpose:** The checklists in `Docs/AI_AGENT_CHECKLISTS.md` are quick-reference tools derived from this document. They must remain synchronized with the source rules to ensure AI agents follow correct workflows.
+
+**Location:** `Docs/AI_AGENT_CHECKLISTS.md`
+
+**When to Update:**
+- Any time `AI_AGENT_RULES.md` is modified
+- When new mandatory workflows are added
+- When existing workflows are changed
+- When section line numbers change (update references)
+
+**Verification:** After updating checklists, verify they cover all mandatory steps from the source document.
+
+---
+
 ## Summary
 
 **AI's Role:** Generate, suggest, assist, format

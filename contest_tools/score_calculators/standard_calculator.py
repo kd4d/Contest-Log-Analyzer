@@ -77,10 +77,18 @@ class StandardCalculator(TimeSeriesCalculator):
         sp_unk_qso_ts = cum_qso_ts - run_qso_ts
 
         # --- Multiplier Counting: Handle different totaling_methods ---
+        # Filter multiplier rules by applies_to (for asymmetric contests like ARRL DX)
+        # Matches the logic used in ScoreStatsAggregator for consistency
+        log_location_type = getattr(log, '_my_location_type', None)
+        applicable_rules = [
+            rule for rule in log.contest_definition.multiplier_rules
+            if not (rule.get('applies_to') and log_location_type and rule.get('applies_to') != log_location_type)
+        ]
+        
         # Process each multiplier rule according to its totaling_method
         all_cumulative_mults_ts = []
         
-        for rule in log.contest_definition.multiplier_rules:
+        for rule in applicable_rules:
             mult_col = rule['value_column']
             if mult_col not in df_for_mults.columns:
                 continue

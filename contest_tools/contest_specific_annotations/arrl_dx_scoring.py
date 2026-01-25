@@ -45,12 +45,22 @@ def _calculate_single_qso_points(row: pd.Series, my_location_type: str) -> int:
 def calculate_points(df: pd.DataFrame, my_call_info: Dict[str, Any]) -> pd.Series:
     """
     Calculates QSO points for an entire DataFrame based on ARRL DX rules.
+    
+    Hawaii (KH6), Alaska (KL7), St. Paul Is. (CY9), and Sable Is. (CY0) 
+    stations participate as DX stations.
     """
+    my_dxcc_pfx = my_call_info.get('DXCCPfx', '')
     my_entity_name = my_call_info.get('DXCCName')
     if not my_entity_name:
         raise ValueError("Logger's own DXCC Name must be provided for scoring.")
 
-    my_location_type = "W/VE" if my_entity_name in ["United States", "Canada"] else "DX"
+    # Check for Alaska, Hawaii, and US possessions - these are DX, not W/VE
+    if my_dxcc_pfx in ['KH6', 'KL7', 'CY9', 'CY0']:
+        my_location_type = "DX"
+    elif my_entity_name in ["United States", "Canada"]:
+        my_location_type = "W/VE"
+    else:
+        my_location_type = "DX"
 
     return df.apply(
         _calculate_single_qso_points, 
