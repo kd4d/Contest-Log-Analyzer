@@ -511,6 +511,25 @@ a. **Create release notes file (REQUIRED):**
      - **CRITICAL:** This includes commits from:
        - Feature branch (merged in Step 2)
        - Any hotfixes or bugfixes committed directly to master since last tag
+     - **Verification (CRITICAL - AFTER MERGE COMMIT):** 
+       - **MUST be done on master branch after merge commit (Step 2d)**
+       - Verify commit list includes all expected changes:
+       ```bash
+       # On master branch, after merge commit is pushed
+       git checkout master
+       git pull origin master
+       
+       # Find last tag
+       LAST_TAG=$(git describe --tags --abbrev=0)
+       
+       # List ALL commits since last tag (on master, after merge)
+       git log --oneline $LAST_TAG..HEAD
+       ```
+       - This shows ALL commits that will be in the release:
+         - Feature branch commits (merged in Step 2)
+         - Any commits made directly to master since last tag (hotfixes, bugfixes)
+       - **Compare with feature branch commits** to identify any master-only commits that need to be included
+       - **Update release notes/announcement** if master commits are found
      - Organize by category (Features, Enhancements, Bug Fixes, Documentation)
      - Include all significant changes from both sources
      - **Target Audience:** Technical users, developers, detailed changelog
@@ -531,12 +550,20 @@ b. **Create release announcement file (REQUIRED):**
 c. **Update CHANGELOG.md (REQUIRED):**
    - Location: `CHANGELOG.md` (project root, alongside README.md)
    - **MANDATORY:** Add new entry at top (reverse chronological order)
+   - **Timing:** Created/updated AFTER merge commit (Step 2), included in version bump commit (Step 5)
+   - **Content Source:** Based on release notes and announcement (highlights only, not full technical details)
    - Format: Use Keep a Changelog format with link to detailed release notes
    - **Note:** CHANGELOG.md is automatically accessible via the web UI hamburger menu (Help & Documentation > Release Notes)
+   - **Workflow:**
+     1. After merge commit, verify all commits on master: `git log --oneline <last-tag>..HEAD`
+     2. Create/update release notes and announcement (Step 4a, 4b)
+     3. Create CHANGELOG.md entry based on release notes highlights (concise summary)
+     4. Commit CHANGELOG.md with version bump (Step 5)
    - Must include:
-     - Version number with date
+     - Version number with date (use release date)
      - Link to full release notes
      - Summary sections: Added, Changed, Fixed (as applicable)
+     - **Keep entries concise** - Full details are in release notes
    - Example:
      ```markdown
      ## [1.0.0-alpha.3] - 2026-01-20
