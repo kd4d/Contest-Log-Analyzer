@@ -6,7 +6,12 @@
 *.png
 *.ops
 *.wt4
+# Python cache directories and bytecode files
+__pycache__/
 **/__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
 CONTEST_LOGS_REPORTS/reports/
 CONTEST_LOGS_REPORTS/reports_*/
 CONTEST_LOGS_REPORTS/data/CTY/
