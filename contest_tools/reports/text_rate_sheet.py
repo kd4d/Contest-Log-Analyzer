@@ -75,6 +75,9 @@ class Report(ContestReport):
 
             # Calculate modes present for smart scoping
             modes_present = set(available_modes)
+            
+            # Check if contest is single-mode (all detail sections should be suppressed)
+            is_single_mode = len(available_modes) == 1
 
             report_blocks = []
 
@@ -110,13 +113,28 @@ class Report(ContestReport):
             # --- BLOCKS 2+: Band Details ---
             # Generate a detail table for each band that has data
             # Columns: [Modes...] | [Totals]
+            # Skip detail sections for single-mode contests (redundant information)
             
-            if not is_single_band:
+            if not is_single_band and not is_single_mode:
                 for band in bands:
                     # Check if band has any data
                     band_qsos = hourly_data['by_band'].get(band, [])
                     if sum(band_qsos) == 0:
                         continue # Skip empty bands
+
+                    # Smart Suppression:
+                    # Calculate active modes on this band.
+                    # If only 1 mode is active (e.g. CW only), skip the detail block to reduce redundancy.
+                    active_modes_on_band = set()
+                    # Keys in by_band_mode are formatted as "{BAND}_{MODE}" (e.g. "20M_CW")
+                    for key in hourly_data.get('by_band_mode', {}).keys():
+                        if key.startswith(f"{band}_"):
+                            parts = key.split('_')
+                            if len(parts) >= 2:
+                                active_modes_on_band.add(parts[1])
+                    
+                    if len(active_modes_on_band) <= 1:
+                        continue
 
                     detail_col_defs = []
                     for m in available_modes:

@@ -1,7 +1,9 @@
 # CLA Reports Style Guide
 
-**Version: 1.4.0**
-**Date: 2026-01-07**
+**Version:** 1.4.0
+**Date:** 2026-01-07
+**Last Updated:** 2026-01-24
+**Category:** Style Guide
 
 ---
 ### --- Revision History ---

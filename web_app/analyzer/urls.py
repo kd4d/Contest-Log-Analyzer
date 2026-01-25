@@ -49,6 +49,7 @@ urlpatterns = [
     path('analyze/', views.analyze_logs, name='analyze'),
     path('analyze/progress/<str:request_id>/', views.get_progress, name='get_progress'),
     path('analyze/api/get_log_index/', views.get_log_index_view, name='get_log_index'),
+    path('analyze/api/get_wrtc_contests/', views.get_wrtc_contests_view, name='get_wrtc_contests'),
     path('report/<str:session_id>/dashboard/', views.dashboard_view, name='dashboard_view'),
     path('report/<str:session_id>/dashboard/qso/', views.qso_dashboard, name='qso_dashboard'),
     path('report/<str:session_id>/dashboard/multipliers/', views.multiplier_dashboard, name='multiplier_dashboard'),

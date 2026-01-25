@@ -31,7 +31,9 @@
   "custom_multiplier_resolver": "arrl_ss_multiplier_resolver",
   "excluded_reports": [
     "text_wae_score_report",
-    "text_wae_comparative_score_report"
+    "text_wae_comparative_score_report",
+    "qso_comparison",
+    "qso_breakdown_chart"
   ],
   "exchange_parsing_rules": {
     "ARRL-SS-CW": {

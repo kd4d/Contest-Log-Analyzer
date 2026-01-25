@@ -29,12 +29,26 @@ class Report(ContestReport):
     supports_single = True
 
     def generate(self, output_path: str, **kwargs) -> str:
-        # 1. Aggregate Data
-        mult_agg = MultiplierStatsAggregator(self.logs)
-        data = mult_agg.get_multiplier_breakdown_data()
-
+        # 1. Determine dimension (band or mode) based on contest type
+        dimension = 'band'  # Default
+        if self.logs:
+            contest_def = self.logs[0].contest_definition
+            valid_bands = contest_def.valid_bands
+            valid_modes = getattr(contest_def, 'valid_modes', [])
+            is_single_band = len(valid_bands) == 1
+            is_multi_mode = len(valid_modes) > 1
+            if is_single_band and is_multi_mode:
+                dimension = 'mode'
         
-        # 2. Setup Context
+        # 2. Aggregate Data
+        mult_agg = MultiplierStatsAggregator(self.logs)
+        data = mult_agg.get_multiplier_breakdown_data(dimension=dimension)
+        
+        # Determine dimension key and labels
+        dimension_key = 'modes' if dimension == 'mode' else 'bands'
+        scope_label = 'All Modes' if dimension == 'mode' else 'All Bands'
+        
+        # 3. Setup Context
         all_calls = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])
         
         # Smart scoping for title (Modes)
@@ -47,21 +61,32 @@ class Report(ContestReport):
         title_lines = get_standard_title_lines(
             "Multiplier Breakdown (Group Par)", 
             self.logs, 
-            "All Bands", 
+            scope_label, 
             None, 
             modes_present
         )
         
-        # Split Bands for Layout (Low vs High) to match template expectation
-        low_bands = ['160M', '80M', '40M']
-        low_bands_data = []
-        high_bands_data = []
-        
-        for block in data['bands']:
-            if block['label'] in low_bands:
-                low_bands_data.append(block)
-            else:
-                high_bands_data.append(block)
+        # Split dimension blocks for Layout (Low vs High) to match template expectation
+        # For bands: low_bands = ['160M', '80M', '40M']
+        # For modes: low_modes = ['CW'] (typically first alphabetically)
+        if dimension == 'mode':
+            # For modes, we'll use a simple split: first half vs second half
+            # Or we could use a specific list if needed
+            mode_blocks = data[dimension_key] if dimension_key in data else []
+            mid_point = len(mode_blocks) // 2
+            low_bands_data = mode_blocks[:mid_point] if mid_point > 0 else mode_blocks
+            high_bands_data = mode_blocks[mid_point:] if mid_point > 0 else []
+        else:
+            # Band dimension: use traditional low/high split
+            low_bands = ['160M', '80M', '40M']
+            low_bands_data = []
+            high_bands_data = []
+            
+            for block in data[dimension_key]:
+                if block['label'] in low_bands:
+                    low_bands_data.append(block)
+                else:
+                    high_bands_data.append(block)
 
         # --- Load html2canvas and CSS for Inlining ---
         # settings.BASE_DIR points to /app/web_app
@@ -119,11 +144,50 @@ class Report(ContestReport):
         if 'totals' in data:
             process_rows(data['totals'])
 
-        # Process Bands
-        if 'bands' in data:
-            for block in data['bands']:
+        # Process dimension blocks (bands or modes)
+        if dimension_key in data:
+            for block in data[dimension_key]:
                 process_rows(block['rows'])
 
+        # Sweepstakes-specific logic: Get total multiplier count from .dat file
+        is_sweepstakes = False
+        fixed_multiplier_max = None
+        is_solo = (len(self.logs) == 1)
+        multiplier_count = 0  # Count of multiplier types (excluding TOTAL row)
+        all_logs_same_mult_count = False  # Whether all logs have the same multiplier count (for Band Spectrum suppression)
+        
+        if self.logs:
+            contest_def = self.logs[0].contest_definition
+            contest_name = contest_def.contest_name
+            if contest_name and contest_name.startswith("ARRL-SS"):
+                is_sweepstakes = True
+                
+                # Load total multiplier count from .dat file
+                if data and 'totals' in data:
+                    total_row = next((row for row in data['totals'] if row.get('label') == 'TOTAL'), None)
+                    if total_row and total_row.get('stations'):
+                        # Calculate all_logs_same_mult_count for Band Spectrum suppression
+                        mult_counts = [stat.get('count', 0) for stat in total_row['stations']]
+                        if mult_counts:
+                            all_logs_same_mult_count = len(set(mult_counts)) == 1
+                        
+                        try:
+                            # Get root input directory from kwargs or environment
+                            root_input = kwargs.get('root_input_dir') or os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
+                            data_dir = os.path.join(root_input, 'data')
+                            from contest_tools.contest_specific_annotations.arrl_ss_multiplier_resolver import SectionAliasLookup
+                            alias_lookup = SectionAliasLookup(data_dir)
+                            fixed_multiplier_max = alias_lookup.get_total_multiplier_count()
+                        except Exception as e:
+                            import logging
+                            logger = logging.getLogger(__name__)
+                            logger.warning(f"Failed to load Sweepstakes multiplier count: {e}")
+                            fixed_multiplier_max = None
+            
+            # Count multiplier types from breakdown_totals (excluding TOTAL row)
+            if data and 'totals' in data:
+                multiplier_count = len([row for row in data['totals'] if row.get('label') != 'TOTAL'])
+        
         context = {
             'report_title_lines': title_lines,
             'creation_date': get_cty_metadata(self.logs),
@@ -134,6 +198,11 @@ class Report(ContestReport):
             'global_max': global_max,
             'html2canvas_js': js_content, # Pass full JS string
             'css_content': css_content,   # Pass full CSS string
+            'is_sweepstakes': is_sweepstakes,
+            'fixed_multiplier_max': fixed_multiplier_max,
+            'is_solo': is_solo,
+            'multiplier_count': multiplier_count,
+            'all_logs_same_mult_count': all_logs_same_mult_count,  # For Band Spectrum suppression
         }
 
         # 3. Render Template

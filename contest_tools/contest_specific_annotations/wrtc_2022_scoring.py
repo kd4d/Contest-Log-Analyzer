@@ -1,7 +1,8 @@
-# contest_tools/contest_specific_annotations/wrtc_2023_scoring.py
+# contest_tools/contest_specific_annotations/wrtc_2022_scoring.py
 #
-# Purpose: Provides contest-specific scoring logic for the WRTC 2023/2025 rules,
-#          which has different point values for CW and SSB.
+# Purpose: Provides contest-specific scoring logic for the WRTC 2022 contest.
+#          Note: Contest was held in 2023 due to COVID, but rules are for 2022.
+#          Legacy implementation with mode-specific point values.
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
 # Contact: kd4d@kd4d.org
@@ -19,7 +20,7 @@ from typing import Dict, Any
 
 def calculate_points(df: pd.DataFrame, my_call_info: Dict[str, Any]) -> pd.Series:
     """
-    Calculates QSO points for an entire DataFrame based on WRTC 2023/2025 rules.
+    Calculates QSO points for an entire DataFrame based on WRTC 2022 rules.
     - CW QSO Points: Within Europe 2, Outside Europe 5
     - SSB QSO Points: Within Europe 3, Outside Europe 6
     - This scoring is only valid for stations located in Europe.
@@ -29,7 +30,7 @@ def calculate_points(df: pd.DataFrame, my_call_info: Dict[str, Any]) -> pd.Serie
         raise ValueError("Logger's own Continent must be provided for WRTC scoring.")
 
     if my_continent != 'EU':
-        logging.warning("WRTC 2023/2025 scoring is only valid for European stations. This log is from a non-EU station and will result in a score of 0.")
+        logging.warning("WRTC 2022 scoring is only valid for European stations. This log is from a non-EU station and will result in a score of 0.")
         return pd.Series(0, index=df.index)
 
     def _calculate_qso_points(row: pd.Series) -> int:

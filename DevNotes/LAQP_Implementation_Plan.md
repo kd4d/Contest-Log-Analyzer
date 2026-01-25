@@ -1,7 +1,9 @@
 # Louisiana QSO Party (LAQP) Implementation Plan
 
 **Status:** Planning Phase  
-**Created:** 2026-01-11  
+**Date:** 2026-01-11  
+**Last Updated:** 2026-01-11  
+**Category:** Planning  
 **Target Contest:** Louisiana QSO Party (LAQP)
 
 ---

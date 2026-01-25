@@ -1,7 +1,15 @@
 # Contest Log Analytics - Programmer's Guide
 
-**Version: 0.129.0-Beta**
-**Date: 2026-01-11**
+**Version:** 1.0.0-alpha.10
+**Date:** 2026-01-24
+**Last Updated:** 2026-01-24
+**Category:** Programmer Reference
+
+---
+### --- Revision History ---
+## [1.0.0-alpha.10] - 2026-01-24
+### Changed
+- Updated version to match project release v1.0.0-alpha.10 (no content changes)
 
 ---
 
@@ -12,6 +20,31 @@ The Contest Log Analytics project is built on three core architectural principle
 * **Data-Driven:** The behavior of the analysis engine is primarily controlled by data, not code. Contest rules, multiplier definitions, and parsing logic are defined in simple `.json` files.
 * **Extensible:** The application uses a "plugin" architecture. New reports and contest-specific logic modules are dynamically discovered at runtime.
 * **Convention over Configuration:** Files and classes must be named and placed in specific, predictable locations to be discovered.
+
+---
+
+## Documentation Index
+
+**Purpose:** Central reference for all maintained documentation. See `Docs/VersionManagement.md` Section 3 for complete versioning policy.
+
+### User-Facing Documentation (Category A - Match Project Version)
+- `UsersGuide.md` - Version: 1.0.0-alpha.10
+- `InstallationGuide.md` - Version: 1.0.0-alpha.10
+- `ReportInterpretationGuide.md` - Version: 1.0.0-alpha.10
+
+### Programmer Reference (Category B - Match Project Version)
+- `ProgrammersGuide.md` - Version: 1.0.0-alpha.10
+- `PerformanceProfilingGuide.md` - Version: 1.0.0-alpha.10
+
+### Algorithm Specifications (Category C - Independent Versioning)
+- `CallsignLookupAlgorithm.md` - Version: 0.90.11-Beta (Compatible with: up to v1.0.0-alpha.10)
+- `RunS&PAlgorithm.md` - Version: 0.47.4-Beta (Compatible with: up to v1.0.0-alpha.10)
+- `WPXPrefixLookup.md` - Version: 0.70.0-Beta (Compatible with: up to v1.0.0-alpha.10)
+
+### Style Guides (Category D - Independent Versioning)
+- `CLAReportsStyleGuide.md` - Version: 1.4.0
+
+**For versioning policy details, see:** `Docs/VersionManagement.md` Section 3
 
 ---
 
@@ -51,6 +84,7 @@ The Contest Log Analytics project is built on three core architectural principle
   - `get_matrix_data()`: Generates 2D grids (Band x Time) for heatmaps
 * **`MultiplierStatsAggregator`**: Handles "Missed Multiplier" analysis and summarization.
   - `get_multiplier_breakdown_data(dimension='band'|'mode')`: Generates hierarchical multiplier breakdown by band or mode dimension (automatically selects mode dimension for single-band, multi-mode contests).
+  - `get_missed_data(mult_name, mode_filter=None, enhanced=False)`: Returns missed multiplier analysis. When `enhanced=True` (Sweepstakes only), includes detailed breakdown with worked-by callsigns, bands/modes, and Run/S&P/Unknown counts.
 * **`TimeSeriesAggregator`**: Generates the standard TimeSeries Data Schema (v1.4.0).
 * **`WaeStatsAggregator`**: Specialized logic for WAE contests (QTCs and weighted multipliers).
 
@@ -98,6 +132,58 @@ To ensure responsiveness, the application employs a **"Write Once, Read Many" (W
 1.  **Generation Phase:** During analysis, "Artifact Reports" (e.g., `json_multiplier_breakdown.py`) execute and serialize aggregation trees into JSON files.
 2.  **Hydration Phase:** When a user loads a dashboard view, the view hydrates its context directly from these pre-computed JSON artifacts via the `ManifestManager`.
 3.  **Result:** No re-parsing of Cabrillo logs occurs on page load.
+
+### Dashboard Chart Embedding Architecture
+
+The dashboard uses two distinct approaches for displaying charts, each optimized for different use cases:
+
+#### Iframe Embedding (Legacy - Text Reports)
+**Use Case:** Static HTML reports, text-based reports, or charts with fixed dimensions.
+
+**Implementation:**
+- Charts are saved as standalone HTML files
+- Embedded via nested iframes: `qso_dashboard.html` → `report_viewer.html` → HTML file
+- Fixed-height iframes provide consistent viewport sizing
+- Works well for reports that don't require dynamic resizing
+
+**Limitations:**
+- Fixed-height iframes constrain content and prevent true `autosize=True` behavior
+- Title annotations with fixed pixel offsets (`yshift`) don't scale proportionally in constrained iframes
+- Double iframe nesting adds complexity and can cause layout issues
+
+#### Direct Plotly Embedding (Modern - Interactive Charts)
+**Use Case:** Interactive Plotly charts with `autosize=True`, subplot charts, or charts requiring responsive behavior.
+
+**Implementation:**
+- Charts are saved as both HTML (for full-screen viewing) and JSON (for embedding)
+- JSON files are loaded via JavaScript and rendered directly into `<div>` elements using `Plotly.newPlot()`
+- Charts can truly autosize to fill their container
+- ResizeObserver handles dynamic resizing
+
+**Benefits:**
+- True responsive behavior - charts adapt to container size
+- No iframe constraints - title positioning works correctly
+- Better performance - direct DOM manipulation
+- Proper legend positioning - no overlap with titles
+
+**When to Use Each Approach:**
+- **Use Direct Embedding:** For all new Plotly charts, especially subplot charts or charts with multi-line titles
+- **Use Iframe Embedding:** For text reports, static HTML, or legacy charts that haven't been migrated yet
+
+**Example - Direct Embedding Pattern:**
+```javascript
+// Load JSON and render directly in div
+fetch(jsonUrl)
+    .then(response => response.json())
+    .then(data => {
+        Plotly.newPlot('chart-container', data.data, data.layout, {
+            responsive: true,
+            displayModeBar: false
+        });
+    });
+```
+
+**Migration Note:** The "Unique QSO Band Distribution" chart was migrated from iframe to direct embedding to resolve title overlap and legend positioning issues in the dashboard. This pattern should be used for all future Plotly chart implementations.
 
 ---
 
@@ -589,9 +675,7 @@ python -m json.tool contest_tools/contest_definitions/my_contest.json
 
 1. **Prepare a test log:** Use a small Cabrillo log file from the contest you're adding
 2. **Run a simple analysis:**
-   ```bash
-   python main_cli.py --report summary path/to/test.log
-   ```
+   Use the web interface to upload and analyze test logs, or use the Django test client for automated testing.
 3. **Check for errors:** Look for:
    - `FileNotFoundError`: Contest definition not found (check filename and `contest_name`)
    - `ValueError`: Parsing errors, missing fields, or configuration issues
@@ -613,9 +697,7 @@ Check that QSOs are parsed correctly:
 **Step 5: Test Reports**
 
 Generate different report types to ensure they work:
-```bash
-python main_cli.py --report all path/to/test.log
-```
+Use the web interface to upload logs and verify all report types are generated correctly, or use the Django test client for automated testing.
 
 **Common Test Scenarios:**
 
@@ -713,6 +795,48 @@ Learn from common mistakes to avoid frustration.
 - Verify module has `parse_log()` function with correct signature
 - Check module name matches `custom_parser_module` value exactly
 
+### Sweepstakes-Specific Implementation
+
+ARRL Sweepstakes has unique scoring rules that require specialized handling:
+
+**Key Characteristics:**
+- **Multiplier Counting:** Uses `totaling_method: "once_per_log"` - each section counts once per contest, not per band
+- **Fixed Multiplier Maximum:** There are exactly 85 possible sections (loaded from `SweepstakesSections.dat`)
+- **Enhanced Missed Multipliers Report:** Specialized report (`text_enhanced_missed_multipliers.py`) provides detailed breakdown
+
+**Implementation Details:**
+
+1. **Multiplier Dashboard Features:**
+   - Fixed scale progress bars with reference line at 85 multipliers
+   - Band Spectrum automatically suppressed (multipliers are contest-wide, not per-band)
+   - Enhanced Missed Multipliers report appears in dashboard when missed multipliers exist
+
+2. **Enhanced Missed Multipliers Report:**
+   - Report ID: `enhanced_missed_multipliers`
+   - Only generates for contests with `contest_name.startswith("ARRL-SS")`
+   - Uses `MultiplierStatsAggregator.get_missed_data(mult_name, mode_filter, enhanced=True)`
+   - Returns detailed breakdown with:
+     - Which logs worked each missed multiplier
+     - Bands/modes where worked
+     - Aggregated Run/S&P/Unknown counts across all bands/modes
+
+3. **Data Aggregation:**
+   - `MultiplierStatsAggregator._compute_enhanced_breakdown()` processes QSO data to extract:
+     - Worked-by callsigns (from multiplier sets)
+     - Band/mode distribution (from QSO records)
+     - Run/S&P/Unknown classification (from `Run` column in dataframe)
+
+4. **Report Generation:**
+   - Report must be added to `is_multiplier_report` list in `report_generator.py`
+   - Generates with session-level filename: `enhanced_missed_multipliers--{callsigns}.txt`
+   - Only generates when missed multipliers exist (skips if none found)
+
+**Files Involved:**
+- `contest_tools/data_aggregators/multiplier_stats.py`: Enhanced breakdown computation
+- `contest_tools/reports/text_enhanced_missed_multipliers.py`: Report generation
+- `web_app/analyzer/views.py`: Dashboard discovery and display logic
+- `web_app/analyzer/templates/analyzer/multiplier_dashboard.html`: UI integration
+
 ### Troubleshooting
 
 When things go wrong, use this systematic approach to diagnose and fix issues.
@@ -763,6 +887,58 @@ When things go wrong, use this systematic approach to diagnose and fix issues.
 - Check error messages carefully—they often point to the exact issue
 - Test with minimal configuration first, then add complexity
 - Use the reference examples listed earlier in this guide
+
+---
+
+## 6. Testing
+
+### Web Regression Testing
+
+The project includes automated regression testing for the web version using Django's test client. Tests verify that report generation produces consistent output across releases.
+
+**Test Infrastructure:**
+- **Location:** `test_code/web_regression_test.py`
+- **Test Data:** `regression_baselines/Logs/` (version-controlled test logs)
+- **Baselines:** `regression_baselines/web_baseline/{version_tag}/{date_time}/` (versioned ZIP archives organized by version and test run time)
+
+**Running Tests:**
+
+**Create a New Baseline:**
+```batch
+regression_baselines\run_tests.bat --create-baseline v1.0.0-alpha.10
+```
+
+This generates baseline ZIP archives for all test cases and stores them in `regression_baselines/web_baseline/v1.0.0-alpha.10/{date_time}/`, where `{date_time}` is automatically created based on the test run start time (format: `YYYY-MM-DD HHMM`, e.g., `2026-01-22 0102`).
+
+**Run Regression Tests:**
+```batch
+regression_baselines\run_tests.bat --baseline v1.0.0-alpha.10
+```
+
+This compares current output against the specified baseline and reports any differences.
+
+**Requirements:**
+- Conda environment `cla` with Django installed
+- Test logs in `regression_baselines/Logs/`
+- Project root as current directory
+
+**How It Works:**
+1. Tests use Django test client (in-process, no HTTP server needed)
+2. Uploads test logs via Django test client
+3. Downloads generated ZIP archives
+4. Compares against baseline archives (sanitizing dynamic content like UUIDs, timestamps)
+5. Reports differences for investigation
+
+**Test Cases:**
+- 18 test cases covering multiple contests (CQ WW, ARRL SS, CQ 160, CQ WPX, ARRL 10, ARRL DX, IARU HF, WAE, NAQP)
+- Single-log and multi-log scenarios
+- Different contest types (symmetric, asymmetric, custom calculators)
+
+**For More Information:**
+- `regression_baselines/README.md` - Test data repository documentation
+- `DevNotes/REGRESSION_TESTING_WEB_VERSION_STRATEGY.md` - Detailed testing strategy
+
+---
 
 ### JSON Quick Reference
 

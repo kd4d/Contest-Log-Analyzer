@@ -117,7 +117,6 @@
     },
     {
       "name": "DXCC",
-      "applies_to": "W/VE",
       "source_column": "DXCC_Mult",
       "value_column": "Mult2",
       "name_column": "Mult2Name",

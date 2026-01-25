@@ -6,7 +6,12 @@
 *.png
 *.ops
 *.wt4
+# Python cache directories and bytecode files
 __pycache__/
+**/__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
 CONTEST_LOGS_REPORTS/reports/
 CONTEST_LOGS_REPORTS/reports_*/
 CONTEST_LOGS_REPORTS/data/CTY/
@@ -18,10 +23,17 @@ web_app/config/settings_local.py
 Archives/
 *_bundle.txt
 test_code/
+# Regression test baselines (local git repo, never pushed)
+regression_baselines/
+!regression_baselines/README.md
+
+# Cursor IDE directories
+.cursor/
 
 # Exceptions: Important git workflow files that should always be tracked
 # Note: These exceptions ensure files are visible even if parent patterns change
 !.pre-commit-config.yaml
+!.dockerignore
 !contest_tools/version.py
 !Docs/AI_AGENT_RULES.md
 !Docs/GitWorkflowSetup.md

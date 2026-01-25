@@ -1,10 +1,63 @@
-# AI Agent Rules for Git Operations
+# AI Agent Rules
 
-This document provides specific rules for AI agents (like Cursor/Console AI) when performing git operations on this repository.
+This document provides specific rules for AI agents (like Cursor/Console AI) when working on this repository.
 
 ---
 
-## Overview
+## Discussion Mode Rules
+
+### CRITICAL: "Discuss" or "Discuss Only" Means No File Updates
+
+**When user says "Discuss" or "Discuss only":**
+- **DO NOT** update any files (code, markdown, configuration, etc.)
+- **DO NOT** create new files
+- **DO NOT** modify existing files
+- **Exception**: Discussion markdown files in `DevNotes/Discussions/` may be updated if explicitly part of the discussion
+
+**What "Discuss" Means:**
+- Provide analysis, recommendations, and discussion
+- Explain concepts, approaches, and trade-offs
+- Answer questions and clarify understanding
+- Propose solutions and alternatives
+- **DO NOT** implement changes
+
+**When to Update Files:**
+- Only after explicit user instruction to proceed with implementation
+- User will request file updates as a separate step
+- Implementation happens after discussion and agreement
+
+**Agent Behavior:**
+1. **During Discussion**: Provide analysis, recommendations, and discussion only
+2. **After Discussion**: Wait for explicit user instruction to proceed with implementation
+3. **File Updates**: Only update files when explicitly requested, not during discussion phase
+
+**Rationale:**
+- Discussion phase is for understanding and agreement
+- Implementation phase is separate and explicit
+- Prevents premature changes before full understanding
+- Allows user to review and approve approach before changes
+
+---
+
+## Project Architecture Overview
+
+**CRITICAL: This project is web-first. CLI interface has been deprecated and removed.**
+
+- **Primary Interface:** Web dashboard (Django application)
+- **No CLI Interface:** `main_cli.py` and CLI-related code have been removed
+- **Core Application:** `contest_tools/` - Independent, reusable library (no CLI dependencies)
+- **Web Application:** `web_app/` - Django application using core library directly
+- **Test Infrastructure:** `test_code/` - Separate from main project, uses Django test client
+
+**Agent Behavior:**
+- Do NOT create or reference CLI interfaces
+- Do NOT assume CLI functionality exists
+- Use web interface or Django test client for testing
+- Core application (`contest_tools/`) is independent and has no CLI dependencies
+
+---
+
+## Git Operations Overview
 
 **Primary Principle:** AI assists with git operations, but the user maintains final control over critical operations.
 
@@ -126,6 +179,28 @@ This document provides specific rules for AI agents (like Cursor/Console AI) whe
 ### 7-bit ASCII Requirement
 **AI agents MUST use 7-bit ASCII (characters 0-127 only) in all non-markdown files.**
 
+**MANDATORY: Check this section BEFORE creating or modifying any code files, scripts, or configuration files.**
+
+**MANDATORY WORKFLOW FOR FILE MODIFICATIONS:**
+
+1. **BEFORE modifying any file:**
+   - Check this section of AI Agent Rules
+   - Identify if the file type requires 7-bit ASCII (all non-markdown files)
+   - **Scan the file for existing Unicode/emoji violations** (use grep/search tools if needed)
+   - Plan replacements for any non-ASCII characters using the common replacements list
+   - **Fix existing violations BEFORE making other changes** to the file
+
+2. **DURING modification:**
+   - **Always** use 7-bit ASCII characters (0-127 only)
+   - **Never** add emoji, Unicode symbols, or multi-byte characters
+   - **Replace** any existing non-ASCII characters with ASCII equivalents
+   - **Use** the common replacements listed below
+
+3. **AFTER modification:**
+   - Verify the file contains only 7-bit ASCII characters
+   - Check for any Unicode/emoji that may have been introduced
+   - If violations found: Fix immediately before proceeding
+
 **Critical Rule:** When creating or modifying any code files, scripts, or configuration files, AI agents must:
 - [OK] Use only 7-bit ASCII characters
 - [OK] Replace any non-ASCII characters with ASCII equivalents
@@ -137,7 +212,22 @@ This document provides specific rules for AI agents (like Cursor/Console AI) whe
 - All configuration files (`.json`, `.yaml`, `.ini`, etc.)
 - Documentation source files (`.rst`, `.txt`, etc.)
 
-**Exception:** Markdown files (`.md`) may contain UTF-8 characters, BUT with PDF compatibility restrictions.
+**Exceptions:**
+- **Markdown files (`.md`):** May contain UTF-8 characters, BUT with PDF compatibility restrictions (see below).
+- **Third-party/vendor libraries:** Minified or vendor-supplied files (e.g., `html2canvas.min.js`) are excluded from this rule. Only project-authored code must comply.
+
+**Scanning for Violations:**
+Before modifying files, use search tools to identify existing violations:
+- Search for common Unicode characters: `grep -r "[✅ℹ️⚠️✓✗•→🎯✨🐛📚🔧📊🔄🚀📝⏱️]" path/to/directory`
+- Check specific file types: `grep -r "pattern" --include="*.py" path/`
+- Focus on files you're about to modify: Always scan target files before editing
+
+**Runtime Error Risk:**
+Non-ASCII characters in code can cause runtime errors:
+- `UnicodeEncodeError` when printing emoji in Windows console (e.g., `'charmap' codec can't encode characters`)
+- Parsing errors in PowerShell/batch scripts
+- Import failures when Python source files contain non-ASCII characters
+- **Always fix violations immediately** to prevent runtime failures
 
 **PDF Compatibility Rule for Markdown:**
 - **All markdown files MUST be PDF-compatible** (no emoji or Unicode symbols that break LaTeX/PDF conversion)
@@ -162,6 +252,8 @@ This document provides specific rules for AI agents (like Cursor/Console AI) whe
 - ✗ (cross mark) → `[X]`, `FAIL`, or `ERROR`
 - ⚠ (warning) → `WARNING:` or `WARN:`
 - • (bullet) → `*` or `-`
+- → (arrow) → `->` or `=>` or `:`
+- ⏱️ (stopwatch) → `[TIME]` or `[PROFILE]` or remove entirely
 
 **Rationale:** PowerShell, batch files, and many other tools can fail to parse files correctly when multi-byte UTF-8 characters are present, leading to cryptic parsing errors. Additionally, PDF conversion tools require plain text alternatives to emoji.
 
@@ -229,6 +321,52 @@ This document provides specific rules for AI agents (like Cursor/Console AI) whe
 
 ## Version Management
 
+### CRITICAL: Document Consistency Check
+
+**⚠️ MANDATORY: Before performing any version updates, AI agents MUST:**
+
+1. **Read both documents:**
+   - `Docs/AI_AGENT_RULES.md` Section "Version Management" (this section)
+   - `Docs/VersionManagement.md` Section 3 (Documentation Versioning Policy)
+
+2. **Verify consistency using this checklist:**
+   - [ ] Category definitions match (A, B, C, D)
+   - [ ] Category file lists match
+   - [ ] Workflow steps align (same steps, same order)
+   - [ ] Policy rules are consistent (when to update, how to update)
+   - [ ] "Compatible With" field rules match
+   - [ ] Revision history requirements match
+   - [ ] File locations match
+   - [ ] Version number formats match
+   - [ ] Update triggers match (when to update each category)
+
+3. **If ANY discrepancy is detected:**
+   - **STOP immediately**
+   - **DO NOT proceed with version updates**
+   - **Report the discrepancy using this format:**
+     ```
+     **DISCREPANCY DETECTED - STOPPING WORKFLOW**
+     
+     I detected a discrepancy between the versioning documents:
+     
+     **Location:** [Section name in each document]
+     **Issue:** [Brief description]
+     **AI_AGENT_RULES.md says:** [Exact quote or summary]
+     **VersionManagement.md says:** [Exact quote or summary]
+     
+     **Impact:** [What could go wrong if I proceed]
+     
+     **Request for Guidance:**
+     1. Which document should I follow?
+     2. Should I update one document to match the other?
+     3. Is this an intentional difference, or a documentation error?
+     
+     **Action:** Waiting for your guidance before proceeding with version updates.
+     ```
+   - **Wait for explicit user guidance**
+
+**For complete discrepancy detection procedures, see:** `Docs/VersionManagement.md` Section 5
+
 ### How Version.py Works
 - `contest_tools/version.py` contains `__version__` and `__git_hash__`
 - Pre-commit hook automatically updates `__git_hash__` before each commit
@@ -242,17 +380,38 @@ This document provides specific rules for AI agents (like Cursor/Console AI) whe
 
 #### Step-by-Step Process
 
+**0. Document Consistency Check (MANDATORY FIRST STEP)**
+
+**⚠️ CRITICAL: This step MUST be performed before any version updates.**
+
+a. **Read both versioning documents:**
+   - `Docs/AI_AGENT_RULES.md` Section "Version Management" (this section)
+   - `Docs/VersionManagement.md` Section 3 (Documentation Versioning Policy)
+
+b. **Verify consistency:**
+   - Use the discrepancy detection checklist above
+   - Check that category definitions, file lists, workflow steps, and policy rules match
+
+c. **If discrepancy detected:**
+   - STOP immediately
+   - Report using the format above
+   - Wait for user guidance
+
+d. **Only proceed if documents are consistent**
+
 **1. Pre-Release Checklist**
 - [ ] Verify current branch state (`git status`)
 - [ ] Ensure all changes are committed on feature branch
 - [ ] Review recent commits to determine appropriate version increment
 - [ ] Confirm target version number with user (e.g., `v1.0.0-alpha.3`)
 
-**2. Merge Feature Branch into Master**
+**2. Merge Feature Branch into Master (First Commit on Master)**
+
+**CRITICAL:** This creates the FIRST commit on master. The merge commit and version bump commit are SEPARATE commits. Do NOT use `git commit --amend` or any amend commands.
 
 a. **Ensure feature branch is committed:**
    ```bash
-   git status  # Verify no uncommitted changes
+   git status  # Verify no uncommitted changes on feature branch
    ```
 
 b. **Checkout master and pull latest:**
@@ -265,15 +424,19 @@ c. **Merge feature branch into master:**
    ```bash
    git merge feature/branch-name
    ```
+   - This creates a merge commit (or fast-forward if no divergence)
+   - **DO NOT amend this commit** - it must remain separate
 
-d. **Resolve any merge conflicts** (if present)
-
-e. **Push merged master:**
+d. **Push merged master (FIRST COMMIT):**
    ```bash
    git push origin master
    ```
+   - This pushes the merge commit to master
+   - All feature branch changes are now on master
 
-**Note:** All subsequent steps (version bumping, release notes, tagging) happen on master after the merge is complete.
+**Note:** All subsequent steps (version bumping, release notes, tagging) happen on master AFTER the merge is complete. The version bump will be a SECOND commit on master.
+
+**IMPORTANT:** Release notes are created/updated AFTER the merge commit (Step 4) to include any hotfixes or bugfixes that may have been committed directly to master since the last tag.
 
 **3. Update Version References**
 
@@ -291,35 +454,116 @@ b. **Update `README.md`:**
    - **MANDATORY:** This must be updated for every release
    - Verify no other version references exist
 
-c. **Check other documentation files:**
-   - Search for version strings: `grep -r "1\.0\.0" Docs/ README.md`
-   - Update any hardcoded version references found
+c. **Update Documentation Files (MANDATORY):**
+   
+   **Reference:** See `Docs/VersionManagement.md` Section 3 for complete documentation versioning policy.
+   
+   **Category-Based Update Process:**
+   
+   **Category A (User-Facing Documentation):**
+   - Files: `UsersGuide.md`, `InstallationGuide.md`, `ReportInterpretationGuide.md`
+   - Action: Update version to match project version (e.g., `1.0.0-alpha.3`)
+   - Update "Last Updated" date to today
+   - Add revision history entry: "Updated version to match project release v1.0.0-alpha.3 (no content changes)"
+   
+   **Category B (Programmer Reference):**
+   - Files: `ProgrammersGuide.md`, `PerformanceProfilingGuide.md`
+   - Action: Update version to match project version (e.g., `1.0.0-alpha.3`)
+   - Update "Last Updated" date to today
+   - Add revision history entry: "Updated version to match project release v1.0.0-alpha.3 (no content changes)"
+   
+   **Category C (Algorithm Specifications):**
+   - Files: `CallsignLookupAlgorithm.md`, `RunS&PAlgorithm.md`, `WPXPrefixLookup.md`
+   - Action: Update "Compatible with" field to "up to v1.0.0-alpha.3" (keep algorithm version unchanged)
+   - Update "Last Updated" date to today
+   - Add revision history entry: "Updated 'Compatible with' field to include project version v1.0.0-alpha.3"
+   
+   **Category D (Style Guides):**
+   - Files: `CLAReportsStyleGuide.md`
+   - Action: No version update required (only update when style rules change)
+   - If style rules changed: Increment version, update "Last Updated" date, add revision history entry
+   
+   **Verification:**
+   - Verify all Category A & B files match project version
+   - Verify all Category C files have "Compatible with" field updated
+   - Verify all metadata formats are consistent (see `Docs/VersionManagement.md` Section 3)
+   - Verify all revision history entries are added
+   
+   **For complete documentation versioning rules, see:** `Docs/VersionManagement.md` Section 3
 
-**4. Create Release Notes and Update CHANGELOG.md (MANDATORY)**
+**4. Create Release Notes, Release Announcement, and Update CHANGELOG.md (MANDATORY - AFTER MERGE COMMIT)**
 
-**IMPORTANT:** Release notes and CHANGELOG.md updates are REQUIRED for every release. These must be created BEFORE creating the tag.
+**IMPORTANT:** Release notes, release announcement, and CHANGELOG.md updates are REQUIRED for every release. These must be created AFTER the merge commit (Step 2) and BEFORE creating the tag. This ensures any hotfixes or bugfixes committed directly to master are included.
 
 a. **Create release notes file (REQUIRED):**
    - Location: `ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.3.md`
    - Format: Use previous release notes as template
-   - Content: Summary of commits since last tag
-   - Include: Summary, Added/Changed/Fixed sections, Technical Details, Known Issues, Migration Notes
+   - Content: Detailed summary of ALL commits since last tag (includes both feature branch AND any master commits)
+   - Include: Summary, Added/Changed/Fixed sections, Technical Details, Known Issues, Migration Notes, Files Changed, Commits Included
    - Generate commit summary:
      ```bash
+     # Find last tag
+     git describe --tags --abbrev=0
+     
+     # List ALL commits since last tag (includes feature branch + any master commits)
      git log --oneline <last-tag>..HEAD
      ```
+     - **CRITICAL:** This includes commits from:
+       - Feature branch (merged in Step 2)
+       - Any hotfixes or bugfixes committed directly to master since last tag
+     - **Verification (CRITICAL - AFTER MERGE COMMIT):** 
+       - **MUST be done on master branch after merge commit (Step 2d)**
+       - Verify commit list includes all expected changes:
+       ```bash
+       # On master branch, after merge commit is pushed
+       git checkout master
+       git pull origin master
+       
+       # Find last tag
+       LAST_TAG=$(git describe --tags --abbrev=0)
+       
+       # List ALL commits since last tag (on master, after merge)
+       git log --oneline $LAST_TAG..HEAD
+       ```
+       - This shows ALL commits that will be in the release:
+         - Feature branch commits (merged in Step 2)
+         - Any commits made directly to master since last tag (hotfixes, bugfixes)
+       - **Compare with feature branch commits** to identify any master-only commits that need to be included
+       - **Update release notes/announcement** if master commits are found
      - Organize by category (Features, Enhancements, Bug Fixes, Documentation)
-     - Include all significant changes
+     - Include all significant changes from both sources
+     - **Target Audience:** Technical users, developers, detailed changelog
 
-b. **Update CHANGELOG.md (REQUIRED):**
+b. **Create release announcement file (REQUIRED):**
+   - Location: `ReleaseNotes/RELEASE_ANNOUNCEMENT_1.0.0-alpha.3.md`
+   - Format: Use previous release announcement as template
+   - Content: User-focused highlights of major changes and bug fixes
+   - Include: Highlights section, New Features, Important Fixes, Improvements, link to full release notes
+   - **Target Audience:** End users, less technical, highlights only
+   - **Key Differences from Release Notes:**
+     - Less detailed (highlights only)
+     - User-focused language (avoid technical jargon)
+     - Focus on "what's new" and "what's fixed" from user perspective
+     - No technical details, file changes, or commit history
+     - Shorter and more accessible
+
+c. **Update CHANGELOG.md (REQUIRED):**
    - Location: `CHANGELOG.md` (project root, alongside README.md)
    - **MANDATORY:** Add new entry at top (reverse chronological order)
+   - **Timing:** Created/updated AFTER merge commit (Step 2), included in version bump commit (Step 5)
+   - **Content Source:** Based on release notes and announcement (highlights only, not full technical details)
    - Format: Use Keep a Changelog format with link to detailed release notes
    - **Note:** CHANGELOG.md is automatically accessible via the web UI hamburger menu (Help & Documentation > Release Notes)
+   - **Workflow:**
+     1. After merge commit, verify all commits on master: `git log --oneline <last-tag>..HEAD`
+     2. Create/update release notes and announcement (Step 4a, 4b)
+     3. Create CHANGELOG.md entry based on release notes highlights (concise summary)
+     4. Commit CHANGELOG.md with version bump (Step 5)
    - Must include:
-     - Version number with date
+     - Version number with date (use release date)
      - Link to full release notes
      - Summary sections: Added, Changed, Fixed (as applicable)
+     - **Keep entries concise** - Full details are in release notes
    - Example:
      ```markdown
      ## [1.0.0-alpha.3] - 2026-01-20
@@ -333,19 +577,40 @@ b. **Update CHANGELOG.md (REQUIRED):**
      - Bug Z
      ```
 
-**5. Commit Version Updates (MANDATORY BEFORE TAGGING)**
+**5. Commit Version Updates (Second Commit on Master - MANDATORY BEFORE TAGGING)**
 
-**IMPORTANT:** All version updates, release notes, and CHANGELOG.md changes MUST be committed BEFORE creating the tag.
+**CRITICAL:** This creates the SECOND commit on master. This commit contains ALL version updates, release notes, documentation versioning, and CHANGELOG.md updates. Do NOT use `git commit --amend` or any amend commands.
+
+**IMPORTANT:** All version updates, release notes, documentation versioning, and CHANGELOG.md changes MUST be committed as a SINGLE commit BEFORE creating the tag. This commit comes AFTER the merge commit and includes:
+- Version number updates (`version.py`, `README.md`)
+- Release notes file (created/updated in Step 4)
+- Documentation versioning (Category A, B, C updates)
+- CHANGELOG.md entry
 
 a. **Stage all version-related changes:**
    ```bash
-   git add contest_tools/version.py README.md ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.3.md CHANGELOG.md
+   git add contest_tools/version.py README.md ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.3.md ReleaseNotes/RELEASE_ANNOUNCEMENT_1.0.0-alpha.3.md CHANGELOG.md
+   git add Docs/UsersGuide.md Docs/InstallationGuide.md Docs/ReportInterpretationGuide.md
+   git add Docs/ProgrammersGuide.md Docs/PerformanceProfilingGuide.md
+   git add Docs/CallsignLookupAlgorithm.md Docs/RunS&PAlgorithm.md Docs/WPXPrefixLookup.md
    ```
-   - **All four files must be included:**
+   - **Core version files (required):**
      1. `contest_tools/version.py` - Version number
      2. `README.md` - Version in header
-     3. `ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.3.md` - Release notes
-     4. `CHANGELOG.md` - Changelog entry
+     3. `ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.3.md` - Detailed release notes
+     4. `ReleaseNotes/RELEASE_ANNOUNCEMENT_1.0.0-alpha.3.md` - User-focused announcement
+     5. `CHANGELOG.md` - Changelog entry
+   - **Documentation files (Category A & B - match project version):**
+     5. `Docs/UsersGuide.md`
+     6. `Docs/InstallationGuide.md`
+     7. `Docs/ReportInterpretationGuide.md`
+     8. `Docs/ProgrammersGuide.md`
+     9. `Docs/PerformanceProfilingGuide.md`
+   - **Algorithm specifications (Category C - update Compatible With field):**
+     10. `Docs/CallsignLookupAlgorithm.md`
+     11. `Docs/RunS&PAlgorithm.md`
+     12. `Docs/WPXPrefixLookup.md`
+   - **Note:** Category D (Style Guides) only updated when style rules change
 
 b. **Verify all files are staged:**
    ```bash
@@ -353,28 +618,34 @@ b. **Verify all files are staged:**
    ```
    - Confirm all four files appear in "Changes to be committed"
 
-c. **Create commit:**
+c. **Create commit (SECOND COMMIT on master):**
    ```bash
    git commit -m "chore(release): bump version to 1.0.0-alpha.3 and add release notes"
    ```
    - Use `chore(release):` type for version bumps
    - Include "bump version" in message
    - Mention release notes and CHANGELOG.md
+   - **DO NOT use `git commit --amend`** - this must be a separate commit
+   - This is the commit that will be tagged
+   - **Note:** Commit message can say "release notes" (plural) to cover both release notes and announcement
+
+d. **Push version bump commit (SECOND COMMIT):**
+   ```bash
+   git push origin master
+   ```
+   - This pushes the version bump commit to master
+   - Master now has: merge commit → version bump commit
 
 **6. Create and Push Tag**
 
 a. **Create annotated tag:**
    ```bash
-   git tag -a v1.0.0-alpha.3 -m "Release v1.0.0-alpha.3
-
-   [Summary of major changes]
-   
-   [Key features/enhancements]
-   "
+   git tag -a v1.0.0-alpha.3 -m "Release v1.0.0-alpha.3"
    ```
    - Use `-a` for annotated tag (recommended)
-   - Include meaningful tag message
+   - Tag message can be simple since detailed release notes are available
    - Tag name must match version.py (with 'v' prefix)
+   - **Note:** Detailed release notes are in `ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.3.md`, so tag message can be concise
 
 b. **Verify tag:**
    ```bash
@@ -382,11 +653,12 @@ b. **Verify tag:**
    git show v1.0.0-alpha.3
    ```
 
-c. **Push commits and tag (user executes):**
+c. **Push tag (user executes):**
    ```bash
-   git push origin master          # Push version bump commit
    git push origin v1.0.0-alpha.3  # Push tag
    ```
+   - **Note:** The version bump commit should already be pushed (Step 5d)
+   - Tag points to the version bump commit (second commit on master)
 
 **7. Post-Release Verification**
 
@@ -416,19 +688,33 @@ b. **Verify all required files exist and are correct:**
    
    # Verify version consistency across all files
    grep -r "1\.0\.0-alpha\.3" contest_tools/version.py README.md ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.3.md CHANGELOG.md
+   
+   # Verify documentation versions (Category A & B should match project version)
+   grep "Version:" Docs/UsersGuide.md Docs/InstallationGuide.md Docs/ReportInterpretationGuide.md
+   grep "Version:" Docs/ProgrammersGuide.md Docs/PerformanceProfilingGuide.md
+   
+   # Verify Category C "Compatible with" fields updated
+   grep "Compatible with" Docs/CallsignLookupAlgorithm.md Docs/RunS&PAlgorithm.md Docs/WPXPrefixLookup.md
    ```
 
 #### AI Agent Responsibilities
 
 - **AI MUST Do (Mandatory Steps):**
-  - Merge feature branch into master (after user confirmation)
-  - Update `contest_tools/version.py` to match target version
-  - **Update `README.md` version** (Line 3) - REQUIRED for every release
-  - **Create release notes file** in `ReleaseNotes/` directory - REQUIRED for every release
-  - **Update `CHANGELOG.md`** with new release entry at top - REQUIRED for every release
-  - Stage all four files: `version.py`, `README.md`, `ReleaseNotes/*.md`, `CHANGELOG.md`
-  - Commit version updates BEFORE creating tag
-  - Generate tag creation command (after all updates committed)
+  - **Perform document consistency check** (Step 0) - REQUIRED before any updates
+  - **Merge feature branch into master** (Step 2) - Creates FIRST commit on master, push immediately
+  - **Create/update release notes file** (Step 4a) - AFTER merge commit, includes feature branch + any master commits since last tag
+  - **Create/update release announcement file** (Step 4b) - AFTER merge commit, user-focused highlights
+  - **Update `contest_tools/version.py`** to match target version (Step 3)
+  - **Update `README.md` version** (Line 3) - REQUIRED for every release (Step 3)
+  - **Update documentation files** per category-based policy (Step 3c) - REQUIRED for every release, included in version bump commit
+    - Category A & B: Update version to match project version
+    - Category C: Update "Compatible with" field
+    - Category D: Only update if style rules changed
+  - **Update `CHANGELOG.md`** with new release entry at top - REQUIRED for every release (Step 4c)
+  - **Stage all version-related files** (Step 5a): `version.py`, `README.md`, documentation files, `ReleaseNotes/RELEASE_NOTES_*.md`, `ReleaseNotes/RELEASE_ANNOUNCEMENT_*.md`, `CHANGELOG.md`
+  - **Commit ALL version updates as SECOND commit** (Step 5c) - Single commit includes version numbers, release notes, documentation versioning, and CHANGELOG.md, push immediately
+  - **NEVER use `git commit --amend`** - Always create new commits
+  - Generate tag creation command (after version bump commit is pushed)
   - Verify version consistency across all files
 
 - **AI Should Do:**
@@ -444,7 +730,15 @@ b. **Verify all required files exist and are correct:**
   - Execute tag push command
   - Verify final state
 
-**Critical Reminder:** Release notes and CHANGELOG.md updates are NOT optional. They must be created and committed before tagging the release.
+**Critical Reminder:** Release notes, release announcement, and CHANGELOG.md updates are NOT optional. They must be created and committed before tagging the release.
+
+**Release Announcement Guidelines:**
+- **Purpose:** User-focused highlights, less technical than release notes
+- **Content:** Major new features, important bug fixes, key improvements
+- **Tone:** Accessible, user-friendly language
+- **Length:** Shorter than release notes (highlights only)
+- **Structure:** Highlights, New Features, Important Fixes, Improvements, link to full release notes
+- **Do NOT include:** Technical details, file changes, commit history, implementation details
 
 #### Version Number Guidelines
 
@@ -457,25 +751,38 @@ b. **Verify all required files exist and are correct:**
 
 **Regular Release:**
 ```bash
-# Merge feature branch into master (do this first)
+# Step 1: Pre-release checklist
+git status  # Verify feature branch is committed
+git describe --tags --abbrev=0  # Find last tag
+
+# Step 2: Merge feature branch into master (FIRST COMMIT)
 git checkout master
 git pull origin master
 git merge feature/branch-name
-git push origin master
+git push origin master  # Push merge commit
 
-# Find last tag
-git describe --tags --abbrev=0
+# Step 3: Update version numbers and documentation
+# (Edit files: version.py, README.md, documentation files)
 
-# List commits since last tag
-git log --oneline $(git describe --tags --abbrev=0)..HEAD
+# Step 4: Create/update release notes, release announcement, and CHANGELOG.md (AFTER merge commit)
+# Generate commit list: git log --oneline <last-tag>..HEAD
+# (This includes feature branch commits + any master commits since last tag)
+# (Edit files: ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.3.md, ReleaseNotes/RELEASE_ANNOUNCEMENT_1.0.0-alpha.3.md, CHANGELOG.md)
+
+# Step 5: Commit ALL version updates (SECOND COMMIT - single commit)
+git add contest_tools/version.py README.md ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.3.md ReleaseNotes/RELEASE_ANNOUNCEMENT_1.0.0-alpha.3.md CHANGELOG.md
+git add Docs/UsersGuide.md Docs/InstallationGuide.md Docs/ReportInterpretationGuide.md
+git add Docs/ProgrammersGuide.md Docs/PerformanceProfilingGuide.md
+git add Docs/CallsignLookupAlgorithm.md Docs/RunS&PAlgorithm.md Docs/WPXPrefixLookup.md
+git commit -m "chore(release): bump version to 1.0.0-alpha.3 and add release notes"
+git push origin master  # Push version bump commit
+
+# Step 6: Create and push tag (points to version bump commit)
+git tag -a v1.0.0-alpha.3 -m "Release v1.0.0-alpha.3"
+git push origin v1.0.0-alpha.3
 
 # Verify version consistency
-grep -r "1\.0\.0-alpha" contest_tools/version.py README.md ReleaseNotes/ CHANGELOG.md
-
-# Create and push tag (after version updates committed on master)
-git tag -a v1.0.0-alpha.3 -m "Release v1.0.0-alpha.3"
-git push origin master
-git push origin v1.0.0-alpha.3
+grep -r "1\.0\.0-alpha\.3" contest_tools/version.py README.md ReleaseNotes/ CHANGELOG.md
 ```
 
 **Hotfix Release:**
@@ -814,6 +1121,13 @@ AI:
 - AI should suggest updating version before tagging
 - User must confirm version number
 
+### If Document Discrepancy Detected
+- **CRITICAL:** AI MUST STOP immediately if discrepancy found between `AI_AGENT_RULES.md` and `VersionManagement.md`
+- **DO NOT proceed** with version updates
+- Report discrepancy using the format in "Version Management" > "CRITICAL: Document Consistency Check" section
+- **Wait for explicit user guidance** before proceeding
+- **For complete procedures, see:** `Docs/VersionManagement.md` Section 5
+
 ### CRITICAL: Diagnostic Logging Rules
 
 **AI agents MUST use WARNING or ERROR level for diagnostic logging, NOT INFO level.**
@@ -917,6 +1231,40 @@ When adding diagnostic logging:
 - **Consistency:** Standardized diagnostic pattern makes logs easier to read and filter
 - **Reliability:** Assuming WARNING-level visibility prevents silent diagnostic failures
 
+### CRITICAL: Do Not Remove Diagnostic Logging During Debugging
+
+**AI agents MUST NOT remove diagnostic logging until a bug fix is tested and verified to work OR explicitly directed to remove it.**
+
+**Rule:** When debugging issues, AI agents must:
+- **[REQUIRED] Keep diagnostic logging in place** during the debugging process
+- **[REQUIRED] Wait for user confirmation** that the bug fix works before removing diagnostics
+- **[REQUIRED] Only remove diagnostics** when:
+  1. The bug fix has been tested and verified to work correctly, OR
+  2. The user explicitly directs removal of diagnostic logging
+- **[X] Never remove diagnostic logging** as part of the initial bug fix implementation
+- **[X] Never remove diagnostic logging** without user confirmation that the fix works
+
+**Why This Matters:**
+- Diagnostic logging is essential for verifying that bug fixes actually work
+- Removing diagnostics too early can make it impossible to verify the fix
+- User needs to see diagnostic output to confirm the issue is resolved
+- Diagnostic logging helps identify if the fix introduced new issues
+
+**Workflow:**
+1. **Add diagnostic logging** to identify the bug
+2. **Implement bug fix** while keeping diagnostics
+3. **Test and verify** the fix works (diagnostics help confirm)
+4. **Wait for user confirmation** that the fix is verified
+5. **Only then remove diagnostics** (or keep them if user requests)
+
+**Exception:** If user explicitly requests removal of diagnostic logging at any point, AI agents may remove it as directed.
+
+**Agent Behavior:**
+- When fixing bugs, keep all diagnostic logging added during debugging
+- Do not remove diagnostic logging as part of the fix implementation
+- Wait for user to test and verify the fix before removing diagnostics
+- Only remove diagnostics after explicit user confirmation or direction
+
 ---
 
 ## Safety Checks
@@ -1005,9 +1353,34 @@ git status  # Should show the uncommitted changes again
 
 ---
 
-## Technical Debt Tracking
+## Work Tracking System
 
-### TECHNICAL_DEBT.md Pattern
+### Three-Track System
+
+**AI agents MUST understand the three-track work tracking system:**
+
+1. **Technical Debt** (`TECHNICAL_DEBT.md`): Issues with existing code that need fixing
+2. **Future Work** (`DevNotes/FUTURE_WORK.md`): Committed work we will do (decided to proceed)
+3. **Potential Enhancements** (`DevNotes/POTENTIAL_ENHANCEMENTS.md`): Ideas we might do (not committed)
+
+**CRITICAL: Category Identification Requirement**
+
+**AI agents MUST identify which category an item belongs to when:**
+- User proposes a new feature or enhancement
+- User identifies an issue or problem
+- User discusses potential improvements
+- AI agent identifies something that needs tracking
+
+**If category is unclear, AI agent MUST ask the user to clarify:**
+- "Is this a bug/issue with existing code? (Technical Debt)"
+- "Is this a committed enhancement we will do? (Future Work)"
+- "Is this an idea we might do? (Potential Enhancements)"
+
+**AI agents MUST NOT add items to tracking documents without identifying the correct category.**
+
+---
+
+### Technical Debt Tracking
 
 **AI agents MUST check `TECHNICAL_DEBT.md` at the start of each session.**
 
@@ -1021,6 +1394,13 @@ git status  # Should show the uncommitted changes again
 
 **Purpose:** Track technical debt items, architectural improvements, and known issues that need attention.
 
+**What Belongs Here:**
+- Bugs in existing code
+- Architectural problems
+- Inconsistencies in current implementation
+- Performance issues with existing features
+- Code quality problems
+
 **Categories:**
 - Architecture & Design Debt
 - Validation & Testing Debt
@@ -1028,12 +1408,78 @@ git status  # Should show the uncommitted changes again
 - Documentation Debt
 - Performance Debt
 - Known Issues
-- Future Enhancements
 
 **Agent Behavior:**
 1. **Session Start:** Read `TECHNICAL_DEBT.md` (non-blocking but recommended)
 2. **During Work:** Check off items as completed, add new items as discovered
 3. **Priority:** Address HIGH priority items when relevant to current task
+4. **Category Identification:** When adding items, ensure they are bugs/issues with existing code, not new features
+
+---
+
+### Future Work Tracking
+
+**AI agents SHOULD check `DevNotes/FUTURE_WORK.md` when planning work.**
+
+**When FUTURE_WORK.md Exists:**
+- AI agent **should** review future work items when planning implementations
+- AI agent **should** update status as work progresses
+- AI agent **should** link to implementation plans when created
+
+**File Location:** `DevNotes/FUTURE_WORK.md`
+
+**Purpose:** Track committed work that we have decided to proceed with.
+
+**What Belongs Here:**
+- Committed enhancements we will implement
+- Work that has been decided to proceed with
+- Items moved from Potential Enhancements after decision to proceed
+
+**Status Values:**
+- Planned - Committed to doing, not yet started
+- In Progress - Currently being implemented
+- Completed - Implemented and verified
+- Deferred - Postponed (with reason)
+- Cancelled - Decided not to proceed (with reason)
+
+**Agent Behavior:**
+1. **When Planning:** Review future work items relevant to current task
+2. **When Implementing:** Update status to "In Progress"
+3. **When Completing:** Update status to "Completed" and link to implementation
+4. **Category Identification:** Only add items here if they are committed work (decided to proceed)
+
+---
+
+### Potential Enhancements Tracking
+
+**AI agents SHOULD check `DevNotes/POTENTIAL_ENHANCEMENTS.md` when discussing new features.**
+
+**When POTENTIAL_ENHANCEMENTS.md Exists:**
+- AI agent **should** review potential enhancements when discussing new features
+- AI agent **should** add items when new capabilities are proposed
+- AI agent **should** update status as items are evaluated
+
+**File Location:** `DevNotes/POTENTIAL_ENHANCEMENTS.md`
+
+**Purpose:** Track ideas, proposals, and potential enhancements that are under consideration but not yet committed.
+
+**What Belongs Here:**
+- Ideas and proposals
+- Potential new capabilities
+- Enhancements under consideration
+- Research items
+
+**Status Values:**
+- Proposed - Initial idea, needs discussion
+- Under Discussion - Being evaluated/designed
+- Deferred - Postponed for later consideration (with reason)
+- Rejected - Decided not to implement (with reason)
+
+**Agent Behavior:**
+1. **When Discussing:** Add items here when new ideas are proposed
+2. **When Evaluating:** Update status as items are discussed
+3. **When Deciding:** Move to Future Work if decided to proceed, or mark Deferred/Rejected
+4. **Category Identification:** Add items here if they are ideas/proposals, not committed work
 
 ---
 
@@ -1093,11 +1539,13 @@ For complex multi-session workflows, a `HANDOVER.md` file may exist at the repos
 - One-off analysis scripts
 - Test utilities and helpers
 - Batch files for running diagnostics (e.g., `run_all_diagnostics.bat`)
+- Mockup generators and mockup output files (e.g., `test_code/mockups/generate_enhanced_missed_multipliers_mockup.py`)
 
 **Does NOT apply to:**
 - Production utilities in `contest_tools/utils/` (e.g., `architecture_validator.py`, `report_utils.py`)
 - Production tools in `tools/` (e.g., `update_version_hash.py`, `setup_git_aliases.ps1`)
 - Test suites in `tests/` (if using pytest/unittest structure)
+- `__main__` blocks in core utilities (e.g., `contest_tools/core_annotations/get_cty.py`) - These are debugging/testing features, not standalone scripts
 
 **Rationale:**
 - Keeps production code directories clean
@@ -1107,8 +1555,23 @@ For complex multi-session workflows, a `HANDOVER.md` file may exist at the repos
 
 **Agent Behavior:**
 - When creating diagnostic/temporary scripts, place them in `test_code/` or `test_code/subdirectory/`
+- When creating mockup generators or mockup files, place them in `test_code/mockups/`
 - Do NOT add such scripts to `contest_tools/utils/`, `tools/`, or other production directories
 - If a script needs to become production code, refactor and move it appropriately (e.g., `contest_tools/utils/`)
+
+**CRITICAL: Main Project Must Not Reference Test Infrastructure**
+
+**Rule:** The main project code (`contest_tools/`, `web_app/`) must NEVER import from or depend on test infrastructure (`test_code/`).
+
+- **Correct:** Test utilities in `test_code/` import from main project (`contest_tools/`, `web_app/`)
+- **Incorrect:** Main project code importing from `test_code/`
+- **Rationale:** Main project should be independent and testable. Test infrastructure is a consumer of the main project, not a dependency.
+
+**Examples:**
+- ✅ `test_code/web_regression_test.py` imports from `contest_tools.log_manager`
+- ✅ `test_code/regression_test_utils.py` is in `test_code/` (not `contest_tools/utils/`)
+- ❌ `contest_tools/utils/regression_test_utils.py` (would create dependency from main project to test code)
+- ❌ `web_app/analyzer/views.py` importing from `test_code/`
 
 ---
 
@@ -1349,6 +1812,14 @@ Before implementing scoring/data changes:
 
 **AI agents MUST use the miniforge Python executable when running Python scripts in this environment.**
 
+**⚠️ MANDATORY: Check this section BEFORE executing any Python command. Do NOT assume `python` will work.**
+
+**MANDATORY WORKFLOW:**
+1. **BEFORE executing any Python command:** Check this section of AI Agent Rules
+2. **ALWAYS use the full path:** `C:\Users\mbdev\miniforge3\python.exe`
+3. **NEVER use:** `python`, `python.exe`, or `py` without the full path
+4. **AFTER execution:** Check exit code and error messages (see "Command Execution and Error Checking" section)
+
 **Rule:** When executing Python scripts, always use the full path to the miniforge Python executable:
 - **Correct:** `C:\Users\mbdev\miniforge3\python.exe script.py`
 - **Incorrect:** `python script.py` or `python.exe script.py` (these do not work in this environment)
@@ -1373,8 +1844,8 @@ C:\Users\mbdev\miniforge3\python.exe -m pytest tests/
 # Running Python one-liners
 C:\Users\mbdev\miniforge3\python.exe -c "import sys; print(sys.version)"
 
-# Running scripts that import project modules
-C:\Users\mbdev\miniforge3\python.exe main_cli.py --help
+# Running Django management commands
+C:\Users\mbdev\miniforge3\python.exe web_app/manage.py runserver
 ```
 
 **Incorrect Python Script Execution (DO NOT USE):**
@@ -1387,15 +1858,498 @@ py script.py
 
 #### Agent Behavior
 
-When an AI agent needs to run a Python script:
-1. **Always** use `C:\Users\mbdev\miniforge3\python.exe` as the Python interpreter
-2. **Never** use `python`, `python.exe`, or `py` without the full path
-3. **Preserve** relative paths for script arguments (e.g., `test_code/script.py`)
-4. **Use** full path only for the Python executable itself
+**MANDATORY WORKFLOW FOR ALL PYTHON COMMANDS:**
+
+1. **BEFORE execution:**
+   - Check this section of AI Agent Rules
+   - Identify the required Python path: `C:\Users\mbdev\miniforge3\python.exe`
+   - Use this path in the command
+
+2. **DURING execution:**
+   - **Always** use `C:\Users\mbdev\miniforge3\python.exe` as the Python interpreter
+   - **Never** use `python`, `python.exe`, or `py` without the full path
+   - **Preserve** relative paths for script arguments (e.g., `test_code/script.py`)
+   - **Use** full path only for the Python executable itself
+
+3. **AFTER execution:**
+   - Check exit code (non-zero = failure)
+   - Read error messages completely
+   - If error: Stop, fix, retry with correct path
+   - If success: Verify output is as expected
+   - Do NOT proceed with dependent operations if command failed
 
 #### Note on Activation Scripts
 
 The `C:\Users\mbdev\miniforge3\Scripts\custom_activate.bat` script uses `/K` flag which opens an interactive terminal window. For non-interactive script execution, use the Python executable directly rather than trying to activate the environment first.
+
+### CRITICAL: Syntax Validation Before Finishing
+
+**AI agents MUST validate Python syntax using `py_compile` before completing code changes.**
+
+**⚠️ MANDATORY: Check Python syntax after modifying any Python file.**
+
+**MANDATORY WORKFLOW:**
+1. **AFTER modifying any Python file:** Run `py_compile` to check for syntax errors
+2. **ALWAYS use the conda environment Python:** `C:\Users\mbdev\miniforge3\envs\cla\python.exe -m py_compile <file_path>`
+3. **NEVER skip this step:** Syntax errors cause runtime failures and must be caught immediately
+4. **FIX all syntax errors** before proceeding with other work
+
+**Rule:** After creating or modifying any Python file, AI agents must:
+- **Run:** `C:\Users\mbdev\miniforge3\envs\cla\python.exe -m py_compile <file_path>`
+- **Check exit code:** Non-zero exit code indicates syntax errors
+- **Read error messages:** Syntax errors show exact line numbers and issues
+- **Fix immediately:** Do not proceed until all syntax errors are resolved
+
+**Why This Matters:**
+- Catches indentation errors, missing colons, unclosed brackets, and other syntax issues
+- Prevents runtime failures that would break the application
+- Identifies errors immediately rather than during execution
+- Saves debugging time by catching issues early
+
+**Example Workflow:**
+```powershell
+# After modifying a Python file
+C:\Users\mbdev\miniforge3\envs\cla\python.exe -m py_compile regression_baselines\test_code\web_regression_test.py
+
+# If successful (exit code 0): Proceed with other work
+# If failed (exit code non-zero): Read error message, fix syntax, retry compilation
+```
+
+**Note:** Use the conda environment Python (`envs\cla\python.exe`) to ensure the same Python version and dependencies as the project uses.
+
+**Common Syntax Errors to Catch:**
+- IndentationError (mismatched indentation levels)
+- SyntaxError (missing colons, unclosed brackets, invalid syntax)
+- TabError (mixing tabs and spaces)
+- Missing closing brackets, parentheses, or quotes
+
+**Agent Behavior:**
+- **MUST** run `py_compile` after modifying any Python file
+- **MUST** fix all syntax errors before proceeding
+- **MUST** verify exit code is zero before considering work complete
+- **MUST NOT** skip syntax validation even for "simple" changes
+
+---
+
+## PowerShell Command Syntax Rules
+
+### ⚠️ CRITICAL: PowerShell vs CMD Syntax Differences
+
+**AI agents MUST use PowerShell syntax when executing commands in this environment, NOT CMD syntax.**
+
+**⚠️ MOST COMMON ERROR: Using `&&` instead of `;` for command chaining**
+- **WRONG:** `cd dir && git init` ❌ (causes error: "The token '&&' is not a valid statement separator")
+- **CORRECT:** `cd dir; git init` ✅
+
+**Rule:** This environment uses PowerShell (`powershell.exe`), not Windows Command Prompt (`cmd.exe`). AI agents must use PowerShell-compatible syntax for all terminal commands.
+
+**Quick Reference - Command Chaining:**
+| Syntax | PowerShell (CORRECT) | CMD (INCORRECT - DO NOT USE) |
+|--------|---------------------|------------------------------|
+| Chain commands | `cmd1; cmd2; cmd3` | `cmd1 && cmd2 && cmd3` ❌ |
+| Example | `cd dir; git status` ✅ | `cd dir && git status` ❌ |
+
+#### Why This Matters
+
+PowerShell and CMD have different syntax for:
+- Command chaining (`&&` vs `;`)
+- Executing batch files (`call` vs `&` or direct execution)
+- Path handling and directory changes
+- Variable expansion and quoting
+
+Using CMD syntax in PowerShell causes errors like:
+- `The token '&&' is not a valid statement separator in this version`
+- `call : The term 'call' is not recognized as the name of a cmdlet, function, script file, or operable program`
+- Path resolution errors when changing directories
+
+#### Command Chaining
+
+**PowerShell Syntax (CORRECT):**
+```powershell
+# Use semicolon (;) to chain commands
+cd regression_baselines; git init; git config user.name "Test User"
+
+# Or use separate commands on separate lines
+cd regression_baselines
+git init
+git config user.name "Test User"
+```
+
+**CMD Syntax (INCORRECT - DO NOT USE):**
+```cmd
+# WRONG: && is CMD syntax, not PowerShell
+cd regression_baselines && git init && git config user.name "Test User"
+```
+
+**Note:** For file operations (move, copy, delete), see "File Operation Verification" section under "Command Execution and Error Checking" for complete verification requirements.
+
+#### Executing Batch Files
+
+**PowerShell Syntax (CORRECT):**
+```powershell
+# Direct execution (if path has no spaces)
+regression_baselines\test_setup.bat
+
+# Using call operator (if path has spaces or special characters)
+& "regression_baselines\test_setup.bat"
+
+# Using full path with call operator
+& "C:\Users\mbdev\OneDrive\Desktop\Repos\Contest-Log-Analyzer\regression_baselines\test_setup.bat"
+```
+
+**CMD Syntax (INCORRECT - DO NOT USE):**
+```cmd
+# WRONG: call is CMD syntax, not PowerShell
+call regression_baselines\test_setup.bat
+```
+
+#### Directory Changes
+
+**PowerShell Syntax (CORRECT):**
+```powershell
+# Use Set-Location or cd with proper path handling
+Set-Location regression_baselines
+# Or
+cd regression_baselines
+
+# Use absolute paths when current directory is uncertain
+Set-Location "C:\Users\mbdev\OneDrive\Desktop\Repos\Contest-Log-Analyzer\regression_baselines"
+
+# Use -C flag for git commands to specify directory (avoids cd issues)
+git -C regression_baselines init
+git -C regression_baselines status
+```
+
+**Common Issues:**
+- If already in `regression_baselines`, `cd regression_baselines` will fail (looking for `regression_baselines/regression_baselines`)
+- Use `git -C <directory>` to avoid directory change issues
+- Check current directory with `Get-Location` or `pwd` before changing directories
+
+#### Path Handling
+
+**PowerShell Syntax (CORRECT):**
+```powershell
+# Use backslashes for Windows paths (PowerShell accepts both, but backslashes are standard)
+$path = "regression_baselines\Logs"
+
+# Use quotes for paths with spaces
+$path = "C:\Users\mbdev\OneDrive\Desktop\Repos\Contest-Log-Analyzer\regression_baselines"
+
+# Use Join-Path for path construction
+$logPath = Join-Path $scriptDir "Logs"
+```
+
+#### Variable Expansion
+
+**PowerShell Syntax (CORRECT):**
+```powershell
+# Use $variable for variables
+$TEST_DATA_DIR = "regression_baselines\Logs"
+echo $TEST_DATA_DIR
+
+# Use $env:VARIABLE for environment variables
+echo $env:TEST_DATA_DIR
+```
+
+**CMD Syntax (INCORRECT - DO NOT USE):**
+```cmd
+# WRONG: %VARIABLE% is CMD syntax
+set TEST_DATA_DIR=regression_baselines\Logs
+echo %TEST_DATA_DIR%
+```
+
+#### Command Execution and Error Checking
+
+**CRITICAL: AI agents MUST check command outputs and handle errors before proceeding.**
+
+**⚠️ CRITICAL: File operations (move, copy, delete, rename) require verification of both source and destination states. See "File Operation Verification" subsection below.**
+
+**⚠️ MANDATORY WORKFLOW FOR ALL COMMANDS - NO EXCEPTIONS:**
+
+**BEFORE execution (MANDATORY):**
+1. **Check relevant project rules FIRST:** Review AI Agent Rules for command-specific requirements
+   - Python commands: Check "Python Script Execution Rules" section → Use `C:\Users\mbdev\miniforge3\python.exe`
+   - **PowerShell commands: ⚠️ CRITICAL - Check "PowerShell Command Syntax Rules" section**
+     - **NEVER use `&&` for command chaining** - This is CMD syntax and will FAIL in PowerShell
+     - **ALWAYS use `;` for command chaining** - This is PowerShell syntax
+     - **Example WRONG:** `cd dir && git init` ❌ (will cause error: "The token '&&' is not a valid statement separator")
+     - **Example CORRECT:** `cd dir; git init` ✅
+     - See "PowerShell Command Syntax Rules" section (line ~1809) for complete details
+   - Git commands: Check git workflow rules
+2. **Use correct syntax/paths:** Apply rules from project documentation - do NOT assume defaults will work
+   - **PowerShell syntax check:** If chaining commands, verify you're using `;` not `&&`
+3. **Verify prerequisites:** Ensure required files/directories exist before executing
+
+**AFTER execution (MANDATORY):**
+1. **Check exit code IMMEDIATELY:** 
+   - Non-zero exit code = FAILURE → STOP, read error, fix, retry
+   - Zero exit code = SUCCESS → BUT STILL VERIFY RESULTS (exit code 0 does NOT guarantee success for file operations)
+2. **For file operations (move/copy/delete/rename):** ALWAYS verify both source and destination states (see "File Operation Verification" below)
+3. **Read error messages COMPLETELY:** Error messages contain critical information - read the entire error, not just the first line
+4. **Verify command results:** Check that commands produced expected output (not empty, not unexpected format)
+5. **Address failures IMMEDIATELY:** 
+   - Do NOT proceed with subsequent commands if a command fails
+   - Do NOT ignore errors and continue
+   - Do NOT assume "it will work next time"
+   - Do NOT assume exit code 0 means success for file operations
+6. **Check working directory:** Verify current directory when path-related errors occur
+7. **Do NOT ignore errors:** Empty output or unexpected results require investigation before proceeding
+
+**Rule:** After executing any terminal command, AI agents MUST:
+1. **Check exit codes:** Non-zero exit codes indicate failure
+2. **Read error messages:** Error messages contain critical information about what went wrong
+3. **Verify command results:** Check that commands produced expected output
+4. **Address failures immediately:** Do not proceed with subsequent commands if a command fails
+5. **Check working directory:** Verify current directory when path-related errors occur
+
+**Error Checking Workflow:**
+```powershell
+# Example: Check if file exists
+$result = Test-Path "test_code\regression_test_utils.py"
+if (-not $result) {
+    # File doesn't exist - investigate why
+    Write-Host "ERROR: File not found. Checking current directory..."
+    Get-Location
+    # Fix the issue before proceeding
+}
+```
+
+**Common Error Patterns to Watch For:**
+- **Path not found errors:** `Cannot find path '...' because it does not exist`
+  - **Action:** Check current working directory with `Get-Location` or `pwd`
+  - **Action:** Use absolute paths or verify relative paths are correct
+  - **Action:** Verify the file/directory actually exists before using it
+
+- **Exit code non-zero:** Commands return exit code > 0
+  - **Action:** Read the error message in the command output
+  - **Action:** Do not proceed with dependent operations
+  - **Action:** Fix the underlying issue before continuing
+
+- **Empty output when expecting results:** Commands return no output
+  - **Action:** Verify the command syntax is correct
+  - **Action:** Check if the operation actually succeeded
+  - **Action:** Use verbose flags or additional checks to verify success
+
+**Example Error Handling:**
+```powershell
+# BAD: Ignoring errors
+Test-Path "test_code\regression_test_utils.py"
+Get-ChildItem "test_code"  # This might fail if path is wrong
+
+# GOOD: Checking and handling errors
+$fileExists = Test-Path "test_code\regression_test_utils.py"
+if (-not $fileExists) {
+    Write-Host "ERROR: File not found at test_code\regression_test_utils.py"
+    Write-Host "Current directory: $(Get-Location)"
+    Write-Host "Checking if test_code directory exists..."
+    if (Test-Path "test_code") {
+        Get-ChildItem "test_code" | Select-Object Name
+    } else {
+        Write-Host "ERROR: test_code directory not found. Wrong working directory?"
+    }
+    # DO NOT PROCEED until issue is resolved
+}
+```
+
+**Working Directory Verification:**
+```powershell
+# Always verify working directory when path errors occur
+$currentDir = Get-Location
+Write-Host "Current directory: $currentDir"
+
+# If wrong directory, change to correct one
+if ($currentDir -notlike "*Contest-Log-Analyzer*") {
+    Set-Location "C:\Users\mbdev\OneDrive\Desktop\Repos\Contest-Log-Analyzer"
+}
+```
+
+### CRITICAL: File Operation Verification
+
+**AI agents MUST verify file operations (move, copy, delete, rename) by checking both source and destination states.**
+
+**⚠️ MANDATORY: After ANY file operation, verify the operation actually succeeded.**
+
+**File Operation Verification Checklist:**
+
+**BEFORE execution:**
+- [ ] Source file/directory exists (use `Test-Path`)
+- [ ] Destination directory exists (use `Test-Path` for directory)
+- [ ] Using PowerShell cmdlets (`Move-Item`, `Copy-Item`, `Remove-Item` - NOT `move`, `copy`, `del`)
+- [ ] Using PowerShell syntax (`;` for chaining, NOT `&&`)
+
+**AFTER execution:**
+- [ ] Exit code checked (non-zero = stop immediately, even if some files moved)
+- [ ] Source state verified: For moves/deletes, file should be GONE from source
+- [ ] Destination state verified: For moves/copies, file should EXIST in destination
+- [ ] Both verifications passed before proceeding to next operation
+
+**MANDATORY WORKFLOW FOR FILE OPERATIONS:**
+
+1. **BEFORE operation:**
+   - Verify source file/directory exists using `Test-Path`
+   - Verify destination directory exists using `Test-Path`
+   - Use PowerShell cmdlets (`Move-Item`, `Copy-Item`, `Remove-Item`) - NOT CMD commands (`move`, `copy`, `del`)
+   - Use PowerShell syntax (`;` for chaining) - NOT CMD syntax (`&&`)
+
+2. **EXECUTE operation:**
+   - Use proper PowerShell cmdlet with correct syntax
+   - Use `-Force` flag if overwriting is intended
+
+3. **AFTER operation:**
+   - **Check exit code:** Non-zero = stop immediately, investigate, fix
+   - **Verify source state:** 
+     - For moves/deletes: File should be GONE from source location
+     - For copies: File should still exist in source location
+   - **Verify destination state:**
+     - For moves/copies: File should EXIST in destination location
+     - For deletes: File should NOT exist (verify deletion)
+   - **Use Test-Path for verification:** Don't assume - actually check both locations
+   - **Only proceed if both verifications pass**
+
+**Example: File Move with Verification**
+```powershell
+# BEFORE: Verify prerequisites
+$source = "DevNotes\VERSIONING_IMPLEMENTATION_SUMMARY.md"
+$dest = "DevNotes\Archive\VERSIONING_IMPLEMENTATION_SUMMARY.md"
+
+# Verify source exists
+if (-not (Test-Path $source)) {
+    Write-Host "ERROR: Source file does not exist: $source"
+    exit 1
+}
+
+# Verify destination directory exists
+$destDir = Split-Path $dest -Parent
+if (-not (Test-Path $destDir)) {
+    Write-Host "ERROR: Destination directory does not exist: $destDir"
+    exit 1
+}
+
+# EXECUTE: Perform move operation
+Move-Item $source $dest -Force
+
+# AFTER: Verify operation succeeded
+# Check exit code was already done by tool, but verify file states:
+
+# Verify source is GONE (for moves)
+if (Test-Path $source) {
+    Write-Host "ERROR: Move failed - source file still exists: $source"
+    exit 1
+}
+
+# Verify destination EXISTS (for moves)
+if (-not (Test-Path $dest)) {
+    Write-Host "ERROR: Move failed - destination file does not exist: $dest"
+    exit 1
+}
+
+# Only proceed if both verifications pass
+Write-Host "SUCCESS: File moved and verified"
+```
+
+**Example: Batch File Operations with Verification**
+```powershell
+# For multiple files, verify each operation
+$files = @("file1.md", "file2.md", "file3.md")
+$destDir = "DevNotes\Archive"
+
+# Verify destination exists
+if (-not (Test-Path $destDir)) {
+    Write-Host "ERROR: Destination directory does not exist: $destDir"
+    exit 1
+}
+
+# Move and verify each file
+foreach ($file in $files) {
+    $source = "DevNotes\$file"
+    $dest = "$destDir\$file"
+    
+    # Verify source exists
+    if (-not (Test-Path $source)) {
+        Write-Host "WARNING: Source file does not exist: $source (skipping)"
+        continue
+    }
+    
+    # Execute move
+    Move-Item $source $dest -Force
+    
+    # Verify move succeeded
+    if (Test-Path $source) {
+        Write-Host "ERROR: Move failed - source still exists: $source"
+        exit 1
+    }
+    if (-not (Test-Path $dest)) {
+        Write-Host "ERROR: Move failed - destination missing: $dest"
+        exit 1
+    }
+}
+
+Write-Host "SUCCESS: All files moved and verified"
+```
+
+**Common Mistakes to Avoid:**
+- ❌ **WRONG:** Assuming exit code 0 means file operation succeeded
+- ❌ **WRONG:** Not checking if source file was actually removed (for moves/deletes)
+- ❌ **WRONG:** Not checking if destination file actually exists (for moves/copies)
+- ❌ **WRONG:** Using CMD commands (`move`, `copy`, `del`) instead of PowerShell cmdlets
+- ❌ **WRONG:** Using CMD syntax (`&&` for chaining) instead of PowerShell syntax (`;`)
+- ❌ **WRONG:** Proceeding with subsequent operations after unverified file operations
+- ❌ **WRONG:** Ignoring error messages even when exit code is 0
+
+**Why This Matters:**
+- File operations can appear to succeed but actually fail silently
+- Directory context issues can cause operations to fail in unexpected ways
+- Partial success (some files moved, others failed) can cause inconsistent state
+- Verification prevents cascading failures from unverified operations
+- Exit code 0 does NOT guarantee file operation succeeded - always verify
+- Ensures file operations actually completed before proceeding with dependent operations
+
+**Agent Behavior Requirements:**
+
+When performing file operations:
+1. **MUST** verify source exists before operation
+2. **MUST** verify destination directory exists before operation
+3. **MUST** use PowerShell cmdlets (`Move-Item`, `Copy-Item`, `Remove-Item`) - NOT CMD commands
+4. **MUST** use PowerShell syntax (`;` for chaining) - NOT CMD syntax (`&&`)
+5. **MUST** check exit code after operation
+6. **MUST** verify source state after operation (gone for moves/deletes, unchanged for copies)
+7. **MUST** verify destination state after operation (exists for moves/copies, gone for deletes)
+8. **MUST** use `Test-Path` for verification - don't assume
+9. **MUST NOT** proceed with subsequent operations if verification fails
+10. **MUST NOT** ignore error messages even if exit code is 0
+
+**Agent Behavior Requirements:**
+
+When executing terminal commands in this environment:
+1. **Always** use PowerShell syntax (`;` for chaining, `&` for batch files, `$variable` for variables)
+2. **Never** use CMD syntax (`&&` for chaining, `call` for batch files, `%variable%` for variables)
+3. **Prefer** `git -C <directory>` over `cd <directory>` to avoid path issues
+4. **Check** current directory with `Get-Location` or `pwd` before changing directories
+5. **Use** absolute paths or `Set-Location` with proper path handling when directory changes are needed
+6. **Use** `&` operator or direct execution for batch files, never `call`
+7. **MUST check exit codes** and error messages after every command
+8. **MUST read error output** completely before proceeding
+9. **MUST verify working directory** when path-related errors occur
+10. **MUST fix errors** before executing dependent commands
+11. **MUST NOT ignore** empty output or unexpected results
+
+#### Quick Reference
+
+| Operation | PowerShell (CORRECT) | CMD (INCORRECT) |
+|-----------|---------------------|-----------------|
+| Chain commands | `cmd1; cmd2; cmd3` | `cmd1 && cmd2 && cmd3` |
+| Execute batch file | `& "path\file.bat"` or `path\file.bat` | `call path\file.bat` |
+| Set variable | `$var = "value"` | `set var=value` |
+| Use variable | `$var` or `$env:VAR` | `%var%` or `%VAR%` |
+| Change directory | `Set-Location path` or `cd path` | `cd path` |
+| Git in directory | `git -C path command` | `cd path && git command` |
+
+#### Rationale
+
+- **Environment Consistency:** This environment uses PowerShell, so all commands must use PowerShell syntax
+- **Error Prevention:** Using CMD syntax causes command failures and requires manual correction
+- **User Experience:** Correct syntax ensures commands execute successfully without user intervention
+- **Maintainability:** Consistent PowerShell syntax makes scripts and commands easier to understand and maintain
 
 ---
 
@@ -1477,6 +2431,107 @@ When working with Django templates:
 2. **Prefer** duplicating loop code if the loop content is simple
 3. **Consider** preparing data in the view if the logic is complex
 4. **Test** template syntax by checking for linter errors or running the Django development server
+
+#### Rule: `{% else %}` Cannot Be Used Inside `{% with %}` Block
+
+**Problem:** Django's template parser does not allow `{% else %}` inside a `{% with %}` block. This causes a `TemplateSyntaxError`:
+
+```
+TemplateSyntaxError: Invalid block tag on line X: 'else', expected 'endwith'. Did you forget to register or load this tag?
+```
+
+**Incorrect Pattern (DO NOT USE):**
+```django
+{% with total_unique=stat.unique_run|add:stat.unique_sp|add:stat.unique_unk %}
+{% with scale_max=fixed_multiplier_max|default:row.max_unique %}
+{% if is_sweepstakes %}
+    {% with total_for_bar=stat.count %}
+{% else %}
+    {% with total_for_bar=total_unique %}
+{% endif %}
+    <!-- content using total_for_bar -->
+{% endwith %}
+{% endwith %}
+{% endwith %}
+```
+
+**Correct Solution: Duplicate Code in Each Branch**
+```django
+{% with total_unique=stat.unique_run|add:stat.unique_sp|add:stat.unique_unk %}
+{% with scale_max=fixed_multiplier_max|default:row.max_unique %}
+{% if is_sweepstakes %}
+    {% with total_for_bar=stat.count %}
+        <!-- content using total_for_bar -->
+    {% endwith %}
+{% else %}
+    {% with total_for_bar=total_unique %}
+        <!-- content using total_for_bar -->
+    {% endwith %}
+{% endif %}
+{% endwith %}
+{% endwith %}
+```
+
+**Key Points:**
+- Each branch (`{% if %}` and `{% else %}`) must have its own complete `{% with %}` block
+- Each `{% with %}` block must be closed with `{% endwith %}` before the `{% else %}`
+- Outer `{% with %}` blocks can remain open for both branches
+
+#### Rule: Parentheses Not Supported in `{% if %}` Statements
+
+**Problem:** Django's template parser does not support parentheses for grouping conditions in `{% if %}` statements. This causes a `TemplateSyntaxError`:
+
+```
+TemplateSyntaxError: Could not parse the remainder: '(row.label' from '(row.label'
+```
+
+**Incorrect Pattern (DO NOT USE):**
+```django
+{% if not (row.label == "TOTAL" and multiplier_count == 1) %}
+    <!-- content -->
+{% endif %}
+```
+
+**Correct Solution: Use De Morgan's Law to Rewrite Without Parentheses**
+
+Rewrite the condition using logical equivalences:
+- `not (A and B)` is equivalent to `(not A) or (not B)`
+- `not (A or B)` is equivalent to `(not A) and (not B)`
+
+**Example 1: Negated AND**
+```django
+{# Incorrect: {% if not (row.label == "TOTAL" and multiplier_count == 1) %} #}
+{# Correct: #}
+{% if row.label != "TOTAL" or multiplier_count != 1 %}
+    <!-- content -->
+{% endif %}
+```
+
+**Example 2: Negated OR**
+```django
+{# Incorrect: {% if not (condition1 or condition2) %} #}
+{# Correct: #}
+{% if not condition1 and not condition2 %}
+    <!-- content -->
+{% endif %}
+```
+
+**Example 3: Complex Conditions**
+```django
+{# Incorrect: {% if (A and B) or (C and D) %} #}
+{# Correct: Use nested if statements or prepare in view #}
+{% if A and B %}
+    <!-- content -->
+{% elif C and D %}
+    <!-- content -->
+{% endif %}
+```
+
+**Key Points:**
+- Django templates do NOT support parentheses for grouping in `{% if %}` statements
+- Use De Morgan's law to rewrite negated conditions
+- For complex conditions, use nested `{% if %}` statements or prepare the condition in the view
+- When in doubt, simplify the condition or move the logic to Python
 
 #### Related Issues
 

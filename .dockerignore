@@ -1,0 +1,106 @@
+# .dockerignore
+#
+# Purpose: Excludes files and directories from Docker build context
+#          to reduce image size and improve build performance.
+#
+# Copyright (c) 2025 Mark Bailey, KD4D
+# License: Mozilla Public License, v. 2.0
+
+# ============================================================================
+# Runtime/Generated Data (should not be in image)
+# ============================================================================
+web_app/media/
+web_app/db.sqlite3
+web_app/staticfiles/
+CONTEST_LOGS_REPORTS/reports/
+CONTEST_LOGS_REPORTS/reports_*/
+*.sqlite3
+
+# ============================================================================
+# Test/Development Data (not needed in production image)
+# ============================================================================
+regression_baselines/
+Archives/
+test_code/
+CONTEST_LOGS_REPORTS/Logs/
+CONTEST_LOGS_REPORTS/data/CTY/
+
+# ============================================================================
+# Development Documentation (not needed in production)
+# ============================================================================
+AIAgentGuidance/
+Docs/Archive/
+DevNotes/
+ReleaseNotes/
+*.md
+!README.md
+*.pdf
+
+# ============================================================================
+# Build Artifacts & Cache
+# ============================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# ============================================================================
+# Version Control
+# ============================================================================
+.git/
+.gitignore
+.gitattributes
+
+# ============================================================================
+# IDE & Editor Files
+# ============================================================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ============================================================================
+# Environment & Configuration (sensitive/local)
+# ============================================================================
+.env
+.env.local
+web_app/config/settings_local.py
+*.local
+
+# ============================================================================
+# Temporary & Log Files
+# ============================================================================
+*.log
+*.tmp
+*.temp
+*_bundle.txt
+
+# ============================================================================
+# Other Development Files
+# ============================================================================
+*.txt
+!requirements.txt
+*.doc*
+*.csv
+*.xls*
+*.png
+*.ops
+*.wt4
+ToDo.txt
+CHANGELOG.md
+TECHNICAL_DEBT.md
+HANDOVER.md
+
+# ============================================================================
+# Docker Files (don't need to copy into image)
+# ============================================================================
+Dockerfile
+docker-compose.yml
+.dockerignore

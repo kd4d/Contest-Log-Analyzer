@@ -332,6 +332,56 @@ def _read_cabrillo_header(filepath: str) -> Dict[str, str]:
         logger.warning(f"Error reading header from {filepath}: {e}")
     return header
 
+def _extract_year_from_log(log_path: str) -> Optional[str]:
+    """
+    Extracts year from first QSO line in a log file.
+    Returns year as string or None if not found.
+    """
+    try:
+        with open(log_path, 'r', encoding='utf-8', errors='ignore') as f:
+            for line in f:
+                if line.upper().startswith('QSO:'):
+                    parts = line.strip().split()
+                    if len(parts) >= 4:
+                        date_str = parts[2]  # Format: YYYY-MM-DD
+                        date_match = re.match(r'(\d{4})-\d{2}-\d{2}', date_str)
+                        if date_match:
+                            return date_match.group(1)
+    except Exception as e:
+        logger.warning(f"Could not extract year from {log_path}: {e}")
+    return None
+
+def _apply_contest_override(log_paths: List[str], contest_override: str):
+    """
+    Modifies Cabrillo file headers to use a different contest name.
+    Used when applying WRTC rules to IARU logs.
+    
+    Args:
+        log_paths: List of log file paths
+        contest_override: Contest name to use (e.g., 'WRTC-2026')
+    """
+    for log_path in log_paths:
+        try:
+            # Read file
+            with open(log_path, 'r', encoding='utf-8', errors='ignore') as f:
+                lines = f.readlines()
+            
+            # Modify CONTEST: line
+            modified = False
+            for i, line in enumerate(lines):
+                if line.upper().startswith('CONTEST:'):
+                    lines[i] = f'CONTEST: {contest_override}\n'
+                    modified = True
+                    break
+            
+            # Write back if modified
+            if modified:
+                with open(log_path, 'w', encoding='utf-8', errors='ignore') as f:
+                    f.writelines(lines)
+                logger.info(f"Applied contest override '{contest_override}' to {os.path.basename(log_path)}")
+        except Exception as e:
+            logger.warning(f"Failed to apply contest override to {log_path}: {e}")
+
 def _get_cty_file_for_validation(log_paths: List[str], root_input_dir: str, custom_cty_path: str = None, cty_specifier: str = 'after') -> Optional[str]:
     """
     Determines CTY file for validation (same logic as LogManager).
@@ -466,8 +516,8 @@ def _validate_arrl_dx_location_types(log_paths: List[str], root_input_dir: str, 
         error_message = (
             "ARRL DX Contest Error: All logs must be from the same category.\n\n"
             "ARRL DX is an asymmetric contest:\n"
-            "• W/VE = 48 contiguous US States + VE provinces\n"
-            "• DX = Everything else (including Alaska, Hawaii, and other US possessions)\n\n"
+            "- W/VE = 48 contiguous US States + VE provinces\n"
+            "- DX = Everything else (including Alaska, Hawaii, and other US possessions)\n\n"
             f"Found: {location_summary}"
         )
         return {'valid': False, 'error_message': error_message}
@@ -518,7 +568,92 @@ def get_log_index_view(request):
         except Exception as e:
             logger.exception(f"Error fetching ARRL DX log index: {e}")
             return JsonResponse({'error': str(e)}, status=500)
+    elif contest == 'IARU-HF' and year:
+        # IARU-HF uses contest code 'iaruhf'
+        try:
+            from contest_tools.utils.log_fetcher import fetch_iaru_log_index
+            callsigns = fetch_iaru_log_index(year)
+            return JsonResponse({'callsigns': callsigns})
+        except Exception as e:
+            logger.exception(f"Error fetching IARU-HF log index: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
+    elif contest.startswith('WRTC') and year:
+        # All WRTC contests use IARU archive (same as IARU-HF)
+        try:
+            from contest_tools.utils.log_fetcher import fetch_iaru_log_index
+            callsigns = fetch_iaru_log_index(year)
+            return JsonResponse({'callsigns': callsigns})
+        except Exception as e:
+            logger.exception(f"Error fetching {contest} log index: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
     return JsonResponse({'callsigns': []})
+
+
+def get_wrtc_contests_view(request):
+    """
+    API Endpoint: Returns list of available WRTC contest definitions.
+    Scans contest_definitions directory for wrtc_*.json files.
+    """
+    import os
+    import re
+    
+    try:
+        # Find contest_definitions directory
+        import contest_tools.contest_definitions as contest_defs_module
+        contest_defs_dir = os.path.dirname(contest_defs_module.__file__)
+        
+        # Scan for WRTC contest files
+        wrtc_contests = []
+        if os.path.exists(contest_defs_dir):
+            for filename in os.listdir(contest_defs_dir):
+                # Match wrtc_YYYY.json pattern (e.g., wrtc_2026.json)
+                match = re.match(r'wrtc_(\d{4})\.json$', filename, re.IGNORECASE)
+                if match:
+                    year = match.group(1)
+                    contest_name = f'WRTC-{year}'
+                    
+                    # Validate that the contest definition is complete and has its own scoring module
+                    try:
+                        from contest_tools.contest_definitions import ContestDefinition
+                        import importlib
+                        contest_def = ContestDefinition.from_json(contest_name)
+                        scoring_module_name = contest_def._data.get('scoring_module')
+                        
+                        # Only include if scoring_module exists, can be imported, and matches this year
+                        # (filters out placeholder files that reference other years' modules)
+                        if scoring_module_name:
+                            expected_module = f'wrtc_{year}_scoring'
+                            if scoring_module_name == expected_module:
+                                try:
+                                    # Try to import the scoring module to verify it exists
+                                    module_path = f'contest_tools.contest_specific_annotations.{scoring_module_name}'
+                                    importlib.import_module(module_path)
+                                    wrtc_contests.append({
+                                        'contest_name': contest_name,
+                                        'year': year,
+                                        'filename': filename
+                                    })
+                                except ImportError:
+                                    logger.warning(f"[DIAG] Skipping incomplete WRTC contest {contest_name} (scoring module {scoring_module_name} not found)")
+                            else:
+                                logger.warning(f"[DIAG] Skipping placeholder WRTC contest {contest_name} (uses {scoring_module_name}, not {expected_module})")
+                        else:
+                            logger.warning(f"[DIAG] Skipping incomplete WRTC contest {contest_name} (no scoring_module)")
+                    except Exception as e:
+                        logger.warning(f"[DIAG] Skipping invalid WRTC contest {contest_name}: {e}")
+                        continue
+        
+        # Sort by year (newest first)
+        wrtc_contests.sort(key=lambda x: x['year'], reverse=True)
+        
+        return JsonResponse({
+            'wrtc_contests': [c['contest_name'] for c in wrtc_contests],
+            'details': wrtc_contests
+        })
+    except Exception as e:
+        logger.exception(f"Error discovering WRTC contests: {e}")
+        return JsonResponse({'error': str(e)}, status=500)
+
 
 def home(request):
     form = UploadLogForm()
@@ -537,6 +672,25 @@ def analyze_logs(request):
         except Exception as e:
             logger.exception("Exception in _update_progress")
 
+        # Debug: Log request details for troubleshooting (debug level to reduce verbosity)
+        files_keys = list(request.FILES.keys()) if hasattr(request, 'FILES') else []
+        post_keys = list(request.POST.keys()) if hasattr(request, 'POST') else []
+        content_type = request.META.get('CONTENT_TYPE', 'N/A')
+        http_content_type = request.META.get('HTTP_CONTENT_TYPE', 'N/A')
+        logger.debug(f"analyze_logs: request.method={request.method}, CONTENT_TYPE={content_type}, request.FILES keys={files_keys}, request.POST keys={post_keys}")
+        
+        # Additional debugging for test client issues
+        if request.method == 'POST' and not files_keys:
+            logger.warning(f"WARNING - POST request but FILES is empty. CONTENT_TYPE={content_type}, HTTP_CONTENT_TYPE={http_content_type}")
+            print(f"DEBUG: WARNING - POST request but FILES is empty.")
+            print(f"  CONTENT_TYPE={content_type}")
+            print(f"  HTTP_CONTENT_TYPE={http_content_type}")
+            print(f"  request.META keys with 'CONTENT' or 'TYPE': {[k for k in request.META.keys() if 'CONTENT' in k or 'TYPE' in k]}")
+            # Check if this looks like a multipart request
+            if 'multipart' in content_type.lower() or 'multipart' in http_content_type.lower():
+                print(f"  DEBUG: Content type suggests multipart, but FILES is empty - Django test client parsing issue")
+                print(f"  DEBUG: This is likely a Django test client bug. Files may need to be sent differently.")
+        
         # Handle Manual Upload
         if 'log1' in request.FILES:
             form = UploadLogForm(request.POST, request.FILES)
@@ -572,7 +726,12 @@ def analyze_logs(request):
                                 destination.write(chunk)
                         logger.info(f"Custom CTY file uploaded: {cty_file.name}")
 
-                    # 4. Pre-flight validation for ARRL DX (if multiple logs)
+                    # 4. Handle contest override (for WRTC rules on IARU logs)
+                    contest_override = request.POST.get('contest_override')
+                    if contest_override:
+                        _apply_contest_override(log_paths, contest_override)
+
+                    # 5. Pre-flight validation for ARRL DX (if multiple logs)
                     if len(log_paths) > 1:
                         root_input = os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
                         validation_result = _validate_arrl_dx_location_types(
@@ -655,9 +814,21 @@ def analyze_logs(request):
                         log_paths = download_arrl_logs(callsigns, year, contest_code, session_path, contest_name=contest)
                     else:
                         raise ValueError(f'{contest} contest code not found')
+                elif contest == 'IARU-HF':
+                    from contest_tools.utils.log_fetcher import download_iaru_logs
+                    log_paths = download_iaru_logs(callsigns, year, session_path)
+                elif contest.startswith('WRTC'):
+                    # All WRTC contests use IARU archive (same as IARU-HF)
+                    from contest_tools.utils.log_fetcher import download_iaru_logs
+                    log_paths = download_iaru_logs(callsigns, year, session_path)
                 else:
                     raise ValueError(f'Unsupported contest: {contest}')
                 
+                # Handle contest override (for WRTC rules on IARU logs from public archive)
+                contest_override = request.POST.get('contest_override')
+                if contest_override:
+                    _apply_contest_override(log_paths, contest_override)
+
                 # Pre-flight validation for ARRL DX (if multiple logs)
                 if len(log_paths) > 1:
                     root_input = os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
@@ -670,6 +841,10 @@ def analyze_logs(request):
                             'form': UploadLogForm(), 
                             'error': validation_result['error_message']
                         })
+                
+                # Handle contest override (for WRTC rules on IARU logs from public archive)
+                if contest_override:
+                    _apply_contest_override(log_paths, contest_override)
                 
                 return _run_analysis_pipeline(request_id, log_paths, session_path, session_key, custom_cty_path=custom_cty_path)
             
@@ -692,12 +867,15 @@ def _run_analysis_pipeline(request_id, log_paths, session_path, session_key, cus
         root_input = os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
         
         _update_progress(request_id, 2) # Step 2: Parsing
+        logger.info(f"[PIPELINE] Starting log loading for {len(log_paths)} log(s)")
         with ProfileContext("Web - Log Loading"):
             lm = LogManager()
             # Load logs (auto-detect contest type)
             # Use custom CTY path if provided, otherwise use default 'after' specifier
             cty_specifier = 'after' if not custom_cty_path else 'after'  # Specifier only used if custom_cty_path is None
+            logger.info(f"[PIPELINE] Calling load_log_batch with {len(log_paths)} paths, root_input={root_input}")
             lm.load_log_batch(log_paths, root_input, cty_specifier, custom_cty_path=custom_cty_path)
+            logger.info(f"[PIPELINE] load_log_batch completed, calling finalize_loading")
 
             lm.finalize_loading(session_path)
 
@@ -872,13 +1050,18 @@ def dashboard_view(request, session_id):
 
     # Contest-Specific Routing
     contest_name = context.get('contest_name', '').upper()  # Already uppercased, but explicit for clarity
-    # Enable same dashboard structure for CQ-WW, CQ-160, ARRL-10, and ARRL-DX
+    # Enable same dashboard structure for CQ-WW, CQ-160, ARRL-10, ARRL-DX, ARRL-SS, IARU-HF, and all WRTC contests
     # CQ-160 is single-band, multi-mode (like ARRL-10), so it uses the same dashboard architecture
     # ARRL-DX is multi-band, single-mode (like CQ-WW), so it uses the same dashboard architecture
+    # ARRL-SS is multi-band, single-mode with contest-wide QSO counting, so it uses the same dashboard architecture
+    # IARU-HF and WRTC contests are multi-band, multi-mode, so they use the same dashboard architecture
     if not (contest_name.startswith('CQ-WW') or 
             contest_name.startswith('CQ-160') or 
             contest_name.startswith('ARRL-10') or
-            contest_name.startswith('ARRL-DX')):
+            contest_name.startswith('ARRL-DX') or
+            contest_name.startswith('ARRL-SS') or
+            contest_name.startswith('IARU-HF') or
+            contest_name.startswith('WRTC')):
         return render(request, 'analyzer/dashboard_construction.html', context)
     
     # Load score report data for dashboard display
@@ -904,7 +1087,7 @@ def dashboard_view(request, session_id):
         
         # 4. Load JSON score report artifacts for each log
         for callsign in callsigns:
-            callsign_safe = callsign.lower().replace('/', '-')
+            callsign_safe = callsign_to_filename_part(callsign)
             
             # Find JSON artifact
             json_filename = f"json_score_report_dashboard_{callsign_safe}.json"
@@ -935,7 +1118,7 @@ def dashboard_view(request, session_id):
         # 5. Discover breakdown report artifacts for each log
         breakdown_report_urls = {}
         for callsign in callsigns:
-            callsign_safe = callsign.lower().replace('/', '-')
+            callsign_safe = callsign_to_filename_part(callsign)
             
             # Find breakdown report artifact
             breakdown_filename = f"breakdown_report_{callsign_safe}.txt"
@@ -1397,7 +1580,7 @@ def multiplier_dashboard(request, session_id):
             formatted_words = []
             for word in words:
                 # Common multiplier abbreviations that should be all caps
-                if word.upper() in ['DXCC', 'ITU', 'CQ', 'WAE', 'WPX', 'US']:
+                if word.upper() in ['DXCC', 'ITU', 'CQ', 'WAE', 'WPX', 'US', 'IARU', 'HQ']:
                     formatted_words.append(word.upper())
                 else:
                     formatted_words.append(word.title())
@@ -1417,11 +1600,11 @@ def multiplier_dashboard(request, session_id):
         # Fast path: Try to load contest definition minimally
         try:
             root_input = os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
-            log_candidates = [f for f in os.listdir(session_path) 
-                            if os.path.isfile(os.path.join(session_path, f)) 
-                            and not f.startswith('dashboard_context') 
-                            and not f.endswith('.zip') 
-                            and not f.endswith('.json')]
+            log_candidates = []
+            for f in os.listdir(session_path):
+                f_path = os.path.join(session_path, f)
+                if os.path.isfile(f_path) and not f.startswith('dashboard_context') and not f.endswith('.zip') and not f.endswith('.json'):
+                    log_candidates.append(f_path)
             if log_candidates:
                 temp_lm = LogManager()
                 temp_lm.load_log_batch(log_candidates[:1], root_input, 'after')  # Load just first log
@@ -1478,7 +1661,7 @@ def multiplier_dashboard(request, session_id):
                 if len(parts) == 2:
                     callsigns_part = parts[1]
                     parsed_calls = parse_callsigns_from_filename_part(callsigns_part)
-                    callsigns_safe_for_matching = [c.lower().replace('/', '-') for c in parsed_calls]
+                    callsigns_safe_for_matching = [callsign_to_filename_part(c) for c in parsed_calls]
                 else:
                     callsigns_safe_for_matching = []
             else:
@@ -1582,6 +1765,59 @@ def multiplier_dashboard(request, session_id):
     # Convert dict to sorted list for template
     sorted_mults = sorted(multipliers.values(), key=lambda x: x['label'])
 
+    # Discover Enhanced Missed Multipliers report (Sweepstakes only)
+    # Note: This report is generated for the session (all logs), so we need to match the session suffix
+    enhanced_missed_mult_rel_path = None
+    if contest_name and contest_name.startswith("ARRL-SS"):
+        # Build callsigns_part from all persisted logs for session-level report
+        # This should match: enhanced_missed_multipliers--{all_callsigns}.txt
+        session_callsigns = sorted([l['callsign'] for l in persisted_logs])
+        session_callsigns_part = build_callsigns_filename_part(session_callsigns)
+        enhanced_suffix = f"--{session_callsigns_part}.txt"
+        # Check basename of path, not full path (path may include subdirectories like 'text/')
+        enhanced_art = next((a for a in artifacts 
+                           if a['report_id'] == 'enhanced_missed_multipliers' 
+                           and os.path.basename(a['path']).endswith(enhanced_suffix)), None)
+        if enhanced_art:
+            # Check if report has content (not empty/skipped)
+            try:
+                full_path = os.path.join(manifest_dir, enhanced_art['path'])
+                with open(full_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                    # Check if report was skipped (contains "Skipped:" message)
+                    if 'Skipped:' not in content and len(content.strip()) > 100:
+                        enhanced_missed_mult_rel_path = f"{report_rel_path}/{enhanced_art['path']}"
+            except Exception as e:
+                logger.warning(f"Failed to check enhanced missed multipliers report content: {e}")
+
+    # Sweepstakes-specific logic: Get total multiplier count from .dat file
+    is_sweepstakes = contest_name and contest_name.startswith("ARRL-SS")
+    
+    fixed_multiplier_max = None
+    all_logs_same_mult_count = False
+    # Reference line is now part of grid-lines-container, no height calculation needed
+    
+    if is_sweepstakes and breakdown_data and 'totals' in breakdown_data:
+        # Find the TOTAL row to get multiplier counts
+        total_row = next((row for row in breakdown_data['totals'] if row.get('label') == 'TOTAL'), None)
+        if total_row and total_row.get('stations'):
+            # Get multiplier counts for each log
+            mult_counts = [stat.get('count', 0) for stat in total_row['stations']]
+            
+            if mult_counts:
+                all_logs_same_mult_count = len(set(mult_counts)) == 1
+                
+                # Load total multiplier count from .dat file
+                try:
+                    root_input = os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
+                    data_dir = os.path.join(root_input, 'data')
+                    from contest_tools.contest_specific_annotations.arrl_ss_multiplier_resolver import SectionAliasLookup
+                    alias_lookup = SectionAliasLookup(data_dir)
+                    fixed_multiplier_max = alias_lookup.get_total_multiplier_count()
+                except Exception as e:
+                    logger.warning(f"Failed to load Sweepstakes multiplier count: {e}")
+                    fixed_multiplier_max = None
+
     context = {
         'session_id': session_id,
         'scoreboard': persisted_logs, # Use persisted logs for accurate scores
@@ -1601,7 +1837,13 @@ def multiplier_dashboard(request, session_id):
         'global_max': global_max,
         'multiplier_names': multiplier_names,  # Dynamic list of multiplier types for Band Spectrum tabs (from log data)
         'multiplier_count': applicable_multiplier_count,  # Count of applicable multiplier types from contest definition
+        'is_sweepstakes': is_sweepstakes,
+        'fixed_multiplier_max': fixed_multiplier_max,  # Fixed scale for Sweepstakes progress bar
+        'all_logs_same_mult_count': all_logs_same_mult_count,  # Whether to suppress Band Spectrum pane
+        'enhanced_missed_mult_rel_path': enhanced_missed_mult_rel_path,  # Enhanced missed multipliers report (Sweepstakes only)
     }
+    
+    
     return render(request, 'analyzer/multiplier_dashboard.html', context)
 
 def qso_dashboard(request, session_id):
@@ -1632,7 +1874,7 @@ def qso_dashboard(request, session_id):
 
     # 2. Re-construct Callsigns from the combo_id
     callsigns_display = parse_callsigns_from_filename_part(combo_id)
-    callsigns_safe = [c.lower().replace('/', '-') for c in callsigns_display]  # For filename matching
+    callsigns_safe = [callsign_to_filename_part(c) for c in callsigns_display]  # For filename matching
     is_solo = (len(callsigns_safe) == 1)
     
     # 2a. Load valid_bands and valid_modes from contest definition JSON (no cache needed)
@@ -1642,12 +1884,53 @@ def qso_dashboard(request, session_id):
     valid_bands = DEFAULT_BANDS.copy()
     valid_modes = []  # Default: empty list
     
+    # Detect contest-wide QSO counting
+    is_contest_wide_qso = False
+    contest_wide_qso_report = None
+    band_distribution_report = None
+    band_distribution_json = None
+    
     if contest_name:
         try:
             # Load contest definition directly from JSON (no log parsing needed)
             contest_def = ContestDefinition.from_json(contest_name)
             valid_bands = contest_def.valid_bands
             valid_modes = contest_def.valid_modes
+            
+            # Check for contest-wide QSO counting
+            is_contest_wide_qso = getattr(contest_def, 'dupe_check_scope', None) == 'all_bands'
+            
+            # If contest-wide, discover the new reports
+            if is_contest_wide_qso and not is_solo:
+                # Discover contest-wide QSO breakdown report
+                # Search by report_id (both files will have same report_id)
+                contest_wide_qso_report = next(
+                    (f"{report_rel_path}/{a['path']}" 
+                     for a in artifacts 
+                     if a['report_id'] == 'qso_breakdown_chart_contest_wide' 
+                     and 'qso_breakdown_chart_contest_wide' in a['path']
+                     and a['path'].endswith('.html')),
+                    None
+                )
+                
+                # Discover band distribution report (HTML and JSON for direct embedding)
+                band_distribution_html = next(
+                    (f"{report_rel_path}/{a['path']}" 
+                     for a in artifacts 
+                     if a['report_id'] == 'qso_breakdown_chart_contest_wide' 
+                     and 'qso_band_distribution' in a['path']
+                     and a['path'].endswith('.html')),
+                    None
+                )
+                band_distribution_json = next(
+                    (f"{settings.MEDIA_URL}sessions/{session_id}/{report_rel_path}/{a['path']}" 
+                     for a in artifacts 
+                     if a['report_id'] == 'qso_breakdown_chart_contest_wide' 
+                     and 'qso_band_distribution' in a['path']
+                     and a['path'].endswith('.json')),
+                    None
+                )
+                band_distribution_report = band_distribution_html  # Keep HTML for full-screen link
         except (FileNotFoundError, ValueError, Exception) as e:
             logger.warning(f"Failed to load contest definition for '{contest_name}': {e}. Using defaults.")
     else:
@@ -1684,11 +1967,11 @@ def qso_dashboard(request, session_id):
         
         Filename format: cumulative_difference_plots_qsos_{band}_{mode}--{callsigns}.html
         Examples:
-        - "10" (single-band, all modes) → "mode:all" (for single-band, multi-mode)
-        - "10_cw" (single-band, CW mode) → "mode:cw"
-        - "all" (multi-band, all modes) → "band:all"
-        - "80" (multi-band, all modes, specific band) → "band:80"
-        - "80_cw" (multi-band, CW mode, specific band) → "band:80" (mode handled separately later)
+        - "10" (single-band, all modes) -> "mode:all" (for single-band, multi-mode)
+        - "10_cw" (single-band, CW mode) -> "mode:cw"
+        - "all" (multi-band, all modes) -> "band:all"
+        - "80" (multi-band, all modes, specific band) -> "band:80"
+        - "80_cw" (multi-band, CW mode, specific band) -> "band:80" (mode handled separately later)
         
         Returns structured key: "dimension:value" format for extensibility.
         """
@@ -1870,8 +2153,19 @@ def qso_dashboard(request, session_id):
                 # Sort value will be set later by MODE_SORT_ORDER, use temp value for now
                 sort_val = 50  # Temporary, will be overridden
             else:
-                # Multi-band contests: use band labels
-                label = "All Bands" if band_key == 'ALL' else band_key
+                # Multi-band contests: use band labels, or band+mode for multi-mode contests
+                if is_multi_mode and mode_key:
+                    # Multi-band, multi-mode: include mode in label (e.g., "80M CW", "80M PH", "All Bands CW")
+                    mode_upper = mode_key
+                    if mode_upper in ['SSB', 'USB', 'LSB']:
+                        mode_upper = 'PH'  # Cabrillo uses PH
+                    if band_key == 'ALL':
+                        label = f"All Bands {mode_upper}"
+                    else:
+                        label = f"{band_key} {mode_upper}"
+                else:
+                    # Multi-band, single-mode: just band label
+                    label = "All Bands" if band_key == 'ALL' else band_key
                 sort_val = BAND_SORT_ORDER.get(band_key, 99)
             
             point_plots.append({
@@ -1997,8 +2291,19 @@ def qso_dashboard(request, session_id):
                 # Sort value will be set later by MODE_SORT_ORDER, use temp value for now
                 sort_val = 50  # Temporary, will be overridden
             else:
-                # Multi-band contests: use band labels
-                label = "All Bands" if band_key == 'ALL' else band_key
+                # Multi-band contests: use band labels, or band+mode for multi-mode contests
+                if is_multi_mode and mode_key:
+                    # Multi-band, multi-mode: include mode in label (e.g., "80M CW", "80M PH", "All Bands CW")
+                    mode_upper = mode_key
+                    if mode_upper in ['SSB', 'USB', 'LSB']:
+                        mode_upper = 'PH'  # Cabrillo uses PH
+                    if band_key == 'ALL':
+                        label = f"All Bands {mode_upper}"
+                    else:
+                        label = f"{band_key} {mode_upper}"
+                else:
+                    # Multi-band, single-mode: just band label
+                    label = "All Bands" if band_key == 'ALL' else band_key
                 sort_val = BAND_SORT_ORDER.get(band_key, 99)
             
             qso_band_plots.append({
@@ -2151,7 +2456,11 @@ def qso_dashboard(request, session_id):
         'activity_tab_title': activity_tab_title,  # Chart title for activity tab
         'qso_tab_label': qso_tab_label,  # 'QSOs by Band' or 'QSOs by Mode'
         'points_tab_label': points_tab_label,  # 'Points by Band' or 'Points by Mode'
-        'dimension_label': dimension_label  # 'Band' or 'Mode' for dropdown labels
+        'dimension_label': dimension_label,  # 'Band' or 'Mode' for dropdown labels
+        'is_contest_wide_qso': is_contest_wide_qso,  # True if dupe_check_scope == "all_bands"
+        'contest_wide_qso_report': contest_wide_qso_report,  # Path to contest-wide QSO breakdown report
+        'band_distribution_report': band_distribution_report,  # Path to band distribution HTML report (for full-screen link)
+        'band_distribution_json': band_distribution_json  # URL to band distribution JSON (for direct embedding)
     }
     
     return render(request, 'analyzer/qso_dashboard.html', context)
@@ -2163,7 +2472,12 @@ def download_all_reports(request, session_id):
     POST: Initiates zip creation with progress tracking. Returns request_id.
     GET with request_id: Serves the completed zip file.
     
-    Filename format: YYYY_CONTEST_NAME.zip
+    Filename format: YYYY_CONTEST_NAME--callsigns.zip
+    - Callsigns use filename-safe format (e.g., "5b-yt7aw_k3lr" for "5B/YT7AW" and "K3LR")
+    - "/" in callsigns is converted to "-" (e.g., "5B/YT7AW" -> "5b-yt7aw")
+    - Multiple callsigns are joined with "_" (e.g., "k3lr_w3lpl")
+    - Format uses "--" delimiter to separate contest info from callsigns
+    
     Structure:
         - reports/ (all generated reports)
         - logs/ (original Cabrillo log files)
@@ -2183,8 +2497,17 @@ def download_all_reports(request, session_id):
             try:
                 with open(context_path, 'r') as f:
                     context = json.load(f)
-                path_parts = context.get('report_url_path', '').split('/')
-                if len(path_parts) >= 2:
+                # report_url_path format: "YYYY/contest_name/event/calls" or "YYYY/contest_name/calls"
+                # Callsigns are always the last part (already filename-safe from build_callsigns_filename_part)
+                path_parts = [p for p in context.get('report_url_path', '').split('/') if p]
+                if len(path_parts) >= 3:
+                    # Has callsigns: format is "YYYY/contest_name/[event/]calls"
+                    year = _sanitize_filename_part(path_parts[0])
+                    contest = _sanitize_filename_part(path_parts[1])
+                    callsigns = path_parts[-1]  # Last part is always callsigns
+                    zip_filename = f"{year}_{contest}--{callsigns}.zip"
+                elif len(path_parts) >= 2:
+                    # No callsigns (shouldn't happen, but handle gracefully)
                     year = _sanitize_filename_part(path_parts[0])
                     contest = _sanitize_filename_part(path_parts[1])
                     zip_filename = f"{year}_{contest}.zip"
@@ -2215,9 +2538,17 @@ def download_all_reports(request, session_id):
         with open(context_path, 'r') as f:
             context = json.load(f)
         
-        # report_url_path format: "YYYY/contest_name/event/calls"
-        path_parts = context.get('report_url_path', '').split('/')
-        if len(path_parts) >= 2:
+        # report_url_path format: "YYYY/contest_name/event/calls" or "YYYY/contest_name/calls"
+        # Callsigns are always the last part (already filename-safe from build_callsigns_filename_part)
+        path_parts = [p for p in context.get('report_url_path', '').split('/') if p]
+        if len(path_parts) >= 3:
+            # Has callsigns: format is "YYYY/contest_name/[event/]calls"
+            year = _sanitize_filename_part(path_parts[0])
+            contest = _sanitize_filename_part(path_parts[1])
+            callsigns = path_parts[-1]  # Last part is always callsigns
+            zip_filename = f"{year}_{contest}--{callsigns}.zip"
+        elif len(path_parts) >= 2:
+            # No callsigns (shouldn't happen, but handle gracefully)
             year = _sanitize_filename_part(path_parts[0])
             contest = _sanitize_filename_part(path_parts[1])
             zip_filename = f"{year}_{contest}.zip"

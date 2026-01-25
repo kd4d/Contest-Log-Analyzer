@@ -75,21 +75,30 @@ class PlotlyStyleManager:
         }
 
     @staticmethod
-    def get_standard_layout(title: Union[str, List[str]], footer_text: str = None) -> Dict[str, Any]:
+    def get_standard_layout(title: Union[str, List[str]], footer_text: str = None, is_subplot: bool = False) -> Dict[str, Any]:
         """
         Returns a standard Plotly layout dictionary.
 
         Args:
             title: The chart title. Can be a string (Legacy) or List[str] (Annotation Stack).
             footer_text: Optional text to display as a footer (e.g., Branding/CTY info).
+            is_subplot: Whether this is a subplot chart (requires more top margin for title).
 
         Returns:
             A dictionary suitable for passing to fig.update_layout().
         """
+        # Adjust margins and title positioning for subplot charts
+        if is_subplot:
+            top_margin = 200  # More space for multi-line titles in subplot charts
+            title_yshift = 150  # More vertical shift for subplot charts
+        else:
+            top_margin = 130
+            title_yshift = 90
+        
         layout = {
             "font": {"family": "Arial, sans-serif"},
             "template": "plotly_white",
-            "margin": {"l": 50, "r": 50, "t": 130, "b": 160}, # Increased t/b for headers/footers
+            "margin": {"l": 50, "r": 50, "t": top_margin, "b": 160}, # Increased t/b for headers/footers
             "showlegend": True
         }
 
@@ -99,15 +108,15 @@ class PlotlyStyleManager:
             
             annotations = [
                 # Line 1: Main Header (Bold, Anchored High in Margin)
-                # y=1 is top of GRID. yshift=90 pushes it UP to create room for Legend Belt.
+                # y=1 is top of GRID. yshift pushes it UP to create room for Legend Belt.
                 dict(x=0.5, y=1, xref='paper', yref='paper', text=f"<b>{title[0]}</b>", 
                      showarrow=False, font=dict(size=24, family="Arial, sans-serif"), 
-                     xanchor='center', yanchor='bottom', yshift=90),
+                     xanchor='center', yanchor='bottom', yshift=title_yshift),
                 
                 # Lines 2+: Subheader (Normal, Hanging from Header)
                 dict(x=0.5, y=1, xref='paper', yref='paper', text="<br>".join(title[1:]),
                      showarrow=False, font=dict(size=16, family="Arial, sans-serif"),
-                     xanchor='center', yanchor='top', yshift=90)
+                     xanchor='center', yanchor='top', yshift=title_yshift)
             ]
             layout["annotations"] = annotations
         else:

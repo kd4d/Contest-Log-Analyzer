@@ -96,10 +96,10 @@ def abbreviate_multiplier(value):
     Template filter to abbreviate multiplier names for compact tab display.
     
     Abbreviations:
-    - "Provinces" → "Provs"
-    - "Mexican States" → "Mex"
-    - "ITU Regions" → "Regs"
-    - "Regions" → "Regs"
+    - "Provinces" -> "Provs"
+    - "Mexican States" -> "Mex"
+    - "ITU Regions" -> "Regs"
+    - "Regions" -> "Regs"
     
     Usage: {{ mult_name|abbreviate_multiplier }}
     """
@@ -147,4 +147,39 @@ def abbreviate_multiplier(value):
             return value_trimmed.replace("Mexican States", "Mex")
     
     # Return original value if no match
+    return value
+
+@register.filter
+def capitalize_iaru(value):
+    """
+    Template filter to ensure IARU and HQ are always capitalized as acronyms.
+    IARU and HQ are acronyms and must be capitalized when displayed.
+    Other words (like Zones, Officials, Stations) follow normal title case rules.
+    
+    Examples:
+    - "iaru-hf" -> "IARU-HF"
+    - "IARU-HF" -> "IARU-HF" (no change)
+    - "hq stations" -> "HQ Stations"
+    - "HQ Stations" -> "HQ Stations" (no change)
+    - "zones" -> "Zones" (normal title case, not an acronym)
+    - "officials" -> "Officials" (normal title case, not an acronym)
+    
+    Usage: {{ contest_name|capitalize_iaru }} or {{ mult_name|capitalize_iaru }}
+    """
+    if not value:
+        return ""
+    
+    if not isinstance(value, str):
+        value = str(value)
+    
+    import re
+    # Replace "iaru" (case-insensitive) with "IARU" while preserving surrounding characters
+    # This handles variations like "iaru-hf", "IARU-HF", "iaru hf", etc.
+    value = re.sub(r'\biaru\b', 'IARU', value, flags=re.IGNORECASE)
+    
+    # Replace "hq" (case-insensitive) with "HQ" while preserving surrounding characters
+    # This handles variations like "hq stations", "HQ Stations", etc.
+    # Use word boundary to avoid matching "hq" within other words
+    value = re.sub(r'\bhq\b', 'HQ', value, flags=re.IGNORECASE)
+    
     return value

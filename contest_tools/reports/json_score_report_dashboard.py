@@ -22,6 +22,7 @@ from .report_interface import ContestReport
 from contest_tools.data_aggregators.score_stats import ScoreStatsAggregator
 from contest_tools.utils.json_encoders import NpEncoder
 from contest_tools.utils.report_utils import get_valid_dataframe
+from contest_tools.utils.callsign_utils import callsign_to_filename_part
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +115,7 @@ class Report(ContestReport):
             }
             
             # Prepare filename
-            filename = f"{self.report_id}_{callsign.lower().replace('/', '-')}.json"
+            filename = f"{self.report_id}_{callsign_to_filename_part(callsign)}.json"
             final_path = os.path.join(output_path, filename)
 
             # Serialize to Disk

@@ -1,7 +1,9 @@
 # Directory Structure Refactoring - Future Work (Hypothetical)
 
 **Date:** 2026-01-17  
-**Status:** Deferred / Hypothetical Future Work  
+**Last Updated:** 2026-01-17  
+**Status:** Deferred  
+**Category:** Planning  
 **Context:** Discussion of potential directory structure refactoring that was determined to be premature for current ARRL DX implementation
 
 ---

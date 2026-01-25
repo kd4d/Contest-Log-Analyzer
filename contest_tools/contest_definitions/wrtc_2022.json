@@ -1,0 +1,100 @@
+{
+  "_filename": "contest_tools/contest_definitions/wrtc_2022.json",
+  "contest_name": "WRTC-2022",
+  "valid_modes": [
+    "CW",
+    "PH"
+  ],
+  "valid_bands": [
+    "80M",
+    "40M",
+    "20M",
+    "15M",
+    "10M"
+  ],
+  "scoring_module": "wrtc_2022_scoring",
+  "time_series_calculator": "wrtc_calculator",
+  "custom_multiplier_resolver": "wrtc_multiplier_resolver",
+  "contest_period": {
+    "start_day": "Saturday",
+    "start_time": "12:00:00 UTC",
+    "end_day": "Sunday",
+    "end_time": "11:59:59 UTC"
+  },
+  "dupe_check_scope": "per_band",
+  "score_formula": "points_times_mults",
+  "enable_adif_export": true,
+  "custom_adif_exporter": "iaru_hf_adif",
+  "custom_parser_module": "iaru_hf_parser",
+  "included_reports": [
+    "wrtc_propagation",
+    "wrtc_propagation_animation"
+  ],
+  "exchange_parsing_rules": {
+    "IARU-HF-ZONE-LOGGER": {
+      "regex": "(\\d{2,3})\\s+(\\d{1,2})\\s+([A-Z0-9/]+)\\s+(\\d{2,3})\\s+([A-Z0-9]+)(?:\\s+(\\d))?",
+      "groups": [
+        "SentRST",
+        "SentZone",
+        "Call",
+        "RST",
+        "RcvdMult",
+        "Transmitter"
+      ]
+    }
+  },
+  "mutually_exclusive_mults": [
+    [
+      "Mult_DXCC",
+      "Mult_HQ",
+      "Mult_Official"
+    ]
+  ],
+  "multiplier_rules": [
+    {
+      "name": "Countries",
+      "value_column": "Mult_DXCC",
+      "name_column": "Mult_DXCCName",
+      "totaling_method": "once_per_band_no_mode"
+    },
+    {
+      "name": "HQ Stations",
+      "value_column": "Mult_HQ",
+      "totaling_method": "once_per_band_no_mode"
+    },
+    {
+      "name": "IARU Officials",
+      "value_column": "Mult_Official",
+      "totaling_method": "once_per_band_no_mode"
+    }
+  ],
+  "default_qso_columns": [
+    "ContestName",
+    "MyCall",
+    "Frequency",
+    "Mode",
+    "Datetime",
+    "SentRST",
+    "SentRS",
+    "SentZone",
+    "Call",
+    "RST",
+    "RS",
+    "RcvdMult",
+    "Band",
+    "Date",
+    "Hour",
+    "Dupe",
+    "DXCCName",
+    "DXCCPfx",
+    "CQZone",
+    "ITUZone",
+    "Continent",
+    "Run",
+    "QSOPoints",
+    "Mult_DXCC",
+    "Mult_DXCCName",
+    "Mult_HQ",
+    "Mult_Official"
+  ]
+}

@@ -56,11 +56,42 @@
 }
 .horiz-strategy { padding: 1rem; display: flex; flex-direction: column;
     gap: 0.5rem; position: relative; }
+.bars-container { 
+    position: relative;
+}
 .h-bar-row { display: grid; grid-template-columns: 80px 1fr 60px 60px; align-items: center; gap: 0.5rem; z-index: 2;
 }
-.h-bar-track { height: 28px; background: transparent; width: 100%; display: flex; align-items: center; }
+.h-bar-track { height: 28px; background: transparent; width: 100%; display: flex; align-items: center; position: relative; }
 .h-bar-fill { height: 100%; display: flex; border-radius: 4px;
     overflow: hidden; }
+/* Reference line container - same grid structure as bars for alignment */
+.h-bar-reference-line-container {
+    display: grid;
+    grid-template-columns: 80px 1fr 60px 60px;
+    gap: 0.5rem;
+    position: absolute;
+    top: 1rem; /* Match padding of .horiz-strategy */
+    left: 1rem; /* Match padding of .horiz-strategy */
+    right: 1rem; /* Match padding of .horiz-strategy */
+    bottom: calc(1rem + 0.5rem); /* Extend to x-axis row: padding + gap/margin-top */
+    pointer-events: none;
+    z-index: 10;
+}
+.h-bar-reference-line {
+    grid-column: 2; /* Same column as h-bar-track */
+    position: relative;
+    height: 100%;
+}
+.h-bar-reference-line::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0; /* Extends to bottom of container, which reaches x-axis */
+    width: 3px;
+    background: #000;
+    z-index: 15;
+}
 
 .bg-run { background-color: var(--color-run); height: 100%; }
 .bg-sp { background-color: var(--color-sp); height: 100%; }
@@ -94,6 +125,11 @@
     position: absolute;
     top: 0; bottom: 0;
     border-left: 1px dashed #9ca3af; opacity: 0.4;
+}
+.v-reference-line {
+    border-left: 3px solid #000 !important;
+    opacity: 1 !important;
+    z-index: 15;
 }
 
 /* Vertical Spectrum (Band Detail) */

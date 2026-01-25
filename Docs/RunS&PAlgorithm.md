@@ -1,14 +1,20 @@
 # Run/S&P/Unknown Classification Algorithm
 
-**Version: 0.47.4-Beta**
-**Date: 2025-08-23**
+**Version:** 0.47.4-Beta
+**Date:** 2025-08-23
+**Last Updated:** 2026-01-24
+**Category:** Algorithm Spec
+**Compatible with:** up to v1.0.0-alpha.10
 
 ---
 ### --- Revision History ---
+## [0.47.4-Beta] - 2026-01-24
+### Changed
+- Updated "Compatible with" field to include project version v1.0.0-alpha.10
+
 ## [0.47.4-Beta] - 2025-08-23
 ### Changed
-# - Clarified the Pass 2 reclassification logic to specify the precise
-#   dual-window check and QSO threshold used in the code.
+- Clarified the Pass 2 reclassification logic to specify the precise dual-window check and QSO threshold used in the code.
 ## [0.30.30-Beta] - 2025-08-05
 # - No functional changes. Synchronizing version numbers.
 ## [0.30.0-Beta] - 2025-08-05

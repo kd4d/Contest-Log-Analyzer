@@ -109,6 +109,7 @@ class ReportGenerator:
             self._ts_data_cache[cache_key] = self._ts_aggregator.get_time_series_data(
                 band_filter=band_filter, mode_filter=mode_filter
             )
+        
         return self._ts_data_cache[cache_key]
     
     def _get_cached_matrix_data(self, bin_size: str = '15min', mode_filter: Optional[str] = None, 
@@ -253,7 +254,7 @@ class ReportGenerator:
             # before passing it to the plugin. Required for dynamic sessions.
             os.makedirs(output_path, exist_ok=True)
 
-            is_multiplier_report = r_id in ['missed_multipliers', 'multiplier_summary', 'multipliers_by_hour']
+            is_multiplier_report = r_id in ['missed_multipliers', 'multiplier_summary', 'multipliers_by_hour', 'enhanced_missed_multipliers']
 
             # --- MUTUALLY EXCLUSIVE LOGIC PATHS ---
             if is_multiplier_report:
@@ -362,5 +363,5 @@ class ReportGenerator:
             for new_file in new_files:
                 self.manifest.add_artifact(r_id, new_file, report_type)
             files_before = files_now # Update baseline
-            
+        
         self.manifest.save()

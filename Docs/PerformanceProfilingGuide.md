@@ -1,7 +1,15 @@
 # Performance Profiling Guide
 
-**Version: 1.0**  
-**Date: 2026-01-07**
+**Version:** 1.0.0-alpha.10
+**Date:** 2026-01-07
+**Last Updated:** 2026-01-24
+**Category:** Programmer Reference
+
+---
+### --- Revision History ---
+## [1.0.0-alpha.10] - 2026-01-24
+### Changed
+- Updated version to match project release v1.0.0-alpha.10 (no content changes)
 
 ---
 
@@ -69,7 +77,7 @@ export CLA_PROFILE=0
 
 When `CLA_PROFILE=1`, timing information is logged to the console with a stopwatch prefix (shown as emoji in actual console output, but note: this is example output only):
 
-### Example CLI Output
+### Example Output
 ```
 INFO - ⏱️  [Pre-flight Validation] completed in 0.342s
 INFO - ⏱️  [CTY File Resolution] completed in 0.089s
@@ -124,8 +132,8 @@ The following code sections are instrumented for profiling:
 
 1. **Establish Baseline**
    ```bash
-   # Run analysis with profiling enabled
-   python main_cli.py K3LR.log N2IC.log --report all
+   # Run analysis with profiling enabled via web interface
+   # Profiling output appears in Django logs when CLA_PROFILE=1 is set
    ```
 
 2. **Identify Bottlenecks**

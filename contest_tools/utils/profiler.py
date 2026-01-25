@@ -38,7 +38,7 @@ def profile_section(section_name: str):
             pass
     
     Output (when CLA_PROFILE=1):
-        ⏱️  [CTY File Resolution] completed in 0.342s
+        [PROFILE] [CTY File Resolution] completed in 0.342s
     """
     def decorator(func: Callable) -> Callable:
         @wraps(func)
@@ -47,7 +47,7 @@ def profile_section(section_name: str):
                 start = time.perf_counter()
                 result = func(*args, **kwargs)
                 elapsed = time.perf_counter() - start
-                logging.info(f"⏱️  [{section_name}] completed in {elapsed:.3f}s")
+                logging.info(f"[PROFILE] [{section_name}] completed in {elapsed:.3f}s")
                 return result
             return func(*args, **kwargs)
         return wrapper
@@ -64,7 +64,7 @@ class ProfileContext:
             pass
     
     Output (when CLA_PROFILE=1):
-        ⏱️  [Heavy Computation] completed in 1.234s
+        [PROFILE] [Heavy Computation] completed in 1.234s
     """
     def __init__(self, section_name: str):
         self.section_name = section_name
@@ -79,5 +79,5 @@ class ProfileContext:
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.enabled and self.start_time is not None:
             elapsed = time.perf_counter() - self.start_time
-            logging.info(f"⏱️  [{self.section_name}] completed in {elapsed:.3f}s")
+            logging.info(f"[PROFILE] [{self.section_name}] completed in {elapsed:.3f}s")
         return False  # Don't suppress exceptions

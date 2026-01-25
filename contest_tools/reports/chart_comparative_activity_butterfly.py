@@ -60,7 +60,7 @@ class Report(ContestReport):
             valid_bands = contest_def.valid_bands
             valid_modes = contest_def.valid_modes
             
-            # Single-band, multi-mode → mode dimension
+            # Single-band, multi-mode -> mode dimension
             if len(valid_bands) == 1 and len(valid_modes) > 1:
                 return "mode"
             
