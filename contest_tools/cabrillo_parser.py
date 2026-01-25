@@ -71,7 +71,6 @@ def parse_qso_common_fields(qso_line: str) -> Optional[Dict[str, Any]]:
         if common_match:
             common_groups = QSO_GROUPS_VHF
         else:
-            logging.warning(f"Skipping malformed QSO line: {qso_line}")
             return None
             
     return dict(zip(common_groups, common_match.groups()))
@@ -84,7 +83,9 @@ def parse_cabrillo_file(filepath: str, contest_definition: ContestDefinition) ->
     log_metadata: Dict[str, Any] = {}
     qso_records: List[Dict[str, Any]] = []
     
-    x_qso_warning_issued = False
+    x_qso_count = 0
+    parser_error_count = [0]  # Use list for mutable reference
+    max_warnings = 5
 
     try:
         with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
@@ -101,12 +102,15 @@ def parse_cabrillo_file(filepath: str, contest_definition: ContestDefinition) ->
         elif line_to_process.startswith('END-OF-LOG:'):
             break
         elif line_to_process.startswith('X-QSO:'):
-            if not x_qso_warning_issued:
-                logging.warning(f"Ignoring X-QSO line(s) in {os.path.basename(filepath)}")
-                x_qso_warning_issued = True
+            if x_qso_count < max_warnings:
+                logging.warning(f"Ignoring X-QSO line in {os.path.basename(filepath)}: {cleaned_line}")
+                x_qso_count += 1
+            elif x_qso_count == max_warnings:
+                logging.warning(f"Additional X-QSO messages suppressed (max {max_warnings} shown)")
+                x_qso_count += 1
             continue
         elif line_to_process.startswith('QSO:'):
-            qso_data = _parse_qso_line(line_to_process, contest_definition, log_metadata)
+            qso_data = _parse_qso_line(line_to_process, contest_definition, log_metadata, cleaned_line, filepath, parser_error_count, max_warnings)
             if qso_data:
                 qso_data['RawQSO'] = line_to_process
                 qso_records.append(qso_data)
@@ -131,14 +135,31 @@ def parse_cabrillo_file(filepath: str, contest_definition: ContestDefinition) ->
 def _parse_qso_line(
     line: str,
     contest_definition: ContestDefinition,
-    log_metadata: Dict[str, Any]
+    log_metadata: Dict[str, Any],
+    original_line: str = None,
+    filepath: str = None,
+    parser_error_count: List[int] = None,
+    max_warnings: int = 5
 ) -> Optional[Dict[str, Any]]:
     """
     Internal helper to parse a single QSO line, now a wrapper around the
     shared common field parser and the exchange-specific logic.
+    Returns None if parsing fails (like X-QSO), preventing corrupted data from entering the DataFrame.
     """
+    if original_line is None:
+        original_line = line
+    if filepath is None:
+        filepath = ""
+    if parser_error_count is None:
+        parser_error_count = [0]
+    
     common_data = parse_qso_common_fields(line)
     if not common_data:
+        if parser_error_count[0] < max_warnings:
+            logging.warning(f"Skipping malformed QSO line in {os.path.basename(filepath)}: {original_line}")
+        elif parser_error_count[0] == max_warnings:
+            logging.warning(f"Additional parser error messages suppressed (max {max_warnings} shown)")
+        parser_error_count[0] += 1
         return None
 
     qso_final_dict = {col: pd.NA for col in contest_definition.default_qso_columns}
@@ -146,7 +167,11 @@ def _parse_qso_line(
         if key == 'MyCallRaw':
             # Validate QSO line callsign (warn and skip if invalid, like X-QSO)
             if not val or not str(val).strip():
-                logging.warning(f"QSO line has empty callsign, skipping: {line}")
+                if parser_error_count[0] < max_warnings:
+                    logging.warning(f"QSO line has empty callsign, skipping in {os.path.basename(filepath)}: {original_line}")
+                elif parser_error_count[0] == max_warnings:
+                    logging.warning(f"Additional parser error messages suppressed (max {max_warnings} shown)")
+                parser_error_count[0] += 1
                 return None
             # Note: We don't validate format for QSO line callsigns (they are data/metadata)
             # Only check for empty/None
@@ -163,6 +188,8 @@ def _parse_qso_line(
     if not isinstance(rules_for_contest, list):
         rules_for_contest = [rules_for_contest]
 
+    # Try to match exchange pattern
+    exchange_matched = False
     for rule_info in rules_for_contest:
         exchange_match = re.match(rule_info['regex'], exchange_rest)
         if exchange_match:
@@ -170,7 +197,17 @@ def _parse_qso_line(
                 val = exchange_match.groups()[i]
                 if val is not None:
                     qso_final_dict[group_name] = val.strip()
+            exchange_matched = True
             break
+    
+    # If exchange didn't match, skip this QSO (like X-QSO) to prevent corrupted data
+    if not exchange_matched:
+        if parser_error_count[0] < max_warnings:
+            logging.warning(f"Skipping QSO line with unmatched exchange format in {os.path.basename(filepath)}: {original_line}")
+        elif parser_error_count[0] == max_warnings:
+            logging.warning(f"Additional parser error messages suppressed (max {max_warnings} shown)")
+        parser_error_count[0] += 1
+        return None
     
     qso_final_dict.update(log_metadata)
     return qso_final_dict

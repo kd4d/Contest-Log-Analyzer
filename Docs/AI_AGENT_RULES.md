@@ -1140,6 +1140,40 @@ When adding diagnostic logging:
 - **Consistency:** Standardized diagnostic pattern makes logs easier to read and filter
 - **Reliability:** Assuming WARNING-level visibility prevents silent diagnostic failures
 
+### CRITICAL: Do Not Remove Diagnostic Logging During Debugging
+
+**AI agents MUST NOT remove diagnostic logging until a bug fix is tested and verified to work OR explicitly directed to remove it.**
+
+**Rule:** When debugging issues, AI agents must:
+- **[REQUIRED] Keep diagnostic logging in place** during the debugging process
+- **[REQUIRED] Wait for user confirmation** that the bug fix works before removing diagnostics
+- **[REQUIRED] Only remove diagnostics** when:
+  1. The bug fix has been tested and verified to work correctly, OR
+  2. The user explicitly directs removal of diagnostic logging
+- **[X] Never remove diagnostic logging** as part of the initial bug fix implementation
+- **[X] Never remove diagnostic logging** without user confirmation that the fix works
+
+**Why This Matters:**
+- Diagnostic logging is essential for verifying that bug fixes actually work
+- Removing diagnostics too early can make it impossible to verify the fix
+- User needs to see diagnostic output to confirm the issue is resolved
+- Diagnostic logging helps identify if the fix introduced new issues
+
+**Workflow:**
+1. **Add diagnostic logging** to identify the bug
+2. **Implement bug fix** while keeping diagnostics
+3. **Test and verify** the fix works (diagnostics help confirm)
+4. **Wait for user confirmation** that the fix is verified
+5. **Only then remove diagnostics** (or keep them if user requests)
+
+**Exception:** If user explicitly requests removal of diagnostic logging at any point, AI agents may remove it as directed.
+
+**Agent Behavior:**
+- When fixing bugs, keep all diagnostic logging added during debugging
+- Do not remove diagnostic logging as part of the fix implementation
+- Wait for user to test and verify the fix before removing diagnostics
+- Only remove diagnostics after explicit user confirmation or direction
+
 ---
 
 ## Safety Checks

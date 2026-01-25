@@ -286,6 +286,59 @@ class ContestLog:
             if col in raw_df.columns:
                 raw_df[col.replace('Raw','')] = raw_df[col].fillna('').astype(str).str.upper()
 
+        # --- Filter QSOs with own call sign (self-QSOs) ---
+        my_call = self.metadata.get('MyCall', '').strip().upper()
+        self_qso_count = 0
+        max_warnings = 5
+        
+        if my_call:
+            def _normalize_callsign(call: str) -> str:
+                """Normalize callsign by removing portable suffixes and partition markers."""
+                if not call:
+                    return ''
+                call = str(call).upper().strip()
+                if not call:
+                    return ''
+                # Remove partition markers (e.g., "KD4D-1" -> "KD4D")
+                call = call.partition('-')[0]
+                # Remove portable suffixes
+                for suffix in ["/P", "/B", "/M", "/QRP"]:
+                    if call.endswith(suffix):
+                        call = call[:-len(suffix)]
+                        break
+                return call
+            
+            normalized_my_call = _normalize_callsign(my_call)
+            
+            if normalized_my_call and 'Call' in raw_df.columns:
+                # Normalize Call column for comparison
+                raw_df['_NormalizedCall'] = raw_df['Call'].apply(_normalize_callsign)
+                
+                # Filter out QSOs where normalized Call matches normalized MyCall
+                self_qso_mask = raw_df['_NormalizedCall'] == normalized_my_call
+                self_qso_count = self_qso_mask.sum()
+                
+                if self_qso_count > 0:
+                    # Echo each self-QSO line (up to max_warnings)
+                    warning_count = 0
+                    if 'RawQSO' in raw_df.columns:
+                        rows_to_remove = raw_df.loc[self_qso_mask]
+                        for idx, row in rows_to_remove.iterrows():
+                            if warning_count < max_warnings:
+                                raw_qso = row.get('RawQSO', 'N/A')
+                                logging.warning(f"Ignoring QSO with own call sign in {os.path.basename(cabrillo_filepath)}: {raw_qso}")
+                                warning_count += 1
+                            elif warning_count == max_warnings:
+                                logging.warning(f"Additional self-QSO messages suppressed (max {max_warnings} shown)")
+                                warning_count += 1
+                                break
+                    
+                    # Apply filter - use .loc with boolean indexing to remove ENTIRE ROWS
+                    raw_df = raw_df.loc[~self_qso_mask].copy()
+                
+                # Clean up temporary column
+                raw_df.drop(columns=['_NormalizedCall'], inplace=True, errors='ignore')
+
         # --- Check for invalid modes (based on JSON valid_modes) ---
         valid_modes = self.contest_definition.valid_modes
         present_modes = set(raw_df['Mode'].dropna().unique())
@@ -310,6 +363,7 @@ class ContestLog:
             )
 
         raw_df.drop(columns=['FrequencyRaw', 'DateRaw', 'TimeRaw', 'MyCallRaw', 'RawQSO'], inplace=True, errors='ignore')
+        
         self.qsos_df = raw_df.reindex(columns=self.contest_definition.default_qso_columns)
 
         self._check_dupes()
@@ -416,15 +470,35 @@ class ContestLog:
 
         try:
             logging.info("Applying Run/S&P annotation...")
+            # Check for KD4D before Run/S&P
+            if 'Call' in self.qsos_df.columns:
+                kd4d_count = (self.qsos_df['Call'].fillna('').astype(str).str.upper() == 'KD4D').sum()
+                if kd4d_count > 0:
+                    logging.warning(f"  - Before Run/S&P: Found {kd4d_count} row(s) with KD4D in Call column")
             self.qsos_df = process_contest_log_for_run_s_p(self.qsos_df)
+            # Check for KD4D after Run/S&P
+            if 'Call' in self.qsos_df.columns:
+                kd4d_count = (self.qsos_df['Call'].fillna('').astype(str).str.upper() == 'KD4D').sum()
+                if kd4d_count > 0:
+                    logging.warning(f"  - After Run/S&P: Found {kd4d_count} row(s) with KD4D in Call column")
             logging.info("Run/S&P annotation complete.")
         except Exception as e:
             logging.error(f"Error during Run/S&P annotation: {e}. Skipping.")
 
         try:
             logging.info("Applying Universal DXCC/Zone lookup...")
+            # Check for KD4D before CTY lookup
+            if 'Call' in self.qsos_df.columns:
+                kd4d_count = (self.qsos_df['Call'].fillna('').astype(str).str.upper() == 'KD4D').sum()
+                if kd4d_count > 0:
+                    logging.warning(f"  - Before CTY lookup: Found {kd4d_count} row(s) with KD4D in Call column")
             # Use shared CTY lookup if available (performance optimization)
             self.qsos_df = process_dataframe_for_cty_data(self.qsos_df, self.cty_dat_path, shared_cty_lookup=self._shared_cty_lookup)
+            # Check for KD4D after CTY lookup
+            if 'Call' in self.qsos_df.columns:
+                kd4d_count = (self.qsos_df['Call'].fillna('').astype(str).str.upper() == 'KD4D').sum()
+                if kd4d_count > 0:
+                    logging.warning(f"  - After CTY lookup: Found {kd4d_count} row(s) with KD4D in Call column")
             logging.info("Universal DXCC/Zone lookup complete.")
         except Exception as e:
             logging.error(f"Error during Universal DXCC/Zone lookup: {e}. Skipping.")
@@ -477,8 +551,18 @@ class ContestLog:
         resolver_name = self.contest_definition.custom_multiplier_resolver
         if resolver_name:
             try:
+                # Check for KD4D before multiplier resolver
+                if 'Call' in self.qsos_df.columns:
+                    kd4d_count = (self.qsos_df['Call'].fillna('').astype(str).str.upper() == 'KD4D').sum()
+                    if kd4d_count > 0:
+                        logging.warning(f"  - Before multiplier resolver: Found {kd4d_count} row(s) with KD4D in Call column")
                 resolver_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{resolver_name}")
                 self.qsos_df = resolver_module.resolve_multipliers(self.qsos_df, self._my_location_type, self.root_input_dir, self.contest_definition)
+                # Check for KD4D after multiplier resolver
+                if 'Call' in self.qsos_df.columns:
+                    kd4d_count = (self.qsos_df['Call'].fillna('').astype(str).str.upper() == 'KD4D').sum()
+                    if kd4d_count > 0:
+                        logging.warning(f"  - After multiplier resolver: Found {kd4d_count} row(s) with KD4D in Call column")
                 logging.info(f"Successfully applied '{resolver_name}' multiplier resolver.")
             except Exception as e:
                 logging.warning(f"Could not run '{resolver_name}' multiplier resolver: {e}")
