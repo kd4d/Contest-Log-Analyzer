@@ -16,15 +16,12 @@
 from typing import List
 import os
 import json
-import logging
 import hashlib
 from ..contest_log import ContestLog
 from ..data_aggregators.multiplier_stats import MultiplierStatsAggregator
 from .report_interface import ContestReport
 from contest_tools.utils.report_utils import format_text_header, get_standard_footer, get_standard_title_lines, _sanitize_filename_part
 from contest_tools.utils.callsign_utils import build_callsigns_filename_part
-
-logger = logging.getLogger(__name__)
 
 class Report(ContestReport):
     """
@@ -61,20 +58,10 @@ class Report(ContestReport):
         contest_def = self.logs[0].contest_definition
         name_column = mult_rule.get('name_column')
 
-        # DIAGNOSTICS: Log aggregator data check
-        logger.warning(f"[DIAG] Multiplier Summary Report Generation:")
-        logger.warning(f"[DIAG]   - mult_name: '{mult_name}'")
-        logger.warning(f"[DIAG]   - mode_filter: '{mode_filter}'")
-        logger.warning(f"[DIAG]   - pivot data exists: {bool(pivot.get('data'))}")
-        logger.warning(f"[DIAG]   - pivot data length: {len(pivot.get('data', []))}")
-        logger.warning(f"[DIAG]   - combined_df exists: {bool(combined_df)}")
-        logger.warning(f"[DIAG]   - combined_df length: {len(combined_df) if combined_df else 0}")
-
         # Check if pivot data exists (handling dict structure)
         # pivot is dict: {'index': [], 'columns': [], 'data': []}
         if not pivot.get('data') and not combined_df:
              mode_str = f" on mode '{mode_filter}'" if mode_filter else ""
-             logger.error(f"[DIAG]   - NO DATA: Report will be skipped or empty")
              return f"Report '{self.report_name}' for '{mult_name}'{mode_str} skipped as no data was found."
         
         bands = contest_def.valid_bands

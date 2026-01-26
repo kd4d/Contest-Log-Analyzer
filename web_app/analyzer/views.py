@@ -1243,23 +1243,7 @@ def view_report(request, session_id, file_path):
     # Security Check: Verify file exists within the session
     abs_path = os.path.join(settings.MEDIA_ROOT, 'sessions', session_id, file_path)
     
-    # DIAGNOSTICS: Log file access attempt
-    logger.warning(f"[DIAG] view_report access:")
-    logger.warning(f"[DIAG]   - session_id: '{session_id}'")
-    logger.warning(f"[DIAG]   - file_path: '{file_path}'")
-    logger.warning(f"[DIAG]   - abs_path: '{abs_path}'")
-    logger.warning(f"[DIAG]   - File exists: {os.path.exists(abs_path)}")
-    
     if not os.path.exists(abs_path):
-        # DIAGNOSTICS: Log file not found details
-        parent_dir = os.path.dirname(abs_path)
-        logger.error(f"[DIAG]   - Parent dir exists: {os.path.exists(parent_dir)}")
-        if os.path.exists(parent_dir):
-            try:
-                files_in_dir = os.listdir(parent_dir)
-                logger.error(f"[DIAG]   - Files in parent dir: {files_in_dir}")
-            except Exception as e:
-                logger.error(f"[DIAG]   - Error listing parent dir: {e}")
         raise Http404("Report not found")
 
     # Extract query params
@@ -1702,24 +1686,11 @@ def multiplier_dashboard(request, session_id):
     # 1. Session Suffix (All Logs) - format: --{callsigns}
     suffix_session = "--" + callsigns_part
 
-    # DIAGNOSTICS: Log discovery setup
-    logger.warning(f"[DIAG] Multiplier Dashboard Discovery Setup:")
-    logger.warning(f"[DIAG]   - combo_id: '{combo_id}'")
-    logger.warning(f"[DIAG]   - persisted_callsigns: {persisted_callsigns}")
-    logger.warning(f"[DIAG]   - callsigns_part: '{callsigns_part}'")
-    logger.warning(f"[DIAG]   - suffix_session: '{suffix_session}'")
-    logger.warning(f"[DIAG]   - report_rel_path: '{report_rel_path}'")
-
     target_ids = ['missed_multipliers', 'multiplier_summary']
     
     for art in artifacts:
         rid = art['report_id']
         if rid not in target_ids: continue
-        
-        # DIAGNOSTICS: Log artifact discovery
-        if rid == 'multiplier_summary':
-            logger.warning(f"[DIAG] Found multiplier_summary artifact:")
-            logger.warning(f"[DIAG]   - art['path']: '{art['path']}'")
         
         mult_type = None
         report_key = None
@@ -1731,30 +1702,16 @@ def multiplier_dashboard(request, session_id):
         # Strip extension
         base = os.path.splitext(fname)[0]
         
-        # DIAGNOSTICS: Log filename parsing
-        if rid == 'multiplier_summary':
-            logger.warning(f"[DIAG]   - fname (basename): '{fname}'")
-            logger.warning(f"[DIAG]   - base (no ext): '{base}'")
-        
         # --- Categorization Logic ---
         # Check for new format with -- delimiter
         if base.endswith(suffix_session):
             category = 'session'
             base = base[:-len(suffix_session)]
-            # DIAGNOSTICS: Log suffix match
-            if rid == 'multiplier_summary':
-                logger.warning(f"[DIAG]   - MATCHED session suffix '{suffix_session}', base after strip: '{base}'")
         # Also check for old format (backward compatibility during migration)
         elif base.endswith("_" + callsigns_part):
             category = 'session'
             base = base[:-len("_" + callsigns_part)]
-            # DIAGNOSTICS: Log old format match
-            if rid == 'multiplier_summary':
-                logger.warning(f"[DIAG]   - MATCHED old format suffix '_{callsigns_part}'")
         else:
-            # DIAGNOSTICS: Log no match for session suffix
-            if rid == 'multiplier_summary':
-                logger.warning(f"[DIAG]   - NO MATCH for session suffix '{suffix_session}', checking pairs/singles...")
             # Parse callsigns from filename part (handle -- delimiter)
             # Format: {report_id}_{MULT_TYPE}--{callsigns} or old format {report_id}_{MULT_TYPE}_{callsigns}
             if '--' in base:
@@ -1850,14 +1807,6 @@ def multiplier_dashboard(request, session_id):
             # Construct relative link
             link = f"{report_rel_path}/{art['path']}"
             
-            # DIAGNOSTICS: Log path construction
-            if rid == 'multiplier_summary':
-                logger.warning(f"[DIAG] Constructed path for {mult_type} {report_key}:")
-                logger.warning(f"[DIAG]   - report_rel_path: '{report_rel_path}'")
-                logger.warning(f"[DIAG]   - art['path']: '{art['path']}'")
-                logger.warning(f"[DIAG]   - Final link: '{link}'")
-                logger.warning(f"[DIAG]   - category: '{category}'")
-            
             if category == 'session':
                 multipliers[mult_type]['session'][report_key] = link
             else:
@@ -1874,13 +1823,6 @@ def multiplier_dashboard(request, session_id):
 
     # Convert dict to sorted list for template
     sorted_mults = sorted(multipliers.values(), key=lambda x: x['label'])
-
-    # DIAGNOSTICS: Log final multiplier discovery results
-    logger.warning(f"[DIAG] Final multiplier discovery results:")
-    for mult_type, mult_data in multipliers.items():
-        logger.warning(f"[DIAG]   - {mult_type}:")
-        logger.warning(f"[DIAG]     - session.summary: '{mult_data['session']['summary']}'")
-        logger.warning(f"[DIAG]     - session.missed: '{mult_data['session']['missed']}'")
 
     # Discover Enhanced Missed Multipliers report (Sweepstakes only)
     # Note: This report is generated for the session (all logs), so we need to match the session suffix
@@ -1959,11 +1901,6 @@ def multiplier_dashboard(request, session_id):
         'all_logs_same_mult_count': all_logs_same_mult_count,  # Whether to suppress Band Spectrum pane
         'enhanced_missed_mult_rel_path': enhanced_missed_mult_rel_path,  # Enhanced missed multipliers report (Sweepstakes only)
     }
-    
-    # DIAGNOSTICS: Log template context for multipliers
-    logger.warning(f"[DIAG] Template context for multipliers:")
-    for mult in sorted_mults:
-        logger.warning(f"[DIAG]   - {mult['label']}: session.summary = '{mult['session']['summary']}'")
     
     return render(request, 'analyzer/multiplier_dashboard.html', context)
 
