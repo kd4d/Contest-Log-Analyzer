@@ -30,6 +30,7 @@ import logging
 from .cabrillo_parser import parse_cabrillo_file
 from .contest_definitions import ContestDefinition
 from .core_annotations import CtyLookup, process_dataframe_for_cty_data, process_contest_log_for_run_s_p, BandAllocator
+from .core_annotations._core_utils import normalize_zone
 from .utils.profiler import profile_section, ProfileContext
 
 class ContestLog:
@@ -556,7 +557,27 @@ class ContestLog:
                 if 'source_column' in rule:
                     source_col = rule.get('source_column')
                     if source_col in self.qsos_df.columns:
-                        self.qsos_df[dest_col] = self.qsos_df[source_col]
+                        # Check if this is a zone multiplier that needs normalization
+                        rule_name = rule.get('name', '').lower()
+                        is_zone_multiplier = 'zone' in rule_name.lower() or source_col.lower() == 'zone'
+                        
+                        if is_zone_multiplier:
+                            # Determine zone type based on contest
+                            # CQ WW contests use CQ Zones (1-40), IARU HF uses ITU Zones (1-90)
+                            contest_name = self.contest_definition.contest_name.upper()
+                            if 'IARU' in contest_name:
+                                zone_type = 'itu'
+                            else:
+                                # Default to CQ zones for CQ WW and other contests
+                                zone_type = 'cq'
+                            
+                            # Normalize zone values to two-digit format
+                            self.qsos_df[dest_col] = self.qsos_df[source_col].apply(
+                                lambda x: normalize_zone(x, zone_type=zone_type)
+                            )
+                        else:
+                            # Not a zone multiplier, copy as-is
+                            self.qsos_df[dest_col] = self.qsos_df[source_col]
                         
                         if dest_name_col:
                             source_name_col = rule.get('source_name_column', f"{source_col}Name")

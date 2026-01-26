@@ -94,24 +94,25 @@
             {% endif %}
             
             <div class="horiz-strategy">
-                <div class="grid-lines-container">
-                    <div class="v-grid-line" style="left: 0%"></div>
-                    <div class="v-grid-line" style="left: 25%"></div>
-                    <div class="v-grid-line" style="left: 50%"></div>
-                    <div class="v-grid-line" style="left: 75%"></div>
-                    {% if not is_sweepstakes or not fixed_multiplier_max %}
-                    <div class="v-grid-line" style="left: 100%"></div>
+                <div class="horiz-strategy-content">
+                    <div class="grid-lines-container">
+                        <div class="v-grid-line" style="left: 0%"></div>
+                        <div class="v-grid-line" style="left: 25%"></div>
+                        <div class="v-grid-line" style="left: 50%"></div>
+                        <div class="v-grid-line" style="left: 75%"></div>
+                        {% if not is_sweepstakes or not fixed_multiplier_max %}
+                        <div class="v-grid-line" style="left: 100%"></div>
+                        {% endif %}
+                    </div>
+
+                    {% if is_sweepstakes and fixed_multiplier_max %}
+                    {# Reference line at 100% (x=85) - positioned in same container as bars for precise alignment #}
+                    <div class="h-bar-reference-line-container">
+                        <div class="h-bar-reference-line"></div>
+                    </div>
                     {% endif %}
-                </div>
 
-                {% if is_sweepstakes and fixed_multiplier_max %}
-                {# Reference line at 100% (x=85) - positioned in same container as bars for precise alignment #}
-                <div class="h-bar-reference-line-container">
-                    <div class="h-bar-reference-line"></div>
-                </div>
-                {% endif %}
-
-                {% for stat in row.stations %}
+                    {% for stat in row.stations %}
                 {% with total_unique=stat.unique_run|add:stat.unique_sp|add:stat.unique_unk %}
                 {% with scale_max=fixed_multiplier_max|default:row.max_unique %}
                 {# For Sweepstakes, use stat.count (all multipliers) for both bar width AND color breakdown #}
@@ -151,22 +152,23 @@
                     {% endwith %}
                     {% endwith %}
                 {% endif %}
-                {% endwith %}
-                {% endwith %}
-                {% endfor %}
-        
-                <div class="x-axis-row">
-                    <div></div>
-                    <div class="x-axis-scale" style="position: relative;">
-                        {% with scale_max=fixed_multiplier_max|default:row.max_unique %}
-                        <span class="tick-label" style="left: 0%">0</span>
-                        <span class="tick-label" style="left: 25%">{% widthratio scale_max 4 1 %}</span>
-                        <span class="tick-label" style="left: 50%">{% widthratio scale_max 2 1 %}</span>
-                        <span class="tick-label" style="left: 75%">{% widthratio scale_max 4 3 %}</span>
-                        <span class="tick-label" style="left: 100%; {% if is_sweepstakes and fixed_multiplier_max %}font-weight: bold; color: #000;{% endif %}">{{ scale_max }}</span>
-                        {% endwith %}
+                    {% endwith %}
+                    {% endwith %}
+                    {% endfor %}
+            
+                    <div class="x-axis-row">
+                        <div></div>
+                        <div class="x-axis-scale" style="position: relative;">
+                            {% with scale_max=fixed_multiplier_max|default:row.max_unique %}
+                            <span class="tick-label" style="left: 0%">0</span>
+                            <span class="tick-label" style="left: 25%">{% widthratio scale_max 4 1 %}</span>
+                            <span class="tick-label" style="left: 50%">{% widthratio scale_max 2 1 %}</span>
+                            <span class="tick-label" style="left: 75%">{% widthratio scale_max 4 3 %}</span>
+                            <span class="tick-label" style="left: 100%; {% if is_sweepstakes and fixed_multiplier_max %}font-weight: bold; color: #000;{% endif %}">{{ scale_max }}</span>
+                            {% endwith %}
+                        </div>
+                        <div></div><div></div>
                     </div>
-                    <div></div><div></div>
                 </div>
             </div>
        </div>
@@ -273,9 +275,9 @@
                                 {% endfor %}
                                 {% endif %}
      
-                                <div class="d-flex" style="background:#f8fafc;">
+                                <div class="d-flex" style="background:#f8fafc; justify-content: space-around;">
                                     {% for call in all_calls %}
-                                      <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>
+                                      <div class="vert-footer" style="width: 30%;">{{ call }}</div>
                                     {% endfor %}
                                 </div>
                                {% endif %}
@@ -322,9 +324,9 @@
                                 {% endfor %}
                                 {% endif %}
      
-                                <div class="d-flex" style="background:#f8fafc;">
+                                <div class="d-flex" style="background:#f8fafc; justify-content: space-around;">
                                     {% for call in all_calls %}
-                                      <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>
+                                      <div class="vert-footer" style="width: 30%;">{{ call }}</div>
                                     {% endfor %}
                                 </div>
                            {% endif %}
@@ -401,9 +403,9 @@
                            {% endfor %}
                            {% endif %}
      
-                            <div class="d-flex" style="background:#f8fafc;">
+                            <div class="d-flex" style="background:#f8fafc; justify-content: space-around;">
                                 {% for call in all_calls %}
-                                <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>
+                                <div class="vert-footer" style="width: 30%;">{{ call }}</div>
                                 {% endfor %}
                             </div>
                                 {% endif %}
@@ -450,9 +452,9 @@
                            {% endfor %}
                            {% endif %}
      
-                            <div class="d-flex" style="background:#f8fafc;">
+                            <div class="d-flex" style="background:#f8fafc; justify-content: space-around;">
                                 {% for call in all_calls %}
-                                <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>
+                                <div class="vert-footer" style="width: 30%;">{{ call }}</div>
                                 {% endfor %}
                             </div>
                                 {% endif %}
@@ -511,54 +513,49 @@
     <div class="tab-content" id="analysisTabsContent">
         {% if not is_solo %}
         <div class="tab-pane fade show active" id="session" role="tabpanel" aria-labelledby="session-tab">
-            <div class="row row-cols-1 row-cols-md-2 row-cols-xl-4 g-4">
-                {% for mult in multipliers %}
-                    {% if mult.session.missed %}
-                    <div class="col">
-                        <div class="card h-100 shadow-sm border-0">
-                            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <div class="reports-grid">
+                    {% for mult in multipliers %}
+                        {% if mult.session.missed %}
+                        <div class="report-card">
+                            <div class="report-header">
                                 <span class="fw-bold text-danger">Missed: {{ mult.label }}</span>
                                 <a href="{% url 'view_report' session_id mult.session.missed %}?source=mult" target="_blank" class="btn btn-sm btn-link text-muted p-0" title="Full Screen">
                                     <i class="bi bi-box-arrow-up-right"></i>
                                 </a>
                             </div>
-                            <div class="card-body p-0" style="height: 500px;">
-                                <iframe src="{% url 'view_report' session_id mult.session.missed %}?chromeless=1" style="width: 100%; height: 100%; border: none;"></iframe>
+                            <div class="report-iframe-container">
+                                <iframe src="{% url 'view_report' session_id mult.session.missed %}?chromeless=1"></iframe>
                             </div>
                         </div>
-                    </div>
-                    {% endif %}
-                {% empty %}
-                     <div class="col-12 text-muted">No Missed Multiplier reports generated.</div>
-                {% endfor %}
-                {% if enhanced_missed_mult_rel_path %}
-                <div class="col">
-                    <div class="card h-100 shadow-sm border-0">
-                        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        {% endif %}
+                    {% empty %}
+                         <div class="text-muted p-3">No Missed Multiplier reports generated.</div>
+                    {% endfor %}
+                    {% if enhanced_missed_mult_rel_path %}
+                    <div class="report-card">
+                        <div class="report-header">
                             <span class="fw-bold text-primary">Enhanced Missed Multipliers</span>
                             <a href="{% url 'view_report' session_id enhanced_missed_mult_rel_path %}?source=mult" target="_blank" class="btn btn-sm btn-link text-muted p-0" title="Full Screen">
                                 <i class="bi bi-box-arrow-up-right"></i>
                             </a>
                         </div>
-                        <div class="card-body p-0" style="height: 500px;">
-                            <iframe src="{% url 'view_report' session_id enhanced_missed_mult_rel_path %}?chromeless=1" style="width: 100%; height: 100%; border: none;"></iframe>
+                        <div class="report-iframe-container">
+                            <iframe src="{% url 'view_report' session_id enhanced_missed_mult_rel_path %}?chromeless=1"></iframe>
                         </div>
                     </div>
-                </div>
-                {% endif %}
+                    {% endif %}
             </div>
         </div>
         {% endif %}
 
         {% if not is_solo %}
         <div class="tab-pane fade" id="pairs" role="tabpanel" aria-labelledby="pairs-tab">
-             <div class="row row-cols-1 row-cols-md-2 row-cols-xl-4 g-4">
-                {% for mult in multipliers %}
-                    {% for pair in mult.pairs %}
-                        {% if pair.missed %}
-                        <div class="col">
-                            <div class="card h-100 shadow-sm border-0">
-                                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <div class="reports-grid">
+                    {% for mult in multipliers %}
+                        {% for pair in mult.pairs %}
+                            {% if pair.missed %}
+                            <div class="report-card">
+                                <div class="report-header">
                                     <div>
                                         <span class="d-block fw-bold text-dark small">{{ pair.label }}</span>
                                         <span class="fw-bold text-danger small">Missed {{ mult.label }}</span>
@@ -567,27 +564,26 @@
                                         <i class="bi bi-box-arrow-up-right"></i>
                                     </a>
                                 </div>
-                                <div class="card-body p-0" style="height: 500px;">
-                                    <iframe src="{% url 'view_report' session_id pair.missed %}?chromeless=1" style="width: 100%; height: 100%; border: none;"></iframe>
+                                <div class="report-iframe-container">
+                                    <iframe src="{% url 'view_report' session_id pair.missed %}?chromeless=1"></iframe>
                                 </div>
                             </div>
-                        </div>
-                        {% endif %}
+                            {% endif %}
+                        {% endfor %}
                     {% endfor %}
-                {% endfor %}
-             </div>
+                </div>
+            </div>
         </div>
         {% endif %}
 
         {% if not is_solo %}
         <div class="tab-pane fade" id="singles" role="tabpanel" aria-labelledby="singles-tab">
-             <div class="row row-cols-1 row-cols-md-2 row-cols-xl-4 g-4">
-                {% for mult in multipliers %}
-                    {% for single in mult.singles %}
-                        {% if single.summary %}
-                        <div class="col">
-                            <div class="card h-100 shadow-sm border-0">
-                                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <div class="reports-grid">
+                    {% for mult in multipliers %}
+                        {% for single in mult.singles %}
+                            {% if single.summary %}
+                            <div class="report-card">
+                                <div class="report-header">
                                     <div>
                                         <span class="d-block fw-bold text-dark small">{{ single.label }}</span>
                                         <span class="fw-bold text-primary small">{{ mult.label }} Checklist</span>
@@ -596,48 +592,44 @@
                                         <i class="bi bi-box-arrow-up-right"></i>
                                     </a>
                                 </div>
-                                <div class="card-body p-0" style="height: 500px;">
-                                    <iframe src="{% url 'view_report' session_id single.summary %}?chromeless=1" style="width: 100%; height: 100%; border: none;"></iframe>
+                                <div class="report-iframe-container">
+                                    <iframe src="{% url 'view_report' session_id single.summary %}?chromeless=1"></iframe>
                                 </div>
                             </div>
-                        </div>
-                        {% endif %}
+                            {% endif %}
+                        {% endfor %}
                     {% endfor %}
-                {% endfor %}
-             </div>
+                </div>
+            </div>
         </div>
         {% endif %}
 
         <div class="tab-pane fade {% if is_solo %}show active{% endif %}" id="breakdown" role="tabpanel" aria-labelledby="breakdown-tab">
-            <div class="row row-cols-1 row-cols-md-2 row-cols-xl-4 g-4">
+            <div class="reports-grid">
                 {% if breakdown_txt_url %}
-                <div class="col">
-                    <div class="card h-100 shadow-sm border-0">
-                        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <div class="report-card">
+                        <div class="report-header">
                             <span class="fw-bold text-primary">Summary Breakdown</span>
                             <a href="{% url 'view_report' session_id breakdown_txt_url %}" target="_blank" class="btn btn-sm btn-link text-muted p-0" title="Full Screen"><i class="bi bi-box-arrow-up-right"></i></a>
                         </div>
-                        <div class="card-body p-0" style="height: 500px;">
-                            <iframe src="{% url 'view_report' session_id breakdown_txt_url %}?chromeless=1" style="width: 100%; height: 100%; border: none;"></iframe>
+                        <div class="report-iframe-container">
+                            <iframe src="{% url 'view_report' session_id breakdown_txt_url %}?chromeless=1"></iframe>
                         </div>
-                    </div>
                 </div>
                 {% endif %}
 
                 {% for mult in multipliers %}
                     {% if mult.session.summary %}
-                    <div class="col">
-                        <div class="card h-100 shadow-sm border-0">
-                            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <div class="report-card">
+                            <div class="report-header">
                                 <span class="fw-bold text-info">Breakdown: {{ mult.label }}</span>
                                 <a href="{% url 'view_report' session_id mult.session.summary %}?source=mult" target="_blank" class="btn btn-sm btn-link text-muted p-0" title="Full Screen">
                                     <i class="bi bi-box-arrow-up-right"></i>
                                 </a>
                             </div>
-                            <div class="card-body p-0" style="height: 500px;">
-                                <iframe src="{% url 'view_report' session_id mult.session.summary %}?chromeless=1" style="width: 100%; height: 100%; border: none;"></iframe>
+                            <div class="report-iframe-container">
+                                <iframe src="{% url 'view_report' session_id mult.session.summary %}?chromeless=1"></iframe>
                             </div>
-                        </div>
                     </div>
                     {% endif %}
                 {% endfor %}
@@ -646,20 +638,18 @@
 
         {% if enhanced_missed_mult_rel_path %}
         <div class="tab-pane fade" id="enhanced-missed" role="tabpanel" aria-labelledby="enhanced-missed-tab">
-            <div class="row row-cols-1">
-                <div class="col">
-                    <div class="card h-100 shadow-sm border-0">
-                        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <div class="reports-grid">
+                    <div class="report-card">
+                        <div class="report-header">
                             <span class="fw-bold text-primary">Enhanced Missed Multipliers Breakdown</span>
                             <a href="{% url 'view_report' session_id enhanced_missed_mult_rel_path %}?source=mult" target="_blank" class="btn btn-sm btn-link text-muted p-0" title="Full Screen">
                                 <i class="bi bi-box-arrow-up-right"></i>
                             </a>
                         </div>
-                        <div class="card-body p-0" style="height: 500px;">
-                            <iframe src="{% url 'view_report' session_id enhanced_missed_mult_rel_path %}?chromeless=1" style="width: 100%; height: 100%; border: none;"></iframe>
+                        <div class="report-iframe-container">
+                            <iframe src="{% url 'view_report' session_id enhanced_missed_mult_rel_path %}?chromeless=1"></iframe>
                         </div>
                     </div>
-                </div>
             </div>
         </div>
         {% endif %}

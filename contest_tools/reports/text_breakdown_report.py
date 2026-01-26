@@ -211,7 +211,9 @@ class Report(ContestReport):
             if dimension == 'mode':
                 hourly_data = hourly.get('by_mode', {})
                 hourly_new_mults = hourly.get('new_mults_by_mode', {})
-                valid_dimensions = valid_modes if valid_modes else ['CW', 'SSB']  # Fallback
+                # Get modes from actual data (like rate sheet) to handle variant contests (CQ-160-CW vs CQ-160-SSB)
+                available_modes = sorted(list(hourly_data.keys()))
+                valid_dimensions = available_modes if available_modes else (valid_modes if valid_modes else ['CW', 'SSB'])  # Fallback
             else:
                 hourly_data = hourly.get('by_band', {})
                 hourly_new_mults = hourly.get('new_mults_by_band', {})

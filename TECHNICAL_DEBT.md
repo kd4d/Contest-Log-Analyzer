@@ -50,7 +50,7 @@
 
 **Priority:** HIGH  
 **Impact:** Incorrect score calculations for asymmetric contests (e.g., ARRL DX shows 2x multiplier count)  
-**Status:** [ ] Deferred - Requires comprehensive regression testing
+**Status:** [x] Completed (v1.0.0-alpha.12)
 
 **Issue:**
 - `StandardCalculator` (default time-series score calculator) does not respect the `applies_to` field in multiplier rules
@@ -308,23 +308,23 @@ WRTC-2018 (standalone contest) ⏳ (pending implementation)
 
 **Priority:** LOW  
 **Impact:** PH mode appears in hourly breakdown for CQ 160 CW when it shouldn't  
-**Status:** [ ] Not started
+**Status:** [x] Completed
 
 **Issue:**
 - CQ 160 CW contest is CW-only, but hourly breakdown report shows PH (Phone) mode columns
+- CQ 160 SSB contest is PH-only, but hourly breakdown report shows CW mode columns
 - Contest definition (`cq_160.json`) includes both `["CW", "PH"]` in `valid_modes` to support both variants
-- Breakdown report (`text_breakdown_report.py`) uses `contest_def.valid_modes` directly without filtering by variant
-- Parser extracts specific variant from header (`CQ-160-CW` or `CQ-160-SSB`) but report doesn't use this
+- Breakdown report (`text_breakdown_report.py`) used `contest_def.valid_modes` directly without filtering by variant
 
-**Current State:**
-- Parser correctly identifies contest variant (`CQ-160-CW` vs `CQ-160-SSB`)
-- Contest definition includes both modes for both variants
-- Report displays all modes from definition regardless of actual variant
+**Solution Implemented:**
+- Updated breakdown report to get modes from actual data (same approach as rate sheet report)
+- When dimension is 'mode', extract available modes from `hourly_data.get('by_mode', {}).keys()`
+- Only shows modes that actually have data in the log
+- Automatically handles both CQ-160-CW (shows only CW) and CQ-160-SSB (shows only PH) variants
+- Falls back to contest definition `valid_modes` if no data available
 
-**Solution:**
-- Filter `valid_modes` in breakdown report based on actual contest name from metadata
-- If `contest_name == "CQ-160-CW"` → show only CW
-- If `contest_name == "CQ-160-SSB"` → show only PH (or SSB depending on mode mapping)
+**Changes:**
+- `contest_tools/reports/text_breakdown_report.py`: Get modes from actual hourly data instead of contest definition
 
 **Related:**
 - `DevNotes/CQ_160_CW_PH_MODE_SUPPRESSION_DISCUSSION.md` - Detailed discussion and solution options
