@@ -516,15 +516,15 @@
             <div class="reports-grid">
                     {% for mult in multipliers %}
                         {% if mult.session.missed %}
-                        <div class="report-card">
+                        <div class="report-card" data-report-url="{% url 'view_report' session_id mult.session.missed %}?format=text">
                             <div class="report-header">
                                 <span class="fw-bold text-danger">Missed: {{ mult.label }}</span>
                                 <a href="{% url 'view_report' session_id mult.session.missed %}?source=mult" target="_blank" class="btn btn-sm btn-link text-muted p-0" title="Full Screen">
                                     <i class="bi bi-box-arrow-up-right"></i>
                                 </a>
                             </div>
-                            <div class="report-iframe-container">
-                                <iframe src="{% url 'view_report' session_id mult.session.missed %}?chromeless=1"></iframe>
+                            <div class="report-content">
+                                <pre></pre>
                             </div>
                         </div>
                         {% endif %}
@@ -532,15 +532,15 @@
                          <div class="text-muted p-3">No Missed Multiplier reports generated.</div>
                     {% endfor %}
                     {% if enhanced_missed_mult_rel_path %}
-                    <div class="report-card">
+                    <div class="report-card" data-report-url="{% url 'view_report' session_id enhanced_missed_mult_rel_path %}?format=text">
                         <div class="report-header">
                             <span class="fw-bold text-primary">Enhanced Missed Multipliers</span>
                             <a href="{% url 'view_report' session_id enhanced_missed_mult_rel_path %}?source=mult" target="_blank" class="btn btn-sm btn-link text-muted p-0" title="Full Screen">
                                 <i class="bi bi-box-arrow-up-right"></i>
                             </a>
                         </div>
-                        <div class="report-iframe-container">
-                            <iframe src="{% url 'view_report' session_id enhanced_missed_mult_rel_path %}?chromeless=1"></iframe>
+                        <div class="report-content">
+                            <pre></pre>
                         </div>
                     </div>
                     {% endif %}
@@ -554,7 +554,7 @@
                     {% for mult in multipliers %}
                         {% for pair in mult.pairs %}
                             {% if pair.missed %}
-                            <div class="report-card">
+                            <div class="report-card" data-report-url="{% url 'view_report' session_id pair.missed %}?format=text">
                                 <div class="report-header">
                                     <div>
                                         <span class="d-block fw-bold text-dark small">{{ pair.label }}</span>
@@ -564,8 +564,8 @@
                                         <i class="bi bi-box-arrow-up-right"></i>
                                     </a>
                                 </div>
-                                <div class="report-iframe-container">
-                                    <iframe src="{% url 'view_report' session_id pair.missed %}?chromeless=1"></iframe>
+                                <div class="report-content">
+                                    <pre></pre>
                                 </div>
                             </div>
                             {% endif %}
@@ -582,7 +582,7 @@
                     {% for mult in multipliers %}
                         {% for single in mult.singles %}
                             {% if single.summary %}
-                            <div class="report-card">
+                            <div class="report-card" data-report-url="{% url 'view_report' session_id single.summary %}?format=text">
                                 <div class="report-header">
                                     <div>
                                         <span class="d-block fw-bold text-dark small">{{ single.label }}</span>
@@ -592,8 +592,8 @@
                                         <i class="bi bi-box-arrow-up-right"></i>
                                     </a>
                                 </div>
-                                <div class="report-iframe-container">
-                                    <iframe src="{% url 'view_report' session_id single.summary %}?chromeless=1"></iframe>
+                                <div class="report-content">
+                                    <pre></pre>
                                 </div>
                             </div>
                             {% endif %}
@@ -607,28 +607,28 @@
         <div class="tab-pane fade {% if is_solo %}show active{% endif %}" id="breakdown" role="tabpanel" aria-labelledby="breakdown-tab">
             <div class="reports-grid">
                 {% if breakdown_txt_url %}
-                <div class="report-card">
+                <div class="report-card" data-report-url="{% url 'view_report' session_id breakdown_txt_url %}?format=text">
                         <div class="report-header">
                             <span class="fw-bold text-primary">Summary Breakdown</span>
                             <a href="{% url 'view_report' session_id breakdown_txt_url %}" target="_blank" class="btn btn-sm btn-link text-muted p-0" title="Full Screen"><i class="bi bi-box-arrow-up-right"></i></a>
                         </div>
-                        <div class="report-iframe-container">
-                            <iframe src="{% url 'view_report' session_id breakdown_txt_url %}?chromeless=1"></iframe>
+                        <div class="report-content">
+                            <pre></pre>
                         </div>
                 </div>
                 {% endif %}
 
                 {% for mult in multipliers %}
                     {% if mult.session.summary %}
-                    <div class="report-card">
+                    <div class="report-card" data-report-url="{% url 'view_report' session_id mult.session.summary %}?format=text">
                             <div class="report-header">
                                 <span class="fw-bold text-info">Breakdown: {{ mult.label }}</span>
                                 <a href="{% url 'view_report' session_id mult.session.summary %}?source=mult" target="_blank" class="btn btn-sm btn-link text-muted p-0" title="Full Screen">
                                     <i class="bi bi-box-arrow-up-right"></i>
                                 </a>
                             </div>
-                            <div class="report-iframe-container">
-                                <iframe src="{% url 'view_report' session_id mult.session.summary %}?chromeless=1"></iframe>
+                            <div class="report-content">
+                                <pre></pre>
                             </div>
                     </div>
                     {% endif %}
@@ -639,15 +639,15 @@
         {% if enhanced_missed_mult_rel_path %}
         <div class="tab-pane fade" id="enhanced-missed" role="tabpanel" aria-labelledby="enhanced-missed-tab">
             <div class="reports-grid">
-                    <div class="report-card">
+                    <div class="report-card" data-report-url="{% url 'view_report' session_id enhanced_missed_mult_rel_path %}?format=text">
                         <div class="report-header">
                             <span class="fw-bold text-primary">Enhanced Missed Multipliers Breakdown</span>
                             <a href="{% url 'view_report' session_id enhanced_missed_mult_rel_path %}?source=mult" target="_blank" class="btn btn-sm btn-link text-muted p-0" title="Full Screen">
                                 <i class="bi bi-box-arrow-up-right"></i>
                             </a>
                         </div>
-                        <div class="report-iframe-container">
-                            <iframe src="{% url 'view_report' session_id enhanced_missed_mult_rel_path %}?chromeless=1"></iframe>
+                        <div class="report-content">
+                            <pre></pre>
                         </div>
                     </div>
             </div>
@@ -735,6 +735,127 @@
         var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
         var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
             return new bootstrap.Tooltip(tooltipTriggerEl)
+        });
+
+        // Cache for loaded text content to avoid re-fetching
+        const textContentCache = new Map();
+
+        // Load and render text report in a card
+        function loadTextReport(card) {
+            const reportUrl = card.getAttribute('data-report-url');
+            if (!reportUrl) return;
+
+            // Skip if already loaded
+            if (card.dataset.loaded === 'true') {
+                resizeCard(card);
+                return;
+            }
+
+            const preElement = card.querySelector('.report-content pre');
+            if (!preElement) return;
+
+            // Show loading state
+            preElement.textContent = 'Loading...';
+
+            // Check cache first
+            if (textContentCache.has(reportUrl)) {
+                renderTextContent(card, textContentCache.get(reportUrl));
+                return;
+            }
+
+            // Fetch text content
+            fetch(reportUrl)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.text();
+                })
+                .then(text => {
+                    // Cache the content
+                    textContentCache.set(reportUrl, text);
+                    renderTextContent(card, text);
+                })
+                .catch(error => {
+                    console.error('[DIAG] Error loading text report:', error);
+                    preElement.textContent = 'Error loading report. Please try the full screen view.';
+                    // Set default width on error
+                    setDefaultWidth(card);
+                });
+        }
+
+        // Render text content in <pre> element
+        function renderTextContent(card, text) {
+            const preElement = card.querySelector('.report-content pre');
+            if (!preElement) return;
+
+            preElement.textContent = text;
+            card.dataset.loaded = 'true';
+
+            // Small delay to ensure DOM is updated, then measure and resize
+            setTimeout(function() {
+                resizeCard(card);
+            }, 10);
+        }
+
+        // Resize card based on <pre> content width
+        function resizeCard(card) {
+            const preElement = card.querySelector('.report-content pre');
+            if (!preElement) return;
+
+            // Measure the natural content width
+            const contentWidth = preElement.scrollWidth;
+            
+            // Add padding (1rem on each side = 32px total)
+            const padding = 32;
+            const cardWidth = Math.max(contentWidth + padding, 400); // Minimum 400px
+
+            // Set card width
+            card.style.width = cardWidth + 'px';
+            card.style.minWidth = cardWidth + 'px';
+            card.style.maxWidth = cardWidth + 'px';
+        }
+
+        // Set default width fallback
+        function setDefaultWidth(card) {
+            const defaultWidth = 600;
+            card.style.width = defaultWidth + 'px';
+            card.style.minWidth = defaultWidth + 'px';
+            card.style.maxWidth = defaultWidth + 'px';
+        }
+
+        // Load all reports in a tab pane
+        function loadReportsInPane(pane) {
+            if (!pane) return;
+            const cards = pane.querySelectorAll('.report-card[data-report-url]');
+            cards.forEach(function(card) {
+                loadTextReport(card);
+            });
+        }
+
+        // Load reports when tab is shown
+        function handleTabShow(event) {
+            const targetId = event.target.getAttribute('data-bs-target');
+            const pane = document.querySelector(targetId);
+            if (pane) {
+                loadReportsInPane(pane);
+            }
+        }
+
+        // Load reports in initially visible tab
+        const activeTab = document.querySelector('#analysisTabs .nav-link.active');
+        if (activeTab) {
+            const targetId = activeTab.getAttribute('data-bs-target');
+            const activePane = document.querySelector(targetId);
+            if (activePane) {
+                loadReportsInPane(activePane);
+            }
+        }
+
+        // Listen for tab changes
+        const analysisTabs = document.querySelectorAll('#analysisTabs button[data-bs-toggle="tab"]');
+        analysisTabs.forEach(function(tab) {
+            tab.addEventListener('shown.bs.tab', handleTabShow);
         });
     });
 </script>

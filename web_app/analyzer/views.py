@@ -1237,6 +1237,7 @@ def view_report(request, session_id, file_path):
     """
     Wraps a generated report file in the application shell (header/footer).
     Supports 'chromeless' mode for iframe embedding and context-aware 'Back' links.
+    Also supports 'format=text' to return raw text content for AJAX fetching.
     """
 
     # Security Check: Verify file exists within the session
@@ -1248,6 +1249,20 @@ def view_report(request, session_id, file_path):
     # Extract query params
     source = request.GET.get('source')
     is_chromeless = request.GET.get('chromeless') == '1'
+    format_type = request.GET.get('format', '')
+
+    # If format=text, return raw text content for AJAX fetching
+    if format_type == 'text' and file_path.endswith('.txt'):
+        try:
+            with open(abs_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            from django.http import HttpResponse
+            response = HttpResponse(content, content_type='text/plain; charset=utf-8')
+            response['Content-Disposition'] = f'inline; filename="{os.path.basename(file_path)}"'
+            return response
+        except Exception as e:
+            logger.error(f"Error reading text file {abs_path}: {e}")
+            raise Http404("Error reading report file")
 
     # Determine Back Button Logic
     if source == 'main':

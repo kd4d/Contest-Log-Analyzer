@@ -313,14 +313,14 @@
     gap: 1rem;
     padding-bottom: 1rem;
     width: max-content;
-    /* Removed min-width: 100% to prevent unnecessary horizontal scrollbar */
+    /* Removed min-width: 100% - causes blank row and unnecessary scrollbar */
+    align-items: flex-start; /* Align cards to top */
 }
 
 .report-card {
     flex: 0 0 auto;
-    width: 600px; /* Fixed width for text reports - prevents wrapping */
-    min-width: 600px;
-    max-width: 600px;
+    /* Width will be set dynamically by JavaScript based on content */
+    min-width: 400px; /* Minimum width to prevent cards from being too narrow */
     background: white;
     border-radius: 8px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
@@ -336,20 +336,26 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-shrink: 0; /* Prevent header from shrinking */
 }
 
-.report-iframe-container {
+.report-content {
     height: 500px;
-    padding: 0;
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: visible; /* Critical - don't clip horizontal content */
+    padding: 1rem;
     flex: 1 1 auto;
 }
 
-.report-iframe-container iframe {
-    width: 100%;
-    height: 100%;
-    border: none;
-    display: block;
+.report-content pre {
+    margin: 0;
+    font-family: 'Courier New', 'Courier', monospace;
+    font-size: 12px;
+    line-height: 1.4;
+    white-space: pre; /* Preserves formatting, prevents wrapping */
+    width: max-content; /* Size to content width - natural width of longest line */
+    /* NO min-width or max-width - let content determine width naturally */
+    display: block; /* Ensure it's a block element for proper measurement */
 }
 
 /* Responsive adjustments */
