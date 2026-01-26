@@ -279,7 +279,12 @@
 
 /* Horizontal Scrolling Container for Text Reports */
 /* Analysis Reports: Simplified horizontal scrolling structure */
+#analysisTabsContent {
+    width: 100%; /* Expand to fill available width */
+}
+
 #analysisTabsContent .tab-pane {
+    width: 100%; /* Expand to fill container width */
     overflow-x: auto;
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
