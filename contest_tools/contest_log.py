@@ -470,35 +470,15 @@ class ContestLog:
 
         try:
             logging.info("Applying Run/S&P annotation...")
-            # Check for KD4D before Run/S&P
-            if 'Call' in self.qsos_df.columns:
-                kd4d_count = (self.qsos_df['Call'].fillna('').astype(str).str.upper() == 'KD4D').sum()
-                if kd4d_count > 0:
-                    logging.warning(f"  - Before Run/S&P: Found {kd4d_count} row(s) with KD4D in Call column")
             self.qsos_df = process_contest_log_for_run_s_p(self.qsos_df)
-            # Check for KD4D after Run/S&P
-            if 'Call' in self.qsos_df.columns:
-                kd4d_count = (self.qsos_df['Call'].fillna('').astype(str).str.upper() == 'KD4D').sum()
-                if kd4d_count > 0:
-                    logging.warning(f"  - After Run/S&P: Found {kd4d_count} row(s) with KD4D in Call column")
             logging.info("Run/S&P annotation complete.")
         except Exception as e:
             logging.error(f"Error during Run/S&P annotation: {e}. Skipping.")
 
         try:
             logging.info("Applying Universal DXCC/Zone lookup...")
-            # Check for KD4D before CTY lookup
-            if 'Call' in self.qsos_df.columns:
-                kd4d_count = (self.qsos_df['Call'].fillna('').astype(str).str.upper() == 'KD4D').sum()
-                if kd4d_count > 0:
-                    logging.warning(f"  - Before CTY lookup: Found {kd4d_count} row(s) with KD4D in Call column")
             # Use shared CTY lookup if available (performance optimization)
             self.qsos_df = process_dataframe_for_cty_data(self.qsos_df, self.cty_dat_path, shared_cty_lookup=self._shared_cty_lookup)
-            # Check for KD4D after CTY lookup
-            if 'Call' in self.qsos_df.columns:
-                kd4d_count = (self.qsos_df['Call'].fillna('').astype(str).str.upper() == 'KD4D').sum()
-                if kd4d_count > 0:
-                    logging.warning(f"  - After CTY lookup: Found {kd4d_count} row(s) with KD4D in Call column")
             logging.info("Universal DXCC/Zone lookup complete.")
         except Exception as e:
             logging.error(f"Error during Universal DXCC/Zone lookup: {e}. Skipping.")
@@ -551,18 +531,8 @@ class ContestLog:
         resolver_name = self.contest_definition.custom_multiplier_resolver
         if resolver_name:
             try:
-                # Check for KD4D before multiplier resolver
-                if 'Call' in self.qsos_df.columns:
-                    kd4d_count = (self.qsos_df['Call'].fillna('').astype(str).str.upper() == 'KD4D').sum()
-                    if kd4d_count > 0:
-                        logging.warning(f"  - Before multiplier resolver: Found {kd4d_count} row(s) with KD4D in Call column")
                 resolver_module = importlib.import_module(f"contest_tools.contest_specific_annotations.{resolver_name}")
                 self.qsos_df = resolver_module.resolve_multipliers(self.qsos_df, self._my_location_type, self.root_input_dir, self.contest_definition)
-                # Check for KD4D after multiplier resolver
-                if 'Call' in self.qsos_df.columns:
-                    kd4d_count = (self.qsos_df['Call'].fillna('').astype(str).str.upper() == 'KD4D').sum()
-                    if kd4d_count > 0:
-                        logging.warning(f"  - After multiplier resolver: Found {kd4d_count} row(s) with KD4D in Call column")
                 logging.info(f"Successfully applied '{resolver_name}' multiplier resolver.")
             except Exception as e:
                 logging.warning(f"Could not run '{resolver_name}' multiplier resolver: {e}")

@@ -255,7 +255,11 @@ def _cleanup_old_sessions(max_age_seconds=3600):
                 if os.stat(item_path).st_mtime < (now - max_age_seconds):
                     os.remove(item_path)
             except Exception as e:
-                logger.warning(f"Failed to cleanup progress file {item}: {e}")
+                # Windows/OneDrive file locks are common and non-critical
+                if isinstance(e, PermissionError) or (isinstance(e, OSError) and e.winerror == 5):
+                    logger.debug(f"Could not cleanup progress file {item} (file may be locked by OneDrive/sync): {e}")
+                else:
+                    logger.warning(f"Failed to cleanup progress file {item}: {e}")
 
     for item in os.listdir(sessions_root):
         item_path = os.path.join(sessions_root, item)
@@ -273,6 +277,15 @@ def _cleanup_old_sessions(max_age_seconds=3600):
                 if os.stat(item_path).st_mtime < (now - max_age_seconds):
                     shutil.rmtree(item_path)
                     logger.info(f"Cleaned up old session: {item}")
+            except PermissionError as e:
+                # Windows/OneDrive file locks are common and non-critical - log at debug level
+                logger.debug(f"Could not cleanup session {item} (file may be locked by OneDrive/sync): {e}")
+            except OSError as e:
+                # Check for Windows access denied (WinError 5)
+                if hasattr(e, 'winerror') and e.winerror == 5:
+                    logger.debug(f"Could not cleanup session {item} (access denied - file may be locked by OneDrive/sync): {e}")
+                else:
+                    logger.warning(f"Failed to cleanup session {item}: {e}")
             except Exception as e:
                 logger.warning(f"Failed to cleanup session {item}: {e}")
 

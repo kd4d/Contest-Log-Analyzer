@@ -1555,6 +1555,7 @@ For complex multi-session workflows, a `HANDOVER.md` file may exist at the repos
 
 **Agent Behavior:**
 - When creating diagnostic/temporary scripts, place them in `test_code/` or `test_code/subdirectory/`
+- **Standard location for temporary scripts:** `regression_baselines/test_code/temp_scripts/` (gitignored, auto-generated)
 - When creating mockup generators or mockup files, place them in `test_code/mockups/`
 - Do NOT add such scripts to `contest_tools/utils/`, `tools/`, or other production directories
 - If a script needs to become production code, refactor and move it appropriately (e.g., `contest_tools/utils/`)
