@@ -42,7 +42,8 @@
         border: none;
         background: transparent;
         color: #6c757d;
-        font-weight: 600;
+        font-weight: 700;
+        font-size: 1.75rem;
         cursor: pointer;
         border-radius: 0.375rem 0.375rem 0 0;
         transition: all 0.2s ease;
@@ -100,7 +101,7 @@
                     <i class="bi bi-upload me-2"></i>Manual Log Upload
                 </button>
                 <button type="button" class="method-tab" data-method="archive">
-                    <i class="bi bi-cloud-download me-2"></i>Public Log Archive
+                    <i class="bi bi-cloud-download me-2"></i>Upload from Public Log Archive
                 </button>
             </div>
 
@@ -173,7 +174,7 @@
                             <!-- WRTC Scoring Rules (Advanced) -->
                             <div class="border-top pt-3 mb-3">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="wrtcRulesCheckbox" style="width: 1.2rem; height: 1.2rem;">
+                                    <input class="form-check-input" type="checkbox" id="wrtcRulesCheckbox" style="width: 1.2rem; height: 1.2rem; border: 2px solid #495057 !important;">
                                     <label class="form-check-label fw-bold fs-6" for="wrtcRulesCheckbox" style="font-size: 1rem !important;">
                                         <strong>Apply WRTC scoring rules</strong> <span class="text-muted">(for IARU-HF logs only)</span>
                                     </label>
@@ -322,7 +323,7 @@
                             <!-- WRTC Scoring Rules (Advanced) - Only for IARU-HF -->
                             <div id="fetchWrtcContainer" class="mt-3 mb-3" style="display: none;">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="wrtcRulesCheckboxFetch">
+                                    <input class="form-check-input" type="checkbox" id="wrtcRulesCheckboxFetch" style="border: 2px solid #495057 !important;">
                                     <label class="form-check-label" for="wrtcRulesCheckboxFetch">
                                         <small>Apply WRTC scoring rules</small>
                                     </label>
