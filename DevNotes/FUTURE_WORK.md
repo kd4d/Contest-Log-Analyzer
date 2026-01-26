@@ -100,6 +100,37 @@
 
 ---
 
+## Year-over-Year Comparisons
+
+### Same Callsign Contest Comparison
+
+**Status:** [ ] Planned  
+**Priority:** MEDIUM  
+**Date Added:** 2025-01-XX
+
+**Description:**
+- Enable year-over-year comparisons for the same callsign in a given contest
+- Compare performance metrics across multiple years (QSOs, multipliers, score, rate, etc.)
+- Support visualization of trends and improvements over time
+
+**Requirements:**
+- Allow uploading multiple CTY files (one per year/contest instance)
+- Automatic selection of CTY files based on contest and callsign
+- Comparison reports showing year-over-year changes
+- Support for comparing 2+ years simultaneously
+- Handle cases where contest rules or structure changed between years
+
+**Related:**
+- Multi-log comparison infrastructure (existing)
+- CTY file management system
+
+**Notes:**
+- Must handle different CTY file versions/updates across years
+- Consider contest rule changes that might affect comparability
+- May leverage existing multi-log comparison framework
+
+---
+
 ## Template for New Items
 
 When adding new future work items, use this template:

@@ -1,0 +1,171 @@
+<!DOCTYPE html []>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="author" content="MarkdownViewer++" />
+    <title>BETA_TESTER_WELCOME.md</title>
+    <style type="text/css">
+            
+/* Avoid page breaks inside the most common attributes, especially for exports (i.e. PDF) */
+td, h1, h2, h3, h4, h5, p, ul, ol, li {
+    page-break-inside: avoid; 
+}
+
+        </style>
+  </head>
+  <body>
+    <h1 id="welcome-to-contest-log-analytics-beta-testing">Welcome to Contest Log Analytics Beta Testing!</h1>
+    <p>
+      <strong>Version:</strong> v1.0.0-alpha.12<br /><strong>Release Date:</strong> January 27, 2026</p>
+    <hr />
+    <h2 id="welcome">Welcome!</h2>
+    <p>Thank you for joining the <strong>Contest Log Analytics (CLA)</strong> beta testing program! Your participation and feedback are invaluable as we continue to develop and refine this tool for the amateur radio contesting community.</p>
+    <hr />
+    <h2 id="what-is-contest-log-analytics">What is Contest Log Analytics?</h2>
+    <p>Contest Log Analytics is a <strong>post-mortem analysis engine</strong> for amateur radio contesting—think of it as "game tape" for radiosport. While most logging software is designed for the heat of battle, <strong>CLA is designed for the day after</strong>, when you want to understand:</p>
+    <ul>
+      <li>Who owned the band at 0200Z?</li>
+      <li>Which multipliers did you miss that your competitors found?</li>
+      <li>Exactly how your operating strategy differed from the winner's approach?</li>
+      <li>Where you gained or lost your advantage in the margins?</li>
+    </ul>
+    <hr />
+    <h2 id="quick-overview">Quick Overview</h2>
+    <h3 id="key-capabilities">Key Capabilities</h3>
+    <p>
+      <strong>Strategic Analysis</strong>: Run vs. S&amp;P classification, unique vs. common QSO analysis, head-to-head competitor comparison</p>
+    <p>
+      <strong>Interactive Web Dashboard</strong>: Real-time progress tracking, Plotly visualizations with drill-down analysis, comprehensive reports</p>
+    <p>
+      <strong>Public Log Archive Integration</strong>: Direct access to CQ WW archives—fetch competitor logs instantly without manual downloads</p>
+    <p>
+      <strong>Comprehensive Reporting</strong>: Hourly rate sheets, multiplier timelines, score summaries, QSO breakdowns, downloadable ZIP archives</p>
+    <h3 id="supported-contests">Supported Contests</h3>
+    <p>
+      <strong>Full Dashboard Support:</strong>
+    </p>
+    <ul>
+      <li>CQ World Wide DX (CW, SSB, RTTY)</li>
+      <li>CQ 160-Meter (CW, SSB)</li>
+      <li>ARRL 10 Meter</li>
+      <li>ARRL DX (CW, SSB)</li>
+      <li>ARRL Sweepstakes (CW, SSB)</li>
+      <li>ARRL IARU HF World Championship</li>
+      <li>WRTC (2018, 2022, 2026)</li>
+    </ul>
+    <p>
+      <strong>ZIP Report Packages Only:</strong>
+    </p>
+    <ul>
+      <li>CQ WPX (CW, SSB)</li>
+      <li>ARRL Field Day</li>
+      <li>North American QSO Party (NAQP)</li>
+      <li>WAE Contest (CW, SSB)</li>
+    </ul>
+    <hr />
+    <h2 id="important-alpha-testing-phase">Important: Alpha Testing Phase</h2>
+    <p>
+      <strong>This is a fast-moving alpha project under active development.</strong> You will encounter bugs, edge cases, and incomplete features. Performance may vary. Some calculations may need verification. <strong>If you're looking for a polished, production-ready tool, this is not it yet.</strong></p>
+    <p>We're looking for testers who understand alpha software and are willing to work through issues while providing constructive feedback.</p>
+    <hr />
+    <h2 id="getting-started">Getting Started</h2>
+    <h3 id="access-the-web-application">Access the Web Application</h3>
+    <p>Simply visit <strong><a href="https://cla.kd4d.org">https://cla.kd4d.org</a></strong> in your web browser. No installation or setup required!</p>
+    <h3 id="basic-usage">Basic Usage</h3>
+    <ol>
+      <li>
+        <p>
+          <strong>Upload Logs</strong>: Use the web interface to upload 1, 2, or 3 Cabrillo log files</p>
+        <ul>
+          <li>Single log: Detailed performance metrics</li>
+          <li>2-3 logs: Head-to-head comparison and unique vs. common QSO analysis</li>
+        </ul>
+      </li>
+      <li>
+        <p>
+          <strong>Wait for Processing</strong>: The system will analyze your logs and generate reports</p>
+      </li>
+      <li>
+        <p>
+          <strong>View Results</strong>: Explore interactive dashboards, charts, and reports</p>
+        <ul>
+          <li>QSO Dashboard: Interactive charts with drill-down analysis</li>
+          <li>Multiplier Dashboard: Detailed multiplier analysis with band/mode breakdowns</li>
+          <li>Comprehensive Reports: View all generated reports</li>
+        </ul>
+      </li>
+      <li>
+        <p>
+          <strong>Download Reports</strong>: Download all reports as a ZIP archive</p>
+      </li>
+    </ol>
+    <h3 id="using-public-log-archives">Using Public Log Archives</h3>
+    <p>For supported contests (starting with CQ WW):</p>
+    <ol>
+      <li>Navigate to the Public Log page</li>
+      <li>Select the contest year and mode (CW, SSB, or RTTY)</li>
+      <li>Search for competitors by callsign</li>
+      <li>Fetch logs instantly for head-to-head analysis</li>
+    </ol>
+    <hr />
+    <h2 id="what-should-you-test">What Should You Test?</h2>
+    <h3 id="priority-testing-areas">Priority Testing Areas</h3>
+    <ol>
+      <li>
+        <strong>Real Contest Logs</strong>: Test with your actual contest logs (recent or historical)</li>
+      <li>
+        <strong>Multiple Contest Types</strong>: Try different contests to verify broad compatibility</li>
+      <li>
+        <strong>Multi-Log Analysis</strong>: Upload 2-3 logs to test head-to-head comparison features</li>
+      <li>
+        <strong>Public Log Fetching</strong>: Test the public log archive integration (CQ WW)</li>
+      <li>
+        <strong>Report Accuracy</strong>: Verify calculations against known results when possible</li>
+    </ol>
+    <h3 id="what-to-report">What to Report</h3>
+    <ul>
+      <li>
+        <strong>Bugs and Edge Cases</strong>: Any errors, crashes, or unexpected behavior</li>
+      <li>
+        <strong>Calculation Accuracy</strong>: Discrepancies in scores, multipliers, or QSO counts</li>
+      <li>
+        <strong>UI/UX Issues</strong>: Problems with the dashboard, reports, or user experience</li>
+      <li>
+        <strong>Performance Issues</strong>: Slow processing, timeouts, or resource problems</li>
+      <li>
+        <strong>Feature Requests</strong>: Ideas for improvements or new capabilities</li>
+    </ul>
+    <hr />
+    <h2 id="getting-help-and-providing-feedback">Getting Help and Providing Feedback</h2>
+    <h3 id="beta-testing-community">Beta Testing Community</h3>
+    <ul>
+      <li>
+        <strong>Groups.io Mailing List</strong>: <a href="https://groups.io/g/Contest-Log-Analyzer-Beta/">Contest-Log-Analyzer-Beta</a><ul><li>Join for updates, discussions, and support</li><li>Share your testing experiences</li><li>Get help from other testers</li></ul></li>
+    </ul>
+    <h3 id="documentation">Documentation</h3>
+    <p>Comprehensive documentation is available on the website and in the project repository:</p>
+    <ul>
+      <li>
+        <strong>User Guide</strong>: How to use the analyzer and interpret reports</li>
+      <li>
+        <strong>Report Interpretation Guide</strong>: Detailed explanation of report formats</li>
+      <li>
+        <strong>Contest Support</strong>: Information about supported contests and features</li>
+    </ul>
+    <h3 id="contact">Contact</h3>
+    <p>
+      <strong>Mark Bailey, KD4D</strong>
+      <br />
+Your feedback directly influences development priorities. We value your contributions to making CLA a powerful tool for the contesting community!</p>
+    <hr />
+    <h2 id="thank-you">Thank You!</h2>
+    <p>Your participation in the beta testing program is crucial to the success of Contest Log Analytics. We appreciate your time, patience, and constructive feedback as we work together to build a powerful analysis tool for the contesting community.</p>
+    <p>
+      <strong>Happy Testing and Happy Contesting!</strong>
+    </p>
+    <hr />
+    <p>
+      <strong>KD4D - Contest Log Analytics Team</strong>
+    </p>
+  </body>
+</html>

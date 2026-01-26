@@ -25,6 +25,7 @@ from contest_tools.contest_log import ContestLog
 from contest_tools.data_aggregators.categorical_stats import CategoricalAggregator
 from contest_tools.styles.plotly_style_manager import PlotlyStyleManager
 from contest_tools.utils.report_utils import get_valid_dataframe, create_output_directory, get_standard_footer, get_standard_title_lines
+from contest_tools.utils.callsign_utils import callsign_to_filename_part
 
 class Report(ContestReport):
     """
@@ -153,7 +154,7 @@ class Report(ContestReport):
 
         create_output_directory(output_path)
         
-        base_filename = f"{self.report_id}_{callsign}"
+        base_filename = f"{self.report_id}--{callsign_to_filename_part(callsign)}"
         png_file = os.path.join(output_path, f"{base_filename}.png")
         html_file = os.path.join(output_path, f"{base_filename}.html")
         

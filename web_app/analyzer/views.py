@@ -255,7 +255,11 @@ def _cleanup_old_sessions(max_age_seconds=3600):
                 if os.stat(item_path).st_mtime < (now - max_age_seconds):
                     os.remove(item_path)
             except Exception as e:
-                logger.warning(f"Failed to cleanup progress file {item}: {e}")
+                # Windows/OneDrive file locks are common and non-critical
+                if isinstance(e, PermissionError) or (isinstance(e, OSError) and e.winerror == 5):
+                    logger.debug(f"Could not cleanup progress file {item} (file may be locked by OneDrive/sync): {e}")
+                else:
+                    logger.warning(f"Failed to cleanup progress file {item}: {e}")
 
     for item in os.listdir(sessions_root):
         item_path = os.path.join(sessions_root, item)
@@ -273,6 +277,15 @@ def _cleanup_old_sessions(max_age_seconds=3600):
                 if os.stat(item_path).st_mtime < (now - max_age_seconds):
                     shutil.rmtree(item_path)
                     logger.info(f"Cleaned up old session: {item}")
+            except PermissionError as e:
+                # Windows/OneDrive file locks are common and non-critical - log at debug level
+                logger.debug(f"Could not cleanup session {item} (file may be locked by OneDrive/sync): {e}")
+            except OSError as e:
+                # Check for Windows access denied (WinError 5)
+                if hasattr(e, 'winerror') and e.winerror == 5:
+                    logger.debug(f"Could not cleanup session {item} (access denied - file may be locked by OneDrive/sync): {e}")
+                else:
+                    logger.warning(f"Failed to cleanup session {item}: {e}")
             except Exception as e:
                 logger.warning(f"Failed to cleanup session {item}: {e}")
 
@@ -680,16 +693,47 @@ def analyze_logs(request):
         logger.debug(f"analyze_logs: request.method={request.method}, CONTENT_TYPE={content_type}, request.FILES keys={files_keys}, request.POST keys={post_keys}")
         
         # Additional debugging for test client issues
-        if request.method == 'POST' and not files_keys:
-            logger.warning(f"WARNING - POST request but FILES is empty. CONTENT_TYPE={content_type}, HTTP_CONTENT_TYPE={http_content_type}")
-            print(f"DEBUG: WARNING - POST request but FILES is empty.")
-            print(f"  CONTENT_TYPE={content_type}")
-            print(f"  HTTP_CONTENT_TYPE={http_content_type}")
-            print(f"  request.META keys with 'CONTENT' or 'TYPE': {[k for k in request.META.keys() if 'CONTENT' in k or 'TYPE' in k]}")
-            # Check if this looks like a multipart request
-            if 'multipart' in content_type.lower() or 'multipart' in http_content_type.lower():
-                print(f"  DEBUG: Content type suggests multipart, but FILES is empty - Django test client parsing issue")
-                print(f"  DEBUG: This is likely a Django test client bug. Files may need to be sent differently.")
+        # Only warn if FILES is empty when it shouldn't be:
+        # - Manual uploads (log1 expected in FILES)
+        # - Fetch operations with custom CTY file selected (fetch_custom_cty_file expected in FILES)
+        # - Multipart requests (suggests file upload was intended)
+        is_fetch_operation = 'fetch_callsigns' in request.POST
+        is_manual_upload = 'log1' in request.POST
+        is_multipart = 'multipart' in content_type.lower() or 'multipart' in http_content_type.lower()
+        fetch_cty_choice = request.POST.get('fetch_cty_file_choice', '')
+        expects_file = (
+            is_manual_upload or  # Manual upload always expects files
+            (is_fetch_operation and fetch_cty_choice == 'upload') or  # Fetch with custom CTY file selected
+            is_multipart  # Multipart suggests file upload was intended
+        )
+        
+        if request.method == 'POST' and not files_keys and expects_file:
+            # DIAGNOSTIC: Comprehensive logging to isolate the issue
+            # Using logger.warning() to ensure messages appear in Docker logs
+            logger.warning("========== FORM SUBMISSION DIAGNOSTICS ==========")
+            logger.warning(f"WARNING - POST request but FILES is empty when file(s) were expected.")
+            logger.warning(f"  CONTENT_TYPE={content_type}")
+            logger.warning(f"  HTTP_CONTENT_TYPE={http_content_type}")
+            logger.warning(f"  request.META keys with 'CONTENT' or 'TYPE': {[k for k in request.META.keys() if 'CONTENT' in k or 'TYPE' in k]}")
+            logger.warning(f"  POST keys: {list(request.POST.keys())}")
+            logger.warning(f"  FILES keys: {list(request.FILES.keys())}")
+            logger.warning(f"  Is fetch operation: {is_fetch_operation}")
+            logger.warning(f"  Is manual upload: {is_manual_upload}")
+            logger.warning(f"  Has fetch_cty_file_choice: {'fetch_cty_file_choice' in request.POST}")
+            if 'fetch_cty_file_choice' in request.POST:
+                logger.warning(f"  fetch_cty_file_choice value: {request.POST.get('fetch_cty_file_choice')}")
+            logger.warning(f"  Has fetch_custom_cty_file in POST: {'fetch_custom_cty_file' in request.POST}")
+            logger.warning(f"  Has fetch_custom_cty_file in FILES: {'fetch_custom_cty_file' in request.FILES}")
+            logger.warning(f"  Is multipart content type: {is_multipart}")
+            logger.warning(f"  Expects file: {expects_file}")
+            if is_multipart:
+                logger.warning(f"  Content type suggests multipart, but FILES is empty")
+                logger.warning(f"  This could indicate:")
+                logger.warning(f"    - Form enctype was set to multipart but no file was selected")
+                logger.warning(f"    - File input is outside the form element")
+                logger.warning(f"    - Browser/Django parsing issue")
+            logger.warning("=================================================")
+            logger.warning(f"WARNING - POST request but FILES is empty when file(s) were expected. CONTENT_TYPE={content_type}, HTTP_CONTENT_TYPE={http_content_type}")
         
         # Handle Manual Upload
         if 'log1' in request.FILES:
@@ -1193,6 +1237,7 @@ def view_report(request, session_id, file_path):
     """
     Wraps a generated report file in the application shell (header/footer).
     Supports 'chromeless' mode for iframe embedding and context-aware 'Back' links.
+    Also supports 'format=text' to return raw text content for AJAX fetching.
     """
 
     # Security Check: Verify file exists within the session
@@ -1204,6 +1249,20 @@ def view_report(request, session_id, file_path):
     # Extract query params
     source = request.GET.get('source')
     is_chromeless = request.GET.get('chromeless') == '1'
+    format_type = request.GET.get('format', '')
+
+    # If format=text, return raw text content for AJAX fetching
+    if format_type == 'text' and file_path.endswith('.txt'):
+        try:
+            with open(abs_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            from django.http import HttpResponse
+            response = HttpResponse(content, content_type='text/plain; charset=utf-8')
+            response['Content-Disposition'] = f'inline; filename="{os.path.basename(file_path)}"'
+            return response
+        except Exception as e:
+            logger.error(f"Error reading text file {abs_path}: {e}")
+            raise Http404("Error reading report file")
 
     # Determine Back Button Logic
     if source == 'main':
@@ -1848,6 +1907,8 @@ def multiplier_dashboard(request, session_id):
 
 def qso_dashboard(request, session_id):
     """Renders the dedicated QSO Reports Sub-Dashboard."""
+    from contest_tools.utils.callsign_utils import callsign_to_filename_part, parse_callsigns_from_filename_part
+    
     session_path = os.path.join(settings.MEDIA_ROOT, 'sessions', session_id)
     if not os.path.exists(session_path):
         raise Http404("Session not found")
@@ -2402,11 +2463,24 @@ def qso_dashboard(request, session_id):
     # Decouple base path from global_qso success. Use authoritative manifest path.
     report_base = report_rel_path
 
-    # Diagnostic: Verify individual rate sheets exist
+    # Diagnostic: Verify individual rate sheets exist (using manifest lookup, not direct filesystem access)
+    # Rate sheets use format: rate_sheet--{callsign}.txt (double dash, not underscore)
+    from contest_tools.utils.callsign_utils import callsign_to_filename_part
     for call in callsigns_safe:
-        expected_rate_sheet = os.path.join(session_path, report_rel_path, f"text/rate_sheet_{call.upper()}.txt")
-        if not os.path.exists(expected_rate_sheet):
-            logger.warning(f"QSO Dashboard: Expected rate sheet not found: {expected_rate_sheet}")
+        # Use manifest lookup to find rate sheet (matches generator format: rate_sheet--{callsign}.txt)
+        call_filename_part = callsign_to_filename_part(call)
+        rate_sheet_target = f"rate_sheet--{call_filename_part}.txt"
+        rate_sheet_found = next((f"{report_rel_path}/{a['path']}" for a in artifacts 
+                                if a['report_id'] == 'rate_sheet' 
+                                and a['path'].endswith(rate_sheet_target)), None)
+        if not rate_sheet_found:
+            # Fallback: check old format for backward compatibility
+            rate_sheet_old_format = f"rate_sheet_{call_filename_part}.txt"
+            rate_sheet_found = next((f"{report_rel_path}/{a['path']}" for a in artifacts 
+                                    if a['report_id'] == 'rate_sheet' 
+                                    and a['path'].endswith(rate_sheet_old_format)), None)
+        if not rate_sheet_found:
+            logger.warning(f"QSO Dashboard: Expected rate sheet not found for callsign '{call}'. Expected: '{rate_sheet_target}' (or old format: 'rate_sheet_{call_filename_part}.txt')")
 
     # Prepare valid_modes for template (similar to valid_bands_for_buttons)
     valid_modes_for_buttons = []

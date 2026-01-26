@@ -38,6 +38,7 @@
     display: grid;
     grid-template-columns: 140px 1fr;
     min-height: 140px;
+    overflow: hidden; /* Prevent outer container from scrolling */
 }
 .horiz-common {
     background-color: var(--bg-common);
@@ -47,6 +48,7 @@
     justify-content: center;
     align-items: center;
     position: relative;
+    flex-shrink: 0; /* Prevent shrinking */
 }
 .horiz-common::after {
     content: ''; position: absolute; right: -6px;
@@ -54,12 +56,53 @@
     border: 2px solid #d1d5db; border-left: none;
     border-radius: 0 8px 8px 0;
 }
-.horiz-strategy { padding: 1rem; display: flex; flex-direction: column;
-    gap: 0.5rem; position: relative; }
+.horiz-strategy { 
+    padding: 1rem; 
+    display: flex; 
+    flex-direction: column;
+    gap: 0.5rem; 
+    position: relative; /* Required for absolute positioning of grid lines and reference lines */
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    min-width: 0; /* Allow grid item to shrink below content size */
+    scrollbar-width: thin; /* Firefox */
+    scrollbar-color: #cbd5e0 #f7fafc; /* Firefox scrollbar colors */
+}
+.horiz-strategy::-webkit-scrollbar {
+    height: 8px;
+}
+.horiz-strategy::-webkit-scrollbar-track {
+    background: #f7fafc;
+    border-radius: 4px;
+}
+.horiz-strategy::-webkit-scrollbar-thumb {
+    background: #cbd5e0;
+    border-radius: 4px;
+}
+.horiz-strategy::-webkit-scrollbar-thumb:hover {
+    background: #a0aec0;
+}
+.horiz-strategy-content {
+    min-width: fit-content; /* Ensure content doesn't wrap */
+    width: 100%;
+}
 .bars-container { 
     position: relative;
 }
-.h-bar-row { display: grid; grid-template-columns: 80px 1fr 60px 60px; align-items: center; gap: 0.5rem; z-index: 2;
+.h-bar-row { 
+    display: grid; 
+    grid-template-columns: 80px 1fr 60px 60px; 
+    align-items: center; 
+    gap: 0.5rem; 
+    z-index: 2;
+    min-width: fit-content; /* Prevent wrapping */
+}
+.h-bar-row > div:first-child {
+    white-space: nowrap; /* Prevent callsign wrapping */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 80px; /* Ensure minimum width for callsign */
 }
 .h-bar-track { height: 28px; background: transparent; width: 100%; display: flex; align-items: center; position: relative; }
 .h-bar-fill { height: 100%; display: flex; border-radius: 4px;
@@ -107,6 +150,7 @@
     font-size: 0.7rem;
     font-weight: 700;
     color: #6b7280;
+    min-width: fit-content; /* Prevent wrapping */
 }
 .x-axis-scale {
     position: relative;
@@ -120,6 +164,7 @@
     position: absolute;
     top: 0; bottom: 25px; left: 88px; right: 128px;
     pointer-events: none; z-index: 1;
+    min-width: 400px; /* Ensure grid lines extend properly */
 }
 .v-grid-line {
     position: absolute;
@@ -230,4 +275,125 @@
     color: #000000;
     background: #f8fafc; border-top: 1px solid #e5e7eb;
     white-space: nowrap; overflow: hidden;
+}
+
+/* Horizontal Scrolling Container for Text Reports */
+/* Analysis Reports: Simplified horizontal scrolling structure */
+#analysisTabsContent {
+    width: 100%; /* Expand to fill available width */
+    position: relative; /* Establish positioning context for children */
+}
+
+#analysisTabsContent .tab-pane {
+    width: 100%; /* Expand to fill container width */
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e0 #f7fafc;
+    padding: 0; /* Remove Bootstrap default padding that creates blank space */
+    margin: 0;
+    position: relative; /* Establish positioning context */
+    min-height: 0; /* Allow tab-pane to shrink to content */
+    height: auto; /* Ensure height is based on content, not fixed */
+}
+
+/* Bootstrap's .fade class can cause layout issues - ensure proper display */
+#analysisTabsContent .tab-pane:not(.show) {
+    display: none !important; /* Bootstrap default - ensure it's applied */
+}
+
+#analysisTabsContent .tab-pane.show {
+    display: block !important; /* Override any conflicting display values */
+}
+
+/* Ensure reports-grid is positioned at the top when tab is active */
+#analysisTabsContent .tab-pane.show .reports-grid {
+    margin-top: 0;
+    padding-top: 0;
+    position: relative; /* Reset any absolute positioning */
+    top: 0; /* Explicitly position at top */
+    align-self: flex-start; /* If parent becomes flex, align to start */
+}
+
+#analysisTabsContent .tab-pane::-webkit-scrollbar {
+    height: 8px;
+}
+
+#analysisTabsContent .tab-pane::-webkit-scrollbar-track {
+    background: #f7fafc;
+    border-radius: 4px;
+}
+
+#analysisTabsContent .tab-pane::-webkit-scrollbar-thumb {
+    background: #cbd5e0;
+    border-radius: 4px;
+}
+
+#analysisTabsContent .tab-pane::-webkit-scrollbar-thumb:hover {
+    background: #a0aec0;
+}
+
+.reports-grid {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 1rem;
+    padding-bottom: 1rem;
+    width: max-content;
+    /* Removed min-width: 100% - causes blank row and unnecessary scrollbar */
+    align-items: flex-start; /* Align cards to top */
+    margin-top: 0 !important; /* Ensure grid starts at top of container - use !important to override any conflicting styles */
+    padding-top: 0 !important; /* Remove any top padding that could create blank space */
+    position: relative; /* Ensure proper positioning */
+    top: 0; /* Explicitly position at top */
+}
+
+.report-card {
+    flex: 0 0 auto;
+    /* Width will be set dynamically by JavaScript based on content */
+    min-width: 400px; /* Minimum width to prevent cards from being too narrow */
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.report-header {
+    background: white;
+    padding: 0.75rem 1rem; /* Bootstrap card-header default */
+    border-bottom: 1px solid rgba(0,0,0,0.125); /* Bootstrap card-header border */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0; /* Prevent header from shrinking */
+}
+
+.report-content {
+    height: 500px;
+    overflow-y: auto;
+    overflow-x: hidden; /* Prevent horizontal scrollbar - card width is already calculated to fit content */
+    padding: 1rem;
+    flex: 1 1 auto;
+}
+
+.report-content pre {
+    margin: 0;
+    font-family: 'Courier New', 'Courier', monospace;
+    font-size: 12px;
+    line-height: 1.4;
+    white-space: pre; /* Preserves formatting, prevents wrapping */
+    width: max-content; /* Size to content width - natural width of longest line */
+    /* NO min-width or max-width - let content determine width naturally */
+    display: block; /* Ensure it's a block element for proper measurement */
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .report-card {
+        width: 100%;
+        min-width: 100%;
+        max-width: 100%;
+    }
 }

@@ -1128,6 +1128,30 @@ AI:
 - **Wait for explicit user guidance** before proceeding
 - **For complete procedures, see:** `Docs/VersionManagement.md` Section 5
 
+## Logging Rules
+
+### CRITICAL: Log Level Requirements for Docker Visibility
+
+**AI agents MUST use WARNING or ERROR level for all logging that needs to appear in Docker logs.**
+
+**Rule:** The project's default logging level is `WARNING` (see `web_app/config/settings.py`):
+- `INFO` level logs are **NOT visible** in Docker logs at default settings
+- `WARNING` and `ERROR` level logs **ARE visible** in Docker logs at default settings
+- `DEBUG` level logs are **NOT visible** in Docker logs at default settings
+- Messages at `INFO` or `DEBUG` level will be silently ignored, making debugging impossible
+
+**When to Use Each Level:**
+- **`logger.error()`**: Critical errors, exceptions, failures that require immediate attention
+- **`logger.warning()`**: Warnings, non-critical issues, diagnostic information that should be visible
+- **`logger.info()`**: Only use when `CLA_PROFILE=1` is explicitly enabled (performance profiling)
+- **`logger.debug()`**: Never use (not visible in Docker logs at default settings)
+
+**Agent Behavior:**
+- **For diagnostic/troubleshooting messages**: Always use `logger.warning()` or `logger.error()`
+- **For error conditions**: Use `logger.error()` or `logger.warning()` depending on severity
+- **For informational messages**: Only use `logger.info()` if `CLA_PROFILE=1` is enabled
+- **Never use `print()` for messages that need to appear in Docker logs** - use logger instead
+
 ### CRITICAL: Diagnostic Logging Rules
 
 **AI agents MUST use WARNING or ERROR level for diagnostic logging, NOT INFO level.**
@@ -1138,6 +1162,7 @@ AI:
 - **[REQUIRED] Use `[DIAG]` prefix** for all diagnostic messages (mandatory, not optional)
 - **[X] Never use `logger.info()`** for diagnostics (unless CLA_PROFILE=1 is explicitly enabled)
 - **[X] Never omit the `[DIAG]` prefix** from diagnostic messages
+- **[X] Never use `print()`** for diagnostic messages that need to appear in Docker logs
 
 #### Why This Matters
 
@@ -1146,6 +1171,7 @@ The project's default logging level is `WARNING` (see `web_app/config/settings.p
 - `WARNING` and `ERROR` level logs **ARE visible** at default settings
 - Diagnostic messages at `INFO` level will be silently ignored, making debugging impossible
 - The `[DIAG]` prefix allows easy filtering and identification of diagnostic messages in logs
+- `print()` statements go to stdout/stderr but may not be properly formatted or filtered in Docker logs
 
 #### When Adding Diagnostics
 
@@ -1166,6 +1192,14 @@ logger.info(f"Form validation failed: {form.errors}")
 # WRONG: Missing [DIAG] prefix (required for all diagnostic messages)
 logger.warning(f"Processing {call} {mult_name} for sum_by_band")
 logger.error(f"Form validation failed: {form.errors}")
+
+# WRONG: print() statements won't be properly formatted in Docker logs
+print(f"DEBUG: Form submission diagnostics")
+print(f"  CONTENT_TYPE={content_type}")
+
+# CORRECT: Use logger.warning() instead
+logger.warning(f"[DIAG] Form submission diagnostics")
+logger.warning(f"  CONTENT_TYPE={content_type}")
 ```
 
 #### Best Practices
@@ -1555,6 +1589,7 @@ For complex multi-session workflows, a `HANDOVER.md` file may exist at the repos
 
 **Agent Behavior:**
 - When creating diagnostic/temporary scripts, place them in `test_code/` or `test_code/subdirectory/`
+- **Standard location for temporary scripts:** `regression_baselines/test_code/temp_scripts/` (gitignored, auto-generated)
 - When creating mockup generators or mockup files, place them in `test_code/mockups/`
 - Do NOT add such scripts to `contest_tools/utils/`, `tools/`, or other production directories
 - If a script needs to become production code, refactor and move it appropriately (e.g., `contest_tools/utils/`)

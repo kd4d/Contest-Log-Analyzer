@@ -23,6 +23,7 @@ from typing import Dict, Any, Set, Tuple, Optional
 
 from ..contest_definitions import ContestDefinition
 from ..core_annotations._iaru_mult_utils import load_officials_set, resolve_iaru_hq_official
+from ..core_annotations._core_utils import normalize_zone
 
 def _resolve_row(row: pd.Series, officials_set: Set[str]) -> Dict[str, Optional[str]]:
     """
@@ -79,6 +80,12 @@ def resolve_multipliers(df: pd.DataFrame, my_location_type: str, root_input_dir:
         target_column = rule.get('value_column')
         data_key = RULE_TO_KEY_MAP.get(rule.get('name'))
         if target_column and data_key:
-            df[target_column] = categorized_mults.apply(lambda x: x.get(data_key))
+            zone_values = categorized_mults.apply(lambda x: x.get(data_key))
+            
+            # Normalize zone values to two-digit format (IARU HF uses ITU Zones: 1-90)
+            if data_key == 'zone':
+                df[target_column] = zone_values.apply(lambda x: normalize_zone(x, zone_type='itu'))
+            else:
+                df[target_column] = zone_values
     
     return df

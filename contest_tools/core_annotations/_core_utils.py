@@ -17,7 +17,7 @@ import pandas as pd
 import os
 import re
 import logging
-from typing import Dict, Tuple, Optional, Set, List
+from typing import Dict, Tuple, Optional, Set, List, Any
 
 class AliasLookup:
     """
@@ -134,3 +134,50 @@ class AliasLookup:
         Returns the section category for a given official multiplier abbreviation.
         """
         return self.multiplier_to_category.get(multiplier)
+
+
+def normalize_zone(zone_value, zone_type='cq') -> Any:
+    """
+    Normalizes a zone value to a fixed two-digit format with leading zeros.
+    
+    This function handles both CQ Zones (1-40) and ITU Zones (1-90) to ensure
+    consistent formatting in multiplier columns, dataframes, and CSV exports.
+    For example, "5" becomes "05", "05" stays "05", and "40" stays "40".
+    
+    Args:
+        zone_value: The zone value to normalize (can be string, int, float, or pd.NA)
+        zone_type: Either 'cq' for CQ Zones (1-40) or 'itu' for ITU Zones (1-90)
+    
+    Returns:
+        A two-digit string representation (e.g., "01", "05", "40") or pd.NA if invalid
+    """
+    # Handle missing/NaN values
+    if pd.isna(zone_value) or zone_value is None:
+        return pd.NA
+    
+    # Convert to string and strip whitespace
+    zone_str = str(zone_value).strip()
+    
+    # Remove leading zeros for validation (but we'll add them back)
+    zone_str_clean = zone_str.lstrip('0') or '0'
+    
+    try:
+        zone_int = int(zone_str_clean)
+    except (ValueError, TypeError):
+        # If it's not a valid integer, return pd.NA
+        return pd.NA
+    
+    # Validate range based on zone type
+    if zone_type.lower() == 'cq':
+        if zone_int < 1 or zone_int > 40:
+            return pd.NA
+    elif zone_type.lower() == 'itu':
+        if zone_int < 1 or zone_int > 90:
+            return pd.NA
+    else:
+        # Unknown zone type, but still normalize if it's a valid number
+        # This allows for future zone types
+        pass
+    
+    # Format as two-digit string with leading zero
+    return f"{zone_int:02d}"

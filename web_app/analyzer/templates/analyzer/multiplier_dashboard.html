@@ -94,24 +94,25 @@
             {% endif %}
             
             <div class="horiz-strategy">
-                <div class="grid-lines-container">
-                    <div class="v-grid-line" style="left: 0%"></div>
-                    <div class="v-grid-line" style="left: 25%"></div>
-                    <div class="v-grid-line" style="left: 50%"></div>
-                    <div class="v-grid-line" style="left: 75%"></div>
-                    {% if not is_sweepstakes or not fixed_multiplier_max %}
-                    <div class="v-grid-line" style="left: 100%"></div>
+                <div class="horiz-strategy-content">
+                    <div class="grid-lines-container">
+                        <div class="v-grid-line" style="left: 0%"></div>
+                        <div class="v-grid-line" style="left: 25%"></div>
+                        <div class="v-grid-line" style="left: 50%"></div>
+                        <div class="v-grid-line" style="left: 75%"></div>
+                        {% if not is_sweepstakes or not fixed_multiplier_max %}
+                        <div class="v-grid-line" style="left: 100%"></div>
+                        {% endif %}
+                    </div>
+
+                    {% if is_sweepstakes and fixed_multiplier_max %}
+                    {# Reference line at 100% (x=85) - positioned in same container as bars for precise alignment #}
+                    <div class="h-bar-reference-line-container">
+                        <div class="h-bar-reference-line"></div>
+                    </div>
                     {% endif %}
-                </div>
 
-                {% if is_sweepstakes and fixed_multiplier_max %}
-                {# Reference line at 100% (x=85) - positioned in same container as bars for precise alignment #}
-                <div class="h-bar-reference-line-container">
-                    <div class="h-bar-reference-line"></div>
-                </div>
-                {% endif %}
-
-                {% for stat in row.stations %}
+                    {% for stat in row.stations %}
                 {% with total_unique=stat.unique_run|add:stat.unique_sp|add:stat.unique_unk %}
                 {% with scale_max=fixed_multiplier_max|default:row.max_unique %}
                 {# For Sweepstakes, use stat.count (all multipliers) for both bar width AND color breakdown #}
@@ -151,22 +152,23 @@
                     {% endwith %}
                     {% endwith %}
                 {% endif %}
-                {% endwith %}
-                {% endwith %}
-                {% endfor %}
-        
-                <div class="x-axis-row">
-                    <div></div>
-                    <div class="x-axis-scale" style="position: relative;">
-                        {% with scale_max=fixed_multiplier_max|default:row.max_unique %}
-                        <span class="tick-label" style="left: 0%">0</span>
-                        <span class="tick-label" style="left: 25%">{% widthratio scale_max 4 1 %}</span>
-                        <span class="tick-label" style="left: 50%">{% widthratio scale_max 2 1 %}</span>
-                        <span class="tick-label" style="left: 75%">{% widthratio scale_max 4 3 %}</span>
-                        <span class="tick-label" style="left: 100%; {% if is_sweepstakes and fixed_multiplier_max %}font-weight: bold; color: #000;{% endif %}">{{ scale_max }}</span>
-                        {% endwith %}
+                    {% endwith %}
+                    {% endwith %}
+                    {% endfor %}
+            
+                    <div class="x-axis-row">
+                        <div></div>
+                        <div class="x-axis-scale" style="position: relative;">
+                            {% with scale_max=fixed_multiplier_max|default:row.max_unique %}
+                            <span class="tick-label" style="left: 0%">0</span>
+                            <span class="tick-label" style="left: 25%">{% widthratio scale_max 4 1 %}</span>
+                            <span class="tick-label" style="left: 50%">{% widthratio scale_max 2 1 %}</span>
+                            <span class="tick-label" style="left: 75%">{% widthratio scale_max 4 3 %}</span>
+                            <span class="tick-label" style="left: 100%; {% if is_sweepstakes and fixed_multiplier_max %}font-weight: bold; color: #000;{% endif %}">{{ scale_max }}</span>
+                            {% endwith %}
+                        </div>
+                        <div></div><div></div>
                     </div>
-                    <div></div><div></div>
                 </div>
             </div>
        </div>
@@ -273,9 +275,9 @@
                                 {% endfor %}
                                 {% endif %}
      
-                                <div class="d-flex" style="background:#f8fafc;">
+                                <div class="d-flex" style="background:#f8fafc; justify-content: space-around;">
                                     {% for call in all_calls %}
-                                      <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>
+                                      <div class="vert-footer" style="width: 30%;">{{ call }}</div>
                                     {% endfor %}
                                 </div>
                                {% endif %}
@@ -322,9 +324,9 @@
                                 {% endfor %}
                                 {% endif %}
      
-                                <div class="d-flex" style="background:#f8fafc;">
+                                <div class="d-flex" style="background:#f8fafc; justify-content: space-around;">
                                     {% for call in all_calls %}
-                                      <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>
+                                      <div class="vert-footer" style="width: 30%;">{{ call }}</div>
                                     {% endfor %}
                                 </div>
                            {% endif %}
@@ -401,9 +403,9 @@
                            {% endfor %}
                            {% endif %}
      
-                            <div class="d-flex" style="background:#f8fafc;">
+                            <div class="d-flex" style="background:#f8fafc; justify-content: space-around;">
                                 {% for call in all_calls %}
-                                <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>
+                                <div class="vert-footer" style="width: 30%;">{{ call }}</div>
                                 {% endfor %}
                             </div>
                                 {% endif %}
@@ -450,9 +452,9 @@
                            {% endfor %}
                            {% endif %}
      
-                            <div class="d-flex" style="background:#f8fafc;">
+                            <div class="d-flex" style="background:#f8fafc; justify-content: space-around;">
                                 {% for call in all_calls %}
-                                <div class="vert-footer" style="width: 33.3%;">{{ call }}</div>
+                                <div class="vert-footer" style="width: 30%;">{{ call }}</div>
                                 {% endfor %}
                             </div>
                                 {% endif %}
@@ -511,54 +513,49 @@
     <div class="tab-content" id="analysisTabsContent">
         {% if not is_solo %}
         <div class="tab-pane fade show active" id="session" role="tabpanel" aria-labelledby="session-tab">
-            <div class="row row-cols-1 row-cols-md-2 row-cols-xl-4 g-4">
-                {% for mult in multipliers %}
-                    {% if mult.session.missed %}
-                    <div class="col">
-                        <div class="card h-100 shadow-sm border-0">
-                            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <div class="reports-grid">
+                    {% for mult in multipliers %}
+                        {% if mult.session.missed %}
+                        <div class="report-card" data-report-url="{% url 'view_report' session_id mult.session.missed %}?format=text">
+                            <div class="report-header">
                                 <span class="fw-bold text-danger">Missed: {{ mult.label }}</span>
                                 <a href="{% url 'view_report' session_id mult.session.missed %}?source=mult" target="_blank" class="btn btn-sm btn-link text-muted p-0" title="Full Screen">
                                     <i class="bi bi-box-arrow-up-right"></i>
                                 </a>
                             </div>
-                            <div class="card-body p-0" style="height: 500px;">
-                                <iframe src="{% url 'view_report' session_id mult.session.missed %}?chromeless=1" style="width: 100%; height: 100%; border: none;"></iframe>
+                            <div class="report-content">
+                                <pre></pre>
                             </div>
                         </div>
-                    </div>
-                    {% endif %}
-                {% empty %}
-                     <div class="col-12 text-muted">No Missed Multiplier reports generated.</div>
-                {% endfor %}
-                {% if enhanced_missed_mult_rel_path %}
-                <div class="col">
-                    <div class="card h-100 shadow-sm border-0">
-                        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        {% endif %}
+                    {% empty %}
+                         <div class="text-muted p-3">No Missed Multiplier reports generated.</div>
+                    {% endfor %}
+                    {% if enhanced_missed_mult_rel_path %}
+                    <div class="report-card" data-report-url="{% url 'view_report' session_id enhanced_missed_mult_rel_path %}?format=text">
+                        <div class="report-header">
                             <span class="fw-bold text-primary">Enhanced Missed Multipliers</span>
                             <a href="{% url 'view_report' session_id enhanced_missed_mult_rel_path %}?source=mult" target="_blank" class="btn btn-sm btn-link text-muted p-0" title="Full Screen">
                                 <i class="bi bi-box-arrow-up-right"></i>
                             </a>
                         </div>
-                        <div class="card-body p-0" style="height: 500px;">
-                            <iframe src="{% url 'view_report' session_id enhanced_missed_mult_rel_path %}?chromeless=1" style="width: 100%; height: 100%; border: none;"></iframe>
+                        <div class="report-content">
+                            <pre></pre>
                         </div>
                     </div>
-                </div>
-                {% endif %}
+                    {% endif %}
             </div>
         </div>
         {% endif %}
 
         {% if not is_solo %}
         <div class="tab-pane fade" id="pairs" role="tabpanel" aria-labelledby="pairs-tab">
-             <div class="row row-cols-1 row-cols-md-2 row-cols-xl-4 g-4">
-                {% for mult in multipliers %}
-                    {% for pair in mult.pairs %}
-                        {% if pair.missed %}
-                        <div class="col">
-                            <div class="card h-100 shadow-sm border-0">
-                                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <div class="reports-grid">
+                    {% for mult in multipliers %}
+                        {% for pair in mult.pairs %}
+                            {% if pair.missed %}
+                            <div class="report-card" data-report-url="{% url 'view_report' session_id pair.missed %}?format=text">
+                                <div class="report-header">
                                     <div>
                                         <span class="d-block fw-bold text-dark small">{{ pair.label }}</span>
                                         <span class="fw-bold text-danger small">Missed {{ mult.label }}</span>
@@ -567,27 +564,25 @@
                                         <i class="bi bi-box-arrow-up-right"></i>
                                     </a>
                                 </div>
-                                <div class="card-body p-0" style="height: 500px;">
-                                    <iframe src="{% url 'view_report' session_id pair.missed %}?chromeless=1" style="width: 100%; height: 100%; border: none;"></iframe>
+                                <div class="report-content">
+                                    <pre></pre>
                                 </div>
                             </div>
-                        </div>
-                        {% endif %}
+                            {% endif %}
+                        {% endfor %}
                     {% endfor %}
-                {% endfor %}
-             </div>
-        </div>
+                </div>
+            </div>
         {% endif %}
 
         {% if not is_solo %}
         <div class="tab-pane fade" id="singles" role="tabpanel" aria-labelledby="singles-tab">
-             <div class="row row-cols-1 row-cols-md-2 row-cols-xl-4 g-4">
-                {% for mult in multipliers %}
-                    {% for single in mult.singles %}
-                        {% if single.summary %}
-                        <div class="col">
-                            <div class="card h-100 shadow-sm border-0">
-                                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <div class="reports-grid">
+                    {% for mult in multipliers %}
+                        {% for single in mult.singles %}
+                            {% if single.summary %}
+                            <div class="report-card" data-report-url="{% url 'view_report' session_id single.summary %}?format=text">
+                                <div class="report-header">
                                     <div>
                                         <span class="d-block fw-bold text-dark small">{{ single.label }}</span>
                                         <span class="fw-bold text-primary small">{{ mult.label }} Checklist</span>
@@ -596,48 +591,43 @@
                                         <i class="bi bi-box-arrow-up-right"></i>
                                     </a>
                                 </div>
-                                <div class="card-body p-0" style="height: 500px;">
-                                    <iframe src="{% url 'view_report' session_id single.summary %}?chromeless=1" style="width: 100%; height: 100%; border: none;"></iframe>
+                                <div class="report-content">
+                                    <pre></pre>
                                 </div>
                             </div>
-                        </div>
-                        {% endif %}
+                            {% endif %}
+                        {% endfor %}
                     {% endfor %}
-                {% endfor %}
-             </div>
-        </div>
+                </div>
+            </div>
         {% endif %}
 
         <div class="tab-pane fade {% if is_solo %}show active{% endif %}" id="breakdown" role="tabpanel" aria-labelledby="breakdown-tab">
-            <div class="row row-cols-1 row-cols-md-2 row-cols-xl-4 g-4">
+            <div class="reports-grid">
                 {% if breakdown_txt_url %}
-                <div class="col">
-                    <div class="card h-100 shadow-sm border-0">
-                        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <div class="report-card" data-report-url="{% url 'view_report' session_id breakdown_txt_url %}?format=text">
+                        <div class="report-header">
                             <span class="fw-bold text-primary">Summary Breakdown</span>
                             <a href="{% url 'view_report' session_id breakdown_txt_url %}" target="_blank" class="btn btn-sm btn-link text-muted p-0" title="Full Screen"><i class="bi bi-box-arrow-up-right"></i></a>
                         </div>
-                        <div class="card-body p-0" style="height: 500px;">
-                            <iframe src="{% url 'view_report' session_id breakdown_txt_url %}?chromeless=1" style="width: 100%; height: 100%; border: none;"></iframe>
+                        <div class="report-content">
+                            <pre></pre>
                         </div>
-                    </div>
                 </div>
                 {% endif %}
 
                 {% for mult in multipliers %}
                     {% if mult.session.summary %}
-                    <div class="col">
-                        <div class="card h-100 shadow-sm border-0">
-                            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <div class="report-card" data-report-url="{% url 'view_report' session_id mult.session.summary %}?format=text">
+                            <div class="report-header">
                                 <span class="fw-bold text-info">Breakdown: {{ mult.label }}</span>
                                 <a href="{% url 'view_report' session_id mult.session.summary %}?source=mult" target="_blank" class="btn btn-sm btn-link text-muted p-0" title="Full Screen">
                                     <i class="bi bi-box-arrow-up-right"></i>
                                 </a>
                             </div>
-                            <div class="card-body p-0" style="height: 500px;">
-                                <iframe src="{% url 'view_report' session_id mult.session.summary %}?chromeless=1" style="width: 100%; height: 100%; border: none;"></iframe>
+                            <div class="report-content">
+                                <pre></pre>
                             </div>
-                        </div>
                     </div>
                     {% endif %}
                 {% endfor %}
@@ -646,20 +636,18 @@
 
         {% if enhanced_missed_mult_rel_path %}
         <div class="tab-pane fade" id="enhanced-missed" role="tabpanel" aria-labelledby="enhanced-missed-tab">
-            <div class="row row-cols-1">
-                <div class="col">
-                    <div class="card h-100 shadow-sm border-0">
-                        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <div class="reports-grid">
+                    <div class="report-card" data-report-url="{% url 'view_report' session_id enhanced_missed_mult_rel_path %}?format=text">
+                        <div class="report-header">
                             <span class="fw-bold text-primary">Enhanced Missed Multipliers Breakdown</span>
                             <a href="{% url 'view_report' session_id enhanced_missed_mult_rel_path %}?source=mult" target="_blank" class="btn btn-sm btn-link text-muted p-0" title="Full Screen">
                                 <i class="bi bi-box-arrow-up-right"></i>
                             </a>
                         </div>
-                        <div class="card-body p-0" style="height: 500px;">
-                            <iframe src="{% url 'view_report' session_id enhanced_missed_mult_rel_path %}?chromeless=1" style="width: 100%; height: 100%; border: none;"></iframe>
+                        <div class="report-content">
+                            <pre></pre>
                         </div>
                     </div>
-                </div>
             </div>
         </div>
         {% endif %}
@@ -745,6 +733,215 @@
         var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
         var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
             return new bootstrap.Tooltip(tooltipTriggerEl)
+        });
+
+        // Cache for loaded text content to avoid re-fetching
+        const textContentCache = new Map();
+
+        // Load and render text report in a card
+        function loadTextReport(card) {
+            const reportUrl = card.getAttribute('data-report-url');
+            if (!reportUrl) return;
+
+            // If already loaded, only resize if the card is in a visible tab
+            // resizeCard() will check visibility itself, but we can skip the call if tab is hidden
+            if (card.dataset.loaded === 'true') {
+                const tabPane = card.closest('.tab-pane');
+                if (tabPane) {
+                    const paneStyle = window.getComputedStyle(tabPane);
+                    // Only resize if tab is visible
+                    if (paneStyle.display !== 'none') {
+                        // Use requestAnimationFrame to ensure tab is fully painted before measuring
+                        requestAnimationFrame(function() {
+                            setTimeout(function() {
+                                resizeCard(card);
+                                // Recalculate after a brief delay to account for scrollbar appearance
+                                setTimeout(function() {
+                                    resizeCard(card);
+                                }, 50);
+                            }, 10);
+                        });
+                    }
+                }
+                return;
+            }
+
+            const preElement = card.querySelector('.report-content pre');
+            if (!preElement) return;
+
+            // Show loading state
+            preElement.textContent = 'Loading...';
+
+            // Check cache first
+            if (textContentCache.has(reportUrl)) {
+                renderTextContent(card, textContentCache.get(reportUrl));
+                return;
+            }
+
+            // Fetch text content
+            fetch(reportUrl)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.text();
+                })
+                .then(text => {
+                    // Cache the content
+                    textContentCache.set(reportUrl, text);
+                    renderTextContent(card, text);
+                })
+                .catch(error => {
+                    console.error('[DIAG] Error loading text report:', error);
+                    preElement.textContent = 'Error loading report. Please try the full screen view.';
+                    // Set default width on error
+                    setDefaultWidth(card);
+                });
+        }
+
+        // Render text content in <pre> element
+        function renderTextContent(card, text) {
+            const preElement = card.querySelector('.report-content pre');
+            if (!preElement) return;
+
+            preElement.textContent = text;
+            card.dataset.loaded = 'true';
+
+            // Small delay to ensure DOM is updated, then measure and resize
+            // Use requestAnimationFrame to ensure layout is complete
+            requestAnimationFrame(function() {
+                setTimeout(function() {
+                    resizeCard(card);
+                    // Recalculate after a brief delay to account for scrollbar appearance
+                    setTimeout(function() {
+                        resizeCard(card);
+                    }, 50);
+                }, 10);
+            });
+        }
+
+        // Resize card based on <pre> content width
+        function resizeCard(card) {
+            const preElement = card.querySelector('.report-content pre');
+            const reportContent = card.querySelector('.report-content');
+            if (!preElement || !reportContent) return;
+
+            // CRITICAL: Don't resize if card or its tab-pane is hidden (display: none)
+            // scrollWidth returns 0 for hidden elements, causing cards to be set to minimum width
+            const tabPane = card.closest('.tab-pane');
+            if (tabPane) {
+                const paneStyle = window.getComputedStyle(tabPane);
+                if (paneStyle.display === 'none') {
+                    // Tab is hidden - don't resize, preserve existing width or skip
+                    return;
+                }
+            }
+            
+            // Also check if card itself is visible
+            const cardStyle = window.getComputedStyle(card);
+            if (cardStyle.display === 'none' || cardStyle.visibility === 'hidden') {
+                return;
+            }
+
+            // Measure the natural content width (only works when element is visible)
+            const contentWidth = preElement.scrollWidth;
+            
+            // If scrollWidth is 0 or very small, element might not be fully rendered yet
+            // Don't resize in this case - wait for proper measurement
+            if (contentWidth === 0 || contentWidth < 100) {
+                return;
+            }
+            
+            // Get actual padding from computed styles (more accurate than hardcoded)
+            const contentStyle = window.getComputedStyle(reportContent);
+            const paddingLeft = parseFloat(contentStyle.paddingLeft) || 0;
+            const paddingRight = parseFloat(contentStyle.paddingRight) || 0;
+            const padding = paddingLeft + paddingRight;
+            
+            // Account for vertical scrollbar width if present
+            // Check if vertical scrollbar is needed (content height > container height)
+            const needsVerticalScrollbar = reportContent.scrollHeight > reportContent.clientHeight;
+            let scrollbarWidth = 0;
+            
+            if (needsVerticalScrollbar) {
+                // Measure actual scrollbar width
+                scrollbarWidth = reportContent.offsetWidth - reportContent.clientWidth;
+                // If measurement is 0 (scrollbar not yet rendered), use typical width (15-17px)
+                if (scrollbarWidth === 0) {
+                    scrollbarWidth = 17; // Typical scrollbar width on Windows
+                }
+            }
+            
+            // Calculate card width: content + padding + scrollbar (if any)
+            const cardWidth = Math.max(contentWidth + padding + scrollbarWidth, 400); // Minimum 400px
+
+            // Set card width
+            card.style.width = cardWidth + 'px';
+            card.style.minWidth = cardWidth + 'px';
+            card.style.maxWidth = cardWidth + 'px';
+        }
+
+        // Set default width fallback
+        function setDefaultWidth(card) {
+            const defaultWidth = 600;
+            card.style.width = defaultWidth + 'px';
+            card.style.minWidth = defaultWidth + 'px';
+            card.style.maxWidth = defaultWidth + 'px';
+        }
+
+        // Load all reports in a tab pane
+        function loadReportsInPane(pane) {
+            if (!pane) return;
+            const cards = pane.querySelectorAll('.report-card[data-report-url]');
+            cards.forEach(function(card) {
+                loadTextReport(card);
+            });
+        }
+
+        // Load reports when tab is shown
+        function handleTabShow(event) {
+            const targetId = event.target.getAttribute('data-bs-target');
+            const pane = document.querySelector(targetId);
+            if (pane) {
+                // Use double requestAnimationFrame to ensure tab is fully visible and painted
+                // First frame: tab becomes visible
+                // Second frame: layout is complete and measurements are accurate
+                requestAnimationFrame(function() {
+                    requestAnimationFrame(function() {
+                        // Small delay to ensure scrollbars are rendered
+                        setTimeout(function() {
+                            loadReportsInPane(pane);
+                            // Resize all cards in the pane after content is loaded
+                            const cards = pane.querySelectorAll('.report-card[data-loaded="true"]');
+                            cards.forEach(function(card) {
+                                resizeCard(card);
+                            });
+                            // Final resize after scrollbars appear
+                            setTimeout(function() {
+                                cards.forEach(function(card) {
+                                    resizeCard(card);
+                                });
+                            }, 50);
+                        }, 10);
+                    });
+                });
+            }
+        }
+
+        // Load reports in initially visible tab
+        const activeTab = document.querySelector('#analysisTabs .nav-link.active');
+        if (activeTab) {
+            const targetId = activeTab.getAttribute('data-bs-target');
+            const activePane = document.querySelector(targetId);
+            if (activePane) {
+                loadReportsInPane(activePane);
+            }
+        }
+
+        // Listen for tab changes
+        const analysisTabs = document.querySelectorAll('#analysisTabs button[data-bs-toggle="tab"]');
+        analysisTabs.forEach(function(tab) {
+            tab.addEventListener('shown.bs.tab', handleTabShow);
         });
     });
 </script>

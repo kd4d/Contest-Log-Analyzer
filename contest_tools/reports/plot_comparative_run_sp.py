@@ -29,6 +29,7 @@ from .report_interface import ContestReport
 from contest_tools.utils.report_utils import get_valid_dataframe, create_output_directory, save_debug_data, get_standard_footer, get_standard_title_lines
 from ..data_aggregators.matrix_stats import MatrixAggregator
 from ..styles.plotly_style_manager import PlotlyStyleManager
+from ..utils.callsign_utils import callsign_to_filename_part
 
 class Report(ContestReport):
     """
@@ -182,7 +183,7 @@ class Report(ContestReport):
         
         # --- Save Files ---
         mode_filename_str = f"_{mode_filter.lower()}" if mode_filter else ""
-        base_filename = f"{self.report_id}{mode_filename_str}_{call1}_vs_{call2}{page_file_suffix}"
+        base_filename = f"{self.report_id}{mode_filename_str}--{callsign_to_filename_part(call1)}_{callsign_to_filename_part(call2)}{page_file_suffix}"
         
         html_path = os.path.join(output_path, f"{base_filename}.html")
         png_path = os.path.join(output_path, f"{base_filename}.png")

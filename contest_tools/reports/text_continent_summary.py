@@ -20,6 +20,7 @@ from ..contest_log import ContestLog
 from .report_interface import ContestReport
 from contest_tools.utils.report_utils import format_text_header, get_standard_footer, get_standard_title_lines
 from ..data_aggregators.categorical_stats import CategoricalAggregator
+from ..utils.callsign_utils import callsign_to_filename_part
 
 class Report(ContestReport):
     """
@@ -139,7 +140,7 @@ class Report(ContestReport):
             report_content = "\n".join(report_lines) + "\n\n" + standard_footer + "\n"
             os.makedirs(output_path, exist_ok=True)
             
-            filename = f"{self.report_id}_{callsign}.txt"
+            filename = f"{self.report_id}--{callsign_to_filename_part(callsign)}.txt"
             filepath = os.path.join(output_path, filename)
             
             with open(filepath, 'w', encoding='utf-8') as f:

@@ -23,6 +23,7 @@ web_app/config/settings_local.py
 Archives/
 *_bundle.txt
 test_code/
+test_output/
 # Regression test baselines (local git repo, never pushed)
 regression_baselines/
 !regression_baselines/README.md
