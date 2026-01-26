@@ -278,10 +278,12 @@
                             data-full-src="{% url 'view_report' session_id rate_sheet_comparison %}?source=qso">Comparison (All Logs)</option>
                 {% endif %}
                 {% for call in callsigns %}
+                    {% if rate_sheet_urls|get_item:call %}
                     <option value="{{ call }}"
-                            data-src="{% url 'view_report' session_id report_base|add:'/text/rate_sheet_'|add:call|add:'.txt' %}?chromeless=1"
-                            data-full-src="{% url 'view_report' session_id report_base|add:'/text/rate_sheet_'|add:call|add:'.txt' %}?source=qso"
+                            data-src="{% url 'view_report' session_id rate_sheet_urls|get_item:call %}?chromeless=1"
+                            data-full-src="{% url 'view_report' session_id rate_sheet_urls|get_item:call %}?source=qso"
                             {% if is_solo and forloop.first %}selected{% endif %}>{{ call }}</option>
+                    {% endif %}
                 {% endfor %}
                 </select>
             </div>

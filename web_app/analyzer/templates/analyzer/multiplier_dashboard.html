@@ -497,7 +497,7 @@
         </li>
         {% endif %}
         <li class="nav-item" role="presentation">
-            <button class="nav-link" id="breakdown-tab" data-bs-toggle="tab" data-bs-target="#breakdown" type="button" role="tab" aria-controls="breakdown" aria-selected="false">
+            <button class="nav-link {% if is_solo %}active{% endif %}" id="breakdown-tab" data-bs-toggle="tab" data-bs-target="#breakdown" type="button" role="tab" aria-controls="breakdown" aria-selected="{% if is_solo %}true{% else %}false{% endif %}">
                 Multiplier Breakdowns
             </button>
         </li>
