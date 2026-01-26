@@ -281,6 +281,7 @@
 /* Analysis Reports: Simplified horizontal scrolling structure */
 #analysisTabsContent {
     width: 100%; /* Expand to fill available width */
+    position: relative; /* Establish positioning context for children */
 }
 
 #analysisTabsContent .tab-pane {
@@ -292,6 +293,27 @@
     scrollbar-color: #cbd5e0 #f7fafc;
     padding: 0; /* Remove Bootstrap default padding that creates blank space */
     margin: 0;
+    position: relative; /* Establish positioning context */
+    min-height: 0; /* Allow tab-pane to shrink to content */
+    height: auto; /* Ensure height is based on content, not fixed */
+}
+
+/* Bootstrap's .fade class can cause layout issues - ensure proper display */
+#analysisTabsContent .tab-pane:not(.show) {
+    display: none !important; /* Bootstrap default - ensure it's applied */
+}
+
+#analysisTabsContent .tab-pane.show {
+    display: block !important; /* Override any conflicting display values */
+}
+
+/* Ensure reports-grid is positioned at the top when tab is active */
+#analysisTabsContent .tab-pane.show .reports-grid {
+    margin-top: 0;
+    padding-top: 0;
+    position: relative; /* Reset any absolute positioning */
+    top: 0; /* Explicitly position at top */
+    align-self: flex-start; /* If parent becomes flex, align to start */
 }
 
 #analysisTabsContent .tab-pane::-webkit-scrollbar {
@@ -320,6 +342,10 @@
     width: max-content;
     /* Removed min-width: 100% - causes blank row and unnecessary scrollbar */
     align-items: flex-start; /* Align cards to top */
+    margin-top: 0 !important; /* Ensure grid starts at top of container - use !important to override any conflicting styles */
+    padding-top: 0 !important; /* Remove any top padding that could create blank space */
+    position: relative; /* Ensure proper positioning */
+    top: 0; /* Explicitly position at top */
 }
 
 .report-card {

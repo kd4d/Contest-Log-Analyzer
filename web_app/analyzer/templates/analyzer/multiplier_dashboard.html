@@ -573,7 +573,6 @@
                     {% endfor %}
                 </div>
             </div>
-        </div>
         {% endif %}
 
         {% if not is_solo %}
@@ -601,7 +600,6 @@
                     {% endfor %}
                 </div>
             </div>
-        </div>
         {% endif %}
 
         <div class="tab-pane fade {% if is_solo %}show active{% endif %}" id="breakdown" role="tabpanel" aria-labelledby="breakdown-tab">
@@ -745,9 +743,26 @@
             const reportUrl = card.getAttribute('data-report-url');
             if (!reportUrl) return;
 
-            // Skip if already loaded
+            // If already loaded, only resize if the card is in a visible tab
+            // resizeCard() will check visibility itself, but we can skip the call if tab is hidden
             if (card.dataset.loaded === 'true') {
-                resizeCard(card);
+                const tabPane = card.closest('.tab-pane');
+                if (tabPane) {
+                    const paneStyle = window.getComputedStyle(tabPane);
+                    // Only resize if tab is visible
+                    if (paneStyle.display !== 'none') {
+                        // Use requestAnimationFrame to ensure tab is fully painted before measuring
+                        requestAnimationFrame(function() {
+                            setTimeout(function() {
+                                resizeCard(card);
+                                // Recalculate after a brief delay to account for scrollbar appearance
+                                setTimeout(function() {
+                                    resizeCard(card);
+                                }, 50);
+                            }, 10);
+                        });
+                    }
+                }
                 return;
             }
 
@@ -811,8 +826,31 @@
             const reportContent = card.querySelector('.report-content');
             if (!preElement || !reportContent) return;
 
-            // Measure the natural content width
+            // CRITICAL: Don't resize if card or its tab-pane is hidden (display: none)
+            // scrollWidth returns 0 for hidden elements, causing cards to be set to minimum width
+            const tabPane = card.closest('.tab-pane');
+            if (tabPane) {
+                const paneStyle = window.getComputedStyle(tabPane);
+                if (paneStyle.display === 'none') {
+                    // Tab is hidden - don't resize, preserve existing width or skip
+                    return;
+                }
+            }
+            
+            // Also check if card itself is visible
+            const cardStyle = window.getComputedStyle(card);
+            if (cardStyle.display === 'none' || cardStyle.visibility === 'hidden') {
+                return;
+            }
+
+            // Measure the natural content width (only works when element is visible)
             const contentWidth = preElement.scrollWidth;
+            
+            // If scrollWidth is 0 or very small, element might not be fully rendered yet
+            // Don't resize in this case - wait for proper measurement
+            if (contentWidth === 0 || contentWidth < 100) {
+                return;
+            }
             
             // Get actual padding from computed styles (more accurate than hardcoded)
             const contentStyle = window.getComputedStyle(reportContent);
@@ -865,7 +903,28 @@
             const targetId = event.target.getAttribute('data-bs-target');
             const pane = document.querySelector(targetId);
             if (pane) {
-                loadReportsInPane(pane);
+                // Use double requestAnimationFrame to ensure tab is fully visible and painted
+                // First frame: tab becomes visible
+                // Second frame: layout is complete and measurements are accurate
+                requestAnimationFrame(function() {
+                    requestAnimationFrame(function() {
+                        // Small delay to ensure scrollbars are rendered
+                        setTimeout(function() {
+                            loadReportsInPane(pane);
+                            // Resize all cards in the pane after content is loaded
+                            const cards = pane.querySelectorAll('.report-card[data-loaded="true"]');
+                            cards.forEach(function(card) {
+                                resizeCard(card);
+                            });
+                            // Final resize after scrollbars appear
+                            setTimeout(function() {
+                                cards.forEach(function(card) {
+                                    resizeCard(card);
+                                });
+                            }, 50);
+                        }, 10);
+                    });
+                });
             }
         }
 
