@@ -793,22 +793,49 @@
             card.dataset.loaded = 'true';
 
             // Small delay to ensure DOM is updated, then measure and resize
-            setTimeout(function() {
-                resizeCard(card);
-            }, 10);
+            // Use requestAnimationFrame to ensure layout is complete
+            requestAnimationFrame(function() {
+                setTimeout(function() {
+                    resizeCard(card);
+                    // Recalculate after a brief delay to account for scrollbar appearance
+                    setTimeout(function() {
+                        resizeCard(card);
+                    }, 50);
+                }, 10);
+            });
         }
 
         // Resize card based on <pre> content width
         function resizeCard(card) {
             const preElement = card.querySelector('.report-content pre');
-            if (!preElement) return;
+            const reportContent = card.querySelector('.report-content');
+            if (!preElement || !reportContent) return;
 
             // Measure the natural content width
             const contentWidth = preElement.scrollWidth;
             
-            // Add padding (1rem on each side = 32px total)
-            const padding = 32;
-            const cardWidth = Math.max(contentWidth + padding, 400); // Minimum 400px
+            // Get actual padding from computed styles (more accurate than hardcoded)
+            const contentStyle = window.getComputedStyle(reportContent);
+            const paddingLeft = parseFloat(contentStyle.paddingLeft) || 0;
+            const paddingRight = parseFloat(contentStyle.paddingRight) || 0;
+            const padding = paddingLeft + paddingRight;
+            
+            // Account for vertical scrollbar width if present
+            // Check if vertical scrollbar is needed (content height > container height)
+            const needsVerticalScrollbar = reportContent.scrollHeight > reportContent.clientHeight;
+            let scrollbarWidth = 0;
+            
+            if (needsVerticalScrollbar) {
+                // Measure actual scrollbar width
+                scrollbarWidth = reportContent.offsetWidth - reportContent.clientWidth;
+                // If measurement is 0 (scrollbar not yet rendered), use typical width (15-17px)
+                if (scrollbarWidth === 0) {
+                    scrollbarWidth = 17; // Typical scrollbar width on Windows
+                }
+            }
+            
+            // Calculate card width: content + padding + scrollbar (if any)
+            const cardWidth = Math.max(contentWidth + padding + scrollbarWidth, 400); // Minimum 400px
 
             // Set card width
             card.style.width = cardWidth + 'px';

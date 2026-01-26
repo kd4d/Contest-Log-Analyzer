@@ -347,7 +347,7 @@
 .report-content {
     height: 500px;
     overflow-y: auto;
-    overflow-x: visible; /* Critical - don't clip horizontal content */
+    overflow-x: hidden; /* Prevent horizontal scrollbar - card width is already calculated to fit content */
     padding: 1rem;
     flex: 1 1 auto;
 }
