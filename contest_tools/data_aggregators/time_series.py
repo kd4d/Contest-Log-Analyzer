@@ -151,6 +151,12 @@ class TimeSeriesAggregator:
                 "hourly": { 
                     "qsos": [],
                     "points": [],
+                    "run_qsos": [],
+                    "sp_qsos": [],
+                    "unknown_qsos": [],
+                    "run_points": [],
+                    "sp_points": [],
+                    "unknown_points": [],
                     "by_band": {},
                     "by_mode": {},
                     "by_band_mode": {},
@@ -285,6 +291,61 @@ class TimeSeriesAggregator:
                     grp_points = grp_points.reindex(master_index).fillna(0).astype(int)
                     log_entry["hourly"]["points"] = grp_points.tolist()
                     
+                    # Hourly Run/S&P/Unknown QSOs (non-cumulative)
+                    run_mask = df_hourly['Run'] == 'Run'
+                    sp_mask = df_hourly['Run'] == 'S&P'
+                    unk_mask = df_hourly['Run'] == 'Unknown'
+                    
+                    df_run = df_hourly[run_mask]
+                    df_sp = df_hourly[sp_mask]
+                    df_unk = df_hourly[unk_mask]
+                    
+                    # Hourly Run QSOs
+                    if not df_run.empty:
+                        run_grp = df_run.groupby([df_run['Datetime'].dt.floor('h')]).size()
+                        run_grp = run_grp.reindex(master_index).fillna(0).astype(int)
+                        log_entry["hourly"]["run_qsos"] = run_grp.tolist()
+                    else:
+                        log_entry["hourly"]["run_qsos"] = zeros
+                    
+                    # Hourly S&P QSOs
+                    if not df_sp.empty:
+                        sp_grp = df_sp.groupby([df_sp['Datetime'].dt.floor('h')]).size()
+                        sp_grp = sp_grp.reindex(master_index).fillna(0).astype(int)
+                        log_entry["hourly"]["sp_qsos"] = sp_grp.tolist()
+                    else:
+                        log_entry["hourly"]["sp_qsos"] = zeros
+                    
+                    # Hourly Unknown QSOs
+                    if not df_unk.empty:
+                        unk_grp = df_unk.groupby([df_unk['Datetime'].dt.floor('h')]).size()
+                        unk_grp = unk_grp.reindex(master_index).fillna(0).astype(int)
+                        log_entry["hourly"]["unknown_qsos"] = unk_grp.tolist()
+                    else:
+                        log_entry["hourly"]["unknown_qsos"] = zeros
+                    
+                    # Hourly Run/S&P/Unknown Points (non-cumulative)
+                    if not df_run.empty:
+                        run_points_grp = df_run.groupby([df_run['Datetime'].dt.floor('h')])['QSOPoints'].sum()
+                        run_points_grp = run_points_grp.reindex(master_index).fillna(0).astype(int)
+                        log_entry["hourly"]["run_points"] = run_points_grp.tolist()
+                    else:
+                        log_entry["hourly"]["run_points"] = zeros
+                    
+                    if not df_sp.empty:
+                        sp_points_grp = df_sp.groupby([df_sp['Datetime'].dt.floor('h')])['QSOPoints'].sum()
+                        sp_points_grp = sp_points_grp.reindex(master_index).fillna(0).astype(int)
+                        log_entry["hourly"]["sp_points"] = sp_points_grp.tolist()
+                    else:
+                        log_entry["hourly"]["sp_points"] = zeros
+                    
+                    if not df_unk.empty:
+                        unk_points_grp = df_unk.groupby([df_unk['Datetime'].dt.floor('h')])['QSOPoints'].sum()
+                        unk_points_grp = unk_points_grp.reindex(master_index).fillna(0).astype(int)
+                        log_entry["hourly"]["unknown_points"] = unk_points_grp.tolist()
+                    else:
+                        log_entry["hourly"]["unknown_points"] = zeros
+                    
                     valid_bands = contest_def.valid_bands
                     for band in valid_bands:
                         if band in grp_band.columns:
@@ -318,12 +379,24 @@ class TimeSeriesAggregator:
                     # Log empty after dupe filtering
                     log_entry["hourly"]["qsos"] = zeros
                     log_entry["hourly"]["points"] = zeros
+                    log_entry["hourly"]["run_qsos"] = zeros
+                    log_entry["hourly"]["sp_qsos"] = zeros
+                    log_entry["hourly"]["unknown_qsos"] = zeros
+                    log_entry["hourly"]["run_points"] = zeros
+                    log_entry["hourly"]["sp_points"] = zeros
+                    log_entry["hourly"]["unknown_points"] = zeros
                     for band in contest_def.valid_bands:
                         log_entry["hourly"]["by_band"][band] = zeros
             else:
                 # Log completely empty
                 log_entry["hourly"]["qsos"] = zeros
                 log_entry["hourly"]["points"] = zeros
+                log_entry["hourly"]["run_qsos"] = zeros
+                log_entry["hourly"]["sp_qsos"] = zeros
+                log_entry["hourly"]["unknown_qsos"] = zeros
+                log_entry["hourly"]["run_points"] = zeros
+                log_entry["hourly"]["sp_points"] = zeros
+                log_entry["hourly"]["unknown_points"] = zeros
                 for band in contest_def.valid_bands:
                     log_entry["hourly"]["by_band"][band] = zeros
             
