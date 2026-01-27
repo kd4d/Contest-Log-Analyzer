@@ -140,15 +140,28 @@ class BaseRateReport(ContestReport):
             ts_data = agg.get_time_series_data(band_filter=band_filter if band_filter != 'All' else None, mode_filter=mode_filter)
         time_bins = [pd.Timestamp(t) for t in ts_data['time_bins']]
 
+        # Detect single-log case for dual-axis plot
+        is_single_log = len(logs) == 1
+
         # Initialize Plotly Subplots
         # Fix: Increased vertical_spacing to 0.15 to prevent overlap
-        fig = make_subplots(
-            rows=2, cols=1,
-            shared_xaxes=False,
-            vertical_spacing=0.15,
-            row_heights=[0.7, 0.3],
-            specs=[[{"type": "xy"}], [{"type": "table"}]]
-        )
+        # For single-log: enable secondary_y in specs for row 1 to support dual-axis
+        if is_single_log:
+            fig = make_subplots(
+                rows=2, cols=1,
+                shared_xaxes=False,
+                vertical_spacing=0.15,
+                row_heights=[0.7, 0.3],
+                specs=[[{"type": "xy", "secondary_y": True}], [{"type": "table"}]]
+            )
+        else:
+            fig = make_subplots(
+                rows=2, cols=1,
+                shared_xaxes=False,
+                vertical_spacing=0.15,
+                row_heights=[0.7, 0.3],
+                specs=[[{"type": "xy"}], [{"type": "table"}]]
+            )
 
         all_calls = []
         summary_rows = []
@@ -175,7 +188,7 @@ class BaseRateReport(ContestReport):
             
             color = PlotlyStyleManager._COLOR_PALETTE[i % len(PlotlyStyleManager._COLOR_PALETTE)]
 
-            # 1. Add Line Trace
+            # 1. Add Line Trace (Cumulative)
             fig.add_trace(
                 go.Scatter(
                     x=time_bins,
@@ -187,6 +200,30 @@ class BaseRateReport(ContestReport):
                 ),
                 row=1, col=1
             )
+            
+            # For single-log case, add hourly rate bar chart on secondary Y-axis
+            if is_single_log:
+                # Get hourly rate data
+                hourly_key = self.metric_key  # 'qsos' or 'points'
+                if hourly_key not in log_data['hourly']:
+                    logging.warning(f"Hourly key '{hourly_key}' not found in hourly data for {call}.")
+                else:
+                    hourly_values = log_data['hourly'][hourly_key]
+                    # Use second color from palette for bars
+                    bar_color = PlotlyStyleManager._COLOR_PALETTE[1 % len(PlotlyStyleManager._COLOR_PALETTE)]
+                    
+                    # Add bar trace - will configure secondary axis using update_yaxes
+                    fig.add_trace(
+                        go.Bar(
+                            x=time_bins,
+                            y=hourly_values,
+                            name=f"{metric_name} per Hour",
+                            marker=dict(color=bar_color, opacity=0.7),
+                            width=3600000 * 0.8,  # 80% of hour width for spacing between bars
+                        ),
+                        row=1, col=1,
+                        secondary_y=True
+                    )
             
             series = pd.Series(cumulative_values, index=time_bins, name=call)
             all_series.append(series)
@@ -254,13 +291,32 @@ class BaseRateReport(ContestReport):
         layout_cfg = PlotlyStyleManager.get_standard_layout(final_title, footer_text)
         fig.update_layout(**layout_cfg)
         
-        fig.update_layout(
-            width=1200,
-            height=900,
-            xaxis_title="Contest Time",
-            yaxis_title=f"Cumulative {metric_name}",
-            legend=dict(x=0.01, y=0.99)
-        )
+        # Configure axes based on single-log vs multi-log
+        if is_single_log:
+            # Dual-axis configuration for single-log case
+            fig.update_layout(
+                width=1200,
+                height=900,
+                xaxis_title="Contest Time",
+                yaxis_title=f"Cumulative {metric_name}",
+                legend=dict(x=0.01, y=0.99)
+            )
+            # Configure secondary Y-axis using update_yaxes (Option 3)
+            fig.update_yaxes(
+                title_text=f"{metric_name} per Hour",
+                secondary_y=True,
+                row=1,
+                col=1
+            )
+        else:
+            # Standard single-axis configuration for multi-log case
+            fig.update_layout(
+                width=1200,
+                height=900,
+                xaxis_title="Contest Time",
+                yaxis_title=f"Cumulative {metric_name}",
+                legend=dict(x=0.01, y=0.99)
+            )
 
         create_output_directory(output_path)
         base_filename = build_filename(self.report_id, logs, band_filter, mode_filter)

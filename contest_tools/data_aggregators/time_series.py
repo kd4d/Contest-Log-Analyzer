@@ -149,7 +149,8 @@ class TimeSeriesAggregator:
                     "sp_qsos": [], "unknown_qsos": [], "sp_points": [], "unknown_points": []
                 },
                 "hourly": { 
-                    "qsos": [], 
+                    "qsos": [],
+                    "points": [],
                     "by_band": {},
                     "by_mode": {},
                     "by_band_mode": {},
@@ -279,6 +280,11 @@ class TimeSeriesAggregator:
                     # Total Hourly QSOs
                     log_entry["hourly"]["qsos"] = grp_band.sum(axis=1).tolist()
                     
+                    # Total Hourly Points (non-cumulative)
+                    grp_points = df_hourly.groupby([df_hourly['Datetime'].dt.floor('h')])['QSOPoints'].sum()
+                    grp_points = grp_points.reindex(master_index).fillna(0).astype(int)
+                    log_entry["hourly"]["points"] = grp_points.tolist()
+                    
                     valid_bands = contest_def.valid_bands
                     for band in valid_bands:
                         if band in grp_band.columns:
@@ -311,11 +317,13 @@ class TimeSeriesAggregator:
                 else:
                     # Log empty after dupe filtering
                     log_entry["hourly"]["qsos"] = zeros
+                    log_entry["hourly"]["points"] = zeros
                     for band in contest_def.valid_bands:
                         log_entry["hourly"]["by_band"][band] = zeros
             else:
                 # Log completely empty
                 log_entry["hourly"]["qsos"] = zeros
+                log_entry["hourly"]["points"] = zeros
                 for band in contest_def.valid_bands:
                     log_entry["hourly"]["by_band"][band] = zeros
             
