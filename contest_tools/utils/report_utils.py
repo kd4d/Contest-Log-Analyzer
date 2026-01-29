@@ -93,7 +93,7 @@ def get_standard_footer(logs: list) -> str:
     cty_info = get_cty_metadata(logs)
     return f"Contest Log Analytics v{__version__}   |   {cty_info}"
 
-def get_standard_title_lines(report_name: str, logs: list, band_filter: str = None, mode_filter: str = None, modes_present_set: set = None, callsigns_override: List[str] = None) -> list:
+def get_standard_title_lines(report_name: str, logs: list, band_filter: str = None, mode_filter: str = None, modes_present_set: set = None, callsigns_override: List[str] = None, callsign_separator: str = ", ", callsigns_bold: bool = False) -> list:
     """
     Generates the standard 3-Line Title components (Name, Context, Scope).
     Applies Smart Scoping logic for modes.
@@ -107,7 +107,10 @@ def get_standard_title_lines(report_name: str, logs: list, band_filter: str = No
         callsigns_override: Optional list of callsigns to use instead of extracting from logs.
                           This ensures consistency with aggregator data when logs may include
                           entries with no data. If None, callsigns are extracted from logs.
-    
+        callsign_separator: String to join callsigns in the context line (default ", ").
+                           Use " \u2212 " for arithmetic minus (e.g. "AA1K − K5ZD").
+        callsigns_bold: If True, wrap the callsign part in <b>...</b> for HTML titles.
+
     Returns:
         List of three title lines: [report_name, context_line, scope_line]
     """
@@ -130,8 +133,10 @@ def get_standard_title_lines(report_name: str, logs: list, band_filter: str = No
     else:
         all_calls = sorted([l.get_metadata().get('MyCall', 'Unknown') for l in logs])
     
-    callsign_str = ", ".join(all_calls)
-    
+    callsign_str = callsign_separator.join(all_calls)
+    if callsigns_bold:
+        callsign_str = f"<b>{callsign_str}</b>"
+
     line2 = f"{year} {event_id} {contest_name} - {callsign_str}".strip().replace("   ", " ")
 
     is_single_band = len(logs[0].contest_definition.valid_bands) == 1

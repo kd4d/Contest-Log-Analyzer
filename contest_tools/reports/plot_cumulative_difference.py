@@ -15,6 +15,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from typing import List
+import math
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -157,6 +158,16 @@ class Report(ContestReport):
             min_rounded = (min_val // round_to) * round_to
             max_rounded = ((max_val // round_to) + 1) * round_to
             return min_rounded, max_rounded
+
+        def tick_vals_for_range(min_val, max_val, step):
+            """Generate tick values at step spacing; include 0 if in range."""
+            low = int((min_val // step) * step)
+            high = int(((max_val // step) + 1) * step)
+            ticks = list(range(low, high + 1, step))
+            if min_val <= 0 <= max_val and 0 not in ticks:
+                ticks.append(0)
+                ticks.sort()
+            return ticks
         
         # Calculate axis ranges using compromise ratio approach
         # Step 1: Get natural data ranges
@@ -194,105 +205,97 @@ class Report(ContestReport):
             hourly_data_max = max(hourly_values)
         else:
             hourly_data_min, hourly_data_max = -50, 50
-        
-        # Step 2: Calculate natural ratios (P/|N|)
-        # Handle edge cases where one side might be zero
+
+        logging.info(
+            "Cumulative difference: min=%s, max=%s; Hourly difference: min=%s, max=%s",
+            cumul_data_min, cumul_data_max, hourly_data_min, hourly_data_max,
+        )
+
+        # Dual-axis scaling (see Docs/CumulativeDifferencePlotScaling.md):
+        # 1. Establish cumulative axis first (data-derived, N grid lines).
+        # 2. Bar axis: snap bar zero to closest grid line to ideal P/N; expand range so rounding holds exactly.
+
         cumul_neg = abs(cumul_data_min) if cumul_data_min < 0 else 1
         cumul_pos = cumul_data_max if cumul_data_max > 0 else 1
         cumul_ratio = cumul_pos / cumul_neg if cumul_neg > 0 else float('inf')
-        
-        hourly_neg = abs(hourly_data_min) if hourly_data_min < 0 else 1
-        hourly_pos = hourly_data_max if hourly_data_max > 0 else 1
-        hourly_ratio = hourly_pos / hourly_neg if hourly_neg > 0 else float('inf')
-        
-        # Step 3: Choose compromise ratio
-        # Favor the ratio closer to 1:1 (more balanced) to ensure smaller dataset visibility
-        if cumul_ratio == float('inf') or hourly_ratio == float('inf'):
-            # If one ratio is infinite (all positive or all negative), use the other
-            target_ratio = cumul_ratio if hourly_ratio == float('inf') else hourly_ratio
-        else:
-            # Use the ratio closer to 1:1 (more balanced) as it favors smaller dataset visibility
-            # This ensures hourly bars get reasonable vertical space
-            if abs(cumul_ratio - 1.0) < abs(hourly_ratio - 1.0):
-                target_ratio = cumul_ratio
-            else:
-                target_ratio = hourly_ratio
-        
-        # Step 4: Adjust both axes to match target ratio while including all data
-        # For cumulative axis
         if cumul_data_min < 0 and cumul_data_max > 0:
-            # Adjust to match target ratio
-            # Keep the larger of the two sides, adjust the other to match ratio
-            cumul_neg_extent = abs(cumul_data_min)
-            cumul_pos_extent = cumul_data_max
-            
-            # Calculate what each side would be with target ratio
-            if cumul_neg_extent >= cumul_pos_extent / target_ratio:
-                # Negative side is larger, keep it, adjust positive
-                cumul_neg_adj = cumul_neg_extent
-                cumul_pos_adj = cumul_neg_adj * target_ratio
-                # Ensure we include all positive data
-                cumul_pos_adj = max(cumul_pos_adj, cumul_pos_extent)
-            else:
-                # Positive side is larger, keep it, adjust negative
-                cumul_pos_adj = cumul_pos_extent
-                cumul_neg_adj = cumul_pos_adj / target_ratio
-                # Ensure we include all negative data
-                cumul_neg_adj = max(cumul_neg_adj, cumul_neg_extent)
-            
-            cumul_min = -cumul_neg_adj
-            cumul_max = cumul_pos_adj
+            target_ratio = cumul_ratio
+        elif hourly_data_min < 0 and hourly_data_max > 0:
+            hourly_neg = abs(hourly_data_min) if hourly_data_min < 0 else 1
+            hourly_pos = hourly_data_max if hourly_data_max > 0 else 1
+            target_ratio = hourly_pos / hourly_neg if hourly_neg > 0 else float('inf')
         else:
-            # All positive or all negative - use natural range
-            cumul_min, cumul_max = cumul_data_min, cumul_data_max
-        
-        # For hourly axis
+            hourly_neg = abs(hourly_data_min) if hourly_data_min < 0 else 1
+            hourly_pos = hourly_data_max if hourly_data_max > 0 else 1
+            target_ratio = cumul_ratio if cumul_ratio != float('inf') else (hourly_pos / hourly_neg if hourly_neg > 0 else float('inf'))
+
+        cumul_data_min_f = float(cumul_data_min)
+        cumul_data_max_f = float(cumul_data_max)
+        if cumul_data_min < 0 and cumul_data_max > 0:
+            M_cumul = max(abs(cumul_data_min_f), cumul_data_max_f / target_ratio)
+            cumul_min_raw = -M_cumul
+            cumul_max_raw = M_cumul * target_ratio
+        else:
+            cumul_min_raw = cumul_data_min_f
+            cumul_max_raw = cumul_data_max_f
+        cumul_range_raw = cumul_max_raw - cumul_min_raw
+        # At most 15 horizontal grid lines: step >= range/14; choose smallest "nice" step >= that
+        N_MAX = 15
+        min_step_for_cap = cumul_range_raw / max(N_MAX - 1, 1)
+        nice_steps = [25, 50, 100, 250, 500, 1000, 2000, 5000]
+        step_cumul = next((s for s in nice_steps if s >= min_step_for_cap), None)
+        if step_cumul is None:
+            step_cumul = max(1000, math.ceil(min_step_for_cap / 1000) * 1000)
+        cumul_min = math.floor(cumul_min_raw / step_cumul) * step_cumul
+        cumul_max_exact = abs(cumul_min) * target_ratio
+        cumul_max = math.ceil(max(cumul_max_exact, cumul_data_max_f) / step_cumul) * step_cumul
+        cumul_tickvals = list(range(int(cumul_min), int(cumul_max) + 1, step_cumul))
+        N = max(len(cumul_tickvals), 2)
+
+        # Bar axis: ideal P/N position -> snap to closest grid line k; expand range for exact ratio + rounding
+        hourly_data_min_f = float(hourly_data_min)
+        hourly_data_max_f = float(hourly_data_max)
         if hourly_data_min < 0 and hourly_data_max > 0:
-            # Adjust to match target ratio
-            hourly_neg_extent = abs(hourly_data_min)
-            hourly_pos_extent = hourly_data_max
-            
-            # Calculate what each side would be with target ratio
-            if hourly_neg_extent >= hourly_pos_extent / target_ratio:
-                # Negative side is larger, keep it, adjust positive
-                hourly_neg_adj = hourly_neg_extent
-                hourly_pos_adj = hourly_neg_adj * target_ratio
-                # Ensure we include all positive data
-                hourly_pos_adj = max(hourly_pos_adj, hourly_pos_extent)
-            else:
-                # Positive side is larger, keep it, adjust negative
-                hourly_pos_adj = hourly_pos_extent
-                hourly_neg_adj = hourly_pos_adj / target_ratio
-                # Ensure we include all negative data
-                hourly_neg_adj = max(hourly_neg_adj, hourly_neg_extent)
-            
-            hourly_min = -hourly_neg_adj
-            hourly_max = hourly_pos_adj
+            # Ideal bar zero position (0-1 from bottom): |neg|/(|neg|+pos)
+            ideal_pos = abs(hourly_data_min_f) / (abs(hourly_data_min_f) + hourly_data_max_f)
+            k = round(ideal_pos * (N - 1))
+            k = max(0, min(k, N - 1))
         else:
-            # All positive or all negative - use natural range
-            hourly_min, hourly_max = hourly_data_min, hourly_data_max
-        
-        # Step 5: Round both ranges
-        cumul_min, cumul_max = round_axis_range(cumul_min, cumul_max)
-        hourly_min, hourly_max = round_axis_range(hourly_min, hourly_max)
-        
-        # Step 6: Re-adjust after rounding to maintain ratio match
-        # Recalculate ratio from one rounded range and apply to the other
-        if cumul_min < 0 and cumul_max > 0 and hourly_min < 0 and hourly_max > 0:
-            # Use cumulative's rounded ratio as the final target
-            final_ratio = cumul_max / abs(cumul_min)
-            
-            # Adjust hourly to match this ratio
-            hourly_neg_final = abs(hourly_min)
-            hourly_pos_final = hourly_neg_final * final_ratio
-            # Ensure we include all hourly data
-            hourly_pos_final = max(hourly_pos_final, hourly_data_max)
-            hourly_min = -hourly_neg_final
-            hourly_max = hourly_pos_final
-            
-            # Round again
-            hourly_min, hourly_max = round_axis_range(hourly_min, hourly_max)
-        
+            k = 0 if hourly_data_max > 0 else N - 1
+
+        if k == 0:
+            # Bar zero at bottom grid line: bar_min = 0
+            bar_max_min = max(hourly_data_max_f, 0)
+            step_bar_max = 5
+            hourly_max = step_bar_max * math.ceil(bar_max_min / step_bar_max)
+            hourly_min = 0
+        elif k == N - 1:
+            # Bar zero at top grid line: bar_max = 0
+            bar_min_max = min(hourly_data_min_f, 0)
+            step_bar_min = 5
+            hourly_min = step_bar_min * math.floor(bar_min_max / step_bar_min)
+            hourly_max = 0
+        else:
+            # Bar zero at grid line k: ratio bar_max/|bar_min| = (N-1-k)/k; expand range so both endpoints are multiples of 5
+            g = math.gcd(k, N - 1 - k)
+            step_bar_max = 5 * (N - 1 - k) // g
+            if step_bar_max < 5:
+                step_bar_max = 5
+            bar_max_min = max(hourly_data_max_f, abs(hourly_data_min_f) * (N - 1 - k) / k)
+            hourly_max = step_bar_max * math.ceil(bar_max_min / step_bar_max)
+            hourly_min = -k * hourly_max / (N - 1 - k)  # exact ratio; hourly_min is multiple of 5 when g|k
+
+        step_bar_actual = (hourly_max - hourly_min) / (N - 1) if N > 1 else 0
+        hourly_tickvals = [hourly_min + i * step_bar_actual for i in range(N)]
+        hourly_ticktext = [str(int(round(v / 5) * 5)) for v in hourly_tickvals]
+
+        # Slight range padding so top and bottom grid lines are visible inside the plot area
+        cumul_span = max(cumul_max - cumul_min, 1)
+        hourly_span = max(hourly_max - hourly_min, 1)
+        pad_frac = 0.02
+        cumul_range_padded = [cumul_min - pad_frac * cumul_span, cumul_max + pad_frac * cumul_span]
+        hourly_range_padded = [hourly_min - pad_frac * hourly_span, hourly_max + pad_frac * hourly_span]
+
         # Create subplots with secondary Y-axis and table
         # Move table down by increasing vertical spacing and adjusting row heights
         fig = make_subplots(
@@ -304,9 +307,10 @@ class Report(ContestReport):
         )
         
         # --- Trace 1: Overall Difference Line (Black) ---
+        cumul_y = [int(round(v)) for v in overall_diff.tolist()]
         fig.add_trace(
             go.Scatter(
-                x=overall_diff.index, y=overall_diff.tolist(),
+                x=overall_diff.index, y=cumul_y,
                 mode='lines+markers',
                 name='Overall',
                 line=dict(color='black', width=3),
@@ -335,54 +339,51 @@ class Report(ContestReport):
         unk_pos_bases = []
         unk_neg_bases = []
         
+        def _to_int(x):
+            """Ensure plot values are Python ints (difference counts, not floats)."""
+            return int(round(x)) if x == x else 0  # handle NaN
+
         for i in range(len(time_bins)):
             run_val = run_diff_hourly.iloc[i]
             sp_val = sp_diff_hourly.iloc[i]
             unk_val = unk_diff_hourly.iloc[i]
-            
-            # Separate positive and negative values, maintaining order: Run, S&P, Unknown
-            neg_run = run_val if run_val < 0 else 0
-            neg_sp = sp_val if sp_val < 0 else 0
-            neg_unk = unk_val if unk_val < 0 else 0
-            
-            pos_run = run_val if run_val > 0 else 0
-            pos_sp = sp_val if sp_val > 0 else 0
-            pos_unk = unk_val if unk_val > 0 else 0
-            
+
+            # Separate positive and negative values (integers for bar heights)
+            neg_run = _to_int(run_val) if run_val < 0 else 0
+            neg_sp = _to_int(sp_val) if sp_val < 0 else 0
+            neg_unk = _to_int(unk_val) if unk_val < 0 else 0
+
+            pos_run = _to_int(run_val) if run_val > 0 else 0
+            pos_sp = _to_int(sp_val) if sp_val > 0 else 0
+            pos_unk = _to_int(unk_val) if unk_val > 0 else 0
+
             # Stack negative values (downward from 0)
-            # Order from axis outward: Run (closest to 0), S&P (middle), Unknown (furthest)
-            # Calculate bases: Run starts closest to 0, S&P stacks below Run, Unknown stacks below S&P
-            # Total negative sum for positioning
             total_neg = neg_run + neg_sp + neg_unk
-            
-            # Run is closest to 0, so starts at neg_run (e.g., -5)
+
             neg_base_run = neg_run
-            # S&P starts where Run ends (neg_run + neg_sp, e.g., -8)
             neg_base_sp = neg_run + neg_sp
-            # Unknown starts where S&P ends (total_neg, e.g., -10 if unk=-2)
             neg_base_unk = total_neg
-            
+
             run_neg_values.append(abs(neg_run) if neg_run < 0 else 0)
             run_neg_bases.append(neg_base_run)
-            
+
             sp_neg_values.append(abs(neg_sp) if neg_sp < 0 else 0)
             sp_neg_bases.append(neg_base_sp)
-            
+
             unk_neg_values.append(abs(neg_unk) if neg_unk < 0 else 0)
             unk_neg_bases.append(neg_base_unk)
-            
+
             # Stack positive values (upward from 0)
-            # Order from axis outward: Run (closest), S&P (middle), Unknown (furthest)
             pos_base_run = 0
-            pos_base_sp = pos_run  # S&P starts where Run ends
-            pos_base_unk = pos_run + pos_sp  # Unknown starts where S&P ends
-            
+            pos_base_sp = pos_run
+            pos_base_unk = pos_run + pos_sp
+
             run_pos_values.append(pos_run if pos_run > 0 else 0)
             run_pos_bases.append(pos_base_run)
-            
+
             sp_pos_values.append(pos_sp if pos_sp > 0 else 0)
             sp_pos_bases.append(pos_base_sp)
-            
+
             unk_pos_values.append(pos_unk if pos_unk > 0 else 0)
             unk_pos_bases.append(pos_base_unk)
         
@@ -483,9 +484,14 @@ class Report(ContestReport):
             secondary_y=True
         )
         
-        # --- Zero Reference Line ---
-        # Add zero line using hline - this will align with the primary Y-axis
-        # Since both axes share the same plot area and zero should align, this single line serves both
+        # Explicit x-axis range so the black zero line can span full plot width (same range used for line)
+        x_span = (time_bins[-1] - time_bins[0]).total_seconds() if len(time_bins) > 1 else 86400
+        x_pad = max(x_span * 0.02, 3600)  # 2% of span or 1 hour
+        x_min = time_bins[0] - pd.Timedelta(seconds=x_pad)
+        x_max = time_bins[-1] + pd.Timedelta(seconds=x_pad)
+
+        # --- Zero Reference Lines ---
+        # Left (cumulative) axis zero: thicker dashed grey line
         fig.add_hline(
             y=0,
             line_width=2,
@@ -493,6 +499,19 @@ class Report(ContestReport):
             line_dash="dash",
             row=1,
             col=1
+        )
+        # Right (bar) axis zero: same dashed style but black; x matches axis range so line spans full width
+        fig.add_trace(
+            go.Scatter(
+                x=[x_min, x_max],
+                y=[0, 0],
+                mode="lines",
+                line=dict(dash="dash", color="black", width=2),
+                showlegend=False,
+            ),
+            row=1,
+            col=1,
+            secondary_y=True,
         )
         
         # --- Table Data ---
@@ -554,7 +573,16 @@ class Report(ContestReport):
             if 'Mode' in df.columns:
                 modes_present.update(df['Mode'].dropna().unique())
         
-        title_lines = get_standard_title_lines(f"{self.report_name} ({metric_name})", self.logs, band_filter, mode_filter, modes_present)
+        # Header: callsigns with arithmetic minus (e.g. AA1K − K5ZD), callsign part bold
+        title_lines = get_standard_title_lines(
+            f"{self.report_name} ({metric_name})",
+            self.logs,
+            band_filter,
+            mode_filter,
+            modes_present,
+            callsign_separator=" \u2212 ",  # arithmetic minus sign
+            callsigns_bold=True,
+        )
 
         footer_text = get_standard_footer(self.logs)
 
@@ -564,25 +592,49 @@ class Report(ContestReport):
         
         fig.update_layout(layout)
         
-        # Configure axes with compromise ratio ranges
-        # Both axes now have matching P/|N| ratios, ensuring zero alignment
+        # Update layout with basic settings (axis config applied after so it is not overwritten)
         fig.update_layout(
             width=1200,
             height=900,
             xaxis_title="Contest Time",
-            yaxis_title=f"Cumulative Diff ({metric_name})",
-            yaxis=dict(range=[cumul_min, cumul_max]),
-            # Configure secondary Y-axis with matching ratio for zero alignment
-            yaxis2=dict(
-                title=f"Hourly {metric_name} Difference",
-                range=[hourly_min, hourly_max],
-                overlaying='y',
-                side='right',
-                anchor='x'  # Anchor to same x-axis
-            ),
-            # Set barmode to overlay to ensure all bars align at same x positions
             barmode='overlay',
-            legend=dict(x=0.01, y=0.99)
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1
+            )
+        )
+        # X-axis range matches black zero line so plot width and line span are consistent
+        fig.update_xaxes(range=[x_min, x_max], row=1, col=1)
+
+        # Grid: darker than default so lines are more prominent (not full black)
+        grid_style = dict(showgrid=True, gridcolor="#555555", gridwidth=1.1)
+
+        # Configure primary Y-axis (cumulative) - row 1, col 1; padded range so top/bottom grid lines visible
+        fig.update_yaxes(
+            title_text=f"Cumulative Diff ({metric_name})",
+            range=cumul_range_padded,
+            tickmode='array',
+            tickvals=cumul_tickvals,
+            ticktext=[str(v) for v in cumul_tickvals],
+            row=1,
+            col=1,
+            **grid_style
+        )
+
+        # Configure secondary Y-axis (hourly bars) - same N grid lines, labels multiples of 5
+        fig.update_yaxes(
+            title_text=f"Hourly {metric_name} Difference",
+            range=hourly_range_padded,
+            tickmode='array',
+            tickvals=hourly_tickvals,
+            ticktext=hourly_ticktext,
+            secondary_y=True,
+            row=1,
+            col=1,
+            **grid_style
         )
 
         # --- Saving Files (Dual Output) ---
@@ -610,7 +662,26 @@ class Report(ContestReport):
                 autosize=True,
                 height=800
             )
-            
+            # Re-apply axis config so layout update does not override ranges/ticks
+            fig.update_xaxes(range=[x_min, x_max], row=1, col=1)
+            fig.update_yaxes(
+                range=cumul_range_padded,
+                tickmode='array',
+                tickvals=cumul_tickvals,
+                ticktext=[str(v) for v in cumul_tickvals],
+                row=1,
+                col=1
+            )
+            fig.update_yaxes(
+                range=hourly_range_padded,
+                tickmode='array',
+                tickvals=hourly_tickvals,
+                ticktext=hourly_ticktext,
+                secondary_y=True,
+                row=1,
+                col=1
+            )
+
             config = {'toImageButtonOptions': {'filename': base_filename, 'format': 'png'}}
             fig.write_html(html_path, include_plotlyjs='cdn', config=config)
             generated_files.append(html_path)
