@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.0.0-alpha.17] - 2026-01-30
+[Full Release Notes](ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.17.md)
+
+### Added
+- Report manifest drawer (persistent off-canvas sidebar) on main, QSO, and multiplier dashboards. Pull-out arrow on the left (vertically centered) opens a list of generated reports in the same hierarchy as the ZIP download. Clicking a report opens it in the existing full-screen overlay. List uses actual filenames (callsign/band when present); JSON excluded; undefined reports under Miscellaneous. Search filter, category collapse, active-report highlight, Escape/scrim close.
+
+---
+
 ## [1.0.0-alpha.16] - 2026-01-30
 [Full Release Notes](ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.16.md)
 
