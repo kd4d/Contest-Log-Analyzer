@@ -1193,6 +1193,9 @@ def dashboard_view(request, session_id):
     context['breakdown_report_urls'] = breakdown_report_urls
     # Hide Multiplier Reports dashboard for WPX (for now)
     context['show_multiplier_dashboard'] = not contest_name.startswith('CQ-WPX')
+    # Report manifest drawer (same hierarchy as ZIP; opens reports in overlay)
+    context['session_id'] = session_id
+    context['report_manifest_tree'] = _build_report_manifest_tree(session_id, session_path)
 
     return render(request, 'analyzer/dashboard.html', context)
 
@@ -1246,6 +1249,143 @@ def _extract_contest_name_from_path(report_rel_path: str) -> str:
         return contest_name
     
     return None
+
+
+# Report manifest drawer: map report_id (and path) to category and display label.
+# Category order: 1=Single Log, 2=Comparison, 3=Multiplier, 4=QSO/Contest-wide, 5=Bulk.
+_REPORT_CATEGORIES = (
+    ('single', 'Single Log Reports', [
+        ('score_report', None, 'Score Summary'),
+        ('breakdown_report', None, 'Breakdown'),
+        ('rate_sheet', '_qsos', 'Rate Sheet (QSOs)'),
+        ('rate_sheet', '_points', 'Rate Sheet (Points)'),
+        ('rate_sheet', None, 'Rate Sheet'),
+        ('multiplier_timeline', None, 'Multiplier Timeline'),
+        ('continent_breakdown', None, 'Continent Breakdown'),
+        ('continent_summary', None, 'Continent Summary'),
+        ('summary', None, 'Summary'),
+        ('chart_point_contribution_single', None, 'Point Contribution'),
+        ('json_score_report_dashboard', None, None),  # skip from drawer (data only)
+    ]),
+    ('comparison', 'Comparison Reports', [
+        ('rate_sheet_comparison', '_qsos', 'Rate Sheet Comparison (QSOs)'),
+        ('rate_sheet_comparison', '_points', 'Rate Sheet Comparison (Points)'),
+        ('rate_sheet_comparison', None, 'Rate Sheet Comparison'),
+        ('multiplier_timeline_comparison', None, 'Multiplier Timeline Comparison'),
+        ('comparative_run_sp_timeline', None, 'Run/S&P Timeline'),
+        ('cumulative_difference_plots', '_qsos', 'Cumulative Difference (QSOs)'),
+        ('cumulative_difference_plots', '_points', 'Cumulative Difference (Points)'),
+        ('cumulative_difference_plots', None, 'Cumulative Difference'),
+        ('chart_activity', None, 'Rate / Activity Chart'),
+        ('chart_qso_breakdown', None, 'QSO Breakdown Comparison'),
+        ('chart_comparative_activity_butterfly', None, 'Comparative Activity'),
+    ]),
+    ('multiplier', 'Multiplier Reports', [
+        ('text_multiplier_breakdown', None, 'Multiplier Breakdown (Text)'),
+        ('html_multiplier_breakdown', None, 'Multiplier Breakdown (HTML)'),
+        ('multiplier_summary', None, 'Multiplier Summary'),
+        ('enhanced_missed_multipliers', None, 'Missed Multipliers (Enhanced)'),
+        ('multiplier_timeline', None, 'Multiplier Timeline'),
+    ]),
+    ('qso', 'QSO / Contest-wide', [
+        ('qso_breakdown_chart_contest_wide', None, 'QSO Breakdown (Contest-wide)'),
+        ('qso_breakdown_chart', None, 'QSO Breakdown Chart'),
+        ('qso_rate_plots', None, 'QSO Rate Plots'),
+        ('interactive_animation', None, 'Interactive Animation'),
+    ]),
+)
+
+
+def _report_display_label(report_id, path):
+    """Return (category_key, category_label, display_label) for an artifact, or (None, None, None) to skip."""
+    path_lower = (path or '').lower()
+    for cat_key, cat_label, items in _REPORT_CATEGORIES:
+        for rid, suffix, label in items:
+            if label is None:
+                continue
+            if rid != report_id:
+                continue
+            if suffix is not None and suffix in path_lower:
+                return (cat_key, cat_label, label)
+            if suffix is None:
+                return (cat_key, cat_label, label)
+    # Fallback: include under "Miscellaneous" at bottom with filename-based label
+    base = os.path.basename(path or '')
+    if base.endswith('.html'):
+        return ('other', 'Miscellaneous', base[:-5].replace('_', ' ').replace('-', ' ').title())
+    if base.endswith('.txt'):
+        return ('other', 'Miscellaneous', base[:-4].replace('_', ' ').replace('-', ' ').title())
+    return (None, None, None)
+
+
+def _build_report_manifest_tree(session_id, session_path):
+    """
+    Build a hierarchical list of report links from the session manifest (same reports as in the ZIP).
+    Returns a list of nodes: { 'label': str, 'children': [ { 'label': str, 'href': str, 'title': str } | ... ] }.
+    Used by the report drawer (persistent drawer / off-canvas sidebar).
+    """
+    manifest_dir = None
+    for root, dirs, files in os.walk(session_path):
+        if 'session_manifest.json' in files:
+            manifest_dir = root
+            break
+    if not manifest_dir:
+        return []
+
+    manifest_mgr = ManifestManager(manifest_dir)
+    artifacts = manifest_mgr.load()
+    report_rel_path = os.path.relpath(manifest_dir, session_path).replace("\\", "/")
+
+    excluded = {'dashboard_context.json', 'session_manifest.json', 'archive_temp.zip'}
+    viewable_ext = ('.txt', '.html')  # JSON files are excluded from the drawer list
+    by_category = {}  # category_key -> list of (sort_key, label, href)
+
+    for art in artifacts:
+        path = art.get('path') or ''
+        if not path:
+            continue
+        base = os.path.basename(path)
+        if base in excluded:
+            continue
+        if path.lower().endswith('.json'):
+            continue
+        if not any(path.lower().endswith(ext) for ext in viewable_ext):
+            continue
+        full_rel = f"{report_rel_path}/{path}" if report_rel_path else path
+        abs_path = os.path.join(manifest_dir, path)
+        if not os.path.isfile(abs_path):
+            continue
+        report_id = art.get('report_id') or ''
+        cat_key, cat_label, _ = _report_display_label(report_id, path)
+        if cat_key is None and not report_id:
+            cat_key, cat_label = 'other', 'Miscellaneous'
+        if cat_key is None:
+            continue
+        href = reverse('view_report', args=[session_id, full_rel])
+        # Use actual filename (basename without extension) as label; includes callsign/band when present
+        base_no_ext = base[:-5] if path.lower().endswith('.html') else (base[:-4] if path.lower().endswith('.txt') else base)
+        if cat_key not in by_category:
+            by_category[cat_key] = []
+        by_category[cat_key].append((path, base_no_ext, href))
+
+    # Category order for drawer (Miscellaneous at bottom, before Bulk Actions)
+    cat_order = [('single', 'Single Log Reports'), ('comparison', 'Comparison Reports'),
+                 ('multiplier', 'Multiplier Reports'), ('qso', 'QSO / Contest-wide'), ('other', 'Miscellaneous')]
+    tree = []
+    for ckey, clabel in cat_order:
+        if ckey not in by_category:
+            continue
+        entries = sorted(by_category[ckey], key=lambda x: x[0])
+        children = [{'label': t, 'href': h, 'title': t} for _, t, h in entries]
+        tree.append({'label': clabel, 'children': children})
+
+    # Append Bulk Actions with Download All (no link; trigger is existing button, or we add data-action for drawer)
+    tree.append({
+        'label': 'Bulk Actions',
+        'children': [{'label': 'Download All (.zip)', 'href': '#', 'title': 'Download all reports as ZIP', 'data_action': 'download'}]
+    })
+    return tree
+
 
 def view_report(request, session_id, file_path):
     """
@@ -1890,6 +2030,7 @@ def multiplier_dashboard(request, session_id):
 
     context = {
         'session_id': session_id,
+        'report_manifest_tree': _build_report_manifest_tree(session_id, session_path),
         'scoreboard': persisted_logs, # Use persisted logs for accurate scores
         'col_width': col_width,
         'breakdown_totals': breakdown_data['totals'] if breakdown_data else [],
@@ -2542,6 +2683,7 @@ def qso_dashboard(request, session_id):
     
     context = {
         'session_id': session_id,
+        'report_manifest_tree': _build_report_manifest_tree(session_id, session_path),
         'callsigns': callsigns_display,
         'matchups': matchups,
         'point_plots': point_plots,

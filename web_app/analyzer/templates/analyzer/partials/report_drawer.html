@@ -1,0 +1,194 @@
+{# Report manifest drawer (persistent drawer / off-canvas sidebar). #}
+{# Context: report_manifest_tree (list of { label, children: [ { label, href, title?, data_action? } ] }), session_id (for URLs). #}
+<style>
+    #report-drawer-scrim {
+        position: fixed;
+        inset: 0;
+        z-index: 1040;
+        background: rgba(0,0,0,0.4);
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.25s ease, visibility 0.25s ease;
+    }
+    #report-drawer-scrim.show {
+        opacity: 1;
+        visibility: visible;
+    }
+    #report-drawer-panel {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: min(320px, 85vw);
+        max-width: 320px;
+        height: 100vh;
+        z-index: 1050;
+        background: #fff;
+        box-shadow: 4px 0 16px rgba(0,0,0,0.12);
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    #report-drawer-panel.show {
+        transform: translateX(0);
+    }
+    #report-drawer-panel .report-drawer-header {
+        flex-shrink: 0;
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #dee2e6;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        background: #f8f9fa;
+    }
+    #report-drawer-panel .report-drawer-header h6 {
+        margin: 0;
+        font-weight: 600;
+        color: #212529;
+    }
+    #report-drawer-panel .report-drawer-search {
+        flex-shrink: 0;
+        padding: 0.5rem 1rem;
+        border-bottom: 1px solid #eee;
+    }
+    #report-drawer-panel .report-drawer-search input {
+        width: 100%;
+        padding: 0.4rem 0.6rem;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        font-size: 0.9rem;
+    }
+    #report-drawer-panel .report-drawer-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0.5rem 0;
+    }
+    #report-drawer-panel .report-drawer-category {
+        margin-bottom: 0.25rem;
+    }
+    #report-drawer-panel .report-drawer-category-title {
+        padding: 0.4rem 1rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+        color: #6c757d;
+        background: transparent;
+        border: none;
+        width: 100%;
+        text-align: left;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    #report-drawer-panel .report-drawer-category-title:hover {
+        background: #f1f3f5;
+        color: #495057;
+    }
+    #report-drawer-panel .report-drawer-category-title .bi-chevron-down {
+        transition: transform 0.2s ease;
+    }
+    #report-drawer-panel .report-drawer-category.collapsed .report-drawer-category-title .bi-chevron-down {
+        transform: rotate(-90deg);
+    }
+    #report-drawer-panel .report-drawer-category-items {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+    }
+    #report-drawer-panel .report-drawer-category.collapsed .report-drawer-category-items {
+        display: none;
+    }
+    #report-drawer-panel .report-drawer-item {
+        padding: 0.35rem 1rem 0.35rem 1.5rem;
+        font-size: 0.9rem;
+    }
+    #report-drawer-panel .report-drawer-item a {
+        color: #0d6efd;
+        text-decoration: none;
+    }
+    #report-drawer-panel .report-drawer-item a:hover {
+        text-decoration: underline;
+    }
+    #report-drawer-panel .report-drawer-item a.active {
+        font-weight: 600;
+        background: #e7f1ff;
+        margin: 0 -0.5rem;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+    }
+    #report-drawer-panel .report-drawer-item a[data-action="download"] {
+        color: #212529;
+    }
+    #report-drawer-trigger {
+        position: fixed;
+        top: 50%;
+        left: 0;
+        transform: translateY(-50%);
+        z-index: 1030;
+        width: 28px;
+        height: 64px;
+        border-radius: 0 8px 8px 0;
+        background: #fff;
+        border: 1px solid #dee2e6;
+        border-left: none;
+        box-shadow: 2px 0 8px rgba(0,0,0,0.08);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #495057;
+        cursor: pointer;
+        transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+    }
+    #report-drawer-trigger:hover {
+        background: #f8f9fa;
+        color: #0d6efd;
+        box-shadow: 3px 0 10px rgba(0,0,0,0.12);
+    }
+    #report-drawer-trigger .bi {
+        font-size: 1rem;
+    }
+</style>
+
+<button type="button" id="report-drawer-trigger" aria-label="Open report list" title="Report list">
+    <i class="bi bi-chevron-right" aria-hidden="true"></i>
+</button>
+
+<div id="report-drawer-scrim" aria-hidden="true"></div>
+<div id="report-drawer-panel" aria-label="Report list" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="report-drawer-header">
+        <h6><i class="bi bi-file-earmark-text me-2"></i>Reports</h6>
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="report-drawer-close" aria-label="Close">
+            <i class="bi bi-x-lg"></i>
+        </button>
+    </div>
+    <div class="report-drawer-search">
+        <input type="text" id="report-drawer-search-input" placeholder="Filter reports..." aria-label="Filter reports">
+    </div>
+    <div class="report-drawer-body" id="report-drawer-body">
+        {% for node in report_manifest_tree %}
+        <div class="report-drawer-category" data-category-label="{{ node.label }}">
+            <button type="button" class="report-drawer-category-title" aria-expanded="true" data-toggle-category>
+                <span>{{ node.label }}</span>
+                <i class="bi bi-chevron-down"></i>
+            </button>
+            <ul class="report-drawer-category-items">
+                {% for child in node.children %}
+                <li class="report-drawer-item" data-item-label="{{ child.label }}">
+                    {% if child.data_action %}
+                    <a href="{{ child.href }}" title="{{ child.title|default:child.label }}" data-action="{{ child.data_action }}">{{ child.label }}</a>
+                    {% else %}
+                    <a href="{{ child.href }}" class="report-overlay-link" title="{{ child.title|default:child.label }}">{{ child.label }}</a>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% empty %}
+        <p class="text-muted small px-3 py-2">No reports in manifest.</p>
+        {% endfor %}
+    </div>
+</div>

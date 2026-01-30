@@ -13,6 +13,15 @@
 </style>
 
 <div class="container-fluid py-4">
+    {% include 'analyzer/partials/report_overlay.html' with overlay_breadcrumb_base="Multiplier Dashboard" overlay_back_label="Back to Multiplier Dashboard" %}
+    {% if report_manifest_tree is not None %}
+    {% include 'analyzer/partials/report_drawer.html' %}
+    {% endif %}
+    <script src="{% static 'js/report_overlay.js' %}"></script>
+    {% if report_manifest_tree is not None %}
+    <script src="{% static 'js/report_drawer.js' %}"></script>
+    {% endif %}
+
     <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-2">
         <div>
             <h2 class="fw-bold text-dark mb-0">{{ report_metadata.context_line }}</h2>
@@ -519,7 +528,7 @@
                         <div class="report-card" data-report-url="{% url 'view_report' session_id mult.session.missed %}?format=text">
                             <div class="report-header">
                                 <span class="fw-bold text-danger">Missed: {{ mult.label }}</span>
-                                <a href="{% url 'view_report' session_id mult.session.missed %}?source=mult" target="_blank" class="btn btn-sm btn-link text-muted p-0" title="Full Screen">
+                                <a href="{% url 'view_report' session_id mult.session.missed %}?source=mult" class="btn btn-sm btn-link text-muted p-0 report-overlay-link" title="Full Screen">
                                     <i class="bi bi-box-arrow-up-right"></i>
                                 </a>
                             </div>
@@ -535,7 +544,7 @@
                     <div class="report-card" data-report-url="{% url 'view_report' session_id enhanced_missed_mult_rel_path %}?format=text">
                         <div class="report-header">
                             <span class="fw-bold text-primary">Enhanced Missed Multipliers</span>
-                            <a href="{% url 'view_report' session_id enhanced_missed_mult_rel_path %}?source=mult" target="_blank" class="btn btn-sm btn-link text-muted p-0" title="Full Screen">
+                            <a href="{% url 'view_report' session_id enhanced_missed_mult_rel_path %}?source=mult" class="btn btn-sm btn-link text-muted p-0 report-overlay-link" title="Full Screen">
                                 <i class="bi bi-box-arrow-up-right"></i>
                             </a>
                         </div>
@@ -560,7 +569,7 @@
                                         <span class="d-block fw-bold text-dark small">{{ pair.label }}</span>
                                         <span class="fw-bold text-danger small">Missed {{ mult.label }}</span>
                                     </div>
-                                    <a href="{% url 'view_report' session_id pair.missed %}?source=mult" target="_blank" class="btn btn-sm btn-link text-muted p-0" title="Full Screen">
+                                    <a href="{% url 'view_report' session_id pair.missed %}?source=mult" class="btn btn-sm btn-link text-muted p-0 report-overlay-link" title="Full Screen">
                                         <i class="bi bi-box-arrow-up-right"></i>
                                     </a>
                                 </div>
@@ -587,7 +596,7 @@
                                         <span class="d-block fw-bold text-dark small">{{ single.label }}</span>
                                         <span class="fw-bold text-primary small">{{ mult.label }} Checklist</span>
                                     </div>
-                                    <a href="{% url 'view_report' session_id single.summary %}?source=mult" target="_blank" class="btn btn-sm btn-link text-muted p-0" title="Full Screen">
+                                    <a href="{% url 'view_report' session_id single.summary %}?source=mult" class="btn btn-sm btn-link text-muted p-0 report-overlay-link" title="Full Screen">
                                         <i class="bi bi-box-arrow-up-right"></i>
                                     </a>
                                 </div>
@@ -608,7 +617,7 @@
                 <div class="report-card" data-report-url="{% url 'view_report' session_id breakdown_txt_url %}?format=text">
                         <div class="report-header">
                             <span class="fw-bold text-primary">Summary Breakdown</span>
-                            <a href="{% url 'view_report' session_id breakdown_txt_url %}" target="_blank" class="btn btn-sm btn-link text-muted p-0" title="Full Screen"><i class="bi bi-box-arrow-up-right"></i></a>
+                            <a href="{% url 'view_report' session_id breakdown_txt_url %}" class="btn btn-sm btn-link text-muted p-0 report-overlay-link" title="Full Screen"><i class="bi bi-box-arrow-up-right"></i></a>
                         </div>
                         <div class="report-content">
                             <pre></pre>
@@ -621,7 +630,7 @@
                     <div class="report-card" data-report-url="{% url 'view_report' session_id mult.session.summary %}?format=text">
                             <div class="report-header">
                                 <span class="fw-bold text-info">Breakdown: {{ mult.label }}</span>
-                                <a href="{% url 'view_report' session_id mult.session.summary %}?source=mult" target="_blank" class="btn btn-sm btn-link text-muted p-0" title="Full Screen">
+                                <a href="{% url 'view_report' session_id mult.session.summary %}?source=mult" class="btn btn-sm btn-link text-muted p-0 report-overlay-link" title="Full Screen">
                                     <i class="bi bi-box-arrow-up-right"></i>
                                 </a>
                             </div>
@@ -640,7 +649,7 @@
                     <div class="report-card" data-report-url="{% url 'view_report' session_id enhanced_missed_mult_rel_path %}?format=text">
                         <div class="report-header">
                             <span class="fw-bold text-primary">Enhanced Missed Multipliers Breakdown</span>
-                            <a href="{% url 'view_report' session_id enhanced_missed_mult_rel_path %}?source=mult" target="_blank" class="btn btn-sm btn-link text-muted p-0" title="Full Screen">
+                            <a href="{% url 'view_report' session_id enhanced_missed_mult_rel_path %}?source=mult" class="btn btn-sm btn-link text-muted p-0 report-overlay-link" title="Full Screen">
                                 <i class="bi bi-box-arrow-up-right"></i>
                             </a>
                         </div>

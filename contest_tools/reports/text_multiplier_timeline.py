@@ -215,21 +215,17 @@ class Report(ContestReport):
             else:
                 # Multi-band case - sum of band values
                 row_total = sum(row_vals.values())
-            
-            # Skip empty rows
-            if row_total == 0 and cumulative_total == 0:
-                continue
 
-            # Build Line
+            # Build Line (show every hour; use "-" for empty data; keep hour and cumulative populated)
             line_parts = [f"{hour_str:<5}"]
-            
+
             for col in col_defs:
                 key = col['key']
                 w = col['width']
                 ctype = col['type']
-                
+
                 display_val = 0
-                
+
                 if ctype == 'calc':
                     if key.startswith('hourly_total') or key.startswith('band_total'):
                         display_val = row_total
@@ -237,10 +233,15 @@ class Report(ContestReport):
                         display_val = cumulative_total
                 else:
                     display_val = row_vals.get(key, 0)
-                
+
                 col_totals[key] += display_val
-                
-                line_parts.append(f"{display_val:>{w}}")
+
+                # Empty/zero data: show "-"; cumulative always shows value
+                is_cumul = ctype == 'calc' and ('cumul' in key or 'band_cumul' in key)
+                if not is_cumul and display_val == 0:
+                    line_parts.append(f"{'-':>{w}}")
+                else:
+                    line_parts.append(f"{display_val:>{w}}")
                 
             lines.append(" ".join(line_parts))
 

@@ -1,12 +1,18 @@
 # Contest Log Analytics - User Guide
 
-**Version:** 1.0.0-alpha.16
+**Version:** 1.0.0-alpha.17
 **Date:** 2026-01-24
 **Last Updated:** 2026-01-30
 **Category:** User Guide
 
 ---
 ### --- Revision History ---
+## [1.0.0-alpha.17] - 2026-01-30
+### Added
+- Report List (pull-out drawer) on main, QSO, and multiplier dashboards; hierarchical list of generated reports (same as ZIP); filename-based labels; search, collapse, active-report highlight.
+### Changed
+- Updated version to match project release v1.0.0-alpha.17
+
 ## [1.0.0-alpha.16] - 2026-01-30
 ### Changed
 - Updated version to match project release v1.0.0-alpha.16 (no content changes)
@@ -182,6 +188,7 @@ The analyzer does not know "who you are." It simply compares logs.
 Once analyzed, you are presented with a "Strategy Board":
 * **The Scoreboard:** High-level metrics including Run % and total score.
 * **The Triptych:** Three paths for deeper analysis (Animation, QSO Reports, Multiplier Reports).
+* **Report List (Drawer):** A pull-out arrow on the left edge (halfway down) opens a list of all generated reports in the same hierarchy as the ZIP. Click any report to open it in the full-screen overlay. The list uses actual filenames (callsign and band when present); search and category collapse are available.
 * **Raw Data:** A button to download the full set of generated reports as a ZIP file.
 
 **For Single-Band, Multi-Mode Contests:** For contests like ARRL 10 Meter that operate on a single band with multiple modes, the QSO dashboard shows "Mode Activity" instead of "Band Activity", and the Multiplier dashboard breaks down multipliers by mode (CW, SSB, etc.) rather than by band.
