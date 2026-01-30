@@ -24,7 +24,13 @@
 
 <div class="container mt-5">
     {% include 'analyzer/partials/report_overlay.html' with overlay_breadcrumb_base="Main Dashboard" overlay_back_label="Back to Main Dashboard" %}
+    {% if report_manifest_tree is not None %}
+    {% include 'analyzer/partials/report_drawer.html' %}
+    {% endif %}
     <script src="{% static 'js/report_overlay.js' %}"></script>
+    {% if report_manifest_tree is not None %}
+    <script src="{% static 'js/report_drawer.js' %}"></script>
+    {% endif %}
 
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="mb-0 text-secondary">Analysis Results: <span class="text-dark">{{ full_contest_title|capitalize_iaru }}</span>

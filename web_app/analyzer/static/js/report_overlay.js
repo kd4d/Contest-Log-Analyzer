@@ -84,6 +84,10 @@
         if (!href || href === '#') return;
         var title = reportTitle(link);
 
+        try {
+            document.dispatchEvent(new CustomEvent('report-overlay-open', { detail: { href: href } }));
+        } catch (e) {}
+
         if (isTextReport(href)) {
             var textUrl = buildTextUrl(href);
             showOverlay({ title: title, isText: true, content: 'Loading…' });

@@ -52,7 +52,13 @@
     </style>
 
     {% include 'analyzer/partials/report_overlay.html' with overlay_breadcrumb_base="QSO Dashboard" overlay_back_label="Back to QSO Dashboard" %}
+    {% if report_manifest_tree is not None %}
+    {% include 'analyzer/partials/report_drawer.html' %}
+    {% endif %}
     <script src="{% static 'js/report_overlay.js' %}"></script>
+    {% if report_manifest_tree is not None %}
+    <script src="{% static 'js/report_drawer.js' %}"></script>
+    {% endif %}
 
     <div class="row mb-4">
         <div class="col-12">
