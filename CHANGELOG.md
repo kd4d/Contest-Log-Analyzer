@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.0.0-alpha.16] - 2026-01-30
+[Full Release Notes](ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.16.md)
+
+### Fixed
+- Multiplier Reports dashboard performance regression: no log load on fast path; reuse contest definition from JSON and session context
+
+### Changed
+- Contest name fallback from dashboard context when path extraction fails (multiplier dashboard)
+
+---
+
 ## [1.0.0-alpha.15] - 2026-01-30
 [Full Release Notes](ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.15.md)
 

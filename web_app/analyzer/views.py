@@ -1361,8 +1361,14 @@ def multiplier_dashboard(request, session_id):
             logger.error(f"Failed to load dashboard context: {e}")
 
     # 5. Load contest definition to determine dimension (band vs mode)
-    # Extract contest name from directory path structure (no cache needed)
+    # Prefer contest name from path; fallback to persisted dashboard context (no log needed)
     contest_name = _extract_contest_name_from_path(report_rel_path)
+    if not contest_name and dashboard_ctx:
+        raw = dashboard_ctx.get('contest_name') or ''
+        if raw:
+            contest_name = raw.replace('_', '-').upper()
+            if contest_name.startswith('CQ-160-'):
+                contest_name = 'CQ-160'
     # Multiplier dashboard not available for WPX (for now)
     if contest_name and contest_name.upper().startswith('CQ-WPX'):
         return render(request, 'analyzer/multiplier_dashboard_unavailable.html', {'session_id': session_id})
@@ -1380,7 +1386,7 @@ def multiplier_dashboard(request, session_id):
         except (FileNotFoundError, ValueError, Exception) as e:
             logger.warning(f"Failed to load contest definition for '{contest_name}': {e}. Using defaults.")
     else:
-        logger.warning(f"Could not extract contest name from path: {report_rel_path}. Using defaults.")
+        logger.warning(f"Could not get contest name from path or dashboard context. Using defaults.")
     
     # Determine dimension (band vs mode) based on contest type
     is_single_band = len(valid_bands) == 1
@@ -1669,26 +1675,13 @@ def multiplier_dashboard(request, session_id):
         else:
             return mult_name
     
-    # Get contest definition for multiplier name lookup
+    # Get contest definition for multiplier name lookup.
+    # Use lm.logs[0] when on slow path; otherwise use contest_def already loaded from JSON in step 5 (no log load).
     contest_def_for_label = None
     if lm and lm.logs:
         contest_def_for_label = lm.logs[0].contest_definition
-    elif persisted_logs:
-        # Fast path: Try to load contest definition minimally
-        try:
-            root_input = os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
-            log_candidates = []
-            for f in os.listdir(session_path):
-                f_path = os.path.join(session_path, f)
-                if os.path.isfile(f_path) and not f.startswith('dashboard_context') and not f.endswith('.zip') and not f.endswith('.json'):
-                    log_candidates.append(f_path)
-            if log_candidates:
-                temp_lm = LogManager()
-                temp_lm.load_log_batch(log_candidates[:1], root_input, 'after')  # Load just first log
-                if temp_lm.logs:
-                    contest_def_for_label = temp_lm.logs[0].contest_definition
-        except Exception as e:
-            logger.debug(f"Failed to load contest definition for multiplier label lookup: {e}")
+    else:
+        contest_def_for_label = contest_def  # Already loaded via ContestDefinition.from_json(contest_name); no log needed
 
     # 2. Scan and Group Reports
     # Use Manifest to find Missed/Summary reports
