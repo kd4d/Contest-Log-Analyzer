@@ -185,7 +185,6 @@ class Report(ContestReport):
 
         for i, time_iso in enumerate(time_bins):
             hour_str = time_iso[11:13] + time_iso[14:16]
-            hour_has_data = False
             row_data_cache = {}
             row_totals_cache = {}
 
@@ -223,43 +222,41 @@ class Report(ContestReport):
                         row_total = (hourly.get(total_key) or [0] * len(time_bins))[i] if i < len(hourly.get(total_key) or []) else row_total
                 row_data_cache[call] = row_vals
                 row_totals_cache[call] = row_total
-                if row_total > 0:
-                    hour_has_data = True
-            
-            if not hour_has_data:
-                continue
-                
-            # Print Rows (One per call)
-            # Lines format: "HHMM  Call  ..."
+
+            # Print Rows (One per call) - show every hour; use "-" for empty data; keep hour, call, cumulative populated
             first_call_line = True
             for call in all_calls:
                 t_str = hour_str if first_call_line else "     "
-                # Let's repeat time for scannability or use " " 
-                
-                # Update Cumulative
+
                 r_total = row_totals_cache[call]
                 cumul_trackers[call] += r_total
-                
+
                 line_parts = [f"{t_str:<5}", f"{call:<7}"]
-                
+
                 for col in col_defs:
                     key = col['key']
                     w = col['width']
                     ctype = col['type']
-                    
+
                     val = 0
                     if ctype == 'calc':
                         if key == 'total': val = r_total
                         elif key == 'cumul': val = cumul_trackers[call]
                     else:
                         val = row_data_cache[call].get(key, 0)
-            
+
                     grand_totals[call][key] += val
                     if ctype == 'calc' and key == 'cumul':
-                        grand_totals[call][key] = val # Keep latest
-                        
-                    line_parts.append(f"{val:>{w}}")
-                    
+                        grand_totals[call][key] = val  # Keep latest
+
+                    # Empty/zero data: show "-"; cumulative always shows value
+                    if ctype == 'calc' and key == 'cumul':
+                        line_parts.append(f"{val:>{w}}")
+                    elif val == 0:
+                        line_parts.append(f"{'-':>{w}}")
+                    else:
+                        line_parts.append(f"{val:>{w}}")
+
                 lines.append(" ".join(line_parts))
 
                 first_call_line = False
