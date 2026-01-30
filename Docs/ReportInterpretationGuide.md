@@ -1,12 +1,16 @@
-﻿# Report Interpretation Guide
+# Report Interpretation Guide
 
-**Version:** 1.0.0-alpha.14
+**Version:** 1.0.0-alpha.15
 **Date:** 2026-01-24
-**Last Updated:** 2026-01-26
+**Last Updated:** 2026-01-30
 **Category:** User Guide
 
 ---
 ### --- Revision History ---
+## [1.0.0-alpha.15] - 2026-01-30
+### Changed
+- Updated version to match project release v1.0.0-alpha.15; added QSO/Points variants and dashboard behavior for rate sheet, comparative rate sheet, and cumulative difference plots
+
 ## [1.0.0-alpha.14] - 2026-01-26
 ### Changed
 - Updated version to match project release v1.0.0-alpha.14 (no content changes)
@@ -160,6 +164,9 @@ A station with a high Run-to-S&P ratio is primarily calling CQ, while a station 
 **Supports**: `rate_sheet` (single-log), `rate_sheet_comparison` (multi-log)
 
 The `rate_sheet` provides an hour-by-hour breakdown of QSO rates for a single log, while the `rate_sheet_comparison` places this data side-by-side for multiple logs.
+
+For **points-based contests** (e.g. CQ WW, ARRL DX), both reports are generated in two variants: **QSOs** and **Points**. Filenames use the suffixes `_qsos` and `_points` (e.g. `rate_sheet_qsos--{callsign}.txt`, `rate_sheet_comparison_qsos--{callsigns}.txt`). On the QSO Dashboard **Rate Detail** tab, the dropdown offers "Comparison (QSOs)" and "Comparison (Points)" when comparing multiple logs; single-log rate sheets are discovered by callsign with the same naming convention.
+
 #### How to Interpret This Report
 These reports follow a **"Drill-Down"** structure to help you isolate specific trends:
 
@@ -317,10 +324,13 @@ Comparing this plot to the QSO Rate Plot reveals insights into scoring efficienc
 
 This plot presents rate information as a cumulative difference, which shows trends and momentum shifts more clearly than traditional rate graphs.
 It is one of the most powerful analysis tools in the package for visualizing the flow of a competition between two logs.
+
+For **points-based contests**, cumulative difference reports are generated for both **QSOs** and **Points**. On the QSO Dashboard **Rate Differential** card, a **QSOs | Points** toggle lets you switch between the two metrics.
+
 #### How to Interpret This Plot
 
-This plot shows a comparison of two logs (e.g., Station A minus Station B).
-* **Top Panel (Overall Diff)**: This shows the total QSO difference.
+This plot shows a comparison of two logs (e.g., Station A minus Station B). When viewing the **QSOs** variant, panels reflect QSO counts; when viewing the **Points** variant, panels reflect point differences.
+* **Top Panel (Overall Diff)**: This shows the total QSO (or Points) difference.
 When the line is above zero, Station A is ahead.
 When it drops below zero, Station B has taken the lead.
 The slope reveals who is winning at any given time.

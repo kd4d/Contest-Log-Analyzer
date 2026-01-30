@@ -1,13 +1,17 @@
-﻿# Run/S&P/Unknown Classification Algorithm
+# Run/S&P/Unknown Classification Algorithm
 
 **Version:** 0.47.4-Beta
 **Date:** 2025-08-23
 **Last Updated:** 2026-01-26
 **Category:** Algorithm Spec
-**Compatible with:** up to v1.0.0-alpha.14
+**Compatible with:** up to v1.0.0-alpha.15
 
 ---
 ### --- Revision History ---
+## [0.47.4-Beta] - 2026-01-30
+### Changed
+- Updated "Compatible with" field to include project version v1.0.0-alpha.15
+
 ## [0.47.4-Beta] - 2026-01-26
 ### Changed
 - Updated "Compatible with" field to include project version v1.0.0-alpha.14

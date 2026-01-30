@@ -1,10 +1,25 @@
-﻿# Changelog
+# Changelog
 
 All notable changes to Contest Log Analyzer will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
+## [1.0.0-alpha.15] - 2026-01-30
+[Full Release Notes](ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.15.md)
+
+### Added
+- Rate sheet and comparative rate sheet QSO and Points variants (filenames and dashboard options)
+- Cumulative difference plots for Points on points-based contests; QSO Dashboard Rate Differential QSOs/Points toggle
+- CQ WPX public log fetcher (CW/SSB); CQ WPX contest option on home page with full dashboard
+- Multiplier dashboard hidden for CQ WPX on main dashboard; dedicated "Not available" page for direct WPX multiplier URL
+
+### Changed
+- Time series hourly data includes by_band_points / by_mode_points for points-based contests
+- Documentation and on-line help updated to v1.0.0-alpha.15; Report Interpretation Guide updated for rate sheet/comparison QSO/Points and cumulative difference Points
+
+---
 
 ## [1.0.0-alpha.14] - 2026-01-26
 [Full Release Notes](ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.14.md)

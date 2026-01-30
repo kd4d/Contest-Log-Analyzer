@@ -1,13 +1,17 @@
-﻿# Callsign Lookup Algorithm Specification
+# Callsign Lookup Algorithm Specification
 
 **Version:** 0.90.11-Beta
 **Date:** 2025-10-06
 **Last Updated:** 2026-01-26
 **Category:** Algorithm Spec
-**Compatible with:** up to v1.0.0-alpha.14
+**Compatible with:** up to v1.0.0-alpha.15
 
 ---
 ### --- Revision History ---
+## [0.90.11-Beta] - 2026-01-30
+### Changed
+- Updated "Compatible with" field to include project version v1.0.0-alpha.15
+
 ## [0.90.11-Beta] - 2026-01-26
 ### Changed
 - Updated "Compatible with" field to include project version v1.0.0-alpha.14
