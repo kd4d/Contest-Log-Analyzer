@@ -29,6 +29,9 @@ CQ_WW_RTTY_BASE_URL = "https://cqwwrtty.com/publiclogs/"
 # CQ 160 Public Log Archive
 CQ_160_BASE_URL = "https://cq160.com/publiclogs/"
 
+# CQ WPX Public Log Archive (CW and SSB)
+CQ_WPX_BASE_URL = "https://cqwpx.com/publiclogs/"
+
 # ARRL Public Log Archive
 ARRL_BASE_URL = "https://contests.arrl.org"
 ARRL_PUBLICLOGS_URL = f"{ARRL_BASE_URL}/publiclogs.php"
@@ -197,6 +200,89 @@ def download_cq160_logs(callsigns: List[str], year: str, mode: str, output_dir: 
         except Exception as e:
             logger.error(f"Failed to download CQ 160 log {filename}: {e}")
     
+    return downloaded_paths
+
+
+# ============================================================================
+# CQ WPX Public Log Archive Functions
+# ============================================================================
+
+def fetch_cqwpx_log_index(year: str, mode: str) -> List[str]:
+    """
+    Scrapes the CQ WPX public log page for a specific year and mode.
+    Returns a list of available callsigns (e.g., ['K3LR', 'KC1XX']).
+
+    CQ WPX public logs: https://cqwpx.com/publiclogs/
+    Structure matches CQ WW/CQ 160: {year}ph/ (SSB), {year}cw/ (CW).
+
+    Args:
+        year: Year as string (e.g., '2024')
+        mode: Mode as string ('CW' or 'SSB')
+
+    Returns:
+        List of callsigns available for download
+    """
+    mode_suffix = "ph" if mode == "SSB" else "cw"
+    target_url = f"{CQ_WPX_BASE_URL}{year}{mode_suffix}/"
+
+    try:
+        response = requests.get(target_url, timeout=10)
+        response.raise_for_status()
+
+        soup = BeautifulSoup(response.text, 'html.parser')
+        links = soup.find_all('a', href=True)
+        callsigns = []
+
+        for link in links:
+            href = link['href']
+            if href.endswith('.log'):
+                filename_part = href[:-4].lower()
+                call = filename_part_to_callsign(filename_part)
+                callsigns.append(call)
+
+        return sorted(list(set(callsigns)))
+
+    except Exception as e:
+        logger.error(f"Failed to fetch CQ WPX log index from {target_url}: {e}")
+        return []
+
+
+def download_cqwpx_logs(callsigns: List[str], year: str, mode: str, output_dir: str) -> List[str]:
+    """
+    Downloads specific log files for CQ WPX contest for the given callsigns into the output directory.
+    Returns a list of full paths to the downloaded files.
+
+    Args:
+        callsigns: List of callsigns to download (e.g., ['K3LR', 'KC1XX'])
+        year: Year as string (e.g., '2024')
+        mode: Mode as string ('CW' or 'SSB')
+        output_dir: Directory to save downloaded logs
+
+    Returns:
+        List of full paths to downloaded log files
+    """
+    mode_suffix = "ph" if mode == "SSB" else "cw"
+    base_url = f"{CQ_WPX_BASE_URL}{year}{mode_suffix}/"
+    downloaded_paths = []
+
+    for call in callsigns:
+        filename = f"{call.lower()}.log"
+        file_url = f"{base_url}{filename}"
+        local_path = os.path.join(output_dir, filename)
+
+        try:
+            response = requests.get(file_url, timeout=15)
+            response.raise_for_status()
+
+            with open(local_path, 'wb') as f:
+                f.write(response.content)
+
+            downloaded_paths.append(local_path)
+            logger.info(f"Downloaded CQ WPX log: {filename}")
+
+        except Exception as e:
+            logger.error(f"Failed to download CQ WPX log {filename}: {e}")
+
     return downloaded_paths
 
 

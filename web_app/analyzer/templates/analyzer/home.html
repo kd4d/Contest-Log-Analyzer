@@ -204,7 +204,7 @@
                     <div id="archiveMethod" class="method-content">
                         <div class="alert alert-info border-0 shadow-sm mb-3">
                             <i class="bi bi-info-circle-fill me-2"></i><strong>Fetch 1, 2, or 3 Logs:</strong> Log 1 is required. Logs 2 and 3 are optional for comparison analysis.<br>
-                            <strong>Supported Contests:</strong> CQ World Wide DX (CW, SSB, RTTY modes), CQ 160-Meter (CW, SSB, RTTY modes), ARRL 10 Meter (no mode selection required), ARRL DX (CW and SSB - mode is determined by contest selection), ARRL IARU HF World Championship, and WRTC contests.
+                            <strong>Supported Contests:</strong> CQ World Wide DX (CW, SSB, RTTY modes), CQ 160-Meter (CW, SSB, RTTY modes), CQ WPX (CW, SSB modes), ARRL 10 Meter (no mode selection required), ARRL DX (CW and SSB - mode is determined by contest selection), ARRL IARU HF World Championship, and WRTC contests.
                         </div>
                         
                         <form id="fetchForm" method="post" action="{% url 'analyze' %}">
@@ -223,6 +223,7 @@
                                     <option value="" selected>Select Contest...</option>
                                     <option value="CQ-WW">CQ World Wide DX</option>
                                     <option value="CQ-160">CQ 160 Meter</option>
+                                    <option value="CQ-WPX">CQ WPX</option>
                                     <option value="ARRL-10">ARRL 10 Meter</option>
                                     <option value="ARRL-DX-CW">ARRL DX CW</option>
                                     <option value="ARRL-DX-SSB">ARRL DX SSB</option>
@@ -619,6 +620,9 @@
                 } else if (contest === 'CQ-160') {
                     yearSelect.disabled = false;
                     modeSelect.disabled = true; // Will be enabled after year selection
+                } else if (contest === 'CQ-WPX') {
+                    yearSelect.disabled = false;
+                    modeSelect.disabled = true; // Will be enabled after year selection
                 } else if (contest === 'ARRL-10') {
                     yearSelect.disabled = false;
                     modeSelect.disabled = true; // ARRL-10 has no modes
@@ -668,8 +672,8 @@
                     return;
                 }
                 
-                // CQ-WW and CQ-160 require mode, ARRL-10, ARRL-DX, IARU-HF, and WRTC-2026 don't
-                if ((contest === 'CQ-WW' || contest === 'CQ-160') && !mode) {
+                // CQ-WW, CQ-160, and CQ-WPX require mode; ARRL-10, ARRL-DX, IARU-HF, and WRTC-2026 don't
+                if ((contest === 'CQ-WW' || contest === 'CQ-160' || contest === 'CQ-WPX') && !mode) {
                     return; // Wait for mode selection
                 }
                 
@@ -748,17 +752,17 @@
                 } else if (contest === 'WRTC-2026') {
                     // WRTC-2026: Fetch index when year is selected (no mode needed, uses IARU archive)
                     fetchLogIndex();
-                } else if (contest === 'CQ-WW' || contest === 'CQ-160') {
-                    // CQ-WW and CQ-160: Enable mode selection after year is selected
+                } else if (contest === 'CQ-WW' || contest === 'CQ-160' || contest === 'CQ-WPX') {
+                    // CQ-WW, CQ-160, CQ-WPX: Enable mode selection after year is selected
                     modeSelect.closest('.col-md-4').style.display = 'block'; // Show mode selector
                     modeSelect.disabled = false;
                 }
             });
             
-            // Handle mode selection (CQ-WW and CQ-160)
+            // Handle mode selection (CQ-WW, CQ-160, CQ-WPX)
             modeSelect.addEventListener('change', function() {
                 const contest = contestSelect.value;
-                if (contest === 'CQ-WW' || contest === 'CQ-160') {
+                if (contest === 'CQ-WW' || contest === 'CQ-160' || contest === 'CQ-WPX') {
                     fetchLogIndex();
                 }
             });
@@ -948,7 +952,7 @@
                     yearSelect.disabled = false;
                 }
                 // Mode select is conditionally enabled based on contest/year
-                if ((contestSelect.value === 'CQ-WW' || contestSelect.value === 'CQ-160') && yearSelect.value) {
+                if ((contestSelect.value === 'CQ-WW' || contestSelect.value === 'CQ-160' || contestSelect.value === 'CQ-WPX') && yearSelect.value) {
                     modeSelect.closest('.col-md-4').style.display = 'block'; // Show mode selector
                     modeSelect.disabled = false;
                 } else if (contestSelect.value === 'ARRL-10') {

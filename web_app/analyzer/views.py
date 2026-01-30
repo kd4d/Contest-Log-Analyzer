@@ -556,6 +556,13 @@ def get_log_index_view(request):
             return JsonResponse({'callsigns': callsigns})
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
+    elif contest == 'CQ-WPX' and year and mode:
+        try:
+            from contest_tools.utils.log_fetcher import fetch_cqwpx_log_index
+            callsigns = fetch_cqwpx_log_index(year, mode)
+            return JsonResponse({'callsigns': callsigns})
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
     elif contest == 'ARRL-10' and year:
         # ARRL 10 Meter doesn't have modes - contest code is '10m'
         try:
@@ -844,6 +851,9 @@ def analyze_logs(request):
                 elif contest == 'CQ-160' and mode:
                     from contest_tools.utils.log_fetcher import download_cq160_logs
                     log_paths = download_cq160_logs(callsigns, year, mode, session_path)
+                elif contest == 'CQ-WPX' and mode:
+                    from contest_tools.utils.log_fetcher import download_cqwpx_logs
+                    log_paths = download_cqwpx_logs(callsigns, year, mode, session_path)
                 elif contest == 'ARRL-10':
                     from contest_tools.utils.log_fetcher import download_arrl_logs, ARRL_CONTEST_CODES
                     contest_code = ARRL_CONTEST_CODES.get('ARRL-10')
@@ -1094,13 +1104,15 @@ def dashboard_view(request, session_id):
 
     # Contest-Specific Routing
     contest_name = context.get('contest_name', '').upper()  # Already uppercased, but explicit for clarity
-    # Enable same dashboard structure for CQ-WW, CQ-160, ARRL-10, ARRL-DX, ARRL-SS, IARU-HF, and all WRTC contests
+    # Enable same dashboard structure for CQ-WW, CQ-160, CQ-WPX, ARRL-10, ARRL-DX, ARRL-SS, IARU-HF, and all WRTC contests
     # CQ-160 is single-band, multi-mode (like ARRL-10), so it uses the same dashboard architecture
+    # CQ-WPX is multi-band, single-mode per weekend (CW/SSB), same as CQ-WW
     # ARRL-DX is multi-band, single-mode (like CQ-WW), so it uses the same dashboard architecture
     # ARRL-SS is multi-band, single-mode with contest-wide QSO counting, so it uses the same dashboard architecture
     # IARU-HF and WRTC contests are multi-band, multi-mode, so they use the same dashboard architecture
     if not (contest_name.startswith('CQ-WW') or 
             contest_name.startswith('CQ-160') or 
+            contest_name.startswith('CQ-WPX') or
             contest_name.startswith('ARRL-10') or
             contest_name.startswith('ARRL-DX') or
             contest_name.startswith('ARRL-SS') or
@@ -2088,33 +2100,33 @@ def qso_dashboard(request, session_id):
             # Where callsigns is {c1}_{c2} (lowercase, underscore-separated)
             diff_paths = {}
             diff_json_paths = {}
+            diff_paths_points = {}
+            diff_json_paths_points = {}
             
             # Build expected callsigns part for this pair (lowercase, underscore-separated)
             pair_callsigns = f"{c1}_{c2}"
-            
-            # Filter artifacts for this pair's difference plots
-            target_prefix = "cumulative_difference_plots_qsos_"
             target_suffix = f"--{pair_callsigns}"
             
+            # Filter artifacts for this pair's difference plots (qsos and points variants)
             for art in artifacts:
-                if art['report_id'] == 'cumulative_difference_plots':
-                    fname = os.path.basename(art['path'])
-                    
-                    # Check if this file matches our pair (new format with -- delimiter)
-                    if target_suffix in fname and fname.startswith(target_prefix):
-                        # Extract metadata part from filename: cumulative_difference_plots_qsos_{band}_{mode}--{callsigns}.html
-                        # Format: {prefix}{metadata}--{callsigns}.{ext}
-                        metadata_part = fname.replace(target_prefix, '').split('--')[0]
-                        
-                        # Parse into structured key (dimension:value format)
-                        structured_key = parse_diff_filename_metadata(metadata_part, valid_bands, valid_modes, is_single_band)
-                        
-                        if art['path'].endswith('.html'):
-                            # Prepend report_rel_path to ensure view_report can find it
-                            diff_paths[structured_key] = f"{report_rel_path}/{art['path']}"
-                        elif art['path'].endswith('.json'):
-                            # JSON Path Logic (Direct URL access via media)
-                            diff_json_paths[structured_key] = f"{settings.MEDIA_URL}sessions/{session_id}/{report_rel_path}/{art['path']}"
+                if art['report_id'] != 'cumulative_difference_plots':
+                    continue
+                fname = os.path.basename(art['path'])
+                if target_suffix not in fname:
+                    continue
+                for prefix, paths_dict, json_dict in [
+                    ("cumulative_difference_plots_qsos_", diff_paths, diff_json_paths),
+                    ("cumulative_difference_plots_points_", diff_paths_points, diff_json_paths_points),
+                ]:
+                    if not fname.startswith(prefix):
+                        continue
+                    metadata_part = fname.replace(prefix, '').split('--')[0]
+                    structured_key = parse_diff_filename_metadata(metadata_part, valid_bands, valid_modes, is_single_band)
+                    if art['path'].endswith('.html'):
+                        paths_dict[structured_key] = f"{report_rel_path}/{art['path']}"
+                    elif art['path'].endswith('.json'):
+                        json_dict[structured_key] = f"{settings.MEDIA_URL}sessions/{session_id}/{report_rel_path}/{art['path']}"
+                    break
         
             # Find breakdown chart
             bk_path = next((f"{report_rel_path}/{a['path']}" for a in artifacts if a['report_id'] == 'qso_breakdown_chart' and f"_{c1}_{c2}" in a['path'] and a['path'].endswith('.html')), "")
@@ -2130,6 +2142,8 @@ def qso_dashboard(request, session_id):
                 'id': f"{c1}_{c2}",
                 'diff_paths': diff_paths,
                 'diff_json_paths': diff_json_paths,
+                'diff_paths_points': diff_paths_points,
+                'diff_json_paths_points': diff_json_paths_points,
                 'qso_breakdown_file': bk_path,
                 'qso_breakdown_json': bk_json,
                 'band_activity_file': ba_path,
