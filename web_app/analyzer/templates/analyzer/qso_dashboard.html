@@ -51,6 +51,9 @@
         }
     </style>
 
+    {% include 'analyzer/partials/report_overlay.html' with overlay_breadcrumb_base="QSO Dashboard" overlay_back_label="Back to QSO Dashboard" %}
+    <script src="{% static 'js/report_overlay.js' %}"></script>
+
     <div class="row mb-4">
         <div class="col-12">
             <div class="card shadow-sm">
@@ -58,7 +61,7 @@
                     <h5 class="mb-0"><i class="bi bi-speedometer2 me-2"></i>Global Context</h5>
                     
                     {% if global_qso_rate_file %}
-                    <a href="{% url 'view_report' session_id global_qso_rate_file %}?source=qso" target="_blank" class="btn btn-sm btn-light">
+                    <a href="{% url 'view_report' session_id global_qso_rate_file %}?source=qso" class="btn btn-sm btn-light report-overlay-link">
                         <i class="bi bi-box-arrow-up-right"></i>
                     </a>
                     {% endif %}
@@ -136,7 +139,7 @@
                     <div class="card shadow-sm">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <span>QSO Breakdown - Contest Total</span>
-                            <a href="{% url 'view_report' session_id contest_wide_qso_report %}?source=qso" target="_blank" class="btn btn-xs btn-link text-muted">
+                            <a href="{% url 'view_report' session_id contest_wide_qso_report %}?source=qso" class="btn btn-xs btn-link text-muted report-overlay-link">
                                 <i class="bi bi-box-arrow-up-right"></i>
                             </a>
                         </div>
@@ -161,7 +164,7 @@
                     <div class="card shadow-sm">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <span>QSO Band Distribution</span>
-                            <a href="{% url 'view_report' session_id band_distribution_report %}?source=qso" target="_blank" class="btn btn-xs btn-link text-muted">
+                            <a href="{% url 'view_report' session_id band_distribution_report %}?source=qso" class="btn btn-xs btn-link text-muted report-overlay-link">
                                 <i class="bi bi-box-arrow-up-right"></i>
                             </a>
                         </div>
@@ -207,7 +210,7 @@
                     <div class="card h-100 shadow-sm">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <span>Strategy Breakdown (Uniques)</span>
-                            <a id="link-breakdown" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
+                            <a id="link-breakdown" href="#" class="btn btn-xs btn-link text-muted report-overlay-link"><i class="bi bi-box-arrow-up-right"></i></a>
                         </div>
                         <div class="card-body p-0">
                             <div id="chart-breakdown" class="viewport-frame" style="overflow: hidden;"></div>
@@ -238,7 +241,7 @@
                                     {% endif %}
                                 </div>
                             </div>
-                            <a id="link-diff" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
+                            <a id="link-diff" href="#" class="btn btn-xs btn-link text-muted report-overlay-link"><i class="bi bi-box-arrow-up-right"></i></a>
                         </div>
                         <div class="card-body p-0">
                             <div id="chart-diff" class="viewport-frame" style="overflow: hidden;"></div>
@@ -266,7 +269,7 @@
                     <div class="card shadow-sm">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <span>Cumulative QSO Rates (By {{ dimension_label }})</span>
-                            <a id="link-qso-rates" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
+                            <a id="link-qso-rates" href="#" class="btn btn-xs btn-link text-muted report-overlay-link"><i class="bi bi-box-arrow-up-right"></i></a>
                         </div>
                         <div class="card-body p-0">
                             <div id="chart-qso-rates" class="viewport-frame" style="overflow: hidden;"></div>
@@ -308,7 +311,7 @@
             <div class="card shadow-sm">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <span>Rate Detail</span>
-                    <a id="link-rates" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
+                    <a id="link-rates" href="#" class="btn btn-xs btn-link text-muted report-overlay-link"><i class="bi bi-box-arrow-up-right"></i></a>
                 </div>
                 <div class="card-body p-0">
                     <iframe id="frame-rates" src="" class="viewport-frame"></iframe>
@@ -333,7 +336,7 @@
                     <div class="card shadow-sm">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <span>Cumulative Points</span>
-                            <a id="link-points" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
+                            <a id="link-points" href="#" class="btn btn-xs btn-link text-muted report-overlay-link"><i class="bi bi-box-arrow-up-right"></i></a>
                         </div>
                         <div class="card-body p-0">
                             <div id="chart-points" class="viewport-frame" style="overflow: hidden;"></div>
@@ -366,7 +369,7 @@
             <div class="card shadow-sm">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <span>{{ activity_tab_title }}</span>
-                    <a id="link-band-activity" href="#" target="_blank" class="btn btn-xs btn-link text-muted"><i class="bi bi-box-arrow-up-right"></i></a>
+                    <a id="link-band-activity" href="#" class="btn btn-xs btn-link text-muted report-overlay-link"><i class="bi bi-box-arrow-up-right"></i></a>
                 </div>
                 <div class="card-body p-0">
                     <div id="chart-band-activity-wrapper" class="viewport-frame" style="overflow-y: auto; overflow-x: hidden; display: block;">
