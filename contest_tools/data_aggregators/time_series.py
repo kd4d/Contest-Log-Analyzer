@@ -159,6 +159,8 @@ class TimeSeriesAggregator:
                     "unknown_points": [],
                     "by_band": {},
                     "by_mode": {},
+                    "by_band_points": {},
+                    "by_mode_points": {},
                     "by_band_mode": {},
                     "new_mults_by_band": {},
                     "new_mults_by_mode": {},
@@ -353,6 +355,16 @@ class TimeSeriesAggregator:
                         else:
                             log_entry["hourly"]["by_band"][band] = [0] * len(master_index)
 
+                    # Hourly points by band (for rate sheet Points variant)
+                    if 'QSOPoints' in df_hourly.columns:
+                        grp_band_points = df_hourly.groupby([df_hourly['Datetime'].dt.floor('h'), 'Band'])['QSOPoints'].sum().unstack(fill_value=0)
+                        grp_band_points = grp_band_points.reindex(master_index).fillna(0).astype(int)
+                        for band in valid_bands:
+                            if band in grp_band_points.columns:
+                                log_entry["hourly"]["by_band_points"][band] = grp_band_points[band].tolist()
+                            else:
+                                log_entry["hourly"]["by_band_points"][band] = [0] * len(master_index)
+
                     # -- 2. By Mode --
                     if 'Mode' in df_hourly.columns:
                         grp_mode = df_hourly.groupby([df_hourly['Datetime'].dt.floor('h'), 'Mode']).size().unstack(fill_value=0)
@@ -361,6 +373,16 @@ class TimeSeriesAggregator:
                         # Populate by_mode for all modes present in log
                         for mode in grp_mode.columns:
                             log_entry["hourly"]["by_mode"][mode] = grp_mode[mode].tolist()
+
+                        # Hourly points by mode (for rate sheet Points variant)
+                        if 'QSOPoints' in df_hourly.columns:
+                            grp_mode_points = df_hourly.groupby([df_hourly['Datetime'].dt.floor('h'), 'Mode'])['QSOPoints'].sum().unstack(fill_value=0)
+                            grp_mode_points = grp_mode_points.reindex(master_index).fillna(0).astype(int)
+                            for mode in grp_mode.columns:
+                                if mode in grp_mode_points.columns:
+                                    log_entry["hourly"]["by_mode_points"][mode] = grp_mode_points[mode].tolist()
+                                else:
+                                    log_entry["hourly"]["by_mode_points"][mode] = [0] * len(master_index)
 
                     # -- 3. By Band + Mode --
                     if 'Band' in df_hourly.columns and 'Mode' in df_hourly.columns:
@@ -387,6 +409,7 @@ class TimeSeriesAggregator:
                     log_entry["hourly"]["unknown_points"] = zeros
                     for band in contest_def.valid_bands:
                         log_entry["hourly"]["by_band"][band] = zeros
+                        log_entry["hourly"]["by_band_points"][band] = zeros
             else:
                 # Log completely empty
                 log_entry["hourly"]["qsos"] = zeros
@@ -399,6 +422,7 @@ class TimeSeriesAggregator:
                 log_entry["hourly"]["unknown_points"] = zeros
                 for band in contest_def.valid_bands:
                     log_entry["hourly"]["by_band"][band] = zeros
+                    log_entry["hourly"]["by_band_points"][band] = zeros
             
             # --- Hourly Multiplier Data ---
             if not df_full.empty and not is_filtered:

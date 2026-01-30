@@ -193,6 +193,10 @@
                         data-diff-json-{{ key }}="{{ m.diff_json_paths|get_item:key }}"
                         data-diff-full-{{ key }}="{% url 'view_report' session_id path %}?source=qso"
                         {% endfor %}
+                        {% for key, path in m.diff_paths_points.items %}
+                        data-diff-points-json-{{ key }}="{{ m.diff_json_paths_points|get_item:key }}"
+                        data-diff-points-full-{{ key }}="{% url 'view_report' session_id path %}?source=qso"
+                        {% endfor %}
                     >{{ m.label }}</option>
                 {% endfor %}
                 </select>
@@ -213,8 +217,12 @@
                 <div class="col-lg-6 mb-4">
                     <div class="card h-100 shadow-sm">
                         <div class="card-header d-flex justify-content-between align-items-center">
-                            <div class="d-flex align-items-center">
+                            <div class="d-flex align-items-center flex-wrap gap-2">
                                 <span class="me-2">Rate Differential</span>
+                                <div id="diffMetricToggle" class="btn-group btn-group-sm me-2" role="group">
+                                    <button type="button" class="btn btn-outline-secondary diff-metric-btn active" data-metric="qsos">QSOs</button>
+                                    <button type="button" class="btn btn-outline-secondary diff-metric-btn" data-metric="points">Points</button>
+                                </div>
                                 <div class="btn-group btn-group-sm" role="group">
                                     {% if diff_selector_type == 'mode' %}
                                         {# Mode selector for single-band, multi-mode contests (e.g., ARRL 10) #}
@@ -272,7 +280,17 @@
             <div class="input-group mb-3 w-auto">
                 <label class="input-group-text" for="ratesSelect"><i class="bi bi-journal-text me-2"></i>Select Log:</label>
                 <select class="form-select" id="ratesSelect">
-                {% if rate_sheet_comparison %}
+                {% if rate_sheet_comparison_qsos %}
+                    <option value="comparison_qsos" selected
+                            data-src="{% url 'view_report' session_id rate_sheet_comparison_qsos %}?chromeless=1"
+                            data-full-src="{% url 'view_report' session_id rate_sheet_comparison_qsos %}?source=qso">Comparison (QSOs)</option>
+                {% endif %}
+                {% if rate_sheet_comparison_points %}
+                    <option value="comparison_points" {% if not rate_sheet_comparison_qsos %}selected{% endif %}
+                            data-src="{% url 'view_report' session_id rate_sheet_comparison_points %}?chromeless=1"
+                            data-full-src="{% url 'view_report' session_id rate_sheet_comparison_points %}?source=qso">Comparison (Points)</option>
+                {% endif %}
+                {% if rate_sheet_comparison and not rate_sheet_comparison_qsos and not rate_sheet_comparison_points %}
                     <option value="comparison" selected
                             data-src="{% url 'view_report' session_id rate_sheet_comparison %}?chromeless=1"
                             data-full-src="{% url 'view_report' session_id rate_sheet_comparison %}?source=qso">Comparison (All Logs)</option>
@@ -373,8 +391,10 @@
         const linkBreakdown = document.getElementById('link-breakdown');
         const linkDiff = document.getElementById('link-diff');
         const diffSelectorBtns = document.querySelectorAll('.diff-selector-btn');
+        const diffMetricBtns = document.querySelectorAll('.diff-metric-btn');
         // Initialize currentDiffKey based on selector type and default active button
         let currentDiffKey = 'band:all';  // Default to band:all, will be updated by active button
+        let currentDiffMetric = 'qsos';   // 'qsos' or 'points' for cumulative difference plot variant
         // Set initial key from active button if present
         const activeBtn = document.querySelector('.diff-selector-btn.active');
         if (activeBtn) {
@@ -548,24 +568,18 @@
         function updateDiffContent() {
             if (!strategySelect) return;
             const selectedOption = strategySelect.options[strategySelect.selectedIndex];
+            const jsonPrefix = currentDiffMetric === 'points' ? 'data-diff-points-json-' : 'data-diff-json-';
+            const fullPrefix = currentDiffMetric === 'points' ? 'data-diff-points-full-' : 'data-diff-full-';
             
-            // Get JSON URL using structured key format (dimension:value)
-            // Try exact match first, then fallback to "all"
-            let diffJson = selectedOption.getAttribute('data-diff-json-' + currentDiffKey);
+            let diffJson = selectedOption.getAttribute(jsonPrefix + currentDiffKey);
             if (!diffJson) {
-                // Fallback: try "all" variant
                 const dimension = currentDiffKey.split(':')[0];
-                const fallbackKey = dimension + ':all';
-                diffJson = selectedOption.getAttribute('data-diff-json-' + fallbackKey);
+                diffJson = selectedOption.getAttribute(jsonPrefix + dimension + ':all');
             }
-            
-            // Get Full Link using structured key format
-            let diffFull = selectedOption.getAttribute('data-diff-full-' + currentDiffKey);
+            let diffFull = selectedOption.getAttribute(fullPrefix + currentDiffKey);
             if (!diffFull) {
-                // Fallback: try "all" variant
                 const dimension = currentDiffKey.split(':')[0];
-                const fallbackKey = dimension + ':all';
-                diffFull = selectedOption.getAttribute('data-diff-full-' + fallbackKey);
+                diffFull = selectedOption.getAttribute(fullPrefix + dimension + ':all');
             }
 
             renderChart(chartDiffId, diffJson);
@@ -582,14 +596,22 @@
             btn.addEventListener('click', () => {
                 diffSelectorBtns.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
-                // Build structured key: "dimension:value" (e.g., "band:all", "mode:cw")
                 const dimension = btn.dataset.dimension;
                 const value = btn.dataset.value;
                 currentDiffKey = `${dimension}:${value}`;
-                
                 updateDiffContent();
             });
         });
+        if (diffMetricBtns.length) {
+            diffMetricBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    diffMetricBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    currentDiffMetric = btn.dataset.metric;
+                    updateDiffContent();
+                });
+            });
+        }
 
         // --- Generic Dropdown Logic for other tabs ---
         // Enhanced: Supports both iframe (src) and Div/Plotly (json-src)

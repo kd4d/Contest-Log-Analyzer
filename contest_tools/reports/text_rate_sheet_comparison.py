@@ -33,237 +33,194 @@ class Report(ContestReport):
     
     def generate(self, output_path: str, **kwargs) -> str:
         """
-        Generates the report content, saves it to a file, and returns a summary.
+        Generates the report content. When contest uses points-based scoring,
+        produces both QSO and Points variants (like single-log rate sheets).
         """
         if len(self.logs) < 2:
             return "Error: The Comparative Rate Sheet report requires at least two logs."
-        
+
         all_calls = sorted([log.get_metadata().get('MyCall', 'Unknown') for log in self.logs])
         first_log = self.logs[0]
         contest_def = first_log.contest_definition
         bands = contest_def.valid_bands
         is_single_band = len(bands) == 1
-        
-        # Data Aggregation
-        # --- Phase 1 Performance Optimization: Use Cached Aggregator Data ---
+
         get_cached_ts_data = kwargs.get('_get_cached_ts_data')
         if get_cached_ts_data:
-            # Use cached time series data (avoids recreating aggregator and recomputing)
             ts_data = get_cached_ts_data()
         else:
-            # Fallback to old behavior for backward compatibility
             agg = TimeSeriesAggregator(self.logs)
             ts_data = agg.get_time_series_data()
         time_bins = ts_data['time_bins']
-        
-        # Determine available modes globally across all logs
-        global_modes = set()
-        for call in all_calls:
-            entry = ts_data['logs'].get(call)
-            if entry:
-                global_modes.update(entry['hourly'].get('by_mode', {}).keys())
-        available_modes = sorted(list(global_modes))
-        if not available_modes: available_modes = ['QSO']
-        
-        # Check if contest is single-mode (all detail sections should be suppressed)
-        is_single_mode = len(available_modes) == 1
 
-        report_blocks = []
+        # Determine metrics: always QSOs; add Points when contest uses points-based scoring
+        metrics_to_run = ['qsos']
+        score_formula = getattr(contest_def, 'score_formula', None) or contest_def._data.get('score_formula', 'points_times_mults')
+        if score_formula in ('total_points', 'points_times_mults'):
+            metrics_to_run.append('points')
 
-        # --- BLOCK 1: Overall Summary ---
-        # Columns: [Bands...] | [Total] | [Cumul]
-        # (Dropping Mode columns in summary for Comparison to save horizontal space)
-        
-        col_defs = []
-        if not is_single_band:
-            for b in bands:
-                col_defs.append({'key': f'band_{b}', 'header': b.replace('M',''), 'width': 6, 'type': 'band'})
-        else:
-            # Single band summary: Show Modes instead of "Band" column.
-            # This effectively treats the Summary block as a Detailed block for single-band logs.
-            for m in available_modes:
-                col_defs.append({'key': f'mode_{m}', 'header': m, 'width': 5, 'type': 'mode'})
+        callsigns_part = build_callsigns_filename_part(sorted(all_calls))
+        created = []
 
-        # Let's stick to the drill-down: Overall (Band Summary) -> Details (Mode Summary).
-        col_defs.append({'key': 'total', 'header': 'Total', 'width': 7, 'type': 'calc'})
-        col_defs.append({'key': 'cumul', 'header': 'Cumul', 'width': 8, 'type': 'calc'})
+        for metric in metrics_to_run:
+            report_id_suffix = '_qsos' if metric == 'qsos' else '_points'
+            report_name_metric = (self.report_name + ' (QSOs)') if metric == 'qsos' else (self.report_name + ' (Points)')
 
-        # --- Extract Metadata from DAL Scalars (Safe Access) ---
-        first_call = all_calls[0]
-        first_log_scalars = ts_data['logs'].get(first_call, {}).get('scalars', {})
-        
-        contest_name = first_log_scalars.get('contest_name', 'UnknownContest')
-        year = first_log_scalars.get('year', '----')
-        
-        # Calculate modes present for smart scoping
-        modes_present = set(available_modes)
-
-        block1 = self._build_comparison_block(
-            title="Overall Summary",
-            col_defs=col_defs,
-            time_bins=time_bins,
-            ts_data=ts_data,
-            all_calls=all_calls,
-            force_band_context=None
-        )
-        report_blocks.append(block1)
-        
-        # --- Generate Standard Header ---
-        # Measure width from the first block (separator line is index 3: Title, Blank, Header, Separator)
-        block1_lines = block1.split('\n')
-        table_width = len(block1_lines[3]) if len(block1_lines) > 3 else 80
-        
-        title_lines = get_standard_title_lines(self.report_name, self.logs, "All Bands", None, modes_present)
-        meta_lines = ["Contest Log Analytics by KD4D"]
-        
-        header_block = format_text_header(table_width, title_lines, meta_lines)
-        
-        # Prepend header to blocks and append standard footer
-        standard_footer = get_standard_footer(self.logs)
-        full_content = "\n".join(header_block) + "\n\n" + "\n\n".join(report_blocks) + "\n\n" + standard_footer + "\n"
-
-        # --- BLOCKS 2+: Band Details ---
-        # Skip detail sections for single-mode contests (redundant information)
-        if not is_single_band and not is_single_mode:
-            for band in bands:
-                # Check if this band has ANY data across ANY log
-                has_data = False
-                for call in all_calls:
-                    entry = ts_data['logs'].get(call)
-                    if entry and sum(entry['hourly']['by_band'].get(band, [])) > 0:
-                        has_data = True
-                        break
-                
-                if not has_data: continue
-
-                # Smart Suppression:
-                # Calculate active modes on this band across all logs.
-                # If only 1 mode is active (e.g. CW only), skip the detail block to reduce redundancy.
-                active_modes_on_band = set()
+            if metric == 'qsos':
+                global_modes = set()
                 for call in all_calls:
                     entry = ts_data['logs'].get(call)
                     if entry:
-                        # Keys in by_band_mode are formatted as "{BAND}_{MODE}" (e.g. "20M_CW")
-                        for key in entry['hourly'].get('by_band_mode', {}).keys():
-                            if key.startswith(f"{band}_"):
-                                parts = key.split('_')
-                                if len(parts) >= 2:
-                                    active_modes_on_band.add(parts[1])
-                
-                if len(active_modes_on_band) <= 1:
-                    continue
+                        global_modes.update(entry['hourly'].get('by_mode', {}).keys())
+                available_modes = sorted(list(global_modes))
+            else:
+                global_modes = set()
+                for call in all_calls:
+                    entry = ts_data['logs'].get(call)
+                    if entry:
+                        global_modes.update(entry['hourly'].get('by_mode_points', {}).keys())
+                available_modes = sorted(list(global_modes))
+            if not available_modes:
+                available_modes = ['QSO'] if metric == 'qsos' else ['Pts']
 
-                # Detail Cols: [Modes...] | [Total] | [Cumul]
-                detail_defs = []
+            is_single_mode = len(available_modes) == 1
+            modes_present = set(available_modes)
+
+            col_defs = []
+            if not is_single_band:
+                for b in bands:
+                    col_defs.append({'key': f'band_{b}', 'header': b.replace('M', ''), 'width': 6, 'type': 'band'})
+            else:
                 for m in available_modes:
-                    detail_defs.append({'key': f'bm_{band}_{m}', 'header': m, 'width': 5, 'type': 'band_mode'})
-                
-                detail_defs.append({'key': 'total', 'header': 'Total', 'width': 7, 'type': 'calc'})
-                detail_defs.append({'key': 'cumul', 'header': 'Cumul', 'width': 8, 'type': 'calc'})
+                    col_defs.append({'key': f'mode_{m}', 'header': m, 'width': 5, 'type': 'mode'})
+            col_defs.append({'key': 'total', 'header': 'Total', 'width': 7, 'type': 'calc'})
+            col_defs.append({'key': 'cumul', 'header': 'Cumul', 'width': 8, 'type': 'calc'})
 
-                block_detail = self._build_comparison_block(
-                    title=f"Detail: {band}",
-                    col_defs=detail_defs,
-                    time_bins=time_bins,
-                    ts_data=ts_data,
-                    all_calls=all_calls,
-                    force_band_context=band
-                )
-                report_blocks.append(block_detail)
+            report_blocks = []
+            block1 = self._build_comparison_block(
+                title="Overall Summary",
+                col_defs=col_defs,
+                time_bins=time_bins,
+                ts_data=ts_data,
+                all_calls=all_calls,
+                force_band_context=None,
+                metric=metric
+            )
+            report_blocks.append(block1)
 
-        # --- Output ---
-        
-        os.makedirs(output_path, exist_ok=True)
-        callsigns_part = build_callsigns_filename_part(sorted(all_calls))
-        filename = f"{self.report_id}--{callsigns_part}.txt"
-        filepath = os.path.join(output_path, filename)
-        
-        with open(filepath, 'w', encoding='utf-8') as f:
-            f.write(full_content)
-        
-        return f"Text report saved to: {filepath}"
+            if not is_single_band and not is_single_mode and metric == 'qsos':
+                for band in bands:
+                    has_data = False
+                    for call in all_calls:
+                        entry = ts_data['logs'].get(call)
+                        if entry and sum(entry['hourly']['by_band'].get(band, [])) > 0:
+                            has_data = True
+                            break
+                    if not has_data:
+                        continue
+                    active_modes_on_band = set()
+                    for call in all_calls:
+                        entry = ts_data['logs'].get(call)
+                        if entry:
+                            for key in entry['hourly'].get('by_band_mode', {}).keys():
+                                if key.startswith(f"{band}_"):
+                                    parts = key.split('_')
+                                    if len(parts) >= 2:
+                                        active_modes_on_band.add(parts[1])
+                    if len(active_modes_on_band) <= 1:
+                        continue
+                    detail_defs = []
+                    for m in available_modes:
+                        detail_defs.append({'key': f'bm_{band}_{m}', 'header': m, 'width': 5, 'type': 'band_mode'})
+                    detail_defs.append({'key': 'total', 'header': 'Total', 'width': 7, 'type': 'calc'})
+                    detail_defs.append({'key': 'cumul', 'header': 'Cumul', 'width': 8, 'type': 'calc'})
+                    block_detail = self._build_comparison_block(
+                        title=f"Detail: {band}",
+                        col_defs=detail_defs,
+                        time_bins=time_bins,
+                        ts_data=ts_data,
+                        all_calls=all_calls,
+                        force_band_context=band,
+                        metric=metric
+                    )
+                    report_blocks.append(block_detail)
 
-    def _build_comparison_block(self, title, col_defs, time_bins, ts_data, all_calls, force_band_context=None):
+            block1_lines = block1.split('\n')
+            table_width = len(block1_lines[3]) if len(block1_lines) > 3 else 80
+            title_lines = get_standard_title_lines(report_name_metric, self.logs, "All Bands", None, modes_present)
+            meta_lines = ["Contest Log Analytics by KD4D"]
+            header_block = format_text_header(table_width, title_lines, meta_lines)
+            standard_footer = get_standard_footer(self.logs)
+            full_content = "\n".join(header_block) + "\n\n" + "\n\n".join(report_blocks) + "\n\n" + standard_footer + "\n"
+
+            os.makedirs(output_path, exist_ok=True)
+            filename = f"{self.report_id}{report_id_suffix}--{callsigns_part}.txt"
+            filepath = os.path.join(output_path, filename)
+            with open(filepath, 'w', encoding='utf-8') as f:
+                f.write(full_content)
+            created.append(filepath)
+
+        return "\n".join([f"Text report saved to: {fp}" for fp in created])
+
+    def _build_comparison_block(self, title, col_defs, time_bins, ts_data, all_calls, force_band_context=None, metric='qsos'):
         lines = []
-        
-        # 1. Header Construction
-        # Header Format:
-        # Time   Call     [Cols...]
-        
-        prefix_width = 15 # "HHMM   Call   "
-        
+        total_key = 'points' if metric == 'points' else 'qsos'
+        band_key = 'by_band_points' if metric == 'points' else 'by_band'
+        mode_key = 'by_mode_points' if metric == 'points' else 'by_mode'
+
         header1_parts = [f"{'Hour':<5}", f"{'Call':<7}"]
         for col in col_defs:
             w = col['width']
             header1_parts.append(f"{col['header']:>{w}}")
-            
         header1 = " ".join(header1_parts)
         table_width = len(header1)
         separator = "-" * table_width
-        
         lines.append(title.center(table_width))
         lines.append("")
         lines.append(header1)
         lines.append(separator)
-        
-        # 2. State Tracking
-        # Need cumulative totals per call
+
         cumul_trackers = {call: 0 for call in all_calls}
         grand_totals = {call: {col['key']: 0 for col in col_defs} for call in all_calls}
 
-        # 3. Iterate Time
         for i, time_iso in enumerate(time_bins):
             hour_str = time_iso[11:13] + time_iso[14:16]
-            
-            # Check if this hour has data for ANY call (to skip empty rows)
-            # This is slightly more complex in comparison mode.
-            # We must pre-calculate row totals for all calls to decide visibility.
             hour_has_data = False
-            row_data_cache = {} # Map call -> {col_key: val}
-            row_totals_cache = {} # Map call -> total
-            
+            row_data_cache = {}
+            row_totals_cache = {}
+
             for call in all_calls:
                 row_vals = {}
                 row_total = 0
                 entry = ts_data['logs'].get(call)
-                
+
                 if entry:
                     hourly = entry['hourly']
-                    
                     for col in col_defs:
                         key = col['key']
                         ctype = col['type']
                         val = 0
-                        
                         if ctype == 'band':
                             b = key.replace('band_', '')
-                            data_list = hourly['by_band'].get(b, [])
+                            data_list = hourly.get(band_key, {}).get(b, [])
                             val = data_list[i] if data_list else 0
                         elif ctype == 'mode':
                             lookup = key.replace('mode_', '')
-                            data_list = hourly['by_mode'].get(lookup, [])
-                            val = data_list[i] if data_list else 0
+                            if metric == 'points' and lookup == 'Pts':
+                                data_list = hourly.get('points', [])
+                                val = data_list[i] if data_list and i < len(data_list) else 0
+                            else:
+                                data_list = hourly.get(mode_key, {}).get(lookup, [])
+                                val = data_list[i] if data_list else 0
                         elif ctype == 'band_mode':
                             lookup = key.replace('bm_', '')
-                            data_list = hourly['by_band_mode'].get(lookup, [])
+                            data_list = hourly.get('by_band_mode', {}).get(lookup, [])
                             val = data_list[i] if data_list else 0
-                        
                         if ctype != 'calc':
                             row_vals[key] = val
-                            # Add to calc
                             row_total += val
-                    
-                    # If force_band_context is NOT set (Summary), row_total is global hourly qsos
-                    # to ensure we capture everything even if cols are restricted?
-                    # Actually, if cols are restricted (bands), row_total sum is correct.
-                    # Just stick to summing the displayed columns + hidden ones? 
-                    # Simpler: Use Aggregator's pre-calculated totals if available?
-                    # No, keep it consistent with displayed columns.
-                    pass
-                else:
-                    # Missing log
-                    pass
-                
+                    if force_band_context is None:
+                        row_total = (hourly.get(total_key) or [0] * len(time_bins))[i] if i < len(hourly.get(total_key) or []) else row_total
                 row_data_cache[call] = row_vals
                 row_totals_cache[call] = row_total
                 if row_total > 0:

@@ -749,6 +749,7 @@ class Report(ContestReport):
     def generate(self, output_path: str, **kwargs) -> str:
         """
         Orchestrates the generation of all cumulative difference plots, including per-mode breakdowns.
+        Runs both QSOs and Points variants when the contest uses a points-based score (e.g. WPX, CQ WW).
         """
         if len(self.logs) != 2:
             return "Error: The Cumulative Difference Plot report requires exactly two logs."
@@ -760,26 +761,36 @@ class Report(ContestReport):
         if df1_full.empty or df2_full.empty:
             return "Skipping report: At least one log has no valid QSO data."
 
+        # Determine metrics: always QSOs; add Points when contest uses points-based scoring
+        contest_def = log1.contest_definition
+        score_formula = contest_def.score_formula
+        metrics_to_run = ['qsos']
+        if score_formula in ('total_points', 'points_times_mults'):
+            metrics_to_run.append('points')
+
         all_created_files = []
 
-        # 1. Generate plots for "All Modes"
-        all_created_files.extend(
-            self._orchestrate_plot_generation(dfs=[df1_full, df2_full], output_path=output_path, mode_filter=None, **kwargs)
-        )
+        for metric in metrics_to_run:
+            metric_kwargs = {**kwargs, 'metric': metric}
 
-        # 2. Generate plots for each mode if applicable
-        modes_present = pd.concat([df1_full['Mode'], df2_full['Mode']]).dropna().unique()
-        if len(modes_present) > 1:
-            # Include all standard modes: CW, PH (SSB), DG (Digital), RY (RTTY)
-            for mode in ['CW', 'PH', 'DG', 'RY']:
-                if mode in modes_present:
-                    sliced_dfs = [df[df['Mode'] == mode] for df in [df1_full, df2_full]]
-                    
-                    all_created_files.extend(
-                        self._orchestrate_plot_generation(sliced_dfs, output_path, mode_filter=mode, **kwargs)
-                    )
-        
+            # 1. Generate plots for "All Modes"
+            all_created_files.extend(
+                self._orchestrate_plot_generation(dfs=[df1_full, df2_full], output_path=output_path, mode_filter=None, **metric_kwargs)
+            )
+
+            # 2. Generate plots for each mode if applicable
+            modes_present = pd.concat([df1_full['Mode'], df2_full['Mode']]).dropna().unique()
+            if len(modes_present) > 1:
+                # Include all standard modes: CW, PH (SSB), DG (Digital), RY (RTTY)
+                for mode in ['CW', 'PH', 'DG', 'RY']:
+                    if mode in modes_present:
+                        sliced_dfs = [df[df['Mode'] == mode] for df in [df1_full, df2_full]]
+
+                        all_created_files.extend(
+                            self._orchestrate_plot_generation(sliced_dfs, output_path, mode_filter=mode, **metric_kwargs)
+                        )
+
         if not all_created_files:
-            return f"No difference plots were generated for metric '{kwargs.get('metric', 'qsos')}'."
+            return f"No difference plots were generated (metrics tried: {', '.join(metrics_to_run)})."
 
-        return f"Cumulative difference plots for {kwargs.get('metric', 'qsos')} saved to relevant subdirectories."
+        return f"Cumulative difference plots for {', '.join(metrics_to_run)} saved to relevant subdirectories."

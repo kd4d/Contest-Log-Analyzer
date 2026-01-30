@@ -32,7 +32,8 @@ class Report(ContestReport):
     
     def generate(self, output_path: str, **kwargs) -> str:
         """
-        Generates the report content.
+        Generates the report content. When contest uses points-based scoring,
+        produces both QSO and Points variants (like cumulative difference plots).
         """
         include_dupes = kwargs.get('include_dupes', False)
         final_report_messages = []
@@ -40,154 +41,139 @@ class Report(ContestReport):
         # --- Phase 1 Performance Optimization: Use Cached Aggregator Data ---
         get_cached_ts_data = kwargs.get('_get_cached_ts_data')
         if get_cached_ts_data:
-            # Use cached time series data (avoids recreating aggregator and recomputing)
             ts_data = get_cached_ts_data()
         else:
-            # Fallback to old behavior for backward compatibility
             agg = TimeSeriesAggregator(self.logs)
             ts_data = agg.get_time_series_data()
         time_bins = ts_data['time_bins']
 
-        for log in self.logs:
-            callsign = log.get_metadata().get('MyCall', 'UnknownCall')
-            
-            if callsign not in ts_data['logs']:
-                print(f"Skipping rate sheet for {callsign}: No valid QSOs to report.")
-                continue
+        # Determine metrics: always QSOs; add Points when contest uses points-based scoring
+        metrics_to_run = ['qsos']
+        if self.logs:
+            contest_def = self.logs[0].contest_definition
+            score_formula = getattr(contest_def, 'score_formula', None) or contest_def._data.get('score_formula', 'points_times_mults')
+            if score_formula in ('total_points', 'points_times_mults'):
+                metrics_to_run.append('points')
 
-            log_data = ts_data['logs'][callsign]
-            scalars = log_data['scalars']
-            
-            if scalars['gross_qsos'] == 0:
-                 print(f"Skipping rate sheet for {callsign}: No valid QSOs to report.")
-                 continue
+        for metric in metrics_to_run:
+            report_id_suffix = '_qsos' if metric == 'qsos' else '_points'
+            report_name_metric = (self.report_name + ' (QSOs)') if metric == 'qsos' else (self.report_name + ' (Points)')
+            for log in self.logs:
+                callsign = log.get_metadata().get('MyCall', 'UnknownCall')
 
-            year = scalars.get('year', "UnknownYear")
-            contest_name = scalars.get('contest_name', 'UnknownContest')
-            
-            bands = log.contest_definition.valid_bands
-            is_single_band = len(bands) == 1
+                if callsign not in ts_data['logs']:
+                    print(f"Skipping rate sheet for {callsign}: No valid QSOs to report.")
+                    continue
 
-            # Get Available Modes from the data
-            hourly_data = log_data['hourly']
-            available_modes = sorted(list(hourly_data.get('by_mode', {}).keys()))
-            if not available_modes:
-                available_modes = ["QSO"] # Fallback
+                log_data = ts_data['logs'][callsign]
+                scalars = log_data['scalars']
 
-            # Calculate modes present for smart scoping
-            modes_present = set(available_modes)
-            
-            # Check if contest is single-mode (all detail sections should be suppressed)
-            is_single_mode = len(available_modes) == 1
+                if scalars['gross_qsos'] == 0:
+                    print(f"Skipping rate sheet for {callsign}: No valid QSOs to report.")
+                    continue
 
-            report_blocks = []
+                year = scalars.get('year', "UnknownYear")
+                contest_name = scalars.get('contest_name', 'UnknownContest')
 
-            # --- BLOCK 1: Overall Summary ---
-            # Columns: [Bands...] (if multi) | [Modes...] | [Totals]
-            
-            col_defs = []
-            
-            # 1. Band Columns (Only if multi-band)
-            if not is_single_band:
-                for b in bands:
-                    col_defs.append({'key': f'band_{b}', 'header': b.replace('M',''), 'width': 5, 'type': 'band'})
-            
-            # 2. Mode Columns
-            for m in available_modes:
-                col_defs.append({'key': f'mode_{m}', 'header': m, 'width': 5, 'type': 'mode'})
-            
-            # 3. Totals
-            col_defs.append({'key': 'hourly_total', 'header': 'Total', 'width': 7, 'type': 'calc'})
-            col_defs.append({'key': 'cumul_total', 'header': 'Cumul', 'width': 8, 'type': 'calc'})
+                bands = log.contest_definition.valid_bands
+                is_single_band = len(bands) == 1
 
-            title_main = f"{year} {contest_name} - {callsign} (All Bands)"
-            block1 = self._build_table_block(
-                title=title_main,
-                col_defs=col_defs,
-                time_bins=time_bins,
-                data_source=hourly_data,
-                bands=bands,
-                available_modes=available_modes
-            )
-            report_blocks.append(block1)
+                hourly_data = log_data['hourly']
+                if metric == 'qsos':
+                    available_modes = sorted(list(hourly_data.get('by_mode', {}).keys()))
+                else:
+                    available_modes = sorted(list(hourly_data.get('by_mode_points', {}).keys()))
+                if not available_modes:
+                    available_modes = ["QSO"] if metric == 'qsos' else ["Pts"]
 
-            # --- BLOCKS 2+: Band Details ---
-            # Generate a detail table for each band that has data
-            # Columns: [Modes...] | [Totals]
-            # Skip detail sections for single-mode contests (redundant information)
-            
-            if not is_single_band and not is_single_mode:
-                for band in bands:
-                    # Check if band has any data
-                    band_qsos = hourly_data['by_band'].get(band, [])
-                    if sum(band_qsos) == 0:
-                        continue # Skip empty bands
+                modes_present = set(available_modes)
+                is_single_mode = len(available_modes) == 1
 
-                    # Smart Suppression:
-                    # Calculate active modes on this band.
-                    # If only 1 mode is active (e.g. CW only), skip the detail block to reduce redundancy.
-                    active_modes_on_band = set()
-                    # Keys in by_band_mode are formatted as "{BAND}_{MODE}" (e.g. "20M_CW")
-                    for key in hourly_data.get('by_band_mode', {}).keys():
-                        if key.startswith(f"{band}_"):
-                            parts = key.split('_')
-                            if len(parts) >= 2:
-                                active_modes_on_band.add(parts[1])
-                    
-                    if len(active_modes_on_band) <= 1:
-                        continue
+                report_blocks = []
 
-                    detail_col_defs = []
-                    for m in available_modes:
-                        detail_col_defs.append({'key': f'bm_{band}_{m}', 'header': m, 'width': 5, 'type': 'band_mode'})
-                    
-                    detail_col_defs.append({'key': f'band_total_{band}', 'header': 'Total', 'width': 7, 'type': 'calc'})
-                    detail_col_defs.append({'key': f'band_cumul_{band}', 'header': 'Cumul', 'width': 8, 'type': 'calc'})
+                col_defs = []
+                if not is_single_band:
+                    for b in bands:
+                        col_defs.append({'key': f'band_{b}', 'header': b.replace('M', ''), 'width': 5, 'type': 'band'})
+                for m in available_modes:
+                    col_defs.append({'key': f'mode_{m}', 'header': m, 'width': 5, 'type': 'mode'})
+                col_defs.append({'key': 'hourly_total', 'header': 'Total', 'width': 7, 'type': 'calc'})
+                col_defs.append({'key': 'cumul_total', 'header': 'Cumul', 'width': 8, 'type': 'calc'})
 
-                    block_detail = self._build_table_block(
-                        title=f"Detail: {band}",
-                        col_defs=detail_col_defs,
-                        time_bins=time_bins,
-                        data_source=hourly_data,
-                        bands=[band], # Restrict context
-                        available_modes=available_modes,
-                        force_band_context=band
-                    )
-                    report_blocks.append(block_detail)
+                title_main = f"{year} {contest_name} - {callsign} (All Bands)"
+                block1 = self._build_table_block(
+                    title=title_main,
+                    col_defs=col_defs,
+                    time_bins=time_bins,
+                    data_source=hourly_data,
+                    bands=bands,
+                    available_modes=available_modes,
+                    metric=metric
+                )
+                report_blocks.append(block1)
 
-            # --- Footer ---
-            gross_qsos = scalars['gross_qsos']
-            dupes = scalars['dupes']
-            net_qsos = scalars['net_qsos']
-            display_net = gross_qsos if include_dupes else net_qsos
-            footer = f"Gross QSOs={gross_qsos}     Dupes={dupes}     Net QSOs={display_net}"
+                if not is_single_band and not is_single_mode and metric == 'qsos':
+                    for band in bands:
+                        band_qsos = hourly_data['by_band'].get(band, [])
+                        if sum(band_qsos) == 0:
+                            continue
+                        active_modes_on_band = set()
+                        for key in hourly_data.get('by_band_mode', {}).keys():
+                            if key.startswith(f"{band}_"):
+                                parts = key.split('_')
+                                if len(parts) >= 2:
+                                    active_modes_on_band.add(parts[1])
+                        if len(active_modes_on_band) <= 1:
+                            continue
+                        detail_col_defs = []
+                        for m in available_modes:
+                            detail_col_defs.append({'key': f'bm_{band}_{m}', 'header': m, 'width': 5, 'type': 'band_mode'})
+                        detail_col_defs.append({'key': f'band_total_{band}', 'header': 'Total', 'width': 7, 'type': 'calc'})
+                        detail_col_defs.append({'key': f'band_cumul_{band}', 'header': 'Cumul', 'width': 8, 'type': 'calc'})
+                        block_detail = self._build_table_block(
+                            title=f"Detail: {band}",
+                            col_defs=detail_col_defs,
+                            time_bins=time_bins,
+                            data_source=hourly_data,
+                            bands=[band],
+                            available_modes=available_modes,
+                            force_band_context=band,
+                            metric=metric
+                        )
+                        report_blocks.append(block_detail)
 
-            # --- Generate Standard Header ---
-            # Measure width from the first block
-            block1_lines = block1.split('\n')
-            table_width = len(block1_lines[3]) if len(block1_lines) > 3 else 80
+                if metric == 'qsos':
+                    gross_qsos = scalars['gross_qsos']
+                    dupes = scalars['dupes']
+                    net_qsos = scalars['net_qsos']
+                    display_net = gross_qsos if include_dupes else net_qsos
+                    footer = f"Gross QSOs={gross_qsos}     Dupes={dupes}     Net QSOs={display_net}"
+                else:
+                    footer = f"Total Points={scalars.get('points_sum', 0):,}"
 
-            title_lines = get_standard_title_lines(self.report_name, [log], "All Bands", None, modes_present)
-            meta_lines = ["Contest Log Analytics by KD4D"]
-            header_block = format_text_header(table_width, title_lines, meta_lines)
+                block1_lines = block1.split('\n')
+                table_width = len(block1_lines[3]) if len(block1_lines) > 3 else 80
+                title_lines = get_standard_title_lines(report_name_metric, [log], "All Bands", None, modes_present)
+                meta_lines = ["Contest Log Analytics by KD4D"]
+                header_block = format_text_header(table_width, title_lines, meta_lines)
 
-            # --- Assembly ---
-            standard_footer = get_standard_footer([log])
-            full_content = "\n".join(header_block) + "\n\n" + "\n\n".join(report_blocks) + "\n\n" + footer + "\n\n" + standard_footer + "\n"
-            
-            os.makedirs(output_path, exist_ok=True)
-            filename = f"{self.report_id}--{callsign_to_filename_part(callsign)}.txt"
-            filepath = os.path.join(output_path, filename)
-            with open(filepath, 'w', encoding='utf-8') as f:
-                f.write(full_content)
-            
-            final_report_messages.append(f"Text report saved to: {filepath}")
+                standard_footer = get_standard_footer([log])
+                full_content = "\n".join(header_block) + "\n\n" + "\n\n".join(report_blocks) + "\n\n" + footer + "\n\n" + standard_footer + "\n"
+
+                os.makedirs(output_path, exist_ok=True)
+                filename = f"{self.report_id}{report_id_suffix}--{callsign_to_filename_part(callsign)}.txt"
+                filepath = os.path.join(output_path, filename)
+                with open(filepath, 'w', encoding='utf-8') as f:
+                    f.write(full_content)
+
+                final_report_messages.append(f"Text report saved to: {filepath}")
 
         return "\n".join(final_report_messages)
 
-    def _build_table_block(self, title, col_defs, time_bins, data_source, bands, available_modes, force_band_context=None):
+    def _build_table_block(self, title, col_defs, time_bins, data_source, bands, available_modes, force_band_context=None, metric='qsos'):
         """
         Constructs a formatted text table block.
+        metric: 'qsos' or 'points' — selects by_band/by_mode/qsos vs by_band_points/by_mode_points/points.
         """
         lines = []
         
@@ -236,16 +222,20 @@ class Report(ContestReport):
                 val = 0
                 
                 if ctype == 'band':
-                    # key = band_10M
                     b = key.replace('band_', '')
-                    data_list = data_source['by_band'].get(b, [])
+                    band_key = 'by_band_points' if metric == 'points' else 'by_band'
+                    data_list = data_source.get(band_key, {}).get(b, [])
                     val = data_list[i] if data_list else 0
                 elif ctype == 'mode':
-                    # key = mode_CW
                     m = key.replace('mode_', '')
-                    data_list = data_source['by_mode'].get(m, [])
-                    val = data_list[i] if data_list else 0
-            
+                    if metric == 'points' and m == 'Pts':
+                        data_list = data_source.get('points', [])
+                        val = data_list[i] if data_list else 0
+                    else:
+                        mode_key = 'by_mode_points' if metric == 'points' else 'by_mode'
+                        data_list = data_source.get(mode_key, {}).get(m, [])
+                        val = data_list[i] if data_list else 0
+
                 if force_band_context: 
                         # This should theoretically not happen in Summary block, 
                         # but if mode column used in detail block, it maps to band_mode
@@ -262,14 +252,11 @@ class Report(ContestReport):
                     row_vals[key] = val
             
             # Calculate Row Total
-            # Logic: If summary block, row total is sum of by_band OR sum of by_mode (they are equivalent)
-            # Use 'hourly.qsos' from aggregator if in summary, else sum manual components
+            total_key = 'points' if metric == 'points' else 'qsos'
             if force_band_context:
-                # Detail Block: Sum of the modes displayed
                 row_total = sum(row_vals.values())
             else:
-                # Summary Block: Use global hourly total
-                row_total = data_source['qsos'][i]
+                row_total = data_source.get(total_key, [0] * len(time_bins))[i] if i < len(data_source.get(total_key, [])) else 0
             
             if row_total == 0:
                 continue

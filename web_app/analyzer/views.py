@@ -1191,7 +1191,9 @@ def dashboard_view(request, session_id):
     context['score_reports_data'] = score_reports_data
     context['score_report_text_urls'] = score_report_text_urls
     context['breakdown_report_urls'] = breakdown_report_urls
-    
+    # Hide Multiplier Reports dashboard for WPX (for now)
+    context['show_multiplier_dashboard'] = not contest_name.startswith('CQ-WPX')
+
     return render(request, 'analyzer/dashboard.html', context)
 
 def get_progress(request, request_id):
@@ -1361,6 +1363,10 @@ def multiplier_dashboard(request, session_id):
     # 5. Load contest definition to determine dimension (band vs mode)
     # Extract contest name from directory path structure (no cache needed)
     contest_name = _extract_contest_name_from_path(report_rel_path)
+    # Multiplier dashboard not available for WPX (for now)
+    if contest_name and contest_name.upper().startswith('CQ-WPX'):
+        return render(request, 'analyzer/multiplier_dashboard_unavailable.html', {'session_id': session_id})
+
     valid_bands = ['80M', '40M', '20M', '15M', '10M']  # Default fallback
     valid_modes = []  # Default: empty list
     contest_def = None
@@ -2461,43 +2467,55 @@ def qso_dashboard(request, session_id):
     if not global_qso:
         logger.warning(f"QSO Dashboard: Global QSO Rate Plot not found for combo_id '{combo_id}' in '{report_rel_path}'.")
 
-    # Strict lookup for Rate Sheet Comparison to ensure we get the full multi-log version, not a pairwise subset
-    # New format: rate_sheet_comparison--{combo_id}.txt
-    # Old format (backward compat): rate_sheet_comparison_{combo_id}.txt
-    rate_sheet_target_new = f"rate_sheet_comparison--{combo_id}.txt"
-    rate_sheet_target_old = f"rate_sheet_comparison_{combo_id}.txt"
-    rate_sheet_comp = next((f"{report_rel_path}/{a['path']}" for a in artifacts 
-                          if a['report_id'] == 'rate_sheet_comparison' 
-                          and (a['path'].endswith(rate_sheet_target_new) or a['path'].endswith(rate_sheet_target_old))), "")
-    
-    if not rate_sheet_comp and not is_solo:
-        logger.warning(f"QSO Dashboard: Comparative Rate Sheet not found for combo_id '{combo_id}'. Expected suffix: '{rate_sheet_target}'.")
+    # Rate Sheet Comparison: QSO and Points variants (rate_sheet_comparison_qsos--..., rate_sheet_comparison_points--...)
+    # Also accept legacy single-file format for backward compatibility
+    rate_sheet_comp_qsos = next((f"{report_rel_path}/{a['path']}" for a in artifacts
+                                if a['report_id'] == 'rate_sheet_comparison'
+                                and a['path'].endswith(f"rate_sheet_comparison_qsos--{combo_id}.txt")), "")
+    rate_sheet_comp_points = next((f"{report_rel_path}/{a['path']}" for a in artifacts
+                                  if a['report_id'] == 'rate_sheet_comparison'
+                                  and a['path'].endswith(f"rate_sheet_comparison_points--{combo_id}.txt")), "")
+    if not rate_sheet_comp_qsos and not rate_sheet_comp_points:
+        rate_sheet_comp_legacy = next((f"{report_rel_path}/{a['path']}" for a in artifacts
+                                      if a['report_id'] == 'rate_sheet_comparison'
+                                      and (a['path'].endswith(f"rate_sheet_comparison--{combo_id}.txt")
+                                           or a['path'].endswith(f"rate_sheet_comparison_{combo_id}.txt"))), "")
+        if rate_sheet_comp_legacy and not is_solo:
+            rate_sheet_comp_qsos = rate_sheet_comp_legacy
+    if not rate_sheet_comp_qsos and not rate_sheet_comp_points and not is_solo:
+        logger.warning(f"QSO Dashboard: Comparative Rate Sheet not found for combo_id '{combo_id}'.")
+
+    # Default comparison URL for backward compatibility (prefer QSOs; legacy is assigned to rate_sheet_comp_qsos when found)
+    rate_sheet_comp = rate_sheet_comp_qsos or rate_sheet_comp_points
 
     # Decouple base path from global_qso success. Use authoritative manifest path.
     report_base = report_rel_path
 
     # Build rate_sheet_urls dictionary: map display callsigns to their rate sheet paths
-    # Rate sheets use format: rate_sheet--{callsign}.txt (double dash, not underscore)
+    # Rate sheets use format: rate_sheet_qsos--{callsign}.txt (QSO variant); also accept legacy formats
     from contest_tools.utils.callsign_utils import callsign_to_filename_part
     rate_sheet_urls = {}
     for idx, call_safe in enumerate(callsigns_safe):
-        call_display = callsigns_display[idx]  # Get corresponding display callsign
-        # Use manifest lookup to find rate sheet (matches generator format: rate_sheet--{callsign}.txt)
+        call_display = callsigns_display[idx]
         call_filename_part = callsign_to_filename_part(call_safe)
-        rate_sheet_target = f"rate_sheet--{call_filename_part}.txt"
-        rate_sheet_found = next((f"{report_rel_path}/{a['path']}" for a in artifacts 
-                                if a['report_id'] == 'rate_sheet' 
+        rate_sheet_target = f"rate_sheet_qsos--{call_filename_part}.txt"
+        rate_sheet_found = next((f"{report_rel_path}/{a['path']}" for a in artifacts
+                                if a['report_id'] == 'rate_sheet'
                                 and a['path'].endswith(rate_sheet_target)), None)
         if not rate_sheet_found:
-            # Fallback: check old format for backward compatibility
+            rate_sheet_legacy = f"rate_sheet--{call_filename_part}.txt"
+            rate_sheet_found = next((f"{report_rel_path}/{a['path']}" for a in artifacts
+                                    if a['report_id'] == 'rate_sheet'
+                                    and a['path'].endswith(rate_sheet_legacy)), None)
+        if not rate_sheet_found:
             rate_sheet_old_format = f"rate_sheet_{call_filename_part}.txt"
-            rate_sheet_found = next((f"{report_rel_path}/{a['path']}" for a in artifacts 
-                                    if a['report_id'] == 'rate_sheet' 
+            rate_sheet_found = next((f"{report_rel_path}/{a['path']}" for a in artifacts
+                                    if a['report_id'] == 'rate_sheet'
                                     and a['path'].endswith(rate_sheet_old_format)), None)
         if rate_sheet_found:
             rate_sheet_urls[call_display] = rate_sheet_found
         else:
-            logger.warning(f"QSO Dashboard: Expected rate sheet not found for callsign '{call_display}' (safe: '{call_safe}'). Expected: '{rate_sheet_target}' (or old format: 'rate_sheet_{call_filename_part}.txt')")
+            logger.warning(f"QSO Dashboard: Expected rate sheet not found for callsign '{call_display}' (safe: '{call_safe}'). Expected: '{rate_sheet_target}' or legacy formats.")
 
     # Prepare valid_modes for template (similar to valid_bands_for_buttons)
     valid_modes_for_buttons = []
@@ -2538,6 +2556,8 @@ def qso_dashboard(request, session_id):
         # Global Files
         'global_qso_rate_file': global_qso,
         'rate_sheet_comparison': rate_sheet_comp,
+        'rate_sheet_comparison_qsos': rate_sheet_comp_qsos,
+        'rate_sheet_comparison_points': rate_sheet_comp_points,
         'rate_sheet_urls': rate_sheet_urls,  # Dictionary mapping display callsigns to rate sheet paths
         'report_base': report_base,
         'is_solo': is_solo,
