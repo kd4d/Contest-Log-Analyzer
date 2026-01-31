@@ -201,6 +201,7 @@
 ### BEFORE Merge
 
 - [ ] Check "WARNING: Merges to Main Branch" section in `AI_AGENT_RULES.md`
+- [ ] If preparing for release: create draft release notes, announcement, and CHANGELOG on feature branch and commit (Release Workflow Step 2)
 - [ ] Verify merge requires user review/approval
 - [ ] Generate merge command with `--no-ff` flag: `git merge --no-ff feature/branch-name`
 - [ ] Present command to user for review
@@ -222,11 +223,13 @@
 
 - [ ] Check "WARNING: Creating Tags/Releases" section in `AI_AGENT_RULES.md`
 - [ ] Verify tag creation requires user review/approval
-- [ ] Read "Release Workflow" section for complete process
+- [ ] Read "Release Workflow" section for complete process (drafts on feature branch, merge, then version bump can review/modify drafts)
 - [ ] Update all version references:
   - [ ] `contest_tools/version.py` → Update `__version__`
   - [ ] `README.md` → Update version on line 3
   - [ ] Documentation files (Category A, B, C per VersionManagement.md)
+  - [ ] In-app help (Category E): Thorough check of help_dashboard.html, help_reports.html, help_release_notes.html, about.html per VersionManagement.md Section 3
+- [ ] VPS update instructions (Step 8): Create ReleaseNotes/VPS_UPDATE_INSTRUCTIONS_1.0.0-alpha.X.md with four or five script commands (cd, git fetch --tags, git checkout TAG, docker compose up --build -d, optional verify); include in version bump or commit after tag; provide user with summary
 - [ ] Generate tag command: `git tag -a v1.0.0-alpha.X -m "Release v1.0.0-alpha.X"`
 - [ ] Present command to user for review
 - [ ] Wait for user to execute tag command

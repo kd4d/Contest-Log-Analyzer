@@ -36,12 +36,13 @@ The complete release workflow is documented in `Docs/AI_AGENT_RULES.md` Section 
 
 ### Key Steps (Summary)
 1. Pre-Release Checklist
-2. Merge Feature Branch into Master
-3. Update Version References (see Section 3 for documentation updates)
-4. Create Release Notes and Update CHANGELOG.md
-5. Commit Version Updates
+2. Create Draft Release Notes, Announcement, and CHANGELOG on Feature Branch; Commit
+3. Merge Feature Branch into Master
+4. Update Version References and Finalize Release Materials on Master (review/modify drafts if needed; see Section 3 for documentation updates)
+5. Commit Version Updates (version bump - second commit on master)
 6. Create and Push Tag
 7. Post-Release Verification
+8. Provide User Summary of VPS Update Steps (create ReleaseNotes/VPS_UPDATE_INSTRUCTIONS_*.md with four or five script commands for the VPS server)
 
 **For complete workflow details, see:** `Docs/AI_AGENT_RULES.md` Section "Version Management" > "Release Workflow: Creating a New Version Tag"
 
@@ -63,7 +64,7 @@ The complete release workflow is documented in `Docs/AI_AGENT_RULES.md` Section 
 
 ### Category Definitions
 
-Documentation is divided into four categories with different versioning rules:
+Documentation is divided into five categories with different versioning rules:
 
 #### Category A: User-Facing Documentation
 **Files:**
@@ -167,6 +168,24 @@ Documentation is divided into four categories with different versioning rules:
 ```
 
 **No "Compatible With" Field:** Style guides are always current.
+
+#### Category E: In-App / Web-Embedded Help
+
+**Artifacts:**
+- `web_app/analyzer/templates/analyzer/help_dashboard.html` - Dashboard navigation guide
+- `web_app/analyzer/templates/analyzer/help_reports.html` - Report interpretation (Report List, Animation, reports)
+- `web_app/analyzer/templates/analyzer/help_release_notes.html` - Release notes in-app view
+- `web_app/analyzer/templates/analyzer/about.html` - About page (links to help, version)
+
+**Versioning Rule:** No version field in templates. A **thorough check** is required before every release (during release prep on master). Update content when UI or features change so help stays accurate and complete.
+
+**Thorough Check (before each release):**
+1. **Coverage:** Every dashboard and help entry point (Help menu, About, in-dashboard help links) has corresponding, up-to-date content.
+2. **Accuracy:** Each help template describes current behavior (e.g. Rate Differential pane, Report List drawer, Rate Chart, Band Activity, QSO/Points toggles). No references to removed or renamed features.
+3. **Links and anchors:** In-app links (e.g. to release notes, other help pages) and any in-page anchors work.
+4. **Optional:** Add a "Last updated" or release version in the help footer or About page if the project adopts it.
+
+**When:** On the feature branch when adding or changing UI that affects help; and **during release prep on master** (Step 4: Update Version References and Finalize Release Materials) as a mandatory checkpoint before the version bump commit.
 
 ### Standardized Metadata Format
 
