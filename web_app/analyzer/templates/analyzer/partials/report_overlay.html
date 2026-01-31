@@ -51,6 +51,41 @@
         min-height: 60vh;
         border: none;
     }
+    #report-overlay-drawer-trigger {
+        position: fixed;
+        top: 50%;
+        left: 0;
+        transform: translateY(-50%);
+        z-index: 1055;
+        width: 32px;
+        height: 72px;
+        border-radius: 0 8px 8px 0;
+        background: #fff;
+        border: 1px solid #adb5bd;
+        border-left: none;
+        box-shadow: 2px 0 10px rgba(0,0,0,0.15);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #212529;
+        cursor: pointer;
+        padding: 0;
+        opacity: 0;
+        visibility: hidden;
+        transition: background 0.2s, color 0.2s, box-shadow 0.2s, opacity 0.2s, visibility 0.2s;
+    }
+    #report-overlay.show ~ #report-overlay-drawer-trigger {
+        opacity: 1;
+        visibility: visible;
+    }
+    #report-overlay-drawer-trigger:hover {
+        background: #f8f9fa;
+        color: #0d6efd;
+        box-shadow: 3px 0 12px rgba(0,0,0,0.16);
+    }
+    #report-overlay-drawer-trigger .bi {
+        font-size: 1.15rem;
+    }
 </style>
 <div id="report-overlay" aria-hidden="true">
     <div class="report-overlay-header">
@@ -62,3 +97,6 @@
         <iframe id="report-overlay-iframe" class="report-overlay-iframe" style="display:none;" title="Report content"></iframe>
     </div>
 </div>
+<button type="button" id="report-overlay-drawer-trigger" aria-label="Open report list" title="Report list">
+    <i class="bi bi-chevron-right" aria-hidden="true"></i>
+</button>
