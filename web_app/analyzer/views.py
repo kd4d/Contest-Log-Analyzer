@@ -2158,12 +2158,6 @@ def qso_dashboard(request, session_id):
     else:
         default_diff_key = "band:all"
 
-    # DEBUG: Log selector logic for troubleshooting
-    logger.warning(f"[QSO Dashboard] Contest: {contest_name if contest_name else 'Unknown'}")
-    logger.warning(f"[QSO Dashboard] valid_bands={valid_bands}, valid_modes={valid_modes}")
-    logger.warning(f"[QSO Dashboard] is_single_band={is_single_band}, is_multi_mode={is_multi_mode}, is_multi_band={is_multi_band}")
-    logger.warning(f"[QSO Dashboard] diff_selector_type={diff_selector_type}, show_diff_selector={show_diff_selector}")
-    
     # Build band mapping: "80M" -> "80" for template buttons
     valid_bands_for_buttons = []
     for band in valid_bands:
