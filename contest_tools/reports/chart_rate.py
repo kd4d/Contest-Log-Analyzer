@@ -175,16 +175,26 @@ class Report(ContestReport):
                         col=1,
                     )
 
-            # Vertical grouped bar chart (not stacked): N bars per hour = one per station.
+            # Vertical grouped bar chart: bars within each hour touch (bargroupgap=0);
+            # gap between hours (bargap) so vertical lines sit in the gaps only.
             fig.update_layout(
                 template="plotly_white",
                 barmode="group",
-                bargap=0,
+                bargap=0.15,
+                bargroupgap=0,
                 width=1200,
                 height=400 * len(segments),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
                 margin=dict(t=120, b=180, l=50, r=50),
             )
+            # Vertical lines: left edge, right edge, and between each hour (in the gaps only).
+            vline_style = dict(color="black", width=1)
+            for row_idx, (s, e) in enumerate(segments):
+                seg_len = e - s
+                # x = -0.5 (before first hour), 0.5, 1.5, ..., seg_len-0.5 (after last hour)
+                vline_x = [-0.5] + [i + 0.5 for i in range(seg_len)]  # seg_len+1 lines
+                for x in vline_x:
+                    fig.add_vline(x=x, line=vline_style, row=row_idx + 1, col=1)
             title_lines = get_standard_title_lines(
                 title_display,
                 valid_logs,
