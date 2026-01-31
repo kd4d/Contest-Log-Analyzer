@@ -1,12 +1,16 @@
 # Performance Profiling Guide
 
-**Version:** 1.0.0-alpha.17
+**Version:** 1.0.0-alpha.18
 **Date:** 2026-01-07
-**Last Updated:** 2026-01-30
+**Last Updated:** 2026-01-31
 **Category:** Programmer Reference
 
 ---
 ### --- Revision History ---
+## [1.0.0-alpha.18] - 2026-01-31
+### Changed
+- Updated version to match project release v1.0.0-alpha.18 (no content changes)
+
 ## [1.0.0-alpha.17] - 2026-01-30
 ### Changed
 - Updated version to match project release v1.0.0-alpha.17 (no content changes)

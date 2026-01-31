@@ -2,12 +2,16 @@
 
 **Version:** 0.70.0-Beta
 **Date:** 2025-09-09
-**Last Updated:** 2026-01-26
+**Last Updated:** 2026-01-31
 **Category:** Algorithm Spec
-**Compatible with:** up to v1.0.0-alpha.17
+**Compatible with:** up to v1.0.0-alpha.18
 
 ---
 ### --- Revision History ---
+## [0.70.0-Beta] - 2026-01-31
+### Changed
+- Updated "Compatible with" field to include project version v1.0.0-alpha.18
+
 ## [0.70.0-Beta] - 2026-01-30
 ### Changed
 - Updated "Compatible with" field to include project version v1.0.0-alpha.17
