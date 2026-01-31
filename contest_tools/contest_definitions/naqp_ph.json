@@ -1,0 +1,6 @@
+{
+  "_filename": "contest_tools/contest_definitions/naqp_ph.json",
+  "contest_name": "NAQP-PH",
+  "valid_modes": ["PH"],
+  "inherits_from": "naqp"
+}

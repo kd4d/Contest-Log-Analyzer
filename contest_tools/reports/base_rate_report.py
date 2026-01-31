@@ -23,7 +23,7 @@ from plotly.subplots import make_subplots
 
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from contest_tools.utils.report_utils import create_output_directory, get_valid_dataframe, save_debug_data, get_standard_footer, get_standard_title_lines, build_filename
+from contest_tools.utils.report_utils import create_output_directory, get_valid_dataframe, save_debug_data, get_standard_footer, get_standard_title_lines, build_filename, write_json_ascii
 from ..data_aggregators.time_series import TimeSeriesAggregator
 from ..styles.plotly_style_manager import PlotlyStyleManager
 
@@ -331,9 +331,9 @@ class BaseRateReport(ContestReport):
         # 1. JSON (New Artifact)
         json_path = os.path.join(output_path, f"{base_filename}.json")
         try:
-             # Ensure responsive layout in JSON for Web App
+             # Ensure responsive layout in JSON for Web App; write 7-bit ASCII only
              fig.update_layout(autosize=True, width=None, height=None)
-             fig.write_json(json_path)
+             write_json_ascii(fig.to_json(), json_path)
              # Revert for PNG (Disabled for Web Architecture)
              # fig.update_layout(autosize=False, width=1200, height=900)
         except Exception as e:

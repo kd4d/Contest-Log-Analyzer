@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.0.0-alpha.18] - 2026-01-31
+[Full Release Notes](ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.18.md)
+
+### Added
+- Rate Chart report (QSO or Points rate as grouped bar chart for 1-3 logs); bars touch within hour, vertical grid lines in gaps.
+- Bar Graph option in QSO Dashboard Rate Differential pane (toggle with Cumulative Difference).
+
+### Changed
+- Contest definitions: single-mode contests now include mode in name (e.g. CQ 160 CW, ARRL SS PH).
+- Report drawer and overlay trigger aligned for report navigation.
+
+### Fixed
+- Cumulative Difference plots: max 15 horizontal grid lines (shared by both axes); overflow/infinity guarded in axis math.
+- Rate Differential pane: Cumulative Difference table no longer truncated; fixed-size + scrollable viewport (same as Band Activity).
+- Removed temporary QSO Dashboard diagnostic log messages.
+
+---
+
 ## [1.0.0-alpha.17] - 2026-01-30
 [Full Release Notes](ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.17.md)
 

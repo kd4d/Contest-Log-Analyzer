@@ -2,6 +2,8 @@
 
 This document provides specific rules for AI agents (like Cursor/Console AI) when working on this repository.
 
+**CRITICAL: Before Running Any Python or Test Command:** Read the "Python Script Execution Rules" and "Syntax Validation" sections in this document and use the specified paths. Do NOT assume `python` or `py` will work. See also `.cursor/rules/` for mandatory project rules (Python paths, debugging).
+
 ---
 
 ## Discussion Mode Rules
@@ -401,17 +403,47 @@ d. **Only proceed if documents are consistent**
 
 **1. Pre-Release Checklist**
 - [ ] Verify current branch state (`git status`)
-- [ ] Ensure all changes are committed on feature branch
+- [ ] Ensure all feature work is committed on feature branch (code, tests, etc.)
 - [ ] Review recent commits to determine appropriate version increment
 - [ ] Confirm target version number with user (e.g., `v1.0.0-alpha.3`)
 
-**2. Merge Feature Branch into Master (First Commit on Master)**
+**2. Create Draft Release Notes, Announcement, and CHANGELOG on Feature Branch (BEFORE MERGE)**
+
+**IMPORTANT:** All work for the release, including release drafts, must be committed on the feature branch before merging. Drafts are created here so they are available as inputs to the version bump on master; the bump commit can review and modify them.
+
+a. **Create draft release notes file on feature branch:**
+   - Location: `ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.X.md` (match target version)
+   - Format: Use previous release notes as template
+   - Content: Detailed summary of commits on the feature branch since last tag
+   - Include: Summary, Added/Changed/Fixed sections, Technical Details, Known Issues, Migration Notes, Files Changed, Commits Included
+   - Generate commit list on feature branch: `git log --oneline <last-tag>..HEAD`
+   - **Target Audience:** Technical users, developers, detailed changelog
+
+b. **Create draft release announcement file on feature branch:**
+   - Location: `ReleaseNotes/RELEASE_ANNOUNCEMENT_1.0.0-alpha.X.md`
+   - Format: Use previous release announcement as template
+   - Content: User-focused highlights of major changes and bug fixes
+   - **Target Audience:** End users, highlights only
+
+c. **Create draft CHANGELOG.md entry on feature branch:**
+   - Add new entry at top of `CHANGELOG.md` (reverse chronological order)
+   - Version number with date, link to full release notes, Added/Changed/Fixed bullets (concise)
+
+d. **Commit the drafts on the feature branch:**
+   ```bash
+   git add ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.X.md ReleaseNotes/RELEASE_ANNOUNCEMENT_1.0.0-alpha.X.md CHANGELOG.md
+   git commit -m "docs(release): add draft release notes and CHANGELOG for v1.0.0-alpha.X"
+   ```
+   - Ensures no uncommitted changes when checking out master
+   - Drafts are merged into master with the rest of the feature work
+
+**3. Merge Feature Branch into Master (First Commit on Master)**
 
 **CRITICAL:** This creates the FIRST commit on master. The merge commit and version bump commit are SEPARATE commits. Do NOT use `git commit --amend` or any amend commands.
 
-a. **Ensure feature branch is committed:**
+a. **Ensure feature branch is fully committed:**
    ```bash
-   git status  # Verify no uncommitted changes on feature branch
+   git status  # Verify no uncommitted changes (including release drafts)
    ```
 
 b. **Checkout master and pull latest:**
@@ -422,9 +454,9 @@ b. **Checkout master and pull latest:**
 
 c. **Merge feature branch into master:**
    ```bash
-   git merge feature/branch-name
+   git merge --no-ff feature/branch-name -m "Merge branch 'feature/branch-name' - <short description>"
    ```
-   - This creates a merge commit (or fast-forward if no divergence)
+   - Use `--no-ff` to create a merge commit
    - **DO NOT amend this commit** - it must remain separate
 
 d. **Push merged master (FIRST COMMIT):**
@@ -432,29 +464,23 @@ d. **Push merged master (FIRST COMMIT):**
    git push origin master
    ```
    - This pushes the merge commit to master
-   - All feature branch changes are now on master
+   - All feature branch changes (including release drafts) are now on master
 
-**Note:** All subsequent steps (version bumping, release notes, tagging) happen on master AFTER the merge is complete. The version bump will be a SECOND commit on master.
+**Note:** All subsequent steps (version references, review/modify drafts, version bump, tagging) happen on master AFTER the merge. The version bump will be a SECOND commit on master.
 
-**IMPORTANT:** Release notes are created/updated AFTER the merge commit (Step 4) to include any hotfixes or bugfixes that may have been committed directly to master since the last tag.
+**4. Update Version References and Finalize Release Materials (On Master)**
 
-**3. Update Version References**
+**IMPORTANT:** All version references must be updated BEFORE creating the tag. This is a mandatory step. The merged draft release notes, announcement, and CHANGELOG are now on master; review and modify them if needed (e.g. add any commits made directly on master since last tag) before the version bump commit.
 
-**IMPORTANT:** All version references must be updated BEFORE creating the tag. This is a mandatory step.
+a. **Review and, if needed, modify the merged drafts on master:**
+   - Verify commit list on master: `git log --oneline <last-tag>..HEAD` (includes feature branch + any master-only commits)
+   - If there were hotfixes or bugfixes committed directly on master since last tag, update the release notes and announcement to include them
+   - Otherwise the drafts from the feature branch can be used as-is
 
-AI should update all version references in this order:
-
-a. **Update `contest_tools/version.py`:**
-   ```python
-   __version__ = "1.0.0-alpha.3"  # Match target tag (without 'v' prefix)
-   ```
-
-b. **Update `README.md`:**
-   - Line 3: `**Version: 1.0.0-alpha.3**`
-   - **MANDATORY:** This must be updated for every release
-   - Verify no other version references exist
-
-c. **Update Documentation Files (MANDATORY):**
+b. **Update version references** (in this order):
+   - **Update `contest_tools/version.py`:** `__version__ = "1.0.0-alpha.3"` (match target tag, without 'v' prefix)
+   - **Update `README.md`:** Line 3: `**Version: 1.0.0-alpha.3**` (MANDATORY for every release; verify no other version references)
+   - **Update Documentation Files (MANDATORY):**
    
    **Reference:** See `Docs/VersionManagement.md` Section 3 for complete documentation versioning policy.
    
@@ -483,107 +509,29 @@ c. **Update Documentation Files (MANDATORY):**
    - Action: No version update required (only update when style rules change)
    - If style rules changed: Increment version, update "Last Updated" date, add revision history entry
    
+   **Category E (In-App / Web-Embedded Help):**
+   - Artifacts: `help_dashboard.html`, `help_reports.html`, `help_release_notes.html`, `about.html` (see `Docs/VersionManagement.md` Section 3 Category E)
+   - Action: **Thorough check** before the version bump commit. Verify: (1) Every help entry point has up-to-date content; (2) Each help template describes current UI (e.g. Rate Differential, Report List, Rate Chart); (3) No stale or removed feature references; (4) In-app links and anchors work. Update templates as needed. Optional: add "Last updated" or version in help footer/About if adopted.
+   - **When:** During release prep on master (this step); also update on the feature branch when adding or changing UI that affects help.
+   
    **Verification:**
    - Verify all Category A & B files match project version
    - Verify all Category C files have "Compatible with" field updated
+   - Verify Category E thorough check completed and in-app help templates updated if needed
    - Verify all metadata formats are consistent (see `Docs/VersionManagement.md` Section 3)
-   - Verify all revision history entries are added
+   - Verify all revision history entries are added (Categories A, B, C)
    
    **For complete documentation versioning rules, see:** `Docs/VersionManagement.md` Section 3
 
-**4. Create Release Notes, Release Announcement, and Update CHANGELOG.md (MANDATORY - AFTER MERGE COMMIT)**
-
-**IMPORTANT:** Release notes, release announcement, and CHANGELOG.md updates are REQUIRED for every release. These must be created AFTER the merge commit (Step 2) and BEFORE creating the tag. This ensures any hotfixes or bugfixes committed directly to master are included.
-
-a. **Create release notes file (REQUIRED):**
-   - Location: `ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.3.md`
-   - Format: Use previous release notes as template
-   - Content: Detailed summary of ALL commits since last tag (includes both feature branch AND any master commits)
-   - Include: Summary, Added/Changed/Fixed sections, Technical Details, Known Issues, Migration Notes, Files Changed, Commits Included
-   - Generate commit summary:
-     ```bash
-     # Find last tag
-     git describe --tags --abbrev=0
-     
-     # List ALL commits since last tag (includes feature branch + any master commits)
-     git log --oneline <last-tag>..HEAD
-     ```
-     - **CRITICAL:** This includes commits from:
-       - Feature branch (merged in Step 2)
-       - Any hotfixes or bugfixes committed directly to master since last tag
-     - **Verification (CRITICAL - AFTER MERGE COMMIT):** 
-       - **MUST be done on master branch after merge commit (Step 2d)**
-       - Verify commit list includes all expected changes:
-       ```bash
-       # On master branch, after merge commit is pushed
-       git checkout master
-       git pull origin master
-       
-       # Find last tag
-       LAST_TAG=$(git describe --tags --abbrev=0)
-       
-       # List ALL commits since last tag (on master, after merge)
-       git log --oneline $LAST_TAG..HEAD
-       ```
-       - This shows ALL commits that will be in the release:
-         - Feature branch commits (merged in Step 2)
-         - Any commits made directly to master since last tag (hotfixes, bugfixes)
-       - **Compare with feature branch commits** to identify any master-only commits that need to be included
-       - **Update release notes/announcement** if master commits are found
-     - Organize by category (Features, Enhancements, Bug Fixes, Documentation)
-     - Include all significant changes from both sources
-     - **Target Audience:** Technical users, developers, detailed changelog
-
-b. **Create release announcement file (REQUIRED):**
-   - Location: `ReleaseNotes/RELEASE_ANNOUNCEMENT_1.0.0-alpha.3.md`
-   - Format: Use previous release announcement as template
-   - Content: User-focused highlights of major changes and bug fixes
-   - Include: Highlights section, New Features, Important Fixes, Improvements, link to full release notes
-   - **Target Audience:** End users, less technical, highlights only
-   - **Key Differences from Release Notes:**
-     - Less detailed (highlights only)
-     - User-focused language (avoid technical jargon)
-     - Focus on "what's new" and "what's fixed" from user perspective
-     - No technical details, file changes, or commit history
-     - Shorter and more accessible
-
-c. **Update CHANGELOG.md (REQUIRED):**
-   - Location: `CHANGELOG.md` (project root, alongside README.md)
-   - **MANDATORY:** Add new entry at top (reverse chronological order)
-   - **Timing:** Created/updated AFTER merge commit (Step 2), included in version bump commit (Step 5)
-   - **Content Source:** Based on release notes and announcement (highlights only, not full technical details)
-   - Format: Use Keep a Changelog format with link to detailed release notes
-   - **Note:** CHANGELOG.md is automatically accessible via the web UI hamburger menu (Help & Documentation > Release Notes)
-   - **Workflow:**
-     1. After merge commit, verify all commits on master: `git log --oneline <last-tag>..HEAD`
-     2. Create/update release notes and announcement (Step 4a, 4b)
-     3. Create CHANGELOG.md entry based on release notes highlights (concise summary)
-     4. Commit CHANGELOG.md with version bump (Step 5)
-   - Must include:
-     - Version number with date (use release date)
-     - Link to full release notes
-     - Summary sections: Added, Changed, Fixed (as applicable)
-     - **Keep entries concise** - Full details are in release notes
-   - Example:
-     ```markdown
-     ## [1.0.0-alpha.3] - 2026-01-20
-     [Full Release Notes](ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.3.md)
-     
-     ### Added
-     - Feature X
-     ### Changed
-     - Enhancement Y
-     ### Fixed
-     - Bug Z
-     ```
+**Note:** Release notes, announcement, and CHANGELOG drafts are created on the feature branch (Step 2) and merged in Step 3. Step 4a above covers reviewing and modifying them on master after the merge (e.g. to add any master-only commits). The version bump commit (Step 5) includes these files along with version.py, README, and Docs.
 
 **5. Commit Version Updates (Second Commit on Master - MANDATORY BEFORE TAGGING)**
 
 **CRITICAL:** This creates the SECOND commit on master. This commit contains ALL version updates, release notes, documentation versioning, and CHANGELOG.md updates. Do NOT use `git commit --amend` or any amend commands.
 
-**IMPORTANT:** All version updates, release notes, documentation versioning, and CHANGELOG.md changes MUST be committed as a SINGLE commit BEFORE creating the tag. This commit comes AFTER the merge commit and includes:
+**IMPORTANT:** All version updates, release notes, documentation versioning, and CHANGELOG.md changes MUST be committed as a SINGLE commit BEFORE creating the tag. This commit comes AFTER the merge commit (Step 3) and includes:
 - Version number updates (`version.py`, `README.md`)
-- Release notes file (created/updated in Step 4)
+- Release notes and announcement (drafts from Step 2, possibly reviewed/updated in Step 4)
 - Documentation versioning (Category A, B, C updates)
 - CHANGELOG.md entry
 
@@ -616,7 +564,7 @@ b. **Verify all files are staged:**
    ```bash
    git status
    ```
-   - Confirm all four files appear in "Changes to be committed"
+   - Confirm all required version/release/docs files appear in "Changes to be committed"
 
 c. **Create commit (SECOND COMMIT on master):**
    ```bash
@@ -697,29 +645,49 @@ b. **Verify all required files exist and are correct:**
    grep "Compatible with" Docs/CallsignLookupAlgorithm.md Docs/RunS&PAlgorithm.md Docs/WPXPrefixLookup.md
    ```
 
+**8. Provide User Summary of VPS Update Steps**
+
+After the tag is pushed (or as part of release materials in Step 4/5), provide the user with a summary of steps needed to update the VPS server version to match the release.
+
+a. **Create VPS update instructions file:** `ReleaseNotes/VPS_UPDATE_INSTRUCTIONS_1.0.0-alpha.X.md` (match target version). Use a previous release's file as template (e.g. `VPS_UPDATE_INSTRUCTIONS_1.0.0-alpha.14.md`).
+
+b. **Include the four or five script commands to be run on the VPS server:**
+   1. `cd /docker/Contest-Log-Analyzer` (or user's installation path)
+   2. `git fetch --tags origin`
+   3. `git checkout v1.0.0-alpha.X` (the new tag)
+   4. `docker compose up --build -d`
+   5. (Optional) Verify: `docker compose ps` and/or `docker compose logs web`
+
+   Add a note to adjust path and compose filename if needed. Include brief "What these commands do," "Verify the update," and "If something goes wrong" sections per existing VPS instruction files.
+
+c. **When to create and commit:** Create the file during Step 4 (release prep) and include it in the version bump commit (Step 5), so it is in the repo when the tag is pushed. Alternatively, create and commit it after Step 6 (tag push) as a follow-up commit on master.
+
+d. **Provide to user:** Ensure the user can access the summary (e.g. link in release announcement or release notes to `ReleaseNotes/VPS_UPDATE_INSTRUCTIONS_1.0.0-alpha.X.md`).
+
 #### AI Agent Responsibilities
 
 - **AI MUST Do (Mandatory Steps):**
   - **Perform document consistency check** (Step 0) - REQUIRED before any updates
-  - **Merge feature branch into master** (Step 2) - Creates FIRST commit on master, push immediately
-  - **Create/update release notes file** (Step 4a) - AFTER merge commit, includes feature branch + any master commits since last tag
-  - **Create/update release announcement file** (Step 4b) - AFTER merge commit, user-focused highlights
-  - **Update `contest_tools/version.py`** to match target version (Step 3)
-  - **Update `README.md` version** (Line 3) - REQUIRED for every release (Step 3)
-  - **Update documentation files** per category-based policy (Step 3c) - REQUIRED for every release, included in version bump commit
+  - **Create draft release notes, announcement, and CHANGELOG on feature branch** (Step 2) - Commit them on the feature branch before merge; they are inputs to the version bump
+  - **Merge feature branch into master** (Step 3) - Creates FIRST commit on master, push immediately
+  - **Review/modify merged drafts on master** (Step 4a) - Add any master-only commits to release notes if needed
+  - **Update `contest_tools/version.py`** to match target version (Step 4)
+  - **Update `README.md` version** (Line 3) - REQUIRED for every release (Step 4)
+  - **Update documentation files** per category-based policy (Step 4) - REQUIRED for every release, included in version bump commit
     - Category A & B: Update version to match project version
     - Category C: Update "Compatible with" field
     - Category D: Only update if style rules changed
-  - **Update `CHANGELOG.md`** with new release entry at top - REQUIRED for every release (Step 4c)
+    - Category E: Perform thorough check of in-app help (see VersionManagement.md Section 3); update templates as needed
   - **Stage all version-related files** (Step 5a): `version.py`, `README.md`, documentation files, `ReleaseNotes/RELEASE_NOTES_*.md`, `ReleaseNotes/RELEASE_ANNOUNCEMENT_*.md`, `CHANGELOG.md`
-  - **Commit ALL version updates as SECOND commit** (Step 5c) - Single commit includes version numbers, release notes, documentation versioning, and CHANGELOG.md, push immediately
+  - **Commit ALL version updates as SECOND commit** (Step 5c) - Single commit includes version numbers, release notes (possibly updated), documentation versioning, and CHANGELOG.md, push immediately
   - **NEVER use `git commit --amend`** - Always create new commits
   - Generate tag creation command (after version bump commit is pushed)
   - Verify version consistency across all files
+  - **Provide user summary of VPS update steps** (Step 8) - Create `ReleaseNotes/VPS_UPDATE_INSTRUCTIONS_1.0.0-alpha.X.md` with the four or five script commands for the VPS; include in version bump commit or commit after tag; provide user with summary (link or list commands)
 
 - **AI Should Do:**
   - Suggest version number based on commit history
-  - Generate release notes from commit history
+  - Generate draft release notes from feature-branch commit history (Step 2)
   - Organize release notes by category (Added, Changed, Fixed)
   - Verify all required files exist before proceeding
 
@@ -730,7 +698,7 @@ b. **Verify all required files exist and are correct:**
   - Execute tag push command
   - Verify final state
 
-**Critical Reminder:** Release notes, release announcement, and CHANGELOG.md updates are NOT optional. They must be created and committed before tagging the release.
+**Critical Reminder:** Release notes, announcement, and CHANGELOG drafts are created on the feature branch (Step 2) and committed before merge. They must be included in the version bump commit (Step 5) before tagging the release.
 
 **Release Announcement Guidelines:**
 - **Purpose:** User-focused highlights, less technical than release notes
@@ -752,37 +720,43 @@ b. **Verify all required files exist and are correct:**
 **Regular Release:**
 ```bash
 # Step 1: Pre-release checklist
-git status  # Verify feature branch is committed
+git status  # Verify feature branch is committed (except release drafts)
 git describe --tags --abbrev=0  # Find last tag
 
-# Step 2: Merge feature branch into master (FIRST COMMIT)
+# Step 2: Create draft release notes, announcement, CHANGELOG on feature branch; commit
+# (Edit: ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.X.md, RELEASE_ANNOUNCEMENT_*.md, CHANGELOG.md)
+git add ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.X.md ReleaseNotes/RELEASE_ANNOUNCEMENT_1.0.0-alpha.X.md CHANGELOG.md
+git commit -m "docs(release): add draft release notes and CHANGELOG for v1.0.0-alpha.X"
+git status  # Verify no uncommitted changes
+
+# Step 3: Merge feature branch into master (FIRST COMMIT)
 git checkout master
 git pull origin master
-git merge feature/branch-name
+git merge --no-ff feature/branch-name -m "Merge branch 'feature/branch-name' - <short description>"
 git push origin master  # Push merge commit
 
-# Step 3: Update version numbers and documentation
-# (Edit files: version.py, README.md, documentation files)
-
-# Step 4: Create/update release notes, release announcement, and CHANGELOG.md (AFTER merge commit)
-# Generate commit list: git log --oneline <last-tag>..HEAD
-# (This includes feature branch commits + any master commits since last tag)
-# (Edit files: ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.3.md, ReleaseNotes/RELEASE_ANNOUNCEMENT_1.0.0-alpha.3.md, CHANGELOG.md)
+# Step 4: On master - review/modify drafts if needed; update version.py, README, Docs; Category E in-app help thorough check
+# git log --oneline <last-tag>..HEAD  # Verify commits; update release notes if master had hotfixes
+# (Edit: version.py, README.md, Docs Category A/B/C, release notes/CHANGELOG if needed; Category E: thorough check help_dashboard.html, help_reports.html, help_release_notes.html, about.html)
 
 # Step 5: Commit ALL version updates (SECOND COMMIT - single commit)
-git add contest_tools/version.py README.md ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.3.md ReleaseNotes/RELEASE_ANNOUNCEMENT_1.0.0-alpha.3.md CHANGELOG.md
+git add contest_tools/version.py README.md ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.X.md ReleaseNotes/RELEASE_ANNOUNCEMENT_1.0.0-alpha.X.md CHANGELOG.md
 git add Docs/UsersGuide.md Docs/InstallationGuide.md Docs/ReportInterpretationGuide.md
 git add Docs/ProgrammersGuide.md Docs/PerformanceProfilingGuide.md
 git add Docs/CallsignLookupAlgorithm.md Docs/RunS&PAlgorithm.md Docs/WPXPrefixLookup.md
-git commit -m "chore(release): bump version to 1.0.0-alpha.3 and add release notes"
+git commit -m "chore(release): bump version to 1.0.0-alpha.X and add release notes"
 git push origin master  # Push version bump commit
 
 # Step 6: Create and push tag (points to version bump commit)
-git tag -a v1.0.0-alpha.3 -m "Release v1.0.0-alpha.3"
-git push origin v1.0.0-alpha.3
+git tag -a v1.0.0-alpha.X -m "Release v1.0.0-alpha.X"
+git push origin v1.0.0-alpha.X
 
-# Verify version consistency
-grep -r "1\.0\.0-alpha\.3" contest_tools/version.py README.md ReleaseNotes/ CHANGELOG.md
+# Step 7: Verify version consistency
+grep -r "1\.0\.0-alpha\.X" contest_tools/version.py README.md ReleaseNotes/ CHANGELOG.md
+
+# Step 8: Provide user summary of VPS update steps
+# Create ReleaseNotes/VPS_UPDATE_INSTRUCTIONS_1.0.0-alpha.X.md (cd, git fetch --tags, git checkout TAG, docker compose up --build -d, optional verify)
+# Include in version bump commit (Step 5) or commit after tag; link in release announcement
 ```
 
 **Hotfix Release:**
@@ -1298,6 +1272,29 @@ When adding diagnostic logging:
 - Do not remove diagnostic logging as part of the fix implementation
 - Wait for user to test and verify the fix before removing diagnostics
 - Only remove diagnostics after explicit user confirmation or direction
+
+---
+
+## Debugging Rules
+
+### CRITICAL: No Inferring Bug Sources
+
+**AI agents MUST NOT infer or guess the root cause of bugs.** Add temporary diagnostic output to confirm the actual failing path or value, then fix based on that evidence.
+
+**MANDATORY WORKFLOW:**
+1. **Reproduce** the bug (or note the user report).
+2. **Add temporary diagnostics** to confirm where/when/why it fails:
+   - Use `logger.warning()` or `logger.error()` so output is visible (e.g. in Docker logs).
+   - Use the `[DIAG]` prefix for all diagnostic messages (see "Logging Rules" > "CRITICAL: Diagnostic Logging Rules" above).
+   - Log the actual values (e.g. keys, paths, IDs) at the call site where the bug manifests and at the place that provides the disputed data.
+3. **Use the evidence** from logs/output to drive the fix. Do not fix based on reasoning alone without confirming.
+4. **Remove or gate diagnostics** when done (e.g. remove, comment out, or guard with a DEBUG flag). Do not leave temporary diagnostics in place unless the user requests otherwise.
+
+**Rule:** When debugging, do not infer or guess. Add targeted diagnostics (warning/error level, [DIAG] prefix), confirm the actual cause, then fix. Remove or gate diagnostics when the fix is complete.
+
+**UI / Dashboard bugs:** When the symptom is "nothing shows" or "wrong data in UI" (e.g. missing plots, wrong selector), consider **both** backend (data, keys, paths, context) and frontend (selectors, data attributes, default state, JS keys). Add diagnostics in both layers if the cause is unclear; confirm the mismatch with logs before changing code.
+
+**See also:** `.cursor/rules/debugging.mdc` for a concise reminder.
 
 ---
 
@@ -1859,6 +1856,23 @@ Before implementing scoring/data changes:
 - **Correct:** `C:\Users\mbdev\miniforge3\python.exe script.py`
 - **Incorrect:** `python script.py` or `python.exe script.py` (these do not work in this environment)
 
+#### Canonical Commands (Single Source of Truth)
+
+Use these exact invocations. Do not invent alternatives. See also `.cursor/rules/project-mandatory.mdc`.
+
+| Action | Command |
+|--------|---------|
+| Run a Python script | `C:\Users\mbdev\miniforge3\python.exe script_path.py` |
+| Run pytest | `C:\Users\mbdev\miniforge3\python.exe -m pytest tests/` (or target path) |
+| Run py_compile (after modifying any Python file) | `C:\Users\mbdev\miniforge3\envs\cla\python.exe -m py_compile <file_path>` |
+| Django management command | `C:\Users\mbdev\miniforge3\python.exe web_app/manage.py <command>` |
+
+**Before running Python/tests checklist:**
+- [ ] Read this "Python Script Execution Rules" section
+- [ ] Use full path: `C:\Users\mbdev\miniforge3\python.exe` for scripts and pytest
+- [ ] Use full path: `C:\Users\mbdev\miniforge3\envs\cla\python.exe` for py_compile
+- [ ] Never use `python`, `python.exe`, or `py` without the full path
+
 #### Why This Matters
 
 The default `python` command does not resolve correctly in this environment. Using the miniforge Python path ensures:
@@ -2102,7 +2116,7 @@ echo %TEST_DATA_DIR%
 **⚠️ MANDATORY WORKFLOW FOR ALL COMMANDS - NO EXCEPTIONS:**
 
 **BEFORE execution (MANDATORY):**
-1. **Check relevant project rules FIRST:** Review AI Agent Rules for command-specific requirements
+1. **Check relevant project rules FIRST:** Review AI Agent Rules for command-specific requirements. See also `.cursor/rules/` for mandatory project rules (Python paths, debugging).
    - Python commands: Check "Python Script Execution Rules" section → Use `C:\Users\mbdev\miniforge3\python.exe`
    - **PowerShell commands: ⚠️ CRITICAL - Check "PowerShell Command Syntax Rules" section**
      - **NEVER use `&&` for command chaining** - This is CMD syntax and will FAIL in PowerShell
@@ -2634,7 +2648,7 @@ DevNotes/
 5. **Update source line references** if document structure changed
 6. **Test checklist completeness** against recent operations
 
-**Purpose:** The checklists in `Docs/AI_AGENT_CHECKLISTS.md` are quick-reference tools derived from this document. They must remain synchronized with the source rules to ensure AI agents follow correct workflows.
+**Purpose:** The checklists in `Docs/AI_AGENT_CHECKLISTS.md` are quick-reference tools derived from this document. They must remain synchronized with the source rules to ensure AI agents follow correct workflows. Key checklists include: Python Script Execution (Checklist 4), Debugging / Bug Investigation (Checklist 5), Terminal Command Execution (Checklist 3).
 
 **Location:** `Docs/AI_AGENT_CHECKLISTS.md`
 

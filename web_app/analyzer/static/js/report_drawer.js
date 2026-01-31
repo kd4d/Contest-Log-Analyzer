@@ -54,11 +54,22 @@
     }
 
     function init() {
-        if (!trigger || !panel) return;
+        if (!panel) return;
 
-        trigger.addEventListener('click', function() {
-            openDrawer();
-        });
+        // Main trigger button (on dashboard)
+        if (trigger) {
+            trigger.addEventListener('click', function() {
+                openDrawer();
+            });
+        }
+
+        // Overlay trigger button (when viewing a report in overlay)
+        var overlayTrigger = document.getElementById('report-overlay-drawer-trigger');
+        if (overlayTrigger) {
+            overlayTrigger.addEventListener('click', function() {
+                openDrawer();
+            });
+        }
 
         if (scrim) {
             scrim.addEventListener('click', closeDrawer);

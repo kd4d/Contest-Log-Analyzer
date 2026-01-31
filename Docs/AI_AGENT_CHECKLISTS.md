@@ -85,6 +85,7 @@
 
 ### BEFORE Execution
 
+- [ ] Check relevant project rules: See `.cursor/rules/` for mandatory project rules (Python paths, debugging).
 - [ ] Check relevant project rules section:
   - [ ] **Python commands:** Check "Python Script Execution Rules" (lines 1809+)
     - [ ] Use full path: `C:\Users\mbdev\miniforge3\python.exe`
@@ -113,12 +114,19 @@
 
 ## Checklist 4: Python Script Execution
 
-**Source:** `AI_AGENT_RULES.md` Section "Python Script Execution Rules" (lines 1809-1933)
+**Source:** `AI_AGENT_RULES.md` Section "Python Script Execution Rules" (lines 1844+) and `.cursor/rules/project-mandatory.mdc`
+
+### Canonical Commands (Single Source of Truth)
+
+- Run script: `C:\Users\mbdev\miniforge3\python.exe script_path.py`
+- Run pytest: `C:\Users\mbdev\miniforge3\python.exe -m pytest tests/` (or target path)
+- Run py_compile (after modifying any Python file): `C:\Users\mbdev\miniforge3\envs\cla\python.exe -m py_compile <file_path>`
+- Django: `C:\Users\mbdev\miniforge3\python.exe web_app/manage.py <command>`
 
 ### BEFORE Execution
 
 - [ ] Check "Python Script Execution Rules" section in `AI_AGENT_RULES.md`
-- [ ] Identify required Python path: `C:\Users\mbdev\miniforge3\python.exe`
+- [ ] Identify required Python path: `C:\Users\mbdev\miniforge3\python.exe` (or `envs\cla\python.exe` for py_compile)
 - [ ] Verify script path is correct (relative or absolute)
 
 ### DURING Execution
@@ -139,9 +147,31 @@
 
 ---
 
-## Checklist 5: PowerShell Command Execution
+## Checklist 5: Debugging / Bug Investigation
 
-**Source:** `AI_AGENT_RULES.md` Section "PowerShell Command Syntax Rules" (lines 1934+)
+**Source:** `AI_AGENT_RULES.md` Section "Debugging Rules" and `.cursor/rules/debugging.mdc`
+
+### When Investigating a Bug
+
+- [ ] Do NOT infer or guess the root cause. Add temporary diagnostics to confirm the actual cause.
+- [ ] Add temporary diagnostics:
+  - [ ] Use `logger.warning()` or `logger.error()` so output is visible (e.g. in Docker logs)
+  - [ ] Use `[DIAG]` prefix for all diagnostic messages (see Logging Rules)
+  - [ ] Log actual values (keys, paths, IDs) at the failing call site and at the place that provides the data
+- [ ] Use evidence from logs/output to drive the fix. Do not fix based on reasoning alone without confirming.
+- [ ] Remove or gate diagnostics when done (remove, comment out, or DEBUG flag). Do not leave temporary diagnostics unless user requests.
+
+### For UI / Dashboard Bugs (e.g. "nothing shows", wrong selector)
+
+- [ ] Consider both backend (data, keys, paths, context) and frontend (selectors, data attributes, default state, JS keys)
+- [ ] Add diagnostics in both layers if cause is unclear
+- [ ] Confirm the mismatch with logs before changing code
+
+---
+
+## Checklist 6: PowerShell Command Execution
+
+**Source:** `AI_AGENT_RULES.md` Section "PowerShell Command Syntax Rules" (lines 1969+)
 
 ### BEFORE Execution
 
@@ -164,13 +194,14 @@
 
 ---
 
-## Checklist 6: Git Merge to Master
+## Checklist 7: Git Merge to Master
 
 **Source:** `AI_AGENT_RULES.md` Section "WARNING: Merges to Main Branch" (lines 131-139)
 
 ### BEFORE Merge
 
 - [ ] Check "WARNING: Merges to Main Branch" section in `AI_AGENT_RULES.md`
+- [ ] If preparing for release: create draft release notes, announcement, and CHANGELOG on feature branch and commit (Release Workflow Step 2)
 - [ ] Verify merge requires user review/approval
 - [ ] Generate merge command with `--no-ff` flag: `git merge --no-ff feature/branch-name`
 - [ ] Present command to user for review
@@ -184,7 +215,7 @@
 
 ---
 
-## Checklist 7: Creating Release Tags
+## Checklist 8: Creating Release Tags
 
 **Source:** `AI_AGENT_RULES.md` Section "WARNING: Creating Tags/Releases" (lines 141-156) and "Release Workflow" (lines 375+)
 
@@ -192,11 +223,13 @@
 
 - [ ] Check "WARNING: Creating Tags/Releases" section in `AI_AGENT_RULES.md`
 - [ ] Verify tag creation requires user review/approval
-- [ ] Read "Release Workflow" section for complete process
+- [ ] Read "Release Workflow" section for complete process (drafts on feature branch, merge, then version bump can review/modify drafts)
 - [ ] Update all version references:
   - [ ] `contest_tools/version.py` → Update `__version__`
   - [ ] `README.md` → Update version on line 3
   - [ ] Documentation files (Category A, B, C per VersionManagement.md)
+  - [ ] In-app help (Category E): Thorough check of help_dashboard.html, help_reports.html, help_release_notes.html, about.html per VersionManagement.md Section 3
+- [ ] VPS update instructions (Step 8): Create ReleaseNotes/VPS_UPDATE_INSTRUCTIONS_1.0.0-alpha.X.md with four or five script commands (cd, git fetch --tags, git checkout TAG, docker compose up --build -d, optional verify); include in version bump or commit after tag; provide user with summary
 - [ ] Generate tag command: `git tag -a v1.0.0-alpha.X -m "Release v1.0.0-alpha.X"`
 - [ ] Present command to user for review
 - [ ] Wait for user to execute tag command
@@ -209,7 +242,7 @@
 
 ---
 
-## Checklist 8: Session Initialization
+## Checklist 9: Session Initialization
 
 **Source:** `AI_AGENT_RULES.md` Multiple sections
 

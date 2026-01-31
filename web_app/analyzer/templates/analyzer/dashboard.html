@@ -352,20 +352,32 @@
         if (pollInterval) {
             clearInterval(pollInterval);
         }
-        
+        let lastStepSeen = 0;
         pollInterval = setInterval(() => {
             fetch(`/analyze/progress/${id}/`)
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) throw new Error('HTTP ' + response.status);
+                    return response.json();
+                })
                 .then(data => {
+                    const step = data.step ?? 0;
+                    if (step > lastStepSeen) lastStepSeen = step;
                     updateDownloadProgress(
-                        data.step || 0,
+                        step,
                         data.message || '',
                         data.file_count,
                         data.download_url
                     );
-                    if (data.step >= 3) {
+                    if (step >= 3) {
                         clearInterval(pollInterval);
                         pollInterval = null;
+                        return;
+                    }
+                    // File may have been cleaned up after completion; step 0 with prior step >= 2 means done
+                    if (step === 0 && lastStepSeen >= 2) {
+                        clearInterval(pollInterval);
+                        pollInterval = null;
+                        updateDownloadProgress(3, 'Done', data.file_count, data.download_url);
                     }
                 })
                 .catch(err => console.error('Progress polling error:', err));

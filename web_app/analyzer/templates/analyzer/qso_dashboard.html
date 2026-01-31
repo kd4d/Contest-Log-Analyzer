@@ -49,6 +49,10 @@
         .viewport-frame-subplot {
             height: 1500px; /* Increased height for subplot charts with 3-line titles and legend */
         }
+        /* Rate chart frames need variable height based on number of segments */
+        .viewport-frame-rate {
+            height: 900px; /* Default for 1-2 segments; will be adjusted by JavaScript if needed */
+        }
     </style>
 
     {% include 'analyzer/partials/report_overlay.html' with overlay_breadcrumb_base="QSO Dashboard" overlay_back_label="Back to QSO Dashboard" %}
@@ -206,13 +210,21 @@
                         data-diff-points-json-{{ key }}="{{ m.diff_json_paths_points|get_item:key }}"
                         data-diff-points-full-{{ key }}="{% url 'view_report' session_id path %}?source=qso"
                         {% endfor %}
+                        {% for key, path in m.rate_chart_paths.items %}
+                        data-rate-json-{{ key }}="{{ m.rate_chart_json_paths|get_item:key }}"
+                        data-rate-full-{{ key }}="{% url 'view_report' session_id path %}?source=qso"
+                        {% endfor %}
+                        {% for key, path in m.rate_chart_paths_points.items %}
+                        data-rate-points-json-{{ key }}="{{ m.rate_chart_json_paths_points|get_item:key }}"
+                        data-rate-points-full-{{ key }}="{% url 'view_report' session_id path %}?source=qso"
+                        {% endfor %}
                     >{{ m.label }}</option>
                 {% endfor %}
                 </select>
             </div>
 
             <div class="row">
-                <div class="col-lg-6 mb-4">
+                <div class="{% if show_rate_differential_pane %}col-lg-6{% else %}col-12{% endif %} mb-4">
                     <div class="card h-100 shadow-sm">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <span>Strategy Breakdown (Uniques)</span>
@@ -223,29 +235,34 @@
                         </div>
                     </div>
                 </div>
+                {% if show_rate_differential_pane %}
                 <div class="col-lg-6 mb-4">
                     <div class="card h-100 shadow-sm">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <div class="d-flex align-items-center flex-wrap gap-2">
                                 <span class="me-2">Rate Differential</span>
+                                <div id="diffPlotTypeToggle" class="btn-group btn-group-sm me-2" role="group">
+                                    <button type="button" class="btn btn-outline-secondary diff-plot-type-btn active" data-plot-type="cumulative">Cumulative Difference</button>
+                                    <button type="button" class="btn btn-outline-secondary diff-plot-type-btn" data-plot-type="bar">Bar Graph</button>
+                                </div>
                                 <div id="diffMetricToggle" class="btn-group btn-group-sm me-2" role="group">
                                     <button type="button" class="btn btn-outline-secondary diff-metric-btn active" data-metric="qsos">QSOs</button>
                                     <button type="button" class="btn btn-outline-secondary diff-metric-btn" data-metric="points">Points</button>
                                 </div>
+                                {% if show_diff_selector %}
                                 <div class="btn-group btn-group-sm" role="group">
                                     {% if diff_selector_type == 'mode' %}
-                                        {# Mode selector for single-band, multi-mode contests (e.g., ARRL 10) #}
                                         {% for mode in valid_modes %}
                                         <button type="button" class="btn btn-outline-secondary diff-selector-btn {% if mode.key == 'all' %}active{% endif %}" data-dimension="mode" data-value="{{ mode.key }}">{{ mode.display }}</button>
                                         {% endfor %}
                                     {% else %}
-                                        {# Band selector for multi-band contests (default) #}
                                         {% for band in valid_bands %}
                                         <button type="button" class="btn btn-outline-secondary diff-selector-btn" data-dimension="band" data-value="{{ band.key }}">{{ band.display }}</button>
                                         {% endfor %}
                                         <button type="button" class="btn btn-outline-secondary diff-selector-btn active" data-dimension="band" data-value="all">All</button>
                                     {% endif %}
                                 </div>
+                                {% endif %}
                             </div>
                             <a id="link-diff" href="#" class="btn btn-xs btn-link text-muted report-overlay-link"><i class="bi bi-box-arrow-up-right"></i></a>
                         </div>
@@ -254,6 +271,7 @@
                         </div>
                     </div>
                 </div>
+                {% endif %}
             </div>
         </div>
         {% endif %}
@@ -391,9 +409,10 @@
 </div>
 
 <script>
+    var CLA_DEFAULT_DIFF_KEY = "{{ default_diff_key|default:'band:all' }}";
     document.addEventListener('DOMContentLoaded', function() {
         // --- Strategy Tab Logic ---
-        
+
         const strategySelect = document.getElementById('strategySelect');
         const chartBreakdownId = 'chart-breakdown';
         const chartDiffId = 'chart-diff';
@@ -401,10 +420,13 @@
         const linkDiff = document.getElementById('link-diff');
         const diffSelectorBtns = document.querySelectorAll('.diff-selector-btn');
         const diffMetricBtns = document.querySelectorAll('.diff-metric-btn');
-        // Initialize currentDiffKey based on selector type and default active button
-        let currentDiffKey = 'band:all';  // Default to band:all, will be updated by active button
-        let currentDiffMetric = 'qsos';   // 'qsos' or 'points' for cumulative difference plot variant
-        // Set initial key from active button if present
+        const diffPlotTypeBtns = document.querySelectorAll('.diff-plot-type-btn');
+        // When there is no band/mode selector (single-band single-mode), backend passes the key that exists (e.g. band:160).
+        const defaultDiffKeyFromServer = typeof CLA_DEFAULT_DIFF_KEY !== 'undefined' ? CLA_DEFAULT_DIFF_KEY : 'band:all';
+        let currentDiffKey = defaultDiffKeyFromServer;
+        let currentDiffMetric = 'qsos';   // 'qsos' or 'points' for metric selection
+        let currentDiffPlotType = 'cumulative';  // 'cumulative' or 'bar' for plot type
+        // Set initial key from active selector button if present; otherwise keep server default
         const activeBtn = document.querySelector('.diff-selector-btn.active');
         if (activeBtn) {
             const dimension = activeBtn.dataset.dimension;
@@ -465,52 +487,52 @@
 
                         const layout = data.layout || {};
 
-                        // --- BUTTERFLY CHART: Fixed-Size Rendering ---
-                        if (containerId === 'chart-band-activity') {
+                        // --- FIXED-SIZE + SCROLLABLE VIEWPORT (Butterfly & Rate Differential) ---
+                        // Chart types with subplots (e.g. plot + table) render at design size so internal
+                        // content is never truncated; wrapper provides fixed-height viewport with scroll.
+                        const fixedSizeContainers = ['chart-band-activity', 'chart-diff'];
+                        if (fixedSizeContainers.includes(containerId)) {
                             const wrapper = container.parentElement;
-                            
-                            console.log('[BUTTERFLY] === INITIALIZATION START ===');
-                            console.log('[BUTTERFLY] JSON Layout width:', layout.width, 'height:', layout.height);
-                            
-                            // Get the exact dimensions from Python-generated JSON
+                            const label = containerId === 'chart-band-activity' ? 'BUTTERFLY' : 'RATE-DIFF';
+                            const defaultHeight = containerId === 'chart-band-activity' ? 1350 : 900;
+
+                            console.log('[' + label + '] === INITIALIZATION START ===');
+                            console.log('[' + label + '] JSON Layout width:', layout.width, 'height:', layout.height);
+
                             const chartWidth = layout.width || 1200;
-                            const chartHeight = layout.height || 1350;
-                            
+                            const chartHeight = layout.height || defaultHeight;
+
                             // CRITICAL: Do NOT modify layout.width or layout.height
                             // Plotly's subplot domains are calculated for these exact dimensions
-                            // Any change breaks the positioning
-                            
-                            // Set container to exact chart dimensions (no negotiation)
+                            // Any change breaks the positioning (and truncates table in cumulative diff)
+
                             container.style.width = chartWidth + 'px';
                             container.style.height = chartHeight + 'px';
-                            container.style.minWidth = '0';  // Allow shrinking if needed
-                            
-                            // Set wrapper to provide scrolling viewport
-                            wrapper.style.width = '100%';  // Fill available width
-                            wrapper.style.maxWidth = chartWidth + 'px';  // But don't exceed chart width
-                            wrapper.style.height = '900px';  // Fixed viewport height
-                            wrapper.style.overflow = 'auto';  // Enable scrollbars
-                            
-                            console.log('[BUTTERFLY] Fixed chart size:', chartWidth, 'x', chartHeight);
-                            console.log('[BUTTERFLY] Wrapper: max-width=' + chartWidth + 'px, height=900px, overflow=auto');
-                            
-                            // Render at exact JSON dimensions
+                            container.style.minWidth = '0';
+
+                            wrapper.style.width = '100%';
+                            wrapper.style.maxWidth = chartWidth + 'px';
+                            wrapper.style.height = '900px';
+                            wrapper.style.overflow = 'auto';
+
+                            console.log('[' + label + '] Fixed chart size:', chartWidth, 'x', chartHeight);
+                            console.log('[' + label + '] Wrapper: max-width=' + chartWidth + 'px, height=900px, overflow=auto');
+
                             Plotly.newPlot(containerId, data.data, layout, {
-                                responsive: false, 
+                                responsive: false,
                                 displayModeBar: false
                             }).then(() => {
-                                logHierarchy("POST-PLOT (Success - Butterfly)");
-                                
+                                logHierarchy("POST-PLOT (Success - " + label + ")");
                                 const finalRect = container.getBoundingClientRect();
-                                console.log('[BUTTERFLY] === RENDER COMPLETE ===');
-                                console.log('[BUTTERFLY] Rendered at:', finalRect.width, 'x', finalRect.height);
-                                console.log('[BUTTERFLY] Match expected:', finalRect.width === chartWidth && finalRect.height === chartHeight ? 'YES' : 'NO');
+                                console.log('[' + label + '] === RENDER COMPLETE ===');
+                                console.log('[' + label + '] Rendered at:', finalRect.width, 'x', finalRect.height);
+                                console.log('[' + label + '] Match expected:', finalRect.width === chartWidth && finalRect.height === chartHeight ? 'YES' : 'NO');
                             }).catch(err => {
-                                console.error("Butterfly chart render error:", err);
-                                container.innerHTML = '<div class="alert alert-danger m-3">Error loading butterfly chart</div>';
+                                console.error(label + ' chart render error:', err);
+                                container.innerHTML = '<div class="alert alert-danger m-3">Error loading chart</div>';
                             });
-                            
-                            return; // Exit early - no responsive logic for butterfly charts
+
+                            return;
                         }
 
                         // --- RATIO-PRESERVING SCALER (Plan 1.0.26) ---
@@ -547,7 +569,7 @@
                             logHierarchy("POST-PLOT (Success)");
                             
                             const observer = new ResizeObserver(entries => {
-                                // Note: Butterfly chart (chart-band-activity) has its own ResizeObserver above
+                                // Note: chart-band-activity and chart-diff use fixed-size + scroll (no resize)
                                 // Standard behavior for all other charts
                                 for (let entry of entries) {
                                     Plotly.Plots.resize(containerId);
@@ -577,8 +599,18 @@
         function updateDiffContent() {
             if (!strategySelect) return;
             const selectedOption = strategySelect.options[strategySelect.selectedIndex];
-            const jsonPrefix = currentDiffMetric === 'points' ? 'data-diff-points-json-' : 'data-diff-json-';
-            const fullPrefix = currentDiffMetric === 'points' ? 'data-diff-points-full-' : 'data-diff-full-';
+            
+            // Select the appropriate data attribute prefix based on plot type and metric
+            let jsonPrefix, fullPrefix;
+            if (currentDiffPlotType === 'cumulative') {
+                // Cumulative Difference Plots
+                jsonPrefix = currentDiffMetric === 'points' ? 'data-diff-points-json-' : 'data-diff-json-';
+                fullPrefix = currentDiffMetric === 'points' ? 'data-diff-points-full-' : 'data-diff-full-';
+            } else {
+                // Bar Graph (Rate Charts)
+                jsonPrefix = currentDiffMetric === 'points' ? 'data-rate-points-json-' : 'data-rate-json-';
+                fullPrefix = currentDiffMetric === 'points' ? 'data-rate-points-full-' : 'data-rate-full-';
+            }
             
             let diffJson = selectedOption.getAttribute(jsonPrefix + currentDiffKey);
             if (!diffJson) {
@@ -617,6 +649,16 @@
                     diffMetricBtns.forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
                     currentDiffMetric = btn.dataset.metric;
+                    updateDiffContent();
+                });
+            });
+        }
+        if (diffPlotTypeBtns.length) {
+            diffPlotTypeBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    diffPlotTypeBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    currentDiffPlotType = btn.dataset.plotType;
                     updateDiffContent();
                 });
             });

@@ -44,6 +44,36 @@ def create_output_directory(path: str):
     """Creates the output directory if it doesn't exist."""
     os.makedirs(path, exist_ok=True)
 
+
+def normalize_json_to_ascii(s: str) -> str:
+    """
+    Replace known non-ASCII characters in a JSON string with 7-bit ASCII equivalents.
+    Plotly may emit U+2212 (minus sign), U+2013 (en dash), etc.; Windows charmap
+    cannot encode these when writing JSON. Project rule: only 7-bit ASCII in JSON.
+    """
+    if not s:
+        return s
+    replacements = (
+        ("\u2212", "-"),   # MINUS SIGN -> hyphen-minus
+        ("\u2013", "-"),   # EN DASH
+        ("\u2014", "-"),   # EM DASH
+        ("\u00D7", "x"),   # MULTIPLICATION SIGN
+        ("\u2192", "->"),  # RIGHTWARDS ARROW
+        ("\u2190", "<-"),  # LEFTWARDS ARROW
+        ("\u2026", "..."), # HORIZONTAL ELLIPSIS
+        ("\u00A0", " "),   # NO-BREAK SPACE
+    )
+    for old, new in replacements:
+        s = s.replace(old, new)
+    return s
+
+
+def write_json_ascii(s: str, path: str) -> None:
+    """Write a string to a file using ASCII encoding. Fails if s contains non-ASCII after normalization."""
+    normalized = normalize_json_to_ascii(s)
+    with open(path, "w", encoding="ascii") as f:
+        f.write(normalized)
+
 def _sanitize_filename_part(part: str) -> str:
     """
     Sanitizes a string to be used as part of a filename.
@@ -108,7 +138,7 @@ def get_standard_title_lines(report_name: str, logs: list, band_filter: str = No
                           This ensures consistency with aggregator data when logs may include
                           entries with no data. If None, callsigns are extracted from logs.
         callsign_separator: String to join callsigns in the context line (default ", ").
-                           Use " \u2212 " for arithmetic minus (e.g. "AA1K − K5ZD").
+                           Use " - " for minus (ASCII; avoid U+2212 for 7-bit ASCII / Windows charmap).
         callsigns_bold: If True, wrap the callsign part in <b>...</b> for HTML titles.
 
     Returns:

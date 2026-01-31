@@ -1,0 +1,6 @@
+{
+  "_filename": "contest_tools/contest_definitions/arrl_ss_cw.json",
+  "contest_name": "ARRL-SS-CW",
+  "valid_modes": ["CW"],
+  "inherits_from": "arrl_ss"
+}

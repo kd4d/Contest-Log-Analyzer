@@ -1,0 +1,6 @@
+{
+  "_filename": "contest_tools/contest_definitions/cq_160_ssb.json",
+  "contest_name": "CQ-160-SSB",
+  "valid_modes": ["PH"],
+  "inherits_from": "cq_160"
+}
