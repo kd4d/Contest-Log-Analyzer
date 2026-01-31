@@ -204,7 +204,7 @@
                     <div id="archiveMethod" class="method-content">
                         <div class="alert alert-info border-0 shadow-sm mb-3">
                             <i class="bi bi-info-circle-fill me-2"></i><strong>Fetch 1, 2, or 3 Logs:</strong> Log 1 is required. Logs 2 and 3 are optional for comparison analysis.<br>
-                            <strong>Supported Contests:</strong> CQ World Wide DX (CW, SSB, RTTY modes), CQ 160-Meter (CW, SSB, RTTY modes), CQ WPX (CW, SSB modes), ARRL 10 Meter (no mode selection required), ARRL DX (CW and SSB - mode is determined by contest selection), ARRL IARU HF World Championship, and WRTC contests.
+                            <strong>Supported Contests:</strong> CQ World Wide DX (CW, SSB, RTTY modes), CQ 160 CW / CQ 160 SSB (separate contest selection), CQ WPX (CW, SSB modes), ARRL 10 Meter (no mode selection required), ARRL DX CW/SSB (mode by contest selection), ARRL IARU HF World Championship, and WRTC contests.
                         </div>
                         
                         <form id="fetchForm" method="post" action="{% url 'analyze' %}">
@@ -222,11 +222,14 @@
                                 <select class="form-select" id="archiveContest">
                                     <option value="" selected>Select Contest...</option>
                                     <option value="CQ-WW">CQ World Wide DX</option>
-                                    <option value="CQ-160">CQ 160 Meter</option>
+                                    <option value="CQ-160-CW">CQ 160 CW</option>
+                                    <option value="CQ-160-SSB">CQ 160 SSB</option>
                                     <option value="CQ-WPX">CQ WPX</option>
                                     <option value="ARRL-10">ARRL 10 Meter</option>
                                     <option value="ARRL-DX-CW">ARRL DX CW</option>
                                     <option value="ARRL-DX-SSB">ARRL DX SSB</option>
+                                    <option value="ARRL-SS-CW">ARRL Sweepstakes CW</option>
+                                    <option value="ARRL-SS-PH">ARRL Sweepstakes SSB</option>
                                     <option value="IARU-HF">IARU HF World Championship</option>
                                     <option value="WRTC-2026">WRTC 2026</option>
                                 </select>
@@ -616,13 +619,17 @@
                 
                 if (contest === 'CQ-WW') {
                     yearSelect.disabled = false;
-                    modeSelect.disabled = true; // Will be enabled after year selection
-                } else if (contest === 'CQ-160') {
-                    yearSelect.disabled = false;
+                    modeSelect.closest('.col-md-4').style.display = 'block'; // Show mode selector (enabled after year)
                     modeSelect.disabled = true; // Will be enabled after year selection
                 } else if (contest === 'CQ-WPX') {
                     yearSelect.disabled = false;
-                    modeSelect.disabled = true; // Will be enabled after year selection
+                    modeSelect.closest('.col-md-4').style.display = 'block';
+                    modeSelect.disabled = true;
+                } else if (contest === 'CQ-160-CW' || contest === 'CQ-160-SSB') {
+                    yearSelect.disabled = false;
+                    modeSelect.closest('.col-md-4').style.display = 'block'; // Keep Mode column visible (fixed value)
+                    modeSelect.value = (contest === 'CQ-160-CW') ? 'CW' : 'SSB';
+                    modeSelect.disabled = true; // Mode is fixed by contest selection
                 } else if (contest === 'ARRL-10') {
                     yearSelect.disabled = false;
                     modeSelect.disabled = true; // ARRL-10 has no modes
@@ -632,6 +639,16 @@
                     modeSelect.disabled = true; // ARRL DX contests don't use mode selector
                     modeSelect.closest('.col-md-4').style.display = 'none'; // Hide mode selector entirely
                     fetchWrtcContainer.style.display = 'none'; // Hide WRTC selector
+                } else if (contest === 'ARRL-SS-CW' || contest === 'ARRL-SS-PH') {
+                    yearSelect.disabled = false;
+                    modeSelect.closest('.col-md-4').style.display = 'block'; // Show Mode column with fixed value
+                    modeSelect.value = (contest === 'ARRL-SS-CW') ? 'CW' : 'SSB';
+                    modeSelect.disabled = true; // Mode is fixed by contest selection
+                } else if (contest === 'NAQP-CW' || contest === 'NAQP-PH' || contest === 'NAQP-RTTY') {
+                    yearSelect.disabled = false;
+                    modeSelect.closest('.col-md-4').style.display = 'block'; // Show Mode column with fixed value
+                    modeSelect.value = (contest === 'NAQP-CW') ? 'CW' : (contest === 'NAQP-PH') ? 'SSB' : 'RTTY';
+                    modeSelect.disabled = true; // Mode is fixed by contest selection
                 } else if (contest === 'IARU-HF') {
                     yearSelect.disabled = false;
                     modeSelect.disabled = true; // IARU-HF doesn't use mode selector
@@ -672,8 +689,8 @@
                     return;
                 }
                 
-                // CQ-WW, CQ-160, and CQ-WPX require mode; ARRL-10, ARRL-DX, IARU-HF, and WRTC-2026 don't
-                if ((contest === 'CQ-WW' || contest === 'CQ-160' || contest === 'CQ-WPX') && !mode) {
+                // CQ-WW and CQ-WPX require mode; CQ-160-CW/SSB, ARRL-SS-CW/PH, NAQP-*, ARRL-10, ARRL-DX, IARU-HF, WRTC don't
+                if ((contest === 'CQ-WW' || contest === 'CQ-WPX') && !mode) {
                     return; // Wait for mode selection
                 }
                 
@@ -752,17 +769,26 @@
                 } else if (contest === 'WRTC-2026') {
                     // WRTC-2026: Fetch index when year is selected (no mode needed, uses IARU archive)
                     fetchLogIndex();
-                } else if (contest === 'CQ-WW' || contest === 'CQ-160' || contest === 'CQ-WPX') {
-                    // CQ-WW, CQ-160, CQ-WPX: Enable mode selection after year is selected
+                } else if (contest === 'CQ-160-CW' || contest === 'CQ-160-SSB') {
+                    // CQ 160 CW/SSB: Fetch index when year is selected (mode is fixed by contest)
+                    fetchLogIndex();
+                } else if (contest === 'ARRL-SS-CW' || contest === 'ARRL-SS-PH') {
+                    // ARRL Sweepstakes CW/SSB: Fetch when year selected (mode fixed by contest; fetch deferred)
+                    fetchLogIndex();
+                } else if (contest === 'NAQP-CW' || contest === 'NAQP-PH' || contest === 'NAQP-RTTY') {
+                    // NAQP: Fetch when year selected (mode fixed by contest; no public logs yet)
+                    fetchLogIndex();
+                } else if (contest === 'CQ-WW' || contest === 'CQ-WPX') {
+                    // CQ-WW, CQ-WPX: Enable mode selection after year is selected
                     modeSelect.closest('.col-md-4').style.display = 'block'; // Show mode selector
                     modeSelect.disabled = false;
                 }
             });
             
-            // Handle mode selection (CQ-WW, CQ-160, CQ-WPX)
+            // Handle mode selection (CQ-WW, CQ-WPX)
             modeSelect.addEventListener('change', function() {
                 const contest = contestSelect.value;
-                if (contest === 'CQ-WW' || contest === 'CQ-160' || contest === 'CQ-WPX') {
+                if (contest === 'CQ-WW' || contest === 'CQ-WPX') {
                     fetchLogIndex();
                 }
             });
@@ -883,6 +909,7 @@
             
             function startPolling(id) {
                 let consecutiveErrors = 0;
+                let lastStepSeen = 0;
                 const maxErrors = 5; // Allow some transient errors
                 
                 const pollInterval = setInterval(() => {
@@ -895,9 +922,17 @@
                         })
                         .then(data => {
                             consecutiveErrors = 0; // Reset error counter on success
-                            updateProgress(data.step);
-                            if (data.step >= 5) {
+                            const step = data.step ?? 0;
+                            if (step > lastStepSeen) lastStepSeen = step;
+                            updateProgress(step);
+                            if (step >= 5) {
                                 clearInterval(pollInterval);
+                                return;
+                            }
+                            // File may have been cleaned up after completion; step 0 with prior step >= 4 means done
+                            if (step === 0 && lastStepSeen >= 4) {
+                                clearInterval(pollInterval);
+                                updateProgress(5);
                             }
                         })
                         .catch(err => {
@@ -952,7 +987,7 @@
                     yearSelect.disabled = false;
                 }
                 // Mode select is conditionally enabled based on contest/year
-                if ((contestSelect.value === 'CQ-WW' || contestSelect.value === 'CQ-160' || contestSelect.value === 'CQ-WPX') && yearSelect.value) {
+                if ((contestSelect.value === 'CQ-WW' || contestSelect.value === 'CQ-WPX') && yearSelect.value) {
                     modeSelect.closest('.col-md-4').style.display = 'block'; // Show mode selector
                     modeSelect.disabled = false;
                 } else if (contestSelect.value === 'ARRL-10') {
@@ -962,8 +997,20 @@
                     modeSelect.closest('.col-md-4').style.display = 'none'; // Hide mode selector
                     modeSelect.disabled = true; // IARU-HF and WRTC-2026 don't use mode
                 } else if (contestSelect.value === 'ARRL-DX-CW' || contestSelect.value === 'ARRL-DX-SSB') {
-                    modeSelect.closest('.col-md-4').style.display = 'none'; // Hide mode selector
-                    modeSelect.disabled = true; // ARRL-DX don't use mode
+                    modeSelect.closest('.col-md-4').style.display = 'none'; // Hide mode selector (no mode column for ARRL DX)
+                    modeSelect.disabled = true;
+                } else if (contestSelect.value === 'CQ-160-CW' || contestSelect.value === 'CQ-160-SSB') {
+                    modeSelect.closest('.col-md-4').style.display = 'block'; // Show Mode column with fixed value
+                    modeSelect.value = (contestSelect.value === 'CQ-160-CW') ? 'CW' : 'SSB';
+                    modeSelect.disabled = true;
+                } else if (contestSelect.value === 'ARRL-SS-CW' || contestSelect.value === 'ARRL-SS-PH') {
+                    modeSelect.closest('.col-md-4').style.display = 'block';
+                    modeSelect.value = (contestSelect.value === 'ARRL-SS-CW') ? 'CW' : 'SSB';
+                    modeSelect.disabled = true;
+                } else if (contestSelect.value === 'NAQP-CW' || contestSelect.value === 'NAQP-PH' || contestSelect.value === 'NAQP-RTTY') {
+                    modeSelect.closest('.col-md-4').style.display = 'block';
+                    modeSelect.value = (contestSelect.value === 'NAQP-CW') ? 'CW' : (contestSelect.value === 'NAQP-PH') ? 'SSB' : 'RTTY';
+                    modeSelect.disabled = true;
                 }
                 
                 inputs.forEach(input => {

@@ -25,7 +25,7 @@ from plotly.subplots import make_subplots
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
 from ..data_aggregators.matrix_stats import MatrixAggregator
-from contest_tools.utils.report_utils import create_output_directory, _sanitize_filename_part, get_standard_footer, get_standard_title_lines, get_valid_dataframe
+from contest_tools.utils.report_utils import create_output_directory, _sanitize_filename_part, get_standard_footer, get_standard_title_lines, get_valid_dataframe, write_json_ascii
 from ..styles.plotly_style_manager import PlotlyStyleManager
 
 class Report(ContestReport):
@@ -122,10 +122,10 @@ class Report(ContestReport):
             
             generated_files = []
 
-            # 1. Save JSON (Web Component Artifact)
+            # 1. Save JSON (Web Component Artifact) - 7-bit ASCII only
             json_filename = f"{filename_base}.json"
             json_path = os.path.join(charts_dir, json_filename)
-            fig.write_json(json_path)
+            write_json_ascii(fig.to_json(), json_path)
             generated_files.append(json_filename)
 
             # Save HTML (Interactive)

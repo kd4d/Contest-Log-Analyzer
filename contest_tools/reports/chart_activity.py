@@ -29,6 +29,7 @@ from contest_tools.utils.report_utils import (
     get_standard_footer,
     get_standard_title_lines,
     build_filename,
+    write_json_ascii,
 )
 from ..data_aggregators.time_series import TimeSeriesAggregator
 from ..styles.plotly_style_manager import PlotlyStyleManager
@@ -303,7 +304,7 @@ class Report(ContestReport):
                 "All",
                 None,
                 modes_present,
-                callsign_separator=" \u2212 ",
+                callsign_separator=" - ",  # ASCII hyphen-minus (7-bit ASCII; U+2212 causes charmap errors on Windows)
                 callsigns_bold=True,
             )
             footer_text = get_standard_footer(self.logs)
@@ -364,7 +365,7 @@ class Report(ContestReport):
             except Exception as e:
                 logging.error("Failed to save Activity Chart HTML: %s", e)
             try:
-                fig.write_json(json_path)
+                write_json_ascii(fig.to_json(), json_path)
                 generated.append(json_path)
             except Exception as e:
                 logging.error("Failed to save Activity Chart JSON: %s", e)

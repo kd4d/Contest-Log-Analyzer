@@ -23,7 +23,7 @@ from contest_tools.reports.report_interface import ContestReport
 from contest_tools.contest_log import ContestLog
 from contest_tools.data_aggregators.categorical_stats import CategoricalAggregator
 from contest_tools.styles.plotly_style_manager import PlotlyStyleManager
-from contest_tools.utils.report_utils import get_valid_dataframe, create_output_directory, _sanitize_filename_part, get_standard_footer, get_standard_title_lines
+from contest_tools.utils.report_utils import get_valid_dataframe, create_output_directory, _sanitize_filename_part, get_standard_footer, get_standard_title_lines, write_json_ascii
 
 class Report(ContestReport):
     """
@@ -257,8 +257,8 @@ class Report(ContestReport):
             fig.write_html(filepath_html, include_plotlyjs='cdn', config=config)
             results.append(f"Interactive plot saved: {filepath_html}")
 
-            # 2. Save JSON (Component Data)
-            fig.write_json(filepath_json)
+            # 2. Save JSON (Component Data) - 7-bit ASCII only
+            write_json_ascii(fig.to_json(), filepath_json)
             results.append(f"JSON data saved: {filepath_json}")
             
             # 3. Save PNG (Disabled for Web Architecture)

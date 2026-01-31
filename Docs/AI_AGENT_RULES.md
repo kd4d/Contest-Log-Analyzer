@@ -2,6 +2,8 @@
 
 This document provides specific rules for AI agents (like Cursor/Console AI) when working on this repository.
 
+**CRITICAL: Before Running Any Python or Test Command:** Read the "Python Script Execution Rules" and "Syntax Validation" sections in this document and use the specified paths. Do NOT assume `python` or `py` will work. See also `.cursor/rules/` for mandatory project rules (Python paths, debugging).
+
 ---
 
 ## Discussion Mode Rules
@@ -1301,6 +1303,29 @@ When adding diagnostic logging:
 
 ---
 
+## Debugging Rules
+
+### CRITICAL: No Inferring Bug Sources
+
+**AI agents MUST NOT infer or guess the root cause of bugs.** Add temporary diagnostic output to confirm the actual failing path or value, then fix based on that evidence.
+
+**MANDATORY WORKFLOW:**
+1. **Reproduce** the bug (or note the user report).
+2. **Add temporary diagnostics** to confirm where/when/why it fails:
+   - Use `logger.warning()` or `logger.error()` so output is visible (e.g. in Docker logs).
+   - Use the `[DIAG]` prefix for all diagnostic messages (see "Logging Rules" > "CRITICAL: Diagnostic Logging Rules" above).
+   - Log the actual values (e.g. keys, paths, IDs) at the call site where the bug manifests and at the place that provides the disputed data.
+3. **Use the evidence** from logs/output to drive the fix. Do not fix based on reasoning alone without confirming.
+4. **Remove or gate diagnostics** when done (e.g. remove, comment out, or guard with a DEBUG flag). Do not leave temporary diagnostics in place unless the user requests otherwise.
+
+**Rule:** When debugging, do not infer or guess. Add targeted diagnostics (warning/error level, [DIAG] prefix), confirm the actual cause, then fix. Remove or gate diagnostics when the fix is complete.
+
+**UI / Dashboard bugs:** When the symptom is "nothing shows" or "wrong data in UI" (e.g. missing plots, wrong selector), consider **both** backend (data, keys, paths, context) and frontend (selectors, data attributes, default state, JS keys). Add diagnostics in both layers if the cause is unclear; confirm the mismatch with logs before changing code.
+
+**See also:** `.cursor/rules/debugging.mdc` for a concise reminder.
+
+---
+
 ## Safety Checks
 
 Before any critical operation, AI should:
@@ -1859,6 +1884,23 @@ Before implementing scoring/data changes:
 - **Correct:** `C:\Users\mbdev\miniforge3\python.exe script.py`
 - **Incorrect:** `python script.py` or `python.exe script.py` (these do not work in this environment)
 
+#### Canonical Commands (Single Source of Truth)
+
+Use these exact invocations. Do not invent alternatives. See also `.cursor/rules/project-mandatory.mdc`.
+
+| Action | Command |
+|--------|---------|
+| Run a Python script | `C:\Users\mbdev\miniforge3\python.exe script_path.py` |
+| Run pytest | `C:\Users\mbdev\miniforge3\python.exe -m pytest tests/` (or target path) |
+| Run py_compile (after modifying any Python file) | `C:\Users\mbdev\miniforge3\envs\cla\python.exe -m py_compile <file_path>` |
+| Django management command | `C:\Users\mbdev\miniforge3\python.exe web_app/manage.py <command>` |
+
+**Before running Python/tests checklist:**
+- [ ] Read this "Python Script Execution Rules" section
+- [ ] Use full path: `C:\Users\mbdev\miniforge3\python.exe` for scripts and pytest
+- [ ] Use full path: `C:\Users\mbdev\miniforge3\envs\cla\python.exe` for py_compile
+- [ ] Never use `python`, `python.exe`, or `py` without the full path
+
 #### Why This Matters
 
 The default `python` command does not resolve correctly in this environment. Using the miniforge Python path ensures:
@@ -2102,7 +2144,7 @@ echo %TEST_DATA_DIR%
 **⚠️ MANDATORY WORKFLOW FOR ALL COMMANDS - NO EXCEPTIONS:**
 
 **BEFORE execution (MANDATORY):**
-1. **Check relevant project rules FIRST:** Review AI Agent Rules for command-specific requirements
+1. **Check relevant project rules FIRST:** Review AI Agent Rules for command-specific requirements. See also `.cursor/rules/` for mandatory project rules (Python paths, debugging).
    - Python commands: Check "Python Script Execution Rules" section → Use `C:\Users\mbdev\miniforge3\python.exe`
    - **PowerShell commands: ⚠️ CRITICAL - Check "PowerShell Command Syntax Rules" section**
      - **NEVER use `&&` for command chaining** - This is CMD syntax and will FAIL in PowerShell
@@ -2634,7 +2676,7 @@ DevNotes/
 5. **Update source line references** if document structure changed
 6. **Test checklist completeness** against recent operations
 
-**Purpose:** The checklists in `Docs/AI_AGENT_CHECKLISTS.md` are quick-reference tools derived from this document. They must remain synchronized with the source rules to ensure AI agents follow correct workflows.
+**Purpose:** The checklists in `Docs/AI_AGENT_CHECKLISTS.md` are quick-reference tools derived from this document. They must remain synchronized with the source rules to ensure AI agents follow correct workflows. Key checklists include: Python Script Execution (Checklist 4), Debugging / Bug Investigation (Checklist 5), Terminal Command Execution (Checklist 3).
 
 **Location:** `Docs/AI_AGENT_CHECKLISTS.md`
 

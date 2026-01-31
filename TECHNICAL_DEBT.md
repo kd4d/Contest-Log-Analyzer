@@ -222,6 +222,41 @@ applicable_rules = [
 
 ---
 
+## Naming & Conventions Debt
+
+### Contest and Mode Naming Standardization (PH vs SSB, RTTY vs RY vs DI)
+
+**Priority:** MEDIUM  
+**Impact:** Inconsistent naming across contest names, UI labels, and mode codes; risk of confusion and bugs when comparing or displaying  
+**Status:** [ ] Not started
+
+**Issue:**
+
+1. **Contest names: PH vs SSB**
+   - Some contest names use **PH** (Cabrillo/ADIF code for Phone): e.g. `ARRL-SS-PH`, `NAQP-PH`, `CQ-160` exchange rules keyed `CQ-160-SSB`.
+   - Others use **SSB** in the contest name: e.g. `CQ-160-SSB`, `ARRL-DX-SSB`, `CQ-WPX` (SSB variant).
+   - Inconsistent: same concept (single-sideband phone) represented as both PH and SSB in contest identifiers and UI.
+   - **Need:** Decide one standard (e.g. PH everywhere for contest/mode codes, or SSB for user-facing contest names) and apply consistently across definitions, parsers, UI, and docs.
+
+2. **Mode codes: RTTY vs RY vs DI**
+   - **RY** is the two-letter Cabrillo/ADIF code for RTTY; we use it in `valid_modes` and in data.
+   - **RTTY** appears in exchange rule keys (e.g. `NAQP-RTTY`), UI labels, and some logic (e.g. contest period rules keyed `('RTTY', month)`).
+   - **DI** may appear in some contexts (e.g. Digital) and would need to be mapped or standardized.
+   - Inconsistent use of full word (RTTY) vs code (RY) vs other (DI) across JSON keys, code, and UI.
+   - **Need:** Standardize on one representation for RTTY (and any other digital modes) in contest names, mode lists, and UI—e.g. RY in data/JSON, consistent display labels—and document the mapping if both RY and RTTY/DI are used in external systems.
+
+**Proposed direction (to be decided):**
+- Pick a single convention for phone contests (PH vs SSB) in contest_name and in UI.
+- Pick a single convention for RTTY/digital: e.g. RY in `valid_modes` and internal data; decide whether contest names/keys use `RTTY` or `RY`; document DI if used.
+- Apply consistently in `contest_definitions/*.json`, parsers, views, templates, and docs.
+
+**Related:**
+- `contest_tools/contest_definitions/` – contest_name and valid_modes
+- `contest_tools/contest_log.py` – NAQP period rules (CW, PH, RTTY, RY)
+- UI labels and archive dropdown (e.g. "CQ 160 SSB", "ARRL DX SSB")
+
+---
+
 ## Performance Debt
 
 *(No current items)*

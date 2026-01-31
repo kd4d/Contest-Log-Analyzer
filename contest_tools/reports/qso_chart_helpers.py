@@ -19,7 +19,7 @@ from typing import List
 import plotly.graph_objects as go
 from ..contest_log import ContestLog
 from ..utils.callsign_utils import build_callsigns_filename_part
-from ..utils.report_utils import create_output_directory, get_standard_footer, get_standard_title_lines
+from ..utils.report_utils import create_output_directory, get_standard_footer, get_standard_title_lines, write_json_ascii
 from ..styles.plotly_style_manager import PlotlyStyleManager
 
 
@@ -119,8 +119,8 @@ def save_qso_chart_files(fig: go.Figure, output_path: str, base_filename: str) -
         config = {'toImageButtonOptions': {'filename': base_filename, 'format': 'png'}}
         fig.write_html(filepath_html, include_plotlyjs='cdn', config=config)
         
-        # 2. Save JSON (Component Data)
-        fig.write_json(filepath_json)
+        # 2. Save JSON (Component Data) - 7-bit ASCII only
+        write_json_ascii(fig.to_json(), filepath_json)
         
     except Exception as e:
         # Log error but don't fail completely

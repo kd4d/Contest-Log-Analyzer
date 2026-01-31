@@ -1,9 +1,9 @@
 # contest_tools/reports/chart_rate.py
 #
 # Purpose: Side-by-side bar chart of stations' hourly rates (QSO or points per hour)
-#          for 1–3 logs. All bands, all modes. Single color per station.
-#          Time segmentation: 1 log up to 48h; 2 logs 24h/segment (30h → 2×15h);
-#          3 logs 12h/segment (30h → 2×15h). Produces "QSO Rate Chart" and
+#          for 1-3 logs. All bands, all modes. Single color per station.
+#          Time segmentation: 1 log up to 48h; 2 logs 24h/segment (30h -> 2x15h);
+#          3 logs 12h/segment (30h -> 2x15h). Produces "QSO Rate Chart" and
 #          "Point Rate Chart" (points only when contest uses points).
 #
 # Copyright (c) 2025 Mark Bailey, KD4D
@@ -33,6 +33,7 @@ from contest_tools.utils.report_utils import (
     get_standard_footer,
     get_standard_title_lines,
     build_filename,
+    write_json_ascii,
 )
 from ..data_aggregators.time_series import TimeSeriesAggregator
 from ..styles.plotly_style_manager import PlotlyStyleManager
@@ -201,7 +202,7 @@ class Report(ContestReport):
                 "All",
                 None,
                 modes_present,
-                callsign_separator=" \u2212 ",
+                callsign_separator=" - ",  # ASCII hyphen-minus (7-bit ASCII; U+2212 causes charmap errors on Windows)
                 callsigns_bold=True,
             )
             title_text = f"<b>{title_lines[0]}</b><br><sup>{title_lines[1]}</sup>"
@@ -258,7 +259,7 @@ class Report(ContestReport):
             except Exception as e:
                 logging.error("Failed to save Rate Chart HTML: %s", e)
             try:
-                fig.write_json(json_path)
+                write_json_ascii(fig.to_json(), json_path)
                 generated.append(json_path)
             except Exception as e:
                 logging.error("Failed to save Rate Chart JSON: %s", e)
@@ -269,5 +270,5 @@ class Report(ContestReport):
 
 
 def _segment_title(first_ts: pd.Timestamp, last_ts: pd.Timestamp, start_idx: int, end_idx: int) -> str:
-    """Human-readable segment label, e.g. 'Hours 1–15'."""
-    return f"Hours {start_idx + 1}–{end_idx}"
+    """Human-readable segment label, e.g. 'Hours 1-15' (ASCII hyphen for 7-bit)."""
+    return f"Hours {start_idx + 1}-{end_idx}"

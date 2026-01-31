@@ -549,9 +549,10 @@ def get_log_index_view(request):
             return JsonResponse({'callsigns': callsigns})
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
-    elif contest == 'CQ-160' and year and mode:
+    elif contest in ('CQ-160-CW', 'CQ-160-SSB') and year:
         try:
             from contest_tools.utils.log_fetcher import fetch_cq160_log_index
+            mode = 'CW' if contest == 'CQ-160-CW' else 'SSB'
             callsigns = fetch_cq160_log_index(year, mode)
             return JsonResponse({'callsigns': callsigns})
         except Exception as e:
@@ -848,8 +849,9 @@ def analyze_logs(request):
                 # Route to appropriate download function based on contest
                 if contest == 'CQ-WW' and mode:
                     log_paths = download_logs(callsigns, year, mode, session_path)
-                elif contest == 'CQ-160' and mode:
+                elif contest in ('CQ-160-CW', 'CQ-160-SSB'):
                     from contest_tools.utils.log_fetcher import download_cq160_logs
+                    mode = 'CW' if contest == 'CQ-160-CW' else 'SSB'
                     log_paths = download_cq160_logs(callsigns, year, mode, session_path)
                 elif contest == 'CQ-WPX' and mode:
                     from contest_tools.utils.log_fetcher import download_cqwpx_logs
@@ -1104,12 +1106,10 @@ def dashboard_view(request, session_id):
 
     # Contest-Specific Routing
     contest_name = context.get('contest_name', '').upper()  # Already uppercased, but explicit for clarity
-    # Enable same dashboard structure for CQ-WW, CQ-160, CQ-WPX, ARRL-10, ARRL-DX, ARRL-SS, IARU-HF, and all WRTC contests
-    # CQ-160 is single-band, multi-mode (like ARRL-10), so it uses the same dashboard architecture
-    # CQ-WPX is multi-band, single-mode per weekend (CW/SSB), same as CQ-WW
-    # ARRL-DX is multi-band, single-mode (like CQ-WW), so it uses the same dashboard architecture
-    # ARRL-SS is multi-band, single-mode with contest-wide QSO counting, so it uses the same dashboard architecture
-    # IARU-HF and WRTC contests are multi-band, multi-mode, so they use the same dashboard architecture
+    # Enable same dashboard structure for CQ-WW, CQ-160-CW/SSB, CQ-WPX, ARRL-10, ARRL-DX, ARRL-SS-CW/PH, IARU-HF, and all WRTC contests
+    # CQ-160-CW/SSB and ARRL-SS-CW/PH are separate events per mode (one definition per event)
+    # CQ-WW and CQ-WPX are multi-band, single-mode per weekend; ARRL-10 is single-band, multi-mode (one event)
+    # IARU-HF and WRTC contests are multi-band, multi-mode
     if not (contest_name.startswith('CQ-WW') or 
             contest_name.startswith('CQ-160') or 
             contest_name.startswith('CQ-WPX') or
@@ -1202,11 +1202,15 @@ def dashboard_view(request, session_id):
 def get_progress(request, request_id):
     """Returns the current progress step for the given request ID."""
     file_path = os.path.join(settings.MEDIA_ROOT, 'progress', f"{request_id}.json")
-    if os.path.exists(file_path):
+    if not os.path.exists(file_path):
+        return JsonResponse({'step': 0})
+    try:
         with open(file_path, 'r') as f:
             data = json.load(f)
         return JsonResponse(data)
-    return JsonResponse({'step': 0})
+    except (FileNotFoundError, OSError, json.JSONDecodeError):
+        # File deleted/moved between exists() and open() (TOCTOU), or unreadable
+        return JsonResponse({'step': 0})
 
 def _extract_contest_name_from_path(report_rel_path: str) -> str:
     """
@@ -1230,22 +1234,10 @@ def _extract_contest_name_from_path(report_rel_path: str) -> str:
     # Path structure: reports/YYYY/contest_name/event_id/combo_id
     # We want the contest_name part (typically index 2)
     if len(parts) >= 3 and parts[0].lower() == 'reports':
-        contest_name_lower = parts[2]  # e.g., "arrl-10", "cq-ww-cw", "cq-160-cw"
+        contest_name_lower = parts[2]  # e.g., "arrl-10", "cq-ww-cw", "cq-160-cw", "arrl-ss-cw"
         # Convert to expected format: uppercase and replace hyphens appropriately
-        # Contest definition files use format like "ARRL-10", "CQ-WW-CW", "CQ-160"
+        # Contest definition files use format like "ARRL-10", "CQ-WW-CW", "CQ-160-CW", "ARRL-SS-CW"
         contest_name = contest_name_lower.upper().replace('_', '-')
-        
-        # Normalize CQ-160 variants (CQ-160-CW, CQ-160-SSB) to base contest name (CQ-160)
-        # This allows the single contest definition file to handle both modes
-        # ContestDefinition.from_json() will handle the fallback, but normalizing here
-        # makes the code more explicit and consistent
-        if contest_name.startswith('CQ-160-'):
-            contest_name = 'CQ-160'
-        
-        # ARRL-DX-CW and ARRL-DX-SSB are separate contests (separate JSON files)
-        # No normalization needed - uppercase conversion already handles them correctly
-        # Explicit comment for clarity and consistency with CQ-160 pattern
-        
         return contest_name
     
     return None
@@ -1507,8 +1499,6 @@ def multiplier_dashboard(request, session_id):
         raw = dashboard_ctx.get('contest_name') or ''
         if raw:
             contest_name = raw.replace('_', '-').upper()
-            if contest_name.startswith('CQ-160-'):
-                contest_name = 'CQ-160'
     # Multiplier dashboard not available for WPX (for now)
     if contest_name and contest_name.upper().startswith('CQ-WPX'):
         return render(request, 'analyzer/multiplier_dashboard_unavailable.html', {'session_id': session_id})
@@ -2160,7 +2150,14 @@ def qso_dashboard(request, session_id):
     # - Single-band, single-mode: no selector needed (e.g., CQ 160 CW)
     diff_selector_type = 'mode' if (is_single_band and is_multi_mode) else 'band'
     show_diff_selector = is_multi_band or is_multi_mode  # Only show selector if multi-band OR multi-mode
-    
+
+    # When there is no selector, the JS defaults to band:all but chart_rate emits band:{num} for single-band.
+    # Pass the key that will actually exist so the Rate Differential pane can show the plot.
+    if not show_diff_selector and is_single_band and valid_bands:
+        default_diff_key = "band:" + valid_bands[0].replace('M', '').lower()
+    else:
+        default_diff_key = "band:all"
+
     # DEBUG: Log selector logic for troubleshooting
     logger.warning(f"[QSO Dashboard] Contest: {contest_name if contest_name else 'Unknown'}")
     logger.warning(f"[QSO Dashboard] valid_bands={valid_bands}, valid_modes={valid_modes}")
@@ -2747,6 +2744,8 @@ def qso_dashboard(request, session_id):
         'valid_modes': valid_modes_for_buttons,  # For dynamic mode button generation
         'diff_selector_type': diff_selector_type,  # 'band' or 'mode' for Rate Differential pane
         'show_diff_selector': show_diff_selector,  # Whether to show band/mode selector (False for single-band, single-mode)
+        'default_diff_key': default_diff_key,  # Key to use when no selector (e.g. band:160 for single-band so plot loads)
+        'show_rate_differential_pane': not is_solo,  # Show when 2+ logs (Strategy tab); hidden when solo
         'activity_tab_label': activity_tab_label,  # 'Band Activity' or 'Mode Activity'
         'activity_tab_title': activity_tab_title,  # Chart title for activity tab
         'qso_tab_label': qso_tab_label,  # 'QSOs by Band' or 'QSOs by Mode'

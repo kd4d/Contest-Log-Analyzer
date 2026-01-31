@@ -144,6 +144,8 @@ class ContestLog:
                 ('PH', 8): (5, 2, "18:00:00"),   # Aug SSB: 3rd Saturday
                 ('RTTY', 2): (5, 3, "18:00:00"), # Feb RTTY: 4th Saturday
                 ('RTTY', 7): (5, 1, "18:00:00"), # Jul RTTY: 2nd Saturday
+                ('RY', 2): (5, 3, "18:00:00"),   # Feb RTTY (Cabrillo code RY)
+                ('RY', 7): (5, 1, "18:00:00"),   # Jul RTTY (Cabrillo code RY)
             }
             rule = rules.get((mode_from_contest, month))
             if not rule:
