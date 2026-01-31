@@ -24,7 +24,7 @@ import logging
 
 from ..contest_log import ContestLog
 from .report_interface import ContestReport
-from contest_tools.utils.report_utils import create_output_directory, get_valid_dataframe, save_debug_data, _sanitize_filename_part, get_standard_footer, get_standard_title_lines, build_filename
+from contest_tools.utils.report_utils import create_output_directory, get_valid_dataframe, save_debug_data, _sanitize_filename_part, get_standard_footer, get_standard_title_lines, build_filename, write_json_ascii
 from ..data_aggregators.time_series import TimeSeriesAggregator
 from ..styles.plotly_style_manager import PlotlyStyleManager
 
@@ -229,17 +229,27 @@ class Report(ContestReport):
             hourly_pos = hourly_data_max if hourly_data_max > 0 else 1
             target_ratio = cumul_ratio if cumul_ratio != float('inf') else (hourly_pos / hourly_neg if hourly_neg > 0 else float('inf'))
 
+        # Cap target_ratio to avoid overflow in scalar multiply and int() conversion
+        if not math.isfinite(target_ratio) or target_ratio <= 0:
+            target_ratio = 1.0
+        elif target_ratio > 1e10:
+            target_ratio = 1e10
+
         cumul_data_min_f = float(cumul_data_min)
         cumul_data_max_f = float(cumul_data_max)
         if cumul_data_min < 0 and cumul_data_max > 0:
             M_cumul = max(abs(cumul_data_min_f), cumul_data_max_f / target_ratio)
             cumul_min_raw = -M_cumul
             cumul_max_raw = M_cumul * target_ratio
+            if not math.isfinite(cumul_max_raw):
+                cumul_max_raw = cumul_data_max_f
         else:
             cumul_min_raw = cumul_data_min_f
             cumul_max_raw = cumul_data_max_f
         cumul_range_raw = cumul_max_raw - cumul_min_raw
-        # At most 15 horizontal grid lines: step >= range/14; choose smallest "nice" step >= that
+        if not math.isfinite(cumul_range_raw) or cumul_range_raw <= 0:
+            cumul_range_raw = max(cumul_data_max_f - cumul_data_min_f, 1.0)
+        # At most 15 horizontal grid lines (shared by both axes); choose "nice" step
         N_MAX = 15
         min_step_for_cap = cumul_range_raw / max(N_MAX - 1, 1)
         nice_steps = [25, 50, 100, 250, 500, 1000, 2000, 5000]
@@ -248,9 +258,28 @@ class Report(ContestReport):
             step_cumul = max(1000, math.ceil(min_step_for_cap / 1000) * 1000)
         cumul_min = math.floor(cumul_min_raw / step_cumul) * step_cumul
         cumul_max_exact = abs(cumul_min) * target_ratio
+        if not math.isfinite(cumul_max_exact):
+            cumul_max_exact = cumul_data_max_f
         cumul_max = math.ceil(max(cumul_max_exact, cumul_data_max_f) / step_cumul) * step_cumul
+        cumul_max = min(cumul_max, 1e15) if math.isfinite(cumul_max) else cumul_data_max_f  # keep int() safe
         cumul_tickvals = list(range(int(cumul_min), int(cumul_max) + 1, step_cumul))
         N = max(len(cumul_tickvals), 2)
+
+        # Enforce hard cap of 15 grid lines (range expansion can exceed initial estimate)
+        while N > N_MAX:
+            actual_range = cumul_max - cumul_min
+            min_step_needed = actual_range / max(N_MAX - 1, 1)
+            step_cumul = next((s for s in nice_steps if s >= min_step_needed), None)
+            if step_cumul is None:
+                step_cumul = max(1000, math.ceil(min_step_needed / 1000) * 1000)
+            cumul_min = math.floor(cumul_min_raw / step_cumul) * step_cumul
+            cumul_max_exact = abs(cumul_min) * target_ratio
+            if not math.isfinite(cumul_max_exact):
+                cumul_max_exact = cumul_data_max_f
+            cumul_max = math.ceil(max(cumul_max_exact, cumul_data_max_f) / step_cumul) * step_cumul
+            cumul_max = min(cumul_max, 1e15) if math.isfinite(cumul_max) else cumul_data_max_f
+            cumul_tickvals = list(range(int(cumul_min), int(cumul_max) + 1, step_cumul))
+            N = max(len(cumul_tickvals), 2)
 
         # Bar axis: ideal P/N position -> snap to closest grid line k; expand range for exact ratio + rounding
         hourly_data_min_f = float(hourly_data_min)
@@ -573,14 +602,14 @@ class Report(ContestReport):
             if 'Mode' in df.columns:
                 modes_present.update(df['Mode'].dropna().unique())
         
-        # Header: callsigns with arithmetic minus (e.g. AA1K − K5ZD), callsign part bold
+        # Header: callsigns with minus (e.g. AA1K - K5ZD), callsign part bold (ASCII hyphen for 7-bit)
         title_lines = get_standard_title_lines(
             f"{self.report_name} ({metric_name})",
             self.logs,
             band_filter,
             mode_filter,
             modes_present,
-            callsign_separator=" \u2212 ",  # arithmetic minus sign
+            callsign_separator=" - ",  # ASCII hyphen-minus (7-bit ASCII; U+2212 causes charmap on Windows)
             callsigns_bold=True,
         )
 
@@ -689,10 +718,10 @@ class Report(ContestReport):
         except Exception as e:
             logging.error(f"Failed to save HTML report: {e}")
 
-        # Save JSON (Web Component)
+        # Save JSON (Web Component) - 7-bit ASCII only
         json_path = os.path.join(output_path, json_filename)
         try:
-            fig.write_json(json_path)
+            write_json_ascii(fig.to_json(), json_path)
             generated_files.append(json_path)
         except Exception as e:
             logging.error(f"Failed to save JSON data: {e}")
