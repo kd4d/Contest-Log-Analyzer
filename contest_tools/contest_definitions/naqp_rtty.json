@@ -1,0 +1,6 @@
+{
+  "_filename": "contest_tools/contest_definitions/naqp_rtty.json",
+  "contest_name": "NAQP-RTTY",
+  "valid_modes": ["RY"],
+  "inherits_from": "naqp"
+}

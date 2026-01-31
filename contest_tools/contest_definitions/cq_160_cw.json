@@ -1,0 +1,6 @@
+{
+  "_filename": "contest_tools/contest_definitions/cq_160_cw.json",
+  "contest_name": "CQ-160-CW",
+  "valid_modes": ["CW"],
+  "inherits_from": "cq_160"
+}

@@ -1,0 +1,6 @@
+{
+  "_filename": "contest_tools/contest_definitions/arrl_ss_ph.json",
+  "contest_name": "ARRL-SS-PH",
+  "valid_modes": ["PH"],
+  "inherits_from": "arrl_ss"
+}
