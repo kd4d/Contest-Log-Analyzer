@@ -137,7 +137,7 @@ class Report(ContestReport):
                 rows=len(segments),
                 cols=1,
                 shared_xaxes=False,
-                vertical_spacing=0.06,
+                vertical_spacing=0.15,  # Increased from 0.06 to 0.15 to prevent title/label overlap
                 subplot_titles=[
                     _segment_title(time_bins[s], time_bins[e - 1], s, e)
                     for s, e in segments

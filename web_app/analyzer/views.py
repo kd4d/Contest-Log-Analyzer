@@ -2157,7 +2157,15 @@ def qso_dashboard(request, session_id):
     # - Single-band, multi-mode: mode selector (e.g., ARRL 10)
     # - Multi-band, single-mode: band selector (e.g., CQ WW CW)
     # - Multi-band, multi-mode: band selector (primary), mode can be added later (e.g., NAQP, ARRL FD)
+    # - Single-band, single-mode: no selector needed (e.g., CQ 160 CW)
     diff_selector_type = 'mode' if (is_single_band and is_multi_mode) else 'band'
+    show_diff_selector = is_multi_band or is_multi_mode  # Only show selector if multi-band OR multi-mode
+    
+    # DEBUG: Log selector logic for troubleshooting
+    logger.warning(f"[QSO Dashboard] Contest: {contest_name if contest_name else 'Unknown'}")
+    logger.warning(f"[QSO Dashboard] valid_bands={valid_bands}, valid_modes={valid_modes}")
+    logger.warning(f"[QSO Dashboard] is_single_band={is_single_band}, is_multi_mode={is_multi_mode}, is_multi_band={is_multi_band}")
+    logger.warning(f"[QSO Dashboard] diff_selector_type={diff_selector_type}, show_diff_selector={show_diff_selector}")
     
     # Build band mapping: "80M" -> "80" for template buttons
     valid_bands_for_buttons = []
@@ -2276,6 +2284,41 @@ def qso_dashboard(request, session_id):
             ba_path = next((f"{report_rel_path}/{a['path']}" for a in artifacts if a['report_id'] == 'chart_comparative_activity_butterfly' and f"_{c1}_{c2}" in a['path'] and a['path'].endswith('.html')), "")
             ba_json = next((f"{settings.MEDIA_URL}sessions/{session_id}/{report_rel_path}/{a['path']}" for a in artifacts if a['report_id'] == 'chart_comparative_activity_butterfly' and f"_{c1}_{c2}" in a['path'] and a['path'].endswith('.json')), "")
             cont_path = next((f"{report_rel_path}/{a['path']}" for a in artifacts if a['report_id'] == 'comparative_continent_summary' and f"_{c1}_{c2}" in a['path']), "")
+            
+            # Find rate chart files (bar graph alternatives for cumulative difference plots)
+            # These follow similar naming patterns but need mode-aware variants
+            # IMPORTANT: Must use exact suffix match to avoid 3-way files matching 2-way pairs
+            # (e.g., "--kd4d_n4zz" is a substring of "--kd4d_n4zz_w3lpl")
+            rate_chart_paths = {}
+            rate_chart_json_paths = {}
+            rate_chart_paths_points = {}
+            rate_chart_json_paths_points = {}
+            
+            # Build exact suffix patterns for this pair
+            rate_suffix_html = f"--{pair_callsigns}.html"
+            rate_suffix_json = f"--{pair_callsigns}.json"
+            
+            for art in artifacts:
+                if art['report_id'] != 'chart_rate':
+                    continue
+                fname = os.path.basename(art['path'])
+                # Strict match: filename must END with exact pair callsigns
+                if not (fname.endswith(rate_suffix_html) or fname.endswith(rate_suffix_json)):
+                    continue
+                for prefix, paths_dict, json_dict in [
+                    ("chart_rate_qsos_", rate_chart_paths, rate_chart_json_paths),
+                    ("chart_rate_points_", rate_chart_paths_points, rate_chart_json_paths_points),
+                ]:
+                    if not fname.startswith(prefix):
+                        continue
+                    # Parse metadata (band/mode) similar to diff plots
+                    metadata_part = fname.replace(prefix, '').split('--')[0]
+                    structured_key = parse_diff_filename_metadata(metadata_part, valid_bands, valid_modes, is_single_band)
+                    if art['path'].endswith('.html'):
+                        paths_dict[structured_key] = f"{report_rel_path}/{art['path']}"
+                    elif art['path'].endswith('.json'):
+                        json_dict[structured_key] = f"{settings.MEDIA_URL}sessions/{session_id}/{report_rel_path}/{art['path']}"
+                    break
 
             matchups.append({
                 'label': label,
@@ -2284,6 +2327,10 @@ def qso_dashboard(request, session_id):
                 'diff_json_paths': diff_json_paths,
                 'diff_paths_points': diff_paths_points,
                 'diff_json_paths_points': diff_json_paths_points,
+                'rate_chart_paths': rate_chart_paths,
+                'rate_chart_json_paths': rate_chart_json_paths,
+                'rate_chart_paths_points': rate_chart_paths_points,
+                'rate_chart_json_paths_points': rate_chart_json_paths_points,
                 'qso_breakdown_file': bk_path,
                 'qso_breakdown_json': bk_json,
                 'band_activity_file': ba_path,
@@ -2699,6 +2746,7 @@ def qso_dashboard(request, session_id):
         'valid_bands': valid_bands_for_buttons,  # For dynamic band button generation
         'valid_modes': valid_modes_for_buttons,  # For dynamic mode button generation
         'diff_selector_type': diff_selector_type,  # 'band' or 'mode' for Rate Differential pane
+        'show_diff_selector': show_diff_selector,  # Whether to show band/mode selector (False for single-band, single-mode)
         'activity_tab_label': activity_tab_label,  # 'Band Activity' or 'Mode Activity'
         'activity_tab_title': activity_tab_title,  # Chart title for activity tab
         'qso_tab_label': qso_tab_label,  # 'QSOs by Band' or 'QSOs by Mode'
