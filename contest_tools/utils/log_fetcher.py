@@ -41,6 +41,8 @@ ARRL_CONTEST_CODES = {
     'ARRL-10': '10m',
     'ARRL-DX-CW': 'dx',
     'ARRL-DX-SSB': 'dx',
+    'ARRL-SS-CW': 'sscw',
+    'ARRL-SS-PH': 'ssph',
     'IARU-HF': 'iaruhf',
     # Add other ARRL contests as they're implemented
 }

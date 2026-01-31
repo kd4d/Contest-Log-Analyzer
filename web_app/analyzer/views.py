@@ -589,6 +589,19 @@ def get_log_index_view(request):
         except Exception as e:
             logger.exception(f"Error fetching ARRL DX log index: {e}")
             return JsonResponse({'error': str(e)}, status=500)
+    elif contest in ['ARRL-SS-CW', 'ARRL-SS-PH'] and year:
+        # ARRL Sweepstakes CW/SSB use contest codes sscw/ssph (same archive structure as ARRL 10/DX)
+        try:
+            from contest_tools.utils.log_fetcher import fetch_arrl_log_index, ARRL_CONTEST_CODES
+            contest_code = ARRL_CONTEST_CODES.get(contest)
+            if contest_code:
+                callsigns = fetch_arrl_log_index(year, contest_code)
+                return JsonResponse({'callsigns': callsigns})
+            else:
+                return JsonResponse({'error': f'{contest} contest code not found'}, status=500)
+        except Exception as e:
+            logger.exception(f"Error fetching ARRL Sweepstakes log index: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
     elif contest == 'IARU-HF' and year:
         # IARU-HF uses contest code 'iaruhf'
         try:
@@ -868,6 +881,13 @@ def analyze_logs(request):
                     contest_code = ARRL_CONTEST_CODES.get(contest)
                     if contest_code:
                         log_paths = download_arrl_logs(callsigns, year, contest_code, session_path, contest_name=contest)
+                    else:
+                        raise ValueError(f'{contest} contest code not found')
+                elif contest in ['ARRL-SS-CW', 'ARRL-SS-PH']:
+                    from contest_tools.utils.log_fetcher import download_arrl_logs, ARRL_CONTEST_CODES
+                    contest_code = ARRL_CONTEST_CODES.get(contest)
+                    if contest_code:
+                        log_paths = download_arrl_logs(callsigns, year, contest_code, session_path)
                     else:
                         raise ValueError(f'{contest} contest code not found')
                 elif contest == 'IARU-HF':
