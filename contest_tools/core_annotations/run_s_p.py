@@ -16,26 +16,29 @@
 
 import pandas as pd
 from collections import deque
-import os
-import sys
 import traceback
 import logging
 
 # --- Constants ---
+# Pass 1: Run Detection
 DEFAULT_RUN_TIME_WINDOW_MINUTES = 10
+DEFAULT_MIN_QSO_FOR_RUN = 3
 DEFAULT_FREQ_TOLERANCE_CW = 0.1
 DEFAULT_FREQ_TOLERANCE_PH = 0.5
-DEFAULT_MIN_QSO_FOR_RUN = 3
 RUN_BREAK_QSO_COUNT = 3
 RUN_BREAK_TIME_MINUTES = 2
-# --- Constants for "Unknown" classification ---
-DEFAULT_UNKNOWN_WINDOW_MINUTES = 15
-DEFAULT_UNKNOWN_QSO_THRESHOLD = 4
+
+# --- Pass 2: "Unknown" classification (Synchronized with Pass 1) ---
+# We use the same window and threshold as Pass 1 to ensure that any 
+# activity too slow to be a "Run" is treated as "Unknown" rather than "S&P".
+DEFAULT_UNKNOWN_WINDOW_MINUTES = 10
+DEFAULT_UNKNOWN_QSO_THRESHOLD = 3 
 
 
 def _get_run_info_from_buffer(base_freq: float, buffer_to_check: deque, min_qso: int, time_threshold: pd.Timedelta, tol: float):
     """
-    Helper to check if a given `base_freq` forms a valid run within the `buffer_to_check`.
+    Helper to check if a given base_freq forms a valid run within the buffer_to_check.
+    Returns (is_run, qualifying_indices).
     """
     relevant_qso_data = []
     for buffered_idx, buffered_time, buffered_freq in buffer_to_check:
@@ -62,8 +65,8 @@ def _evaluate_single_stream_run(
     min_qso_for_run: int
 ):
     """
-    Pass 1: Evaluates run status for a single operational stream using a "sticky run" state machine.
-    Classifies QSOs as either 'Run' or 'S&P'.
+    Pass 1: Evaluates run status for a single operational stream using a sticky-run state machine.
+    Classifies QSOs as either Run or S&P.
     """
     inferred_run_status = ['S&P'] * len(stream_df_original)
     original_idx_to_list_pos = {idx: i for i, idx in enumerate(stream_df_original.index)}
@@ -122,15 +125,14 @@ def _evaluate_single_stream_run(
 
 def _reclassify_low_rate_periods(df: pd.DataFrame, datetime_column: str, window_minutes: int, threshold: int) -> pd.DataFrame:
     """
-    Pass 2: Reclassifies low-rate 'S&P' QSOs to 'Unknown'.
-    This function expects a DataFrame for a single stream (band/mode).
+    Pass 2: Reclassifies low-rate S&P QSOs to Unknown.
+    Expects a DataFrame for a single stream (band/mode).
     """
     if df.empty or 'Run' not in df.columns:
         return df
 
     df_sorted = df.sort_values(by=datetime_column)
     sp_qso_indices = df_sorted[df_sorted['Run'] == 'S&P'].index
-
     window_delta = pd.Timedelta(minutes=window_minutes)
 
     for idx in sp_qso_indices:
@@ -160,7 +162,7 @@ def process_contest_log_for_run_s_p(
     unknown_qso_threshold: int = DEFAULT_UNKNOWN_QSO_THRESHOLD
 ) -> pd.DataFrame:
     """
-    Main wrapper function to infer "Run", "S&P", or "Unknown" status for each QSO.
+    Main wrapper to infer Run, S&P, or Unknown status for each QSO.
     """
     processed_df = df.copy()
     try:
@@ -182,13 +184,11 @@ def process_contest_log_for_run_s_p(
         df_sorted = processed_df.sort_values(by=[datetime_column])
         time_delta_threshold = pd.Timedelta(minutes=DEFAULT_RUN_TIME_WINDOW_MINUTES) + pd.Timedelta(seconds=1)
         
-        # --- Pass 1 & 2: Apply logic per stream (MyCall, Band, Mode) ---
         results = []
         for group_name, group_df in df_sorted.groupby([my_call_column, band_column, mode_column], group_keys=False):
             representative_mode = group_name[2]
             stream_tolerance = DEFAULT_FREQ_TOLERANCE_CW if representative_mode.upper() == 'CW' else DEFAULT_FREQ_TOLERANCE_PH
             
-            # Pass 1: Classify Run/S&P
             pass1_results = _evaluate_single_stream_run(
                 group_df, datetime_column, frequency_column, stream_tolerance,
                 time_delta_threshold, DEFAULT_MIN_QSO_FOR_RUN
@@ -196,15 +196,13 @@ def process_contest_log_for_run_s_p(
             group_df_with_run = group_df.copy()
             group_df_with_run['Run'] = pass1_results
 
-            # Pass 2: Reclassify to Unknown
             pass2_results_df = _reclassify_low_rate_periods(
                 group_df_with_run, datetime_column, unknown_window_minutes, unknown_qso_threshold
             )
             results.append(pass2_results_df)
         
         if results:
-            final_df = pd.concat(results).sort_index()
-            return final_df
+            return pd.concat(results).sort_index()
         else:
             processed_df['Run'] = 'S&P' 
             return processed_df
@@ -216,51 +214,7 @@ def process_contest_log_for_run_s_p(
         traceback.print_exc()
         raise
 
+
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python run_s_p.py <input_csv_file_path>")
-        sys.exit(1)
-
-    csv_file_path = sys.argv[1]
-    
-    try:
-        initial_df = pd.read_csv(csv_file_path, sep=',', header=0, dtype=str)
-        base_name = os.path.splitext(csv_file_path)[0]
-        output_file_path = f"{base_name}_Run.csv"
-
-        processed_df = process_contest_log_for_run_s_p(df=initial_df)
-        
-        df_for_output = processed_df.copy()
-        if 'Datetime' in df_for_output.columns:
-             df_for_output['Datetime'] = pd.to_datetime(df_for_output['Datetime']).dt.strftime('%Y-%m-%d %H:%M:%S')
-        df_for_output = df_for_output.sort_values(by='Datetime', na_position='last').reset_index(drop=True)
-        df_for_output.to_csv(output_file_path, index=False)
-
-        logging.info(f"\n--- Processing Complete ---")
-        logging.info(f"Processed CSV file created at: {output_file_path}")
-        
-        if not processed_df.empty:
-            logging.info("\n--- Summary of Inferred Run/S&P/Unknown Counts ---")
-            
-            summary_table = pd.pivot_table(
-                processed_df,
-                index='Band',
-                columns='Run',
-                aggfunc='size',
-                fill_value=0
-            )
-            
-            for col in ['Run', 'S&P', 'Unknown']:
-                if col not in summary_table.columns:
-                    summary_table[col] = 0
-            
-            summary_table['Total'] = summary_table.sum(axis=1)
-            summary_table = summary_table[['Total', 'Run', 'S&P', 'Unknown']]
-
-            summary_table.loc['All Bands'] = summary_table.sum()
-            
-            print(summary_table.to_string())
-
-    except Exception as e:
-        logging.critical(f"Script execution terminated due to an error: {e}")
-        sys.exit(1)
+    # Library-only module. Use process_contest_log_for_run_s_p() via contest_log or the web application.
+    pass
