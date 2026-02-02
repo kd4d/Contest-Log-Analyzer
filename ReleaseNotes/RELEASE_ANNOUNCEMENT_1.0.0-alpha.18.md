@@ -7,7 +7,7 @@
 
 ## Highlights
 
-This release adds the **Rate Chart** report (grouped bar chart of QSO or Points rate for 1-3 logs) and a **Bar Graph** option in the QSO Dashboard **Rate Differential** pane. **Cumulative Difference** plots are improved: at most 15 horizontal grid lines, both axes share the same grid, and the summary table below the plot is no longer truncated in the dashboard (fixed-size + scroll). Contest definitions now include mode in the name for single-mode contests (e.g. CQ 160 CW, ARRL SS PH). Temporary diagnostic log messages were removed.
+This release adds the **Rate Chart** report (grouped bar chart of QSO or Points rate for 1-3 logs) and a **Bar Graph** option in the QSO Dashboard **Rate Differential** pane. **Cumulative Difference** plots are improved: at most 15 horizontal grid lines, both axes share the same grid, and the summary table below the plot is no longer truncated in the dashboard (fixed-size + scroll). Contest definitions now include mode in the name for single-mode contests (e.g. CQ 160 CW, ARRL SS PH). Temporary diagnostic log messages were removed.  Public Log Download for Sweepstakes added.
 
 ---
 
@@ -27,6 +27,8 @@ This release adds the **Rate Chart** report (grouped bar chart of QSO or Points 
 
 ### Contest Definitions
 - **Single-mode contests:** Names now include the mode (e.g. CQ 160 CW, CQ 160 SSB, ARRL SS CW, ARRL SS PH, NAQP CW/PH/RTTY) for clearer selectors and labels.
+
+### Sweepstakes Public Log Downloads
 
 ---
 

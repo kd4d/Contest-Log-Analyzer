@@ -1,74 +1,48 @@
 # Run/S&P/Unknown Classification Algorithm
 
-**Version:** 0.47.4-Beta
-**Date:** 2025-08-23
-**Last Updated:** 2026-01-31
+**Version:** 0.50.0-Beta
+**Date:** 2026-02-02
 **Category:** Algorithm Spec
-**Compatible with:** up to v1.0.0-alpha.18
 
 ---
 ### --- Revision History ---
-## [0.47.4-Beta] - 2026-01-31
+## [0.50.0-Beta] - 2026-02-02
 ### Changed
-- Updated "Compatible with" field to include project version v1.0.0-alpha.18
+- Synchronized Pass 1 and Pass 2 thresholds to 10 minutes and 3 QSOs to eliminate the misclassification of slow-rate stationary activity as S&P.
+- Updated "Pass 2" logic to ensure low-rate activity is correctly flagged as "Unknown."
 
-## [0.47.4-Beta] - 2026-01-30
-### Changed
-- Updated "Compatible with" field to include project version v1.0.0-alpha.17
-
-## [0.47.4-Beta] - 2026-01-30
-### Changed
-- Updated "Compatible with" field to include project version v1.0.0-alpha.16
-
-## [0.47.4-Beta] - 2026-01-30
-### Changed
-- Updated "Compatible with" field to include project version v1.0.0-alpha.15
-
-## [0.47.4-Beta] - 2026-01-26
-### Changed
-- Updated "Compatible with" field to include project version v1.0.0-alpha.14
-
-## [0.47.4-Beta] - 2026-01-26
-### Changed
-- Updated "Compatible with" field to include project version v1.0.0-alpha.13
-
-## [0.47.4-Beta] - 2026-01-24
-### Changed
-- Updated "Compatible with" field to include project version v1.0.0-alpha.11
-
-## [0.47.4-Beta] - 2025-08-23
-### Changed
-- Clarified the Pass 2 reclassification logic to specify the precise dual-window check and QSO threshold used in the code.
-## [0.30.30-Beta] - 2025-08-05
-# - No functional changes. Synchronizing version numbers.
-## [0.30.0-Beta] - 2025-08-05
-# - Initial release of Version 0.30.0-Beta.
-# - Standardized all project files to a common baseline version.
 ---
 
-The purpose of this algorithm is to analyze a contest log and infer the operator's activity for each contact, classifying it as one of three types: **Run**, **Search & Pounce (S&P)**, or **Unknown**.
-The analysis is performed independently for each operating "stream"ΓÇöa unique combination of a band and mode (e.g., 20M CW is one stream, 40M SSB is another).
-The algorithm uses a two-pass approach.
+## 1. Purpose
+The purpose of this algorithm is to analyze a contest log and infer the operator's activity for each contact, classifying it as **Run**, **Search & Pounce (S&P)**, or **Unknown**. Analysis is performed independently for each operating "stream" (a unique combination of MyCall, Band, and Mode).
+
 ---
 
-### Pass 1: Initial Classification (Run vs. S&P)
+## 2. Pass 1: Initial Classification (Sticky Run Logic)
+The first pass uses a state machine to detect "Runs" based on frequency stability and activity rate.
 
-The first pass uses a "sticky run" state machine to make an initial classification.
-1.  **Identifying a Run**: A "run" is defined as a period of high-rate activity on a single frequency.
-The algorithm identifies the start of a run when it detects a minimum number of QSOs (typically 3) occurring on the same frequency within a short time window (e.g., 10 minutes).
-2.  **The "Sticky" State**: Once a run is identified, the algorithm enters a "run state."
-It assumes the operator is still running and will continue to classify all subsequent QSOs on that frequency as **Run**.
-3.  **Breaking a Run**: The run state is maintained until one of two conditions is met:
-    * **Time-Out**: A significant amount of time (e.g., 2 minutes) passes without a QSO on the run frequency.
-    * **Frequency Change**: The operator makes several consecutive QSOs on other frequencies, indicating they have moved to search for new contacts.
-4.  **S&P Classification**: Any QSO that is not part of an identified run is initially classified as **S&P**.
+* **Run Identification**: A Run is initiated when **3 QSOs** are detected on the same frequency within a **10-minute** window.
+* **Frequency Tolerance**: The algorithm allows for a tolerance of 0.1 kHz for CW or 0.5 kHz for Phone.
+* **Retroactive Tagging**: When a Run is identified, the initial QSOs in the buffer that triggered the detection are retroactively reclassified from S&P to **Run**.
+* **Sticky State Maintenance**: Once active, the "Run" state is maintained for all subsequent QSOs on that frequency until:
+    * **Time-Out**: 2 minutes pass without a QSO on the run frequency.
+    * **Frequency Change**: 3 consecutive QSOs occur on a different frequency.
+* **Initial S&P**: Any QSO not meeting the above criteria is initially classified as **S&P**.
+
 ---
 
-### Pass 2: Reclassification of Low-Rate QSOs
+## 3. Pass 2: Reclassification of Ambiguous Activity
+The second pass refines the results by identifying periods where the activity rate is too low to reliably distinguish between a struggling Run and an S&P attempt.
 
-The second pass refines the results by identifying periods of very low activity where the operator's intent is ambiguous.
-1.  **Reviewing S&P QSOs**: The algorithm re-examines only the QSOs that were classified as **S&P** in the first pass.
-2.  **Checking the Rate**: For each S&P QSO, the algorithm independently checks two separate 15-minute windows: one immediately preceding the QSO and one immediately following it.
-3.  **Reclassifying to Unknown**: A QSO is reclassified from S&P to **Unknown** only if the number of contacts in the preceding window is below a threshold (4 QSOs) **AND** the number of contacts in the following window is also below that same threshold.
+* **Targeting S&P**: The algorithm re-examines only QSOs currently labeled as **S&P**.
+* **Synchronized Density Check**: For each target QSO, the algorithm counts contacts in two separate **10-minute** windows: one immediately preceding and one immediately following the contact.
+* **Classification to Unknown**: If the count in **both** windows is below the threshold of **3 QSOs**, the contact is reclassified as **Unknown**.
 
-The final output is a log where every contact is annotated with its inferred operating style: **Run**, **S&P**, or **Unknown**.
+---
+
+## 4. Classification Matrix (Summary)
+| Activity Rate | Frequency Stability | Final Result |
+| :--- | :--- | :--- |
+| $\geq$ 3 per 10 min | Static | **Run** |
+| $\geq$ 3 per 10 min | Agile | **S&P** |
+| $<$ 3 per 10 min | Any | **Unknown** |
