@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>WRTC Spider — Movie (24 hours)</title>
+  <style>
+    #wrtc-spider-frames { position: relative; width: 100%; min-width: 1100px; height: 700px; }
+    #wrtc-spider-frames iframe { position: absolute; left: 0; top: 0; width: 100%; height: 100%; border: none; }
+    #wrtc-spider-frames iframe:not(.active) { visibility: hidden; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <div id="wrtc-spider-frames">
+    <iframe id="wrtc-spider-frame-0" class="spider-frame active" data-frame="0" src="wrtc_spider_hour_01.html"></iframe>
+    <iframe id="wrtc-spider-frame-1" class="spider-frame" data-frame="1" src="wrtc_spider_hour_02.html"></iframe>
+    <iframe id="wrtc-spider-frame-2" class="spider-frame" data-frame="2" src="wrtc_spider_hour_03.html"></iframe>
+    <iframe id="wrtc-spider-frame-3" class="spider-frame" data-frame="3" src="wrtc_spider_hour_04.html"></iframe>
+    <iframe id="wrtc-spider-frame-4" class="spider-frame" data-frame="4" src="wrtc_spider_hour_05.html"></iframe>
+    <iframe id="wrtc-spider-frame-5" class="spider-frame" data-frame="5" src="wrtc_spider_hour_06.html"></iframe>
+    <iframe id="wrtc-spider-frame-6" class="spider-frame" data-frame="6" src="wrtc_spider_hour_07.html"></iframe>
+    <iframe id="wrtc-spider-frame-7" class="spider-frame" data-frame="7" src="wrtc_spider_hour_08.html"></iframe>
+    <iframe id="wrtc-spider-frame-8" class="spider-frame" data-frame="8" src="wrtc_spider_hour_09.html"></iframe>
+    <iframe id="wrtc-spider-frame-9" class="spider-frame" data-frame="9" src="wrtc_spider_hour_10.html"></iframe>
+    <iframe id="wrtc-spider-frame-10" class="spider-frame" data-frame="10" src="wrtc_spider_hour_11.html"></iframe>
+    <iframe id="wrtc-spider-frame-11" class="spider-frame" data-frame="11" src="wrtc_spider_hour_12.html"></iframe>
+    <iframe id="wrtc-spider-frame-12" class="spider-frame" data-frame="12" src="wrtc_spider_hour_13.html"></iframe>
+    <iframe id="wrtc-spider-frame-13" class="spider-frame" data-frame="13" src="wrtc_spider_hour_14.html"></iframe>
+    <iframe id="wrtc-spider-frame-14" class="spider-frame" data-frame="14" src="wrtc_spider_hour_15.html"></iframe>
+    <iframe id="wrtc-spider-frame-15" class="spider-frame" data-frame="15" src="wrtc_spider_hour_16.html"></iframe>
+    <iframe id="wrtc-spider-frame-16" class="spider-frame" data-frame="16" src="wrtc_spider_hour_17.html"></iframe>
+    <iframe id="wrtc-spider-frame-17" class="spider-frame" data-frame="17" src="wrtc_spider_hour_18.html"></iframe>
+    <iframe id="wrtc-spider-frame-18" class="spider-frame" data-frame="18" src="wrtc_spider_hour_19.html"></iframe>
+    <iframe id="wrtc-spider-frame-19" class="spider-frame" data-frame="19" src="wrtc_spider_hour_20.html"></iframe>
+    <iframe id="wrtc-spider-frame-20" class="spider-frame" data-frame="20" src="wrtc_spider_hour_21.html"></iframe>
+    <iframe id="wrtc-spider-frame-21" class="spider-frame" data-frame="21" src="wrtc_spider_hour_22.html"></iframe>
+    <iframe id="wrtc-spider-frame-22" class="spider-frame" data-frame="22" src="wrtc_spider_hour_23.html"></iframe>
+    <iframe id="wrtc-spider-frame-23" class="spider-frame" data-frame="23" src="wrtc_spider_hour_24.html"></iframe>
+  </div>
+  <div id="wrtc-spider-controls" style="margin: 12px 0 0 5%; font-family: sans-serif; font-size: 14px;">
+    <div style="margin-bottom: 8px;">
+      <label>UTC hour:</label>
+      <input type="range" id="wrtc-spider-hour" min="0" max="23" value="0" style="vertical-align: middle; width: 280px;">
+      <span id="wrtc-spider-hour-label" style="margin-left: 8px;">12</span>
+    </div>
+    <div>
+      <label>Seconds per frame (1–3 decimals):</label>
+      <input type="number" id="wrtc-spider-sec-per-frame" min="0.1" max="60" step="0.001" value="2" style="width: 5em; margin-left: 6px;">
+      <button id="wrtc-spider-play-custom" style="margin-left: 8px;">Play</button>
+      <button id="wrtc-spider-pause-custom" style="margin-left: 6px;">Pause</button>
+    </div>
+  </div>
+  <script>
+(function() {
+  var gmtLabels = ['12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '00', '01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11'];
+  var frames = document.querySelectorAll('#wrtc-spider-frames iframe');
+  function goToFrame(i) {
+    i = Math.max(0, Math.min(23, parseInt(i, 10)));
+    for (var k = 0; k < frames.length; k++) {
+      frames[k].classList.toggle('active', k === i);
+    }
+    var lab = document.getElementById('wrtc-spider-hour-label');
+    if (lab) lab.textContent = gmtLabels[i];
+    document.getElementById('wrtc-spider-hour').value = i;
+  }
+  var hourInput = document.getElementById('wrtc-spider-hour');
+  if (hourInput) {
+    hourInput.addEventListener('input', function() { goToFrame(parseInt(this.value, 10)); });
+  }
+  var playTimer = null;
+  document.getElementById('wrtc-spider-pause-custom').onclick = function() {
+    if (playTimer) { clearInterval(playTimer); playTimer = null; }
+  };
+  document.getElementById('wrtc-spider-play-custom').onclick = function() {
+    if (playTimer) clearInterval(playTimer);
+    var sec = parseFloat(document.getElementById('wrtc-spider-sec-per-frame').value);
+    if (isNaN(sec) || sec < 0.1) sec = 2;
+    var idx = parseInt(document.getElementById('wrtc-spider-hour').value, 10);
+    playTimer = setInterval(function() {
+      idx = (idx + 1) % 24;
+      goToFrame(idx);
+    }, sec * 1000);
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function() { goToFrame(0); });
+  else goToFrame(0);
+})();
+  </script>
+</body>
+</html>

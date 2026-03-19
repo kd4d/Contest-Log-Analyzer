@@ -1,0 +1,68 @@
+<html>
+<head><meta charset="utf-8" /></head>
+<body>
+    <div>
+        <script type="text/javascript">window.PlotlyConfig = {MathJaxConfig: 'local'};</script>
+        <script charset="utf-8" src="https://cdn.plot.ly/plotly-3.3.1.min.js" integrity="sha256-4rD3fugVb/nVJYUv5Ky3v+fYXoouHaBSP20WIJuEiWg=" crossorigin="anonymous"></script>
+        <div id="62e773ed-f4bb-40ff-b8fc-5cc4d0a93ef0" class="plotly-graph-div" style="height:800px; width:1200px;"></div>
+        <script type="text/javascript">
+            window.PLOTLYENV = window.PLOTLYENV || {};
+            if (document.getElementById("62e773ed-f4bb-40ff-b8fc-5cc4d0a93ef0")) {
+                // Original data: hours 1-24 then 25-48
+                var y8P5A = [324,368,381,329,227,323,145,150,116,92,262,309,272,261,273,349,306,287,229,268,280,265,277,286, 317,154,255,216,176,147,129,40,60,123,253,214,233,203,141,172,194,184,173,144,237,168,205,220];
+                var yV47T = [346,367,314,248,294,294,173,153,95,109,322,252,304,304,285,253,264,273,218,284,261,280,261,285, 253,201,222,206,193,125,100,73,163,167,193,272,221,124,194,197,223,197,278,300,225,250,233,217];
+                var hours = 48;
+                var common = [], excess8P5A = [], excessV47T = [];
+                for (var i = 0; i < hours; i++) {
+                    var a = y8P5A[i], b = yV47T[i];
+                    var c = Math.min(a, b);
+                    common.push(c);
+                    if (a >= b) {
+                        excess8P5A.push(a - c);
+                        excessV47T.push(0);
+                    } else {
+                        excess8P5A.push(0);
+                        excessV47T.push(b - c);
+                    }
+                }
+                var x = [];
+                for (var i = 0; i < hours; i++) x.push(i);
+                var tickvals = x;
+                var ticktext = [];
+                for (var i = 1; i <= hours; i++) ticktext.push(String(i));
+
+                Plotly.newPlot(
+                    "62e773ed-f4bb-40ff-b8fc-5cc4d0a93ef0",
+                    [
+                        { x: x, y: common, name: "Common", marker: { color: "#888888" }, type: "bar", showlegend: true },
+                        { x: x, y: excess8P5A, name: "8P5A", marker: { color: "#1f77b4" }, type: "bar", showlegend: true },
+                        { x: x, y: excessV47T, name: "V47T", marker: { color: "#ff7f7e" }, type: "bar", showlegend: true }
+                    ],
+                    {
+                        template: "plotly_white",
+                        barmode: "stack",
+                        bargap: 0.15,
+                        xaxis: {
+                            title: { text: "Hour" },
+                            tickmode: "array",
+                            tickvals: tickvals,
+                            ticktext: ticktext,
+                            showticklabels: true
+                        },
+                        yaxis: { title: { text: "QSOs per Hour" } },
+                        title: { text: "<b>QSO Rate Chart</b><br><sup>2025  CQ-WW-SSB - <b>8P5A - V47T</b></sup><br><sup>All Bands</sup>", x: 0, xanchor: "left" },
+                        annotations: [
+                            { font: { color: "gray", size: 10 }, showarrow: false, text: "Contest Log Analytics v1.0.0-alpha.18   |   CTY-3535 2025-10-28", x: 0.5, xanchor: "center", xref: "paper", y: 0, yanchor: "top", yref: "paper", yshift: -80 }
+                        ],
+                        legend: { orientation: "h", yanchor: "bottom", y: 1.02, xanchor: "right", x: 1 },
+                        margin: { t: 120, b: 180, l: 50, r: 50 },
+                        width: 1200,
+                        height: 800
+                    },
+                    { toImageButtonOptions: { filename: "chart_rate_qsos_stacked_8p5a_v47t", format: "png" }, responsive: true }
+                );
+            }
+        </script>
+    </div>
+</body>
+</html>

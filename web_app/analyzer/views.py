@@ -2867,7 +2867,10 @@ def download_all_reports(request, session_id):
 
     # 2. Verify Required Directories/Files
     reports_root = os.path.join(session_path, 'reports')
+    logger.warning("[DIAG] Download All: session_path=%s reports_root=%s exists=%s",
+                  session_path, reports_root, os.path.exists(reports_root))
     if not os.path.exists(reports_root):
+        logger.error("[DIAG] Download All: reports_dir does not exist: %s", reports_root)
         raise Http404("No reports found to archive")
 
     # 3. Find and Count Files
@@ -2892,6 +2895,8 @@ def download_all_reports(request, session_id):
             report_file_count += len(files)
     
     total_file_count = report_file_count + len(log_files)
+    logger.warning("[DIAG] Download All: report_file_count=%d total_file_count=%d",
+                  report_file_count, total_file_count)
     
     # Update progress: Step 1 - Zipping
     if request_id:
