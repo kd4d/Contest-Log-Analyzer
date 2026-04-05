@@ -148,6 +148,8 @@ BREAKING CHANGE: API consumers accessing `userName` will now fail.
 
 ## 5. Git Workflow Manual (Human & AI)
 
+**Quick start for new collaborators:** See `Docs/GitWorkflowForCollaborators.md` (clone, branch names, commit format, merge checklist).
+
 ### A. Feature Development (The Standard Path)
 All work happens in branches. We do not commit to `main`.
 

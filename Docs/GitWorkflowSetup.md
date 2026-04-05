@@ -395,6 +395,7 @@ python -c "from contest_tools.version import get_version_string; print(get_versi
 
 ## Related Documentation
 
+- **`Docs/GitWorkflowForCollaborators.md`** - Short workflow for new collaborators (branches, commits, merge checklist)
 - **`Docs/Contributing.md`** - Full git workflow and commit standards
 - **`Docs/AI_AGENT_RULES.md`** - Rules for AI agents handling git operations
 - **`tools/README.md`** - Quick reference for setup scripts
