@@ -658,7 +658,7 @@ b. **Include the four or five script commands to be run on the VPS server:**
    4. `docker compose up --build -d`
    5. (Optional) Verify: `docker compose ps` and/or `docker compose logs web`
 
-   Add a note to adjust path and compose filename if needed. Include brief "What these commands do," "Verify the update," and "If something goes wrong" sections per existing VPS instruction files.
+   Add a note to adjust path and compose filename if needed. For **Hostinger production** (`cla.kd4d.org`), include a "Production Server (Hostinger)" table (hPanel / Docker Manager, `kd4d@kd4d.org`, path `/docker/Contest-Log-Analyzer`) and link to `Docs/InstallationGuide.md` Section 3.0. Include brief "What these commands do," "Verify the update," and "If something goes wrong" sections per existing VPS instruction files.
 
 c. **When to create and commit:** Create the file during Step 4 (release prep) and include it in the version bump commit (Step 5), so it is in the repo when the tag is pushed. Alternatively, create and commit it after Step 6 (tag push) as a follow-up commit on master.
 

@@ -253,6 +253,12 @@ class Report(ContestReport):
 
         report_lines = format_text_header(max_line_width, title_lines, meta_lines)
 
+        if agg_results.get('show_pass_flag'):
+            report_lines.append(
+                "Note: (P/...) marks a multiplier passed from another band "
+                "(same value worked within 2 minutes on a different band)."
+            )
+
         for band in bands_to_process:
             band_header_text = f"\n{band.replace('M', '')} Meters Missed Multipliers" if band != "All Bands" else f"\nOverall Missed Multipliers"
             report_lines.append(band_header_text)

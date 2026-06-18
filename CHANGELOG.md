@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.0.0-alpha.20] - 2026-06-18
+[Full Release Notes](ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.20.md)
+
+### Added
+- Missed multipliers text reports: `(P/...)` pass flag for HQ Stations, IARU Officials, and DXCC when the same multiplier was worked on another band within 2 minutes before the first QSO on the current band.
+- Installation Guide: Hostinger production hosting (Section 3.0) and nginx 504 Gateway Timeout troubleshooting during report generation.
+
+### Changed
+- AI agent rules: VPS instruction template includes Hostinger production details.
+
+---
+
 ## [1.0.0-alpha.19] - 2026-06-18
 [Full Release Notes](ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.19.md)
 

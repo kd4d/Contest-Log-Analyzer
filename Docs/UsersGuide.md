@@ -1,12 +1,18 @@
 # Contest Log Analytics - User Guide
 
-**Version:** 1.0.0-alpha.19
+**Version:** 1.0.0-alpha.20
 **Date:** 2026-01-24
 **Last Updated:** 2026-06-18
 **Category:** User Guide
 
 ---
 ### --- Revision History ---
+## [1.0.0-alpha.20] - 2026-06-18
+### Added
+- Missed multipliers `(P/...)` pass flag for HQ, IARU Officials, and DXCC on per-band tables.
+### Changed
+- Updated version to match project release v1.0.0-alpha.20
+
 ## [1.0.0-alpha.19] - 2026-06-18
 ### Changed
 - Missed multipliers multi-mode cell notation; updated version to match project release v1.0.0-alpha.19
@@ -209,6 +215,7 @@ ARRL Sweepstakes includes specialized analysis features in the Multiplier Dashbo
 * **Multiplier Saturation Visualization**: When all logs have reached 85 multipliers, the dashboard clearly shows this saturation state.
 * **Enhanced Missed Multipliers Report**: A detailed breakdown showing which logs worked each missed section, bands/modes where worked, and Run/S&P/Unknown counts. This report appears in the "Missed Multipliers" tab alongside the standard missed multipliers report.
 * **Missed Multipliers (multi-mode):** In combined all-modes reports (e.g. IARU-HF, WRTC), table cells show aligned Run/S&P and mode labels such as `(Run/CW) 2` and `(S&P/PH) 1`. Per-mode reports (e.g. ARRL 10) use `(Run)` / `(S&P)` because mode is already in the report title.
+* **Missed Multipliers (pass flag):** On per-band tables for HQ Stations, IARU Officials, and DXCC, `(P/Run)` or `(P/Run/CW)` means the same multiplier was worked on another band within 2 minutes before the first QSO on that band.
 * **Band Spectrum Suppression**: For Sweepstakes, the Band Spectrum visualization is automatically suppressed since multipliers count once per contest (not per band), making per-band breakdowns less meaningful.
 
 ### WRTC Scoring

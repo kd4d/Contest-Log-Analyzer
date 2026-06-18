@@ -1,12 +1,19 @@
 # Contest Log Analytics - Installation Guide
 
-**Version:** 1.0.0-alpha.19
+**Version:** 1.0.0-alpha.20
 **Date:** 2026-01-24
 **Last Updated:** 2026-06-18
 **Category:** User Guide
 
 ---
 ### --- Revision History ---
+## [1.0.0-alpha.20] - 2026-06-18
+### Added
+- Section 3.0: Production hosting on Hostinger (Docker Manager access, install path, container names).
+- nginx troubleshooting: 504 Gateway Timeout during report generation (`proxy_read_timeout`).
+### Changed
+- Updated version to match project release v1.0.0-alpha.20
+
 ## [1.0.0-alpha.19] - 2026-06-18
 ### Changed
 - Updated version to match project release v1.0.0-alpha.19 (no content changes)
@@ -163,11 +170,12 @@ This is the easiest way to get started. Docker automatically handles all depende
     
     **Note:** If you need to add your own data files, place them in `CONTEST_LOGS_REPORTS/data/` before starting Docker.
 
-3.  **Start the Application:**
+3.  **Start the application:**
     ```bash
-    docker-compose up --build
+    docker compose up --build
     ```
-    
+    On **local development**, use the command above. On the **Hostinger production server** (`cla.kd4d.org`), use `docker compose up --build -d` from `/docker/Contest-Log-Analyzer` after checking out a release tag (see Section 3 below).
+
     Docker automatically configures the environment variables:
     * `CONTEST_INPUT_DIR=/app/CONTEST_LOGS_REPORTS`
     * `CONTEST_REPORTS_DIR=/app/CONTEST_LOGS_REPORTS`
@@ -187,11 +195,76 @@ This is the easiest way to get started. Docker automatically handles all depende
 
 This section covers managing Docker containers for remote hosting and production deployment, including updating to new releases and handling common issues.
 
+### 3.0. Production Hosting on Hostinger (cla.kd4d.org)
+
+Contest Log Analytics is deployed on a **Hostinger VPS** at **https://cla.kd4d.org**.
+
+| Item | Value |
+|------|--------|
+| **Provider** | Hostinger VPS |
+| **Public URL** | `https://cla.kd4d.org` |
+| **Hostinger login** | Hostinger hPanel — sign in with Google (`kd4d@kd4d.org`) |
+| **Server hostname** | `srv1269198` (Debian GNU/Linux, x86_64) |
+| **Git clone path** | `/docker/Contest-Log-Analyzer` |
+| **Docker Compose service** | `web` |
+| **Typical container name** | `contest-log-analyzer-web-1` |
+| **Git remote** | `https://github.com/kd4d/Contest-Log-Analyzer` |
+
+#### Accessing the server
+
+1. Sign in to [Hostinger](https://www.hostinger.com/) with Google (`kd4d@kd4d.org`).
+2. Open your VPS in hPanel and launch **Docker Manager** (or the **Browser terminal** / SSH terminal Hostinger provides for the VPS).
+3. You should see a root shell prompt like `root@srv1269198:~#`.
+
+Hostinger may also offer direct SSH from the VPS dashboard; either terminal works for the commands in Section 3.1.
+
+#### Important: use the project directory
+
+The git repository is **not** in `/docker` itself. It is in the subdirectory below:
+
+```bash
+cd /docker/Contest-Log-Analyzer
+```
+
+If you run `git fetch` from `/docker`, you will see:
+
+```text
+fatal: not a git repository (or any of the parent directories): .git
+```
+
+Always run git and `docker compose` commands from `/docker/Contest-Log-Analyzer`.
+
+#### Viewing containers in Docker Manager
+
+Hostinger’s Docker Manager UI shows the running `contest-log-analyzer-web-1` container. You can also check from the terminal:
+
+```bash
+cd /docker/Contest-Log-Analyzer
+docker compose ps
+docker ps
+```
+
+#### nginx (reverse proxy)
+
+HTTPS and public traffic to `cla.kd4d.org` are handled by **nginx on the host** (outside the Docker container), which proxies to the container on port 8000. See Section 3.3 for nginx upload limits, SSL, and `CSRF_TRUSTED_ORIGINS` if those issues arise after an update.
+
+#### Successful update example (v1.0.0-alpha.20)
+
+From `/docker/Contest-Log-Analyzer`:
+
+```bash
+git fetch --tags origin
+git checkout v1.0.0-alpha.20
+docker compose up --build -d
+```
+
+Expected result: image `contest-log-analyzer-web` rebuilds (~1 minute), container `contest-log-analyzer-web-1` is recreated, and the site serves the new version.
+
 ### 3.1. Updating to a New Release (Remote Hosting)
 
 **Simplified Update Process:**
 
-For most updates, you only need these three commands (replace `v1.0.0-alpha.XX` with the new version tag):
+For Hostinger production (`cla.kd4d.org`), open **Docker Manager** (or SSH terminal) on the VPS, then run these commands (replace `v1.0.0-alpha.XX` with the new version tag):
 
 ```bash
 cd /docker/Contest-Log-Analyzer
@@ -200,7 +273,7 @@ git checkout v1.0.0-alpha.XX
 docker compose up --build -d
 ```
 
-**Note:** Adjust the path (`/docker/Contest-Log-Analyzer`) to match your installation directory. If you're using a custom compose file name, add `-f docker-compose.prod.yml` (or your filename) to the docker compose command.
+**Note:** The git repository lives in `/docker/Contest-Log-Analyzer`, not `/docker`. See Section 3.0 for Hostinger access details. If you use a custom compose file name, add `-f docker-compose.prod.yml` (or your filename) to the docker compose command.
 
 **What this does:**
 - Fetches the latest tags from the repository
@@ -497,6 +570,52 @@ This means nginx is blocking the upload because the combined file size exceeds n
 - `0` (unlimited) - Not recommended for security reasons
 
 **Note:** After increasing the limit, you may also need to increase Django's `FILE_UPLOAD_MAX_MEMORY_SIZE` and `DATA_UPLOAD_MAX_MEMORY_SIZE` in `web_app/config/settings.py` if those limits are also being hit. The default Django limits are typically 2.5MB, but Django settings should already be configured for larger uploads in the container.
+
+**Fix "504 Gateway Timeout" (nginx) during log analysis:**
+
+If the home page loads but manual upload fails after the progress bar reaches **Generating** (step 4), nginx is timing out while Django still runs report generation. The browser submits one long `POST` to `/analyze/`; that request does not finish until all reports are built. nginx’s default `proxy_read_timeout` is often **60 seconds**, which is too short for multi-log or full report sets (especially after releases that add more reports).
+
+**Symptoms:**
+- Progress bar shows Uploading → Parsing → Aggregating → **Generating**, then a nginx **504 Gateway Timeout**
+- `curl http://127.0.0.1:8000/` from the VPS still works (site is up; only long requests fail)
+
+**Solution: Increase nginx proxy timeouts**
+
+Add these inside the `location /` block for **both** HTTP (`listen 80`) and HTTPS (`listen 443 ssl`) server blocks for `cla.kd4d.org`:
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:8000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+
+    client_max_body_size 50M;
+
+    proxy_connect_timeout 60s;
+    proxy_send_timeout 600s;
+    proxy_read_timeout 600s;
+}
+```
+
+Use `600s` (10 minutes) for typical contests; use `900s` or `1200s` for three large logs or slow VPS disks.
+
+Then test and reload:
+
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+**Confirm Django is still working during a long run:**
+
+```bash
+cd /docker/Contest-Log-Analyzer
+docker compose logs -f web
+```
+
+You should see report-generation log lines while the progress bar sits on Generating.
 
 **Fix Django CSRF "Trusted Origin" error for HTTPS domain:**
 

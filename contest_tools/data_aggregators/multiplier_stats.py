@@ -33,13 +33,74 @@
 # [0.93.0] - 2025-11-23
 # - Initial creation. Extracted logic from text_multiplier_summary.py and
 #   text_missed_multipliers.py.
-from typing import List, Dict, Any, Set
+from typing import List, Dict, Any, Set, Optional
 import pandas as pd
 from ..contest_log import ContestLog
 from .comparative_engine import ComparativeEngine
 from ..utils.pivot_utils import calculate_multiplier_pivot
 from ..utils.json_encoders import NpEncoder
 from ..utils.report_utils import determine_activity_status, show_mode_in_missed_cells
+
+# Per-band multipliers eligible for pass (P/) flag in missed-multiplier cells.
+_PASS_ELIGIBLE_MULT_COLUMNS = frozenset({'Mult_HQ', 'Mult_Official', 'Mult_DXCC'})
+_PASS_WINDOW_MINUTES = 2
+
+
+def _is_pass_eligible_mult_column(mult_column: str) -> bool:
+    return mult_column in _PASS_ELIGIBLE_MULT_COLUMNS
+
+
+def _first_mult_qso_datetime(df_scope: pd.DataFrame, mult_column: str, mult_value: Any) -> Any:
+    """Earliest QSO time for this multiplier on the current band scope."""
+    if df_scope.empty or 'Datetime' not in df_scope.columns:
+        return None
+    subset = df_scope[df_scope[mult_column] == mult_value]
+    if subset.empty:
+        return None
+    return subset['Datetime'].min()
+
+
+def _is_pass_from_other_band(
+    df_log: pd.DataFrame,
+    mult_column: str,
+    mult_value: Any,
+    band: str,
+    reference_time: Any,
+) -> bool:
+    """
+    True if the same multiplier was worked on another band within PASS_WINDOW
+    minutes before reference_time (first QSO on this band for that mult).
+    """
+    if reference_time is None or pd.isna(reference_time):
+        return False
+    if df_log.empty or 'Datetime' not in df_log.columns or 'Band' not in df_log.columns:
+        return False
+    if mult_column not in df_log.columns:
+        return False
+    window_start = reference_time - pd.Timedelta(minutes=_PASS_WINDOW_MINUTES)
+    other_band = df_log[
+        (df_log[mult_column] == mult_value)
+        & (df_log['Band'] != band)
+        & df_log[mult_column].notna()
+        & (df_log['Datetime'] < reference_time)
+        & (df_log['Datetime'] > window_start)
+    ]
+    return not other_band.empty
+
+
+def _annotate_pass_flags(
+    stats_map: Dict[str, Dict[str, Any]],
+    df_scope: pd.DataFrame,
+    df_full: pd.DataFrame,
+    mult_column: str,
+    band: str,
+) -> Dict[str, Dict[str, Any]]:
+    for mult_value, stats in stats_map.items():
+        ref_time = _first_mult_qso_datetime(df_scope, mult_column, mult_value)
+        stats['is_pass'] = _is_pass_from_other_band(
+            df_full, mult_column, mult_value, band, ref_time
+        )
+    return stats_map
 
 class MultiplierStatsAggregator:
     def __init__(self, logs: List[ContestLog]):
@@ -50,7 +111,13 @@ class MultiplierStatsAggregator:
         self.contest_def = logs[0].contest_definition
 
     def _aggregate_mult_band_stats(
-        self, df_scope: pd.DataFrame, mult_column: str, use_mode_breakdown: bool
+        self,
+        df_scope: pd.DataFrame,
+        mult_column: str,
+        use_mode_breakdown: bool,
+        df_full_for_pass: Optional[pd.DataFrame] = None,
+        band: Optional[str] = None,
+        detect_pass: bool = False,
     ) -> Dict[str, Dict[str, Any]]:
         """Per-multiplier stats for one callsign on one band scope."""
         if df_scope.empty:
@@ -60,30 +127,35 @@ class MultiplierStatsAggregator:
             agg_data = df_scope.groupby(mult_column).agg(
                 QSO_Count=('Call', 'size'), Run_SP_Status=('Run', determine_activity_status)
             )
-            return agg_data.to_dict(orient='index')
-
-        result: Dict[str, Dict[str, Any]] = {}
-        for mult_value, mult_group in df_scope.groupby(mult_column):
-            mode_breakdown = []
-            total_qsos = 0
-            for mode_value, mode_df in mult_group.groupby('Mode', dropna=False):
-                mode_str = str(mode_value) if pd.notna(mode_value) else '?'
-                count = len(mode_df)
-                if 'Run' in mode_df.columns:
-                    run_sp = determine_activity_status(mode_df['Run'])
+            result = agg_data.to_dict(orient='index')
+        else:
+            result: Dict[str, Dict[str, Any]] = {}
+            for mult_value, mult_group in df_scope.groupby(mult_column):
+                mode_breakdown = []
+                total_qsos = 0
+                for mode_value, mode_df in mult_group.groupby('Mode', dropna=False):
+                    mode_str = str(mode_value) if pd.notna(mode_value) else '?'
+                    count = len(mode_df)
+                    if 'Run' in mode_df.columns:
+                        run_sp = determine_activity_status(mode_df['Run'])
+                    else:
+                        run_sp = 'Unknown'
+                    mode_breakdown.append({'mode': mode_str, 'run_sp': run_sp, 'count': count})
+                    total_qsos += count
+                if 'Run' in mult_group.columns:
+                    run_sp_status = determine_activity_status(mult_group['Run'])
                 else:
-                    run_sp = 'Unknown'
-                mode_breakdown.append({'mode': mode_str, 'run_sp': run_sp, 'count': count})
-                total_qsos += count
-            if 'Run' in mult_group.columns:
-                run_sp_status = determine_activity_status(mult_group['Run'])
-            else:
-                run_sp_status = 'Unknown'
-            result[mult_value] = {
-                'QSO_Count': total_qsos,
-                'Run_SP_Status': run_sp_status,
-                'mode_breakdown': mode_breakdown,
-            }
+                    run_sp_status = 'Unknown'
+                result[mult_value] = {
+                    'QSO_Count': total_qsos,
+                    'Run_SP_Status': run_sp_status,
+                    'mode_breakdown': mode_breakdown,
+                }
+
+        if detect_pass and df_full_for_pass is not None and band:
+            result = _annotate_pass_flags(
+                result, df_scope, df_full_for_pass, mult_column, band
+            )
         return result
 
     def get_summary_data(self, mult_name: str, mode_filter: str = None) -> Dict[str, Any]:
@@ -204,11 +276,13 @@ class MultiplierStatsAggregator:
             'band_data': {},
             'show_mode_in_cells': use_mode_breakdown,
             'valid_modes_for_cells': valid_modes_for_cells,
+            'show_pass_flag': detect_pass,
         }
 
         # --- 4. Iterate Bands (Logic from _aggregate_band_data) ---
         mult_column = mult_rule['value_column']
         name_column = mult_rule.get('name_column')
+        detect_pass = _is_pass_eligible_mult_column(mult_column)
 
         for band in bands_to_process:
             band_data_map: Dict[str, Dict] = {}
@@ -233,7 +307,12 @@ class MultiplierStatsAggregator:
                         prefix_to_name_map[row[mult_column]] = row[name_column]
 
                 band_data_map[callsign] = self._aggregate_mult_band_stats(
-                    df_scope, mult_column, use_mode_breakdown
+                    df_scope,
+                    mult_column,
+                    use_mode_breakdown,
+                    df_full_for_pass=df if detect_pass and band != "All Bands" else None,
+                    band=band if band != "All Bands" else None,
+                    detect_pass=detect_pass and band != "All Bands",
                 )
                 mult_sets[callsign].update(band_data_map[callsign].keys())
 

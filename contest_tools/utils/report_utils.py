@@ -259,11 +259,18 @@ def show_mode_in_missed_cells(contest_def, mult_rule: dict, mode_filter: str = N
     return True
 
 def compute_missed_cell_slot_width(valid_modes: list, max_count: int = 1) -> int:
-    """Fixed width for one mode slot in aligned missed-multiplier cells."""
+    """Fixed width for one mode slot in aligned missed-multiplier cells (includes P/ prefix)."""
     if not valid_modes:
-        return 0
+        return len(f"(P/Unknown) {max_count}")
     longest_mode = max(valid_modes, key=len)
-    return len(f"(Unknown/{longest_mode}) {max_count}")
+    return len(f"(P/Unknown/{longest_mode}) {max_count}")
+
+
+def _missed_cell_run_sp_label(run_sp: str, is_pass: bool) -> str:
+    if is_pass:
+        return f"P/{run_sp}"
+    return run_sp
+
 
 def format_missed_mult_cell(
     stats: dict,
@@ -274,6 +281,7 @@ def format_missed_mult_cell(
     """Format a missed-multiplier table cell with optional fixed-width mode slots."""
     if not stats:
         return "0"
+    is_pass = stats.get('is_pass', False)
     if show_mode_in_cell and valid_modes and slot_width > 0:
         mode_map = {
             entry['mode']: entry
@@ -286,12 +294,13 @@ def format_missed_mult_cell(
         for mode in mode_order:
             entry = mode_map.get(mode)
             if entry:
-                text = f"({entry['run_sp']}/{mode}) {entry['count']}"
+                label = _missed_cell_run_sp_label(entry['run_sp'], is_pass)
+                text = f"({label}/{mode}) {entry['count']}"
                 slots.append(text.rjust(slot_width))
             else:
                 slots.append(' ' * slot_width)
         return ''.join(slots)
-    run_sp = stats.get('Run_SP_Status', '')
+    run_sp = _missed_cell_run_sp_label(stats.get('Run_SP_Status', ''), is_pass)
     qso_count = stats.get('QSO_Count', 0)
     return f"({run_sp}) {qso_count}"
 

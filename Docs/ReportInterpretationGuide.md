@@ -1,12 +1,18 @@
 # Report Interpretation Guide
 
-**Version:** 1.0.0-alpha.19
+**Version:** 1.0.0-alpha.20
 **Date:** 2026-01-24
 **Last Updated:** 2026-06-18
 **Category:** User Guide
 
 ---
 ### --- Revision History ---
+## [1.0.0-alpha.20] - 2026-06-18
+### Added
+- Missed multipliers report: `(P/...)` pass flag for HQ, Officials, and DXCC.
+### Changed
+- Updated version to match project release v1.0.0-alpha.20
+
 ## [1.0.0-alpha.19] - 2026-06-18
 ### Changed
 - Updated version to match project release v1.0.0-alpha.19 (no content changes)
@@ -215,6 +221,7 @@ It lists every multiplier that was worked by at least one person in the group bu
 #### How to Interpret This Report
 
 The text `(Run)`, `(S&P)`, or `(Both)` shows how the station logged that multiplier.
+For HQ Stations, IARU Officials, and DXCC on per-band tables, `(P/Run)` or `(P/Run/CW)` means the same multiplier was worked on another band within 2 minutes before the first QSO on that band (a "pass").
 This is critical information. If your competitor worked a rare multiplier via `(S&P)`, it means they found it by tuning the band.
 If they got it via `(Run)`, it means that multiplier *called them*.
 ---

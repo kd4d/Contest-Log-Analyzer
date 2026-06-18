@@ -1,12 +1,16 @@
 # Contest Log Analytics - Programmer's Guide
 
-**Version:** 1.0.0-alpha.19
+**Version:** 1.0.0-alpha.20
 **Date:** 2026-01-24
 **Last Updated:** 2026-06-18
 **Category:** Programmer Reference
 
 ---
 ### --- Revision History ---
+## [1.0.0-alpha.20] - 2026-06-18
+### Changed
+- Updated version to match project release v1.0.0-alpha.20 (no content changes)
+
 ## [1.0.0-alpha.19] - 2026-06-18
 ### Changed
 - Updated version to match project release v1.0.0-alpha.19 (no content changes)

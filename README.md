@@ -1,6 +1,6 @@
 # Contest Log Analytics
 
-**Version: 1.0.0-alpha.19**  
+**Version: 1.0.0-alpha.20**  
 **A post-mortem analysis engine for amateur radio contesting**
 
 ---
@@ -93,7 +93,7 @@ The easiest way to run CLA is via Docker with the pre-configured web dashboard:
    - Development: Open your browser to `http://localhost:8000`
    - Production: Visit `https://cla.kd4d.org`
 
-For detailed installation instructions, see the [Installation Guide](Docs/InstallationGuide.md).
+For detailed installation instructions, see the [Installation Guide](Docs/InstallationGuide.md). Production hosting at **https://cla.kd4d.org** runs on a **Hostinger VPS** (Docker Manager, path `/docker/Contest-Log-Analyzer`) — see Installation Guide Section 3.0.
 
 ### Basic Usage
 
