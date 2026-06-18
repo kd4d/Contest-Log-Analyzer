@@ -39,7 +39,7 @@ from ..contest_log import ContestLog
 from .comparative_engine import ComparativeEngine
 from ..utils.pivot_utils import calculate_multiplier_pivot
 from ..utils.json_encoders import NpEncoder
-from ..utils.report_utils import determine_activity_status
+from ..utils.report_utils import determine_activity_status, show_mode_in_missed_cells
 
 class MultiplierStatsAggregator:
     def __init__(self, logs: List[ContestLog]):
@@ -48,6 +48,43 @@ class MultiplierStatsAggregator:
         self.logs = logs
         # Assume all logs share the same definition
         self.contest_def = logs[0].contest_definition
+
+    def _aggregate_mult_band_stats(
+        self, df_scope: pd.DataFrame, mult_column: str, use_mode_breakdown: bool
+    ) -> Dict[str, Dict[str, Any]]:
+        """Per-multiplier stats for one callsign on one band scope."""
+        if df_scope.empty:
+            return {}
+
+        if not use_mode_breakdown:
+            agg_data = df_scope.groupby(mult_column).agg(
+                QSO_Count=('Call', 'size'), Run_SP_Status=('Run', determine_activity_status)
+            )
+            return agg_data.to_dict(orient='index')
+
+        result: Dict[str, Dict[str, Any]] = {}
+        for mult_value, mult_group in df_scope.groupby(mult_column):
+            mode_breakdown = []
+            total_qsos = 0
+            for mode_value, mode_df in mult_group.groupby('Mode', dropna=False):
+                mode_str = str(mode_value) if pd.notna(mode_value) else '?'
+                count = len(mode_df)
+                if 'Run' in mode_df.columns:
+                    run_sp = determine_activity_status(mode_df['Run'])
+                else:
+                    run_sp = 'Unknown'
+                mode_breakdown.append({'mode': mode_str, 'run_sp': run_sp, 'count': count})
+                total_qsos += count
+            if 'Run' in mult_group.columns:
+                run_sp_status = determine_activity_status(mult_group['Run'])
+            else:
+                run_sp_status = 'Unknown'
+            result[mult_value] = {
+                'QSO_Count': total_qsos,
+                'Run_SP_Status': run_sp_status,
+                'mode_breakdown': mode_breakdown,
+            }
+        return result
 
     def get_summary_data(self, mult_name: str, mode_filter: str = None) -> Dict[str, Any]:
         """
@@ -157,11 +194,16 @@ class MultiplierStatsAggregator:
         # --- 3. Determine Bands ---
         bands_to_process = ["All Bands"] if mult_rule.get('totaling_method') == 'once_per_log' else self.contest_def.valid_bands
 
+        use_mode_breakdown = show_mode_in_missed_cells(self.contest_def, mult_rule, mode_filter)
+        valid_modes_for_cells = list(self.contest_def.valid_modes) if use_mode_breakdown else []
+
         full_results = {
             'bands_to_process': bands_to_process,
             'all_calls': all_calls,
             'mult_rule': mult_rule,
-            'band_data': {}
+            'band_data': {},
+            'show_mode_in_cells': use_mode_breakdown,
+            'valid_modes_for_cells': valid_modes_for_cells,
         }
 
         # --- 4. Iterate Bands (Logic from _aggregate_band_data) ---
@@ -190,12 +232,10 @@ class MultiplierStatsAggregator:
                     for _, row in name_map_df.iterrows():
                         prefix_to_name_map[row[mult_column]] = row[name_column]
 
-                agg_data = df_scope.groupby(mult_column).agg(
-                    QSO_Count=('Call', 'size'), Run_SP_Status=('Run', determine_activity_status))
-                
-                # Convert DataFrame to Dict (orient='index')
-                band_data_map[callsign] = agg_data.to_dict(orient='index')
-                mult_sets[callsign].update(agg_data.index)
+                band_data_map[callsign] = self._aggregate_mult_band_stats(
+                    df_scope, mult_column, use_mode_breakdown
+                )
+                mult_sets[callsign].update(band_data_map[callsign].keys())
 
             # Delegate Set Theory math to the ComparativeEngine
             comparison = ComparativeEngine.compare_logs(mult_sets)

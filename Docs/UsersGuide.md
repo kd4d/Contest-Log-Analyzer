@@ -204,6 +204,7 @@ ARRL Sweepstakes includes specialized analysis features in the Multiplier Dashbo
 * **Fixed Multiplier Scale**: Progress bars use a fixed scale showing 85 sections (the maximum possible). A vertical reference line at 100% indicates the maximum multiplier count.
 * **Multiplier Saturation Visualization**: When all logs have reached 85 multipliers, the dashboard clearly shows this saturation state.
 * **Enhanced Missed Multipliers Report**: A detailed breakdown showing which logs worked each missed section, bands/modes where worked, and Run/S&P/Unknown counts. This report appears in the "Missed Multipliers" tab alongside the standard missed multipliers report.
+* **Missed Multipliers (multi-mode):** In combined all-modes reports (e.g. IARU-HF, WRTC), table cells show aligned Run/S&P and mode labels such as `(Run/CW) 2` and `(S&P/PH) 1`. Per-mode reports (e.g. ARRL 10) use `(Run)` / `(S&P)` because mode is already in the report title.
 * **Band Spectrum Suppression**: For Sweepstakes, the Band Spectrum visualization is automatically suppressed since multipliers count once per contest (not per band), making per-band breakdowns less meaningful.
 
 ### WRTC Scoring
