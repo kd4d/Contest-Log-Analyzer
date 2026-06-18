@@ -1,12 +1,16 @@
 # Contest Log Analytics - User Guide
 
-**Version:** 1.0.0-alpha.18
+**Version:** 1.0.0-alpha.19
 **Date:** 2026-01-24
-**Last Updated:** 2026-01-31
+**Last Updated:** 2026-06-18
 **Category:** User Guide
 
 ---
 ### --- Revision History ---
+## [1.0.0-alpha.19] - 2026-06-18
+### Changed
+- Missed multipliers multi-mode cell notation; updated version to match project release v1.0.0-alpha.19
+
 ## [1.0.0-alpha.18] - 2026-01-31
 ### Changed
 - Updated version to match project release v1.0.0-alpha.18 (no content changes)
