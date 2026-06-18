@@ -190,7 +190,7 @@ applicable_rules = [
 - Needed explicit path to miniforge Python
 
 **Solution:**
-- Added rule to `AI_AGENT_RULES.md` specifying use of `C:\Users\mbdev\miniforge3\python.exe`
+- Added rule to `AI_AGENT_RULES.md` specifying use of `C:\Users\mbdev\miniforge3\envs\cla\python.exe` (CLA conda environment for all scripts)
 - Documented in Python Script Execution Rules section
 
 **Related:**

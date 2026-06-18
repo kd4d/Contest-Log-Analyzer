@@ -1,0 +1,77 @@
+{
+  "title": "W3LPL Station Architecture",
+  "orientation": "landscape",
+  "sections": [
+    {
+      "id": "tx",
+      "label": "TX side",
+      "position": "left",
+      "blocks": [
+        { "id": "tx_antennas", "label": "TX Antennas", "position": "top" },
+        { "id": "rotors", "label": "ROTORS", "position": "middle" },
+        { "id": "tx_control", "label": "Control / Status", "position": "bottom" }
+      ],
+      "connections": [
+        { "from": "rotors", "to": "tx_antennas", "label": "RF" },
+        { "from": "tx_control", "to": "rotors", "label": "Control" }
+      ]
+    },
+    {
+      "id": "center",
+      "label": "Cable Interconnects & Operating Positions",
+      "position": "center",
+      "blocks": [
+        { "id": "cable", "label": "Cable Interconnects", "position": "top" },
+        { "id": "op", "label": "Operating Positions", "position": "middle" },
+        { "id": "drf", "label": "DRF", "position": "left_of_op" },
+        { "id": "rotor_control", "label": "Rotor Control / Status", "position": "left_of_op" },
+        { "id": "power_center", "label": "Power", "position": "left_of_op" }
+      ],
+      "connections": [
+        { "from": "tx_antennas", "to": "cable", "label": "AF" },
+        { "from": "tx_control", "to": "cable", "label": "Control" },
+        { "from": "cable", "to": "op" },
+        { "from": "op", "to": "drf" },
+        { "from": "op", "to": "rotor_control" },
+        { "from": "op", "to": "power_center" }
+      ]
+    },
+    {
+      "id": "infra",
+      "label": "Facility & Internet",
+      "position": "bottom_center",
+      "blocks": [
+        { "id": "facility", "label": "Facility", "position": "left" },
+        { "id": "power_infra", "label": "Power", "position": "middle" },
+        { "id": "internet", "label": "Internet Functions", "position": "right" },
+        { "id": "lan", "label": "Wired LAN", "position": "input" },
+        { "id": "wifi", "label": "WiFi", "position": "input" }
+      ],
+      "connections": [
+        { "from": "op", "to": "internet", "label": "RX and RF" },
+        { "from": "facility", "to": "power_infra" },
+        { "from": "power_infra", "to": "internet" },
+        { "from": "lan", "to": "internet" },
+        { "from": "wifi", "to": "internet" }
+      ]
+    },
+    {
+      "id": "rx",
+      "label": "RX side",
+      "position": "right",
+      "blocks": [
+        { "id": "rx_antennas", "label": "RX Antennas", "position": "top" },
+        { "id": "rx_control", "label": "Control", "position": "bottom" }
+      ],
+      "connections": [
+        { "from": "cable", "to": "rx_antennas", "label": "RF" },
+        { "from": "rx_control", "to": "rx_antennas" }
+      ]
+    }
+  ],
+  "style": {
+    "title_font_size": 32,
+    "title_color": "#1F4E79",
+    "block_shape": "rectangle"
+  }
+}

@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.0.0-alpha.19] - 2026-06-18
+[Full Release Notes](ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.19.md)
+
+### Added
+- Missed multipliers text reports: aligned mode + Run/S&P slots for multi-mode all-modes reports (e.g. `(Run/CW) 2`, `(S&P/PH) 1`); per-mode reports keep `(Run)` / `(S&P)` format.
+- ARRL Sweepstakes CW/SSB public log archive download.
+- RBN download script and IARU 2025 daily zip archives.
+
+### Changed
+- Run/S&P algorithm documentation (`Docs/RunS&PAlgorithm.md`) clarifications.
+- AI agent rules, checklists, and in-app help for missed multipliers multi-mode notation.
+
+---
+
 ## [1.0.0-alpha.18] - 2026-01-31
 [Full Release Notes](ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.18.md)
 

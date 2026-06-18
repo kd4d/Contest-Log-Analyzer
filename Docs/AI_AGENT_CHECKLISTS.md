@@ -88,7 +88,7 @@
 - [ ] Check relevant project rules: See `.cursor/rules/` for mandatory project rules (Python paths, debugging).
 - [ ] Check relevant project rules section:
   - [ ] **Python commands:** Check "Python Script Execution Rules" (lines 1809+)
-    - [ ] Use full path: `C:\Users\mbdev\miniforge3\python.exe`
+    - [ ] Use full path: `C:\Users\mbdev\miniforge3\envs\cla\python.exe`
     - [ ] Never use: `python`, `python.exe`, or `py` without full path
   - [ ] **PowerShell commands:** Check "PowerShell Command Syntax Rules" (lines 1934+)
     - [ ] Use `;` for command chaining (NOT `&&`)
@@ -118,20 +118,20 @@
 
 ### Canonical Commands (Single Source of Truth)
 
-- Run script: `C:\Users\mbdev\miniforge3\python.exe script_path.py`
-- Run pytest: `C:\Users\mbdev\miniforge3\python.exe -m pytest tests/` (or target path)
+- Run script: `C:\Users\mbdev\miniforge3\envs\cla\python.exe script_path.py`
+- Run pytest: `C:\Users\mbdev\miniforge3\envs\cla\python.exe -m pytest tests/` (or target path)
 - Run py_compile (after modifying any Python file): `C:\Users\mbdev\miniforge3\envs\cla\python.exe -m py_compile <file_path>`
-- Django: `C:\Users\mbdev\miniforge3\python.exe web_app/manage.py <command>`
+- Django: `C:\Users\mbdev\miniforge3\envs\cla\python.exe web_app/manage.py <command>`
 
 ### BEFORE Execution
 
 - [ ] Check "Python Script Execution Rules" section in `AI_AGENT_RULES.md`
-- [ ] Identify required Python path: `C:\Users\mbdev\miniforge3\python.exe` (or `envs\cla\python.exe` for py_compile)
+- [ ] Identify required Python path: `C:\Users\mbdev\miniforge3\envs\cla\python.exe` (CLA environment for all Python commands)
 - [ ] Verify script path is correct (relative or absolute)
 
 ### DURING Execution
 
-- [ ] Always use `C:\Users\mbdev\miniforge3\python.exe` as Python interpreter
+- [ ] Always use `C:\Users\mbdev\miniforge3\envs\cla\python.exe` as Python interpreter
 - [ ] Never use `python`, `python.exe`, or `py` without full path
 - [ ] Preserve relative paths for script arguments (e.g., `test_code/script.py`)
 - [ ] Use full path only for the Python executable itself

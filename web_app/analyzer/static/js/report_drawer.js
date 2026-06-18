@@ -104,10 +104,17 @@
             if (link.getAttribute('data-action') === 'download') {
                 e.preventDefault();
                 closeDrawer();
+                document.dispatchEvent(new CustomEvent('report-overlay-close'));
                 var downloadBtn = document.getElementById('downloadAllBtn');
                 if (downloadBtn) {
                     downloadBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     downloadBtn.focus();
+                    setTimeout(function() { downloadBtn.click(); }, 100);
+                } else {
+                    var dashboardUrl = panel && panel.getAttribute('data-dashboard-url');
+                    if (dashboardUrl) {
+                        window.location.href = dashboardUrl;
+                    }
                 }
                 return;
             }

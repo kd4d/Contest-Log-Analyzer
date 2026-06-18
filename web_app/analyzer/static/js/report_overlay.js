@@ -110,6 +110,7 @@
     }
 
     function init() {
+        document.addEventListener('report-overlay-close', hideOverlay);
         document.addEventListener('click', function(e) {
             var link = e.target && e.target.closest && e.target.closest('a.report-overlay-link');
             if (!link) return;

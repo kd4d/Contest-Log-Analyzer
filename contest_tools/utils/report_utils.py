@@ -246,6 +246,55 @@ def determine_activity_status(series: pd.Series) -> str:
     elif has_sp: return "S&P"
     return "Unknown"
 
+def show_mode_in_missed_cells(contest_def, mult_rule: dict, mode_filter: str = None) -> bool:
+    """
+    Whether missed-multiplier text cells should include mode with Run/S&P
+    (e.g. (Run/CW) 2). False when mode is already scoped by filter or per-mode scoring.
+    """
+    valid_modes = getattr(contest_def, 'valid_modes', None) or []
+    if len(valid_modes) <= 1 or mode_filter:
+        return False
+    if mult_rule.get('totaling_method') == 'once_per_mode':
+        return False
+    return True
+
+def compute_missed_cell_slot_width(valid_modes: list, max_count: int = 1) -> int:
+    """Fixed width for one mode slot in aligned missed-multiplier cells."""
+    if not valid_modes:
+        return 0
+    longest_mode = max(valid_modes, key=len)
+    return len(f"(Unknown/{longest_mode}) {max_count}")
+
+def format_missed_mult_cell(
+    stats: dict,
+    show_mode_in_cell: bool,
+    valid_modes: list,
+    slot_width: int,
+) -> str:
+    """Format a missed-multiplier table cell with optional fixed-width mode slots."""
+    if not stats:
+        return "0"
+    if show_mode_in_cell and valid_modes and slot_width > 0:
+        mode_map = {
+            entry['mode']: entry
+            for entry in stats.get('mode_breakdown', [])
+            if entry.get('count', 0) > 0
+        }
+        extra_modes = sorted(m for m in mode_map.keys() if m not in valid_modes)
+        mode_order = list(valid_modes) + extra_modes
+        slots = []
+        for mode in mode_order:
+            entry = mode_map.get(mode)
+            if entry:
+                text = f"({entry['run_sp']}/{mode}) {entry['count']}"
+                slots.append(text.rjust(slot_width))
+            else:
+                slots.append(' ' * slot_width)
+        return ''.join(slots)
+    run_sp = stats.get('Run_SP_Status', '')
+    qso_count = stats.get('QSO_Count', 0)
+    return f"({run_sp}) {qso_count}"
+
 def _prepare_time_series_data(log1: ContestLog, log2: Optional[ContestLog], metric: str) -> tuple:
     """Prepares time-series data for one or two logs."""
     metrics_map = log1.contest_definition.metrics_map

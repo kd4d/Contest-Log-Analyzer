@@ -1840,20 +1840,20 @@ Before implementing scoring/data changes:
 
 ## Python Script Execution Rules
 
-### CRITICAL: Use Miniforge Python for Script Execution
+### CRITICAL: Use the CLA conda environment Python for script execution
 
-**AI agents MUST use the miniforge Python executable when running Python scripts in this environment.**
+**AI agents MUST use the `cla` conda environment Python executable** (`C:\Users\mbdev\miniforge3\envs\cla\python.exe`) **for all Python commands in this project** — scripts, pytest, Django, and `py_compile`. Do not use the base Miniforge interpreter (`miniforge3\python.exe`); it does not include the project’s installed packages (e.g. Plotly, Django stack).
 
 **⚠️ MANDATORY: Check this section BEFORE executing any Python command. Do NOT assume `python` will work.**
 
 **MANDATORY WORKFLOW:**
 1. **BEFORE executing any Python command:** Check this section of AI Agent Rules
-2. **ALWAYS use the full path:** `C:\Users\mbdev\miniforge3\python.exe`
+2. **ALWAYS use the full path:** `C:\Users\mbdev\miniforge3\envs\cla\python.exe`
 3. **NEVER use:** `python`, `python.exe`, or `py` without the full path
 4. **AFTER execution:** Check exit code and error messages (see "Command Execution and Error Checking" section)
 
-**Rule:** When executing Python scripts, always use the full path to the miniforge Python executable:
-- **Correct:** `C:\Users\mbdev\miniforge3\python.exe script.py`
+**Rule:** When executing Python, always use the full path to the CLA environment executable:
+- **Correct:** `C:\Users\mbdev\miniforge3\envs\cla\python.exe script.py`
 - **Incorrect:** `python script.py` or `python.exe script.py` (these do not work in this environment)
 
 #### Canonical Commands (Single Source of Truth)
@@ -1862,22 +1862,21 @@ Use these exact invocations. Do not invent alternatives. See also `.cursor/rules
 
 | Action | Command |
 |--------|---------|
-| Run a Python script | `C:\Users\mbdev\miniforge3\python.exe script_path.py` |
-| Run pytest | `C:\Users\mbdev\miniforge3\python.exe -m pytest tests/` (or target path) |
+| Run a Python script | `C:\Users\mbdev\miniforge3\envs\cla\python.exe script_path.py` |
+| Run pytest | `C:\Users\mbdev\miniforge3\envs\cla\python.exe -m pytest tests/` (or target path) |
 | Run py_compile (after modifying any Python file) | `C:\Users\mbdev\miniforge3\envs\cla\python.exe -m py_compile <file_path>` |
-| Django management command | `C:\Users\mbdev\miniforge3\python.exe web_app/manage.py <command>` |
+| Django management command | `C:\Users\mbdev\miniforge3\envs\cla\python.exe web_app/manage.py <command>` |
 
 **Before running Python/tests checklist:**
 - [ ] Read this "Python Script Execution Rules" section
-- [ ] Use full path: `C:\Users\mbdev\miniforge3\python.exe` for scripts and pytest
-- [ ] Use full path: `C:\Users\mbdev\miniforge3\envs\cla\python.exe` for py_compile
+- [ ] Use full path: `C:\Users\mbdev\miniforge3\envs\cla\python.exe` for scripts, pytest, Django, and py_compile
 - [ ] Never use `python`, `python.exe`, or `py` without the full path
 
 #### Why This Matters
 
-The default `python` command does not resolve correctly in this environment. Using the miniforge Python path ensures:
-- Scripts execute with the correct Python interpreter (Python 3.12.10 from conda-forge)
-- All dependencies and modules are properly accessible
+The default `python` command does not resolve correctly in this environment. Using the **`cla` environment** Python path ensures:
+- Scripts execute with the same interpreter the project uses (conda `cla` env)
+- All dependencies and modules (Django, pytest, Plotly, etc.) are available
 - Consistent execution environment across all script runs
 
 #### Examples
@@ -1885,16 +1884,16 @@ The default `python` command does not resolve correctly in this environment. Usi
 **Correct Python Script Execution:**
 ```powershell
 # Running a script from test_code directory
-C:\Users\mbdev\miniforge3\python.exe test_code/verify_engine.py
+C:\Users\mbdev\miniforge3\envs\cla\python.exe test_code/verify_engine.py
 
 # Running a script with arguments
-C:\Users\mbdev\miniforge3\python.exe -m pytest tests/
+C:\Users\mbdev\miniforge3\envs\cla\python.exe -m pytest tests/
 
 # Running Python one-liners
-C:\Users\mbdev\miniforge3\python.exe -c "import sys; print(sys.version)"
+C:\Users\mbdev\miniforge3\envs\cla\python.exe -c "import sys; print(sys.version)"
 
 # Running Django management commands
-C:\Users\mbdev\miniforge3\python.exe web_app/manage.py runserver
+C:\Users\mbdev\miniforge3\envs\cla\python.exe web_app/manage.py runserver
 ```
 
 **Incorrect Python Script Execution (DO NOT USE):**
@@ -1911,11 +1910,11 @@ py script.py
 
 1. **BEFORE execution:**
    - Check this section of AI Agent Rules
-   - Identify the required Python path: `C:\Users\mbdev\miniforge3\python.exe`
+   - Identify the required Python path: `C:\Users\mbdev\miniforge3\envs\cla\python.exe`
    - Use this path in the command
 
 2. **DURING execution:**
-   - **Always** use `C:\Users\mbdev\miniforge3\python.exe` as the Python interpreter
+   - **Always** use `C:\Users\mbdev\miniforge3\envs\cla\python.exe` as the Python interpreter
    - **Never** use `python`, `python.exe`, or `py` without the full path
    - **Preserve** relative paths for script arguments (e.g., `test_code/script.py`)
    - **Use** full path only for the Python executable itself
@@ -1939,7 +1938,7 @@ The `C:\Users\mbdev\miniforge3\Scripts\custom_activate.bat` script uses `/K` fla
 
 **MANDATORY WORKFLOW:**
 1. **AFTER modifying any Python file:** Run `py_compile` to check for syntax errors
-2. **ALWAYS use the conda environment Python:** `C:\Users\mbdev\miniforge3\envs\cla\python.exe -m py_compile <file_path>`
+2. **ALWAYS use the CLA environment Python** (same as all other commands): `C:\Users\mbdev\miniforge3\envs\cla\python.exe -m py_compile <file_path>`
 3. **NEVER skip this step:** Syntax errors cause runtime failures and must be caught immediately
 4. **FIX all syntax errors** before proceeding with other work
 
@@ -1964,7 +1963,7 @@ C:\Users\mbdev\miniforge3\envs\cla\python.exe -m py_compile regression_baselines
 # If failed (exit code non-zero): Read error message, fix syntax, retry compilation
 ```
 
-**Note:** Use the conda environment Python (`envs\cla\python.exe`) to ensure the same Python version and dependencies as the project uses.
+**Note:** The same `cla` interpreter is used for `py_compile` and for running scripts/tests/Django, so syntax checks match runtime.
 
 **Common Syntax Errors to Catch:**
 - IndentationError (mismatched indentation levels)
@@ -2117,7 +2116,7 @@ echo %TEST_DATA_DIR%
 
 **BEFORE execution (MANDATORY):**
 1. **Check relevant project rules FIRST:** Review AI Agent Rules for command-specific requirements. See also `.cursor/rules/` for mandatory project rules (Python paths, debugging).
-   - Python commands: Check "Python Script Execution Rules" section → Use `C:\Users\mbdev\miniforge3\python.exe`
+   - Python commands: Check "Python Script Execution Rules" section → Use `C:\Users\mbdev\miniforge3\envs\cla\python.exe`
    - **PowerShell commands: ⚠️ CRITICAL - Check "PowerShell Command Syntax Rules" section**
      - **NEVER use `&&` for command chaining** - This is CMD syntax and will FAIL in PowerShell
      - **ALWAYS use `;` for command chaining** - This is PowerShell syntax

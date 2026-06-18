@@ -21,7 +21,14 @@ from prettytable import PrettyTable
 from ..contest_log import ContestLog
 from ..data_aggregators.multiplier_stats import MultiplierStatsAggregator
 from .report_interface import ContestReport
-from contest_tools.utils.report_utils import _sanitize_filename_part, format_text_header, get_standard_footer, get_standard_title_lines
+from contest_tools.utils.report_utils import (
+    _sanitize_filename_part,
+    format_text_header,
+    get_standard_footer,
+    get_standard_title_lines,
+    compute_missed_cell_slot_width,
+    format_missed_mult_cell,
+)
 from contest_tools.utils.callsign_utils import build_callsigns_filename_part
 
 class Report(ContestReport):
@@ -35,11 +42,39 @@ class Report(ContestReport):
     supports_single = False
     supports_multi = True
     supports_pairwise = True
-    
-    def _update_column_widths(self, col_widths, aggregated_data, all_calls, first_col_header):
+
+    def _cell_format_context(self, agg_results: Dict[str, Any]) -> Dict[str, Any]:
+        show_mode_in_cell = agg_results.get('show_mode_in_cells', False)
+        valid_modes = agg_results.get('valid_modes_for_cells', [])
+        max_count = 1
+        if show_mode_in_cell:
+            for band_payload in agg_results.get('band_data', {}).values():
+                for call_data in band_payload.get('band_data', {}).values():
+                    for stats in call_data.values():
+                        for entry in stats.get('mode_breakdown', []):
+                            max_count = max(max_count, entry.get('count', 0))
+        slot_width = (
+            compute_missed_cell_slot_width(valid_modes, max_count)
+            if show_mode_in_cell
+            else 0
+        )
+        return {
+            'show_mode_in_cell': show_mode_in_cell,
+            'valid_modes': valid_modes,
+            'slot_width': slot_width,
+        }
+
+    def _update_column_widths(
+        self,
+        col_widths,
+        aggregated_data,
+        all_calls,
+        first_col_header,
+        cell_ctx: Dict[str, Any],
+    ):
         """Updates the master column width dictionary based on a band's data."""
         max_mult_len = col_widths.get(first_col_header, len(first_col_header))
-        
+
         for mult in aggregated_data['missed_mults_on_band']:
             display_mult = str(mult)
             if aggregated_data['prefix_to_name_map'] and mult in aggregated_data['prefix_to_name_map']:
@@ -48,23 +83,29 @@ class Report(ContestReport):
             max_mult_len = max(max_mult_len, len(display_mult))
         col_widths[first_col_header] = max_mult_len
 
+        show_mode_in_cell = cell_ctx['show_mode_in_cell']
+        valid_modes = cell_ctx['valid_modes']
+        slot_width = cell_ctx['slot_width']
+
         for call in all_calls:
             max_call_len = col_widths.get(call, len(call))
             if call in aggregated_data['band_data']:
-                # data is now a Dict of Dicts
                 data_dict = aggregated_data['band_data'][call]
                 for mult in aggregated_data['missed_mults_on_band']:
                     if mult in data_dict:
-                        stats = data_dict[mult]
-                        qso_count = stats.get('QSO_Count', 0)
-                        run_sp = stats.get('Run_SP_Status', '')
-                        cell_content = f"({run_sp}) {qso_count}"
-                        
+                        cell_content = format_missed_mult_cell(
+                            data_dict[mult],
+                            show_mode_in_cell,
+                            valid_modes,
+                            slot_width,
+                        )
                         max_call_len = max(max_call_len, len(cell_content))
+            if show_mode_in_cell and valid_modes and slot_width > 0:
+                max_call_len = max(max_call_len, len(valid_modes) * slot_width)
             col_widths[call] = max_call_len
-            
+
             union_count = len(aggregated_data['union_of_all_mults'])
-            
+
             worked_count = len(aggregated_data['mult_sets'].get(call, []))
             max_worked = max(len(s) for s in aggregated_data['mult_sets'].values()) if aggregated_data['mult_sets'] else 0
             delta = worked_count - max_worked
@@ -81,10 +122,18 @@ class Report(ContestReport):
             table.min_width[header] = width_dict[header]
         table.max_width[header_list[0]] = width_dict[header_list[0]]
         table.min_width[header_list[0]] = width_dict[header_list[0]]
-        
+
         return table
 
-    def _format_table_for_band(self, band, aggregated_data, all_calls, mult_rule, col_widths):
+    def _format_table_for_band(
+        self,
+        band,
+        aggregated_data,
+        all_calls,
+        mult_rule,
+        col_widths,
+        cell_ctx: Dict[str, Any],
+    ):
         """Pass 2 helper: Formats and returns the full table string for a single band."""
         if not aggregated_data or not aggregated_data['union_of_all_mults']:
             return f"     (No multipliers found for this scope)"
@@ -95,9 +144,12 @@ class Report(ContestReport):
         else:
             first_col_header = raw_name[:-1] if raw_name.lower().endswith('s') else raw_name
         first_col_header = first_col_header.capitalize()
-    
+
         headers = [first_col_header] + all_calls
-        
+        show_mode_in_cell = cell_ctx['show_mode_in_cell']
+        valid_modes = cell_ctx['valid_modes']
+        slot_width = cell_ctx['slot_width']
+
         # --- Main Table Generation ---
         main_table = self._create_table(headers, col_widths)
         if aggregated_data['missed_mults_on_band']:
@@ -106,22 +158,24 @@ class Report(ContestReport):
                 if aggregated_data['prefix_to_name_map'] and mult in aggregated_data['prefix_to_name_map']:
                     clean_name = str(aggregated_data['prefix_to_name_map'][mult]).split(';')[0].strip()
                     display_mult = f"{mult} ({clean_name})"
-                
+
                 row = [display_mult]
                 for call in all_calls:
                     cell_content = "0"
                     if call in aggregated_data['band_data']:
                         data_dict = aggregated_data['band_data'][call]
                         if mult in data_dict:
-                            stats = data_dict[mult]
-                            qso_count = stats.get('QSO_Count', 0)
-                            run_sp = stats.get('Run_SP_Status', '')
-                            cell_content = f"({run_sp}) {qso_count}"
-                    
+                            cell_content = format_missed_mult_cell(
+                                data_dict[mult],
+                                show_mode_in_cell,
+                                valid_modes,
+                                slot_width,
+                            )
+
                     row.append(cell_content)
-                
+
                 main_table.add_row(row)
-        
+
         # --- Summary Table Generation ---
         summary_table = self._create_table(headers, col_widths, first_col_align='r')
         total_counts = {call: len(aggregated_data['mult_sets'][call]) for call in all_calls}
@@ -130,15 +184,15 @@ class Report(ContestReport):
 
         worked_row = ["Worked:"] + [str(total_counts.get(call, 0)) for call in all_calls]
         missed_row = ["Missed:"] + [str(union_count - total_counts.get(call, 0)) for call in all_calls]
-        
+
         delta_vals = [total_counts.get(call, 0) - max_mults for call in all_calls]
         delta_row = ["Delta:"] + [str(d) if d != 0 else '' for d in delta_vals]
         summary_table.add_row(worked_row); summary_table.add_row(missed_row); summary_table.add_row(delta_row)
-        
+
         # --- Stitch Tables ---
         if not aggregated_data['missed_mults_on_band']:
             return f"     (No missed {mult_rule['name']} for this scope)"
-            
+
         main_lines = str(main_table).split('\n')
         summary_lines = str(summary_table).split('\n')
         return "\n".join(main_lines[:-1]) + "\n" + "\n".join(summary_lines[2:])
@@ -152,15 +206,16 @@ class Report(ContestReport):
         # --- Use Aggregator for Data Calculation ---
         aggregator = MultiplierStatsAggregator(self.logs)
         agg_results = aggregator.get_missed_data(mult_name, mode_filter)
-        
+
         if 'error' in agg_results:
              return agg_results['error']
-             
+
         all_calls = agg_results['all_calls']
         bands_to_process = agg_results['bands_to_process']
         mult_rule = agg_results['mult_rule']
         all_bands_data = agg_results['band_data']
-        
+        cell_ctx = self._cell_format_context(agg_results)
+
         first_log = self.logs[0]
         first_log_def = first_log.contest_definition
 
@@ -170,7 +225,7 @@ class Report(ContestReport):
             first_col_header = raw_name
         else:
             first_col_header = raw_name[:-1] if raw_name.lower().endswith('s') else raw_name
-        
+
         first_col_header = first_col_header.capitalize()
         col_widths = {call: len(call) for call in all_calls}
         summary_labels = ["Worked:", "Missed:", "Delta:"]
@@ -179,29 +234,31 @@ class Report(ContestReport):
         for band in bands_to_process:
             aggregated_data = all_bands_data[band]
             if aggregated_data['union_of_all_mults']:
-                self._update_column_widths(col_widths, aggregated_data, all_calls, first_col_header)
-        
+                self._update_column_widths(col_widths, aggregated_data, all_calls, first_col_header, cell_ctx)
+
         # --- PASS 2: Generate formatted report ---
         metadata = first_log.get_metadata()
         contest_name = metadata.get('ContestName', 'UnknownContest')
         first_qso_date = first_log.get_processed_data()['Date'].iloc[0] if not first_log.get_processed_data().empty else "----"
         year = first_qso_date.split('-')[0]
-        
+
         dummy_table = self._create_table([first_col_header] + all_calls, col_widths)
         dummy_table.add_row(['' for _ in [first_col_header] + all_calls])
         max_line_width = len(str(dummy_table).split('\n')[0])
-        
+
         # --- Standard Header ---
         modes_present = {mode_filter} if mode_filter else set() # Approximate, or pass empty to let utility handle None
         title_lines = get_standard_title_lines(f"{self.report_name}: {mult_name}", self.logs, agg_results['bands_to_process'][0] if len(bands_to_process)==1 else "All Bands", mode_filter, modes_present)
         meta_lines = ["Contest Log Analytics by KD4D"]
-        
+
         report_lines = format_text_header(max_line_width, title_lines, meta_lines)
 
         for band in bands_to_process:
             band_header_text = f"\n{band.replace('M', '')} Meters Missed Multipliers" if band != "All Bands" else f"\nOverall Missed Multipliers"
             report_lines.append(band_header_text)
-            table_string = self._format_table_for_band(band, all_bands_data[band], all_calls, mult_rule, col_widths)
+            table_string = self._format_table_for_band(
+                band, all_bands_data[band], all_calls, mult_rule, col_widths, cell_ctx
+            )
             report_lines.append(table_string)
 
         standard_footer = get_standard_footer(self.logs)
@@ -212,6 +269,6 @@ class Report(ContestReport):
         mode_suffix = f"_{mode_filter.lower()}" if mode_filter else ""
         filename = f"{self.report_id}_{safe_mult_name}{mode_suffix}--{callsigns_part}.txt"
         filepath = os.path.join(output_path, filename)
-        
+
         with open(filepath, 'w', encoding='utf-8') as f: f.write(report_content)
         return f"Text report saved to: {filepath}"
