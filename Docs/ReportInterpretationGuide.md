@@ -1,12 +1,16 @@
 # Report Interpretation Guide
 
-**Version:** 1.0.0-alpha.20
+**Version:** 1.0.0-alpha.21
 **Date:** 2026-01-24
-**Last Updated:** 2026-06-18
+**Last Updated:** 2026-06-21
 **Category:** User Guide
 
 ---
 ### --- Revision History ---
+## [1.0.0-alpha.21] - 2026-06-21
+### Changed
+- Updated version to match project release v1.0.0-alpha.21 (no content changes)
+
 ## [1.0.0-alpha.20] - 2026-06-18
 ### Added
 - Missed multipliers report: `(P/...)` pass flag for HQ, Officials, and DXCC.

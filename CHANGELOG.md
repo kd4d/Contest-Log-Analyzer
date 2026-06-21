@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.0.0-alpha.21] - 2026-06-21
+[Full Release Notes](ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.21.md)
+
+### Fixed
+- Missed multipliers text reports: `UnboundLocalError` in `get_missed_data()` (alpha.20 regression) — `detect_pass` assigned before building `full_results`.
+
+### Changed
+- Multiplier dashboard: summary and band/mode spectrum charts extracted into shared partials; chart scaling centralized in `multiplier_dashboard_utils.py`.
+
+---
+
 ## [1.0.0-alpha.20] - 2026-06-18
 [Full Release Notes](ReleaseNotes/RELEASE_NOTES_1.0.0-alpha.20.md)
 
