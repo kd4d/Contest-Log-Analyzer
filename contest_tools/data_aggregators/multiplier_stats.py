@@ -269,6 +269,10 @@ class MultiplierStatsAggregator:
         use_mode_breakdown = show_mode_in_missed_cells(self.contest_def, mult_rule, mode_filter)
         valid_modes_for_cells = list(self.contest_def.valid_modes) if use_mode_breakdown else []
 
+        mult_column = mult_rule['value_column']
+        name_column = mult_rule.get('name_column')
+        detect_pass = _is_pass_eligible_mult_column(mult_column)
+
         full_results = {
             'bands_to_process': bands_to_process,
             'all_calls': all_calls,
@@ -280,9 +284,6 @@ class MultiplierStatsAggregator:
         }
 
         # --- 4. Iterate Bands (Logic from _aggregate_band_data) ---
-        mult_column = mult_rule['value_column']
-        name_column = mult_rule.get('name_column')
-        detect_pass = _is_pass_eligible_mult_column(mult_column)
 
         for band in bands_to_process:
             band_data_map: Dict[str, Dict] = {}
