@@ -228,6 +228,7 @@ from contest_tools.data_aggregators.multiplier_stats import MultiplierStatsAggre
 from contest_tools.report_generator import ReportGenerator
 from contest_tools.core_annotations import CtyLookup
 from contest_tools.utils.report_utils import _sanitize_filename_part, get_standard_title_lines, get_cty_metadata
+from contest_tools.utils.multiplier_dashboard_utils import build_multiplier_breakdown_chart_context
 from contest_tools.version import __version__
 from contest_tools.utils.callsign_utils import build_callsigns_filename_part, parse_callsigns_from_filename_part, callsign_to_filename_part
 from contest_tools.utils.log_fetcher import fetch_log_index, download_logs
@@ -1645,105 +1646,32 @@ def multiplier_dashboard(request, session_id):
             'footer': footer_text
         }
     
-    # Split Dimension Values (Layout Logic) - First 3 go to "low", rest to "high"
-    low_bands_data = []
-    high_bands_data = []
-    low_modes_data = []
-    high_modes_data = []
-    
-    if breakdown_data:
-        if is_mode_dimension and 'modes' in breakdown_data:
-            # Split modes: first 3 to low, rest to high
-            mode_blocks = breakdown_data['modes']
-            for i, block in enumerate(mode_blocks):
-                if i < 3:
-                    low_modes_data.append(block)
-                else:
-                    high_modes_data.append(block)
-        elif 'bands' in breakdown_data:
-            # Split bands: 160M, 80M, 40M to low, rest to high
-            low_bands = ['160M', '80M', '40M']
-            for block in breakdown_data['bands']:
-                if block['label'] in low_bands:
-                    low_bands_data.append(block)
-                else:
-                    high_bands_data.append(block)
-    
+    # Chart layout/scaling shared with html_multiplier_breakdown (partials)
+    location_type = dashboard_ctx.get('location_type')
+    chart_ctx = build_multiplier_breakdown_chart_context(
+        breakdown_data,
+        contest_def,
+        is_mode_dimension,
+        location_type=location_type,
+        contest_name=contest_name,
+    )
+    low_bands_data = chart_ctx['low_bands_data']
+    high_bands_data = chart_ctx['high_bands_data']
+    low_modes_data = chart_ctx['low_modes_data']
+    high_modes_data = chart_ctx['high_modes_data']
+    multiplier_names = chart_ctx['multiplier_names']
+    applicable_multiplier_count = chart_ctx['multiplier_count']
+    global_max = chart_ctx['global_max']
+    is_sweepstakes = chart_ctx['is_sweepstakes']
+    fixed_multiplier_max = chart_ctx['fixed_multiplier_max']
+    all_logs_same_mult_count = chart_ctx['all_logs_same_mult_count']
+
     # Calculate optimal column width for scoreboard
     log_count = len(persisted_logs) if persisted_logs else 0
     col_width = 12 // log_count if log_count > 0 else 12
 
     # Common suffix for text reports
     suffix = f"_{combo_id}"
-
-    # 6. Extract Multiplier Names and Calculate Global Maxima Dynamically
-    # Determine applicable multiplier count from contest definition (not log data)
-    # This ensures "All Multipliers" tab is hidden when contest defines only one multiplier type
-    # Get location_type from dashboard context (e.g., "W/VE" or "DX" for ARRL DX)
-    location_type = dashboard_ctx.get('location_type')
-    
-    # Count applicable multiplier rules from contest definition
-    # This determines whether to show "All Multipliers" tab (hidden when only 1 type applies)
-    applicable_multiplier_count = 0
-    if contest_def:
-        multiplier_rules = contest_def.multiplier_rules
-        for rule in multiplier_rules:
-            applies_to = rule.get('applies_to')
-            # If no applies_to specified, rule applies to all entry classes
-            # If applies_to is specified, check if it matches location_type
-            if not applies_to or applies_to == location_type:
-                applicable_multiplier_count += 1
-    
-    # If contest definition not available or no rules found, fall back to log data
-    if applicable_multiplier_count == 0:
-        # Fallback: count from log data (backward compatibility)
-        if breakdown_data and 'totals' in breakdown_data:
-            seen_names = set()
-            for row in breakdown_data['totals']:
-                mult_name = row.get('label', '')
-                if mult_name and mult_name != 'TOTAL' and mult_name not in seen_names:
-                    seen_names.add(mult_name)
-                    applicable_multiplier_count += 1
-    
-    multiplier_names = []  # List of multiplier names found in the data (still used for tabs)
-    global_max = {'total': 1}  # Dynamic dict: will contain 'total' and one entry per multiplier type
-    
-    if breakdown_data:
-        # Extract multiplier names from totals (skip "TOTAL" row)
-        if 'totals' in breakdown_data:
-            for row in breakdown_data['totals']:
-                mult_name = row.get('label', '')
-                if mult_name and mult_name != 'TOTAL':
-                    # Normalize multiplier name for use as dict key (lowercase, no spaces)
-                    mult_key = mult_name.lower().replace(' ', '_')
-                    if mult_name not in multiplier_names:
-                        multiplier_names.append(mult_name)
-                    # Initialize max for this multiplier type
-                    if mult_key not in global_max:
-                        global_max[mult_key] = 1
-        
-        # Calculate global_max for each multiplier type from dimension breakdowns (bands or modes)
-        dimension_key = 'modes' if is_mode_dimension else 'bands'
-        if dimension_key in breakdown_data:
-            for block in breakdown_data[dimension_key]:
-                for row in block['rows']:
-                    row_max = 0
-                    for stat in row['stations']:
-                        val = stat.get('unique_run', 0) + stat.get('unique_sp', 0) + stat.get('unique_unk', 0)
-                        if val > row_max: row_max = val
-                    
-                    row_label = row.get('label', '')
-                    
-                    # Check if this is the TOTAL or dimension total row
-                    if row_label == 'TOTAL' or row_label == block.get('label', ''):
-                        if row_max > global_max['total']: global_max['total'] = row_max
-                    else:
-                        # Check if this row matches any multiplier name (e.g., "10M_States", "CW_States", or "States")
-                        for mult_name in multiplier_names:
-                            # Match pattern: "{dimension_value}_{mult_name}" or just "{mult_name}"
-                            if mult_name in row_label:
-                                mult_key = mult_name.lower().replace(' ', '_')
-                                if row_max > global_max[mult_key]: global_max[mult_key] = row_max
 
     # 4. Discover Text Version of Breakdown
     breakdown_txt_rel_path = None
@@ -2009,34 +1937,6 @@ def multiplier_dashboard(request, session_id):
                         enhanced_missed_mult_rel_path = f"{report_rel_path}/{enhanced_art['path']}"
             except Exception as e:
                 logger.warning(f"Failed to check enhanced missed multipliers report content: {e}")
-
-    # Sweepstakes-specific logic: Get total multiplier count from .dat file
-    is_sweepstakes = contest_name and contest_name.startswith("ARRL-SS")
-    
-    fixed_multiplier_max = None
-    all_logs_same_mult_count = False
-    # Reference line is now part of grid-lines-container, no height calculation needed
-    
-    if is_sweepstakes and breakdown_data and 'totals' in breakdown_data:
-        # Find the TOTAL row to get multiplier counts
-        total_row = next((row for row in breakdown_data['totals'] if row.get('label') == 'TOTAL'), None)
-        if total_row and total_row.get('stations'):
-            # Get multiplier counts for each log
-            mult_counts = [stat.get('count', 0) for stat in total_row['stations']]
-            
-            if mult_counts:
-                all_logs_same_mult_count = len(set(mult_counts)) == 1
-                
-                # Load total multiplier count from .dat file
-                try:
-                    root_input = os.environ.get('CONTEST_INPUT_DIR', '/app/CONTEST_LOGS_REPORTS')
-                    data_dir = os.path.join(root_input, 'data')
-                    from contest_tools.contest_specific_annotations.arrl_ss_multiplier_resolver import SectionAliasLookup
-                    alias_lookup = SectionAliasLookup(data_dir)
-                    fixed_multiplier_max = alias_lookup.get_total_multiplier_count()
-                except Exception as e:
-                    logger.warning(f"Failed to load Sweepstakes multiplier count: {e}")
-                    fixed_multiplier_max = None
 
     context = {
         'session_id': session_id,
